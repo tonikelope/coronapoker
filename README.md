@@ -1,4 +1,4 @@
 # coronapoker
-Just another cross-platform Texas hold 'em videogame written in Java
 
-![Alt text](/src/main/resources/images/corona_poker_splash.png?raw=true "CoronaPoker")
+<p align="center"><img src="/src/main/resources/images/corona_poker_splash.png?raw=true"></p>
+<p align="center"><a href="https://java.com">JAVA</a> 11 or above is required.</p>

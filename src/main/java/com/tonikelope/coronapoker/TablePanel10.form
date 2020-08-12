@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<Form version="1.3" maxVersion="1.9" type="org.netbeans.modules.form.forminfo.JPanelFormInfo">
+  <AuxValues>
+    <AuxValue name="FormSettings_autoResourcing" type="java.lang.Integer" value="0"/>
+    <AuxValue name="FormSettings_autoSetComponentName" type="java.lang.Boolean" value="false"/>
+    <AuxValue name="FormSettings_generateFQN" type="java.lang.Boolean" value="true"/>
+    <AuxValue name="FormSettings_generateMnemonicsCode" type="java.lang.Boolean" value="false"/>
+    <AuxValue name="FormSettings_i18nAutoMode" type="java.lang.Boolean" value="false"/>
+    <AuxValue name="FormSettings_layoutCodeTarget" type="java.lang.Integer" value="1"/>
+    <AuxValue name="FormSettings_listenerGenerationStyle" type="java.lang.Integer" value="0"/>
+    <AuxValue name="FormSettings_variablesLocal" type="java.lang.Boolean" value="false"/>
+    <AuxValue name="FormSettings_variablesModifier" type="java.lang.Integer" value="2"/>
+  </AuxValues>
+
+  <Layout>
+    <DimensionLayout dim="0">
+      <Group type="103" groupAlignment="0" attributes="0">
+          <Group type="102" attributes="0">
+              <EmptySpace max="-2" attributes="0"/>
+              <Group type="103" groupAlignment="0" attributes="0">
+                  <Group type="102" attributes="0">
+                      <Component id="localPlayer" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace pref="153" max="32767" attributes="0"/>
+                      <Component id="remotePlayer9" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace pref="153" max="32767" attributes="0"/>
+                      <Component id="remotePlayer8" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace pref="155" max="32767" attributes="0"/>
+                      <Component id="remotePlayer7" min="-2" max="-2" attributes="0"/>
+                  </Group>
+                  <Group type="102" attributes="0">
+                      <Group type="103" groupAlignment="0" attributes="0">
+                          <Component id="remotePlayer2" alignment="0" min="-2" max="-2" attributes="0"/>
+                          <Component id="remotePlayer1" alignment="0" min="-2" max="-2" attributes="0"/>
+                      </Group>
+                      <EmptySpace max="32767" attributes="0"/>
+                      <Group type="103" groupAlignment="0" attributes="0">
+                          <Group type="102" attributes="0">
+                              <Component id="communityCards" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace max="32767" attributes="0"/>
+                              <Component id="remotePlayer6" min="-2" max="-2" attributes="0"/>
+                          </Group>
+                          <Group type="102" attributes="0">
+                              <Component id="remotePlayer3" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace max="32767" attributes="0"/>
+                              <Component id="remotePlayer4" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace max="32767" attributes="0"/>
+                              <Component id="remotePlayer5" min="-2" max="-2" attributes="0"/>
+                          </Group>
+                      </Group>
+                  </Group>
+              </Group>
+              <EmptySpace max="-2" attributes="0"/>
+          </Group>
+      </Group>
+    </DimensionLayout>
+    <DimensionLayout dim="1">
+      <Group type="103" groupAlignment="0" attributes="0">
+          <Group type="102" alignment="1" attributes="0">
+              <EmptySpace max="-2" attributes="0"/>
+              <Group type="103" groupAlignment="1" attributes="0">
+                  <Component id="remotePlayer2" min="-2" max="-2" attributes="0"/>
+                  <Component id="remotePlayer3" min="-2" max="-2" attributes="0"/>
+                  <Component id="remotePlayer4" min="-2" max="-2" attributes="0"/>
+                  <Component id="remotePlayer5" min="-2" max="-2" attributes="0"/>
+              </Group>
+              <EmptySpace pref="175" max="32767" attributes="0"/>
+              <Group type="103" groupAlignment="0" attributes="0">
+                  <Component id="remotePlayer1" min="-2" max="-2" attributes="0"/>
+                  <Component id="remotePlayer6" min="-2" max="-2" attributes="0"/>
+                  <Component id="communityCards" min="-2" max="-2" attributes="0"/>
+              </Group>
+              <EmptySpace pref="176" max="32767" attributes="0"/>
+              <Group type="103" groupAlignment="0" attributes="0">
+                  <Component id="localPlayer" alignment="1" min="-2" max="-2" attributes="0"/>
+                  <Component id="remotePlayer7" alignment="1" min="-2" max="-2" attributes="0"/>
+                  <Component id="remotePlayer9" alignment="1" min="-2" max="-2" attributes="0"/>
+                  <Component id="remotePlayer8" alignment="1" min="-2" max="-2" attributes="0"/>
+              </Group>
+              <EmptySpace max="-2" attributes="0"/>
+          </Group>
+      </Group>
+    </DimensionLayout>
+  </Layout>
+  <SubComponents>
+    <Component class="com.tonikelope.coronapoker.LocalPlayer" name="localPlayer">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer1">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer2">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer3">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer4">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer5">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer6">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer7">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer8">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer9">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.CommunityCardsPanel" name="communityCards">
+    </Component>
+  </SubComponents>
+</Form>

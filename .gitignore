@@ -6,6 +6,8 @@
 CORONA*
 .CORONA*
 
+nbactions.xml
+
 # Maven
 target/
 pom.xml.tag

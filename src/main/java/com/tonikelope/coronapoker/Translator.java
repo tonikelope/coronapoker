@@ -31,11 +31,11 @@ public class Translator {
             {"Click para activar/desactivar el sonido", "Click to turn the sound on/off"},
             {"¿De dónde ha salido esto?", "Where did this come from?"},
             {"El videojuego de Texas hold 'em NL que nos merecemos, no el que necesitamos ¿o era al revés?", "The Texas hold 'em NL videogame we deserve, not the one we need, or was it the opposite?"},
-            {"Gracias a todos los amigos que han colaborado en esta aventura, en especial a Pepsi por sus barajas y el \"hilo fino\",", "Thanks to all the friends who have collaborated in this adventure, especially to Pepsi for their decks and the \"fine-grain\","},
-            {"a Pepillo por ese talento para cazar los bugs más raros y a mi madre... por todo lo demás.", "to Pepillo for that talent for hunting the weirdest bugs and to my mother... for everything else."},
+            {"Gracias a todos los amigos que han colaborado en esta aventura, en especial a Pepsi por sus barajas y el", "Thanks to all the friends who have collaborated in this adventure, especially to Pepsi for their decks and the"},
+            {"\"hilo fino\", a Pepillo por ese talento para cazar los bugs más raros y a mi madre... por todo lo demás.", "\"fine-grain\", to Pepillo for that talent for hunting the weirdest bugs and to my mother... for everything else."},
             {"(Todos los céntimos desaparecidos en las betas fueron para una buena causa).", "(All the missing cents in the betas were for a good cause)."},
             {"En memoria de todas las víctimas de la COVID-19", "In memory of all the victims of COVID-19"},
-            {"Nota: si posees el copyright de algo y no permites su utilización, escríbeme a -> tonikelope@gmail.com", "Note: if you own the copyright of something and do not allow its use, please write to me -> tonikelope@gmail.com"},
+            {"Nota: si posees el copyright de esta música (o cualquier otro elemento) y no permites su utilización, escríbeme a -> tonikelope@gmail.com", "Note: if you own the copyright of this music (or any other item) and do not allow its use, please write to me at -> tonikelope@gmail.com"},
             {"Generador de jugadas", "Hand generator"},
             {"Jugada superior", "Top hand"},
             {"Jugada inferior", "Lower hand"},
@@ -194,7 +194,9 @@ public class Translator {
             {"ESPECTADOR", "SPECTATOR"},
             {"] dice: ", "] says: "},
             {"Inicializando timba...", "Starting game..."},
-            {"Cartas UTF-8", "UTF-8 cards"}};
+            {"Cartas UTF-8", "UTF-8 cards"},
+            {"El hilo musical que suena durante el juego fue compuesto por David Luong.", "The musical theme that sounds during the game was composed by David Luong."},
+            {"La canción que suena aquí es \"La Sala del Trono\" compuesta por John Williams para Star Wars.", "The song playing here is \"The Throne Room\" composed by John Williams for Star Wars."}};
 
         for (var r : rosetta) {
             _rosetta.putIfAbsent(r[0], r[1]);

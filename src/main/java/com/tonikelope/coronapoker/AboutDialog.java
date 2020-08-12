@@ -16,7 +16,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "FINAL-3.98";
+    public static final String VERSION = "FINAL-3.99";
     public final static String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 100;
     private String last_mp3_loop = null;
@@ -78,6 +78,8 @@ public class AboutDialog extends javax.swing.JDialog {
         jLabel5 = new javax.swing.JLabel();
         jLabel6 = new javax.swing.JLabel();
         mod_label = new javax.swing.JLabel();
+        jLabel7 = new javax.swing.JLabel();
+        jLabel8 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("¿De dónde ha salido esto?");
@@ -96,9 +98,9 @@ public class AboutDialog extends javax.swing.JDialog {
         jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_15.png"))); // NOI18N
         jLabel1.setDoubleBuffered(true);
 
-        jLabel2.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        jLabel2.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel2.setText("Gracias a todos los amigos que han colaborado en esta aventura, en especial a Pepsi por sus barajas y el \"hilo fino\",");
+        jLabel2.setText("Gracias a todos los amigos que han colaborado en esta aventura, en especial a Pepsi por sus barajas y el");
         jLabel2.setDoubleBuffered(true);
 
         dedicado.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
@@ -111,29 +113,39 @@ public class AboutDialog extends javax.swing.JDialog {
 
         jLabel3.setText("Jn 8:31");
 
-        jLabel4.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        jLabel4.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel4.setText("(Todos los céntimos desaparecidos en las betas fueron para una buena causa).");
         jLabel4.setDoubleBuffered(true);
 
-        merecemos.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        merecemos.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         merecemos.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         merecemos.setText("El videojuego de Texas hold 'em NL que nos merecemos, no el que necesitamos ¿o era al revés?");
         merecemos.setDoubleBuffered(true);
 
-        jLabel5.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        jLabel5.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel5.setText("a Pepillo por ese talento para cazar los bugs más raros y a mi madre... por todo lo demás.");
+        jLabel5.setText("\"hilo fino\", a Pepillo por ese talento para cazar los bugs más raros y a mi madre... por todo lo demás.");
         jLabel5.setDoubleBuffered(true);
 
         jLabel6.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
         jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel6.setText("Nota: si posees el copyright de algo y no permites su utilización, escríbeme a -> tonikelope@gmail.com");
+        jLabel6.setText("Nota: si posees el copyright de esta música (o cualquier otro elemento) y no permites su utilización, escríbeme a -> tonikelope@gmail.com");
         jLabel6.setDoubleBuffered(true);
 
         mod_label.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         mod_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         mod_label.setText("MOD");
+
+        jLabel7.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
+        jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel7.setText("El hilo musical que suena durante el juego fue compuesto por David Luong.");
+        jLabel7.setDoubleBuffered(true);
+
+        jLabel8.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
+        jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel8.setText("La canción que suena aquí es \"La Sala del Trono\" compuesta por John Williams para Star Wars.");
+        jLabel8.setDoubleBuffered(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -153,7 +165,9 @@ public class AboutDialog extends javax.swing.JDialog {
                     .addComponent(merecemos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(jLabel6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(mod_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(mod_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jLabel7, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jLabel8, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -173,9 +187,13 @@ public class AboutDialog extends javax.swing.JDialog {
                 .addComponent(jLabel4)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(dedicado)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jLabel6)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jLabel7)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel8)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel6)
+                .addGap(18, 18, 18)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jvm)
                     .addComponent(jLabel3))
@@ -213,6 +231,8 @@ public class AboutDialog extends javax.swing.JDialog {
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
+    private javax.swing.JLabel jLabel7;
+    private javax.swing.JLabel jLabel8;
     private javax.swing.JLabel jvm;
     private javax.swing.JLabel merecemos;
     private javax.swing.JLabel mod_label;

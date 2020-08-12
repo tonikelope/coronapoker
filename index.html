@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>CoronaPoker - Just online poker with friends</title>
+<style>
+
+@font-face {
+  font-family: coronapoker;
+  src: url(McLaren-Regular.ttf);
+}
+
+body{
+	 font-family: coronapoker;
+  background-image: url("tapete_verde.jpg");
+  background-repeat: repeat;
+  color: white;
+  font-size: 2em;
+}
+
+a{
+	text-decoration: none;
+}
+
+a:visited{
+	color:white;
+}
+
+.container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    -moz-transform: translateX(-50%) translateY(-50%);
+    -webkit-transform: translateX(-50%) translateY(-50%);
+    transform: translateX(-50%) translateY(-50%);
+}
+
+#p {
+    position: absolute;
+    top: 10%;
+    left: 10%;
+}
+
+#c {
+    position: absolute;
+    top: 10%;
+    left: 80%;
+}
+
+#d {
+    position: absolute;
+    top: 70%;
+    left: 10%;
+}
+
+#t {
+    position: absolute;
+    top: 70%;
+    left: 80%;
+}
+
+#download {
+  border-radius: 25px;
+  background: #73AD21;
+  padding: 20px; 
+  width: 200px;
+  height: 150px;  
+}
+
+</style>
+</head>
+<body>
+	
+	<img src="p.png" id="p">
+	<img src="c.png" id="c">
+	<img src="d.png" id="d">
+	<img src="t.png" id="t">
+
+<div class="container"><img src="logo.png"><p align="center"><a id="download" href="https://github.com/tonikelope/coronapoker/releases/latest"><b>Download latest version</b></a></p></div>
+
+</body>
+</html> 

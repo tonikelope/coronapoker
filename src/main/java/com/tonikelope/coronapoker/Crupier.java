@@ -4093,7 +4093,7 @@ public class Crupier implements Runnable {
 
                 Game.getInstance().getRegistro().print(jugador.getNickname() + " " + Translator.translate("ABANDONA LA TIMBA") + " -> " + ganancia_msg);
 
-                jugador.disablePlayer(false);
+                jugador.disablePlayer(true);
 
                 iterator.remove();
 

@@ -6,6 +6,7 @@ import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.FontFormatException;
 import java.awt.Graphics2D;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -159,6 +161,15 @@ public class Helpers {
         g2.dispose();
 
         return output;
+    }
+
+    public static void openBrowserURL(final String url) {
+
+        try {
+            Desktop.getDesktop().browse(new URI(url));
+        } catch (URISyntaxException | IOException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, ex.getMessage());
+        }
     }
 
     public static String toHexString(byte[] array) {
@@ -1923,9 +1934,11 @@ public class Helpers {
             popup.add(SONIDOS_MENU);
             SONIDOS_COMENTARIOS_MENU = new JCheckBoxMenuItem(comentariosAction);
             SONIDOS_COMENTARIOS_MENU.setSelected(Game.SONIDOS_CHORRA);
+            SONIDOS_COMENTARIOS_MENU.setEnabled(Game.SONIDOS);
             popup.add(SONIDOS_COMENTARIOS_MENU);
             SONIDOS_MUSICA_MENU = new JCheckBoxMenuItem(musicaAction);
             SONIDOS_MUSICA_MENU.setSelected(Game.MUSICA_AMBIENTAL);
+            SONIDOS_MUSICA_MENU.setEnabled(Game.SONIDOS);
             popup.add(SONIDOS_MUSICA_MENU);
             popup.addSeparator();
             CONFIRM_MENU = new JCheckBoxMenuItem(confirmAction);

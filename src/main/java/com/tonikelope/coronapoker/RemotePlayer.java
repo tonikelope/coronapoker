@@ -974,7 +974,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, PlayerInt
                         player_blind.setVisible(true);
                         player_blind.setBackground(Color.BLUE);
                         player_blind.setForeground(Color.white);
-                        player_blind.setText(POSITIONS_LABELS[1]);
+                        player_blind.setText(POSITIONS_LABELS[0]);
                     }
                 });
 

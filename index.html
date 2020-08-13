@@ -144,6 +144,38 @@ a:visited{
 
 }
 
+.animated {
+    color:white;
+    font-size: 0.7em;
+}
+
+.animated:before {
+  content: "";
+  animation: topToBottom 12s infinite 0s;
+}
+
+@keyframes topToBottom {
+  0% {
+    content: "Cross-platform";
+  }
+  20% {
+    content: "Global zoom: you can see everything perfectly";
+  }
+  40% {
+    content: "Cool music and sound effects";
+  }
+  60% {
+    content: "True random shuffle";
+  }
+  80% {
+    content: "Fully customizable with MODs";
+  }
+  100% {
+  	content: "Open source";
+  }
+  }
+}
+
 </style>
 </head>
 <body>
@@ -153,7 +185,7 @@ a:visited{
 	<img src="d.png" id="d">
 	<img src="t.png" id="t">
 
-<div id="container"><p align="center"><img src="logo.png" style="max-width: 100%;height: auto;"><br><img src="crossplatform.png" style="max-width: 100%; height: auto;"></p></div><div id="menu"><p align="center"><a class="menu-item" href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><b>Download</b></a> <a class="fancybox menu-item" rel="gallery1" href="./screenshots/1.png" title="Main window"><b>Screenshots</b></a> <a class="menu-item" href="https://github.com/tonikelope/coronapoker" target="_blank"><b>Source code</b></a></p></div>
+<div id="container"><p align="center"><img src="logo.png" style="max-width: 100%;height: auto;"><br><img src="crossplatform.png" style="max-width: 100%; height: auto;"><br><h2><p align="center" class="animated"></p></h2></p></div><div id="menu"><p align="center"><a class="menu-item" href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><b>Download</b></a> <a class="fancybox menu-item" rel="gallery1" href="./screenshots/1.png" title="Main window"><b>Screenshots</b></a> <a class="menu-item" href="https://github.com/tonikelope/coronapoker" target="_blank"><b>Source code</b></a></p></div>
 
 
 <a class="fancybox" rel="gallery1" href="./screenshots/2.png" title="New game"></a>

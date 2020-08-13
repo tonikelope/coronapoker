@@ -2,6 +2,39 @@
 <html>
 <head>
 	<title>CoronaPoker - Just online poker with friends</title>
+  <!-- Add jQuery library -->
+<script type="text/javascript" src="http://code.jquery.com/jquery-latest.min.js"></script>
+
+<!-- Add fancyBox -->
+<link rel="stylesheet" href="./fancybox/source/jquery.fancybox.css?v=2.1.7" type="text/css" media="screen" />
+<script type="text/javascript" src="./fancybox/source/jquery.fancybox.pack.js?v=2.1.7"></script>
+
+<!-- Optionally add helpers - button, thumbnail and/or media -->
+<link rel="stylesheet" href="./fancybox/source/helpers/jquery.fancybox-buttons.css?v=1.0.5" type="text/css" media="screen" />
+<script type="text/javascript" src="./fancybox/source/helpers/jquery.fancybox-buttons.js?v=1.0.5"></script>
+<script type="text/javascript" src="./fancybox/source/helpers/jquery.fancybox-media.js?v=1.0.6"></script>
+
+<link rel="stylesheet" href="./fancybox/source/helpers/jquery.fancybox-thumbs.css?v=1.0.7" type="text/css" media="screen" />
+<script type="text/javascript" src="./fancybox/source/helpers/jquery.fancybox-thumbs.js?v=1.0.7"></script>
+
+<script>
+  $(document).ready(function() {
+  
+  $(".fancybox").fancybox({
+    openEffect  : 'none',
+    closeEffect : 'none',
+    helpers : {  
+      overlay : {closeClick: false}
+    }
+  });
+
+  $('#btnOpen').click(function(e) {
+        e.preventDefault();
+        $('.fancybox:').click();
+    });
+});
+  
+</script>
 <style>
 
 @font-face {
@@ -74,12 +107,14 @@ a:visited{
     transform: translateX(-50%) translateY(-50%);
 }
 
-#download {
+.menu {
+
   border-radius: 25px;
   background: #73AD21;
   padding: 20px; 
   width: 200px;
   height: 150px;  
+
 }
 
 </style>
@@ -91,7 +126,17 @@ a:visited{
 	<img src="d.png" id="d">
 	<img src="t.png" id="t">
 
-<div class="container"><img src="logo.png"><p align="center"><a id="download" href="https://github.com/tonikelope/coronapoker/releases/latest"><b>Download latest version</b></a></p></div>
+<div class="container"><img src="logo.png"></div><a class="menu" href="https://github.com/tonikelope/coronapoker/releases/latest"><b>Download latest version</b></a> <a class="fancybox menu" rel="gallery1" href="./screenshots/1.png" title="">Screenshots</a>
+
+<a class="fancybox" rel="gallery1" href="./screenshots/2.png" title=""></a>
+<a class="fancybox" rel="gallery1" href="./screenshots/3.png" title=""></a>
+<a class="fancybox" rel="gallery1" href="./screenshots/4.png" title=""></a>
+<a class="fancybox" rel="gallery1" href="./screenshots/5.png" title=""></a>
+<a class="fancybox" rel="gallery1" href="./screenshots/6.png" title=""></a>
+<a class="fancybox" rel="gallery1" href="./screenshots/7.png" title=""></a>
+<a class="fancybox" rel="gallery1" href="./screenshots/8.png" title=""></a>
+<a class="fancybox" rel="gallery1" href="./screenshots/9.png" title=""></a>
+<a class="fancybox" rel="gallery1" href="./screenshots/10.png" title=""></a>
 
 </body>
 </html> 

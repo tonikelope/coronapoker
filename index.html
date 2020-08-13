@@ -65,7 +65,7 @@ a:visited{
 	color:white;
 }
 
-.container {
+#container {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -76,6 +76,8 @@ a:visited{
 
 #p {
     position: absolute;
+    max-width: 10%;
+    height: auto;
     top: 20%;
     left: 10%;
     -moz-transform: translateX(-50%) translateY(-50%);
@@ -85,6 +87,8 @@ a:visited{
 
 #c {
     position: absolute;
+    max-width: 10%;
+    height: auto;
     top: 20%;
     left: 90%;
      -moz-transform: translateX(-50%) translateY(-50%);
@@ -94,6 +98,8 @@ a:visited{
 
 #d {
     position: absolute;
+    max-width: 10%;
+    height: auto;
     top: 80%;
     left: 10%;
      -moz-transform: translateX(-50%) translateY(-50%);
@@ -103,6 +109,8 @@ a:visited{
 
 #t {
     position: absolute;
+    max-width: 10%;
+    height: auto;
     top: 80%;
     left: 90%;
      -moz-transform: translateX(-50%) translateY(-50%);
@@ -111,12 +119,17 @@ a:visited{
 }
 
 .menu {
+  position: relative;
+  z-index:100;
+  margin-top: 20px;
+  margin-left: 20px;
+}
+
+.menu-item {
 
   border-radius: 25px;
   background: #73AD21;
-  padding: 20px; 
-  width: 200px;
-  height: 150px;  
+  padding: 10px;
 
 }
 
@@ -129,7 +142,7 @@ a:visited{
 	<img src="d.png" id="d">
 	<img src="t.png" id="t">
 
-<div class="container"><img src="logo.png"></div><a class="menu" href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><b>Download</b></a> <a class="fancybox menu" rel="gallery1" href="./screenshots/1.png" title="Main window"><b>Screenshots</b></a> <a class="menu" href="https://github.com/tonikelope/coronapoker" target="_blank"><b>Source code</b></a>
+<div id="container"><img src="logo.png" style="max-width: 100%;height: auto;"></div><div class="menu"><a class="menu-item" href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><b>Download</b></a> <a class="fancybox menu-item" rel="gallery1" href="./screenshots/1.png" title="Main window"><b>Screenshots</b></a> <a class="menu-item" href="https://github.com/tonikelope/coronapoker" target="_blank"><b>Source code</b></a></div>
 
 
 <a class="fancybox" rel="gallery1" href="./screenshots/2.png" title="New game"></a>

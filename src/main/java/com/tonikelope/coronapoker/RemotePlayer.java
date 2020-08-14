@@ -474,8 +474,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, PlayerInt
 
             public void run() {
 
-                crupier.remoteCinematicAllin();
-                crupier.soundAllin();
+                if (!crupier.remoteCinematicAllin()) {
+                    crupier.soundAllin();
+                }
             }
         });
 

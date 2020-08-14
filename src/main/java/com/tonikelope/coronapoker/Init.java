@@ -352,11 +352,19 @@ public class Init extends javax.swing.JFrame {
 
         translateGlobalLabels();
 
-        setVisible(false);
+        if (isVisible()) {
 
-        pack();
+            setVisible(false);
 
-        setVisible(true);
+            pack();
+
+            setVisible(true);
+
+            if (!Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
+                Helpers.mostrarMensajeInformativo(this, "Los comentarios sonoros durante el juego no se traducirán (puedes desactivarlos cuando empiece la partida).");
+            }
+
+        }
     }//GEN-LAST:event_language_comboboxActionPerformed
 
     /**

@@ -40,7 +40,6 @@ public class Crupier implements Runnable {
                 {"training_day.gif", 2000L},
                 {"wallstreet.gif", 1500L},
                 {"casinoroyale.gif", 4500L}
-
             });
 
     public static Map.Entry<String, Object[][]> ALLIN_CINEMATICS_MOD = null;
@@ -447,26 +446,7 @@ public class Crupier implements Runnable {
         return acciones_recuperadas;
     }
 
-    public boolean checkAudio4Cinematic(String cinematic) {
-
-        if (cinematic != null) {
-            Map<String, Object[]> audios = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD) : Map.ofEntries(Crupier.ALLIN_SOUNDS);
-
-            for (Object o : audios.get("allin/")) {
-
-                String audio = (String) o;
-
-                if (cinematic.replaceAll("\\.gif$", "").equals(audio.replaceAll("\\.wav$", ""))) {
-
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public void localCinematicAllin() {
+    public boolean localCinematicAllin() {
 
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD) : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
 
@@ -483,7 +463,12 @@ public class Crupier implements Runnable {
             try {
 
                 this.current_local_cinematic_b64 = Base64.encodeBase64String((Base64.encodeBase64String(filename.getBytes("UTF-8")) + "#" + String.valueOf(pausa)).getBytes("UTF-8"));
-                _cinematicAllin(filename, checkAudio4Cinematic(filename) ? 0L : pausa);
+
+                if (pausa == 0L && Game.SONIDOS_CHORRA) {
+                    Helpers.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
+                }
+
+                return _cinematicAllin(filename, pausa);
 
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -496,9 +481,11 @@ public class Crupier implements Runnable {
             this.current_local_cinematic_b64 = null;
         }
 
+        return false;
+
     }
 
-    public void remoteCinematicAllin() {
+    public boolean remoteCinematicAllin() {
 
         if (getCurrent_remote_cinematic_b64() != null) {
 
@@ -510,7 +497,13 @@ public class Crupier implements Runnable {
 
                 String filename = new String(Base64.decodeBase64(partes[0]), "UTF-8");
 
-                _cinematicAllin(filename, checkAudio4Cinematic(filename) ? 0L : Long.parseLong(partes[1]));
+                long pausa = Long.parseLong(partes[1]);
+
+                if (pausa == 0L && Game.SONIDOS_CHORRA) {
+                    Helpers.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
+                }
+
+                return _cinematicAllin(filename, pausa);
 
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -522,9 +515,11 @@ public class Crupier implements Runnable {
             setPlaying_cinematic(false);
         }
 
+        return false;
+
     }
 
-    private void _cinematicAllin(String filename, long pausa) {
+    private boolean _cinematicAllin(String filename, long pausa) {
 
         if (!this.sincronizando_mano) {
 
@@ -708,20 +703,16 @@ public class Crupier implements Runnable {
 
         }
 
+        return (pausa == 0L);
+
     }
 
     public void soundAllin() {
 
         if (!this.sincronizando_mano && Game.SONIDOS_CHORRA && !fold_sound_playing) {
 
-            if (checkAudio4Cinematic(this.current_cinematic)) {
+            Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD) : Map.ofEntries(Crupier.ALLIN_SOUNDS));
 
-                Helpers.playWavResource("allin/" + this.current_cinematic.replaceAll("\\.gif$", ".wav"));
-
-            } else {
-
-                Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD) : Map.ofEntries(Crupier.ALLIN_SOUNDS));
-            }
         }
 
     }
@@ -4747,6 +4738,8 @@ public class Crupier implements Runnable {
 
                         this.show_time = false;
 
+                        Game.getInstance().getLocalPlayer().desactivar_boton_mostrar();
+
                         Game.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
 
                         ArrayList<String> rebuy_players = new ArrayList<>();
@@ -4889,6 +4882,8 @@ public class Crupier implements Runnable {
                         this.pausaConBarra(Game.PAUSA_ENTRE_MANOS_TEST);
 
                         this.show_time = false;
+
+                        Game.getInstance().getLocalPlayer().desactivar_boton_mostrar();
 
                         Game.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
                     }

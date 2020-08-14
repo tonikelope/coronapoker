@@ -892,16 +892,15 @@ public class Helpers {
                 }
             }
 
-        } else {
-
-            InputStream is;
-
-            if ((is = Helpers.class.getResourceAsStream("/sounds/" + sound)) != null || (is = Helpers.class.getResourceAsStream("/cinematics/" + sound)) != null) {
-                return is;
-            } else {
-                Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "NO se encuentra el SONIDO {0}", sound);
-            }
         }
+
+        InputStream is;
+
+        if ((is = Helpers.class.getResourceAsStream("/sounds/" + sound)) != null || (is = Helpers.class.getResourceAsStream("/cinematics/" + sound)) != null) {
+            return is;
+        }
+
+        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "NO se encuentra el SONIDO {0}", sound);
 
         return null;
     }

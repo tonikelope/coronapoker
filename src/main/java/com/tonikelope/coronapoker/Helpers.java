@@ -777,7 +777,7 @@ public class Helpers {
                 Document document = (Document) documentBuilder.parse(file);
 
                 mod.put("name", document.getElementsByTagName("name").item(0).getTextContent());
-                mod.put("version", Float.parseFloat(document.getElementsByTagName("version").item(0).getTextContent().trim()));
+                mod.put("version", document.getElementsByTagName("version").item(0).getTextContent().trim());
 
                 if (document.getElementsByTagName("mod").item(0).getAttributes().getNamedItem("fusion_sounds") != null) {
                     mod.put("fusion_sounds", Boolean.parseBoolean(document.getElementsByTagName("mod").item(0).getAttributes().getNamedItem("fusion_sounds").getTextContent().trim()));

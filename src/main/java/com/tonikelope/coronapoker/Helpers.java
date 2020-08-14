@@ -873,22 +873,37 @@ public class Helpers {
 
     private static InputStream getSoundInputStream(String sound) {
 
-        if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/sounds/" + sound))) {
+        if (Init.MOD != null) {
 
-            try {
-                return new FileInputStream(Helpers.getCurrentJarPath() + "/mod/sounds/" + sound);
-            } catch (FileNotFoundException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/sounds/" + sound))) {
+
+                try {
+                    return new FileInputStream(Helpers.getCurrentJarPath() + "/mod/sounds/" + sound);
+                } catch (FileNotFoundException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            } else if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/cinematics/" + sound))) {
+
+                try {
+                    return new FileInputStream(Helpers.getCurrentJarPath() + "/mod/cinematics/" + sound);
+                } catch (FileNotFoundException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+        } else {
+
+            InputStream is;
+
+            if ((is = Helpers.class.getResourceAsStream("/sounds/" + sound)) != null || (is = Helpers.class.getResourceAsStream("/cinematics/" + sound)) != null) {
+                return is;
+            } else {
+                Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "NO se encuentra el SONIDO {0}", sound);
             }
         }
 
-        InputStream is = Helpers.class.getResourceAsStream("/sounds/" + sound);
-
-        if (is == null) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "NO se encuentra el SONIDO {0}", sound);
-        }
-
-        return is;
+        return null;
     }
 
     public static void playWavResourceAndWait(String sound) {

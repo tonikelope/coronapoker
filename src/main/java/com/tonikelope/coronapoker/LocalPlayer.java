@@ -199,16 +199,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, PlayerInte
 
     public void desactivar_boton_mostrar() {
 
-        boton_mostrar = false;
+        if (boton_mostrar) {
+            boton_mostrar = false;
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                player_allin_button.setText(" ");
-                player_allin_button.setEnabled(false);
-                player_allin_button.setBackground(Color.BLACK);
-                player_allin_button.setForeground(Color.WHITE);
-            }
-        });
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    player_allin_button.setText(" ");
+                    player_allin_button.setEnabled(false);
+                    player_allin_button.setBackground(Color.BLACK);
+                    player_allin_button.setForeground(Color.WHITE);
+                }
+            });
+        }
     }
 
     public void setTimeout(boolean val) {
@@ -1736,8 +1738,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, PlayerInte
 
                             public void run() {
 
-                                crupier.localCinematicAllin();
-                                crupier.soundAllin();
+                                if (!crupier.localCinematicAllin()) {
+                                    crupier.soundAllin();
+                                }
                             }
                         });
 

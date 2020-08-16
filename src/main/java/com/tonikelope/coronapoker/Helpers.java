@@ -135,7 +135,6 @@ public class Helpers {
     public static boolean MUTED = false;
     public static boolean MUTED_MP3 = false;
     public static boolean RANDOMORG_ERROR_MSG = false;
-    public static final Object WAV_RESOURCE_LOCK = new Object();
 
     //Thanks -> https://stackoverflow.com/a/7603815
     public static BufferedImage makeImageRoundedCorner(Image image, int cornerRadius) {
@@ -905,7 +904,7 @@ public class Helpers {
         return null;
     }
 
-    public static void playWavResourceAndWait(String sound) {
+    public static boolean playWavResourceAndWait(String sound) {
 
         if (!Game.TEST_MODE) {
 
@@ -920,10 +919,6 @@ public class Helpers {
                     }
 
                     Helpers.WAVS_RESOURCES.put(sound, clip);
-
-                    synchronized (WAV_RESOURCE_LOCK) {
-                        WAV_RESOURCE_LOCK.notifyAll();
-                    }
 
                     clip.open(AudioSystem.getAudioInputStream(bis));
 
@@ -949,18 +944,17 @@ public class Helpers {
 
                     clip.stop();
 
+                    return true;
+
                 } catch (UnsupportedAudioFileException | IOException | LineUnavailableException ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
-                synchronized (WAV_RESOURCE_LOCK) {
-                    WAV_RESOURCE_LOCK.notifyAll();
-                }
-
             }
 
         }
+
+        return false;
 
     }
 

@@ -230,6 +230,9 @@ public class Participant implements Runnable {
                                             case "PING":
                                                 //ES UN PING DE JUEGO -> NO tenemos que hacer nada más
                                                 break;
+                                            case "CINEMATICEND":
+                                                Game.getInstance().getCrupier().remoteCinematicEnd(nick);
+                                                break;
                                             case "SHOWMYCARDS":
                                                 Game.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
                                                 break;

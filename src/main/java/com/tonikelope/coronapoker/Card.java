@@ -103,7 +103,6 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         initComponents();
 
         setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 4) : height));
-        //setSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 4) : height));
         card_image.setSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 4) : height));
         card_image.setIcon(Card.imagen_joker);
         card_image.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -468,7 +467,6 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
             public void run() {
 
                 setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 4) : height));
-                //setSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 4) : height));
                 card_image.setSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 4) : height));
 
                 if (isCargada()) {

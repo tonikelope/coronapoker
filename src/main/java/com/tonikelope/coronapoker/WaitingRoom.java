@@ -749,6 +749,9 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                     case "PAUSE":
                                                         Game.getInstance().pauseTimba();
                                                         break;
+                                                    case "CINEMATICEND":
+                                                        Game.getInstance().getCrupier().remoteCinematicEnd(null);
+                                                        break;
                                                     case "SHOWCARDS":
                                                         Game.getInstance().getCrupier().showPlayerCards(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), partes_comando[4], partes_comando[5]);
                                                         break;

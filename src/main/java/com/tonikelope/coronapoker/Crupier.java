@@ -158,6 +158,7 @@ public class Crupier implements Runnable {
     private final ConcurrentLinkedQueue<String> acciones_recuperadas = new ConcurrentLinkedQueue<>();
     private final Object lock_apuestas = new Object();
     private final Object lock_contabilidad = new Object();
+    private final Object lock_cinematics = new Object();
 
     private int dealer_pos = -1;
     private int small_pos = -1;
@@ -188,7 +189,6 @@ public class Crupier implements Runnable {
     private volatile boolean playing_cinematic = false;
     private volatile String current_local_cinematic_b64 = null;
     private volatile String current_remote_cinematic_b64 = null;
-    private volatile String current_cinematic = null;
 
     public String getCurrent_remote_cinematic_b64() {
         return current_remote_cinematic_b64;
@@ -387,6 +387,21 @@ public class Crupier implements Runnable {
 
     }
 
+    public void remoteCinematicEnd(String nick) {
+
+        if (Game.getInstance().isPartida_local()) {
+
+            broadcastCommandFromServer("CINEMATICEND", nick);
+        }
+
+        playing_cinematic = false;
+
+        synchronized (lock_cinematics) {
+            lock_cinematics.notifyAll();
+        }
+
+    }
+
     public boolean isFin_de_la_transmision() {
         return fin_de_la_transmision;
     }
@@ -465,7 +480,22 @@ public class Crupier implements Runnable {
                 this.current_local_cinematic_b64 = Base64.encodeBase64String((Base64.encodeBase64String(filename.getBytes("UTF-8")) + "#" + String.valueOf(pausa)).getBytes("UTF-8"));
 
                 if (pausa == 0L && Game.SONIDOS_CHORRA) {
-                    Helpers.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
+                    Helpers.threadRun(new Runnable() {
+
+                        public void run() {
+
+                            if (Helpers.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
+
+                                sendCommandToServer("CINEMATICEND");
+
+                                playing_cinematic = false;
+
+                                synchronized (lock_cinematics) {
+                                    lock_cinematics.notifyAll();
+                                }
+                            }
+                        }
+                    });
                 }
 
                 return _cinematicAllin(filename, pausa);
@@ -500,7 +530,19 @@ public class Crupier implements Runnable {
                 long pausa = Long.parseLong(partes[1]);
 
                 if (pausa == 0L && Game.SONIDOS_CHORRA) {
-                    Helpers.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
+                    Helpers.threadRun(new Runnable() {
+
+                        public void run() {
+
+                            if (Helpers.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
+
+                                playing_cinematic = false;
+                                synchronized (lock_cinematics) {
+                                    lock_cinematics.notifyAll();
+                                }
+                            }
+                        }
+                    });
                 }
 
                 return _cinematicAllin(filename, pausa);
@@ -531,8 +573,6 @@ public class Crupier implements Runnable {
                 }
             });
 
-            this.current_cinematic = filename;
-
             if (Game.CINEMATICAS) {
 
                 ImageIcon icon = null;
@@ -559,22 +599,15 @@ public class Crupier implements Runnable {
 
                             if (pausa != 0L) {
                                 Helpers.pausar(pausa);
+                                playing_cinematic = false;
                             } else {
 
-                                while (!Helpers.WAVS_RESOURCES.containsKey("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
-                                    synchronized (Helpers.WAV_RESOURCE_LOCK) {
-                                        try {
-                                            Helpers.WAV_RESOURCE_LOCK.wait(1000);
-                                        } catch (InterruptedException ex) {
-                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
-                                    }
-                                }
+                                while (playing_cinematic) {
 
-                                while (Helpers.WAVS_RESOURCES.containsKey("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
-                                    synchronized (Helpers.WAV_RESOURCE_LOCK) {
+                                    synchronized (lock_cinematics) {
+
                                         try {
-                                            Helpers.WAV_RESOURCE_LOCK.wait(1000);
+                                            lock_cinematics.wait(1000);
                                         } catch (InterruptedException ex) {
                                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                         }
@@ -583,8 +616,6 @@ public class Crupier implements Runnable {
                             }
 
                             gif.dispose();
-
-                            playing_cinematic = false;
 
                             current_remote_cinematic_b64 = null;
 
@@ -608,32 +639,26 @@ public class Crupier implements Runnable {
 
                         public void run() {
                             if (current_remote_cinematic_b64 != null) {
+
                                 if (pausa != 0L) {
                                     Helpers.pausar(pausa);
+                                    playing_cinematic = false;
                                 } else {
-                                    while (!Helpers.WAVS_RESOURCES.containsKey("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
-                                        synchronized (Helpers.WAV_RESOURCE_LOCK) {
-                                            try {
-                                                Helpers.WAV_RESOURCE_LOCK.wait(1000);
-                                            } catch (InterruptedException ex) {
-                                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                            }
-                                        }
-                                    }
 
-                                    while (Helpers.WAVS_RESOURCES.containsKey("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
-                                        synchronized (Helpers.WAV_RESOURCE_LOCK) {
+                                    while (playing_cinematic) {
+
+                                        synchronized (lock_cinematics) {
+
                                             try {
-                                                Helpers.WAV_RESOURCE_LOCK.wait(1000);
+                                                lock_cinematics.wait(1000);
                                             } catch (InterruptedException ex) {
                                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                             }
                                         }
                                     }
                                 }
-                            }
 
-                            playing_cinematic = false;
+                            }
 
                             current_remote_cinematic_b64 = null;
 
@@ -659,29 +684,21 @@ public class Crupier implements Runnable {
                     public void run() {
                         if (pausa != 0L) {
                             Helpers.pausar(pausa);
+                            playing_cinematic = false;
                         } else {
-                            while (!Helpers.WAVS_RESOURCES.containsKey("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
-                                synchronized (Helpers.WAV_RESOURCE_LOCK) {
-                                    try {
-                                        Helpers.WAV_RESOURCE_LOCK.wait(1000);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            }
 
-                            while (Helpers.WAVS_RESOURCES.containsKey("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
-                                synchronized (Helpers.WAV_RESOURCE_LOCK) {
+                            while (playing_cinematic) {
+
+                                synchronized (lock_cinematics) {
+
                                     try {
-                                        Helpers.WAV_RESOURCE_LOCK.wait(1000);
+                                        lock_cinematics.wait(1000);
                                     } catch (InterruptedException ex) {
                                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                     }
                                 }
                             }
                         }
-
-                        playing_cinematic = false;
 
                         current_remote_cinematic_b64 = null;
 

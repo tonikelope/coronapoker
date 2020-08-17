@@ -124,7 +124,7 @@ a:visited{
 
 #menu {
     position: static;
-    font-size: 2.5vw;
+    font-size: min(3vw, 40px);
 }
 
 .menu-item {
@@ -147,43 +147,26 @@ a:visited{
 .animated {
 	position: static;
     color:white;
-    font-size: 2.5vw;
-    animation-delay: 2s;
+    font-size: min(3vw, 40px);
 }
 
 .animated:before {
   content: "";
-  animation: coronapoker 18s infinite 0s;
+  animation: coronapoker 18s linear infinite 0s;
 }
 
 @keyframes coronapoker {
-  0% {
-    content: "Cross-platform and open source";
-  }
-  12.5% {
-  	content: "100% free: no registration, no credit cards";
-  }
-  25%% {
-    content: "Intuitive controls with keyboard shortcuts";
-  }
-  37.5% {
-    content: "Cool sound effects, decks, and mats";
-  }
-  50% {
-    content: "True random shuffle";
-  }
-  62.5% {
-    content: "Up to 10 simultaneous players";
-  }
-  75% {
-  	content: "Customizable: create and share your MODs";
-  }
-  87.5%{ 
-  	content: "Very high tolerance to network/power failures";
-  }
-  100% {
-  	content: "Zoom: you won't miss anything";
-  }
+
+  0% {content: "100% free: no registration, no credit cards";}
+  12.5% {content: "Up to 10 simultaneous players";}
+  25% {content: "Intuitive controls with keyboard shortcuts";}
+  37.5% {content: "True random shuffle";}
+  50% {content: "Cool sound effects, decks, and mats";}
+  62.5% {content: "Zoom: you won't miss anything";}
+  75% {content: "Very high tolerance to network/power failures";}
+  87.5% {content: "Customizable: create and share your MODs";}
+  100% {content: "Cross-platform and open source";}
+
   }
 
 </style>

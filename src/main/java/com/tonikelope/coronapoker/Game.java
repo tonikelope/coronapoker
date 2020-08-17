@@ -121,19 +121,21 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private final Object registro_lock = new Object();
     private final Object full_screen_lock = new Object();
-    private final Object zoom_lock = new Object();
 
     private TablePanel tapete = null;
 
     public void fullScreenAndAjustZoom() {
 
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+
         Helpers.GUIRunAndWait(new Runnable() {
+            @Override
             public void run() {
                 full_screen_menu.doClick();
             }
         });
 
-        while (!full_screen_menu.isEnabled()) {
+        while (!full_screen) {
 
             synchronized (full_screen_lock) {
                 try {
@@ -144,26 +146,28 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         }
 
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        JFrame frame = getFull_screen_frame() != null ? getFull_screen_frame() : this;
+
+        while (frame.getLocationOnScreen().getY() + frame.getHeight() != screenSize.getHeight()) {
+            Helpers.pausar(125);
+        }
 
         double localPos = this.getLocalPlayer().getLocationOnScreen().getY() + this.getLocalPlayer().getHeight();
 
         while (localPos > screenSize.getHeight()) {
 
+            double player_height = this.getLocalPlayer().getHeight();
+
             Helpers.GUIRunAndWait(new Runnable() {
+                @Override
                 public void run() {
                     zoom_menu_out.doClick();
                 }
             });
 
-            while (!this.zoom_menu_out.isEnabled()) {
-                synchronized (zoom_lock) {
-                    try {
-                        zoom_lock.wait(1000);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
+            while (player_height == this.getLocalPlayer().getHeight()) {
+
+                Helpers.pausar(125);
             }
 
             localPos = this.getLocalPlayer().getLocationOnScreen().getY() + this.getLocalPlayer().getHeight();
@@ -278,7 +282,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     }
 
     public void fullScreen() {
-        full_screen = !full_screen;
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -286,7 +289,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
                 GraphicsDevice device = env.getDefaultScreenDevice();
 
-                if (full_screen) {
+                if (!full_screen) {
 
                     if (Helpers.OSValidator.isWindows()) {
                         setVisible(false);
@@ -356,6 +359,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 full_screen_menu.setEnabled(true);
                 Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+
+                full_screen = !full_screen;
 
                 synchronized (full_screen_lock) {
                     full_screen_lock.notifyAll();
@@ -906,11 +911,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             public void run() {
 
                 zoom_menu.setEnabled(true);
-                
-                synchronized (zoom_lock) {
-                    zoom_lock.notifyAll();
-                }
-
             }
         });
     }

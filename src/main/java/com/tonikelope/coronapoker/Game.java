@@ -152,26 +152,46 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             Helpers.pausar(125);
         }
 
-        double localPos = this.getLocalPlayer().getLocationOnScreen().getY() + this.getLocalPlayer().getHeight();
-
-        while (localPos > screenSize.getHeight()) {
-
-            double player_height = this.getLocalPlayer().getHeight();
-
-            Helpers.GUIRunAndWait(new Runnable() {
-                @Override
-                public void run() {
-                    zoom_menu_out.doClick();
-                }
-            });
-
-            while (player_height == this.getLocalPlayer().getHeight()) {
-
-                Helpers.pausar(125);
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                full_screen_menu.setEnabled(false);
             }
+        });
 
-            localPos = this.getLocalPlayer().getLocationOnScreen().getY() + this.getLocalPlayer().getHeight();
-        }
+        Helpers.threadRun(new Runnable() {
+
+            public void run() {
+
+                double playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
+
+                while (playerPos > screenSize.getHeight()) {
+
+                    double playerHeight = getLocalPlayer().getHeight();
+
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        @Override
+                        public void run() {
+                            zoom_menu_out.doClick();
+                        }
+                    });
+
+                    while (playerHeight == getLocalPlayer().getHeight()) {
+
+                        Helpers.pausar(125);
+                    }
+
+                    playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
+                }
+
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        full_screen_menu.setEnabled(true);
+                    }
+                });
+            }
+        });
     }
 
     public JCheckBoxMenuItem getMenu_cinematicas() {
@@ -1988,7 +2008,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void full_screen_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_full_screen_menuActionPerformed
         // TODO add your handling code here:
 
-        if (!this.isGame_over_dialog() && !Game.isRECOVER()) {
+        if (this.full_screen_menu.isEnabled() && !this.isGame_over_dialog() && !Game.isRECOVER()) {
 
             this.full_screen_menu.setEnabled(false);
 
@@ -1997,7 +2017,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
 
             fullScreen();
-
         }
 
     }//GEN-LAST:event_full_screen_menuActionPerformed

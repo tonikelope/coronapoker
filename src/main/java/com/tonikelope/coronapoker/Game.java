@@ -46,7 +46,7 @@ import javax.swing.Timer;
  */
 public final class Game extends javax.swing.JFrame implements ZoomableInterface {
 
-    public static final boolean DEBUG_TO_FILE = true;
+    public static final boolean DEBUG_TO_FILE = false;
     public static final String LOGS_DIR = "./CORONA_POKER_LOGS";
     public static final String REC_DIR = "./.CORONA_POKER_RECOVER";
     public static final boolean TEST_MODE = false;
@@ -132,6 +132,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             @Override
             public void run() {
                 full_screen_menu.doClick();
+                zoom_menu_in.setEnabled(false);
+                zoom_menu_out.setEnabled(false);
+                zoom_menu_reset.setEnabled(false);
             }
         });
 
@@ -146,12 +149,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         }
 
-        JFrame frame = getFull_screen_frame() != null ? getFull_screen_frame() : this;
-
-        while (frame.getLocationOnScreen().getY() + frame.getHeight() != screenSize.getHeight()) {
-            Helpers.pausar(125);
-        }
-
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
@@ -159,24 +156,34 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
 
+        while (tapete.getLocationOnScreen().getY() != 0 || tapete.getHeight() != screenSize.getHeight()) {
+            Helpers.pausar(125);
+        }
+
         Helpers.threadRun(new Runnable() {
 
             public void run() {
 
                 double playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
 
-                while (playerPos > screenSize.getHeight()) {
+                double tapetePos = tapete.getLocationOnScreen().getY() + tapete.getHeight();
+
+                while (playerPos > tapetePos) {
 
                     double playerHeight = getLocalPlayer().getHeight();
+
+                    double playerWidth = getLocalPlayer().getWidth();
 
                     Helpers.GUIRunAndWait(new Runnable() {
                         @Override
                         public void run() {
+                            zoom_menu_out.setEnabled(true);
                             zoom_menu_out.doClick();
+                            zoom_menu_out.setEnabled(false);
                         }
                     });
 
-                    while (playerHeight == getLocalPlayer().getHeight()) {
+                    while (playerWidth == getLocalPlayer().getWidth() && playerHeight == getLocalPlayer().getHeight()) {
 
                         Helpers.pausar(125);
                     }
@@ -188,6 +195,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     @Override
                     public void run() {
                         full_screen_menu.setEnabled(true);
+                        zoom_menu_in.setEnabled(true);
+                        zoom_menu_out.setEnabled(true);
+                        zoom_menu_reset.setEnabled(true);
                     }
                 });
             }

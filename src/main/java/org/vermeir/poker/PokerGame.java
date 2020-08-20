@@ -59,10 +59,9 @@ public class PokerGame {
         List<List<Double>> weightArray = HandRanker.getUniformWeightArray();
 
         GameState gameState = new GameState();
-        
+
         gameState.setFlop(flop);
-        
-        
+
         Player player = new Player(ace_hearts, ace_spades, gameState);
 
         long start = System.currentTimeMillis();

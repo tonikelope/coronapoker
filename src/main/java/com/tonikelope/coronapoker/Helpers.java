@@ -136,6 +136,20 @@ public class Helpers {
     public static boolean MUTED_MP3 = false;
     public static boolean RANDOMORG_ERROR_MSG = false;
 
+    public static String genRandomString(int length) {
+
+        int leftLimit = 97; // letter 'a'
+        int rightLimit = 122; // letter 'z'
+        int targetStringLength = length;
+        Random random = new Random();
+        StringBuilder buffer = new StringBuilder(targetStringLength);
+        for (int i = 0; i < targetStringLength; i++) {
+            int randomLimitedInt = leftLimit + (int) (random.nextFloat() * (rightLimit - leftLimit + 1));
+            buffer.append((char) randomLimitedInt);
+        }
+        return buffer.toString();
+    }
+
     //Thanks -> https://stackoverflow.com/a/7603815
     public static BufferedImage makeImageRoundedCorner(Image image, int cornerRadius) {
         int w = image.getWidth(null);

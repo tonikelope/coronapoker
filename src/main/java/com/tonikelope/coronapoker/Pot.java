@@ -28,14 +28,14 @@ public class Pot {
 
     private float diferencial = 0f;
     private float apuesta = 0f;
-    private final ArrayList<PlayerInterface> jugadores = new ArrayList<>();
+    private final ArrayList<Player> jugadores = new ArrayList<>();
     private Pot hijo = null;
 
     public Pot(float dif) {
         this.diferencial = dif;
     }
 
-    public Pot(ArrayList<PlayerInterface> jugadores, float dif) {
+    public Pot(ArrayList<Player> jugadores, float dif) {
         this.diferencial = dif;
         jugadores.forEach((jugador) -> {
             this.insertarJugador(jugador);
@@ -46,8 +46,8 @@ public class Pot {
 
         float total = 0f;
 
-        for (PlayerInterface jugador : jugadores) {
-            if (jugador.getDecision() != PlayerInterface.FOLD && !jugador.isExit() && !jugador.isSpectator()) {
+        for (Player jugador : jugadores) {
+            if (jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator()) {
                 total += apuesta;
             } else {
                 total += jugador.getBote();
@@ -65,11 +65,11 @@ public class Pot {
         return apuesta;
     }
 
-    public ArrayList<PlayerInterface> getJugadores() {
+    public ArrayList<Player> getJugadores() {
         return jugadores;
     }
 
-    public void insertarJugador(PlayerInterface jugador) {
+    public void insertarJugador(Player jugador) {
 
         if (Helpers.float1DSecureCompare(apuesta, jugador.getBote() - this.diferencial) < 0) {
             apuesta = jugador.getBote() - this.diferencial;
@@ -85,9 +85,9 @@ public class Pot {
         if (jugadores.size() > 1) {
             Collections.sort(jugadores, new PotPlayerComparator());
             int i = 0;
-            for (PlayerInterface jugador : jugadores) {
+            for (Player jugador : jugadores) {
 
-                if (jugador.getDecision() != PlayerInterface.FOLD && !jugador.isExit() && !jugador.isSpectator()) {
+                if (jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator()) {
                     break;
                 } else {
                     i++;
@@ -99,8 +99,8 @@ public class Pot {
 
                 if (Helpers.float1DSecureCompare(pivote, apuesta) < 0) {
                     // Sólo hay que generar bote hijo si algún jugador está participando con una apuesta menor (sin ser FOLD)
-                    ArrayList<PlayerInterface> jugadores_hijo = new ArrayList<>();
-                    jugadores.stream().filter((jugador) -> (Helpers.float1DSecureCompare(pivote, jugador.getBote() - this.diferencial) < 0 && jugador.getDecision() != PlayerInterface.FOLD && !jugador.isExit() && !jugador.isSpectator())).forEachOrdered((jugador) -> {
+                    ArrayList<Player> jugadores_hijo = new ArrayList<>();
+                    jugadores.stream().filter((jugador) -> (Helpers.float1DSecureCompare(pivote, jugador.getBote() - this.diferencial) < 0 && jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator())).forEachOrdered((jugador) -> {
                         jugadores_hijo.add(jugador);
                     });
                     apuesta = pivote; // Actualizamos la apuesta del padre
@@ -111,10 +111,10 @@ public class Pot {
         }
     }
 
-    private class PotPlayerComparator implements Comparator<PlayerInterface> {
+    private class PotPlayerComparator implements Comparator<Player> {
 
         @Override
-        public int compare(PlayerInterface jugador1, PlayerInterface jugador2) {
+        public int compare(Player jugador1, Player jugador2) {
 
             float val1 = jugador1.getBote();
 

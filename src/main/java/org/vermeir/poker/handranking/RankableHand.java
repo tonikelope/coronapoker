@@ -39,9 +39,6 @@ public class RankableHand extends Hand {
     public RankableHand(Set<Card> c) throws HandRankingException {
 
         if (c.size() < 5 | c.size() > 7) {
-            for (Card carta : c) {
-                System.out.println(carta);
-            }
             String ex = "Between 5 and 7 unique cards required to construct instance. " + "Detected " + c.size() + " cards";
             throw new HandRankingException(ex);
 

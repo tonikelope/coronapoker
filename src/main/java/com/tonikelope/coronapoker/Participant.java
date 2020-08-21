@@ -43,13 +43,19 @@ public class Participant implements Runnable {
     private volatile boolean reconnected = false;
     private final Object keep_alive_lock = new Object();
     private volatile int pong;
+    private volatile boolean cpu = false;
 
-    public Participant(String nick, File avatar, Socket socket, WaitingRoom espera, Integer id) {
+    public Participant(String nick, File avatar, Socket socket, WaitingRoom espera, Integer id, boolean cpu) {
         this.nick = nick;
         this.setSocket(socket);
         this.sala_espera = espera;
         this.avatar = avatar;
         this.id = id;
+        this.cpu = cpu;
+    }
+
+    public boolean isCpu() {
+        return cpu;
     }
 
     public void setAvatar(File avatar) {

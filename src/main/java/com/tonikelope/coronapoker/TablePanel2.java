@@ -24,7 +24,7 @@ public class TablePanel2 extends TablePanel {
      */
     public TablePanel2() {
         initComponents();
-        players = new PlayerInterface[]{localPlayer, remotePlayer1};
+        players = new Player[]{localPlayer, remotePlayer1};
         remotePlayers = new RemotePlayer[]{remotePlayer1};
         zoomables = new ZoomableInterface[]{localPlayer, remotePlayer1, communityCards};
     }

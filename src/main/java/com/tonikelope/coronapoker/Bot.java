@@ -16,8 +16,12 @@ import org.vermeir.poker.handranking.util.HandRankingException;
 
 /**
  *
- * COMPLETELY EXPERIMENTAL. Based on the mythical Alberta Loki https://poker.cs.ualberta.ca/publications/papp.msc.pdf of with the help od Jellen Vermeir's implementation . MUCH to improve but playable.
- * 
+ * FULLY EXPERIMENTAL. Based on the mythical Alberta's Loki Bot
+ * https://poker.cs.ualberta.ca/publications/papp.msc.pdf with the help of
+ * Jellen Vermeir's implementation
+ * https://github.com/VermeirJellen/Poker_HandEvaluation MUCH to improve but
+ * playable.
+ *
  * @author tonikelope
  */
 public class Bot {
@@ -50,12 +54,9 @@ public class Bot {
 
                 case Crupier.PREFLOP:
 
-                    if (cpu_player.getPlayingCard1().getValorNumerico() == cpu_player.getPlayingCard2().getValorNumerico() && cpu_player.getPlayingCard1().getValorNumerico() >= 7) {
+                    if ((cpu_player.getPlayingCard1().getValorNumerico() == cpu_player.getPlayingCard2().getValorNumerico() && cpu_player.getPlayingCard1().getValorNumerico() >= 7) || (cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo()) && (cpu_player.getPlayingCard1().getValorNumerico() >= 10 || cpu_player.getPlayingCard2().getValorNumerico() >= 10))) {
+
                         return Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.BET : Player.CHECK;
-
-                    } else if (cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo()) && (cpu_player.getPlayingCard1().getValorNumerico() >= 10 || cpu_player.getPlayingCard2().getValorNumerico() >= 10)) {
-
-                        return Player.CHECK;
 
                     } else {
 

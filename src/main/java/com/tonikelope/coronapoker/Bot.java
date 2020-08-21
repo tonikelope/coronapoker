@@ -54,7 +54,9 @@ public class Bot {
 
                 case Crupier.PREFLOP:
 
-                    if ((cpu_player.getPlayingCard1().getValorNumerico() == cpu_player.getPlayingCard2().getValorNumerico() && cpu_player.getPlayingCard1().getValorNumerico() >= 7) || (cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo()) && (cpu_player.getPlayingCard1().getValorNumerico() >= 10 || cpu_player.getPlayingCard2().getValorNumerico() >= 10))) {
+                    if ((cpu_player.getPlayingCard1().getValorNumerico() == cpu_player.getPlayingCard2().getValorNumerico() && cpu_player.getPlayingCard1().getValorNumerico() >= 7)
+                            || (cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo()) && (cpu_player.getPlayingCard1().getValorNumerico() >= 10 || cpu_player.getPlayingCard2().getValorNumerico() >= 10))
+                            || (cpu_player.getPlayingCard1().getValorNumerico() >= 12 && cpu_player.getPlayingCard2().getValorNumerico() >= 12)) {
 
                         return Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.BET : Player.CHECK;
 
@@ -150,12 +152,17 @@ public class Bot {
             System.out.println("Negative Potential: " + player.getNegativeHandPotential());
             System.out.println("EffectiveHandStrength: " + effectiveStrength);
 
-            if (poseffectiveStrength > 0.5f && Game.getInstance().getCrupier().getConta_raise() < 2) {
-                return poseffectiveStrength > 0.75f ? Player.BET : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.BET : Player.CHECK);
-            } else if (effectiveStrength > 0.25f) {
-                return poseffectiveStrength > 0.4f ? Player.CHECK : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.CHECK : Player.FOLD);
+            if (poseffectiveStrength > 0.5f && Game.getInstance().getCrupier().getConta_bet() < 2) {
+
+                return poseffectiveStrength > 0.7f ? Player.BET : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.BET : Player.CHECK);
+
+            } else if (effectiveStrength > 0.15f) {
+
+                return poseffectiveStrength > 0.35f ? Player.CHECK : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.CHECK : Player.FOLD);
+
             } else {
-                return poseffectiveStrength < 0.1f ? Player.FOLD : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.CHECK : Player.FOLD);
+
+                return Player.FOLD;
             }
 
         } catch (HandRankingException ex) {

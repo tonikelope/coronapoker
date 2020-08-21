@@ -1804,7 +1804,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                 String bot_nick;
 
                 do {
-                    bot_nick = "CoronaBot-" + Helpers.genRandomString(5);
+                    bot_nick = "CoronaBot#" + Helpers.genRandomString(3);
 
                 } while (participantes.get(bot_nick) != null);
 

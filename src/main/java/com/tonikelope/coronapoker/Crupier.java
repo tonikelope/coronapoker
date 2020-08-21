@@ -148,10 +148,11 @@ public class Crupier implements Runnable {
     private float ciega_grande = Game.CIEGA_GRANDE;
     private float ciega_pequeña = Game.CIEGA_PEQUEÑA;
     private Integer[] permutacion_baraja;
-    private float apuesta_actual = 0f;
-    private float ultimo_raise = 0f;
-    private int conta_raise = 0;
-    private float bote_sobrante = 0f;
+    private volatile float apuesta_actual = 0f;
+    private volatile float ultimo_raise = 0f;
+    private volatile int conta_raise = 0;
+    private volatile int conta_bet = 0;
+    private volatile float bote_sobrante = 0f;
     private String[] nicks_permutados;
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -189,6 +190,10 @@ public class Crupier implements Runnable {
     private volatile boolean playing_cinematic = false;
     private volatile String current_local_cinematic_b64 = null;
     private volatile String current_remote_cinematic_b64 = null;
+
+    public int getConta_bet() {
+        return conta_bet;
+    }
 
     public String getCurrent_remote_cinematic_b64() {
         return current_remote_cinematic_b64;
@@ -1912,6 +1917,8 @@ public class Crupier implements Runnable {
 
         this.conta_raise = 0;
 
+        this.conta_bet = 0;
+
         if (Helpers.float1DSecureCompare(0f, this.bote_sobrante) < 0) {
 
             Helpers.playWavResource("misc/indivisible.wav");
@@ -2854,6 +2861,8 @@ public class Crupier implements Runnable {
 
                 this.conta_raise = 0;
 
+                this.conta_bet = 0;
+
                 for (Player jugador : resisten) {
                     jugador.setBet(0f);
                 }
@@ -3021,6 +3030,16 @@ public class Crupier implements Runnable {
 
                             switch (decision_loki) {
 
+                                case Player.FOLD:
+
+                                    if (Helpers.float1DSecureCompare(0f, this.getApuesta_actual()) == 0 || Helpers.float1DSecureCompare(current_player.getBet(), this.getApuesta_actual()) == 0) {
+                                        action = new Object[]{Player.CHECK, 0f};
+                                    } else {
+                                        action = new Object[]{decision_loki, 0f};
+                                    }
+
+                                    break;
+
                                 case Player.CHECK:
 
                                     if (allin) {
@@ -3132,6 +3151,8 @@ public class Crupier implements Runnable {
                             this.apuestas += current_player.getBet() - old_player_bet;
 
                             if (decision == Player.BET || (decision == Player.ALLIN && Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) <= 0)) {
+
+                                this.conta_bet++;
 
                                 //El jugador actual subió la apuesta, así que hay que reiniciar la ronda de apuestas
                                 if (Helpers.float1DSecureCompare(0f, this.apuesta_actual) < 0) {

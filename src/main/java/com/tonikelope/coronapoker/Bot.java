@@ -62,7 +62,7 @@ public class Bot {
 
                     } else {
 
-                        return Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.CHECK : Player.FOLD;
+                        return Helpers.SPRNG_GENERATOR.nextBoolean() && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 4 * Game.getInstance().getCrupier().getCiega_grande()) <= 0 ? Player.CHECK : Player.FOLD;
                     }
 
                 case Crupier.FLOP:

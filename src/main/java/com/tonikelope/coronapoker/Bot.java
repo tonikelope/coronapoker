@@ -67,7 +67,6 @@ public class Bot {
 
                 case Crupier.FLOP:
 
-                    System.out.println("Loki FLOP");
                     flop1 = new org.vermeir.poker.handranking.Card(getCardSuit(Game.getInstance().getFlop1()), Game.getInstance().getFlop1().getValorNumerico());
                     flop2 = new org.vermeir.poker.handranking.Card(getCardSuit(Game.getInstance().getFlop2()), Game.getInstance().getFlop2().getValorNumerico());
                     flop3 = new org.vermeir.poker.handranking.Card(getCardSuit(Game.getInstance().getFlop3()), Game.getInstance().getFlop3().getValorNumerico());
@@ -85,8 +84,6 @@ public class Bot {
                     break;
 
                 case Crupier.TURN:
-
-                    System.out.println("Loki TURN");
 
                     flop1 = new org.vermeir.poker.handranking.Card(getCardSuit(Game.getInstance().getFlop1()), Game.getInstance().getFlop1().getValorNumerico());
                     flop2 = new org.vermeir.poker.handranking.Card(getCardSuit(Game.getInstance().getFlop2()), Game.getInstance().getFlop2().getValorNumerico());
@@ -109,7 +106,7 @@ public class Bot {
                     break;
 
                 case Crupier.RIVER:
-                    System.out.println("Loki RIVER");
+
                     flop1 = new org.vermeir.poker.handranking.Card(getCardSuit(Game.getInstance().getFlop1()), Game.getInstance().getFlop1().getValorNumerico());
                     flop2 = new org.vermeir.poker.handranking.Card(getCardSuit(Game.getInstance().getFlop2()), Game.getInstance().getFlop2().getValorNumerico());
                     flop3 = new org.vermeir.poker.handranking.Card(getCardSuit(Game.getInstance().getFlop3()), Game.getInstance().getFlop3().getValorNumerico());
@@ -146,11 +143,6 @@ public class Bot {
             double effectiveStrength = player.getHandStrength() + (1 - player.getHandStrength()) * player.getPositiveHandPotential() - player.getHandStrength() * player.getNegativeHandPotential();
 
             double poseffectiveStrength = player.getHandStrength() + (1 - player.getHandStrength()) * player.getPositiveHandPotential();
-
-            System.out.println("HandStrength: " + player.getHandStrength());
-            System.out.println("Positive Potential: " + player.getPositiveHandPotential());
-            System.out.println("Negative Potential: " + player.getNegativeHandPotential());
-            System.out.println("EffectiveHandStrength: " + effectiveStrength);
 
             if (poseffectiveStrength > 0.5f && Game.getInstance().getCrupier().getConta_bet() < 2) {
 

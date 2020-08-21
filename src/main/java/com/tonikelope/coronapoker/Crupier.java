@@ -2985,8 +2985,6 @@ public class Crupier implements Runnable {
 
                             action = this.readActionFromRemotePlayer(current_player);
 
-                            decision = (int) action[0];
-
                         } else {
 
                             //Vamos a comprobar qué acciones podría hacer el bot
@@ -3019,15 +3017,61 @@ public class Crupier implements Runnable {
 
                             }
 
-                            //Pausa random de palo
-                            Helpers.pausar((Helpers.PRNG_GENERATOR.nextInt(2) + 2) * 1000);
+                            int decision_loki = Bot.calculateBotDecision(current_player, resisten.size());
 
-                            //Los bots sólo hacen ALLIN de momento
-                            action = new Object[]{Player.ALLIN, ""};
+                            switch (decision_loki) {
 
-                            decision = (int) action[0];
+                                case Player.CHECK:
 
+                                    if (allin) {
+                                        action = new Object[]{Player.ALLIN, ""};
+                                    } else {
+                                        action = new Object[]{Player.CHECK, 0f};
+                                    }
+
+                                    break;
+
+                                case Player.BET:
+                                    if (bet) {
+
+                                        float b;
+
+                                        if (Helpers.float1DSecureCompare(0f, getApuesta_actual()) == 0) {
+                                            b = Math.min(current_player.getStack(), this.getCiega_grande() * (Helpers.PRNG_GENERATOR.nextInt(4) + 1));
+                                        } else {
+                                            b = current_player.getBet() + call_required + min_raise;
+                                        }
+
+                                        if (Helpers.float1DSecureCompare(current_player.getStack(), b) == 0) {
+
+                                            action = new Object[]{Player.ALLIN, ""};
+
+                                        } else {
+
+                                            action = new Object[]{Player.BET, b};
+
+                                        }
+
+                                    } else if (check || call) {
+
+                                        action = new Object[]{Player.CHECK, 0f};
+
+                                    } else {
+
+                                        action = new Object[]{Player.ALLIN, ""};
+
+                                    }
+
+                                    break;
+
+                                default:
+                                    action = new Object[]{decision_loki, 0f};
+                            }
+
+                            Helpers.pausar(1000);
                         }
+
+                        decision = (int) action[0];
 
                         if (decision == Player.ALLIN) {
 

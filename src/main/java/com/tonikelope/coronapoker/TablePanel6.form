@@ -29,9 +29,9 @@
                   <Group type="102" alignment="0" attributes="0">
                       <Component id="localPlayer" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="32767" attributes="0"/>
-                      <Component id="remotePlayer4" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="32767" attributes="0"/>
                       <Component id="remotePlayer5" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace max="32767" attributes="0"/>
+                      <Component id="remotePlayer4" min="-2" max="-2" attributes="0"/>
                   </Group>
                   <Group type="102" alignment="0" attributes="0">
                       <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
@@ -57,8 +57,8 @@
               <EmptySpace type="separate" max="32767" attributes="0"/>
               <Group type="103" groupAlignment="0" attributes="0">
                   <Component id="localPlayer" alignment="1" min="-2" max="-2" attributes="0"/>
-                  <Component id="remotePlayer4" alignment="1" min="-2" max="-2" attributes="0"/>
                   <Component id="remotePlayer5" alignment="1" min="-2" max="-2" attributes="0"/>
+                  <Component id="remotePlayer4" alignment="1" min="-2" max="-2" attributes="0"/>
               </Group>
               <EmptySpace max="-2" attributes="0"/>
           </Group>

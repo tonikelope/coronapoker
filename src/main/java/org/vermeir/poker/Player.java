@@ -232,10 +232,14 @@ public class Player {
                     impliedPlayerCards.addAll(playerCards);
                     impliedEnemyCards.addAll(enemyCards);
 
-                    Card u3 = remainingCards.get(boardCombi.get(0) - 1);
-                    impliedPlayerCards.add(u3);
-                    impliedEnemyCards.add(u3);
-                    if (effectiveOdds) {
+                    if (impliedPlayerCards.size() < 6 && impliedEnemyCards.size() < 6) {
+
+                        Card u3 = remainingCards.get(boardCombi.get(0) - 1);
+                        impliedPlayerCards.add(u3);
+                        impliedEnemyCards.add(u3);
+                    }
+
+                    if (effectiveOdds && impliedPlayerCards.size() < 7 && impliedEnemyCards.size() < 7) {
                         Card u4 = remainingCards.get(boardCombi.get(1) - 1);
                         impliedPlayerCards.add(u4);
                         impliedEnemyCards.add(u4);

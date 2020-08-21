@@ -98,7 +98,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     private final ZoomableInterface[] zoomeables;
     private final Card[] cartas_comunes;
-    private final ArrayList<PlayerInterface> jugadores;
+    private final ArrayList<Player> jugadores;
     private final Map<String, Participant> participantes;
     private volatile GameLogDialog registro_dialog = null;
     private final int contador_manos = 0;
@@ -406,9 +406,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.playWavResource("misc/uncover.wav");
 
-        PlayerInterface[] players = tapete.getPlayers();
+        Player[] players = tapete.getPlayers();
 
-        for (PlayerInterface jugador : players) {
+        for (Player jugador : players) {
 
             jugador.getPlayingCard1().refreshCard();
             jugador.getPlayingCard2().refreshCard();
@@ -819,7 +819,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return zoomeables;
     }
 
-    public ArrayList<PlayerInterface> getJugadores() {
+    public ArrayList<Player> getJugadores() {
         return jugadores;
     }
 
@@ -1066,7 +1066,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         this.getContentPane().add(tapete);
 
-        PlayerInterface[] players = tapete.getPlayers();
+        Player[] players = tapete.getPlayers();
 
         this.sala_espera = sala_espera;
 
@@ -1175,7 +1175,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         }
 
         //Desactivamos los sitios no usados
-        for (PlayerInterface j : players) {
+        for (Player j : players) {
             if (!this.jugadores.contains(j)) {
                 j.disablePlayer(false);
                 this.getContentPane().remove((Component) j);
@@ -1185,7 +1185,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         this.getContentPane().revalidate();
 
         //Metemos la pasta a todos (el BUY IN se podría parametrizar)
-        for (PlayerInterface jugador : this.jugadores) {
+        for (Player jugador : this.jugadores) {
             jugador.setStack(Game.BUYIN);
         }
 

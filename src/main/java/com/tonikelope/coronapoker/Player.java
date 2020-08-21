@@ -22,7 +22,7 @@ import javax.swing.JLabel;
  *
  * @author tonikelope
  */
-public interface PlayerInterface {
+public interface Player {
 
     public static final int NODEC = -1;
     public static final int FOLD = 1;

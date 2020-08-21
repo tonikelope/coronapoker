@@ -97,12 +97,12 @@ public class GameLogDialog extends javax.swing.JDialog {
         return text;
     }
 
-    public synchronized void actualizarCartasPerdedores(HashMap<PlayerInterface, Hand> perdedores) {
+    public synchronized void actualizarCartasPerdedores(HashMap<Player, Hand> perdedores) {
 
         if (perdedores != null && !perdedores.isEmpty()) {
-            for (Map.Entry<PlayerInterface, Hand> entry : perdedores.entrySet()) {
+            for (Map.Entry<Player, Hand> entry : perdedores.entrySet()) {
 
-                PlayerInterface perdedor = entry.getKey();
+                Player perdedor = entry.getKey();
 
                 Hand jugada = entry.getValue();
 

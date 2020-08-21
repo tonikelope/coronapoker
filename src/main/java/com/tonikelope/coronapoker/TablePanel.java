@@ -25,7 +25,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
     protected RemotePlayer[] remotePlayers;
 
-    protected PlayerInterface[] players;
+    protected Player[] players;
 
     protected ZoomableInterface[] zoomables;
 
@@ -33,7 +33,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
         return remotePlayers;
     }
 
-    public PlayerInterface[] getPlayers() {
+    public Player[] getPlayers() {
         return players;
     }
 

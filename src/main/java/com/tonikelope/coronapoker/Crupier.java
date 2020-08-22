@@ -3028,14 +3028,14 @@ public class Crupier implements Runnable {
 
                             int decision_loki = Bot.calculateBotDecision(current_player, resisten.size());
 
+                            action = new Object[]{decision_loki, 0f};
+
                             switch (decision_loki) {
 
                                 case Player.FOLD:
 
                                     if (Helpers.float1DSecureCompare(0f, this.getApuesta_actual()) == 0 || Helpers.float1DSecureCompare(current_player.getBet(), this.getApuesta_actual()) == 0) {
                                         action = new Object[]{Player.CHECK, 0f};
-                                    } else {
-                                        action = new Object[]{decision_loki, 0f};
                                     }
 
                                     break;
@@ -3056,7 +3056,7 @@ public class Crupier implements Runnable {
                                         float b;
 
                                         if (Helpers.float1DSecureCompare(0f, getApuesta_actual()) == 0) {
-                                            b = Math.min(current_player.getStack(), this.getCiega_grande() * (Helpers.PRNG_GENERATOR.nextInt(4) + 1));
+                                            b = Math.min(current_player.getStack(), this.getCiega_grande() * (Helpers.PRNG_GENERATOR.nextInt(3) + 1));
                                         } else {
                                             b = current_player.getBet() + call_required + min_raise;
                                         }
@@ -3082,9 +3082,6 @@ public class Crupier implements Runnable {
                                     }
 
                                     break;
-
-                                default:
-                                    action = new Object[]{decision_loki, 0f};
                             }
 
                             Helpers.pausar(1000);
@@ -5262,13 +5259,27 @@ public class Crupier implements Runnable {
     }
 
     private HashMap<Player, Hand> desempatarEscalera(HashMap<Player, Hand> jugadores) {
-        int carta_alta = 1;
+        int carta_alta = -1;
+        boolean escalera_as = false;
 
-        //Averiguamos la carta más alta de la escalera
+        //Miramos si hay alguna escalera al AS
         for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
             Hand jugada = entry.getValue();
-            if (jugada.getMano().get(0).getValorNumerico(true) > carta_alta) {
-                carta_alta = jugada.getMano().get(0).getValorNumerico(true);
+            if (Hand.isEscaleraAs(jugada)) {
+                escalera_as = true;
+                carta_alta = jugada.getMano().get(0).getValorNumerico();
+                break;
+            }
+        }
+
+        //Si es una escalera "normal" averiguamos la carta más alta
+        if (!escalera_as) {
+
+            for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
+                Hand jugada = entry.getValue();
+                if (jugada.getMano().get(0).getValorNumerico(!escalera_as) > carta_alta) {
+                    carta_alta = jugada.getMano().get(0).getValorNumerico(!escalera_as);
+                }
             }
         }
 
@@ -5276,7 +5287,7 @@ public class Crupier implements Runnable {
         for (Iterator<Map.Entry<Player, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
             Map.Entry<Player, Hand> entry = it.next();
             Hand jugada = entry.getValue();
-            if (jugada.getMano().get(0).getValorNumerico(true) < carta_alta) {
+            if (jugada.getMano().get(0).getValorNumerico(!escalera_as) < carta_alta) {
                 it.remove();
             }
         }

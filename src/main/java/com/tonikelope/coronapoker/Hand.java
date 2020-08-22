@@ -235,7 +235,8 @@ public class Hand {
 
         ArrayList<Card> cartas = new ArrayList<>(c);
 
-        Card.sortAceLowCollection(cartas);
+        //Primero escalera al AS
+        Card.sortCollection(cartas);
 
         ArrayList<Card> norepes = new ArrayList<>();
 
@@ -243,11 +244,20 @@ public class Hand {
 
         for (Card carta : cartas) {
 
-            if (last == -1 || carta.getValorNumerico(true) != last) {
+            if (last == -1 || carta.getValorNumerico() != last) {
                 norepes.add(carta);
-                last = carta.getValorNumerico(true);
+                last = carta.getValorNumerico();
             }
         }
+
+        ArrayList<Card> escalera_as;
+
+        if (norepes.size() >= Crupier.CARTAS_ESCALERA && (escalera_as = checkCorrelativas(norepes, false)) != null) {
+
+            return escalera_as;
+        }
+
+        Card.sortAceLowCollection(norepes);
 
         return norepes.size() >= Crupier.CARTAS_ESCALERA ? checkCorrelativas(norepes, true) : null;
     }
@@ -346,6 +356,12 @@ public class Hand {
 
         return (color != null && color.size() >= Crupier.CARTAS_COLOR) ? new ArrayList<Card>(color.subList(0, Crupier.CARTAS_COLOR)) : null;
     }
+
+    public static boolean isEscaleraAs(Hand escalera) {
+
+        return escalera.getVal() == ESCALERA && escalera.getMano().get(0).getValor().equals("A");
+    }
+
     ArrayList<Card> cartas_utilizables;
     ArrayList<Card> mano;
     ArrayList<Card> winners;

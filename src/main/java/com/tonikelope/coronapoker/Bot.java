@@ -58,11 +58,15 @@ public class Bot {
                             || (cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo()) && (cpu_player.getPlayingCard1().getValorNumerico() >= 10 || cpu_player.getPlayingCard2().getValorNumerico() >= 10))
                             || (cpu_player.getPlayingCard1().getValorNumerico() >= 12 && cpu_player.getPlayingCard2().getValorNumerico() >= 12)) {
 
-                        return Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.BET : Player.CHECK;
+                        return Helpers.SPRNG_GENERATOR.nextBoolean() && Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
+
+                    } else if (Helpers.SPRNG_GENERATOR.nextBoolean()) {
+
+                        return Player.CHECK;
 
                     } else {
 
-                        return Helpers.SPRNG_GENERATOR.nextBoolean() && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 4 * Game.getInstance().getCrupier().getCiega_grande()) <= 0 ? Player.CHECK : Player.FOLD;
+                        return Helpers.SPRNG_GENERATOR.nextBoolean() && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 3 * Game.getInstance().getCrupier().getCiega_grande()) <= 0 ? Player.CHECK : Player.FOLD;
                     }
 
                 case Crupier.FLOP:
@@ -153,6 +157,12 @@ public class Bot {
                 return poseffectiveStrength > 0.35f ? Player.CHECK : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.CHECK : Player.FOLD);
 
             } else {
+
+                if (Game.getInstance().getCrupier().getFase() == Crupier.RIVER && Helpers.SPRNG_GENERATOR.nextBoolean() && Game.getInstance().getCrupier().getConta_bet() < 2) {
+
+                    //Si llegamos al River con una mano mala intentamos un farol el 50%
+                    return Player.BET;
+                }
 
                 return Player.FOLD;
             }

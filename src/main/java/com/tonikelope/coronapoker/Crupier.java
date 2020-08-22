@@ -491,7 +491,14 @@ public class Crupier implements Runnable {
 
                             if (Helpers.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
 
-                                sendCommandToServer("CINEMATICEND");
+                                if (Game.getInstance().isPartida_local()) {
+
+                                    broadcastCommandFromServer("CINEMATICEND", null);
+
+                                } else {
+
+                                    sendCommandToServer("CINEMATICEND");
+                                }
 
                                 playing_cinematic = false;
 

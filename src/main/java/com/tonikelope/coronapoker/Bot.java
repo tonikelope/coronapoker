@@ -60,10 +60,6 @@ public class Bot {
 
                         return Helpers.SPRNG_GENERATOR.nextBoolean() && Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
 
-                    } else if (Helpers.SPRNG_GENERATOR.nextBoolean()) {
-
-                        return Player.CHECK;
-
                     } else {
 
                         return Helpers.SPRNG_GENERATOR.nextBoolean() && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 3 * Game.getInstance().getCrupier().getCiega_grande()) <= 0 ? Player.CHECK : Player.FOLD;
@@ -152,15 +148,15 @@ public class Bot {
 
                 return poseffectiveStrength > 0.7f ? Player.BET : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.BET : Player.CHECK);
 
-            } else if (effectiveStrength > 0.15f) {
+            } else if (effectiveStrength > 0.15f && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 3 * Game.getInstance().getCrupier().getCiega_grande()) <= 0) {
 
                 return poseffectiveStrength > 0.35f ? Player.CHECK : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.CHECK : Player.FOLD);
 
             } else {
 
-                if (Game.getInstance().getCrupier().getFase() == Crupier.RIVER && Helpers.SPRNG_GENERATOR.nextBoolean() && Game.getInstance().getCrupier().getConta_bet() < 2) {
+                if (Game.getInstance().getCrupier().getFase() == Crupier.RIVER && Helpers.SPRNG_GENERATOR.nextInt(3) == 0 && Game.getInstance().getCrupier().getConta_bet() < 2 && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 3 * Game.getInstance().getCrupier().getCiega_grande()) <= 0) {
 
-                    //Si llegamos al River con una mano mala intentamos un farol el 50%
+                    //Si llegamos al River con una mano mala intentamos un farol
                     return Player.BET;
                 }
 

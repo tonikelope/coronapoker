@@ -1803,8 +1803,12 @@ public class WaitingRoom extends javax.swing.JFrame {
                 // TODO add your handling code here:
                 String bot_nick;
 
+                int conta_bot = 0;
+
                 do {
-                    bot_nick = "CoronaBot#" + Helpers.genRandomString(3);
+                    conta_bot++;
+
+                    bot_nick = "CoronaBot#" + String.valueOf(conta_bot);
 
                 } while (participantes.get(bot_nick) != null);
 

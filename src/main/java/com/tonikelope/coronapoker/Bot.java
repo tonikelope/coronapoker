@@ -75,7 +75,7 @@ public class Bot {
                             || (cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo()) && (cpu_player.getPlayingCard1().getValorNumerico() >= 10 || cpu_player.getPlayingCard2().getValorNumerico() >= 10))
                             || (cpu_player.getPlayingCard1().getValorNumerico() >= 12 && cpu_player.getPlayingCard2().getValorNumerico() >= 12)) {
 
-                        if (!check_raise && Helpers.float1DSecureCompare(0f, Game.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
+                        if (cpu_player.getPos() != Game.getInstance().getCrupier().getBig_pos() && !check_raise && Helpers.float1DSecureCompare(0f, Game.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
 
                             check_raise = true;
 
@@ -171,7 +171,7 @@ public class Bot {
 
             if (poseffectiveStrength >= 0.85f) {
 
-                if (!check_raise && Helpers.float1DSecureCompare(0f, Game.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.SPRNG_GENERATOR.nextInt(3) != 0) {
+                if (!check_raise && Helpers.SPRNG_GENERATOR.nextBoolean()) {
 
                     check_raise = true;
 
@@ -183,33 +183,55 @@ public class Bot {
 
             } else if (poseffectiveStrength >= 0.5f) {
 
-                if (Game.getInstance().getCrupier().getConta_bet() == 0 || check_raise) {
+                if (!check_raise && Game.getInstance().getCrupier().getConta_bet() == 0) {
 
                     if (poseffectiveStrength >= 0.7f) {
 
-                        if (!check_raise && Game.getInstance().getCrupier().getConta_bet() == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
-
-                            check_raise = true;
+                        if (Helpers.SPRNG_GENERATOR.nextInt(5) != 0) {
 
                             return Player.CHECK;
+
+                        } else {
+
+                            if (!check_raise && Helpers.SPRNG_GENERATOR.nextBoolean()) {
+
+                                check_raise = true;
+
+                                return Player.CHECK;
+                            }
+
                         }
 
                         return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
 
-                    } else if (poseffectiveStrength >= 0.5f) {
+                    } else {
 
-                        if (!check_raise && Game.getInstance().getCrupier().getConta_bet() == 0 && Helpers.SPRNG_GENERATOR.nextInt(3) == 0) {
-
-                            check_raise = true;
+                        if (Helpers.SPRNG_GENERATOR.nextBoolean()) {
 
                             return Player.CHECK;
+
+                        } else {
+
+                            if (!check_raise && Helpers.SPRNG_GENERATOR.nextBoolean()) {
+
+                                check_raise = true;
+
+                                return Player.CHECK;
+                            }
+
                         }
 
-                        return (check_raise && Game.getInstance().getCrupier().getConta_bet() < 2) ? Player.BET : Player.CHECK;
+                        return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
                     }
 
+                } else if (check_raise) {
+
+                    return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
+
                 } else if (!(Helpers.float1DSecureCompare(0f, cpu_player.getBet()) == 0 && Game.getInstance().getCrupier().getConta_bet() >= 2)) {
+
                     return Player.CHECK;
+
                 }
             }
 

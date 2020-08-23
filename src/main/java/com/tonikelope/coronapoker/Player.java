@@ -116,4 +116,6 @@ public interface Player {
 
     public void unsetSpectator();
 
+    public int getPos();
+
 }

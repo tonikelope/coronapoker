@@ -64,6 +64,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile float slider_divisor = 10f;
     private volatile boolean playing_animation = false;
     private volatile int parguela_counter = Game.PARGUELA_COUNTER;
+    private volatile int conta_bet = 0;
 
     public boolean isTurno() {
         return turno;
@@ -1042,6 +1043,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.bote = 0f;
 
         this.bet = 0f;
+
+        this.conta_bet = 0;
 
         setStack(stack + pagar);
 

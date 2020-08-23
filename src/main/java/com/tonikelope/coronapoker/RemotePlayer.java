@@ -52,6 +52,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private float call_required;
     private volatile boolean disabled;
     private volatile boolean turno = false;
+    private volatile Bot bot = null;
+    private volatile int conta_bet = 0;
+
+    public void setBot(Bot bot) {
+        this.bot = bot;
+    }
+
+    public Bot getBot() {
+        return bot;
+    }
 
     public boolean isTurno() {
         return turno;
@@ -547,6 +557,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_bet.setForeground(Color.BLACK);
 
         player_buyin.setText(String.valueOf(Game.BUYIN));
+
     }
 
     public Card getPlayingCard1() {
@@ -570,6 +581,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             }
         });
+
+        if (Game.getInstance().getParticipantes().get(this.nickname).isCpu()) {
+            this.bot = new Bot(this);
+        }
     }
 
     /**
@@ -1103,6 +1118,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.bote = 0f;
 
         this.bet = 0f;
+
+        this.conta_bet = 0;
+
+        if (this.bot != null) {
+            this.bot.resetBot();
+        }
 
         setStack(stack + pagar);
 

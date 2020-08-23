@@ -142,9 +142,9 @@ public class Crupier implements Runnable {
     public static boolean FUSION_MOD_CINEMATICS = true;
 
     //Segundos para doblar ciegas
-    private int mano = 0;
-    private float bote_total = 0f;
-    private float apuestas = 0f;
+    private volatile int mano = 0;
+    private volatile float bote_total = 0f;
+    private volatile float apuestas = 0f;
     private float ciega_grande = Game.CIEGA_GRANDE;
     private float ciega_pequeña = Game.CIEGA_PEQUEÑA;
     private Integer[] permutacion_baraja;
@@ -1864,6 +1864,10 @@ public class Crupier implements Runnable {
 
     }
 
+    public float getBote_total() {
+        return bote_total;
+    }
+
     private boolean NUEVA_MANO() {
 
         Helpers.GUIRun(new Runnable() {
@@ -2871,7 +2875,13 @@ public class Crupier implements Runnable {
                 this.conta_bet = 0;
 
                 for (Player jugador : resisten) {
+
                     jugador.setBet(0f);
+
+                    if (Game.getInstance().getLocalPlayer() != jugador && ((RemotePlayer) jugador).getBot() != null) {
+
+                        ((RemotePlayer) jugador).getBot().resetBot();
+                    }
                 }
             }
 
@@ -3033,7 +3043,7 @@ public class Crupier implements Runnable {
 
                             }
 
-                            int decision_loki = Bot.calculateBotDecision(current_player, resisten.size());
+                            int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision(resisten.size());
 
                             action = new Object[]{decision_loki, 0f};
 

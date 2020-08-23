@@ -53,7 +53,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean loser = false;
     private volatile Float apuesta_recuperada = null;
     private volatile boolean click_recuperacion = false;
-    private int pos;
+    private volatile int pos;
     private float call_required;
     private float min_raise;
     private final ConcurrentHashMap<JButton, Color[]> action_button_colors = new ConcurrentHashMap<>();
@@ -64,7 +64,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile float slider_divisor = 10f;
     private volatile boolean playing_animation = false;
     private volatile int parguela_counter = Game.PARGUELA_COUNTER;
-    private volatile int conta_bet = 0;
+
+    public int getPos() {
+        return pos;
+    }
 
     public boolean isTurno() {
         return turno;
@@ -1043,8 +1046,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.bote = 0f;
 
         this.bet = 0f;
-
-        this.conta_bet = 0;
 
         setStack(stack + pagar);
 

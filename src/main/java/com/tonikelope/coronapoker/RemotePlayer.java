@@ -48,12 +48,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private boolean timeout_val = false;
     private boolean winner = false;
     private boolean loser = false;
-    private int pos;
+    private volatile int pos;
     private float call_required;
     private volatile boolean disabled;
     private volatile boolean turno = false;
     private volatile Bot bot = null;
-    private volatile int conta_bet = 0;
+
+    public int getPos() {
+        return pos;
+    }
 
     public void setBot(Bot bot) {
         this.bot = bot;
@@ -1118,8 +1121,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.bote = 0f;
 
         this.bet = 0f;
-
-        this.conta_bet = 0;
 
         if (this.bot != null) {
             this.bot.resetBot();

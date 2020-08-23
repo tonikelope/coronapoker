@@ -29,23 +29,20 @@ public class Bot {
     public static final String PALOS = "TDCP";
 
     private RemotePlayer cpu_player = null;
-    private boolean check_raise = false;
     private boolean semi_bluff = false;
 
     public Bot(RemotePlayer player) {
 
         this.cpu_player = player;
-        check_raise = false;
         semi_bluff = false;
     }
 
     public void resetBot() {
 
-        check_raise = false;
         semi_bluff = false;
     }
 
-    public int calculateBotDecision(int resisten) {
+    public int calculateBotDecision() {
 
         try {
 
@@ -75,19 +72,11 @@ public class Bot {
                             || (cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo()) && (cpu_player.getPlayingCard1().getValorNumerico() >= 10 || cpu_player.getPlayingCard2().getValorNumerico() >= 10))
                             || (cpu_player.getPlayingCard1().getValorNumerico() >= 12 && cpu_player.getPlayingCard2().getValorNumerico() >= 12)) {
 
-                        if (cpu_player.getPos() != Game.getInstance().getCrupier().getBig_pos() && !check_raise && Helpers.float1DSecureCompare(0f, Game.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
-
-                            check_raise = true;
-
-                            return Player.CHECK;
-
-                        }
-
                         return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
 
                     } else {
 
-                        return Helpers.SPRNG_GENERATOR.nextBoolean() && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 4 * Game.getInstance().getCrupier().getCiega_grande()) <= 0 ? Player.CHECK : Player.FOLD;
+                        return (Helpers.SPRNG_GENERATOR.nextBoolean() && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 4 * Game.getInstance().getCrupier().getCiega_grande()) <= 0) ? Player.CHECK : Player.FOLD;
                     }
 
                 case Crupier.FLOP:
@@ -163,81 +152,24 @@ public class Bot {
 
             org.vermeir.poker.Player player = new org.vermeir.poker.Player(card1, card2, gameState);
 
-            player.calculateHandPotential(weightArray, resisten, true, remainingCards);
+            player.calculateHandPotential(weightArray, Game.getInstance().getCrupier().getJugadoresActivos() - 1, true, remainingCards);
 
             double effectiveStrength = player.getHandStrength() + (1 - player.getHandStrength()) * player.getPositiveHandPotential() - player.getHandStrength() * player.getNegativeHandPotential();
 
             double poseffectiveStrength = player.getHandStrength() + (1 - player.getHandStrength()) * player.getPositiveHandPotential();
 
-            if (poseffectiveStrength >= 0.85f) {
+            if (poseffectiveStrength > 0.5f && Game.getInstance().getCrupier().getConta_bet() < 2) {
 
-                if (!check_raise && Helpers.SPRNG_GENERATOR.nextBoolean()) {
+                return poseffectiveStrength > 0.7f ? Player.BET : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.BET : Player.CHECK);
 
-                    check_raise = true;
+            } else if (effectiveStrength > 0.15f && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 3 * Game.getInstance().getCrupier().getCiega_grande()) <= 0) {
 
-                    return Player.CHECK;
-
-                }
-
-                return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
-
-            } else if (poseffectiveStrength >= 0.5f) {
-
-                if (!check_raise && Game.getInstance().getCrupier().getConta_bet() == 0) {
-
-                    if (poseffectiveStrength >= 0.7f) {
-
-                        if (Helpers.SPRNG_GENERATOR.nextInt(5) != 0) {
-
-                            return Player.CHECK;
-
-                        } else {
-
-                            if (!check_raise && Helpers.SPRNG_GENERATOR.nextBoolean()) {
-
-                                check_raise = true;
-
-                                return Player.CHECK;
-                            }
-
-                        }
-
-                        return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
-
-                    } else {
-
-                        if (Helpers.SPRNG_GENERATOR.nextBoolean()) {
-
-                            return Player.CHECK;
-
-                        } else {
-
-                            if (!check_raise && Helpers.SPRNG_GENERATOR.nextBoolean()) {
-
-                                check_raise = true;
-
-                                return Player.CHECK;
-                            }
-
-                        }
-
-                        return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
-                    }
-
-                } else if (check_raise) {
-
-                    return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
-
-                } else if (!(Helpers.float1DSecureCompare(0f, cpu_player.getBet()) == 0 && Game.getInstance().getCrupier().getConta_bet() >= 2)) {
-
-                    return Player.CHECK;
-
-                }
+                return poseffectiveStrength > 0.35f ? Player.CHECK : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.CHECK : Player.FOLD);
             }
 
-            if (Helpers.float1DSecureCompare(0f, Game.getInstance().getCrupier().getApuesta_actual()) == 0) {
+            if (Game.getInstance().getCrupier().getConta_bet() == 0) {
 
-                if (this.semi_bluff || (Helpers.SPRNG_GENERATOR.nextBoolean() && Game.getInstance().getCrupier().getFase() != Crupier.RIVER && player.getPositiveHandPotential() >= potOdds2())) {
+                if (this.semi_bluff || (Helpers.SPRNG_GENERATOR.nextInt(5) == 0 && Game.getInstance().getCrupier().getFase() != Crupier.RIVER && player.getPositiveHandPotential() >= potOdds2())) {
 
                     this.semi_bluff = true;
 
@@ -247,12 +179,12 @@ public class Bot {
                 return Player.CHECK;
             }
 
-            if (Helpers.SPRNG_GENERATOR.nextBoolean() && Game.getInstance().getCrupier().getFase() == Crupier.RIVER && effectiveStrength >= potOdds()) {
+            if (Game.getInstance().getCrupier().getFase() == Crupier.RIVER && effectiveStrength >= potOdds()) {
 
                 return Player.CHECK;
             }
 
-            if (Helpers.SPRNG_GENERATOR.nextBoolean() && Game.getInstance().getCrupier().getFase() != Crupier.RIVER && player.getPositiveHandPotential() >= potOdds()) {
+            if (Game.getInstance().getCrupier().getFase() != Crupier.RIVER && player.getPositiveHandPotential() >= potOdds()) {
 
                 return Player.CHECK;
             }
@@ -269,7 +201,7 @@ public class Bot {
                 showdown_cost = Game.getInstance().getCrupier().getApuesta_actual();
             }
 
-            if (Helpers.SPRNG_GENERATOR.nextBoolean() && effectiveStrength >= showdownOdds(showdown_cost)) {
+            if (effectiveStrength >= showdownOdds(showdown_cost)) {
 
                 return Player.CHECK;
             }

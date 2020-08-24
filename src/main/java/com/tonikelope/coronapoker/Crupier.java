@@ -191,6 +191,10 @@ public class Crupier implements Runnable {
     private volatile String current_local_cinematic_b64 = null;
     private volatile String current_remote_cinematic_b64 = null;
 
+    public float getApuestas() {
+        return apuestas;
+    }
+
     public int getConta_bet() {
         return conta_bet;
     }

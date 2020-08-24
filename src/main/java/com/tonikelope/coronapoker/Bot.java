@@ -8,8 +8,7 @@ package com.tonikelope.coronapoker;
 /**
  *
  * FULLY EXPERIMENTAL. Based on the mythical Alberta's Loki Bot
- * https://poker.cs.ualberta.ca/publications/papp.msc.pdf MUCH to improve but
- * playable.
+ * https://poker.cs.ualberta.ca/publications/papp.msc.pdf
  *
  * @author tonikelope
  */
@@ -45,8 +44,6 @@ public class Bot {
         org.alberta.poker.Card turn;
         org.alberta.poker.Card river;
 
-        org.alberta.poker.Hand flop;
-
         switch (Game.getInstance().getCrupier().getFase()) {
 
             case Crupier.PREFLOP:
@@ -65,7 +62,6 @@ public class Bot {
             case Crupier.FLOP:
 
                 if (board.size() == 0) {
-                    flop = new org.alberta.poker.Hand();
 
                     flop1 = new org.alberta.poker.Card(Game.getInstance().getFlop1().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop1()));
                     flop2 = new org.alberta.poker.Card(Game.getInstance().getFlop2().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop2()));
@@ -81,7 +77,6 @@ public class Bot {
             case Crupier.TURN:
 
                 if (board.size() == 0) {
-                    flop = new org.alberta.poker.Hand();
 
                     flop1 = new org.alberta.poker.Card(Game.getInstance().getFlop1().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop1()));
                     flop2 = new org.alberta.poker.Card(Game.getInstance().getFlop2().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop2()));
@@ -101,7 +96,6 @@ public class Bot {
             case Crupier.RIVER:
 
                 if (board.size() == 0) {
-                    flop = new org.alberta.poker.Hand();
 
                     flop1 = new org.alberta.poker.Card(Game.getInstance().getFlop1().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop1()));
                     flop2 = new org.alberta.poker.Card(Game.getInstance().getFlop2().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop2()));

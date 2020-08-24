@@ -3043,7 +3043,7 @@ public class Crupier implements Runnable {
 
                             }
 
-                            int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision();
+                            int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision(resisten.size() - 1);
 
                             action = new Object[]{decision_loki, 0f};
 

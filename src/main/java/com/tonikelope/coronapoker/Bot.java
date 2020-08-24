@@ -21,7 +21,6 @@ public class Bot {
 
     private RemotePlayer cpu_player = null;
     private boolean semi_bluff = false;
-    private int check_raise = 0;
     private org.alberta.poker.Card card1 = null;
     private org.alberta.poker.Card card2 = null;
     private int conta_call = 0;
@@ -29,7 +28,6 @@ public class Bot {
     public Bot(RemotePlayer player) {
         this.cpu_player = player;
         semi_bluff = false;
-        check_raise = 0;
         conta_call = 0;
     }
 
@@ -54,19 +52,6 @@ public class Bot {
                     || (cpu_player.getPlayingCard1().getValorNumerico() >= 12 && cpu_player.getPlayingCard2().getValorNumerico() >= 12)) {
 
                 conta_call++;
-
-                if (check_raise == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
-
-                    check_raise = 1;
-
-                    return Player.CHECK;
-
-                } else if (check_raise == 1) {
-
-                    check_raise = 2;
-
-                    return Player.BET;
-                }
 
                 return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
 

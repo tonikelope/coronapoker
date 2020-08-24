@@ -1905,6 +1905,8 @@ public class Crupier implements Runnable {
 
         this.mano++;
 
+        Bot.BOT_COMMUNITY_CARDS.makeEmpty();
+
         Game.getInstance().getRegistro().print("\n*************** " + Translator.translate("MANO") + " (" + String.valueOf(this.mano) + ") ***************");
 
         //Colocamos al dealer, CP y CG
@@ -2792,6 +2794,11 @@ public class Crupier implements Runnable {
             if (jugador.isSpectator()) {
                 iterator.remove();
             }
+
+            if (Game.getInstance().getLocalPlayer() != jugador && ((RemotePlayer) jugador).getBot() != null) {
+
+                ((RemotePlayer) jugador).getBot().resetBot();
+            }
         }
 
         this.fase = fase;
@@ -2806,12 +2813,21 @@ public class Crupier implements Runnable {
                 switch (fase) {
                     case FLOP:
                         comando = "FLOPCARDS#" + Game.getInstance().getCartas_comunes()[0].toShortString() + "#" + Game.getInstance().getCartas_comunes()[1].toShortString() + "#" + Game.getInstance().getCartas_comunes()[2].toShortString();
+
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(Game.getInstance().getFlop1().getValorNumerico() - 2, Bot.getCardSuit(Game.getInstance().getFlop1())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(Game.getInstance().getFlop2().getValorNumerico() - 2, Bot.getCardSuit(Game.getInstance().getFlop2())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(Game.getInstance().getFlop3().getValorNumerico() - 2, Bot.getCardSuit(Game.getInstance().getFlop3())));
+
                         break;
                     case TURN:
                         comando = "TURNCARD#" + Game.getInstance().getCartas_comunes()[3].toShortString();
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(Game.getInstance().getTurn().getValorNumerico() - 2, Bot.getCardSuit(Game.getInstance().getTurn())));
+
                         break;
                     case RIVER:
                         comando = "RIVERCARD#" + Game.getInstance().getCartas_comunes()[4].toShortString();
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(Game.getInstance().getRiver().getValorNumerico() - 2, Bot.getCardSuit(Game.getInstance().getRiver())));
+
                         break;
                     default:
                         break;
@@ -2877,11 +2893,6 @@ public class Crupier implements Runnable {
                 for (Player jugador : resisten) {
 
                     jugador.setBet(0f);
-
-                    if (Game.getInstance().getLocalPlayer() != jugador && ((RemotePlayer) jugador).getBot() != null) {
-
-                        ((RemotePlayer) jugador).getBot().resetBot();
-                    }
                 }
             }
 
@@ -4968,12 +4979,6 @@ public class Crupier implements Runnable {
                                     } catch (UnsupportedEncodingException ex) {
                                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                     }
-
-                                    Helpers.GUIRun(new Runnable() {
-                                        public void run() {
-                                            Game.getInstance().getAuto_rebuy_menu().doClick();
-                                        }
-                                    });
                                 }
 
                             } else {

@@ -46,7 +46,7 @@ import javax.swing.Timer;
  */
 public final class Game extends javax.swing.JFrame implements ZoomableInterface {
 
-    public static final boolean DEBUG_TO_FILE = true;
+    public static final boolean DEBUG_TO_FILE = false;
     public static final String LOGS_DIR = "./CORONA_POKER_LOGS";
     public static final String REC_DIR = "./.CORONA_POKER_RECOVER";
     public static final boolean TEST_MODE = false;

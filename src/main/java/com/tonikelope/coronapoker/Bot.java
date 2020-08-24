@@ -7,7 +7,7 @@ package com.tonikelope.coronapoker;
 
 /**
  *
- * FULLY EXPERIMENTAL. Based on the mythical Alberta's Loki Bot
+ * FULLY EXPERIMENTAL. B-A-S-E-D on the mythical Alberta's Loki Bot
  * https://poker.cs.ualberta.ca/publications/papp.msc.pdf
  *
  * @author tonikelope
@@ -15,135 +15,97 @@ package com.tonikelope.coronapoker;
 public class Bot {
 
     public static final String PALOS = "TDCP";
+    public static final org.alberta.poker.Hand BOT_COMMUNITY_CARDS = new org.alberta.poker.Hand();
+    public static final org.alberta.poker.HandEvaluator HANDEVALUATOR = new org.alberta.poker.HandEvaluator();
+    public static final org.alberta.poker.ai.HandPotential HANDPOTENTIAL = new org.alberta.poker.ai.HandPotential();
 
     private RemotePlayer cpu_player = null;
     private boolean semi_bluff = false;
-    private org.alberta.poker.Hand board = null;
+    private int check_raise = 0;
+    private org.alberta.poker.Card card1 = null;
+    private org.alberta.poker.Card card2 = null;
 
     public Bot(RemotePlayer player) {
-
-        this.board = new org.alberta.poker.Hand();
         this.cpu_player = player;
         semi_bluff = false;
+        check_raise = 0;
     }
 
+    //LLAMAR DESDE EL CRUPIER UNA VEZ REPARTIDAS LAS CARTAS AL JUGADOR
     public void resetBot() {
 
-        this.board.makeEmpty();
+        card1 = new org.alberta.poker.Card(cpu_player.getPlayingCard1().getValorNumerico() - 2, getCardSuit(cpu_player.getPlayingCard1()));
+        card2 = new org.alberta.poker.Card(cpu_player.getPlayingCard2().getValorNumerico() - 2, getCardSuit(cpu_player.getPlayingCard2()));
         semi_bluff = false;
     }
 
     public int calculateBotDecision(int oponents) {
 
-        org.alberta.poker.Card card1 = new org.alberta.poker.Card(cpu_player.getPlayingCard1().getValorNumerico() - 2, getCardSuit(cpu_player.getPlayingCard1()));
-        org.alberta.poker.Card card2 = new org.alberta.poker.Card(cpu_player.getPlayingCard2().getValorNumerico() - 2, getCardSuit(cpu_player.getPlayingCard2()));
+        if (Game.getInstance().getCrupier().getFase() == Crupier.PREFLOP) {
 
-        org.alberta.poker.Card flop1;
-        org.alberta.poker.Card flop2;
-        org.alberta.poker.Card flop3;
-        org.alberta.poker.Card turn;
-        org.alberta.poker.Card river;
+            //Esto es claramente mejorable
+            boolean pareja = cpu_player.getPlayingCard1().getValorNumerico() == cpu_player.getPlayingCard2().getValorNumerico();
 
-        switch (Game.getInstance().getCrupier().getFase()) {
+            if ((pareja && cpu_player.getPlayingCard1().getValorNumerico() >= 7)
+                    || (cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo()) && (cpu_player.getPlayingCard1().getValorNumerico() >= 10 || cpu_player.getPlayingCard2().getValorNumerico() >= 10))
+                    || (cpu_player.getPlayingCard1().getValorNumerico() >= 12 && cpu_player.getPlayingCard2().getValorNumerico() >= 12)) {
 
-            case Crupier.PREFLOP:
+                if (check_raise == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
 
-                if ((cpu_player.getPlayingCard1().getValorNumerico() == cpu_player.getPlayingCard2().getValorNumerico() && cpu_player.getPlayingCard1().getValorNumerico() >= 7)
-                        || (cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo()) && (cpu_player.getPlayingCard1().getValorNumerico() >= 10 || cpu_player.getPlayingCard2().getValorNumerico() >= 10))
-                        || (cpu_player.getPlayingCard1().getValorNumerico() >= 12 && cpu_player.getPlayingCard2().getValorNumerico() >= 12)) {
+                    check_raise = 1;
 
-                    return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
+                    return Player.CHECK;
 
-                } else {
+                } else if (check_raise == 1) {
 
-                    return (Helpers.SPRNG_GENERATOR.nextBoolean() && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 4 * Game.getInstance().getCrupier().getCiega_grande()) <= 0) ? Player.CHECK : Player.FOLD;
+                    check_raise = 2;
+
+                    return Player.BET;
                 }
 
-            case Crupier.FLOP:
+                return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
 
-                if (board.size() == 0) {
+            } else if (Game.getInstance().getCrupier().getConta_bet() == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
 
-                    flop1 = new org.alberta.poker.Card(Game.getInstance().getFlop1().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop1()));
-                    flop2 = new org.alberta.poker.Card(Game.getInstance().getFlop2().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop2()));
-                    flop3 = new org.alberta.poker.Card(Game.getInstance().getFlop3().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop3()));
+                //Limpeamos el 50% de las manos a ver si suena la flauta
+                return Player.CHECK;
+            }
 
-                    board.addCard(flop1);
-                    board.addCard(flop2);
-                    board.addCard(flop3);
-                }
-
-                break;
-
-            case Crupier.TURN:
-
-                if (board.size() == 0) {
-
-                    flop1 = new org.alberta.poker.Card(Game.getInstance().getFlop1().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop1()));
-                    flop2 = new org.alberta.poker.Card(Game.getInstance().getFlop2().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop2()));
-                    flop3 = new org.alberta.poker.Card(Game.getInstance().getFlop3().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop3()));
-
-                    board.addCard(flop1);
-                    board.addCard(flop2);
-                    board.addCard(flop3);
-
-                    turn = new org.alberta.poker.Card(Game.getInstance().getTurn().getValorNumerico() - 2, getCardSuit(Game.getInstance().getTurn()));
-
-                    board.addCard(turn);
-                }
-
-                break;
-
-            case Crupier.RIVER:
-
-                if (board.size() == 0) {
-
-                    flop1 = new org.alberta.poker.Card(Game.getInstance().getFlop1().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop1()));
-                    flop2 = new org.alberta.poker.Card(Game.getInstance().getFlop2().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop2()));
-                    flop3 = new org.alberta.poker.Card(Game.getInstance().getFlop3().getValorNumerico() - 2, getCardSuit(Game.getInstance().getFlop3()));
-
-                    board.addCard(flop1);
-                    board.addCard(flop2);
-                    board.addCard(flop3);
-
-                    turn = new org.alberta.poker.Card(Game.getInstance().getTurn().getValorNumerico() - 2, getCardSuit(Game.getInstance().getTurn()));
-
-                    board.addCard(turn);
-
-                    river = new org.alberta.poker.Card(Game.getInstance().getRiver().getValorNumerico() - 2, getCardSuit(Game.getInstance().getRiver()));
-
-                    board.addCard(river);
-                }
-
-                break;
+            return Player.FOLD;
         }
 
-        org.alberta.poker.HandEvaluator handevaluator = new org.alberta.poker.HandEvaluator();
+        double strength = HANDEVALUATOR.handRank(card1, card2, Bot.BOT_COMMUNITY_CARDS, oponents);
 
-        double strength = handevaluator.handRank(card1, card2, board, oponents);
+        double ppot = HANDPOTENTIAL.ppot_raw(card1, card2, Bot.BOT_COMMUNITY_CARDS, true);
 
-        org.alberta.poker.ai.HandPotential potential = new org.alberta.poker.ai.HandPotential();
-
-        double ppot = potential.ppot_raw(card1, card2, board, true);
-
-        double npot = potential.getLastNPot();
+        double npot = HANDPOTENTIAL.getLastNPot();
 
         double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
 
         double poseffectiveStrength = strength + (1 - strength) * ppot;
 
         //System.out.println(cpu_player.getNickname()+" "+board.size()+"  ("+String.valueOf(oponents)+")  "+strength+"  "+effectiveStrength + "  "+poseffectiveStrength);
-        if (poseffectiveStrength > 0.5f && Game.getInstance().getCrupier().getConta_bet() < 2) {
+        if (poseffectiveStrength >= 0.80f) {
 
-            return poseffectiveStrength > 0.7f ? Player.BET : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.BET : Player.CHECK);
+            return Player.BET;
 
-        } else if (effectiveStrength > 0.15f && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), 3 * Game.getInstance().getCrupier().getCiega_grande()) <= 0) {
+        } else if (poseffectiveStrength >= 0.60f) {
 
-            return poseffectiveStrength > 0.35f ? Player.CHECK : (Helpers.SPRNG_GENERATOR.nextBoolean() ? Player.CHECK : Player.FOLD);
+            return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
+
+        } else if (poseffectiveStrength >= 0.40f) {
+
+            return (Game.getInstance().getCrupier().getConta_bet() < 2 && Helpers.SPRNG_GENERATOR.nextBoolean()) ? Player.BET : Player.CHECK;
+        }
+
+        if (poseffectiveStrength > 0.5f) {
+
+            return (poseffectiveStrength > 0.85f && Game.getInstance().getCrupier().getConta_bet() < 2) ? Player.BET : ((Helpers.SPRNG_GENERATOR.nextBoolean() && Game.getInstance().getCrupier().getConta_bet() < 2) ? Player.BET : Player.CHECK);
         }
 
         if (Game.getInstance().getCrupier().getConta_bet() == 0) {
 
-            if (this.semi_bluff || (Helpers.SPRNG_GENERATOR.nextInt(5) == 0 && Game.getInstance().getCrupier().getFase() != Crupier.RIVER && ppot >= potOdds2())) {
+            if (this.semi_bluff || (Helpers.SPRNG_GENERATOR.nextBoolean() && Game.getInstance().getCrupier().getFase() != Crupier.RIVER && ppot >= potOdds2())) {
 
                 this.semi_bluff = true;
 
@@ -201,7 +163,7 @@ public class Bot {
         return (Game.getInstance().getCrupier().getConta_bet() + cost) / (Game.getInstance().getCrupier().getBote_total() + Game.getInstance().getCrupier().getConta_bet() + 2 * cost);
     }
 
-    private int getCardSuit(Card carta) {
+    public static int getCardSuit(Card carta) {
 
         return PALOS.indexOf(carta.getPalo());
 

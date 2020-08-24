@@ -98,8 +98,7 @@ public class Bot {
 
         double poseffectiveStrength = strength + (1 - strength) * ppot;
 
-        System.out.println(cpu_player.getNickname() + " " + Bot.BOT_COMMUNITY_CARDS.size() + "  (" + String.valueOf(opponents) + ")  " + strength + "  " + effectiveStrength + "  " + poseffectiveStrength);
-
+        //System.out.println(cpu_player.getNickname() + " " + Bot.BOT_COMMUNITY_CARDS.size() + "  (" + String.valueOf(opponents) + ")  " + strength + "  " + effectiveStrength + "  " + poseffectiveStrength);
         if (poseffectiveStrength >= 0.85f) {
 
             conta_call++;
@@ -141,8 +140,7 @@ public class Bot {
 
         if (Game.getInstance().getCrupier().getFase() == Crupier.RIVER && effectiveStrength >= potOdds()) {
 
-            System.out.println(cpu_player.getNickname() + " CHECK POT ODDS");
-
+            //System.out.println(cpu_player.getNickname() + " CHECK POT ODDS");
             conta_call++;
 
             return Player.CHECK;
@@ -150,8 +148,7 @@ public class Bot {
 
         if (Game.getInstance().getCrupier().getFase() != Crupier.RIVER && ppot >= potOdds()) {
 
-            System.out.println(cpu_player.getNickname() + " CHECK POT ODDS");
-
+            //System.out.println(cpu_player.getNickname() + " CHECK POT ODDS");
             conta_call++;
 
             return Player.CHECK;
@@ -172,8 +169,7 @@ public class Bot {
 
         if (effectiveStrength >= showdownOdds(showdown_cost)) {
 
-            System.out.println(cpu_player.getNickname() + " SHOWDOWN ODDS");
-
+            //System.out.println(cpu_player.getNickname() + " SHOWDOWN ODDS");
             conta_call++;
 
             return Player.CHECK;

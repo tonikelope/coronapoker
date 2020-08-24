@@ -58,10 +58,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return pos;
     }
 
-    public void setBot(Bot bot) {
-        this.bot = bot;
-    }
-
     public Bot getBot() {
         return bot;
     }
@@ -1121,10 +1117,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.bote = 0f;
 
         this.bet = 0f;
-
-        if (this.bot != null) {
-            this.bot.resetBot();
-        }
 
         setStack(stack + pagar);
 

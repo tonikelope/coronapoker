@@ -92,6 +92,7 @@
           <Font name="Dialog" size="16" style="0"/>
         </Property>
         <Property name="text" type="java.lang.String" value="72345"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
     <Component class="javax.swing.JTextField" name="server_ip_textfield">
@@ -101,6 +102,7 @@
         </Property>
         <Property name="horizontalAlignment" type="int" value="11"/>
         <Property name="text" type="java.lang.String" value="localhost"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
     <Component class="javax.swing.JLabel" name="jLabel2">
@@ -109,6 +111,7 @@
           <Font name="Dialog" size="18" style="1"/>
         </Property>
         <Property name="text" type="java.lang.String" value=":"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
     <Container class="javax.swing.JPanel" name="config_partida_panel">
@@ -209,6 +212,7 @@
               <Font name="Dialog" size="16" style="1"/>
             </Property>
             <Property name="text" type="java.lang.String" value="RANDOM.ORG API KEY:"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="random_label">
@@ -218,6 +222,7 @@
             </Property>
             <Property name="text" type="java.lang.String" value="Generador de n&#xfa;meros aleatorios:"/>
             <Property name="toolTipText" type="java.lang.String" value="Se usar&#xe1; para barajar las cartas"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JComboBox" name="random_combobox">
@@ -232,6 +237,7 @@
                 <StringItem index="2" value="Normal"/>
               </StringArray>
             </Property>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="random_comboboxActionPerformed"/>
@@ -246,6 +252,7 @@
               <Font name="Dialog" size="16" style="0"/>
             </Property>
             <Property name="horizontalAlignment" type="int" value="4"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JSpinner" name="buyin_spinner">
@@ -256,6 +263,7 @@
             <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
               <SpinnerModel initial="10" minimum="5" numberType="java.lang.Integer" stepSize="1" type="number"/>
             </Property>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
           <Events>
             <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="buyin_spinnerStateChanged"/>
@@ -268,6 +276,7 @@
             </Property>
             <Property name="text" type="java.lang.String" value="Compra inicial:"/>
             <Property name="toolTipText" type="java.lang.String" value="[10-100] ciegas grandes"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JCheckBox" name="doblar_checkbox">
@@ -276,6 +285,7 @@
               <Font name="Dialog" size="16" style="1"/>
             </Property>
             <Property name="text" type="java.lang.String" value="Doblar ciegas (minutos):"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="doblar_checkboxActionPerformed"/>
@@ -289,6 +299,7 @@
             <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
               <SpinnerModel initial="60" minimum="5" numberType="java.lang.Integer" stepSize="5" type="number"/>
             </Property>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel3">
@@ -298,6 +309,7 @@
             </Property>
             <Property name="horizontalAlignment" type="int" value="0"/>
             <Property name="text" type="java.lang.String" value="Nota: no olvides mapear el puerto en tu router si quieres compartir la timba por Internet"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JCheckBox" name="recover_checkbox">
@@ -307,6 +319,7 @@
             </Property>
             <Property name="text" type="java.lang.String" value="RECUPERAR TIMBA (o intentarlo)"/>
             <Property name="toolTipText" type="java.lang.String" value="El MODO RECUPERACI&#xd3;N permite arrancar una timba que se interrumpi&#xf3; previamente"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="recover_checkboxActionPerformed"/>
@@ -319,6 +332,7 @@
             </Property>
             <Property name="text" type="java.lang.String" value="Permitir recomprar"/>
             <Property name="toolTipText" type="java.lang.String" value="Si alg&#xfa;n jugador se queda sin fichas"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="ciegas_label">
@@ -327,6 +341,7 @@
               <Font name="Dialog" size="16" style="1"/>
             </Property>
             <Property name="text" type="java.lang.String" value="Ciegas:"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JComboBox" name="ciegas_combobox">
@@ -359,6 +374,7 @@
                 <StringItem index="20" value="500000 / 1000000"/>
               </StringArray>
             </Property>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="ciegas_comboboxActionPerformed"/>
@@ -409,6 +425,7 @@
             <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
               <Color id="Cursor de Mano"/>
             </Property>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
           <Events>
             <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="avatar_imgMouseClicked"/>

@@ -33,6 +33,9 @@
   </Layout>
   <SubComponents>
     <Component class="javax.swing.JLabel" name="card_image">
+      <Properties>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
+      </Properties>
       <Events>
         <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="card_imageMouseClicked"/>
       </Events>

@@ -93,8 +93,9 @@ public class GameOverDialog extends javax.swing.JDialog {
         numbers.setDoubleBuffered(true);
 
         continue_button.setFont(new java.awt.Font("Dialog", 1, 60)); // NOI18N
-        continue_button.setIcon(new ImageIcon(getClass().getResource("/images/gameover/continue_"+Game.LANGUAGE+".png")));
+        continue_button.setIcon(new ImageIcon(getClass().getResource("/images/gameover/continue_"+com.tonikelope.coronapoker.Game.LANGUAGE+".png")));
         continue_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        continue_button.setDoubleBuffered(true);
         continue_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 continue_buttonActionPerformed(evt);

@@ -59,13 +59,16 @@ public class RecoverDialog extends javax.swing.JDialog {
         mantenimiento.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         mantenimiento.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         mantenimiento.setText("RECUPERANDO TIMBA");
+        mantenimiento.setDoubleBuffered(true);
 
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/mantenimiento.png"))); // NOI18N
+        jLabel1.setDoubleBuffered(true);
 
         mantenimiento1.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         mantenimiento1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         mantenimiento1.setText("POR FAVOR, ESPERA");
+        mantenimiento1.setDoubleBuffered(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);

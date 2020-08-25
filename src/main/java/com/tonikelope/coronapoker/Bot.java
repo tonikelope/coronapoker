@@ -44,7 +44,7 @@ public class Bot {
 
         if (Game.getInstance().getCrupier().getFase() == Crupier.PREFLOP) {
 
-            //Esto es claramente mejorable
+            //Esto es claramente muy mejorable
             boolean pareja = cpu_player.getPlayingCard1().getValorNumerico() == cpu_player.getPlayingCard2().getValorNumerico();
 
             if ((pareja && cpu_player.getPlayingCard1().getValorNumerico() >= 7)
@@ -62,7 +62,7 @@ public class Bot {
 
                 return Player.CHECK;
 
-            } else if (Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual(), cpu_player.getStack() / 4) <= 0 && Helpers.SPRNG_GENERATOR.nextInt(5) == 0) {
+            } else if (Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 4) <= 0 && Helpers.SPRNG_GENERATOR.nextInt(5) == 0) {
 
                 //Vemos el 20% de apuestas con cartas mediocres hasta el 25% de nuestro stack
                 conta_call++;
@@ -90,7 +90,7 @@ public class Bot {
 
             return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
 
-        } else if (poseffectiveStrength >= 0.50f) {
+        } else if (poseffectiveStrength >= 0.60f && !(effectiveStrength < 0.70f && Game.getInstance().getCrupier().getFase() == Crupier.RIVER && Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack()) >= 0)) {
 
             if (Game.getInstance().getCrupier().getConta_bet() == 0) {
 
@@ -113,19 +113,19 @@ public class Bot {
 
             if (this.semi_bluff || (Game.getInstance().getCrupier().getFase() != Crupier.RIVER && ppot >= potOdds2())) {
 
-                //System.out.println(cpu_player.getNickname()+" BET semi bluff");
+                //System.out.println(cpu_player.getNickname() + " BET semi bluff");
                 this.semi_bluff = true;
 
                 return Player.BET;
             }
 
-            //System.out.println(cpu_player.getNickname()+" CHECK semi bluff");
+            //System.out.println(cpu_player.getNickname() + " CHECK semi bluff");
             return Player.CHECK;
         }
 
-        if (Game.getInstance().getCrupier().getFase() == Crupier.RIVER && effectiveStrength >= potOdds()) {
+        if (Game.getInstance().getCrupier().getFase() == Crupier.RIVER && effectiveStrength >= 1.5 * potOdds()) {
 
-            //System.out.println(cpu_player.getNickname() + " CHECK POT ODDS");
+            //System.out.println(cpu_player.getNickname() + " CHECK POT ODDS "+ 1.5*potOdds());
             conta_call++;
 
             return Player.CHECK;
@@ -133,7 +133,7 @@ public class Bot {
 
         if (Game.getInstance().getCrupier().getFase() != Crupier.RIVER && ppot >= potOdds()) {
 
-            //System.out.println(cpu_player.getNickname() + " CHECK POT ODDS");
+            //System.out.println(cpu_player.getNickname() + " CHECK POT ODDS " + potOdds());
             conta_call++;
 
             return Player.CHECK;
@@ -154,7 +154,7 @@ public class Bot {
 
         if (effectiveStrength >= showdownOdds(showdown_cost)) {
 
-            //System.out.println(cpu_player.getNickname() + " SHOWDOWN ODDS");
+            //System.out.println(cpu_player.getNickname() + " CHECK SHOWDOWN ODDS " + showdownOdds(showdown_cost));
             conta_call++;
 
             return Player.CHECK;
@@ -178,7 +178,7 @@ public class Bot {
 
     private float showdownOdds(float cost) {
 
-        return (Game.getInstance().getCrupier().getConta_bet() + cost) / (Game.getInstance().getCrupier().getBote_total() + Game.getInstance().getCrupier().getApuestas() + Game.getInstance().getCrupier().getConta_bet() + 2 * cost);
+        return ((Game.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) + cost) / (Game.getInstance().getCrupier().getBote_total() + Game.getInstance().getCrupier().getApuestas() + (Game.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) + 2 * cost);
     }
 
     public static int getCardSuit(Card carta) {

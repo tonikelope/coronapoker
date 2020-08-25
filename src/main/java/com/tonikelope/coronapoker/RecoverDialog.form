@@ -58,6 +58,7 @@
         </Property>
         <Property name="horizontalAlignment" type="int" value="0"/>
         <Property name="text" type="java.lang.String" value="RECUPERANDO TIMBA"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
     <Component class="javax.swing.JLabel" name="jLabel1">
@@ -66,6 +67,7 @@
         <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
           <Image iconType="3" name="/images/mantenimiento.png"/>
         </Property>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
     <Component class="javax.swing.JLabel" name="mantenimiento1">
@@ -75,6 +77,7 @@
         </Property>
         <Property name="horizontalAlignment" type="int" value="0"/>
         <Property name="text" type="java.lang.String" value="POR FAVOR, ESPERA"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
   </SubComponents>

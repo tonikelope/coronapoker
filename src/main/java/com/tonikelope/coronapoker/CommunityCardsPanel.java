@@ -150,6 +150,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         sound_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/mute.png"))); // NOI18N
         sound_icon.setToolTipText("Click para activar/desactivar el sonido");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        sound_icon.setDoubleBuffered(true);
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 sound_iconMouseClicked(evt);

@@ -93,6 +93,8 @@ public class PauseDialog extends javax.swing.JDialog {
 
         resume_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         resume_button.setText("REANUDAR TIMBA");
+        resume_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        resume_button.setDoubleBuffered(true);
         resume_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 resume_buttonActionPerformed(evt);
@@ -103,6 +105,7 @@ public class PauseDialog extends javax.swing.JDialog {
         pausa_label.setForeground(new java.awt.Color(255, 255, 255));
         pausa_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         pausa_label.setText("TIMBA PAUSADA");
+        pausa_label.setDoubleBuffered(true);
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);

@@ -540,6 +540,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         setOpaque(false);
         setPreferredSize(new java.awt.Dimension(148, 200));
 
+        card_image.setDoubleBuffered(true);
         card_image.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 card_imageMouseClicked(evt);

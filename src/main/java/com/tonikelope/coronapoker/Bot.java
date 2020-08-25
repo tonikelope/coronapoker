@@ -45,15 +45,22 @@ public class Bot {
         if (Game.getInstance().getCrupier().getFase() == Crupier.PREFLOP) {
 
             //Esto es claramente muy mejorable
-            boolean pareja = cpu_player.getPlayingCard1().getValorNumerico() == cpu_player.getPlayingCard2().getValorNumerico();
+            int valor1 = cpu_player.getPlayingCard1().getValorNumerico();
+            int valor2 = cpu_player.getPlayingCard2().getValorNumerico();
+            boolean pareja = (valor1 == valor2);
+            boolean suited = cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo());
+            boolean straight = Math.abs(valor1 - valor2) == 1;
 
-            if ((pareja && cpu_player.getPlayingCard1().getValorNumerico() >= 7)
-                    || (cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo()) && (cpu_player.getPlayingCard1().getValorNumerico() >= 10 || cpu_player.getPlayingCard2().getValorNumerico() >= 10))
-                    || (cpu_player.getPlayingCard1().getValorNumerico() >= 12 && cpu_player.getPlayingCard2().getValorNumerico() >= 12)) {
+            if ((pareja && valor1 >= 7) || (suited && valor1 >= 10 && valor2 >= 10) || (valor1 >= 12 && valor2 >= 12) || (suited && straight && Math.min(valor1, valor2) == 7)) {
 
                 conta_call++;
 
                 return Game.getInstance().getCrupier().getConta_bet() < 2 ? Player.BET : Player.CHECK;
+
+            } else if (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) == 14) || (straight && Math.min(valor1, valor2) >= 7) || (valor1 >= 11 && valor2 >= 11)) {
+
+                //El 50% de las veces apostamos con una mano no tan fuerte
+                return (Game.getInstance().getCrupier().getConta_bet() < 2 && Helpers.SPRNG_GENERATOR.nextBoolean()) ? Player.BET : Player.CHECK;
 
             } else if (Game.getInstance().getCrupier().getConta_bet() == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
 
@@ -62,9 +69,9 @@ public class Bot {
 
                 return Player.CHECK;
 
-            } else if (Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 4) <= 0 && Helpers.SPRNG_GENERATOR.nextInt(5) == 0) {
+            } else if (Helpers.float1DSecureCompare(Game.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 5) <= 0 && Helpers.SPRNG_GENERATOR.nextInt(5) == 0) {
 
-                //Vemos el 20% de apuestas con cartas mediocres hasta el 25% de nuestro stack
+                //Vemos el 20% de apuestas con el resto de cartas siempre que no haya que poner más del 20% de nuestro stack para ver la apuesta
                 conta_call++;
 
                 return Player.CHECK;

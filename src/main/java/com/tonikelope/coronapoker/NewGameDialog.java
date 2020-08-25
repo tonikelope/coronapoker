@@ -203,26 +203,32 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         server_port_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_port_textfield.setText("72345");
+        server_port_textfield.setDoubleBuffered(true);
 
         server_ip_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_ip_textfield.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
         server_ip_textfield.setText("localhost");
+        server_ip_textfield.setDoubleBuffered(true);
 
         jLabel2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel2.setText(":");
+        jLabel2.setDoubleBuffered(true);
 
         config_partida_panel.setVisible(false);
         config_partida_panel.setOpaque(false);
 
         randomorg_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         randomorg_label.setText("RANDOM.ORG API KEY:");
+        randomorg_label.setDoubleBuffered(true);
 
         random_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         random_label.setText("Generador de números aleatorios:");
         random_label.setToolTipText("Se usará para barajar las cartas");
+        random_label.setDoubleBuffered(true);
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Muy seguro", "Seguro", "Normal" }));
+        random_combobox.setDoubleBuffered(true);
         random_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 random_comboboxActionPerformed(evt);
@@ -231,9 +237,11 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         randomorg_apikey.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         randomorg_apikey.setHorizontalAlignment(javax.swing.JTextField.RIGHT);
+        randomorg_apikey.setDoubleBuffered(true);
 
         buyin_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         buyin_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 5, null, 1));
+        buyin_spinner.setDoubleBuffered(true);
         buyin_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent evt) {
                 buyin_spinnerStateChanged(evt);
@@ -243,9 +251,11 @@ public class NewGameDialog extends javax.swing.JDialog {
         buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         buyin_label.setText("Compra inicial:");
         buyin_label.setToolTipText("[10-100] ciegas grandes");
+        buyin_label.setDoubleBuffered(true);
 
         doblar_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         doblar_checkbox.setText("Doblar ciegas (minutos):");
+        doblar_checkbox.setDoubleBuffered(true);
         doblar_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 doblar_checkboxActionPerformed(evt);
@@ -254,14 +264,17 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         doblar_ciegas_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         doblar_ciegas_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 5, null, 5));
+        doblar_ciegas_spinner.setDoubleBuffered(true);
 
         jLabel3.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
         jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel3.setText("Nota: no olvides mapear el puerto en tu router si quieres compartir la timba por Internet");
+        jLabel3.setDoubleBuffered(true);
 
         recover_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         recover_checkbox.setText("RECUPERAR TIMBA (o intentarlo)");
         recover_checkbox.setToolTipText("El MODO RECUPERACIÓN permite arrancar una timba que se interrumpió previamente");
+        recover_checkbox.setDoubleBuffered(true);
         recover_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 recover_checkboxActionPerformed(evt);
@@ -271,12 +284,15 @@ public class NewGameDialog extends javax.swing.JDialog {
         rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         rebuy_checkbox.setText("Permitir recomprar");
         rebuy_checkbox.setToolTipText("Si algún jugador se queda sin fichas");
+        rebuy_checkbox.setDoubleBuffered(true);
 
         ciegas_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         ciegas_label.setText("Ciegas:");
+        ciegas_label.setDoubleBuffered(true);
 
         ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "0.10 / 0.20", "0.20 / 0.40", "0.50 / 1", "1 / 2", "2 / 4", "5 / 10", "10 / 20", "20 / 40", "50 / 100", "100 / 200", "200 / 400", "500 / 1000", "1000 / 2000", "2000 / 4000", "5000 / 10000", "10000 / 20000", "20000 / 40000", "50000 / 100000", "100000 / 200000", "200000 / 400000", "500000 / 1000000" }));
+        ciegas_combobox.setDoubleBuffered(true);
         ciegas_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 ciegas_comboboxActionPerformed(evt);
@@ -352,6 +368,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         avatar_img.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png"))); // NOI18N
         avatar_img.setToolTipText("Haz click para cambiar el avatar");
         avatar_img.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        avatar_img.setDoubleBuffered(true);
         avatar_img.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 avatar_imgMouseClicked(evt);

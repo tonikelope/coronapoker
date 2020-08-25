@@ -252,6 +252,8 @@ public class GameLogDialog extends javax.swing.JDialog {
         textarea.setDoubleBuffered(true);
         jScrollPane1.setViewportView(textarea);
 
+        jMenuBar1.setDoubleBuffered(true);
+
         opciones_menu.setText("Preferencias");
         opciones_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
 

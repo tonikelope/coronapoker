@@ -104,24 +104,30 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         status.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         status.setText("SE PERDIÓ LA CONEXIÓN CON EL SERVIDOR");
+        status.setDoubleBuffered(true);
 
         ip_port.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         ip_port.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         ip_port.setText("tonikelope.noestasinvitado.com:23456");
+        ip_port.setDoubleBuffered(true);
 
         yes.setBackground(new java.awt.Color(0, 204, 51));
         yes.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         yes.setForeground(new java.awt.Color(255, 255, 255));
         yes.setText("RECONECTAR");
+        yes.setDoubleBuffered(true);
         yes.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 yesActionPerformed(evt);
             }
         });
 
+        barra.setDoubleBuffered(true);
+
         status2.setFont(new java.awt.Font("Dialog", 2, 14)); // NOI18N
         status2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         status2.setText("(Comprueba si la dirección o el puerto han cambiado antes de reconectar)");
+        status2.setDoubleBuffered(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);

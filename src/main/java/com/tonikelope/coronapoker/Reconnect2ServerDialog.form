@@ -67,6 +67,7 @@
         </Property>
         <Property name="horizontalAlignment" type="int" value="0"/>
         <Property name="text" type="java.lang.String" value="SE PERDI&#xd3; LA CONEXI&#xd3;N CON EL SERVIDOR"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
     <Component class="javax.swing.JTextField" name="ip_port">
@@ -76,6 +77,7 @@
         </Property>
         <Property name="horizontalAlignment" type="int" value="0"/>
         <Property name="text" type="java.lang.String" value="tonikelope.noestasinvitado.com:23456"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
     <Component class="javax.swing.JButton" name="yes">
@@ -90,12 +92,16 @@
           <Color blue="ff" green="ff" red="ff" type="rgb"/>
         </Property>
         <Property name="text" type="java.lang.String" value="RECONECTAR"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
       <Events>
         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="yesActionPerformed"/>
       </Events>
     </Component>
     <Component class="javax.swing.JProgressBar" name="barra">
+      <Properties>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
+      </Properties>
     </Component>
     <Component class="javax.swing.JLabel" name="status2">
       <Properties>
@@ -104,6 +110,7 @@
         </Property>
         <Property name="horizontalAlignment" type="int" value="0"/>
         <Property name="text" type="java.lang.String" value="(Comprueba si la direcci&#xf3;n o el puerto han cambiado antes de reconectar)"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
   </SubComponents>

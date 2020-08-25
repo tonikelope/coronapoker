@@ -1495,6 +1495,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         avatar_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         avatar_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png"))); // NOI18N
         avatar_label.setText("Toni");
+        avatar_label.setDoubleBuffered(true);
 
         status1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         status1.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
@@ -1505,6 +1506,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         sound_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/mute_b.png"))); // NOI18N
         sound_icon.setToolTipText("Click para activar/desactivar el sonido");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        sound_icon.setDoubleBuffered(true);
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 sound_iconMouseClicked(evt);
@@ -1514,6 +1516,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         new_bot_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         new_bot_button.setText("Añadir bot");
         new_bot_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        new_bot_button.setDoubleBuffered(true);
         new_bot_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 new_bot_buttonActionPerformed(evt);

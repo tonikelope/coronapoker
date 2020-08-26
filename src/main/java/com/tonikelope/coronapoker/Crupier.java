@@ -3033,32 +3033,9 @@ public class Crupier implements Runnable {
 
                             float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : getCiega_grande();
 
-                            boolean check = false, call = false, bet = false, allin = false;
-
-                            if (Helpers.float1DSecureCompare(call_required, current_player.getStack()) < 0) {
-
-                                if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
-
-                                    check = true;
-
-                                } else {
-
-                                    call = true;
-                                }
-
-                            } else {
-                                //Sólo podemos ir allin
-                                allin = true;
-                            }
-
-                            if (!allin && puedenApostar(Game.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(getCiega_grande(), current_player.getStack()) < 0)
-                                    || (Helpers.float1DSecureCompare(0f, getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, current_player.getStack()) < 0))) {
-
-                                bet = true;
-
-                            }
-
                             int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision(resisten.size() - 1);
+
+                            boolean slow_play = ((RemotePlayer) current_player).getBot().isSlow_play();
 
                             action = new Object[]{decision_loki, 0f};
 
@@ -3074,49 +3051,40 @@ public class Crupier implements Runnable {
 
                                 case Player.CHECK:
 
-                                    if (allin) {
+                                    if (Helpers.float1DSecureCompare(current_player.getStack(), call_required) <= 0) {
+
                                         action = new Object[]{Player.ALLIN, ""};
-                                    } else {
-                                        action = new Object[]{Player.CHECK, 0f};
                                     }
 
                                     break;
 
                                 case Player.BET:
-                                    if (bet) {
 
-                                        float b;
+                                    float b;
 
-                                        if (Helpers.float1DSecureCompare(0f, getApuesta_actual()) == 0) {
-                                            b = Math.min(current_player.getStack(), this.getCiega_grande() * (Helpers.PRNG_GENERATOR.nextInt(3) + 1));
-                                        } else {
-                                            b = current_player.getBet() + call_required + min_raise;
-                                        }
+                                    if (Helpers.float1DSecureCompare(this.getApuesta_actual(), 0f) == 0) {
 
-                                        if (Helpers.float1DSecureCompare(current_player.getStack(), b) == 0) {
-
-                                            action = new Object[]{Player.ALLIN, ""};
-
-                                        } else {
-
-                                            action = new Object[]{Player.BET, b};
-
-                                        }
-
-                                    } else if (check || call) {
-
-                                        action = new Object[]{Player.CHECK, 0f};
+                                        b = (slow_play && fase != Crupier.RIVER) ? this.getCiega_grande() : (Helpers.SPRNG_GENERATOR.nextInt(4) + 1) * this.getCiega_grande();
 
                                     } else {
 
+                                        b = getApuesta_actual() + Math.max(min_raise, (Helpers.SPRNG_GENERATOR.nextInt(4) + 1) * this.getCiega_grande());
+                                    }
+
+                                    if (Helpers.float1DSecureCompare(current_player.getStack() / 2, b - current_player.getBet()) <= 0) {
+
                                         action = new Object[]{Player.ALLIN, ""};
+
+                                    } else {
+
+                                        action = new Object[]{Player.BET, b};
 
                                     }
 
                                     break;
                             }
 
-                            Helpers.pausar(1000);
+                            Helpers.pausar((Helpers.SPRNG_GENERATOR.nextInt(2) + 1) * 1000);
                         }
 
                         decision = (int) action[0];

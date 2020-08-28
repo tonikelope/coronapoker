@@ -581,7 +581,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        if (Game.getInstance().getParticipantes().get(this.nickname).isCpu()) {
+        if (Game.getInstance().isPartida_local() && Game.getInstance().getParticipantes().get(this.nickname).isCpu()) {
             this.bot = new Bot(this);
         }
     }

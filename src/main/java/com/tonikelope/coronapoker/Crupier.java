@@ -3022,13 +3022,12 @@ public class Crupier implements Runnable {
 
                         Object[] action;
 
-                        if (!Game.getInstance().getParticipantes().get(current_player.getNickname()).isCpu()) {
+                        if (!Game.getInstance().isPartida_local() || !Game.getInstance().getParticipantes().get(current_player.getNickname()).isCpu()) {
 
                             action = this.readActionFromRemotePlayer(current_player);
 
                         } else {
 
-                            //Vamos a comprobar qué acciones podría hacer el bot
                             float call_required = getApuesta_actual() - current_player.getBet();
 
                             float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : getCiega_grande();
@@ -4063,13 +4062,17 @@ public class Crupier implements Runnable {
 
                         for (int i = 0; i < total; i++) {
 
-                            String nick = partes[3 + 3 * i];
+                            try {
+                                String nick = new String(Base64.decodeBase64(partes[3 + 3 * i]), "UTF-8");
 
-                            String carta1 = partes[4 + 3 * i];
+                                String carta1 = partes[4 + 3 * i];
 
-                            String carta2 = partes[5 + 3 * i];
+                                String carta2 = partes[5 + 3 * i];
 
-                            cards.put(nick, new String[]{carta1, carta2});
+                                cards.put(nick, new String[]{carta1, carta2});
+                            } catch (UnsupportedEncodingException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
                         }
 
                         for (Player jugador : resistencia) {
@@ -4141,7 +4144,11 @@ public class Crupier implements Runnable {
                 for (Player jugador : resisten) {
 
                     if (!jugador.isExit()) {
-                        comando += "#" + jugador.getNickname() + "#" + jugador.getPlayingCard1().toShortString() + "#" + jugador.getPlayingCard2().toShortString();
+                        try {
+                            comando += "#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "#" + jugador.getPlayingCard1().toShortString() + "#" + jugador.getPlayingCard2().toShortString();
+                        } catch (UnsupportedEncodingException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
                 }
 
@@ -4873,7 +4880,7 @@ public class Crupier implements Runnable {
 
                         for (Player jugador : Game.getInstance().getJugadores()) {
 
-                            if ((jugador == Game.getInstance().getLocalPlayer() || !Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) && !jugador.isSpectator() && Helpers.float1DSecureCompare(0f, Helpers.clean1DFloat(jugador.getStack()) + Helpers.clean1DFloat(jugador.getPagar())) == 0) {
+                            if (!jugador.isSpectator() && Helpers.float1DSecureCompare(0f, Helpers.clean1DFloat(jugador.getStack()) + Helpers.clean1DFloat(jugador.getPagar())) == 0) {
                                 rebuy_players.add(jugador.getNickname());
                             }
                         }
@@ -4991,6 +4998,27 @@ public class Crupier implements Runnable {
                         }
 
                         if (!rebuy_players.isEmpty()) {
+
+                            //Enviamos los REBUYS de los bots
+                            if (Game.getInstance().isPartida_local()) {
+
+                                for (Player jugador : Game.getInstance().getJugadores()) {
+
+                                    if (rebuy_players.contains(jugador.getNickname()) && Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
+
+                                        rebuy_players.remove(jugador.getNickname());
+
+                                        try {
+                                            String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + (!Game.REBUY ? "#0" : "");
+
+                                            this.broadcastCommandFromServer(comando, null);
+
+                                        } catch (UnsupportedEncodingException ex) {
+                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+                                    }
+                                }
+                            }
 
                             this.recibirRebuys(rebuy_players);
 

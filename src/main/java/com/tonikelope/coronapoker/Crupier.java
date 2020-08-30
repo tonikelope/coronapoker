@@ -3063,11 +3063,11 @@ public class Crupier implements Runnable {
 
                                     if (Helpers.float1DSecureCompare(this.getApuesta_actual(), 0f) == 0) {
 
-                                        b = (slow_play && fase != Crupier.RIVER) ? this.getCiega_grande() : (Helpers.SPRNG_GENERATOR.nextInt(4) + 1) * this.getCiega_grande();
+                                        b = (slow_play && fase != Crupier.RIVER) ? this.getCiega_grande() : (Helpers.SPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande();
 
                                     } else {
 
-                                        b = getApuesta_actual() + Math.max(min_raise, (Helpers.SPRNG_GENERATOR.nextInt(4) + 1) * this.getCiega_grande());
+                                        b = getApuesta_actual() + Math.max(min_raise, (Helpers.SPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande());
                                     }
 
                                     if (Helpers.float1DSecureCompare(current_player.getStack() / 2, b - current_player.getBet()) <= 0) {

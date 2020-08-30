@@ -57,6 +57,7 @@ public class Bot {
     public int calculateBotDecision(int opponents) {
 
         int fase = crupier.getFase();
+        int activos = crupier.getJugadoresActivos();
 
         if (fase == Crupier.PREFLOP) {
 
@@ -75,22 +76,96 @@ public class Bot {
 
             } else if (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) == 14) || (straight && Math.min(valor1, valor2) >= 7) || (valor1 >= 11 && valor2 >= 11)) {
 
-                //El 50% de las veces apostamos con una mano no tan fuerte
-                return (crupier.getConta_bet() < this.MAX_CONTA_BET && Helpers.SPRNG_GENERATOR.nextBoolean()) ? Player.BET : Player.CHECK;
+                //El X% de las veces apostamos con una mano no tan fuerte
+                boolean vamos;
 
-            } else if (crupier.getConta_bet() == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
+                if (activos <= 4) {
 
-                //Limpeamos el 50% de las manos a ver si suena la flauta
+                    //50%
+                    vamos = Helpers.SPRNG_GENERATOR.nextBoolean();
+
+                } else if (activos <= 6) {
+
+                    //40%
+                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 3;
+
+                } else if (activos <= 8) {
+
+                    //30%
+                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 2;
+
+                } else {
+
+                    //20%
+                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 1;
+                }
+
+                return (crupier.getConta_bet() < this.MAX_CONTA_BET && vamos) ? Player.BET : Player.CHECK;
+
+            } else if (crupier.getConta_bet() == 0) {
+
+                //Limpeamos el X% de las manos a ver si suena la flauta
                 conta_call++;
 
-                return Player.CHECK;
+                boolean vamos;
 
-            } else if (Helpers.float1DSecureCompare(crupier.getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 5) <= 0 && Helpers.SPRNG_GENERATOR.nextInt(5) == 0) {
+                if (activos <= 4) {
+                    //50%
+                    vamos = Helpers.SPRNG_GENERATOR.nextBoolean();
 
-                //Vemos el 20% de apuestas con el resto de cartas siempre que no haya que poner más del 20% de nuestro stack para ver la apuesta
+                } else if (activos <= 6) {
+
+                    //40%
+                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 3;
+
+                } else if (activos <= 8) {
+
+                    //30%
+                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 2;
+
+                } else {
+
+                    //20%
+                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 1;
+                }
+
+                if (vamos) {
+                    return Player.CHECK;
+                }
+
+            }
+
+            if (Helpers.float1DSecureCompare(crupier.getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 5) <= 0) {
+
+                //Vemos el X% de apuestas con el resto de cartas siempre que no haya que poner más del 20% de nuestro stack para ver la apuesta
                 conta_call++;
 
-                return Player.CHECK;
+                boolean vamos;
+
+                if (activos <= 4) {
+
+                    //20%
+                    vamos = Helpers.SPRNG_GENERATOR.nextInt(20) <= 3;
+
+                } else if (activos <= 6) {
+
+                    //15%
+                    vamos = Helpers.SPRNG_GENERATOR.nextInt(20) <= 2;
+
+                } else if (activos <= 8) {
+
+                    //10%
+                    vamos = Helpers.SPRNG_GENERATOR.nextInt(20) <= 1;
+
+                } else {
+
+                    //5%
+                    vamos = Helpers.SPRNG_GENERATOR.nextInt(20) == 0;
+                }
+
+                if (vamos) {
+                    return Player.CHECK;
+                }
             }
 
             return Player.FOLD;
@@ -113,6 +188,7 @@ public class Bot {
 
                 //Jugamos lenta el 50% de las veces
                 slow_play = 1;
+
             }
 
             conta_call++;

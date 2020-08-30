@@ -3151,7 +3151,7 @@ public class Crupier implements Runnable {
                                 this.conta_bet++;
 
                                 //El jugador actual subió la apuesta, así que hay que reiniciar la ronda de apuestas
-                                if (Helpers.float1DSecureCompare(0f, this.apuesta_actual) < 0) {
+                                if (Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) < 0) {
 
                                     this.ultimo_raise = current_player.getBet() - this.apuesta_actual;
                                     this.conta_raise++;

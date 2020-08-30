@@ -15,6 +15,7 @@ package com.tonikelope.coronapoker;
 public class Bot {
 
     public static final String PALOS = "TDCP";
+    public static final int MAX_CONTA_BET = 2;
     public static final org.alberta.poker.Hand BOT_COMMUNITY_CARDS = new org.alberta.poker.Hand();
     public static final org.alberta.poker.HandEvaluator HANDEVALUATOR = new org.alberta.poker.HandEvaluator();
     public static final org.alberta.poker.ai.HandPotential HANDPOTENTIAL = new org.alberta.poker.ai.HandPotential();
@@ -70,12 +71,12 @@ public class Bot {
 
                 conta_call++;
 
-                return crupier.getConta_bet() < 2 ? Player.BET : Player.CHECK;
+                return crupier.getConta_bet() < this.MAX_CONTA_BET ? Player.BET : Player.CHECK;
 
             } else if (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) == 14) || (straight && Math.min(valor1, valor2) >= 7) || (valor1 >= 11 && valor2 >= 11)) {
 
                 //El 50% de las veces apostamos con una mano no tan fuerte
-                return (crupier.getConta_bet() < 2 && Helpers.SPRNG_GENERATOR.nextBoolean()) ? Player.BET : Player.CHECK;
+                return (crupier.getConta_bet() < this.MAX_CONTA_BET && Helpers.SPRNG_GENERATOR.nextBoolean()) ? Player.BET : Player.CHECK;
 
             } else if (crupier.getConta_bet() == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
 
@@ -116,7 +117,7 @@ public class Bot {
 
             conta_call++;
 
-            return (crupier.getConta_bet() < 2 && (!isSlow_play() || (fase != Crupier.FLOP && crupier.getConta_bet() == 0))) ? Player.BET : Player.CHECK;
+            return (crupier.getConta_bet() < this.MAX_CONTA_BET && (!isSlow_play() || (fase != Crupier.FLOP && crupier.getConta_bet() == 0))) ? Player.BET : Player.CHECK;
 
         } else if (poseffectiveStrength >= 0.60f && !(effectiveStrength < 0.75f && fase == Crupier.RIVER && Helpers.float1DSecureCompare(cpu_player.getStack(), crupier.getApuesta_actual() - cpu_player.getBet()) <= 0)) {
 

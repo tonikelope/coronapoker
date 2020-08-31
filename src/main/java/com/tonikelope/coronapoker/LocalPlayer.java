@@ -489,7 +489,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             this.bote += Helpers.clean1DFloat(this.bet - old_bet);
         }
 
-        crupier.getBote().insertarJugador(this);
+        crupier.getBote().addPlayer(this);
 
         Helpers.GUIRun(new Runnable() {
             public void run() {

@@ -26,29 +26,30 @@ import java.util.Comparator;
  */
 public class Pot {
 
-    private float diferencial = 0f;
-    private float apuesta = 0f;
-    private final ArrayList<Player> jugadores = new ArrayList<>();
-    private Pot hijo = null;
+    private float diff = 0f;
+    private float bet = 0f;
+    private final ArrayList<Player> players = new ArrayList<>();
+    private Pot sidePot = null;
 
     public Pot(float dif) {
-        this.diferencial = dif;
+        this.diff = dif;
     }
 
-    public Pot(ArrayList<Player> jugadores, float dif) {
-        this.diferencial = dif;
-        jugadores.forEach((jugador) -> {
-            this.insertarJugador(jugador);
-        });
+    public Pot(ArrayList<Player> jugadores, float diff) {
+        this.diff = diff;
+        
+        for(var jugador:jugadores){
+            addPlayer(jugador);
+        }
     }
 
     public float getTotal() {
 
         float total = 0f;
 
-        for (Player jugador : jugadores) {
+        for (Player jugador : players) {
             if (jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator()) {
-                total += apuesta;
+                total += bet;
             } else {
                 total += jugador.getBote();
             }
@@ -57,35 +58,39 @@ public class Pot {
         return total;
     }
 
-    public Pot getHijo() {
-        return hijo;
+    public Pot getSidePot() {
+        return sidePot;
     }
 
-    public float getApuesta() {
-        return apuesta;
+    public float getBet() {
+        return bet;
     }
 
-    public ArrayList<Player> getJugadores() {
-        return jugadores;
+    public ArrayList<Player> getPlayers() {
+        return players;
     }
 
-    public void insertarJugador(Player jugador) {
+    public void addPlayer(Player jugador) {
 
-        if (Helpers.float1DSecureCompare(apuesta, jugador.getBote() - this.diferencial) < 0) {
-            apuesta = jugador.getBote() - this.diferencial;
+        if (Helpers.float1DSecureCompare(bet, jugador.getBote() - this.diff) < 0) {
+            bet = jugador.getBote() - this.diff;
         }
 
-        if (!jugadores.contains(jugador)) {
-            //Nuevo jugador en el bote
-            jugadores.add(jugador);
+        if (!players.contains(jugador)) {
+            players.add(jugador);
         }
     }
 
-    public void calcularBotesDerivados() {
-        if (jugadores.size() > 1) {
-            Collections.sort(jugadores, new PotPlayerComparator());
+    //ALLIN SIDE POT(S) GENERATOR
+    public void genSidePots() {
+        
+        if (players.size() > 1) {
+            
+            Collections.sort(players, new PotPlayerComparator());
+            
             int i = 0;
-            for (Player jugador : jugadores) {
+            
+            for (Player jugador : players) {
 
                 if (jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator()) {
                     break;
@@ -93,19 +98,30 @@ public class Pot {
                     i++;
                 }
             }
-            if (i < jugadores.size()) {
+            
+            if (i < players.size()) {
 
-                float pivote = jugadores.get(i).getBote() - this.diferencial;
+                //Apuesta_menor es la apuesta del jugador que participa en el bote con la menor cantidad.
+                float apuesta_menor = players.get(i).getBote() - this.diff;
 
-                if (Helpers.float1DSecureCompare(pivote, apuesta) < 0) {
-                    // Sólo hay que generar bote hijo si algún jugador está participando con una apuesta menor (sin ser FOLD)
+                if (Helpers.float1DSecureCompare(apuesta_menor, bet) < 0) {
+
+                    // Sólo hay que generar sidePot si algún jugador está participando con una apuesta por debajo de la apuesta del bote
                     ArrayList<Player> jugadores_hijo = new ArrayList<>();
-                    jugadores.stream().filter((jugador) -> (Helpers.float1DSecureCompare(pivote, jugador.getBote() - this.diferencial) < 0 && jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator())).forEachOrdered((jugador) -> {
-                        jugadores_hijo.add(jugador);
-                    });
-                    apuesta = pivote; // Actualizamos la apuesta del padre
-                    hijo = new Pot(jugadores_hijo, this.diferencial + apuesta);
-                    hijo.calcularBotesDerivados();
+
+                    for (var jugador : players) {
+
+                        if (jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator() && Helpers.float1DSecureCompare(apuesta_menor, jugador.getBote() - this.diff) < 0) {
+                            jugadores_hijo.add(jugador);
+                        }
+
+                    }
+
+                    bet = apuesta_menor; // Actualizamos la apuesta del bote
+
+                    sidePot = new Pot(jugadores_hijo, this.diff + bet);
+
+                    sidePot.genSidePots();
                 }
             }
         }

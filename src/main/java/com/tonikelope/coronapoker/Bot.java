@@ -74,7 +74,7 @@ public class Bot {
 
                 return crupier.getConta_bet() < this.MAX_CONTA_BET ? Player.BET : Player.CHECK;
 
-            } else if (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) == 14) || (straight && Math.min(valor1, valor2) >= 7) || (valor1 >= 11 && valor2 >= 11)) {
+            } else if (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) == 14) || (straight && Math.min(valor1, valor2) >= 10) || (valor1 >= 11 && valor2 >= 11)) {
 
                 //El X% de las veces apostamos con una mano no tan fuerte
                 boolean vamos;

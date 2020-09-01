@@ -131,7 +131,7 @@ public class Crupier implements Runnable {
     public static final int TURN = 3;
     public static final int RIVER = 4;
     public static final int SHOWDOWN = 5;
-    public static final int REPARTIR_PAUSA = 300;
+    public static final int REPARTIR_PAUSA = 150;
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static final String RECOVER_DECK_FILE = Game.REC_DIR + "/coronapoker_deck";
     public static final String RECOVER_SEATS_FILE = Game.REC_DIR + "/coronapoker_seats";

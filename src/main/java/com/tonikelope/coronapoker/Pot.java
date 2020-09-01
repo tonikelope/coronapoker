@@ -37,8 +37,8 @@ public class Pot {
 
     public Pot(ArrayList<Player> jugadores, float diff) {
         this.diff = diff;
-        
-        for(var jugador:jugadores){
+
+        for (var jugador : jugadores) {
             addPlayer(jugador);
         }
     }
@@ -83,13 +83,13 @@ public class Pot {
 
     //ALLIN SIDE POT(S) GENERATOR
     public void genSidePots() {
-        
+
         if (players.size() > 1) {
-            
+
             Collections.sort(players, new PotPlayerComparator());
-            
+
             int i = 0;
-            
+
             for (Player jugador : players) {
 
                 if (jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator()) {
@@ -98,7 +98,7 @@ public class Pot {
                     i++;
                 }
             }
-            
+
             if (i < players.size()) {
 
                 //Apuesta_menor es la apuesta del jugador que participa en el bote con la menor cantidad.

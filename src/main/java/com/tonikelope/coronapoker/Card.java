@@ -8,6 +8,7 @@ package com.tonikelope.coronapoker;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Image;
+import java.awt.event.MouseEvent;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -562,7 +563,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
     private void card_imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_card_imageMouseClicked
         // TODO add your handling code here:
 
-        if ((!isDesenfocada() || !isTapada())) {
+        if (evt.getButton() == MouseEvent.BUTTON1 && (!isDesenfocada() || !isTapada())) {
             CardVisorDialog visor;
 
             if (isCargada()) {

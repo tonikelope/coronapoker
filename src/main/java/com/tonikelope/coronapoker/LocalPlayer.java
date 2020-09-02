@@ -532,7 +532,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (this.getDecision() == Player.NODEC) {
             Helpers.playWavResource("misc/yourturn.wav");
 
-            call_required = crupier.getApuesta_actual() - bet;
+            call_required = Helpers.clean1DFloat(crupier.getApuesta_actual() - bet);
 
             min_raise = Helpers.float1DSecureCompare(0f, crupier.getUltimo_raise()) < 0 ? crupier.getUltimo_raise() : crupier.getCiega_grande();
 
@@ -815,6 +815,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
+                bet_slider_text.setText("");
                 bet_slider_text.setEnabled(false);
 
                 bet_slider.setEnabled(false);
@@ -1849,6 +1850,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (!Game.CONFIRM_ACTIONS || this.action_button_armed.get(player_bet_button) || click_recuperacion) {
 
+                    float bet_slider_val = Helpers.clean1DFloat(Float.valueOf(bet_slider_text.getText()));
+
                     Helpers.playWavResource("misc/bet.wav");
 
                     desactivarControles();
@@ -1864,9 +1867,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             if (apuesta_recuperada == null) {
 
-                                setStack(stack - (Helpers.clean1DFloat(Float.valueOf(bet_slider_text.getText())) + Helpers.clean1DFloat(call_required)));
+                                setStack(stack - (bet_slider_val + call_required));
 
-                                setBet(Float.valueOf(bet_slider_text.getText()) + bet + call_required);
+                                setBet(bet_slider_val + bet + call_required);
                             } else {
                                 setStack(stack - (apuesta_recuperada - bet));
 

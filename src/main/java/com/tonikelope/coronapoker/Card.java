@@ -187,10 +187,9 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
             }
         });
 
-        if (cargada || !"".equals(this.valor)) {
+        if (cargada) {
 
-            if (cargada) {
-
+            if (tapada) {
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
                         card_image.setIcon(isDesenfocada() ? Card.imagen_trasera_b : Card.imagen_trasera);
@@ -198,23 +197,6 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
                 });
 
             } else {
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        card_image.setIcon(Card.imagen_joker);
-                    }
-                });
-            }
-
-            if (tapada && cargada) {
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        card_image.setIcon(isDesenfocada() ? Card.imagen_trasera_b : Card.imagen_trasera);
-                    }
-                });
-
-            } else if (cargada) {
 
                 Helpers.GUIRun(new Runnable() {
                     public void run() {

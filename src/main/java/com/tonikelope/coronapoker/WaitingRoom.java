@@ -29,7 +29,6 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -987,10 +986,10 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     command += Base64.encodeBase64String(p.getNick().getBytes("UTF-8"));
 
-                    if (p.getAvatar() != null) {
+                    if (p.getAvatar() != null || p.isCpu()) {
                         byte[] avatar_b;
 
-                        try (FileInputStream is = new FileInputStream(p.getAvatar())) {
+                        try (InputStream is = !p.isCpu() ? new FileInputStream(p.getAvatar()) : WaitingRoom.class.getResourceAsStream("/images/avatar_bot.png")) {
                             avatar_b = is.readAllBytes();
                         }
 
@@ -1374,7 +1373,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         if (entry.getValue().getAvatar() != null) {
                             label.setIcon(new ImageIcon(new ImageIcon(entry.getValue().getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
                         } else {
-                            label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(cpu ? "/images/avatar_bot.png" : "/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
+                            label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((server && entry.getValue().isCpu()) ? "/images/avatar_bot.png" : "/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
                         }
 
                     } else {

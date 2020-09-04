@@ -1286,6 +1286,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         if (this.participantes.containsKey(nick)) {
 
+            Helpers.playWavResource("misc/toilet.wav");
+
             Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
 
@@ -1609,8 +1611,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         // TODO add your handling code here:
         if (conectados.getSelectedIndex() != -1) {
-
-            Helpers.playWavResource("misc/toilet.wav");
 
             String expulsado = ((JLabel) ((DefaultListModel) conectados.getModel()).get(conectados.getSelectedIndex())).getText();
 

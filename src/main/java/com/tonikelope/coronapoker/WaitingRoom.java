@@ -24,10 +24,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -1165,6 +1167,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                     public void run() {
                                         empezar_timba.setVisible(true);
                                         kick_user.setVisible(true);
+                                        new_bot_button.setVisible(participantes.size() < WaitingRoom.MAX_PARTICIPANTES);
                                     }
                                 });
                             }
@@ -1321,6 +1324,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                         empezar_timba.setVisible(false);
                         kick_user.setVisible(false);
                     }
+
+                    new_bot_button.setVisible(true);
                 }
             });
 
@@ -1603,31 +1608,36 @@ public class WaitingRoom extends javax.swing.JFrame {
     private void kick_userActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_kick_userActionPerformed
 
         // TODO add your handling code here:
-        String expulsado = ((JLabel) ((DefaultListModel) conectados.getModel()).get(conectados.getSelectedIndex())).getText();
+        if (conectados.getSelectedIndex() != -1) {
 
-        if (!expulsado.equals(local_nick)) {
+            Helpers.playWavResource("misc/toilet.wav");
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-                    try {
+            String expulsado = ((JLabel) ((DefaultListModel) conectados.getModel()).get(conectados.getSelectedIndex())).getText();
 
-                        if (!participantes.get(expulsado).isCpu()) {
+            if (!expulsado.equals(local_nick)) {
 
-                            String comando = "KICKED#" + Base64.encodeBase64String(expulsado.getBytes("UTF-8"));
-                            participantes.get(expulsado).getSocket().getOutputStream().write((comando + "\n").getBytes("UTF-8"));
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
+                        try {
+
+                            if (!participantes.get(expulsado).isCpu()) {
+
+                                String comando = "KICKED#" + Base64.encodeBase64String(expulsado.getBytes("UTF-8"));
+                                participantes.get(expulsado).getSocket().getOutputStream().write((comando + "\n").getBytes("UTF-8"));
+                            }
+
+                            participantes.get(expulsado).setExit();
+
+                            borrarParticipante(expulsado);
+
+                        } catch (UnsupportedEncodingException ex) {
+                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                        } catch (IOException ex) {
+                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                         }
-
-                        participantes.get(expulsado).setExit();
-
-                        borrarParticipante(expulsado);
-
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-                    } catch (IOException ex) {
-                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                }
-            });
+                });
+            }
         }
 
     }//GEN-LAST:event_kick_userActionPerformed
@@ -1802,6 +1812,9 @@ public class WaitingRoom extends javax.swing.JFrame {
     private void new_bot_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_new_bot_buttonActionPerformed
 
         if (participantes.size() < MAX_PARTICIPANTES) {
+
+            Helpers.playWavResource("misc/laser.wav");
+
             try {
                 // TODO add your handling code here:
                 String bot_nick;
@@ -1815,10 +1828,20 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 } while (participantes.get(bot_nick) != null);
 
-                nuevoParticipante(bot_nick, null, null, null, true);
+                nuevoParticipante(bot_nick, new File(WaitingRoom.class.getResource("/images/avatar_bot.png").toURI()), null, null, true);
 
                 //Mandamos el nuevo participante al resto de participantes
                 String comando = "NEWUSER#" + Base64.encodeBase64String(bot_nick.getBytes("UTF-8"));
+
+                byte[] avatar_b = null;
+
+                try (InputStream is = WaitingRoom.class.getResourceAsStream("/images/avatar_bot.png")) {
+                    avatar_b = is.readAllBytes();
+                } catch (IOException ex) {
+                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+                comando += "#" + Base64.encodeBase64String(avatar_b);
 
                 broadcastCommandFromServer(comando, bot_nick, true);
 
@@ -1826,10 +1849,13 @@ public class WaitingRoom extends javax.swing.JFrame {
                     public void run() {
                         empezar_timba.setVisible(true);
                         kick_user.setVisible(true);
+                        new_bot_button.setVisible(participantes.size() < WaitingRoom.MAX_PARTICIPANTES);
                     }
                 });
 
             } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (URISyntaxException ex) {
                 Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
             }
         }

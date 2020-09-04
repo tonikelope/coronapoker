@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿RECOMPRA? -> ", "REBUY? -> "},
             {"Añadir bot", "Add bot"},
             {"Los comentarios sonoros durante el juego no se traducirán (puedes desactivarlos cuando empiece la partida).", "In-game audio comments will not be translated (you can turn them off when the game starts)."},
             {"CREAR TIMBA", "CREATE GAME"},

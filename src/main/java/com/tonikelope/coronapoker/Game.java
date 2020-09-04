@@ -46,9 +46,7 @@ import javax.swing.Timer;
  */
 public final class Game extends javax.swing.JFrame implements ZoomableInterface {
 
-    public static final boolean DEBUG_TO_FILE = true;
-    public static final String LOGS_DIR = "./CORONA_POKER_LOGS";
-    public static final String REC_DIR = "./.CORONA_POKER_RECOVER";
+    public static final boolean DEBUG_TO_FILE = false;
     public static final boolean TEST_MODE = false;
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;
@@ -1290,7 +1288,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         }
 
-        String log_file = Game.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
+        String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
 
         try {
             Files.writeString(Paths.get(log_file), getRegistro().getText());
@@ -1298,7 +1296,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex1);
         }
 
-        String chat_file = Game.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
+        String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
 
         try {
             Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());

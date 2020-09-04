@@ -131,7 +131,7 @@ public class Crupier implements Runnable {
     public static final int TURN = 3;
     public static final int RIVER = 4;
     public static final int SHOWDOWN = 5;
-    public static final int REPARTIR_PAUSA = 300; //2 players
+    public static final int REPARTIR_PAUSA = 250; //2 players
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static final String RECOVER_DECK_FILE = Init.REC_DIR + "/coronapoker_deck";
     public static final String RECOVER_SEATS_FILE = Init.REC_DIR + "/coronapoker_seats";
@@ -2199,7 +2199,7 @@ public class Crupier implements Runnable {
 
     private void repartir() {
 
-        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2 / this.getJugadoresActivos())));
+        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
 
         Helpers.GUIRunAndWait(new Runnable() {
             @Override

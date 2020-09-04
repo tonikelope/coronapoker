@@ -16,7 +16,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -42,6 +41,10 @@ public class Init extends javax.swing.JFrame {
 
     public static ConcurrentHashMap<String, Object> MOD = null;
     public static String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
+    public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
+    public static final String LOGS_DIR = CORONA_DIR + "/Logs";
+    public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
+    public static final String REC_DIR = CORONA_DIR + "/Recover";
 
     /**
      * Creates new form Inicio
@@ -390,21 +393,13 @@ public class Init extends javax.swing.JFrame {
         //</editor-fold>
 
         //</editor-fold>
-        File f = new File(Game.LOGS_DIR);
+        Helpers.createIfNoExistsCoronaDirs();
 
-        if (!f.exists()) {
-            f.mkdir();
-        }
-
-        f = new File(Game.REC_DIR);
-
-        if (!f.exists()) {
-            f.mkdir();
-        }
+        Helpers.loadPropertiesFile();
 
         if (Game.DEBUG_TO_FILE) {
 
-            PrintStream fileOut = new PrintStream(new FileOutputStream(Game.LOGS_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
+            PrintStream fileOut = new PrintStream(new FileOutputStream(DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
             System.setOut(fileOut);
             System.setErr(fileOut);
         }

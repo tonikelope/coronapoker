@@ -16,9 +16,9 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "FINAL-4.29";
+    public static final String VERSION = "FINAL-4.30";
     public final static String TITLE = "¿De dónde ha salido esto?";
-    public static final int MAX_MOD_LOGO_HEIGHT = 100;
+    public static final int MAX_MOD_LOGO_HEIGHT = 75;
     private String last_mp3_loop = null;
 
     /**
@@ -95,7 +95,7 @@ public class AboutDialog extends javax.swing.JDialog {
         });
 
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_15.png"))); // NOI18N
+        jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_16.png"))); // NOI18N
         jLabel1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         jLabel1.setDoubleBuffered(true);
         jLabel1.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -104,12 +104,12 @@ public class AboutDialog extends javax.swing.JDialog {
             }
         });
 
-        jLabel2.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        jLabel2.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setText("Gracias a todos los amigos que han colaborado en esta aventura, en especial a Pepsi por sus barajas y el");
         jLabel2.setDoubleBuffered(true);
 
-        dedicado.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
+        dedicado.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         dedicado.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         dedicado.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/luto.png"))); // NOI18N
         dedicado.setText("En memoria de todas las víctimas de la COVID-19");
@@ -121,22 +121,22 @@ public class AboutDialog extends javax.swing.JDialog {
         jLabel3.setText("Jn 8:31");
         jLabel3.setDoubleBuffered(true);
 
-        jLabel4.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        jLabel4.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel4.setText("(Todos los céntimos desaparecidos en las betas fueron para una buena causa).");
         jLabel4.setDoubleBuffered(true);
 
-        merecemos.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
+        merecemos.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         merecemos.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         merecemos.setText("El videojuego de Texas hold 'em NL que nos merecemos, no el que necesitamos ¿o era al revés?");
         merecemos.setDoubleBuffered(true);
 
-        jLabel5.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        jLabel5.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel5.setText("\"hilo fino\", a Pepillo por ese talento para cazar los bugs más raros y a mi madre... por todo lo demás.");
         jLabel5.setDoubleBuffered(true);
 
-        jLabel6.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
+        jLabel6.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel6.setText("Nota: si posees el copyright de esta música (o cualquier otro elemento) y no permites su utilización, escríbeme a -> tonikelope@gmail.com");
         jLabel6.setDoubleBuffered(true);
@@ -146,12 +146,12 @@ public class AboutDialog extends javax.swing.JDialog {
         mod_label.setText("MOD");
         mod_label.setDoubleBuffered(true);
 
-        jLabel7.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
+        jLabel7.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel7.setText("El hilo musical que suena durante el juego fue compuesto por David Luong.");
         jLabel7.setDoubleBuffered(true);
 
-        jLabel8.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
+        jLabel8.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel8.setText("La canción que suena aquí es \"La Sala del Trono\" compuesta por John Williams para Star Wars.");
         jLabel8.setDoubleBuffered(true);

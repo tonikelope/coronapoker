@@ -2,6 +2,10 @@ package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Helpers.SPRNG;
+import static com.tonikelope.coronapoker.Init.CORONA_DIR;
+import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
+import static com.tonikelope.coronapoker.Init.LOGS_DIR;
+import static com.tonikelope.coronapoker.Init.REC_DIR;
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Component;
@@ -124,8 +128,8 @@ public class Helpers {
     public static String RANDOM_ORG_APIKEY = "";
     public static Random SPRNG_GENERATOR = null;
     public static Random PRNG_GENERATOR = null;
-    public static final String PROPERTIES_FILE = "./.CORONAPOKER.properties";
-    public static final Properties PROPERTIES = loadPropertiesFile();
+    public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
+    public static Properties PROPERTIES = null;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
@@ -135,6 +139,33 @@ public class Helpers {
     public static boolean MUTED = false;
     public static boolean MUTED_MP3 = false;
     public static boolean RANDOMORG_ERROR_MSG = false;
+
+    public static void createIfNoExistsCoronaDirs() {
+
+        File f = new File(CORONA_DIR);
+
+        if (!f.exists()) {
+            f.mkdir();
+        }
+
+        f = new File(LOGS_DIR);
+
+        if (!f.exists()) {
+            f.mkdir();
+        }
+
+        f = new File(DEBUG_DIR);
+
+        if (!f.exists()) {
+            f.mkdir();
+        }
+
+        f = new File(REC_DIR);
+
+        if (!f.exists()) {
+            f.mkdir();
+        }
+    }
 
     public static String genRandomString(int length) {
 
@@ -379,7 +410,7 @@ public class Helpers {
         return font;
     }
 
-    public static Properties loadPropertiesFile() {
+    public static void loadPropertiesFile() {
 
         File properties = new File(PROPERTIES_FILE);
 
@@ -399,11 +430,9 @@ public class Helpers {
                 prop.load(input);
             }
 
-            return prop;
+            PROPERTIES = prop;
 
         } catch (IOException ex) {
-
-            return null;
         }
     }
 

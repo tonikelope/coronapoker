@@ -133,10 +133,10 @@ public class Crupier implements Runnable {
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 300; //2 players
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
-    public static final String RECOVER_DECK_FILE = Game.REC_DIR + "/coronapoker_deck";
-    public static final String RECOVER_SEATS_FILE = Game.REC_DIR + "/coronapoker_seats";
-    public static final String RECOVER_BALANCE_FILE = Game.REC_DIR + "/coronapoker_balance";
-    public static final String RECOVER_ACTIONS_FILE = Game.REC_DIR + "/coronapoker_actions";
+    public static final String RECOVER_DECK_FILE = Init.REC_DIR + "/coronapoker_deck";
+    public static final String RECOVER_SEATS_FILE = Init.REC_DIR + "/coronapoker_seats";
+    public static final String RECOVER_BALANCE_FILE = Init.REC_DIR + "/coronapoker_balance";
+    public static final String RECOVER_ACTIONS_FILE = Init.REC_DIR + "/coronapoker_actions";
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.5f, 1.0f}};
     public static boolean FUSION_MOD_SOUNDS = true;
     public static boolean FUSION_MOD_CINEMATICS = true;
@@ -5008,15 +5008,21 @@ public class Crupier implements Runnable {
 
                                     if (rebuy_players.contains(jugador.getNickname()) && Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
 
+                                        int res = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname());
+
                                         rebuy_players.remove(jugador.getNickname());
 
                                         try {
-                                            String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + (!Game.REBUY ? "#0" : "");
+                                            String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!Game.REBUY || res != 0) ? "#0" : "");
 
                                             this.broadcastCommandFromServer(comando, null);
 
                                         } catch (UnsupportedEncodingException ex) {
                                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+
+                                        if ((!Game.REBUY || res != 0)) {
+                                            jugador.setSpectator(null);
                                         }
                                     }
                                 }

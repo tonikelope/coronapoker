@@ -1305,7 +1305,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                             if (entry.getValue().getAvatar() != null) {
                                 label.setIcon(new ImageIcon(new ImageIcon(entry.getValue().getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
                             } else {
-                                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
+                                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((server && entry.getValue().isCpu()) ? "/images/avatar_bot.png" : "/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
                             }
                         } else {
 
@@ -1316,8 +1316,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                             }
 
                         }
-                        listModel.addElement(label);
 
+                        listModel.addElement(label);
                     }
 
                     conectados.setModel(listModel);
@@ -1374,8 +1374,9 @@ public class WaitingRoom extends javax.swing.JFrame {
                         if (entry.getValue().getAvatar() != null) {
                             label.setIcon(new ImageIcon(new ImageIcon(entry.getValue().getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
                         } else {
-                            label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
+                            label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(cpu ? "/images/avatar_bot.png" : "/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
                         }
+
                     } else {
 
                         if (local_avatar != null) {
@@ -1828,7 +1829,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 } while (participantes.get(bot_nick) != null);
 
-                nuevoParticipante(bot_nick, new File(WaitingRoom.class.getResource("/images/avatar_bot.png").toURI()), null, null, true);
+                nuevoParticipante(bot_nick, null, null, null, true);
 
                 //Mandamos el nuevo participante al resto de participantes
                 String comando = "NEWUSER#" + Base64.encodeBase64String(bot_nick.getBytes("UTF-8"));
@@ -1854,8 +1855,6 @@ public class WaitingRoom extends javax.swing.JFrame {
                 });
 
             } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (URISyntaxException ex) {
                 Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
             }
         }

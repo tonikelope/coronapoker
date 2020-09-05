@@ -4885,8 +4885,14 @@ public class Crupier implements Runnable {
 
                         for (Player jugador : Game.getInstance().getJugadores()) {
 
-                            if (!jugador.isSpectator() && Helpers.float1DSecureCompare(0f, Helpers.clean1DFloat(jugador.getStack()) + Helpers.clean1DFloat(jugador.getPagar())) == 0) {
-                                rebuy_players.add(jugador.getNickname());
+                            if (jugador != Game.getInstance().getLocalPlayer() && !jugador.isExit() && !jugador.isSpectator() && Helpers.float1DSecureCompare(0f, Helpers.clean1DFloat(jugador.getStack()) + Helpers.clean1DFloat(jugador.getPagar())) == 0) {
+
+                                if (Game.REBUY) {
+                                    rebuy_players.add(jugador.getNickname());
+                                } else {
+                                    jugador.setSpectator(null);
+                                }
+
                             }
                         }
 
@@ -4896,7 +4902,7 @@ public class Crupier implements Runnable {
 
                                 if (!Game.AUTO_REBUY) {
 
-                                    GameOverDialog dialog = new GameOverDialog(Game.getInstance(), true);
+                                    GameOverDialog dialog = new GameOverDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true);
 
                                     Game.getInstance().setGame_over_dialog(true);
 
@@ -4967,22 +4973,7 @@ public class Crupier implements Runnable {
 
                             } else {
 
-                                try {
-
-                                    rebuy_players.remove(Game.getInstance().getLocalPlayer().getNickname());
-
-                                    String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#0";
-
-                                    if (Game.getInstance().isPartida_local()) {
-                                        this.broadcastCommandFromServer(comando, null);
-                                    } else {
-                                        this.sendCommandToServer(comando);
-                                    }
-                                } catch (UnsupportedEncodingException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-
-                                GameOverDialog dialog = new GameOverDialog(Game.getInstance(), true, true);
+                                GameOverDialog dialog = new GameOverDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, true);
 
                                 Game.getInstance().setGame_over_dialog(true);
 
@@ -5024,15 +5015,15 @@ public class Crupier implements Runnable {
                                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                         }
 
-                                        if ((!Game.REBUY || res != 0)) {
+                                        if (res != 0) {
                                             jugador.setSpectator(null);
                                         }
+
                                     }
                                 }
                             }
 
                             this.recibirRebuys(rebuy_players);
-
                         }
 
                         updateExitPlayers();

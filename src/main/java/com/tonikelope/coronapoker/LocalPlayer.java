@@ -161,29 +161,30 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void setSpectator(String msg) {
-        this.exit = false;
-        this.spectator = true;
-        this.bote = 0f;
+        if (!this.exit) {
+            this.spectator = true;
+            this.bote = 0f;
 
-        if (crupier.getJugadoresActivos() + crupier.getTotalCalentando() < 2) {
-            crupier.setJugadores_suficientes(false);
-        }
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
-
-                player_blind.setVisible(false);
-                player_bet.setVisible(false);
-                utg_textfield.setVisible(false);
-                playingCard1.descargarCarta();
-                playingCard2.descargarCarta();
-                player_stack.setEnabled(false);
-                player_action.setText(msg != null ? msg : "ESPECTADOR");
-                player_action.setEnabled(false);
+            if (crupier.getJugadoresActivos() + crupier.getTotalCalentando() < 2) {
+                crupier.setJugadores_suficientes(false);
             }
-        });
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+
+                    player_blind.setVisible(false);
+                    player_bet.setVisible(false);
+                    utg_textfield.setVisible(false);
+                    playingCard1.descargarCarta();
+                    playingCard2.descargarCarta();
+                    player_stack.setEnabled(false);
+                    player_action.setText(msg != null ? msg : "ESPECTADOR");
+                    player_action.setEnabled(false);
+                }
+            });
+        }
     }
 
     public void unsetSpectator() {

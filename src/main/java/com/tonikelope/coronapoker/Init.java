@@ -16,7 +16,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.Window;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -48,8 +47,6 @@ public class Init extends javax.swing.JFrame {
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String REC_DIR = CORONA_DIR + "/Recover";
-    private volatile JFrame full_screen_frame = null;
-    private volatile Window full_screen_window = null;
 
     public JPanel getCorona_init_panel() {
         return corona_init_panel;
@@ -83,6 +80,10 @@ public class Init extends javax.swing.JFrame {
         } else {
             this.language_combobox.setSelectedIndex(1);
         }
+
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+        sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")));
 
         pack();
     }
@@ -126,11 +127,6 @@ public class Init extends javax.swing.JFrame {
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("CoronaPoker");
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
-        addWindowListener(new java.awt.event.WindowAdapter() {
-            public void windowOpened(java.awt.event.WindowEvent evt) {
-                formWindowOpened(evt);
-            }
-        });
 
         corona_init_panel.setOpaque(false);
 
@@ -309,7 +305,6 @@ public class Init extends javax.swing.JFrame {
         dialog.setVisible(true);
 
         if (!dialog.isDialog_ok()) {
-            setExtendedState(JFrame.MAXIMIZED_BOTH);
             setVisible(true);
         } else {
             setVisible(false);
@@ -326,7 +321,6 @@ public class Init extends javax.swing.JFrame {
         dialog.setVisible(true);
 
         if (!dialog.isDialog_ok()) {
-            setExtendedState(JFrame.MAXIMIZED_BOTH);
             setVisible(true);
         } else {
             setVisible(false);
@@ -396,12 +390,6 @@ public class Init extends javax.swing.JFrame {
 
         }
     }//GEN-LAST:event_language_comboboxActionPerformed
-
-    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
-        // TODO add your handling code here:
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
-        sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")));
-    }//GEN-LAST:event_formWindowOpened
 
     /**
      * @param args the command line arguments

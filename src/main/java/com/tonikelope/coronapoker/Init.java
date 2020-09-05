@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Window;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -31,6 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
 import javax.swing.UIManager;
 
 /**
@@ -45,6 +48,12 @@ public class Init extends javax.swing.JFrame {
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String REC_DIR = CORONA_DIR + "/Recover";
+    private volatile JFrame full_screen_frame = null;
+    private volatile Window full_screen_window = null;
+
+    public JPanel getCorona_init_panel() {
+        return corona_init_panel;
+    }
 
     /**
      * Creates new form Inicio
@@ -78,6 +87,10 @@ public class Init extends javax.swing.JFrame {
         pack();
     }
 
+    public InitPanel getTapete() {
+        return tapete;
+    }
+
     public void translateGlobalLabels() {
         LocalPlayer.ACTIONS_LABELS = Game.LANGUAGE.equals("es") ? LocalPlayer.ACTIONS_LABELS_ES : LocalPlayer.ACTIONS_LABELS_EN;
         LocalPlayer.POSITIONS_LABELS = Game.LANGUAGE.equals("es") ? LocalPlayer.POSITIONS_LABELS_ES : LocalPlayer.POSITIONS_LABELS_EN;
@@ -96,27 +109,43 @@ public class Init extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        tapete = new com.tonikelope.coronapoker.InitPanel();
+        corona_init_panel = new javax.swing.JPanel();
+        sound_icon = new javax.swing.JLabel();
+        krusty = new javax.swing.JLabel();
         create_button = new javax.swing.JButton();
-        join_button = new javax.swing.JButton();
         jLabel1 = new javax.swing.JLabel();
+        join_button = new javax.swing.JButton();
         pegi_panel = new javax.swing.JPanel();
         jLabel3 = new javax.swing.JLabel();
         jLabel4 = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
         jLabel6 = new javax.swing.JLabel();
-        krusty = new javax.swing.JLabel();
-        sound_icon = new javax.swing.JLabel();
         language_combobox = new javax.swing.JComboBox<>();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("CoronaPoker");
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
-        setResizable(false);
-        addComponentListener(new java.awt.event.ComponentAdapter() {
-            public void componentShown(java.awt.event.ComponentEvent evt) {
-                formComponentShown(evt);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowOpened(java.awt.event.WindowEvent evt) {
+                formWindowOpened(evt);
             }
         });
+
+        corona_init_panel.setOpaque(false);
+
+        sound_icon.setBackground(new java.awt.Color(153, 153, 153));
+        sound_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/mute.png"))); // NOI18N
+        sound_icon.setToolTipText("Click para activar/desactivar el sonido");
+        sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                sound_iconMouseClicked(evt);
+            }
+        });
+
+        krusty.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/krusty.png"))); // NOI18N
+        krusty.setToolTipText("Krusty sabe lo que se hace");
 
         create_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         create_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/crear.png"))); // NOI18N
@@ -129,6 +158,15 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
+        jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_15.png"))); // NOI18N
+        jLabel1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        jLabel1.setDoubleBuffered(true);
+        jLabel1.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                jLabel1MouseClicked(evt);
+            }
+        });
+
         join_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         join_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/unirme.png"))); // NOI18N
         join_button.setText("UNIRME A TIMBA");
@@ -137,15 +175,6 @@ public class Init extends javax.swing.JFrame {
         join_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 join_buttonActionPerformed(evt);
-            }
-        });
-
-        jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_15.png"))); // NOI18N
-        jLabel1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        jLabel1.setDoubleBuffered(true);
-        jLabel1.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                jLabel1MouseClicked(evt);
             }
         });
 
@@ -190,19 +219,6 @@ public class Init extends javax.swing.JFrame {
                 .addGap(0, 0, 0))
         );
 
-        krusty.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/krusty.png"))); // NOI18N
-        krusty.setToolTipText("Krusty sabe lo que se hace");
-
-        sound_icon.setBackground(new java.awt.Color(153, 153, 153));
-        sound_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/mute_b.png"))); // NOI18N
-        sound_icon.setToolTipText("Click para activar/desactivar el sonido");
-        sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                sound_iconMouseClicked(evt);
-            }
-        });
-
         language_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Español", "English" }));
         language_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -210,14 +226,14 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+        javax.swing.GroupLayout corona_init_panelLayout = new javax.swing.GroupLayout(corona_init_panel);
+        corona_init_panel.setLayout(corona_init_panelLayout);
+        corona_init_panelLayout.setHorizontalGroup(
+            corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(corona_init_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(layout.createSequentialGroup()
+                .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(corona_init_panelLayout.createSequentialGroup()
                         .addComponent(krusty)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(pegi_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -225,31 +241,59 @@ public class Init extends javax.swing.JFrame {
                         .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(sound_icon))
-                    .addGroup(layout.createSequentialGroup()
+                    .addGroup(corona_init_panelLayout.createSequentialGroup()
                         .addComponent(jLabel1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                        .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(join_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(create_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                            .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, 315, javax.swing.GroupLayout.PREFERRED_SIZE))))
                 .addContainerGap())
         );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
+        corona_init_panelLayout.setVerticalGroup(
+            corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(corona_init_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addGroup(layout.createSequentialGroup()
+                .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(corona_init_panelLayout.createSequentialGroup()
                         .addComponent(create_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(join_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addComponent(jLabel1))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(pegi_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(krusty, javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap())
+        );
+
+        javax.swing.GroupLayout tapeteLayout = new javax.swing.GroupLayout(tapete);
+        tapete.setLayout(tapeteLayout);
+        tapeteLayout.setHorizontalGroup(
+            tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
+                .addContainerGap(447, Short.MAX_VALUE)
+                .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(447, Short.MAX_VALUE))
+        );
+        tapeteLayout.setVerticalGroup(
+            tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
+                .addContainerGap(379, Short.MAX_VALUE)
+                .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(379, Short.MAX_VALUE))
+        );
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(tapete, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(tapete, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();
@@ -262,25 +306,14 @@ public class Init extends javax.swing.JFrame {
 
         dialog.setLocationRelativeTo(dialog.getParent());
 
-        setVisible(false);
+        dialog.setVisible(true);
 
-        Helpers.threadRun(new Runnable() {
-
-            public void run() {
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-
-                        dialog.setVisible(true);
-
-                        if (!dialog.isDialog_ok()) {
-                            setVisible(true);
-                        }
-                    }
-                });
-            }
+        if (!dialog.isDialog_ok()) {
+            setExtendedState(JFrame.MAXIMIZED_BOTH);
+            setVisible(true);
+        } else {
+            setVisible(false);
         }
-        );
 
     }//GEN-LAST:event_create_buttonActionPerformed
 
@@ -290,12 +323,13 @@ public class Init extends javax.swing.JFrame {
 
         dialog.setLocationRelativeTo(dialog.getParent());
 
-        this.setVisible(false);
-
         dialog.setVisible(true);
 
         if (!dialog.isDialog_ok()) {
-            this.setVisible(true);
+            setExtendedState(JFrame.MAXIMIZED_BOTH);
+            setVisible(true);
+        } else {
+            setVisible(false);
         }
     }//GEN-LAST:event_join_buttonActionPerformed
 
@@ -311,7 +345,7 @@ public class Init extends javax.swing.JFrame {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")));
+                sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")));
 
             }
         });
@@ -326,13 +360,6 @@ public class Init extends javax.swing.JFrame {
 
         }
     }//GEN-LAST:event_sound_iconMouseClicked
-
-    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
-        // TODO add your handling code here:
-
-        sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")));
-
-    }//GEN-LAST:event_formComponentShown
 
     private void jLabel1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jLabel1MouseClicked
         // TODO add your handling code here:
@@ -370,6 +397,12 @@ public class Init extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_language_comboboxActionPerformed
 
+    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
+        // TODO add your handling code here:
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")));
+    }//GEN-LAST:event_formWindowOpened
+
     /**
      * @param args the command line arguments
      */
@@ -394,8 +427,6 @@ public class Init extends javax.swing.JFrame {
 
         //</editor-fold>
         Helpers.createIfNoExistsCoronaDirs();
-
-        Helpers.loadPropertiesFile();
 
         if (Game.DEBUG_TO_FILE) {
 
@@ -460,6 +491,7 @@ public class Init extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JPanel corona_init_panel;
     private javax.swing.JButton create_button;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
@@ -471,5 +503,6 @@ public class Init extends javax.swing.JFrame {
     private javax.swing.JComboBox<String> language_combobox;
     private javax.swing.JPanel pegi_panel;
     private javax.swing.JLabel sound_icon;
+    private com.tonikelope.coronapoker.InitPanel tapete;
     // End of variables declaration//GEN-END:variables
 }

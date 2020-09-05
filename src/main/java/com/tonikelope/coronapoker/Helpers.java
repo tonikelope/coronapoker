@@ -129,7 +129,7 @@ public class Helpers {
     public static Random SPRNG_GENERATOR = null;
     public static Random PRNG_GENERATOR = null;
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
-    public static Properties PROPERTIES = null;
+    public static Properties PROPERTIES = loadPropertiesFile();
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
@@ -410,7 +410,9 @@ public class Helpers {
         return font;
     }
 
-    public static void loadPropertiesFile() {
+    public static Properties loadPropertiesFile() {
+
+        createIfNoExistsCoronaDirs();
 
         File properties = new File(PROPERTIES_FILE);
 
@@ -430,9 +432,10 @@ public class Helpers {
                 prop.load(input);
             }
 
-            PROPERTIES = prop;
+            return prop;
 
         } catch (IOException ex) {
+            return null;
         }
     }
 

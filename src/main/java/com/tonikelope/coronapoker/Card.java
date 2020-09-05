@@ -5,7 +5,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.event.MouseEvent;
@@ -102,11 +101,6 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
      */
     public Card() {
         initComponents();
-
-        setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 4) : height));
-        card_image.setSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 4) : height));
-        card_image.setIcon(Card.imagen_joker);
-        card_image.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
 
     private static HashMap<String, String> loadUnicodeTable() {
@@ -523,6 +517,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         setOpaque(false);
         setPreferredSize(new java.awt.Dimension(148, 200));
 
+        card_image.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         card_image.setDoubleBuffered(true);
         card_image.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {

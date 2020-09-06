@@ -2911,6 +2911,7 @@ public class Crupier implements Runnable {
             resetBetPlayerDecisions(Game.getInstance().getJugadores(), null);
 
             do {
+                Game.getInstance().checkPause();
 
                 turno++;
 
@@ -3022,7 +3023,7 @@ public class Crupier implements Runnable {
                         //ES OTRO JUGADOR
                         current_player.esTuTurno();
 
-                        Object[] action;
+                        Object[] action = null;
 
                         if (!Game.getInstance().isPartida_local() || !Game.getInstance().getParticipantes().get(current_player.getNickname()).isCpu()) {
 
@@ -3030,62 +3031,65 @@ public class Crupier implements Runnable {
 
                         } else {
 
-                            float call_required = getApuesta_actual() - current_player.getBet();
+                            if (this.acciones_recuperadas.isEmpty() || (action = siguienteAccionRecuperada(current_player.getNickname())) == null) {
 
-                            float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : getCiega_grande();
+                                float call_required = getApuesta_actual() - current_player.getBet();
 
-                            int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision(resisten.size() - 1);
+                                float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : getCiega_grande();
 
-                            boolean slow_play = ((RemotePlayer) current_player).getBot().isSlow_play();
+                                int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision(resisten.size() - 1);
 
-                            action = new Object[]{decision_loki, 0f};
+                                boolean slow_play = ((RemotePlayer) current_player).getBot().isSlow_play();
 
-                            switch (decision_loki) {
+                                action = new Object[]{decision_loki, 0f};
 
-                                case Player.FOLD:
+                                switch (decision_loki) {
 
-                                    if (Helpers.float1DSecureCompare(0f, this.getApuesta_actual()) == 0 || Helpers.float1DSecureCompare(current_player.getBet(), this.getApuesta_actual()) == 0) {
-                                        action = new Object[]{Player.CHECK, 0f};
-                                    }
+                                    case Player.FOLD:
 
-                                    break;
+                                        if (Helpers.float1DSecureCompare(0f, this.getApuesta_actual()) == 0 || Helpers.float1DSecureCompare(current_player.getBet(), this.getApuesta_actual()) == 0) {
+                                            action = new Object[]{Player.CHECK, 0f};
+                                        }
 
-                                case Player.CHECK:
+                                        break;
 
-                                    if (Helpers.float1DSecureCompare(current_player.getStack(), call_required) <= 0) {
+                                    case Player.CHECK:
 
-                                        action = new Object[]{Player.ALLIN, ""};
-                                    }
+                                        if (Helpers.float1DSecureCompare(current_player.getStack(), call_required) <= 0) {
 
-                                    break;
+                                            action = new Object[]{Player.ALLIN, ""};
+                                        }
 
-                                case Player.BET:
+                                        break;
 
-                                    float b;
+                                    case Player.BET:
 
-                                    if (Helpers.float1DSecureCompare(this.getApuesta_actual(), 0f) == 0) {
+                                        float b;
 
-                                        b = (slow_play && fase != Crupier.RIVER) ? this.getCiega_grande() : (Helpers.SPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande();
+                                        if (Helpers.float1DSecureCompare(this.getApuesta_actual(), 0f) == 0) {
 
-                                    } else {
+                                            b = (slow_play && fase != Crupier.RIVER) ? this.getCiega_grande() : (Helpers.SPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande();
 
-                                        b = getApuesta_actual() + Math.max(min_raise, (Helpers.SPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande());
-                                    }
+                                        } else {
 
-                                    if (Helpers.float1DSecureCompare(current_player.getStack() / 2, b - current_player.getBet()) <= 0) {
+                                            b = getApuesta_actual() + Math.max(min_raise, (Helpers.SPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande());
+                                        }
 
-                                        action = new Object[]{Player.ALLIN, ""};
+                                        if (Helpers.float1DSecureCompare(current_player.getStack() / 2, b - current_player.getBet()) <= 0) {
 
-                                    } else {
+                                            action = new Object[]{Player.ALLIN, ""};
 
-                                        action = new Object[]{Player.BET, b};
+                                        } else {
 
-                                    }
+                                            action = new Object[]{Player.BET, b};
 
-                                    break;
+                                        }
+
+                                        break;
+                                }
+
+                                Helpers.pausar((Helpers.SPRNG_GENERATOR.nextInt(2) + 1) * 1000);
                             }
-
-                            Helpers.pausar((Helpers.SPRNG_GENERATOR.nextInt(2) + 1) * 1000);
                         }
 
                         decision = (int) action[0];
@@ -3835,7 +3839,7 @@ public class Crupier implements Runnable {
 
                     String nick = new String(Base64.decodeBase64(parts[0]), "UTF-8");
 
-                    if (Game.getInstance().getLocalPlayer().getNickname().equals(nick)) {
+                    if (Game.getInstance().getLocalPlayer().getNickname().equals(nick) || (Game.getInstance().isPartida_local() && Game.getInstance().getParticipantes().get(nick).isCpu())) {
                         acciones_recuperadas.add(r);
                     }
                 }

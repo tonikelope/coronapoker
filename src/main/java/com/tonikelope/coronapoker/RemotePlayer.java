@@ -1319,7 +1319,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     playingCard1.descargarCarta();
                     playingCard2.descargarCarta();
                     player_stack.setEnabled(false);
-                    player_action.setText(msg != null ? msg : "ESPECTADOR");
+                    player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                     player_action.setEnabled(false);
                 }
             });

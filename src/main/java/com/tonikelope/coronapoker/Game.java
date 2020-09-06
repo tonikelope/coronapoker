@@ -46,7 +46,7 @@ import javax.swing.Timer;
  */
 public final class Game extends javax.swing.JFrame implements ZoomableInterface {
 
-    public static final boolean DEBUG_TO_FILE = true;
+    public static final boolean DEBUG_TO_FILE = false;
     public static final boolean TEST_MODE = false;
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;
@@ -151,6 +151,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             @Override
             public void run() {
                 full_screen_menu.setEnabled(false);
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
             }
         });
 
@@ -196,6 +197,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         zoom_menu_in.setEnabled(true);
                         zoom_menu_out.setEnabled(true);
                         zoom_menu_reset.setEnabled(true);
+
                     }
                 });
             }
@@ -1143,7 +1145,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 break;
         }
 
-        this.full_screen_menu.setEnabled(!Game.isRECOVER());
+        this.full_screen_menu.setEnabled(true);
 
         updateSoundIcon();
 
@@ -1198,7 +1200,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(Game.REBUY);
 
-        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!Game.isRECOVER());
+        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
 
         for (Component menu : BARAJAS_MENU.getMenuComponents()) {
 
@@ -2016,7 +2018,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void full_screen_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_full_screen_menuActionPerformed
         // TODO add your handling code here:
 
-        if (this.full_screen_menu.isEnabled() && !this.isGame_over_dialog() && !Game.isRECOVER()) {
+        if (this.full_screen_menu.isEnabled() && !this.isGame_over_dialog()) {
 
             this.full_screen_menu.setEnabled(false);
 

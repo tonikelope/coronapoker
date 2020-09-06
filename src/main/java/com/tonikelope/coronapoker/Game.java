@@ -193,7 +193,12 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        full_screen_menu.setEnabled(true);
+
+                        if (!Game.isRECOVER()) {
+                            full_screen_menu.setEnabled(true);
+                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                        }
+
                         zoom_menu_in.setEnabled(true);
                         zoom_menu_out.setEnabled(true);
                         zoom_menu_reset.setEnabled(true);

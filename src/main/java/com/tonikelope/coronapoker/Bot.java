@@ -68,13 +68,13 @@ public class Bot {
             boolean suited = cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo());
             boolean straight = Math.abs(valor1 - valor2) == 1;
 
-            if ((pareja && valor1 >= 7) || (suited && valor1 >= 10 && valor2 >= 10) || (valor1 >= 12 && valor2 >= 12) || (suited && straight && Math.min(valor1, valor2) == 7)) {
+            if ((pareja && valor1 >= 7) || (suited && Math.min(valor1, valor2) >= 10) || Math.min(valor1, valor2) >= 12 || (suited && straight && Math.min(valor1, valor2) == 7)) {
 
                 conta_call++;
 
                 return crupier.getConta_bet() < this.MAX_CONTA_BET ? Player.BET : Player.CHECK;
 
-            } else if (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) == 14) || (straight && Math.min(valor1, valor2) >= 10) || (valor1 >= 11 && valor2 >= 11)) {
+            } else if (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) >= 13) || (straight && Math.min(valor1, valor2) >= 10) || Math.min(valor1, valor2) >= 11) {
 
                 //El X% de las veces apostamos con una mano no tan fuerte
                 boolean vamos;

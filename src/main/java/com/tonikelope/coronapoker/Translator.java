@@ -193,6 +193,7 @@ public class Translator {
             {"Cinemáticas", "Cinematics"},
             {"PIERDE ", "LOSES "},
             {"GANA ", "WINS "},
+            {"PIERDE", "LOSES"},
             {"NI GANA NI PIERDE", "NO WIN, NO LOSS"},
             {"ESPECTADOR", "SPECTATOR"},
             {"] dice: ", "] says: "},

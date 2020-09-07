@@ -4392,7 +4392,7 @@ public class Crupier implements Runnable {
 
                             if (jugador_actual.getPlayingCard1().isTapada()) {
 
-                                jugador_actual.setLoser("PIERDE");
+                                jugador_actual.setLoser(Translator.translate("PIERDE"));
 
                             } else {
 

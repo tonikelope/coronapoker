@@ -74,9 +74,9 @@ public class Bot {
 
                 return crupier.getConta_bet() < this.MAX_CONTA_BET ? Player.BET : Player.CHECK;
 
-            } else if (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) >= 13) || (straight && Math.min(valor1, valor2) >= 10) || Math.min(valor1, valor2) >= 11) {
+            } else if ((Helpers.float1DSecureCompare(crupier.getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 2) <= 0) && (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) >= 13) || (straight && Math.min(valor1, valor2) >= 10) || Math.min(valor1, valor2) >= 11)) {
 
-                //El X% de las veces apostamos con una mano no tan fuerte
+                //El X% de las veces apostamos con una mano no tan fuerte (siempre que no haya que poner más del 50% de nuestro stack)
                 boolean vamos;
 
                 if (activos <= 4) {

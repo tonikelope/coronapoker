@@ -378,16 +378,11 @@ public class Init extends javax.swing.JFrame {
 
         if (isVisible()) {
 
-            setVisible(false);
-
-            pack();
-
-            setVisible(true);
-
-            if (!Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
-                Helpers.mostrarMensajeInformativo(this, "Los comentarios sonoros durante el juego no se traducirán (puedes desactivarlos cuando empiece la partida).");
+            if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
+                Game.SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
+            } else {
+                Game.SONIDOS_CHORRA = false;
             }
-
         }
     }//GEN-LAST:event_language_comboboxActionPerformed
 

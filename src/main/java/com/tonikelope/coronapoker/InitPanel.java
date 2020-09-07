@@ -40,7 +40,8 @@ public class InitPanel extends javax.swing.JPanel {
                 super.paintComponent(g);
 
                 if (tp == null) {
-                    BufferedImage tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+
+                    BufferedImage tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + Helpers.PROPERTIES.getProperty("color_tapete", "verde") + ".jpg"));
 
                     Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
 

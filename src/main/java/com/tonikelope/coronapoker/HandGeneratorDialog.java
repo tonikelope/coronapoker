@@ -53,13 +53,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         Helpers.threadRun(new Runnable() {
             public void run() {
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        inferior_button.setEnabled(false);
-                        superior_button.setEnabled(false);
-                    }
-                });
-
                 for (Card carta : cartas) {
                     carta.descargarCarta();
                 }
@@ -97,6 +90,15 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
                         escaleraColorReal(valor_jugada);
                         break;
                 }
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+
+                        inferior_button.setEnabled(valor_jugada > 0);
+                        superior_button.setEnabled(valor_jugada < 9);
+
+                    }
+                });
 
             }
         });
@@ -156,13 +158,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             i++;
         }
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                inferior_button.setEnabled(false);
-                superior_button.setEnabled(true);
-            }
-        });
-
     }
 
     private void pareja(int v) {
@@ -196,13 +191,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             cartas[i].cargarCarta(pareja1.get(i).getValor(), pareja1.get(i).getPalo());
             cartas[i].destapar(false);
         }
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                inferior_button.setEnabled(true);
-                superior_button.setEnabled(true);
-            }
-        });
 
     }
 
@@ -262,14 +250,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             cartas[2 + i].destapar(false);
         }
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                inferior_button.setEnabled(true);
-                superior_button.setEnabled(true);
-
-            }
-        });
-
     }
 
     private void trio(int v) {
@@ -303,14 +283,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             cartas[i].cargarCarta(trio.get(i).getValor(), trio.get(i).getPalo());
             cartas[i].destapar(false);
         }
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                inferior_button.setEnabled(true);
-                superior_button.setEnabled(true);
-
-            }
-        });
 
     }
 
@@ -353,14 +325,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             i++;
 
         }
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                inferior_button.setEnabled(true);
-                superior_button.setEnabled(true);
-
-            }
-        });
 
     }
 
@@ -415,14 +379,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             cartas[i].destapar(false);
             i++;
         }
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                inferior_button.setEnabled(true);
-                superior_button.setEnabled(true);
-
-            }
-        });
 
     }
 
@@ -482,14 +438,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             cartas[3 + i].destapar(false);
         }
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                inferior_button.setEnabled(true);
-                superior_button.setEnabled(true);
-
-            }
-        });
-
     }
 
     private void poker(int v) {
@@ -513,14 +461,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             cartas[i].cargarCarta(VALORES[valor], PALOS[palo]);
             cartas[i].destapar(false);
         }
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                inferior_button.setEnabled(true);
-                superior_button.setEnabled(true);
-
-            }
-        });
 
     }
 
@@ -546,14 +486,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             cartas[i].destapar(false);
         }
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                inferior_button.setEnabled(true);
-                superior_button.setEnabled(true);
-
-            }
-        });
-
     }
 
     private void escaleraColorReal(int v) {
@@ -576,14 +508,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             cartas[i].cargarCarta(VALORES[valor + i], PALOS[palo]);
             cartas[i].destapar(false);
         }
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                inferior_button.setEnabled(true);
-                superior_button.setEnabled(false);
-
-            }
-        });
 
     }
 
@@ -608,9 +532,9 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         card3 = new com.tonikelope.coronapoker.Card();
 
         setResizable(false);
-        addWindowListener(new java.awt.event.WindowAdapter() {
-            public void windowOpened(java.awt.event.WindowEvent evt) {
-                formWindowOpened(evt);
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentShown(java.awt.event.ComponentEvent evt) {
+                formComponentShown(evt);
             }
         });
 
@@ -738,13 +662,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     }//GEN-LAST:event_superior_buttonActionPerformed
 
-    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
+    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
-
-        inferior_button.setEnabled(valor_jugada > 0);
-        superior_button.setEnabled(valor_jugada < 9);
-
-    }//GEN-LAST:event_formWindowOpened
+        pintarJugada();
+    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.Card card1;

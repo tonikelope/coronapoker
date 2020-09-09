@@ -1997,18 +1997,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             this.jugadas_dialog = new HandGeneratorDialog(getFull_screen_frame() != null ? getFull_screen_frame() : this, false);
 
             this.jugadas_dialog.pintarJugada();
-        } else if (getFull_screen_frame() != null && this.jugadas_dialog.getParent() != getFull_screen_frame()) {
-
-            this.jugadas_dialog = new HandGeneratorDialog(getFull_screen_frame(), false);
-
-            this.jugadas_dialog.pintarJugada();
-
-        } else if (getFull_screen_frame() == null && this.jugadas_dialog.getParent() != Game.getInstance()) {
-
-            this.jugadas_dialog = new HandGeneratorDialog(Game.getInstance(), false);
-
-            this.jugadas_dialog.pintarJugada();
-
         }
 
         if (!this.jugadas_dialog.isActive()) {

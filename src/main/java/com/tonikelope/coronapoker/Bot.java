@@ -68,11 +68,25 @@ public class Bot {
             boolean suited = cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo());
             boolean straight = Math.abs(valor1 - valor2) == 1;
 
-            if ((pareja && valor1 >= 7) || (suited && Math.min(valor1, valor2) >= 10) || Math.min(valor1, valor2) >= 12 || (suited && straight && Math.min(valor1, valor2) == 7)) {
+            if (crupier.getConta_bet() > 0 && Helpers.float1DSecureCompare(cpu_player.getStack(), crupier.getApuesta_actual() - cpu_player.getBet()) <= 0) {
 
+                //Si la apuesta actual nos obliga a ir ALL-IN sólo lo hacemos con manos PREMIUM o el el 50% de las otras veces con manos buenas que llegan a PREMIUM
+                if ((pareja && valor1 >= 10) || (suited && Math.max(valor1, valor2) == 14) || (Helpers.SPRNG_GENERATOR.nextBoolean() && (pareja && valor1 >= 7) || (suited && Math.max(valor1, valor2) >= 13) || Math.min(valor1, valor2) >= 12 || (suited && straight && Math.min(valor1, valor2) == 7))) {
+                    conta_call++;
+
+                    return Player.CHECK;
+
+                } else {
+
+                    return Player.FOLD;
+                }
+
+            } else if ((pareja && valor1 >= 7) || (suited && Math.max(valor1, valor2) >= 13) || Math.min(valor1, valor2) >= 12 || (suited && straight && Math.min(valor1, valor2) == 7)) {
+
+                //Manos buenas (sin ser todas PREMIUM)
                 conta_call++;
 
-                return crupier.getConta_bet() < this.MAX_CONTA_BET ? Player.BET : Player.CHECK;
+                return crupier.getConta_bet() < Bot.MAX_CONTA_BET ? Player.BET : Player.CHECK;
 
             } else if ((Helpers.float1DSecureCompare(crupier.getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 2) <= 0) && (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) >= 13) || (straight && Math.min(valor1, valor2) >= 10) || Math.min(valor1, valor2) >= 11)) {
 
@@ -100,7 +114,7 @@ public class Bot {
                     vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 1;
                 }
 
-                return (crupier.getConta_bet() < this.MAX_CONTA_BET && vamos) ? Player.BET : Player.CHECK;
+                return (crupier.getConta_bet() < Bot.MAX_CONTA_BET && vamos) ? Player.BET : Player.CHECK;
 
             } else if (crupier.getConta_bet() == 0) {
 
@@ -193,7 +207,7 @@ public class Bot {
 
             conta_call++;
 
-            return (crupier.getConta_bet() < this.MAX_CONTA_BET && (!isSlow_play() || (fase != Crupier.FLOP && crupier.getConta_bet() == 0))) ? Player.BET : Player.CHECK;
+            return (crupier.getConta_bet() < Bot.MAX_CONTA_BET && (!isSlow_play() || (fase != Crupier.FLOP && crupier.getConta_bet() == 0))) ? Player.BET : Player.CHECK;
 
         } else if (poseffectiveStrength >= 0.60f && !(effectiveStrength < 0.75f && fase == Crupier.RIVER && Helpers.float1DSecureCompare(cpu_player.getStack(), crupier.getApuesta_actual() - cpu_player.getBet()) <= 0)) {
 

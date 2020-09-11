@@ -376,13 +376,10 @@ public class Init extends javax.swing.JFrame {
 
         translateGlobalLabels();
 
-        if (isVisible()) {
-
-            if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
-                Game.SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
-            } else {
-                Game.SONIDOS_CHORRA = false;
-            }
+        if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
+            Game.SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
+        } else {
+            Game.SONIDOS_CHORRA = false;
         }
     }//GEN-LAST:event_language_comboboxActionPerformed
 

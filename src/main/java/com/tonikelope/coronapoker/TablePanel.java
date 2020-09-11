@@ -49,7 +49,12 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
      * Creates new form Tapete
      */
     public TablePanel() {
-        initComponents();
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
+            }
+        });
     }
 
     public void refresh() {

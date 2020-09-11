@@ -46,19 +46,25 @@ public class GameLogDialog extends javax.swing.JDialog {
     public GameLogDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        initComponents();
+        GameLogDialog tthis = this;
 
-        Helpers.setTranslatedTitle(this, TITLE);
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
 
-        this.utf8_cards_menu.setSelected(false);
+                Helpers.setTranslatedTitle(tthis, TITLE);
 
-        Helpers.JTextFieldRegularPopupMenu.addTo(this.textarea);
+                utf8_cards_menu.setSelected(false);
 
-        Helpers.updateFonts(this.jMenuBar1, Helpers.GUI_FONT, null);
+                Helpers.JTextFieldRegularPopupMenu.addTo(textarea);
 
-        Helpers.translateComponents(this, false);
+                Helpers.updateFonts(jMenuBar1, Helpers.GUI_FONT, null);
 
-        print("[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]"));
+                Helpers.translateComponents(tthis, false);
+
+                print("[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]"));
+            }
+        });
     }
 
     public GameLogDialog(java.awt.Frame parent, GameLogDialog dialog) {

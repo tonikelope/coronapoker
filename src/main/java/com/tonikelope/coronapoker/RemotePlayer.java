@@ -533,29 +533,34 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
      * Creates new form JugadorInvitadoView
      */
     public RemotePlayer() {
-        initComponents();
 
-        this.decision = Player.NODEC;
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
 
-        this.bet = 0;
+                decision = Player.NODEC;
 
-        timeout.setVisible(false);
+                bet = 0;
 
-        player_bet.setText(" ---- ");
+                timeout.setVisible(false);
 
-        player_action.setText(" ");
+                player_bet.setText(" ---- ");
 
-        player_action.setEnabled(false);
+                player_action.setText(" ");
 
-        utg_textfield.setVisible(false);
+                player_action.setEnabled(false);
 
-        player_blind.setVisible(false);
+                utg_textfield.setVisible(false);
 
-        player_bet.setBackground(Color.WHITE);
+                player_blind.setVisible(false);
 
-        player_bet.setForeground(Color.BLACK);
+                player_bet.setBackground(Color.WHITE);
 
-        player_buyin.setText(String.valueOf(Game.BUYIN));
+                player_bet.setForeground(Color.BLACK);
+
+                player_buyin.setText(String.valueOf(Game.BUYIN));
+            }
+        });
 
     }
 

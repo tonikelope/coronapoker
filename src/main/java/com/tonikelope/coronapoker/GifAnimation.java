@@ -21,40 +21,44 @@ public class GifAnimation extends javax.swing.JDialog {
     public GifAnimation(java.awt.Frame parent, boolean modal, ImageIcon icon) {
         super(parent, modal);
 
-        initComponents();
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
 
-        int height, width;
+                int height, width;
 
-        if (icon.getImage().getHeight(null) > icon.getImage().getWidth(null)) {
-            height = Math.round(0.6f * parent.getHeight());
-        } else {
-            height = Math.round(0.4f * parent.getHeight());
-        }
+                if (icon.getImage().getHeight(null) > icon.getImage().getWidth(null)) {
+                    height = Math.round(0.6f * parent.getHeight());
+                } else {
+                    height = Math.round(0.4f * parent.getHeight());
+                }
 
-        width = Math.round(((float) icon.getImage().getWidth(null) * height) / icon.getImage().getHeight(null));
+                width = Math.round(((float) icon.getImage().getWidth(null) * height) / icon.getImage().getHeight(null));
 
-        if (width > Math.round(parent.getWidth() * 0.8f)) {
+                if (width > Math.round(parent.getWidth() * 0.8f)) {
 
-            int i = 1;
+                    int i = 1;
 
-            int original = width;
+                    int original = width;
 
-            while (width > Math.round(parent.getWidth() * 0.8f)) {
-                width = Math.round(original * (100 - i * 0.1f));
-                i++;
+                    while (width > Math.round(parent.getWidth() * 0.8f)) {
+                        width = Math.round(original * (100 - i * 0.1f));
+                        i++;
+                    }
+
+                    height = Math.round(height * (100 - (i - 1) * 0.1f));
+
+                }
+
+                gif.setIcon(new ImageIcon(icon.getImage().getScaledInstance(width, height, Image.SCALE_DEFAULT)));
+
+                gif.setPreferredSize(new Dimension(width, height));
+
+                setPreferredSize(new Dimension(width, height));
+
+                pack();
             }
-
-            height = Math.round(height * (100 - (i - 1) * 0.1f));
-
-        }
-
-        gif.setIcon(new ImageIcon(icon.getImage().getScaledInstance(width, height, Image.SCALE_DEFAULT)));
-
-        this.gif.setPreferredSize(new Dimension(width, height));
-
-        this.setPreferredSize(new Dimension(width, height));
-
-        pack();
+        });
     }
 
     /**

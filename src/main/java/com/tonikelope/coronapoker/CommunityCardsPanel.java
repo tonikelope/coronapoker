@@ -90,9 +90,12 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
      * Creates new form CommunityCards
      */
     public CommunityCardsPanel() {
-        initComponents();
-        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(Math.round(SOUND_ICON_WIDTH * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP)), Math.round(SOUND_ICON_WIDTH * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP)), Image.SCALE_SMOOTH)));
-
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
+                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(Math.round(SOUND_ICON_WIDTH * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP)), Math.round(SOUND_ICON_WIDTH * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+            }
+        });
     }
 
     /**

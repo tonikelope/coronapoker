@@ -342,62 +342,68 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
      * Creates new form JugadorLocalView
      */
     public LocalPlayer() {
-        initComponents();
 
-        action_button_colors.put(player_check_button, new Color[]{player_check_button.getBackground(), player_check_button.getForeground()});
-        action_button_armed.put(player_check_button, false);
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
 
-        action_button_colors.put(player_bet_button, new Color[]{player_bet_button.getBackground(), player_bet_button.getForeground()});
-        action_button_armed.put(player_bet_button, false);
+                action_button_colors.put(player_check_button, new Color[]{player_check_button.getBackground(), player_check_button.getForeground()});
+                action_button_armed.put(player_check_button, false);
 
-        action_button_colors.put(player_allin_button, new Color[]{player_allin_button.getBackground(), player_allin_button.getForeground()});
-        action_button_armed.put(player_allin_button, false);
+                action_button_colors.put(player_bet_button, new Color[]{player_bet_button.getBackground(), player_bet_button.getForeground()});
+                action_button_armed.put(player_bet_button, false);
 
-        action_button_colors.put(player_fold_button, new Color[]{player_fold_button.getBackground(), player_fold_button.getForeground()});
-        action_button_armed.put(player_fold_button, false);
+                action_button_colors.put(player_allin_button, new Color[]{player_allin_button.getBackground(), player_allin_button.getForeground()});
+                action_button_armed.put(player_allin_button, false);
 
-        bet_slider_text.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyTyped(KeyEvent e) {
-                if ((e.getKeyChar() < '0' || e.getKeyChar() > '9') && e.getKeyChar() != '.') {
-                    e.consume();
-                }
+                action_button_colors.put(player_fold_button, new Color[]{player_fold_button.getBackground(), player_fold_button.getForeground()});
+                action_button_armed.put(player_fold_button, false);
+
+                bet_slider_text.addKeyListener(new KeyAdapter() {
+                    @Override
+                    public void keyTyped(KeyEvent e) {
+                        if ((e.getKeyChar() < '0' || e.getKeyChar() > '9') && e.getKeyChar() != '.') {
+                            e.consume();
+                        }
+                    }
+                });
+
+                timeout.setVisible(false);
+
+                decision = Player.NODEC;
+
+                bet = 0f;
+
+                player_check_button.setEnabled(false);
+
+                bet_slider_text.setEnabled(false);
+
+                bet_slider.setEnabled(false);
+
+                player_bet_button.setEnabled(false);
+
+                player_allin_button.setEnabled(false);
+
+                player_fold_button.setEnabled(false);
+
+                player_action.setText(" ");
+
+                player_action.setEnabled(false);
+
+                player_blind.setVisible(false);
+
+                player_buyin.setText(String.valueOf(Game.BUYIN));
+
+                utg_textfield.setVisible(false);
+
+                player_bet.setBackground(Color.WHITE);
+
+                player_bet.setForeground(Color.BLACK);
+
+                player_bet.setText(" ---- ");
+
             }
         });
-
-        this.timeout.setVisible(false);
-
-        this.decision = Player.NODEC;
-
-        this.bet = 0f;
-
-        player_check_button.setEnabled(false);
-
-        bet_slider_text.setEnabled(false);
-
-        bet_slider.setEnabled(false);
-
-        player_bet_button.setEnabled(false);
-
-        player_allin_button.setEnabled(false);
-
-        player_fold_button.setEnabled(false);
-
-        player_action.setText(" ");
-
-        player_action.setEnabled(false);
-
-        player_blind.setVisible(false);
-
-        player_buyin.setText(String.valueOf(Game.BUYIN));
-
-        utg_textfield.setVisible(false);
-
-        player_bet.setBackground(Color.WHITE);
-
-        player_bet.setForeground(Color.BLACK);
-
-        player_bet.setText(" ---- ");
     }
 
     public JTextField getPlayer_action() {

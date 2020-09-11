@@ -33,22 +33,32 @@ public class GameOverDialog extends javax.swing.JDialog {
      */
     public GameOverDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
-        initComponents();
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
+            }
+        });
 
     }
 
     public GameOverDialog(java.awt.Frame parent, boolean modal, boolean direct) {
         super(parent, modal);
-        initComponents();
 
-        this.direct_gameover = direct;
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
 
-        if (direct_gameover) {
-            game_over.setVisible(false);
-            continue_button.setVisible(false);
-            numbers.setIcon(new ImageIcon(getClass().getResource("/images/gameover/game_over.png")));
-            pack();
-        }
+                direct_gameover = direct;
+
+                if (direct_gameover) {
+                    game_over.setVisible(false);
+                    continue_button.setVisible(false);
+                    numbers.setIcon(new ImageIcon(getClass().getResource("/images/gameover/game_over.png")));
+                    pack();
+                }
+            }
+        });
     }
 
     /**

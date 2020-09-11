@@ -46,7 +46,7 @@ import javax.swing.Timer;
  */
 public final class Game extends javax.swing.JFrame implements ZoomableInterface {
 
-    public static final boolean DEBUG_TO_FILE = true;
+    public static final boolean DEBUG_TO_FILE = false;
     public static final boolean TEST_MODE = false;
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;
@@ -94,17 +94,17 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return THIS;
     }
 
-    private final ZoomableInterface[] zoomeables;
-    private final Card[] cartas_comunes;
-    private final ArrayList<Player> jugadores;
-    private final Map<String, Participant> participantes;
+    private ZoomableInterface[] zoomeables;
+    private Card[] cartas_comunes;
+    private ArrayList<Player> jugadores;
+    private Map<String, Participant> participantes;
     private volatile GameLogDialog registro_dialog = null;
     private final int contador_manos = 0;
     private final float acumulador_bote = 0f;
     private final float acumulador_apuestas = 0f;
-    private final Crupier crupier;
-    private final boolean partida_local;
-    private final String nick_local;
+    private Crupier crupier;
+    private boolean partida_local;
+    private String nick_local;
     private volatile Timer tiempo_juego;
     private volatile long conta_tiempo_juego = 0L;
     private volatile boolean full_screen = false;
@@ -790,7 +790,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return pausa_menu;
     }
 
-    private final WaitingRoom sala_espera;
+    private WaitingRoom sala_espera;
 
     public float getAcumulador_bote() {
         return acumulador_bote;
@@ -1048,196 +1048,199 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     /**
      * Creates new form CoronaMainView
      */
-    public Game(Map<String, Participant> participantes, WaitingRoom sala_espera, String nick_local, boolean partida_local) {
-        initComponents();
-
-        setTitle(Init.WINDOW_TITLE + Translator.translate(" - Timba en curso (") + nick_local + ")");
-
+    public Game(Map<String, Participant> parts, WaitingRoom salaespera, String nicklocal, boolean partidalocal) {
         THIS = this;
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
 
-        this.participantes = participantes;
+                setTitle(Init.WINDOW_TITLE + Translator.translate(" - Timba en curso (") + nick_local + ")");
 
-        if (participantes.size() == 2) {
-            tapete = new TablePanel2();
-        } else if (participantes.size() <= 4) {
-            tapete = new TablePanel4();
-        } else if (participantes.size() <= 6) {
-            tapete = new TablePanel6();
-        } else if (participantes.size() <= 8) {
-            tapete = new TablePanel8();
-        } else {
-            tapete = new TablePanel10();
-        }
+                participantes = parts;
 
-        this.getContentPane().add(tapete);
+                if (participantes.size() == 2) {
+                    tapete = new TablePanel2();
+                } else if (participantes.size() <= 4) {
+                    tapete = new TablePanel4();
+                } else if (participantes.size() <= 6) {
+                    tapete = new TablePanel6();
+                } else if (participantes.size() <= 8) {
+                    tapete = new TablePanel8();
+                } else {
+                    tapete = new TablePanel10();
+                }
 
-        Player[] players = tapete.getPlayers();
+                getContentPane().add(tapete);
 
-        this.sala_espera = sala_espera;
+                Player[] players = tapete.getPlayers();
 
-        this.nick_local = nick_local;
+                sala_espera = salaespera;
 
-        this.partida_local = partida_local;
+                nick_local = nicklocal;
 
-        this.auto_rebuy_menu.setSelected(Game.AUTO_REBUY);
+                partida_local = partidalocal;
 
-        this.auto_rebuy_menu.setEnabled(Game.REBUY);
+                auto_rebuy_menu.setSelected(Game.AUTO_REBUY);
 
-        this.compact_menu.setSelected(Game.VISTA_COMPACTA);
+                auto_rebuy_menu.setEnabled(Game.REBUY);
 
-        Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD) : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
+                compact_menu.setSelected(Game.VISTA_COMPACTA);
 
-        if (!map.containsKey("allin/") || map.get("allin/").length == 0) {
-            Game.CINEMATICAS = false;
-            this.menu_cinematicas.setSelected(false);
-            this.menu_cinematicas.setEnabled(false);
+                Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD) : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
 
-        } else {
-            this.menu_cinematicas.setSelected(Game.CINEMATICAS);
-        }
+                if (!map.containsKey("allin/") || map.get("allin/").length == 0) {
+                    Game.CINEMATICAS = false;
+                    menu_cinematicas.setSelected(false);
+                    menu_cinematicas.setEnabled(false);
 
-        this.animacion_menu.setSelected(Game.ANIMACION_REPARTIR);
+                } else {
+                    menu_cinematicas.setSelected(Game.CINEMATICAS);
+                }
 
-        this.confirmar_menu.setSelected(Game.CONFIRM_ACTIONS);
+                animacion_menu.setSelected(Game.ANIMACION_REPARTIR);
 
-        this.auto_action_menu.setSelected(Game.AUTO_ACTION_BUTTONS);
+                confirmar_menu.setSelected(Game.CONFIRM_ACTIONS);
 
-        this.sonidos_menu.setSelected(Game.SONIDOS);
+                auto_action_menu.setSelected(Game.AUTO_ACTION_BUTTONS);
 
-        this.sonidos_chorra_menu.setSelected(Game.SONIDOS_CHORRA);
+                sonidos_menu.setSelected(Game.SONIDOS);
 
-        this.ascensor_menu.setSelected(Game.MUSICA_AMBIENTAL);
+                sonidos_chorra_menu.setSelected(Game.SONIDOS_CHORRA);
 
-        this.sonidos_chorra_menu.setEnabled(this.sonidos_menu.isSelected());
+                ascensor_menu.setSelected(Game.MUSICA_AMBIENTAL);
 
-        this.ascensor_menu.setEnabled(this.sonidos_menu.isSelected());
+                sonidos_chorra_menu.setEnabled(sonidos_menu.isSelected());
 
-        generarBarajasMenu();
+                ascensor_menu.setEnabled(sonidos_menu.isSelected());
 
-        for (Component menu : this.menu_barajas.getMenuComponents()) {
+                generarBarajasMenu();
 
-            if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(Game.BARAJA)) {
-                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
-            } else {
-                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
+                for (Component menu : menu_barajas.getMenuComponents()) {
+
+                    if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(Game.BARAJA)) {
+                        ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
+                    } else {
+                        ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
+                    }
+                }
+
+                menu_tapete_verde.setSelected(Game.COLOR_TAPETE.equals("verde"));
+
+                menu_tapete_azul.setSelected(Game.COLOR_TAPETE.equals("azul"));
+
+                menu_tapete_rojo.setSelected(Game.COLOR_TAPETE.equals("rojo"));
+
+                menu_tapete_madera.setSelected(Game.COLOR_TAPETE.equals("madera"));
+
+                switch (Game.COLOR_TAPETE) {
+
+                    case "verde":
+                        cambiarColorContadoresTapete(new Color(153, 204, 0));
+                        break;
+
+                    case "azul":
+                        cambiarColorContadoresTapete(new Color(102, 204, 255));
+                        break;
+
+                    case "rojo":
+                        cambiarColorContadoresTapete(new Color(255, 204, 51));
+                        break;
+
+                    case "madera":
+                        cambiarColorContadoresTapete(Color.WHITE);
+                        break;
+                }
+
+                full_screen_menu.setEnabled(true);
+
+                updateSoundIcon();
+
+                tapete.getCommunityCards().getBarra_tiempo().setMinimum(0);
+
+                tapete.getCommunityCards().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
+
+                pausa_menu.setVisible(partida_local);
+
+                server_separator_menu.setVisible(partida_local);
+
+                tapete.getCommunityCards().getTiempo_partida().setVisible(Game.SHOW_CLOCK);
+
+                time_menu.setSelected(Game.SHOW_CLOCK);
+
+                zoomeables = new ZoomableInterface[]{tapete};
+
+                cartas_comunes = tapete.getCommunityCards().getCartasComunes();
+
+                tapete.getLocalPlayer().getPlayingCard1().setCompactable(false);
+                tapete.getLocalPlayer().getPlayingCard2().setCompactable(false);
+
+                jugadores = new ArrayList<>();
+
+                for (int j = 0; j < participantes.size(); j++) {
+                    jugadores.add(players[j]);
+                }
+
+                //Desactivamos los sitios no usados
+                for (Player j : players) {
+                    if (!jugadores.contains(j)) {
+                        j.disablePlayer(false);
+                        getContentPane().remove((Component) j);
+                    }
+                }
+
+                getContentPane().revalidate();
+
+                //Metemos la pasta a todos (el BUY IN se podría parametrizar)
+                for (Player jugador : jugadores) {
+                    jugador.setStack(Game.BUYIN);
+                }
+
+                setupGlobalShortcuts();
+
+                registro_dialog = new GameLogDialog(THIS, false);
+
+                // pausa_dialog = new PauseDialog(this, false);
+                crupier = new Crupier();
+
+                Helpers.TapetePopupMenu.addTo(tapete);
+
+                Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(Game.REBUY);
+
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+
+                for (Component menu : BARAJAS_MENU.getMenuComponents()) {
+
+                    if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(Game.BARAJA)) {
+                        ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
+                    } else {
+                        ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
+                    }
+                }
+
+                Helpers.TapetePopupMenu.TAPETE_VERDE.setSelected(Game.COLOR_TAPETE.equals("verde"));
+
+                Helpers.TapetePopupMenu.TAPETE_AZUL.setSelected(Game.COLOR_TAPETE.equals("azul"));
+
+                Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(Game.COLOR_TAPETE.equals("rojo"));
+
+                Helpers.TapetePopupMenu.TAPETE_MADERA.setSelected(Game.COLOR_TAPETE.equals("madera"));
+
+                if (!menu_cinematicas.isEnabled()) {
+                    Helpers.TapetePopupMenu.CINEMATICAS_MENU.setEnabled(false);
+                    Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(false);
+                }
+
+                Helpers.loadOriginalFontSizes(THIS);
+
+                Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
+
+                Helpers.translateComponents(THIS, false);
+
+                Helpers.translateComponents(Helpers.TapetePopupMenu.popup, false);
+
+                pack();
             }
-        }
-
-        this.menu_tapete_verde.setSelected(Game.COLOR_TAPETE.equals("verde"));
-
-        this.menu_tapete_azul.setSelected(Game.COLOR_TAPETE.equals("azul"));
-
-        this.menu_tapete_rojo.setSelected(Game.COLOR_TAPETE.equals("rojo"));
-
-        this.menu_tapete_madera.setSelected(Game.COLOR_TAPETE.equals("madera"));
-
-        switch (Game.COLOR_TAPETE) {
-
-            case "verde":
-                this.cambiarColorContadoresTapete(new Color(153, 204, 0));
-                break;
-
-            case "azul":
-                this.cambiarColorContadoresTapete(new Color(102, 204, 255));
-                break;
-
-            case "rojo":
-                this.cambiarColorContadoresTapete(new Color(255, 204, 51));
-                break;
-
-            case "madera":
-                this.cambiarColorContadoresTapete(Color.WHITE);
-                break;
-        }
-
-        this.full_screen_menu.setEnabled(true);
-
-        updateSoundIcon();
-
-        tapete.getCommunityCards().getBarra_tiempo().setMinimum(0);
-
-        tapete.getCommunityCards().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
-
-        this.pausa_menu.setVisible(this.partida_local);
-
-        this.server_separator_menu.setVisible(this.partida_local);
-
-        tapete.getCommunityCards().getTiempo_partida().setVisible(Game.SHOW_CLOCK);
-
-        this.time_menu.setSelected(Game.SHOW_CLOCK);
-
-        this.zoomeables = new ZoomableInterface[]{tapete};
-
-        this.cartas_comunes = tapete.getCommunityCards().getCartasComunes();
-
-        tapete.getLocalPlayer().getPlayingCard1().setCompactable(false);
-        tapete.getLocalPlayer().getPlayingCard2().setCompactable(false);
-
-        this.jugadores = new ArrayList<>();
-
-        for (int j = 0; j < this.participantes.size(); j++) {
-            this.jugadores.add(players[j]);
-        }
-
-        //Desactivamos los sitios no usados
-        for (Player j : players) {
-            if (!this.jugadores.contains(j)) {
-                j.disablePlayer(false);
-                this.getContentPane().remove((Component) j);
-            }
-        }
-
-        this.getContentPane().revalidate();
-
-        //Metemos la pasta a todos (el BUY IN se podría parametrizar)
-        for (Player jugador : this.jugadores) {
-            jugador.setStack(Game.BUYIN);
-        }
-
-        setupGlobalShortcuts();
-
-        this.registro_dialog = new GameLogDialog(this, false);
-
-        // this.pausa_dialog = new PauseDialog(this, false);
-        this.crupier = new Crupier();
-
-        Helpers.TapetePopupMenu.addTo(this.tapete);
-
-        Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(Game.REBUY);
-
-        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-
-        for (Component menu : BARAJAS_MENU.getMenuComponents()) {
-
-            if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(Game.BARAJA)) {
-                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
-            } else {
-                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
-            }
-        }
-
-        Helpers.TapetePopupMenu.TAPETE_VERDE.setSelected(Game.COLOR_TAPETE.equals("verde"));
-
-        Helpers.TapetePopupMenu.TAPETE_AZUL.setSelected(Game.COLOR_TAPETE.equals("azul"));
-
-        Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(Game.COLOR_TAPETE.equals("rojo"));
-
-        Helpers.TapetePopupMenu.TAPETE_MADERA.setSelected(Game.COLOR_TAPETE.equals("madera"));
-
-        if (!this.menu_cinematicas.isEnabled()) {
-            Helpers.TapetePopupMenu.CINEMATICAS_MENU.setEnabled(false);
-            Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(false);
-        }
-
-        Helpers.loadOriginalFontSizes(this);
-
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-
-        Helpers.translateComponents(this, false);
-
-        Helpers.translateComponents(Helpers.TapetePopupMenu.popup, false);
-
-        pack();
+        });
     }
 
     public long getConta_tiempo_juego() {

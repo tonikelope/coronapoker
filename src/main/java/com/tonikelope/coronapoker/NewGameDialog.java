@@ -51,7 +51,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     public final static int MAX_PORT_LENGTH = 5;
 
     private boolean dialog_ok = false;
-    private final boolean partida_local;
+    private boolean partida_local;
     private File avatar = null;
 
     public boolean isDialog_ok() {
@@ -61,87 +61,96 @@ public class NewGameDialog extends javax.swing.JDialog {
     /**
      * Creates new form CrearTimba
      */
-    public NewGameDialog(java.awt.Frame parent, boolean modal, boolean local) {
+    public NewGameDialog(java.awt.Frame parent, boolean modal, boolean loc) {
         super(parent, modal);
-        initComponents();
 
-        nick.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyTyped(KeyEvent e) {
-                if (nick.getText().length() >= MAX_NICK_LENGTH && nick.getSelectedText() == null) {
-                    e.consume();
+        NewGameDialog tthis = this;
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+
+                initComponents();
+
+                nick.addKeyListener(new KeyAdapter() {
+                    @Override
+                    public void keyTyped(KeyEvent e) {
+                        if (nick.getText().length() >= MAX_NICK_LENGTH && nick.getSelectedText() == null) {
+                            e.consume();
+                        }
+                    }
+                });
+
+                server_port_textfield.addKeyListener(new KeyAdapter() {
+                    @Override
+                    public void keyTyped(KeyEvent e) {
+                        if (e.getKeyChar() < '0' || e.getKeyChar() > '9' || (server_port_textfield.getText().length() >= MAX_PORT_LENGTH && server_port_textfield.getSelectedText() == null)) {
+                            e.consume();
+                        }
+                    }
+                });
+
+                partida_local = loc;
+
+                JTextFieldRegularPopupMenu.addTo(server_ip_textfield);
+                JTextFieldRegularPopupMenu.addTo(server_port_textfield);
+                JTextFieldRegularPopupMenu.addTo(randomorg_apikey);
+                JTextFieldRegularPopupMenu.addTo(nick);
+
+                String elnick = Helpers.PROPERTIES.getProperty("nick", "");
+
+                nick.setText(elnick.substring(0, Math.min(MAX_NICK_LENGTH, elnick.length())));
+
+                String avatar_path = Helpers.PROPERTIES.getProperty("avatar", "");
+
+                if (!avatar_path.isEmpty()) {
+
+                    avatar = new File(avatar_path);
+
+                    if (avatar.exists() && avatar.canRead() && avatar.length() <= AVATAR_MAX_FILESIZE * 1024) {
+                        avatar_img.setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
+                        avatar_img.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
+
+                    } else {
+                        avatar = null;
+                    }
                 }
+
+                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+
+                if (partida_local) {
+                    server_ip_textfield.setText("localhost");
+                    server_ip_textfield.setEnabled(false);
+                    server_port_textfield.setText(Helpers.PROPERTIES.getProperty("local_port", String.valueOf(DEFAULT_PORT)));
+                    config_partida_panel.setVisible(true);
+                    random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.SPRNG))) - 1);
+                    randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
+                    rebuy_checkbox.setSelected(true);
+                    doblar_checkbox.setSelected(true);
+                    ((DefaultEditor) doblar_ciegas_spinner.getEditor()).getTextField().setEditable(false);
+
+                    String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
+
+                    float ciega_grande = Float.valueOf(valores[1].trim());
+
+                    buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 3))));
+
+                    ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+
+                    updateCiegasLabel();
+                    Helpers.setTranslatedTitle(tthis, "Crear timba");
+
+                } else {
+                    server_port_textfield.setText(Helpers.PROPERTIES.getProperty("server_port", String.valueOf(DEFAULT_PORT)));
+                    server_ip_textfield.setText(Helpers.PROPERTIES.getProperty("server_ip", "localhost"));
+                    Helpers.setTranslatedTitle(tthis, "Unirme a timba");
+                }
+
+                Helpers.translateComponents(tthis, false);
+
+                pack();
+
             }
         });
-
-        server_port_textfield.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyTyped(KeyEvent e) {
-                if (e.getKeyChar() < '0' || e.getKeyChar() > '9' || (server_port_textfield.getText().length() >= MAX_PORT_LENGTH && server_port_textfield.getSelectedText() == null)) {
-                    e.consume();
-                }
-            }
-        });
-
-        this.partida_local = local;
-
-        JTextFieldRegularPopupMenu.addTo(this.server_ip_textfield);
-        JTextFieldRegularPopupMenu.addTo(this.server_port_textfield);
-        JTextFieldRegularPopupMenu.addTo(this.randomorg_apikey);
-        JTextFieldRegularPopupMenu.addTo(this.nick);
-
-        String elnick = Helpers.PROPERTIES.getProperty("nick", "");
-
-        this.nick.setText(elnick.substring(0, Math.min(MAX_NICK_LENGTH, elnick.length())));
-
-        String avatar_path = Helpers.PROPERTIES.getProperty("avatar", "");
-
-        if (!avatar_path.isEmpty()) {
-
-            this.avatar = new File(avatar_path);
-
-            if (avatar.exists() && avatar.canRead() && avatar.length() <= AVATAR_MAX_FILESIZE * 1024) {
-                avatar_img.setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
-                avatar_img.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
-
-            } else {
-                avatar = null;
-            }
-        }
-
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-
-        if (this.partida_local) {
-            this.server_ip_textfield.setText("localhost");
-            this.server_ip_textfield.setEnabled(false);
-            this.server_port_textfield.setText(Helpers.PROPERTIES.getProperty("local_port", String.valueOf(DEFAULT_PORT)));
-            this.config_partida_panel.setVisible(true);
-            this.random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.SPRNG))) - 1);
-            this.randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
-            this.rebuy_checkbox.setSelected(true);
-            this.doblar_checkbox.setSelected(true);
-            ((DefaultEditor) doblar_ciegas_spinner.getEditor()).getTextField().setEditable(false);
-
-            String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
-
-            float ciega_grande = Float.valueOf(valores[1].trim());
-
-            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 3))));
-
-            ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
-
-            this.updateCiegasLabel();
-            Helpers.setTranslatedTitle(this, "Crear timba");
-
-        } else {
-            this.server_port_textfield.setText(Helpers.PROPERTIES.getProperty("server_port", String.valueOf(DEFAULT_PORT)));
-            this.server_ip_textfield.setText(Helpers.PROPERTIES.getProperty("server_ip", "localhost"));
-            Helpers.setTranslatedTitle(this, "Unirme a timba");
-        }
-
-        Helpers.translateComponents(this, false);
-
-        pack();
     }
 
     private void updateCiegasLabel() {

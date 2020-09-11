@@ -59,14 +59,14 @@ public class WaitingRoom extends javax.swing.JFrame {
     private static boolean exit = false;
     private static WaitingRoom THIS;
 
-    private final boolean server;
-    private final String local_nick;
-    private final Map<String, Participant> participantes;
+    private boolean server;
+    private String local_nick;
+    private Map<String, Participant> participantes;
     private volatile ServerSocket server_socket;
     private volatile Socket client_socket;
     private volatile String server_ip_port;
-    private final Init ventana_inicio;
-    private final File local_avatar;
+    private Init ventana_inicio;
+    private File local_avatar;
 
     private volatile String server_nick;
     private volatile Integer client_id;
@@ -140,82 +140,86 @@ public class WaitingRoom extends javax.swing.JFrame {
     /**
      * Creates new form SalaEspera
      */
-    public WaitingRoom(Init ventana_inicio, boolean local, String nick, String servidor_ip_port, File avatar) {
-        initComponents();
-        setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
-
+    public WaitingRoom(Init ventana_ini, boolean local, String nick, String servidor_ip_port, File avatar) {
         THIS = this;
 
-        exit = false;
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
+                setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
 
-        partida_empezada = false;
+                exit = false;
 
-        sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")));
+                partida_empezada = false;
 
-        this.empezar_timba.setVisible(false);
-        this.new_bot_button.setVisible(false);
-        this.ventana_inicio = ventana_inicio;
-        this.server = local;
-        this.local_avatar = avatar;
-        this.server_ip_port = servidor_ip_port;
-        this.client_socket = null;
-        this.server_socket = null;
-        this.local_nick = nick;
+                sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")));
 
-        participantes = Collections.synchronizedMap(new LinkedHashMap<>());
+                empezar_timba.setVisible(false);
+                new_bot_button.setVisible(false);
+                ventana_inicio = ventana_ini;
+                server = local;
+                local_avatar = avatar;
+                server_ip_port = servidor_ip_port;
+                client_socket = null;
+                server_socket = null;
+                local_nick = nick;
 
-        Helpers.JTextFieldRegularPopupMenu.addTo(this.chat);
-        Helpers.JTextFieldRegularPopupMenu.addTo(this.mensaje);
+                participantes = Collections.synchronizedMap(new LinkedHashMap<>());
 
-        if (avatar != null) {
-            avatar_label.setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
-            avatar_label.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
-        }
+                Helpers.JTextFieldRegularPopupMenu.addTo(chat);
+                Helpers.JTextFieldRegularPopupMenu.addTo(mensaje);
 
-        avatar_label.setText(local_nick);
+                if (avatar != null) {
+                    avatar_label.setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
+                    avatar_label.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
+                }
 
-        this.status1.setText(this.server_ip_port);
+                avatar_label.setText(local_nick);
 
-        if (this.server) {
+                status1.setText(server_ip_port);
 
-            this.new_bot_button.setVisible(true);
+                if (server) {
 
-            this.status.setText("Esperando jugadores...");
+                    new_bot_button.setVisible(true);
 
-            participantes.put(local_nick, null);
+                    status.setText("Esperando jugadores...");
 
-            DefaultListModel listModel = new DefaultListModel();
+                    participantes.put(local_nick, null);
 
-            ParticipantsListRenderer label = new ParticipantsListRenderer();
+                    DefaultListModel listModel = new DefaultListModel();
 
-            label.setText(local_nick);
+                    ParticipantsListRenderer label = new ParticipantsListRenderer();
 
-            label.setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
+                    label.setText(local_nick);
 
-            if (local_avatar != null) {
-                label.setIcon(new ImageIcon(new ImageIcon(local_avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
-            } else {
-                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
+                    label.setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
+
+                    if (local_avatar != null) {
+                        label.setIcon(new ImageIcon(new ImageIcon(local_avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
+                    } else {
+                        label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
+                    }
+
+                    listModel.addElement(label);
+
+                    conectados.setModel(listModel);
+
+                    servidor();
+
+                } else {
+                    status.setText("Conectando...");
+                    empezar_timba.setVisible(false);
+                    kick_user.setVisible(false);
+                    cliente();
+                }
+
+                Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
+
+                Helpers.translateComponents(THIS, false);
+
+                pack();
             }
-
-            listModel.addElement(label);
-
-            conectados.setModel(listModel);
-
-            this.servidor();
-
-        } else {
-            this.status.setText("Conectando...");
-            this.empezar_timba.setVisible(false);
-            this.kick_user.setVisible(false);
-            this.cliente();
-        }
-
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-
-        Helpers.translateComponents(this, false);
-
-        pack();
+        });
     }
 
     //Función AUTO-RECONNECT

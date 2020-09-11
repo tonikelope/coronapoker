@@ -16,7 +16,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "FINAL-4.41";
+    public static final String VERSION = "FINAL-4.42";
     public final static String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
     private String last_mp3_loop = null;
@@ -26,37 +26,44 @@ public class AboutDialog extends javax.swing.JDialog {
      */
     public AboutDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
-        initComponents();
-        Helpers.setTranslatedTitle(this, TITLE);
 
-        if (Init.MOD != null) {
-            mod_label.setText(Init.MOD.get("name") + " " + Init.MOD.get("version"));
+        AboutDialog tthis = this;
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/mod.png"))) {
-                Image logo = new ImageIcon(Helpers.getCurrentJarPath() + "/mod/mod.png").getImage();
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
+                Helpers.setTranslatedTitle(tthis, TITLE);
 
-                if (logo.getHeight(null) > MAX_MOD_LOGO_HEIGHT || logo.getWidth(null) > MAX_MOD_LOGO_HEIGHT) {
+                if (Init.MOD != null) {
+                    mod_label.setText(Init.MOD.get("name") + " " + Init.MOD.get("version"));
 
-                    int new_height = MAX_MOD_LOGO_HEIGHT;
+                    if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/mod.png"))) {
+                        Image logo = new ImageIcon(Helpers.getCurrentJarPath() + "/mod/mod.png").getImage();
 
-                    int new_width = Math.round(((float) logo.getWidth(null) * MAX_MOD_LOGO_HEIGHT) / logo.getHeight(null));
+                        if (logo.getHeight(null) > MAX_MOD_LOGO_HEIGHT || logo.getWidth(null) > MAX_MOD_LOGO_HEIGHT) {
 
-                    mod_label.setIcon(new ImageIcon(logo.getScaledInstance(new_width, new_height, Image.SCALE_SMOOTH)));
+                            int new_height = MAX_MOD_LOGO_HEIGHT;
 
+                            int new_width = Math.round(((float) logo.getWidth(null) * MAX_MOD_LOGO_HEIGHT) / logo.getHeight(null));
+
+                            mod_label.setIcon(new ImageIcon(logo.getScaledInstance(new_width, new_height, Image.SCALE_SMOOTH)));
+
+                        } else {
+                            mod_label.setIcon(new ImageIcon(logo));
+
+                        }
+                    }
                 } else {
-                    mod_label.setIcon(new ImageIcon(logo));
-
+                    mod_label.setVisible(false);
                 }
+
+                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+
+                Helpers.translateComponents(tthis, false);
+
+                pack();
             }
-        } else {
-            mod_label.setVisible(false);
-        }
-
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-
-        Helpers.translateComponents(this, false);
-
-        pack();
+        });
     }
 
     /**

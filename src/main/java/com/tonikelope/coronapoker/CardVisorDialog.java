@@ -37,50 +37,60 @@ public class CardVisorDialog extends javax.swing.JDialog {
      */
     public CardVisorDialog(java.awt.Frame parent, boolean modal, String valor, String palo, boolean buttons) {
         super(parent, modal);
-        initComponents();
 
-        setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
 
-        setSize(Math.min(Math.round(0.8f * parent.getWidth()), WIDTH), Math.round(0.95f * parent.getHeight()));
+                setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
-        valores.put("A", 1);
-        valores.put("J", 11);
-        valores.put("Q", 12);
-        valores.put("K", 13);
+                setSize(Math.min(Math.round(0.8f * parent.getWidth()), WIDTH), Math.round(0.95f * parent.getHeight()));
 
-        carta = CardVisorDialog.PALOS.indexOf(palo) * 13 + (valores.containsKey(valor) ? valores.get(valor) : Integer.valueOf(valor));
+                valores.put("A", 1);
+                valores.put("J", 11);
+                valores.put("Q", 12);
+                valores.put("K", 13);
 
-        scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
-        scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
+                carta = CardVisorDialog.PALOS.indexOf(palo) * 13 + (valores.containsKey(valor) ? valores.get(valor) : Integer.valueOf(valor));
 
-        HandScrollListener scrollListener = new HandScrollListener(card);
-        scroll_panel.getViewport().addMouseMotionListener(scrollListener);
-        scroll_panel.getViewport().addMouseListener(scrollListener);
+                scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
+                scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
-        showCard(carta);
+                HandScrollListener scrollListener = new HandScrollListener(card);
+                scroll_panel.getViewport().addMouseMotionListener(scrollListener);
+                scroll_panel.getViewport().addMouseListener(scrollListener);
+
+                showCard(carta);
+            }
+        });
     }
 
     public CardVisorDialog(java.awt.Frame parent, boolean modal, int carta, boolean buttons) {
         super(parent, modal);
-        initComponents();
 
-        setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
 
-        setSize(Math.min(Math.round(0.8f * parent.getWidth()), WIDTH), Math.round(0.95f * parent.getHeight()));
+                setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
-        valores.put("A", 1);
-        valores.put("J", 11);
-        valores.put("Q", 12);
-        valores.put("K", 13);
+                setSize(Math.min(Math.round(0.8f * parent.getWidth()), WIDTH), Math.round(0.95f * parent.getHeight()));
 
-        scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
-        scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
+                valores.put("A", 1);
+                valores.put("J", 11);
+                valores.put("Q", 12);
+                valores.put("K", 13);
 
-        HandScrollListener scrollListener = new HandScrollListener(card);
-        scroll_panel.getViewport().addMouseMotionListener(scrollListener);
-        scroll_panel.getViewport().addMouseListener(scrollListener);
+                scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
+                scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
-        showCard(carta);
+                HandScrollListener scrollListener = new HandScrollListener(card);
+                scroll_panel.getViewport().addMouseMotionListener(scrollListener);
+                scroll_panel.getViewport().addMouseListener(scrollListener);
+
+                showCard(carta);
+            }
+        });
     }
 
     //Thanks -> https://stackoverflow.com/a/10245657

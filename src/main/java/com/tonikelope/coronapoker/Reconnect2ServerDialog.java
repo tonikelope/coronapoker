@@ -64,13 +64,18 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
     /**
      * Creates new form Reconnect2ServerDialog
      */
-    public Reconnect2ServerDialog(java.awt.Frame parent, boolean modal, String ip_port) {
+    public Reconnect2ServerDialog(java.awt.Frame parent, boolean modal, String ip_p) {
         super(parent, modal);
-        initComponents();
-        this.ip_port.setText(ip_port);
-        this.barra.setVisible(false);
-        this.barra.setIndeterminate(true);
-        pack();
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
+                ip_port.setText(ip_p);
+                barra.setVisible(false);
+                barra.setIndeterminate(true);
+                pack();
+            }
+        });
     }
 
     /**

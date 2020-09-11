@@ -23,10 +23,14 @@ public class TablePanel10 extends TablePanel {
      * Creates new form Table10
      */
     public TablePanel10() {
-        initComponents();
-        players = new Player[]{localPlayer, remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6, remotePlayer7, remotePlayer8, remotePlayer9};
-        remotePlayers = new RemotePlayer[]{remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6, remotePlayer7, remotePlayer8, remotePlayer9};
-        zoomables = new ZoomableInterface[]{localPlayer, remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6, remotePlayer7, remotePlayer8, remotePlayer9, communityCards};
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
+                players = new Player[]{localPlayer, remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6, remotePlayer7, remotePlayer8, remotePlayer9};
+                remotePlayers = new RemotePlayer[]{remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6, remotePlayer7, remotePlayer8, remotePlayer9};
+                zoomables = new ZoomableInterface[]{localPlayer, remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6, remotePlayer7, remotePlayer8, remotePlayer9, communityCards};
+            }
+        });
     }
 
     /**

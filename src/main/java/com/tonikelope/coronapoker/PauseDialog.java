@@ -22,27 +22,34 @@ public class PauseDialog extends javax.swing.JDialog {
      */
     public PauseDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
-        initComponents();
 
-        this.resume_button.setVisible(Game.getInstance().isPartida_local());
+        PauseDialog tthis = this;
 
-        ActionListener listener = new ActionListener() {
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
 
-            @Override
-            public void actionPerformed(ActionEvent ae) {
+                resume_button.setVisible(Game.getInstance().isPartida_local());
 
-                pausa_label.setVisible(!pausa_label.isVisible());
+                ActionListener listener = new ActionListener() {
 
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+
+                        pausa_label.setVisible(!pausa_label.isVisible());
+
+                    }
+                };
+
+                timer = new Timer(500, listener);
+
+                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+
+                Helpers.translateComponents(tthis, false);
+
+                pack();
             }
-        };
-
-        timer = new Timer(500, listener);
-
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-
-        Helpers.translateComponents(this, false);
-
-        pack();
+        });
     }
 
     public void resuming() {

@@ -100,7 +100,11 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
      * Creates new form PlayingCard
      */
     public Card() {
-        initComponents();
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
+            }
+        });
     }
 
     private static HashMap<String, String> loadUnicodeTable() {

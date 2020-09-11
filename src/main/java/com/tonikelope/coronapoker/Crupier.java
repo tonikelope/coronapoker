@@ -631,12 +631,12 @@ public class Crupier implements Runnable {
                                 }
                             }
 
-                            gif.dispose();
-
                             current_remote_cinematic_b64 = null;
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
+                                    gif.dispose();
+
                                     Game.getInstance().getBarra_tiempo().setIndeterminate(false);
                                     Game.getInstance().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
                                     Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);

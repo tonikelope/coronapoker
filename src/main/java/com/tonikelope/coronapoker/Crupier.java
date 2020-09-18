@@ -1082,10 +1082,10 @@ public class Crupier implements Runnable {
 
     private void actualizarContadoresTapete() {
 
-        Game.getInstance().setBote(this.bote_total);
-        Game.getInstance().setApuestas(this.apuestas);
-        Game.getInstance().setCiegas(this.ciega_pequeña, this.ciega_grande);
-        Game.getInstance().setMano(this.mano);
+        Game.getInstance().setTapeteBote(this.bote_total);
+        Game.getInstance().setTapeteApuestas(this.apuestas);
+        Game.getInstance().setTapeteCiegas(this.ciega_pequeña, this.ciega_grande);
+        Game.getInstance().setTapeteMano(this.mano);
     }
 
     private void resetBetPlayerDecisions(ArrayList<Player> jugadores, String nick) {
@@ -3223,6 +3223,8 @@ public class Crupier implements Runnable {
 
         if (resisten.size() > 1 && puedenApostar(resisten) <= 1) {
 
+            Game.getInstance().hideTapeteApuestas();
+
             this.destapar_resistencia = true;
 
             if (resisten.contains(Game.getInstance().getLocalPlayer())) {
@@ -4548,7 +4550,7 @@ public class Crupier implements Runnable {
 
                     ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(Game.getInstance().getJugadores()));
 
-                    Game.getInstance().hideApuestas();
+                    Game.getInstance().hideTapeteApuestas();
 
                     Game.getInstance().getLocalPlayer().desactivarControles();
 

@@ -70,7 +70,7 @@ public class Bot {
 
             if (crupier.getConta_bet() > 0 && Helpers.float1DSecureCompare(cpu_player.getStack(), crupier.getApuesta_actual() - cpu_player.getBet()) <= 0) {
 
-                //Si la apuesta actual nos obliga a ir ALL-IN sólo lo hacemos con manos PREMIUM o el el 50% de las otras veces con manos buenas que llegan a PREMIUM
+                //Si la apuesta actual nos obliga a ir ALL-IN sólo lo hacemos con manos PREMIUM o el el 50% de las otras veces con manos buenas que no llegan a PREMIUM
                 if ((pareja && valor1 >= 10) || (suited && Math.max(valor1, valor2) == 14) || (Helpers.SPRNG_GENERATOR.nextBoolean() && (pareja && valor1 >= 7) || (suited && Math.max(valor1, valor2) >= 13) || Math.min(valor1, valor2) >= 12 || (suited && straight && Math.min(valor1, valor2) == 7))) {
                     conta_call++;
 
@@ -92,6 +92,8 @@ public class Bot {
 
                 //El X% de las veces apostamos con una mano no tan fuerte (siempre que no haya que poner más del 50% de nuestro stack)
                 boolean vamos;
+
+                conta_call++;
 
                 if (activos <= 4) {
 
@@ -119,8 +121,6 @@ public class Bot {
             } else if (crupier.getConta_bet() == 0) {
 
                 //Limpeamos el X% de las manos a ver si suena la flauta
-                conta_call++;
-
                 boolean vamos;
 
                 if (activos <= 4) {
@@ -144,6 +144,7 @@ public class Bot {
                 }
 
                 if (vamos) {
+                    conta_call++;
                     return Player.CHECK;
                 }
 
@@ -152,8 +153,6 @@ public class Bot {
             if (Helpers.float1DSecureCompare(crupier.getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 5) <= 0) {
 
                 //Vemos el X% de apuestas con el resto de cartas siempre que no haya que poner más del 20% de nuestro stack para ver la apuesta
-                conta_call++;
-
                 boolean vamos;
 
                 if (activos <= 4) {
@@ -178,6 +177,8 @@ public class Bot {
                 }
 
                 if (vamos) {
+                    conta_call++;
+
                     return Player.CHECK;
                 }
             }

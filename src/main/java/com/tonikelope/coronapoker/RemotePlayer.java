@@ -616,7 +616,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         utg_textfield = new javax.swing.JLabel();
         player_blind = new javax.swing.JLabel();
 
-        setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL*Game.ZOOM_STEP))));
+        setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.Game.ZOOM_LEVEL*com.tonikelope.coronapoker.Game.ZOOM_STEP))));
         setFocusable(false);
         setOpaque(false);
 
@@ -624,8 +624,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_action.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         player_action.setText("ESCALERA DE COLOR");
+        player_action.setBorder(null);
         player_action.setDoubleBuffered(true);
-        player_action.setMinimumSize(Game.VISTA_COMPACTA?null:new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH*(1f + Game.getZoom_level() * Game.getZOOM_STEP())), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + Game.getZoom_level() * Game.getZOOM_STEP()))));
+        player_action.setMinimumSize(com.tonikelope.coronapoker.Game.VISTA_COMPACTA?null:new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP())), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP()))));
 
         panel_cartas.setOpaque(false);
 

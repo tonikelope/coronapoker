@@ -435,10 +435,6 @@ public class Crupier implements Runnable {
         this.sincronizando_mano = sincronizando_mano;
     }
 
-    public boolean isTiempo_muerto() {
-        return tiempo_muerto;
-    }
-
     public Object getLock_contabilidad() {
         return lock_contabilidad;
     }
@@ -4551,6 +4547,8 @@ public class Crupier implements Runnable {
                     Game.getInstance().getRegistro().print(Game.getInstance().getJugadores().get(this.big_pos).getNickname() + Translator.translate(" es la CIEGA GRANDE (") + Helpers.float2String(this.ciega_grande) + ") / " + Game.getInstance().getJugadores().get(this.small_pos).getNickname() + Translator.translate(" es la CIEGA PEQUEÑA (") + Helpers.float2String(this.ciega_pequeña) + ") / " + Game.getInstance().getJugadores().get(this.dealer_pos).getNickname() + Translator.translate(" es el DEALER"));
 
                     ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(Game.getInstance().getJugadores()));
+
+                    Game.getInstance().hideApuestas();
 
                     Game.getInstance().getLocalPlayer().desactivarControles();
 

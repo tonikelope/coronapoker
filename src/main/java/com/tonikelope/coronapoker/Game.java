@@ -919,7 +919,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return ZOOM_LEVEL;
     }
 
-    public void setMano(int mano) {
+    public void setTapeteMano(int mano) {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -950,7 +950,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         });
     }
 
-    public void setBote(float bote) {
+    public void setTapeteBote(float bote) {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -959,7 +959,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         });
     }
 
-    public void setApuestas(float apuestas) {
+    public void setTapeteApuestas(float apuestas) {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -990,7 +990,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     }
 
-    public void hideApuestas() {
+    public void hideTapeteApuestas() {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -1001,7 +1001,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     }
 
-    public void setCiegas(float pequeña, float grande) {
+    public void setTapeteCiegas(float pequeña, float grande) {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {

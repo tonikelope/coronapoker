@@ -964,7 +964,38 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                tapete.getCommunityCards().getBet_label().setText(Translator.translate("Apuestas: ") + Helpers.float2String(apuestas));
+                String fase = null;
+
+                switch (getCrupier().getFase()) {
+                    case Crupier.PREFLOP:
+                        fase = "Preflop: ";
+                        break;
+
+                    case Crupier.FLOP:
+                        fase = "Flop: ";
+                        break;
+
+                    case Crupier.TURN:
+                        fase = "Turn: ";
+                        break;
+
+                    case Crupier.RIVER:
+                        fase = "River: ";
+                        break;
+                }
+
+                tapete.getCommunityCards().getBet_label().setText(fase + Helpers.float2String(apuestas));
+            }
+        });
+
+    }
+
+    public void hideApuestas() {
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+
+                tapete.getCommunityCards().getBet_label().setText("---------");
             }
         });
 
@@ -974,7 +1005,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                tapete.getCommunityCards().getBlinds_label().setText(Translator.translate("Ciegas: ") + Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (Game.CIEGAS_TIME > 0 ? " / " + String.valueOf(Game.CIEGAS_TIME) + "'" + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
+                tapete.getCommunityCards().getBlinds_label().setText(Translator.translate("Ciegas: ") + Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
             }
         });
 
@@ -1331,7 +1362,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
             public void actionPerformed(ActionEvent ae) {
 
-                if (!crupier.isFin_de_la_transmision() && crupier.isJugadores_suficientes() && !isTimba_pausada() && !WaitingRoom.isExit() && !isRECOVER() && !crupier.isTiempo_muerto()) {
+                if (!crupier.isFin_de_la_transmision() && crupier.isJugadores_suficientes() && !isTimba_pausada() && !WaitingRoom.isExit() && !isRECOVER()) {
                     conta_tiempo_juego++;
 
                     Helpers.GUIRun(new Runnable() {

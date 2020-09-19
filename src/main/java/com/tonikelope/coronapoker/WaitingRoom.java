@@ -1325,12 +1325,15 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     conectados.setModel(listModel);
 
-                    if (participantes.size() < 2) {
-                        empezar_timba.setVisible(false);
-                        kick_user.setVisible(false);
-                    }
+                    if (server) {
 
-                    new_bot_button.setVisible(true);
+                        if (participantes.size() < 2) {
+                            empezar_timba.setVisible(false);
+                            kick_user.setVisible(false);
+                        }
+
+                        new_bot_button.setVisible(true);
+                    }
                 }
             });
 

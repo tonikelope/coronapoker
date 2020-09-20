@@ -1085,7 +1085,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             public void run() {
                 initComponents();
 
-                setTitle(Init.WINDOW_TITLE + Translator.translate(" - Timba en curso (") + nick_local + ")");
+                setTitle(Init.WINDOW_TITLE + Translator.translate(" - Timba en curso (") + nicklocal + ")");
 
                 participantes = parts;
 

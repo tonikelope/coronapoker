@@ -1757,8 +1757,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             }
                         });
 
-                        setBorder(javax.swing.BorderFactory.createLineBorder(Color.BLACK, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
-
                         Helpers.threadRun(new Runnable() {
                             public void run() {
 
@@ -2078,6 +2076,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
+                        setBorder(javax.swing.BorderFactory.createLineBorder(Color.BLACK, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
                         player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (" + Helpers.float2String(bet + getStack()) + ")");
                     }
                 });

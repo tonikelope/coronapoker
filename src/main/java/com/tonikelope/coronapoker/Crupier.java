@@ -178,7 +178,6 @@ public class Crupier implements Runnable {
     private volatile int tiempo_pausa = 0;
     private volatile boolean barajando = false;
     private volatile ArrayList<String> cartas_locales_recibidas = null;
-    private volatile boolean tiempo_muerto = false;
     private volatile Player last_aggressor = null;
     private volatile boolean destapar_resistencia = false;
     private volatile boolean show_time = false;
@@ -484,7 +483,7 @@ public class Crupier implements Runnable {
 
                 this.current_local_cinematic_b64 = Base64.encodeBase64String((Base64.encodeBase64String(filename.getBytes("UTF-8")) + "#" + String.valueOf(pausa)).getBytes("UTF-8"));
 
-                if (pausa == 0L && Game.SONIDOS_CHORRA) {
+                if (pausa == 0L) {
                     Helpers.threadRun(new Runnable() {
 
                         public void run() {
@@ -541,7 +540,7 @@ public class Crupier implements Runnable {
 
                 long pausa = Long.parseLong(partes[1]);
 
-                if (pausa == 0L && Game.SONIDOS_CHORRA) {
+                if (pausa == 0L) {
                     Helpers.threadRun(new Runnable() {
 
                         public void run() {

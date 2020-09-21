@@ -106,7 +106,7 @@
         <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
           <Color blue="0" green="cc" red="99" type="rgb"/>
         </Property>
-        <Property name="text" type="java.lang.String" value="BOTE: 100"/>
+        <Property name="text" type="java.lang.String" value="Bote:"/>
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
@@ -118,7 +118,7 @@
         <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
           <Color blue="0" green="cc" red="99" type="rgb"/>
         </Property>
-        <Property name="text" type="java.lang.String" value="Apuestas: 40"/>
+        <Property name="text" type="java.lang.String" value="---------"/>
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
@@ -130,7 +130,7 @@
         <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
           <Color blue="0" green="cc" red="99" type="rgb"/>
         </Property>
-        <Property name="text" type="java.lang.String" value="Ciegas: 0.10 / 0.20"/>
+        <Property name="text" type="java.lang.String" value="Ciegas:"/>
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>
@@ -142,7 +142,7 @@
         <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
           <Color blue="0" green="cc" red="99" type="rgb"/>
         </Property>
-        <Property name="text" type="java.lang.String" value="Mano: 7"/>
+        <Property name="text" type="java.lang.String" value="Mano:"/>
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>

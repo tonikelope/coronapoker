@@ -24,7 +24,7 @@ import java.util.Comparator;
  *
  * @author tonikelope
  */
-public class Pot {
+public final class Pot {
 
     private float diff = 0f;
     private float bet = 0f;

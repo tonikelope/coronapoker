@@ -1734,7 +1734,7 @@ public class Crupier implements Runnable {
                 jugador.refreshPos();
             }
 
-            this.actualizarContadoresTapete();
+            actualizarContadoresTapete();
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
@@ -2058,18 +2058,16 @@ public class Crupier implements Runnable {
 
             this.apuestas = Game.getInstance().getJugadores().get(this.big_pos).getBet() + Game.getInstance().getJugadores().get(this.small_pos).getBet();
 
-            this.actualizarContadoresTapete();
+            actualizarContadoresTapete();
 
             Object lock = new Object();
 
             barajando = true;
 
-            playing_cinematic = true;
-
             Helpers.threadRun(new Runnable() {
                 public void run() {
                     if (Game.CINEMATICAS) {
-
+                        playing_cinematic = true;
                         ImageIcon icon = new ImageIcon(getClass().getResource("/cinematics/misc/shuffle.gif"));
 
                         if (icon != null) {
@@ -2108,6 +2106,7 @@ public class Crupier implements Runnable {
                         }
 
                     } else {
+                        playing_cinematic = false;
                         Helpers.playWavResourceAndWait("misc/shuffle.wav");
                     }
 

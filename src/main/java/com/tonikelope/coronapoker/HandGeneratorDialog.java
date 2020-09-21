@@ -671,6 +671,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
+        valor_jugada = 9;
         pintarJugada();
     }//GEN-LAST:event_formComponentShown
 

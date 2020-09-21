@@ -124,22 +124,22 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         pot_label.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         pot_label.setForeground(new java.awt.Color(153, 204, 0));
-        pot_label.setText("BOTE: 100");
+        pot_label.setText("Bote:");
         pot_label.setDoubleBuffered(true);
 
         bet_label.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         bet_label.setForeground(new java.awt.Color(153, 204, 0));
-        bet_label.setText("Apuestas: 40");
+        bet_label.setText("---------");
         bet_label.setDoubleBuffered(true);
 
         blinds_label.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         blinds_label.setForeground(new java.awt.Color(153, 204, 0));
-        blinds_label.setText("Ciegas: 0.10 / 0.20");
+        blinds_label.setText("Ciegas:");
         blinds_label.setDoubleBuffered(true);
 
         hand_label.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         hand_label.setForeground(new java.awt.Color(153, 204, 0));
-        hand_label.setText("Mano: 7");
+        hand_label.setText("Mano:");
         hand_label.setDoubleBuffered(true);
 
         tiempo_partida.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N

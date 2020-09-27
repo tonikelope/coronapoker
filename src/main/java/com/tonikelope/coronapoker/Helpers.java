@@ -62,8 +62,6 @@ import java.util.logging.Logger;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.DefaultComboBoxModel;
@@ -992,7 +990,7 @@ public class Helpers {
 
                     return true;
 
-                } catch (UnsupportedAudioFileException | IOException | LineUnavailableException ex) {
+                } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -1085,10 +1083,8 @@ public class Helpers {
                                 }
                             } while (player.getStatus() == BasicPlayer.PLAYING || player.getStatus() == BasicPlayer.PAUSED);
 
-                        } catch (IOException ex) {
+                        } catch (Exception ex) {
                             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
-                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (BasicPlayerException ex) {
                             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
@@ -1175,10 +1171,8 @@ public class Helpers {
                                 MP3_RESOURCES.remove(sound).stop();
                             }
 
-                        } catch (IOException ex) {
+                        } catch (Exception ex) {
                             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
-                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (BasicPlayerException ex) {
                             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                         }
 

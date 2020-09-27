@@ -69,7 +69,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final int CLIENT_RECON_ERROR_PAUSE = 5000;
     public static final int REBUY_TIMEOUT = 25000;
     public static final int MAX_TIMEOUT_CONFIRMATION_ERROR = 3;
-    public static final String BARAJA_DEFAULT = "interstate60";
+    public static final String BARAJA_DEFAULT = "coronapoker";
     public static final String DEFAULT_LANGUAGE = "es";
     public static final int PARGUELA_COUNTER = 5;
 
@@ -80,7 +80,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
     public static int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(Game.DEFAULT_ZOOM_LEVEL)));
-    public static String BARAJA = Helpers.PROPERTIES.getProperty("baraja", "coronapoker");
+    public static String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
     public static boolean VISTA_COMPACTA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("vista_compacta", "false")) && !TEST_MODE;
     public static boolean ANIMACION_REPARTIR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
     public static boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;

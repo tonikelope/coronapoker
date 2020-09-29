@@ -115,7 +115,7 @@ import org.xml.sax.SAXException;
 public class Helpers {
 
     public static final String USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
-    public static final float MASTER_VOLUME = 0.7f;
+    public static final float MASTER_VOLUME = 0.8f;
     public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.5f); //DEFAULT * CUSTOM
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME);
     public static final int RANDOMORG_TIMEOUT = 10000;

@@ -1338,7 +1338,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_bet.setEditable(false);
         player_bet.setBackground(new java.awt.Color(255, 255, 255));
         player_bet.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        player_bet.setHorizontalAlignment(javax.swing.JTextField.RIGHT);
+        player_bet.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         player_bet.setText(" ---- ");
         player_bet.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         player_bet.setDoubleBuffered(true);
@@ -1349,6 +1349,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setEditable(false);
         player_stack.setBackground(new java.awt.Color(51, 255, 51));
         player_stack.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        player_stack.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         player_stack.setText("10000.0");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         player_stack.setDoubleBuffered(true);
@@ -1400,16 +1401,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         utg_textfield.setBackground(new java.awt.Color(255, 204, 204));
         utg_textfield.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        utg_textfield.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         utg_textfield.setText("UTG");
-        utg_textfield.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
+        utg_textfield.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         utg_textfield.setDoubleBuffered(true);
         utg_textfield.setOpaque(true);
 
         player_blind.setBackground(new java.awt.Color(51, 51, 255));
         player_blind.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         player_blind.setForeground(new java.awt.Color(255, 255, 255));
+        player_blind.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_blind.setText("CP");
-        player_blind.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
+        player_blind.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_blind.setDoubleBuffered(true);
         player_blind.setOpaque(true);
 
@@ -1451,7 +1454,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             .addGroup(indicadores_arribaLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, 0)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
@@ -1573,11 +1576,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(indicadores_arriba, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(panel_cartas, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(0, 0, Short.MAX_VALUE))
                     .addComponent(botonera, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(player_action, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
         );

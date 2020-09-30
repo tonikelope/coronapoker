@@ -3530,6 +3530,10 @@ public class Crupier implements Runnable {
         return utg_pos;
     }
 
+    public HashMap<String, Player> getNick2player() {
+        return nick2player;
+    }
+
     private void colocarAvatares() {
 
         for (Map.Entry<String, Participant> entry : Game.getInstance().getParticipantes().entrySet()) {

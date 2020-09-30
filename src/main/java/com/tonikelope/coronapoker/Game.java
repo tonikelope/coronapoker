@@ -1866,32 +1866,35 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     private void zoom_menu_resetActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_resetActionPerformed
         // TODO add your handling code here:
-        zoom_menu.setEnabled(false);
 
-        ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL;
+        if (ZOOM_LEVEL != DEFAULT_ZOOM_LEVEL) {
+            zoom_menu.setEnabled(false);
 
-        Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+            ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL;
 
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
-                zoom(1f + ZOOM_LEVEL * ZOOM_STEP);
-                if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
+            Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
 
-                    for (Card carta : jugadas_dialog.getCartas()) {
-                        carta.refreshCard();
-                    }
+            Helpers.threadRun(new Runnable() {
+                @Override
+                public void run() {
+                    zoom(1f + ZOOM_LEVEL * ZOOM_STEP);
+                    if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-                            jugadas_dialog.pack();
+                        for (Card carta : jugadas_dialog.getCartas()) {
+                            carta.refreshCard();
                         }
-                    });
-                }
-            }
-        });
 
-        Helpers.savePropertiesFile();
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+                                jugadas_dialog.pack();
+                            }
+                        });
+                    }
+                }
+            });
+
+            Helpers.savePropertiesFile();
+        }
     }//GEN-LAST:event_zoom_menu_resetActionPerformed
 
     private void registro_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_registro_menuActionPerformed

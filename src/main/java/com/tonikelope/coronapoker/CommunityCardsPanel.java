@@ -130,26 +130,31 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         pot_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         pot_label.setForeground(new java.awt.Color(153, 204, 0));
         pot_label.setText("Bote:");
+        pot_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
         pot_label.setDoubleBuffered(true);
 
         bet_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         bet_label.setForeground(new java.awt.Color(153, 204, 0));
         bet_label.setText("---------");
+        bet_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         bet_label.setDoubleBuffered(true);
 
         blinds_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         blinds_label.setForeground(new java.awt.Color(153, 204, 0));
         blinds_label.setText("Ciegas:");
+        blinds_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         blinds_label.setDoubleBuffered(true);
 
         hand_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         hand_label.setForeground(new java.awt.Color(153, 204, 0));
         hand_label.setText("Mano:");
+        hand_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         hand_label.setDoubleBuffered(true);
 
         tiempo_partida.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         tiempo_partida.setForeground(new java.awt.Color(153, 204, 0));
         tiempo_partida.setText("00:00:00");
+        tiempo_partida.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         tiempo_partida.setDoubleBuffered(true);
 
         sound_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/mute.png"))); // NOI18N
@@ -214,7 +219,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addComponent(sound_icon)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGap(0, 0, 0)
                 .addComponent(pot_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(bet_label))

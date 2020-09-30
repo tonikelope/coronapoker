@@ -1163,7 +1163,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * zoom_factor)));
                     LineBorder border = (LineBorder) getBorder();
                     setBorder(javax.swing.BorderFactory.createLineBorder(border.getLineColor(), Math.round(Player.BORDER * zoom_factor)));
-
                     getAvatar().setVisible(false);
                 }
             });
@@ -1171,11 +1170,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             playingCard1.zoom(zoom_factor);
             playingCard2.zoom(zoom_factor);
 
-            int altura_avatar = avatar_panel.getHeight();
+            int altura_avatar = player_bet.getHeight();
 
             Helpers.zoomFonts(this, zoom_factor);
 
-            while (altura_avatar == avatar_panel.getHeight()) {
+            while (altura_avatar == player_bet.getHeight()) {
+
                 try {
                     Thread.sleep(250);
                 } catch (InterruptedException ex) {
@@ -1984,9 +1984,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setEnabled(true);
                 player_action.setBackground(Color.GREEN);
                 player_action.setForeground(Color.BLACK);
-                player_bet.setBackground(Color.GREEN);
-                player_bet.setForeground(Color.BLACK);
                 player_action.setText(msg);
+                Game.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+                Game.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
+                Game.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
 
             }
         });

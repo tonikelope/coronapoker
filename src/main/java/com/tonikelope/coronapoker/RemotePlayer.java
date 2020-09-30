@@ -923,11 +923,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
                 player_action.setBackground(Color.GREEN);
                 player_action.setForeground(Color.BLACK);
-                player_bet.setBackground(Color.GREEN);
-                player_bet.setForeground(Color.BLACK);
                 player_action.setText(msg);
                 player_action.setEnabled(true);
-
+                Game.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+                Game.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
+                Game.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
             }
         });
     }
@@ -943,8 +943,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setBackground(Color.RED);
                 player_action.setForeground(Color.WHITE);
-                player_bet.setBackground(Color.RED);
-                player_bet.setForeground(Color.WHITE);
                 player_action.setText(msg);
                 player_action.setEnabled(true);
 

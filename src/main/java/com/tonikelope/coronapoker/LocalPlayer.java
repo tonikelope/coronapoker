@@ -2005,8 +2005,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setEnabled(true);
                 player_action.setBackground(Color.RED);
                 player_action.setForeground(Color.WHITE);
-                player_bet.setBackground(Color.RED);
-                player_bet.setForeground(Color.WHITE);
                 player_action.setText(msg);
 
                 playingCard1.desenfocar();

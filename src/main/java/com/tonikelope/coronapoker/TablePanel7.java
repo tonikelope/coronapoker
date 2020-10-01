@@ -26,9 +26,9 @@ public class TablePanel7 extends TablePanel {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
-                players = new Player[]{localPlayer, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6, remotePlayer1};
-                remotePlayers = new RemotePlayer[]{remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6, remotePlayer1};
-                zoomables = new ZoomableInterface[]{localPlayer, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6, remotePlayer1, communityCards};
+                players = new Player[]{localPlayer, remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6};
+                remotePlayers = new RemotePlayer[]{remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6};
+                zoomables = new ZoomableInterface[]{localPlayer, remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, remotePlayer6, communityCards};
 
             }
         });
@@ -44,12 +44,12 @@ public class TablePanel7 extends TablePanel {
     private void initComponents() {
 
         localPlayer = new com.tonikelope.coronapoker.LocalPlayer();
+        remotePlayer1 = new com.tonikelope.coronapoker.RemotePlayer();
         remotePlayer2 = new com.tonikelope.coronapoker.RemotePlayer();
         remotePlayer3 = new com.tonikelope.coronapoker.RemotePlayer();
         remotePlayer4 = new com.tonikelope.coronapoker.RemotePlayer();
         remotePlayer5 = new com.tonikelope.coronapoker.RemotePlayer();
         remotePlayer6 = new com.tonikelope.coronapoker.RemotePlayer();
-        remotePlayer1 = new com.tonikelope.coronapoker.RemotePlayer();
         communityCards = new com.tonikelope.coronapoker.CommunityCardsPanel();
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);

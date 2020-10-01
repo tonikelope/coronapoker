@@ -68,6 +68,8 @@
   <SubComponents>
     <Component class="com.tonikelope.coronapoker.LocalPlayer" name="localPlayer">
     </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer1">
+    </Component>
     <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer2">
     </Component>
     <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer3">
@@ -75,8 +77,6 @@
     <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer4">
     </Component>
     <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer5">
-    </Component>
-    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer1">
     </Component>
     <Component class="com.tonikelope.coronapoker.CommunityCardsPanel" name="communityCards">
     </Component>

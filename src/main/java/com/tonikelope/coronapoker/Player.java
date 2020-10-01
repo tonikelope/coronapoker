@@ -118,4 +118,6 @@ public interface Player {
 
     public int getPos();
 
+    public void setAvatar();
+
 }

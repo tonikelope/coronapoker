@@ -6,8 +6,6 @@
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.Game.WAIT_QUEUES;
-import java.awt.Dimension;
-import java.awt.Image;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -3538,42 +3536,10 @@ public class Crupier implements Runnable {
 
     private void colocarAvatares() {
 
-        for (Map.Entry<String, Participant> entry : Game.getInstance().getParticipantes().entrySet()) {
+        for (Player jugador : Game.getInstance().getJugadores()) {
 
-            Participant p = entry.getValue();
-
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    if (p != null) {
-                        Player jugador = nick2player.get(p.getNick());
-
-                        if (p.getAvatar() != null) {
-                            jugador.getAvatar().setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
-                            jugador.getAvatar().setIcon(new ImageIcon(new ImageIcon(p.getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
-
-                        } else if (Game.getInstance().isPartida_local() && p.isCpu()) {
-                            jugador.getAvatar().setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
-                            jugador.getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
-                        }
-
-                    } else {
-                        Player jugador = nick2player.get(Game.getInstance().getNick_local());
-
-                        if (Game.getInstance().getSala_espera().getAvatar() != null) {
-                            jugador.getAvatar().setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
-                            jugador.getAvatar().setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
-
-                        }
-
-                    }
-
-                }
-            });
-
+            jugador.setAvatar();
         }
-
     }
 
     private void preservarAcciones() {

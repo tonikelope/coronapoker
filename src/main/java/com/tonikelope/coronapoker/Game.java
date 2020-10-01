@@ -1089,17 +1089,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 participantes = parts;
 
-                if (participantes.size() == 2) {
-                    tapete = new TablePanel2();
-                } else if (participantes.size() <= 4) {
-                    tapete = new TablePanel4();
-                } else if (participantes.size() <= 6) {
-                    tapete = new TablePanel6();
-                } else if (participantes.size() <= 8) {
-                    tapete = new TablePanel8();
-                } else {
-                    tapete = new TablePanel10();
-                }
+                tapete = TablePanelFactory.getPanel(participantes.size());
 
                 getContentPane().add(tapete);
 

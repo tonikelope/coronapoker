@@ -179,7 +179,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
                     player_blind.setVisible(false);
-                    player_bet.setVisible(false);
+                    player_bet.setText("----");
+                    player_bet.setEnabled(false);
                     utg_textfield.setVisible(false);
                     playingCard1.descargarCarta();
                     playingCard2.descargarCarta();

@@ -684,7 +684,7 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            return JOptionPane.showConfirmDialog(frame, mensaje, "Info", JOptionPane.YES_NO_CANCEL_OPTION);
+            return JOptionPane.showConfirmDialog(frame, mensaje, "Info", JOptionPane.YES_NO_OPTION);
 
         } else {
 
@@ -694,7 +694,7 @@ public class Helpers {
                 @Override
                 public void run() {
 
-                    res[0] = JOptionPane.showConfirmDialog(frame, mensaje, "Info", JOptionPane.YES_NO_CANCEL_OPTION);
+                    res[0] = JOptionPane.showConfirmDialog(frame, mensaje, "Info", JOptionPane.YES_NO_OPTION);
                 }
             });
 

@@ -3090,7 +3090,7 @@ public class Crupier implements Runnable {
 
                         if (decision == Player.ALLIN) {
 
-                            if (!"".equals((String) action[1])) {
+                            if ((action[1] instanceof String) && !"".equals((String) action[1])) {
                                 this.current_remote_cinematic_b64 = (String) action[1];
                             }
 
@@ -3187,7 +3187,7 @@ public class Crupier implements Runnable {
                     }
                 }
 
-                if (current_player.getDecision() != Player.NODEC && !Game.getInstance().getLocalPlayer().isSpectator() && Game.getInstance().isPartida_local()) {
+                if (current_player.getDecision() != Player.NODEC && Game.getInstance().isPartida_local()) {
                     preservarAcciones();
                 }
 
@@ -4268,7 +4268,7 @@ public class Crupier implements Runnable {
 
             Helpers.pausar(1000);
 
-            if (!Game.getInstance().isTimba_pausada()) {
+            if (!Game.getInstance().isTimba_pausada() && !isFin_de_la_transmision()) {
 
                 this.decrementPausaBarra();
 

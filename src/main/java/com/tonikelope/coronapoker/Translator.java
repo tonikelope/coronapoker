@@ -125,7 +125,7 @@ public class Translator {
             {"PENSANDO...", "THINKING..."},
             {"AUDITOR DE CUENTAS", "ACCOUNTS AUDITOR"},
             {"¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN", "WATCH OUT FOR THIS: THE GLOBAL ACCOUNTS DON'T COME OUT! -> (STACKS + INDIVISIBLE) = BUYIN"},
-            {"CALENTANDO...", "WARMING UP..."},
+            {"CALENTANDO", "WARMING UP"},
             {"ABANDONA LA TIMBA", "QUIT THE GAME"},
             {"ABANDONAS LA TIMBA", "QUIT THE GAME"},
             {" MUESTRA (", " SHOWS ("},

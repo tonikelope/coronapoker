@@ -1662,7 +1662,7 @@ public class Crupier implements Runnable {
 
                 if (!nicks_recuperados.contains(jugador.getNickname())) {
 
-                    jugador.setSpectator(Translator.translate("CALENTANDO..."));
+                    jugador.setSpectator(Translator.translate("CALENTANDO"));
 
                     this.auditor.put(jugador.getNickname(), new Float[]{jugador.getStack(), (float) jugador.getBuyin()});
 

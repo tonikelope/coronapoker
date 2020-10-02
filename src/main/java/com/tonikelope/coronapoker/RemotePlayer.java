@@ -1364,6 +1364,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
                 player_bet.setVisible(true);
+                player_bet.setEnabled(true);
                 player_stack.setEnabled(true);
                 player_action.setText(" ");
             }

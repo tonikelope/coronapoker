@@ -15,7 +15,6 @@ import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 import javax.swing.Timer;
 import javax.swing.border.LineBorder;
 
@@ -231,6 +230,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setForeground(Color.BLACK);
 
                     player_action.setText(Translator.translate("PENSANDO"));
+
+                    player_action.setBackground(null);
 
                     player_action.setEnabled(false);
 
@@ -547,6 +548,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setText(" ");
 
+                player_action.setBackground(null);
+
                 player_action.setEnabled(false);
 
                 utg_textfield.setVisible(false);
@@ -599,7 +602,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        player_action = new javax.swing.JTextField();
         panel_cartas = new javax.swing.JPanel();
         playingCard1 = new com.tonikelope.coronapoker.Card();
         playingCard2 = new com.tonikelope.coronapoker.Card();
@@ -614,18 +616,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name = new javax.swing.JLabel();
         utg_textfield = new javax.swing.JLabel();
         player_blind = new javax.swing.JLabel();
+        player_action = new javax.swing.JLabel();
 
         setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.Game.ZOOM_LEVEL*com.tonikelope.coronapoker.Game.ZOOM_STEP))));
         setFocusable(false);
         setOpaque(false);
-
-        player_action.setEditable(false);
-        player_action.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        player_action.setHorizontalAlignment(javax.swing.JTextField.CENTER);
-        player_action.setText("ESCALERA DE COLOR");
-        player_action.setBorder(null);
-        player_action.setDoubleBuffered(true);
-        player_action.setMinimumSize(com.tonikelope.coronapoker.Game.VISTA_COMPACTA?null:new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP())), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP()))));
 
         panel_cartas.setOpaque(false);
 
@@ -783,6 +778,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addGap(0, 0, 0))
         );
 
+        player_action.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        player_action.setText("ESCALERA DE COLOR");
+        player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_action.setDoubleBuffered(true);
+        player_action.setMinimumSize(com.tonikelope.coronapoker.Game.VISTA_COMPACTA?null:new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP())), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP()))));
+        player_action.setOpaque(true);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -791,8 +794,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(panel_cartas, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(player_action, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(indicadores_arriba, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(indicadores_arriba, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(player_action, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -803,7 +806,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(panel_cartas, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, 0)
-                .addComponent(player_action, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(player_action, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
     }// </editor-fold>//GEN-END:initComponents
@@ -828,7 +831,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JPanel indicadores_arriba;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel panel_cartas;
-    private javax.swing.JTextField player_action;
+    private javax.swing.JLabel player_action;
     private javax.swing.JLabel player_bet;
     private javax.swing.JLabel player_blind;
     private javax.swing.JTextField player_buyin;
@@ -1108,7 +1111,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return stack;
     }
 
-    public JTextField getPlayer_action() {
+    public JLabel getPlayer_action() {
         return player_action;
     }
 
@@ -1145,6 +1148,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
                 player_action.setText(" ");
+
+                player_action.setBackground(null);
 
                 player_action.setEnabled(false);
 
@@ -1187,6 +1192,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
 
                 player_action.setText(" ");
+
+                player_action.setBackground(null);
 
                 player_action.setEnabled(false);
 
@@ -1334,6 +1341,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     playingCard2.descargarCarta();
                     player_stack.setEnabled(false);
                     player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
+                    player_action.setBackground(null);
                     player_action.setEnabled(false);
                 }
             });

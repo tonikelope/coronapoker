@@ -279,14 +279,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
-                timeout.setVisible(false);
-                player_blind.setVisible(false);
-                player_action.setVisible(false);
-                player_bet.setVisible(false);
-                utg_textfield.setVisible(false);
                 playingCard1.descargarCarta();
                 playingCard2.descargarCarta();
-
                 player_action.setBackground(new Color(255, 102, 0));
                 player_action.setForeground(Color.WHITE);
                 player_action.setText(Translator.translate("ABANDONAS LA TIMBA"));
@@ -428,12 +422,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.player_allin_button = player_allin;
     }
 
-    public JTextField getPlayer_bet() {
+    public JLabel getPlayer_bet() {
         return player_bet;
-    }
-
-    public void setPlayer_bet(JTextField player_bet) {
-        this.player_bet = player_bet;
     }
 
     public JButton getPlayer_bet_button() {
@@ -1316,11 +1306,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         playingCard1 = new com.tonikelope.coronapoker.Card();
         indicadores_arriba = new javax.swing.JPanel();
         avatar_panel = new javax.swing.JPanel();
-        player_bet = new javax.swing.JTextField();
         avatar = new javax.swing.JLabel();
         player_stack = new javax.swing.JTextField();
         player_buyin = new javax.swing.JTextField();
         timeout = new javax.swing.JLabel();
+        player_bet = new javax.swing.JLabel();
         jPanel5 = new javax.swing.JPanel();
         player_name = new javax.swing.JLabel();
         utg_textfield = new javax.swing.JLabel();
@@ -1371,14 +1361,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         avatar_panel.setOpaque(false);
 
-        player_bet.setEditable(false);
-        player_bet.setBackground(new java.awt.Color(255, 255, 255));
-        player_bet.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
-        player_bet.setHorizontalAlignment(javax.swing.JTextField.CENTER);
-        player_bet.setText("----");
-        player_bet.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        player_bet.setDoubleBuffered(true);
-
         avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png"))); // NOI18N
         avatar.setDoubleBuffered(true);
 
@@ -1402,6 +1384,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         timeout.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
         timeout.setDoubleBuffered(true);
 
+        player_bet.setBackground(new java.awt.Color(255, 255, 255));
+        player_bet.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
+        player_bet.setText("----");
+        player_bet.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        player_bet.setOpaque(true);
+
         javax.swing.GroupLayout avatar_panelLayout = new javax.swing.GroupLayout(avatar_panel);
         avatar_panel.setLayout(avatar_panelLayout);
         avatar_panelLayout.setHorizontalGroup(
@@ -1414,13 +1402,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addComponent(player_buyin, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(timeout)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 55, Short.MAX_VALUE)
-                .addComponent(player_bet, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(player_bet))
         );
         avatar_panelLayout.setVerticalGroup(
             avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(avatar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(player_bet)
             .addGroup(avatar_panelLayout.createSequentialGroup()
                 .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
@@ -1428,6 +1415,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         .addComponent(player_buyin, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addComponent(player_stack, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(0, 0, Short.MAX_VALUE))
+            .addComponent(player_bet, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         jPanel5.setOpaque(false);
@@ -1461,7 +1449,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel5Layout.createSequentialGroup()
                 .addComponent(player_name)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 55, Short.MAX_VALUE)
                 .addComponent(utg_textfield)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(player_blind))
@@ -1960,7 +1948,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JPanel panel_cartas;
     private javax.swing.JTextField player_action;
     private javax.swing.JButton player_allin_button;
-    private javax.swing.JTextField player_bet;
+    private javax.swing.JLabel player_bet;
     private javax.swing.JButton player_bet_button;
     private javax.swing.JLabel player_blind;
     private javax.swing.JTextField player_buyin;

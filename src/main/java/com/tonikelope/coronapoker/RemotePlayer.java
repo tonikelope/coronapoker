@@ -144,11 +144,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
-                timeout.setVisible(false);
-                player_blind.setVisible(false);
-                player_action.setVisible(false);
-                player_bet.setVisible(false);
-                utg_textfield.setVisible(false);
                 playingCard1.descargarCarta();
                 playingCard2.descargarCarta();
 
@@ -235,7 +230,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_action.setForeground(Color.BLACK);
 
-                    player_action.setText(Translator.translate("PENSANDO..."));
+                    player_action.setText(Translator.translate("PENSANDO"));
 
                     player_action.setEnabled(false);
 
@@ -610,11 +605,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         playingCard2 = new com.tonikelope.coronapoker.Card();
         indicadores_arriba = new javax.swing.JPanel();
         avatar_panel = new javax.swing.JPanel();
-        player_bet = new javax.swing.JTextField();
         avatar = new javax.swing.JLabel();
         player_stack = new javax.swing.JTextField();
         player_buyin = new javax.swing.JTextField();
         timeout = new javax.swing.JLabel();
+        player_bet = new javax.swing.JLabel();
         jPanel3 = new javax.swing.JPanel();
         player_name = new javax.swing.JLabel();
         utg_textfield = new javax.swing.JLabel();
@@ -657,14 +652,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         avatar_panel.setOpaque(false);
 
-        player_bet.setEditable(false);
-        player_bet.setBackground(new java.awt.Color(255, 255, 255));
-        player_bet.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
-        player_bet.setHorizontalAlignment(javax.swing.JTextField.CENTER);
-        player_bet.setText("----");
-        player_bet.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        player_bet.setDoubleBuffered(true);
-
         avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png"))); // NOI18N
         avatar.setDoubleBuffered(true);
 
@@ -694,6 +681,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
+        player_bet.setBackground(new java.awt.Color(255, 255, 255));
+        player_bet.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
+        player_bet.setText("----");
+        player_bet.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        player_bet.setOpaque(true);
+
         javax.swing.GroupLayout avatar_panelLayout = new javax.swing.GroupLayout(avatar_panel);
         avatar_panel.setLayout(avatar_panelLayout);
         avatar_panelLayout.setHorizontalGroup(
@@ -707,12 +700,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addGap(28, 28, 28)
                 .addComponent(timeout)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(player_bet, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addComponent(player_bet))
         );
         avatar_panelLayout.setVerticalGroup(
             avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(avatar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(player_bet, javax.swing.GroupLayout.Alignment.TRAILING)
             .addGroup(avatar_panelLayout.createSequentialGroup()
                 .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                     .addComponent(player_stack, javax.swing.GroupLayout.Alignment.LEADING)
@@ -721,6 +713,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         .addComponent(timeout))
                     .addComponent(player_buyin, javax.swing.GroupLayout.Alignment.LEADING))
                 .addGap(0, 0, Short.MAX_VALUE))
+            .addComponent(player_bet, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         jPanel3.setOpaque(false);
@@ -836,7 +829,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel panel_cartas;
     private javax.swing.JTextField player_action;
-    private javax.swing.JTextField player_bet;
+    private javax.swing.JLabel player_bet;
     private javax.swing.JLabel player_blind;
     private javax.swing.JTextField player_buyin;
     private javax.swing.JLabel player_name;
@@ -869,15 +862,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.zoomFonts(this, zoom_factor);
 
-            while (altura_avatar == avatar_panel.getHeight()) {
-                try {
-                    Thread.sleep(250);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+            if (!this.disabled) {
+                while (altura_avatar == avatar_panel.getHeight()) {
+                    try {
+                        Thread.sleep(250);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
-            }
 
-            setAvatar();
+                setAvatar();
+            }
         }
 
     }
@@ -1070,8 +1065,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             auto_action.stop();
         }
 
-        Player tthis = this;
-
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
@@ -1081,36 +1074,28 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     playingCard1.descargarCarta();
                     playingCard2.descargarCarta();
 
-                    if (Game.getInstance().getTapete().getRemotePlayers().length > 6 && (Game.getInstance().getTapete().getRemotePlayers()[0] == tthis || Game.getInstance().getTapete().getRemotePlayers()[5] == tthis)) {
+                    player_blind.setBackground(new Color(0, 0, 0, 0));
+                    player_blind.setText(" ");
+                    player_blind.setVisible(true);
 
-                        player_blind.setBackground(new Color(0, 0, 0, 0));
-                        player_blind.setText(" ");
-                        player_blind.setVisible(true);
+                    player_bet.setBackground(new Color(0, 0, 0, 0));
+                    player_bet.setText(" ");
+                    player_bet.setVisible(true);
 
-                        player_bet.setBackground(new Color(0, 0, 0, 0));
-                        player_bet.setText(" ");
-                        player_bet.setVisible(true);
+                    avatar.setVisible(false);
 
-                        avatar.setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
-                        avatar.setIcon(new ImageIcon(new ImageIcon(RemotePlayer.class.getResource("/images/avatar_null.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
-                        avatar.setVisible(true);
+                    player_name.setVisible(false);
+                    player_stack.setVisible(false);
+                    player_buyin.setVisible(false);
+                    timeout.setVisible(false);
+                    utg_textfield.setVisible(false);
 
-                        player_name.setVisible(false);
-                        player_stack.setVisible(false);
-                        player_buyin.setVisible(false);
-                        timeout.setVisible(false);
-                        utg_textfield.setVisible(false);
+                    player_action.setBorder(null);
+                    player_action.setMinimumSize(null);
+                    player_action.setBackground(new Color(0, 0, 0, 0));
+                    player_action.setText(" ");
+                    player_action.setVisible(true);
 
-                        player_action.setBorder(null);
-                        player_action.setMinimumSize(null);
-                        player_action.setBackground(new Color(0, 0, 0, 0));
-                        player_action.setText(" ");
-                        player_action.setVisible(true);
-
-                    } else {
-                        indicadores_arriba.setVisible(false);
-                        player_action.setVisible(false);
-                    }
                 } else {
 
                     setVisible(false);

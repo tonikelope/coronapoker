@@ -1335,6 +1335,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_blind.setVisible(false);
                     player_bet.setText("----");
+                    player_bet.setBackground(null);
                     player_bet.setEnabled(false);
                     utg_textfield.setVisible(false);
                     playingCard1.descargarCarta();

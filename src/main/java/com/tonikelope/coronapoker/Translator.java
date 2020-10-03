@@ -122,7 +122,7 @@ public class Translator {
             {"MOSTRAR [F5]", "SHOW [F5]"},
             {" MUESTRAS (", " SHOW ("},
             {" MUESTRA (", " SHOWS ("},
-            {"PENSANDO...", "THINKING..."},
+            {"PENSANDO", "THINKING"},
             {"AUDITOR DE CUENTAS", "ACCOUNTS AUDITOR"},
             {"¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN", "WATCH OUT FOR THIS: THE GLOBAL ACCOUNTS DON'T COME OUT! -> (STACKS + INDIVISIBLE) = BUYIN"},
             {"CALENTANDO", "WARMING UP"},

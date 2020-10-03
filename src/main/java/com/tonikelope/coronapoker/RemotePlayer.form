@@ -279,7 +279,7 @@
                 <Property name="text" type="java.lang.String" value="12345678901234567890"/>
                 <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
                   <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
-                    <EmptyBorder/>
+                    <EmptyBorder bottom="2" left="2" right="2" top="2"/>
                   </Border>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
@@ -339,7 +339,7 @@
         <Property name="text" type="java.lang.String" value="ESCALERA DE COLOR"/>
         <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
           <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
-            <EmptyBorder bottom="2" left="5" right="5" top="2"/>
+            <EmptyBorder bottom="2" left="2" right="2" top="2"/>
           </Border>
         </Property>
         <Property name="doubleBuffered" type="boolean" value="true"/>

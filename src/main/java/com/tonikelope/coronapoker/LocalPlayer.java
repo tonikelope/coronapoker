@@ -1420,7 +1420,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         player_name.setForeground(new java.awt.Color(255, 255, 255));
         player_name.setText("123456789012345");
-        player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
+        player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
         player_name.setDoubleBuffered(true);
 
         utg_textfield.setBackground(new java.awt.Color(255, 204, 204));
@@ -1580,7 +1580,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_action.setText("ESCALERA DE COLOR");
-        player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
         player_action.setDoubleBuffered(true);
         player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP())), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP()))));
         player_action.setOpaque(true);

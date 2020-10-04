@@ -1022,7 +1022,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    tapete.getCommunityCards().getSound_icon().setSize(new Dimension(tapete.getCommunityCards().getPot_label().getHeight(), tapete.getCommunityCards().getPot_label().getHeight()));
+                    tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(tapete.getCommunityCards().getPot_label().getHeight(), tapete.getCommunityCards().getPot_label().getHeight()));
                     tapete.getCommunityCards().getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(tapete.getCommunityCards().getPot_label().getHeight(), tapete.getCommunityCards().getPot_label().getHeight(), Image.SCALE_SMOOTH)));
                 }
             });
@@ -1030,7 +1030,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    tapete.getCommunityCards().getSound_icon().setSize(new Dimension(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH));
+                    tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH));
                     tapete.getCommunityCards().getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH, Image.SCALE_SMOOTH)));
                 }
             });

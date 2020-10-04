@@ -20,7 +20,7 @@ import javax.swing.JProgressBar;
  */
 public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableInterface {
 
-    public static final int SOUND_ICON_WIDTH = 33;
+    public static final int SOUND_ICON_WIDTH = 30;
 
     public JProgressBar getBarra_tiempo() {
         return barra_tiempo;
@@ -79,7 +79,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                pot_label.setForeground(color);
+
+                if (!pot_label.isOpaque()) {
+                    pot_label.setForeground(color);
+                }
+
                 bet_label.setForeground(color);
                 blinds_label.setForeground(color);
                 tiempo_partida.setForeground(color);
@@ -96,7 +100,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(Math.round(SOUND_ICON_WIDTH * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP)), Math.round(SOUND_ICON_WIDTH * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+
+                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(SOUND_ICON_WIDTH, SOUND_ICON_WIDTH, Image.SCALE_SMOOTH)));
             }
         });
     }
@@ -157,10 +162,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         tiempo_partida.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         tiempo_partida.setDoubleBuffered(true);
 
-        sound_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/mute.png"))); // NOI18N
         sound_icon.setToolTipText("Click para activar/desactivar el sonido");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         sound_icon.setDoubleBuffered(true);
+        sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 sound_iconMouseClicked(evt);
@@ -218,8 +223,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(sound_icon)
-                .addGap(0, 0, 0)
+                .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(pot_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(bet_label))
@@ -237,7 +242,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             .addGroup(layout.createSequentialGroup()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(pot_label)
-                    .addComponent(sound_icon)
+                    .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(bet_label))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(cards_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -306,7 +311,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                sound_icon.setSize(new Dimension(pot_label.getHeight(), pot_label.getHeight()));
+                sound_icon.setPreferredSize(new Dimension(pot_label.getHeight(), pot_label.getHeight()));
                 sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
                 panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) pot_label.getHeight() * 0.65)));
             }

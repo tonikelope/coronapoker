@@ -46,7 +46,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     public static final int DEFAULT_PORT = 7234;
     public final static int DEFAULT_AVATAR_WIDTH = 50;
     public final static int DEFAULT_AVATAR_HEIGHT = 50;
-    public final static int AVATAR_MAX_FILESIZE = 200; //KB
+    public final static int AVATAR_MAX_FILESIZE = 256; //KB
     public final static int MAX_NICK_LENGTH = 20;
     public final static int MAX_PORT_LENGTH = 5;
 
@@ -107,7 +107,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                     avatar = new File(avatar_path);
 
                     if (avatar.exists() && avatar.canRead() && avatar.length() <= AVATAR_MAX_FILESIZE * 1024) {
-                        avatar_img.setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
+                        avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
                         avatar_img.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
 
                     } else {
@@ -560,7 +560,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             } else {
                 this.avatar = selectedFile;
 
-                avatar_img.setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
+                avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
                 avatar_img.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT, Image.SCALE_SMOOTH)));
 
             }
@@ -569,7 +569,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             this.avatar = null;
 
-            avatar_img.setSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
+            avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_HEIGHT));
             avatar_img.setIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")));
 
         }

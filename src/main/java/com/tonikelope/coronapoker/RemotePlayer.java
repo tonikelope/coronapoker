@@ -1389,23 +1389,23 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Participant p = Game.getInstance().getParticipantes().get(nickname);
                 if (p != null) {
                     if (p.getAvatar() != null) {
-                        getAvatar().setSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
+                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
                         getAvatar().setIcon(new ImageIcon(new ImageIcon(p.getAvatar().getAbsolutePath()).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
                     } else if (Game.getInstance().isPartida_local() && p.isCpu()) {
-                        getAvatar().setSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
+                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
                         getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
                     } else {
-                        getAvatar().setSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
+                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
                         getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
                     }
 
                 } else {
 
                     if (Game.getInstance().getSala_espera().getAvatar() != null) {
-                        getAvatar().setSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
+                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
                         getAvatar().setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
                     } else {
-                        getAvatar().setSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
+                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
                         getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
                     }
 

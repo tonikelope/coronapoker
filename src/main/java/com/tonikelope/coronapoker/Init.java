@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Image;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -56,36 +57,43 @@ public class Init extends javax.swing.JFrame {
      * Creates new form Inicio
      */
     public Init() {
-        initComponents();
 
-        setTitle(Init.WINDOW_TITLE);
+        Init tthis = this;
 
-        sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")));
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
 
-        Helpers.PRNG_GENERATOR = new Random(System.currentTimeMillis());
+                setTitle(Init.WINDOW_TITLE);
 
-        try {
-            Helpers.SPRNG_GENERATOR = SecureRandom.getInstance("SHA1PRNG");
-        } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-        }
+                sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")));
 
-        UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
-        UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
+                Helpers.PRNG_GENERATOR = new Random(System.currentTimeMillis());
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+                try {
+                    Helpers.SPRNG_GENERATOR = SecureRandom.getInstance("SHA1PRNG");
+                } catch (NoSuchAlgorithmException ex) {
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                }
 
-        if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
-            this.language_combobox.setSelectedIndex(0);
-        } else {
-            this.language_combobox.setSelectedIndex(1);
-        }
+                UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
+                UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
 
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
+                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
 
-        sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")));
+                if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
+                    language_combobox.setSelectedIndex(0);
+                } else {
+                    language_combobox.setSelectedIndex(1);
+                }
 
-        pack();
+                setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+
+                pack();
+            }
+        });
     }
 
     public InitPanel getTapete() {
@@ -131,9 +139,9 @@ public class Init extends javax.swing.JFrame {
         corona_init_panel.setOpaque(false);
 
         sound_icon.setBackground(new java.awt.Color(153, 153, 153));
-        sound_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/mute.png"))); // NOI18N
         sound_icon.setToolTipText("Click para activar/desactivar el sonido");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 sound_iconMouseClicked(evt);
@@ -236,7 +244,7 @@ public class Init extends javax.swing.JFrame {
                         .addGap(18, 18, Short.MAX_VALUE)
                         .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(sound_icon))
+                        .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(corona_init_panelLayout.createSequentialGroup()
                         .addComponent(jLabel1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -259,7 +267,7 @@ public class Init extends javax.swing.JFrame {
                 .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(pegi_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(krusty, javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap())
         );
@@ -269,16 +277,16 @@ public class Init extends javax.swing.JFrame {
         tapeteLayout.setHorizontalGroup(
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
-                .addContainerGap(447, Short.MAX_VALUE)
+                .addContainerGap(681, Short.MAX_VALUE)
                 .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(447, Short.MAX_VALUE))
+                .addContainerGap(681, Short.MAX_VALUE))
         );
         tapeteLayout.setVerticalGroup(
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
-                .addContainerGap(373, Short.MAX_VALUE)
+                .addContainerGap(579, Short.MAX_VALUE)
                 .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(373, Short.MAX_VALUE))
+                .addContainerGap(579, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -339,7 +347,7 @@ public class Init extends javax.swing.JFrame {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")));
+                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
             }
         });

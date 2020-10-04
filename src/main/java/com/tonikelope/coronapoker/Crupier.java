@@ -123,7 +123,6 @@ public class Crupier implements Runnable {
     public static final int CARTAS_POKER = 4;
     public static final int CARTAS_TRIO = 3;
     public static final int CARTAS_PAREJA = 2;
-    public static final int RANDOM_ORG_BARAJAS = 100;
     public static final int PREFLOP = 1;
     public static final int FLOP = 2;
     public static final int TURN = 3;
@@ -457,10 +456,6 @@ public class Crupier implements Runnable {
 
     public long getTurno() {
         return turno;
-    }
-
-    public ConcurrentLinkedQueue<String> getAcciones_recuperadas() {
-        return acciones_recuperadas;
     }
 
     public boolean localCinematicAllin() {
@@ -3528,10 +3523,6 @@ public class Crupier implements Runnable {
 
     public int getUtg_pos() {
         return utg_pos;
-    }
-
-    public HashMap<String, Player> getNick2player() {
-        return nick2player;
     }
 
     private void colocarAvatares() {

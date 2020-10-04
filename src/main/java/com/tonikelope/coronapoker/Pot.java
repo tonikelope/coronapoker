@@ -62,10 +62,6 @@ public final class Pot {
         return sidePot;
     }
 
-    public float getBet() {
-        return bet;
-    }
-
     public ArrayList<Player> getPlayers() {
         return players;
     }

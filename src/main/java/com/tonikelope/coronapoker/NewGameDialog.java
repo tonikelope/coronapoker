@@ -143,7 +143,6 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                     ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
-                    updateCiegasLabel();
                     Helpers.setTranslatedTitle(tthis, "Crear timba");
 
                 } else {
@@ -158,16 +157,6 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             }
         });
-    }
-
-    private void updateCiegasLabel() {
-
-        int buyin = (int) this.buyin_spinner.getValue();
-
-        float big = Math.max(Game.MIN_BIG_BLIND, buyin / 50f);
-
-        float small = big / 2f;
-
     }
 
     /**

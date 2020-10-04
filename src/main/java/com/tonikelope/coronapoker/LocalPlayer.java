@@ -18,7 +18,6 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
-import javax.swing.JTextField;
 import javax.swing.Timer;
 import javax.swing.border.LineBorder;
 
@@ -85,15 +84,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.parguela_counter--;
     }
 
-    public boolean isPlaying_animation() {
-        return playing_animation;
-    }
-
-    public static void translateActionLabels() {
-
-        ACTIONS_LABELS = Game.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
-    }
-
     public void setClick_recuperacion(boolean click_recuperacion) {
         this.click_recuperacion = click_recuperacion;
     }
@@ -102,8 +92,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.apuesta_recuperada = apuesta_recuperada;
     }
 
-    public JTextField getBet_slider_text() {
-        return bet_slider_text;
+    public JSlider getBet_slider() {
+        return bet_slider;
     }
 
     public JButton getPlayer_allin_button() {
@@ -132,10 +122,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public boolean isLoser() {
         return loser;
-    }
-
-    public JSlider getBet_slider() {
-        return bet_slider;
     }
 
     public void activar_boton_mostrar(boolean parguela) {
@@ -252,10 +238,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public float getPagar() {
         return pagar;
-    }
-
-    public void setPagar(float pagar) {
-        this.pagar = Helpers.clean1DFloat(pagar);
     }
 
     public float getBote() {
@@ -410,72 +392,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    public JLabel getPlayer_action() {
-        return player_action;
-    }
-
-    public void setPlayer_action(JLabel player_action) {
-        this.player_action = player_action;
-    }
-
     public JButton getPlayer_allin() {
         return player_allin_button;
-    }
-
-    public void setPlayer_allin(JButton player_allin) {
-        this.player_allin_button = player_allin;
-    }
-
-    public JLabel getPlayer_bet() {
-        return player_bet;
     }
 
     public JButton getPlayer_bet_button() {
         return player_bet_button;
     }
 
-    public void setPlayer_bet_button(JButton player_bet_button) {
-        this.player_bet_button = player_bet_button;
-    }
-
-    public JTextField getPlayer_buyin() {
-        return player_buyin;
-    }
-
-    public void setPlayer_buyin(JTextField player_buyin) {
-        this.player_buyin = player_buyin;
-    }
-
     public JButton getPlayer_check() {
         return player_check_button;
     }
 
-    public void setPlayer_check(JButton player_check) {
-        this.player_check_button = player_check;
-    }
-
     public JButton getPlayer_fold() {
         return player_fold_button;
-    }
-
-    public void setPlayer_fold(JButton player_fold) {
-        this.player_fold_button = player_fold;
-    }
-
-    public JLabel getPlayer_name() {
-        return player_name;
-    }
-
-    public void setPlayer_name(JLabel player_name) {
-        this.player_name = player_name;
-    }
-
-    public JTextField getPlayer_stack() {
-        return player_stack;
-    }
-
-    public void setPlayer_stack(JTextField player_stack) {
-        this.player_stack = player_stack;
     }
 
     public Card getPlayingCard1() {
@@ -1313,10 +1243,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         indicadores_arriba = new javax.swing.JPanel();
         avatar_panel = new javax.swing.JPanel();
         avatar = new javax.swing.JLabel();
-        player_stack = new javax.swing.JTextField();
-        player_buyin = new javax.swing.JTextField();
         timeout = new javax.swing.JLabel();
         player_bet = new javax.swing.JLabel();
+        player_stack = new javax.swing.JLabel();
+        player_buyin = new javax.swing.JLabel();
         jPanel5 = new javax.swing.JPanel();
         player_name = new javax.swing.JLabel();
         utg_textfield = new javax.swing.JLabel();
@@ -1359,25 +1289,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         avatar_panel.setOpaque(false);
 
-        avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png"))); // NOI18N
+        avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_null.png"))); // NOI18N
         avatar.setDoubleBuffered(true);
-
-        player_stack.setEditable(false);
-        player_stack.setBackground(new java.awt.Color(51, 153, 0));
-        player_stack.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        player_stack.setForeground(new java.awt.Color(255, 255, 255));
-        player_stack.setHorizontalAlignment(javax.swing.JTextField.CENTER);
-        player_stack.setText("10000.0");
-        player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        player_stack.setDoubleBuffered(true);
-
-        player_buyin.setEditable(false);
-        player_buyin.setBackground(new java.awt.Color(204, 204, 204));
-        player_buyin.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        player_buyin.setHorizontalAlignment(javax.swing.JTextField.CENTER);
-        player_buyin.setText("20");
-        player_buyin.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        player_buyin.setDoubleBuffered(true);
 
         timeout.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
         timeout.setDoubleBuffered(true);
@@ -1388,16 +1301,32 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_bet.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         player_bet.setOpaque(true);
 
+        player_stack.setBackground(new java.awt.Color(51, 153, 0));
+        player_stack.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        player_stack.setForeground(new java.awt.Color(255, 255, 255));
+        player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        player_stack.setText("10000.0");
+        player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_stack.setOpaque(true);
+
+        player_buyin.setBackground(new java.awt.Color(204, 204, 204));
+        player_buyin.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        player_buyin.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        player_buyin.setText("10");
+        player_buyin.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_buyin.setDoubleBuffered(true);
+        player_buyin.setOpaque(true);
+
         javax.swing.GroupLayout avatar_panelLayout = new javax.swing.GroupLayout(avatar_panel);
         avatar_panel.setLayout(avatar_panelLayout);
         avatar_panelLayout.setHorizontalGroup(
             avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(avatar_panelLayout.createSequentialGroup()
                 .addComponent(avatar)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(player_stack)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(player_stack, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(player_buyin, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(player_buyin)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(timeout)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1406,14 +1335,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         avatar_panelLayout.setVerticalGroup(
             avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(avatar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(avatar_panelLayout.createSequentialGroup()
-                .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                        .addComponent(timeout)
-                        .addComponent(player_buyin, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(player_stack, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(0, 0, Short.MAX_VALUE))
             .addComponent(player_bet, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(avatar_panelLayout.createSequentialGroup()
+                .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(timeout)
+                    .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(player_stack)
+                        .addComponent(player_buyin)))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         jPanel5.setOpaque(false);
@@ -1447,7 +1376,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel5Layout.createSequentialGroup()
                 .addComponent(player_name)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 55, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 49, Short.MAX_VALUE)
                 .addComponent(utg_textfield)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(player_blind))
@@ -1957,11 +1886,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel player_bet;
     private javax.swing.JButton player_bet_button;
     private javax.swing.JLabel player_blind;
-    private javax.swing.JTextField player_buyin;
+    private javax.swing.JLabel player_buyin;
     private javax.swing.JButton player_check_button;
     private javax.swing.JButton player_fold_button;
     private javax.swing.JLabel player_name;
-    private javax.swing.JTextField player_stack;
+    private javax.swing.JLabel player_stack;
     private com.tonikelope.coronapoker.Card playingCard1;
     private com.tonikelope.coronapoker.Card playingCard2;
     private javax.swing.JLabel timeout;
@@ -2167,38 +2096,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
 
         return action;
-    }
-
-    @Override
-    public void enableMantenimiento() {
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                player_stack.setEditable(true);
-
-                player_buyin.setEditable(true);
-
-            }
-        });
-    }
-
-    @Override
-    public void disableMantenimiento() {
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-
-                player_stack.setEditable(false);
-
-                player_buyin.setEditable(false);
-
-            }
-        });
-
-        this.stack = Helpers.clean1DFloat(Float.valueOf(this.player_stack.getText().trim()));
-
-        this.buyin = Integer.valueOf(this.player_buyin.getText().trim());
     }
 
     public void setBuyin(int buyin) {

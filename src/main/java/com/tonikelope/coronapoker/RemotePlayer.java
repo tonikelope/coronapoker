@@ -67,19 +67,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return turno;
     }
 
-    public JPanel getIndicadores_arriba() {
-        return indicadores_arriba;
-    }
-
-    public JPanel getPanel_cartas() {
-        return panel_cartas;
-    }
-
-    public static void translateActionLabels() {
-
-        ACTIONS_LABELS = Game.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
-    }
-
     public void refreshPos() {
 
         this.bote = 0f;
@@ -158,10 +145,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public float getPagar() {
         return pagar;
-    }
-
-    public void setPagar(float pagar) {
-        this.pagar = Helpers.clean1DFloat(pagar);
     }
 
     public float getBote() {
@@ -608,10 +591,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         indicadores_arriba = new javax.swing.JPanel();
         avatar_panel = new javax.swing.JPanel();
         avatar = new javax.swing.JLabel();
-        player_stack = new javax.swing.JTextField();
-        player_buyin = new javax.swing.JTextField();
         timeout = new javax.swing.JLabel();
         player_bet = new javax.swing.JLabel();
+        player_buyin = new javax.swing.JLabel();
+        player_stack = new javax.swing.JLabel();
         jPanel3 = new javax.swing.JPanel();
         player_name = new javax.swing.JLabel();
         utg_textfield = new javax.swing.JLabel();
@@ -647,25 +630,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         avatar_panel.setOpaque(false);
 
-        avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png"))); // NOI18N
+        avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_null.png"))); // NOI18N
         avatar.setDoubleBuffered(true);
-
-        player_stack.setEditable(false);
-        player_stack.setBackground(new java.awt.Color(51, 153, 0));
-        player_stack.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        player_stack.setForeground(new java.awt.Color(255, 255, 255));
-        player_stack.setHorizontalAlignment(javax.swing.JTextField.CENTER);
-        player_stack.setText("10000.0");
-        player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        player_stack.setDoubleBuffered(true);
-
-        player_buyin.setEditable(false);
-        player_buyin.setBackground(new java.awt.Color(204, 204, 204));
-        player_buyin.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        player_buyin.setHorizontalAlignment(javax.swing.JTextField.CENTER);
-        player_buyin.setText("20");
-        player_buyin.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        player_buyin.setDoubleBuffered(true);
 
         timeout.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
         timeout.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -682,17 +648,32 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_bet.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         player_bet.setOpaque(true);
 
+        player_buyin.setBackground(new java.awt.Color(204, 204, 204));
+        player_buyin.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        player_buyin.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        player_buyin.setText("10");
+        player_buyin.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_buyin.setOpaque(true);
+
+        player_stack.setBackground(new java.awt.Color(51, 153, 0));
+        player_stack.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        player_stack.setForeground(new java.awt.Color(255, 255, 255));
+        player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        player_stack.setText("10000.0");
+        player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_stack.setOpaque(true);
+
         javax.swing.GroupLayout avatar_panelLayout = new javax.swing.GroupLayout(avatar_panel);
         avatar_panel.setLayout(avatar_panelLayout);
         avatar_panelLayout.setHorizontalGroup(
             avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(avatar_panelLayout.createSequentialGroup()
                 .addComponent(avatar)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(player_stack)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(player_stack, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(player_buyin)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(player_buyin, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(28, 28, 28)
                 .addComponent(timeout)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(player_bet))
@@ -700,15 +681,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         avatar_panelLayout.setVerticalGroup(
             avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(avatar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(avatar_panelLayout.createSequentialGroup()
-                .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                    .addComponent(player_stack, javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, avatar_panelLayout.createSequentialGroup()
-                        .addGap(12, 12, 12)
-                        .addComponent(timeout))
-                    .addComponent(player_buyin, javax.swing.GroupLayout.Alignment.LEADING))
-                .addGap(0, 0, Short.MAX_VALUE))
             .addComponent(player_bet, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(avatar_panelLayout.createSequentialGroup()
+                .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(timeout)
+                    .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(player_buyin)
+                        .addComponent(player_stack)))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         jPanel3.setOpaque(false);
@@ -834,9 +814,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel player_action;
     private javax.swing.JLabel player_bet;
     private javax.swing.JLabel player_blind;
-    private javax.swing.JTextField player_buyin;
+    private javax.swing.JLabel player_buyin;
     private javax.swing.JLabel player_name;
-    private javax.swing.JTextField player_stack;
+    private javax.swing.JLabel player_stack;
     private com.tonikelope.coronapoker.Card playingCard1;
     private com.tonikelope.coronapoker.Card playingCard2;
     private javax.swing.JLabel timeout;
@@ -1261,38 +1241,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
 
         return action;
-    }
-
-    @Override
-    public void enableMantenimiento() {
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                player_stack.setEditable(true);
-
-                player_buyin.setEditable(true);
-
-            }
-        });
-    }
-
-    @Override
-    public void disableMantenimiento() {
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-
-                player_stack.setEditable(false);
-
-                player_buyin.setEditable(false);
-
-            }
-        });
-
-        this.stack = Helpers.clean1DFloat(Float.valueOf(this.player_stack.getText().trim()));
-
-        this.buyin = Integer.valueOf(this.player_buyin.getText().trim());
     }
 
     public void setBuyin(int buyin) {

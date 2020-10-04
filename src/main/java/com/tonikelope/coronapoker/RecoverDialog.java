@@ -16,8 +16,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import javax.swing.JLabel;
-
 /**
  *
  * @author tonikelope
@@ -40,10 +38,6 @@ public class RecoverDialog extends javax.swing.JDialog {
                 pack();
             }
         });
-    }
-
-    public JLabel getMantenimiento() {
-        return mantenimiento;
     }
 
     /**

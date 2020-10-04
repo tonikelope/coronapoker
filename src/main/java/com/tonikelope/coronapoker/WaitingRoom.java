@@ -107,10 +107,6 @@ public class WaitingRoom extends javax.swing.JFrame {
         return lock_reconnect;
     }
 
-    public Reconnect2ServerDialog getReconnect_dialog() {
-        return reconnect_dialog;
-    }
-
     public File getAvatar() {
         return local_avatar;
     }
@@ -1592,7 +1588,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addGap(18, 18, 18)
                         .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(12, 12, 12)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 244, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 173, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)

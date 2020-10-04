@@ -125,11 +125,11 @@
               <Group type="103" groupAlignment="0" attributes="0">
                   <Group type="102" alignment="0" attributes="0">
                       <Component id="avatar" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
+                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
                       <Component id="player_stack" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
-                      <Component id="player_buyin" max="-2" attributes="0"/>
-                      <EmptySpace min="-2" pref="28" max="-2" attributes="0"/>
+                      <Component id="player_buyin" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace max="-2" attributes="0"/>
                       <Component id="timeout" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="32767" attributes="0"/>
                       <Component id="player_bet" min="-2" max="-2" attributes="0"/>
@@ -139,18 +139,17 @@
             <DimensionLayout dim="1">
               <Group type="103" groupAlignment="0" attributes="0">
                   <Component id="avatar" alignment="0" max="32767" attributes="0"/>
-                  <Group type="102" attributes="0">
-                      <Group type="103" groupAlignment="1" max="-2" attributes="0">
-                          <Component id="player_stack" alignment="0" max="32767" attributes="0"/>
-                          <Group type="102" alignment="0" attributes="0">
-                              <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
-                              <Component id="timeout" min="-2" max="-2" attributes="0"/>
+                  <Component id="player_bet" alignment="0" max="32767" attributes="0"/>
+                  <Group type="102" alignment="0" attributes="0">
+                      <Group type="103" groupAlignment="1" attributes="0">
+                          <Component id="timeout" min="-2" max="-2" attributes="0"/>
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Component id="player_buyin" alignment="0" min="-2" max="-2" attributes="0"/>
+                              <Component id="player_stack" alignment="0" min="-2" max="-2" attributes="0"/>
                           </Group>
-                          <Component id="player_buyin" alignment="0" max="32767" attributes="0"/>
                       </Group>
                       <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                   </Group>
-                  <Component id="player_bet" alignment="0" max="32767" attributes="0"/>
               </Group>
             </DimensionLayout>
           </Layout>
@@ -158,48 +157,7 @@
             <Component class="javax.swing.JLabel" name="avatar">
               <Properties>
                 <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/avatar_default.png"/>
-                </Property>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-            </Component>
-            <Component class="javax.swing.JTextField" name="player_stack">
-              <Properties>
-                <Property name="editable" type="boolean" value="false"/>
-                <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                  <Color blue="0" green="99" red="33" type="rgb"/>
-                </Property>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="22" style="1"/>
-                </Property>
-                <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                  <Color blue="ff" green="ff" red="ff" type="rgb"/>
-                </Property>
-                <Property name="horizontalAlignment" type="int" value="0"/>
-                <Property name="text" type="java.lang.String" value="10000.0"/>
-                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-                  <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
-                    <EmptyBorder bottom="5" left="5" right="5" top="5"/>
-                  </Border>
-                </Property>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-            </Component>
-            <Component class="javax.swing.JTextField" name="player_buyin">
-              <Properties>
-                <Property name="editable" type="boolean" value="false"/>
-                <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                  <Color blue="cc" green="cc" red="cc" type="rgb"/>
-                </Property>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="22" style="1"/>
-                </Property>
-                <Property name="horizontalAlignment" type="int" value="0"/>
-                <Property name="text" type="java.lang.String" value="20"/>
-                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-                  <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
-                    <EmptyBorder bottom="5" left="5" right="5" top="5"/>
-                  </Border>
+                  <Image iconType="3" name="/images/avatar_null.png"/>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
@@ -230,6 +188,45 @@
                 <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
                   <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
                     <EmptyBorder bottom="5" left="5" right="5" top="5"/>
+                  </Border>
+                </Property>
+                <Property name="opaque" type="boolean" value="true"/>
+              </Properties>
+            </Component>
+            <Component class="javax.swing.JLabel" name="player_buyin">
+              <Properties>
+                <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                  <Color blue="cc" green="cc" red="cc" type="rgb"/>
+                </Property>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                  <Font name="Dialog" size="24" style="1"/>
+                </Property>
+                <Property name="horizontalAlignment" type="int" value="0"/>
+                <Property name="text" type="java.lang.String" value="10"/>
+                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                  <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
+                    <EmptyBorder bottom="2" left="5" right="5" top="2"/>
+                  </Border>
+                </Property>
+                <Property name="opaque" type="boolean" value="true"/>
+              </Properties>
+            </Component>
+            <Component class="javax.swing.JLabel" name="player_stack">
+              <Properties>
+                <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                  <Color blue="0" green="99" red="33" type="rgb"/>
+                </Property>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                  <Font name="Dialog" size="24" style="1"/>
+                </Property>
+                <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                  <Color blue="ff" green="ff" red="ff" type="rgb"/>
+                </Property>
+                <Property name="horizontalAlignment" type="int" value="0"/>
+                <Property name="text" type="java.lang.String" value="10000.0"/>
+                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                  <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
+                    <EmptyBorder bottom="2" left="5" right="5" top="2"/>
                   </Border>
                 </Property>
                 <Property name="opaque" type="boolean" value="true"/>

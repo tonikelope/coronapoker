@@ -16,8 +16,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import javax.swing.JLabel;
-
 /**
  *
  * @author tonikelope
@@ -39,10 +37,6 @@ public interface Player {
     public boolean isTurno();
 
     public void resetBote();
-
-    public boolean isWinner();
-
-    public boolean isLoser();
 
     public void showCards(String jugada);
 
@@ -98,15 +92,7 @@ public interface Player {
 
     public void setExit(boolean exit);
 
-    public void reComprar(int cantidad);
-
     public String getLastActionString();
-
-    public JLabel getAvatar();
-
-    public void enableMantenimiento();
-
-    public void disableMantenimiento();
 
     public void setBuyin(int buyin);
 
@@ -115,8 +101,6 @@ public interface Player {
     public void setSpectator(String msg);
 
     public void unsetSpectator();
-
-    public int getPos();
 
     public void setAvatar();
 

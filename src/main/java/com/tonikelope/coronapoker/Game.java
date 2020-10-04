@@ -33,7 +33,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
-import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JProgressBar;
 import javax.swing.JRadioButtonMenuItem;
@@ -243,10 +242,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return animacion_menu;
     }
 
-    public JMenuItem getAcerca_menu() {
-        return acerca_menu;
-    }
-
     public JCheckBoxMenuItem getAscensor_menu() {
         return ascensor_menu;
     }
@@ -289,10 +284,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public JMenuItem getExit_menu() {
         return exit_menu;
-    }
-
-    public Window getFull_screen_window() {
-        return full_screen_window;
     }
 
     public void setFull_screen_window(Window full_screen_window) {
@@ -792,14 +783,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     private WaitingRoom sala_espera;
 
-    public float getAcumulador_bote() {
-        return acumulador_bote;
-    }
-
-    public float getAcumulador_apuestas() {
-        return acumulador_apuestas;
-    }
-
     public Crupier getCrupier() {
         return crupier;
     }
@@ -820,10 +803,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return ZOOM_STEP;
     }
 
-    public ZoomableInterface[] getZoomeables() {
-        return zoomeables;
-    }
-
     public ArrayList<Player> getJugadores() {
         return jugadores;
     }
@@ -833,14 +812,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         synchronized (registro_lock) {
             return registro_dialog;
         }
-    }
-
-    public int getContador_manos() {
-        return contador_manos;
-    }
-
-    public JMenu getFile_menu() {
-        return file_menu;
     }
 
     public Card getFlop1() {
@@ -859,32 +830,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return tapete.getCommunityCards().getFlop3();
     }
 
-    public JMenu getHelp_menu() {
-        return help_menu;
-    }
-
-    public JMenuItem getjMenuItem1() {
-        return exit_menu;
-    }
-
-    public JMenuItem getjMenuItem2() {
-        return acerca_menu;
-    }
-
-    public JMenuItem getjMenuItem4() {
-        return zoom_menu_reset;
-    }
-
-    public JMenuItem getjMenuItem5() {
-        return registro_menu;
-    }
-
     public LocalPlayer getLocalPlayer() {
         return tapete.getLocalPlayer();
-    }
-
-    public JMenuBar getMenu_bar() {
-        return menu_bar;
     }
 
     public Card getRiver() {
@@ -893,10 +840,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public Card getTurn() {
         return tapete.getCommunityCards().getTurn();
-    }
-
-    public JMenu getZoom_menu() {
-        return zoom_menu;
     }
 
     public JMenuItem getZoom_menu_in() {
@@ -1277,10 +1220,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public long getConta_tiempo_juego() {
         return conta_tiempo_juego;
-    }
-
-    public PauseDialog getPausa_dialog() {
-        return pausa_dialog;
     }
 
     public synchronized void finTransmision(boolean partida_terminada) {

@@ -37,10 +37,6 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
         return players;
     }
 
-    public ZoomableInterface[] getZoomables() {
-        return zoomables;
-    }
-
     abstract public CommunityCardsPanel getCommunityCards();
 
     abstract public LocalPlayer getLocalPlayer();

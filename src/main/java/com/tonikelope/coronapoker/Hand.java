@@ -43,11 +43,6 @@ public class Hand {
     public static final int ESCALERA_COLOR = 9;
     public static final int ESCALERA_COLOR_REAL = 10;
 
-    public static void translateHandLabels() {
-
-        NOMBRES_JUGADAS = Game.LANGUAGE.equals("es") ? NOMBRES_JUGADAS_ES : NOMBRES_JUGADAS_EN;
-    }
-
     private static ArrayList<Card> getCartasAltas(ArrayList<Card> c, int total) {
 
         ArrayList<Card> cartas = new ArrayList<>(c);
@@ -400,10 +395,6 @@ public class Hand {
 
     public ArrayList<Card> getMano() {
         return mano;
-    }
-
-    public ArrayList<Card> getKickers() {
-        return kickers;
     }
 
     public String getName() {

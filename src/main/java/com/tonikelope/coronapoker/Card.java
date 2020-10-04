@@ -48,10 +48,6 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
     private boolean desenfocada = false;
     private boolean compactable = true;
 
-    public boolean isCompactable() {
-        return compactable;
-    }
-
     public void setCompactable(boolean compactable) {
         this.compactable = compactable;
     }
@@ -428,21 +424,12 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
     }
 
-    public void voltear() {
-
-        if (this.isTapada()) {
-            this.destapar();
-        } else {
-            this.tapar();
-        }
-    }
-
     @Override
     public void zoom(float factor) {
-        imageZoom(factor);
+        imageZoom();
     }
 
-    private void imageZoom(float zoom) {
+    private void imageZoom() {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {

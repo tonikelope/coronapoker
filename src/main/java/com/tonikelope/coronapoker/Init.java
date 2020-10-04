@@ -33,7 +33,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
-import javax.swing.JPanel;
 import javax.swing.UIManager;
 
 /**
@@ -48,10 +47,6 @@ public class Init extends javax.swing.JFrame {
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String REC_DIR = CORONA_DIR + "/Recover";
-
-    public JPanel getCorona_init_panel() {
-        return corona_init_panel;
-    }
 
     /**
      * Creates new form Inicio
@@ -94,10 +89,6 @@ public class Init extends javax.swing.JFrame {
                 pack();
             }
         });
-    }
-
-    public InitPanel getTapete() {
-        return tapete;
     }
 
     public void translateGlobalLabels() {

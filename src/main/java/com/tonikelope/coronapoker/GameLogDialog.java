@@ -70,29 +70,38 @@ public class GameLogDialog extends javax.swing.JDialog {
     public GameLogDialog(java.awt.Frame parent, GameLogDialog dialog) {
         super(parent, dialog.isModal());
 
-        initComponents();
+        GameLogDialog tthis = this;
 
-        this.utf8_cards = dialog.isUtf8_cards();
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
 
-        this.utf8_cards_menu.setSelected(this.utf8_cards);
+                initComponents();
 
-        this.auto_scroll = dialog.isAuto_scroll();
+                Helpers.setTranslatedTitle(tthis, TITLE);
 
-        this.auto_scroll_menu.setSelected(this.auto_scroll);
+                utf8_cards = dialog.isUtf8_cards();
 
-        this.text = dialog.getText();
+                utf8_cards_menu.setSelected(utf8_cards);
 
-        this.textarea.setText(this.text);
+                auto_scroll = dialog.isAuto_scroll();
 
-        if (auto_scroll) {
-            this.textarea.setCaretPosition(this.textarea.getText().length());
-        }
+                auto_scroll_menu.setSelected(auto_scroll);
 
-        Helpers.JTextFieldRegularPopupMenu.addTo(this.textarea);
+                text = dialog.getText();
 
-        Helpers.updateFonts(this.jMenuBar1, Helpers.GUI_FONT, null);
+                textarea.setText(text);
 
-        setTitle(Init.WINDOW_TITLE + " - REGISTRO DE LA TIMBA");
+                if (auto_scroll) {
+                    textarea.setCaretPosition(textarea.getText().length());
+                }
+
+                Helpers.JTextFieldRegularPopupMenu.addTo(textarea);
+
+                Helpers.updateFonts(jMenuBar1, Helpers.GUI_FONT, null);
+
+                Helpers.translateComponents(tthis, false);
+            }
+        });
     }
 
     public JTextArea getTextArea() {

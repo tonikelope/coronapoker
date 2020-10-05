@@ -1288,6 +1288,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     utg_textfield.setVisible(false);
                     playingCard1.descargarCarta();
                     playingCard2.descargarCarta();
+                    player_stack.setBackground(null);
                     player_stack.setEnabled(false);
                     player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                     player_action.setBackground(null);

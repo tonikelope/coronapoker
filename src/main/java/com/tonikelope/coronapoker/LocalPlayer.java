@@ -65,8 +65,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final Object pre_pulsar_lock = new Object();
     private volatile boolean muestra = false;
     private volatile float slider_divisor = 10f;
-    private volatile boolean playing_animation = false;
-    private volatile int parguela_counter = Game.PARGUELA_COUNTER;
+    private volatile int parguela_counter = Game.PEPILLO_COUNTER_MAX;
 
     public int getPos() {
         return pos;

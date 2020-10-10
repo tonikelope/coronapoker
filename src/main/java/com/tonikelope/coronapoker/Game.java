@@ -70,7 +70,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final int MAX_TIMEOUT_CONFIRMATION_ERROR = 3;
     public static final String BARAJA_DEFAULT = "coronapoker";
     public static final String DEFAULT_LANGUAGE = "es";
-    public static final int PARGUELA_COUNTER = 5;
+    public static final int PEPILLO_COUNTER_MAX = 5;
+    public static final int AUTO_ZOOM_TIMEOUT = 2000;
 
     public static boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
@@ -121,72 +122,91 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     private TablePanel tapete = null;
 
-    public void fullScreenAndAjustZoom() {
-
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-                full_screen_menu.doClick();
-                zoom_menu_in.setEnabled(false);
-                zoom_menu_out.setEnabled(false);
-                zoom_menu_reset.setEnabled(false);
-            }
-        });
-
-        while (!full_screen) {
-
-            synchronized (full_screen_lock) {
-                try {
-                    full_screen_lock.wait(1000);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        }
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                full_screen_menu.setEnabled(false);
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
-            }
-        });
-
-        while (tapete.getLocationOnScreen().getY() != 0 || tapete.getHeight() != screenSize.getHeight()) {
-            Helpers.pausar(125);
-        }
+    public void autoZoomFullScreen() {
 
         Helpers.threadRun(new Runnable() {
 
             public void run() {
 
-                double playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
+                Helpers.GUIRunAndWait(new Runnable() {
+                    @Override
+                    public void run() {
+                        zoom_menu_in.setEnabled(false);
+                        zoom_menu_out.setEnabled(false);
+                        zoom_menu_reset.setEnabled(false);
+                        full_screen_menu.doClick();
+                    }
+                });
 
-                double tapetePos = tapete.getLocationOnScreen().getY() + tapete.getHeight();
+                int t = 0;
 
-                while (playerPos > tapetePos) {
+                while (t < AUTO_ZOOM_TIMEOUT && !full_screen) {
 
-                    double playerHeight = getLocalPlayer().getHeight();
+                    synchronized (full_screen_lock) {
+                        try {
+                            full_screen_lock.wait(1000);
+                            t += 1000;
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                }
 
-                    double playerWidth = getLocalPlayer().getWidth();
+                if (full_screen) {
 
-                    Helpers.GUIRunAndWait(new Runnable() {
+                    Helpers.GUIRun(new Runnable() {
                         @Override
                         public void run() {
-                            zoom_menu_out.setEnabled(true);
-                            zoom_menu_out.doClick();
-                            zoom_menu_out.setEnabled(false);
+                            full_screen_menu.setEnabled(false);
+                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
                         }
                     });
 
-                    while (playerWidth == getLocalPlayer().getWidth() && playerHeight == getLocalPlayer().getHeight()) {
+                    Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 
+                    t = 0;
+
+                    while (t < AUTO_ZOOM_TIMEOUT && (tapete.getLocationOnScreen().getY() != 0 || tapete.getHeight() != screenSize.getHeight())) {
                         Helpers.pausar(125);
+                        t += 125;
                     }
 
-                    playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
+                    if (tapete.getLocationOnScreen().getY() == 0 && tapete.getHeight() == screenSize.getHeight()) {
+
+                        double playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
+
+                        double tapetePos = tapete.getLocationOnScreen().getY() + tapete.getHeight();
+
+                        t = 0;
+
+                        while (t < AUTO_ZOOM_TIMEOUT && playerPos > tapetePos) {
+
+                            double playerHeight = getLocalPlayer().getHeight();
+
+                            double playerWidth = getLocalPlayer().getWidth();
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    zoom_menu_out.setEnabled(true);
+                                    zoom_menu_out.doClick();
+                                    zoom_menu_out.setEnabled(false);
+                                }
+                            });
+
+                            t = 0;
+
+                            while (t < AUTO_ZOOM_TIMEOUT && (playerWidth == getLocalPlayer().getWidth() && playerHeight == getLocalPlayer().getHeight())) {
+
+                                Helpers.pausar(125);
+                                t += 125;
+                            }
+
+                            if (playerWidth != getLocalPlayer().getWidth() || playerHeight != getLocalPlayer().getHeight()) {
+                                playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
+                            }
+                        }
+                    }
                 }
 
                 Helpers.GUIRun(new Runnable() {

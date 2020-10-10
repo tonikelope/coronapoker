@@ -4500,7 +4500,7 @@ public class Crupier implements Runnable {
                 }
             });
 
-            Game.getInstance().fullScreenAndAjustZoom();
+            Game.getInstance().autoZoomFullScreen();
         }
 
         while (!fin_de_la_transmision) {

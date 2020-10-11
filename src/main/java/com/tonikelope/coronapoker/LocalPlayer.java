@@ -164,9 +164,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
                     player_blind.setVisible(false);
-                    player_bet.setText("----");
-                    player_bet.setBackground(null);
-                    player_bet.setEnabled(false);
+                    player_pot.setText("----");
+                    player_pot.setBackground(null);
+                    player_pot.setEnabled(false);
                     utg_textfield.setVisible(false);
                     playingCard1.descargarCarta();
                     playingCard2.descargarCarta();
@@ -188,8 +188,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
-                player_bet.setVisible(true);
-                player_bet.setEnabled(true);
+                player_pot.setVisible(true);
+                player_pot.setEnabled(true);
                 player_stack.setEnabled(true);
                 player_action.setText(" ");
             }
@@ -382,11 +382,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 utg_textfield.setVisible(false);
 
-                player_bet.setBackground(Color.WHITE);
+                player_pot.setBackground(Color.WHITE);
 
-                player_bet.setForeground(Color.BLACK);
+                player_pot.setForeground(Color.BLACK);
 
-                player_bet.setText("----");
+                player_pot.setText("----");
 
             }
         });
@@ -431,13 +431,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                if (Helpers.float1DSecureCompare(0f, bet) < 0) {
-                    player_bet.setText(Helpers.float2String(bet));
+                if (Helpers.float1DSecureCompare(0f, bote) < 0) {
+                    player_pot.setText(Helpers.float2String(bote));
 
                 } else {
-                    player_bet.setBackground(Color.WHITE);
-                    player_bet.setForeground(Color.BLACK);
-                    player_bet.setText("----");
+                    player_pot.setBackground(Color.WHITE);
+                    player_pot.setForeground(Color.BLACK);
+                    player_pot.setText("----");
                 }
 
             }
@@ -510,9 +510,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_action.setText("HABLAS TÚ");
 
-                    player_bet.setBackground(Color.WHITE);
+                    player_pot.setBackground(Color.WHITE);
 
-                    player_bet.setForeground(Color.BLACK);
+                    player_pot.setForeground(Color.BLACK);
 
                     //Comprobamos si podemos ver la apuesta actual
                     if (Helpers.float1DSecureCompare(call_required, stack) < 0) {
@@ -1033,11 +1033,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_blind.setVisible(false);
 
-                player_bet.setText("----");
+                player_pot.setText("----");
 
-                player_bet.setBackground(Color.WHITE);
+                player_pot.setBackground(Color.WHITE);
 
-                player_bet.setForeground(Color.BLACK);
+                player_pot.setForeground(Color.BLACK);
 
                 player_stack.setBackground(new Color(51, 153, 0));
 
@@ -1099,11 +1099,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             playingCard1.zoom(zoom_factor);
             playingCard2.zoom(zoom_factor);
 
-            int altura_avatar = player_bet.getHeight();
+            int altura_avatar = player_pot.getHeight();
 
             Helpers.zoomFonts(this, zoom_factor);
 
-            while (altura_avatar == player_bet.getHeight()) {
+            while (altura_avatar == player_pot.getHeight()) {
 
                 try {
                     Thread.sleep(250);
@@ -1138,8 +1138,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                player_bet.setBackground(Color.WHITE);
-                player_bet.setForeground(Color.black);
+                player_pot.setBackground(Color.WHITE);
+                player_pot.setForeground(Color.black);
             }
         });
 
@@ -1244,7 +1244,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         avatar_panel = new javax.swing.JPanel();
         avatar = new javax.swing.JLabel();
         timeout = new javax.swing.JLabel();
-        player_bet = new javax.swing.JLabel();
+        player_pot = new javax.swing.JLabel();
         player_stack = new javax.swing.JLabel();
         player_buyin = new javax.swing.JLabel();
         jPanel5 = new javax.swing.JPanel();
@@ -1305,12 +1305,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         timeout.setDoubleBuffered(true);
         timeout.setFocusable(false);
 
-        player_bet.setBackground(new java.awt.Color(255, 255, 255));
-        player_bet.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
-        player_bet.setText("----");
-        player_bet.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        player_bet.setFocusable(false);
-        player_bet.setOpaque(true);
+        player_pot.setBackground(new java.awt.Color(255, 255, 255));
+        player_pot.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
+        player_pot.setText("----");
+        player_pot.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        player_pot.setFocusable(false);
+        player_pot.setOpaque(true);
 
         player_stack.setBackground(new java.awt.Color(51, 153, 0));
         player_stack.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
@@ -1343,12 +1343,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(timeout)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(player_bet))
+                .addComponent(player_pot))
         );
         avatar_panelLayout.setVerticalGroup(
             avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(avatar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(player_bet, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(player_pot, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(avatar_panelLayout.createSequentialGroup()
                 .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(timeout)
@@ -1908,13 +1908,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JPanel panel_cartas;
     private javax.swing.JLabel player_action;
     private javax.swing.JButton player_allin_button;
-    private javax.swing.JLabel player_bet;
     private javax.swing.JButton player_bet_button;
     private javax.swing.JLabel player_blind;
     private javax.swing.JLabel player_buyin;
     private javax.swing.JButton player_check_button;
     private javax.swing.JButton player_fold_button;
     private javax.swing.JLabel player_name;
+    private javax.swing.JLabel player_pot;
     private javax.swing.JLabel player_stack;
     private com.tonikelope.coronapoker.Card playingCard1;
     private com.tonikelope.coronapoker.Card playingCard2;
@@ -2087,11 +2087,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
 
-                player_bet.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
 
                 player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
 
-                player_bet.setForeground(ACTIONS_COLORS[dec - 1][1]);
+                player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
 
                 player_action.setEnabled(true);
             }

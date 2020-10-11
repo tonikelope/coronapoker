@@ -605,7 +605,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         setFocusable(false);
         setOpaque(false);
 
+        panel_cartas.setFocusable(false);
         panel_cartas.setOpaque(false);
+
+        playingCard1.setFocusable(false);
+
+        playingCard2.setFocusable(false);
 
         javax.swing.GroupLayout panel_cartasLayout = new javax.swing.GroupLayout(panel_cartas);
         panel_cartas.setLayout(panel_cartasLayout);
@@ -626,16 +631,20 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addContainerGap())
         );
 
+        indicadores_arriba.setFocusable(false);
         indicadores_arriba.setOpaque(false);
 
+        avatar_panel.setFocusable(false);
         avatar_panel.setOpaque(false);
 
         avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_null.png"))); // NOI18N
         avatar.setDoubleBuffered(true);
+        avatar.setFocusable(false);
 
         timeout.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
         timeout.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         timeout.setDoubleBuffered(true);
+        timeout.setFocusable(false);
         timeout.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 timeoutMouseClicked(evt);
@@ -646,6 +655,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_bet.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
         player_bet.setText("----");
         player_bet.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        player_bet.setDoubleBuffered(true);
+        player_bet.setFocusable(false);
         player_bet.setOpaque(true);
 
         player_buyin.setBackground(new java.awt.Color(204, 204, 204));
@@ -653,6 +664,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_buyin.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_buyin.setText("10");
         player_buyin.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_buyin.setDoubleBuffered(true);
+        player_buyin.setFocusable(false);
         player_buyin.setOpaque(true);
 
         player_stack.setBackground(new java.awt.Color(51, 153, 0));
@@ -661,6 +674,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_stack.setText("10000.0");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_stack.setDoubleBuffered(true);
+        player_stack.setFocusable(false);
         player_stack.setOpaque(true);
 
         javax.swing.GroupLayout avatar_panelLayout = new javax.swing.GroupLayout(avatar_panel);
@@ -691,6 +706,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
+        jPanel3.setFocusable(false);
         jPanel3.setOpaque(false);
 
         player_name.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
@@ -698,6 +714,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setText("12345678901234567890");
         player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
         player_name.setDoubleBuffered(true);
+        player_name.setFocusable(false);
 
         utg_textfield.setBackground(new java.awt.Color(255, 204, 204));
         utg_textfield.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
@@ -705,6 +722,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         utg_textfield.setText("UTG");
         utg_textfield.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         utg_textfield.setDoubleBuffered(true);
+        utg_textfield.setFocusable(false);
         utg_textfield.setOpaque(true);
 
         player_blind.setBackground(new java.awt.Color(51, 51, 255));
@@ -714,6 +732,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_blind.setText("CP");
         player_blind.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_blind.setDoubleBuffered(true);
+        player_blind.setFocusable(false);
         player_blind.setOpaque(true);
 
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
@@ -763,6 +782,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setText("ESCALERA DE COLOR");
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
         player_action.setDoubleBuffered(true);
+        player_action.setFocusable(false);
         player_action.setMinimumSize(com.tonikelope.coronapoker.Game.VISTA_COMPACTA?null:new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP())), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP()))));
         player_action.setOpaque(true);
 

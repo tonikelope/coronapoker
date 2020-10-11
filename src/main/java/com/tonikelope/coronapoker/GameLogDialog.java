@@ -62,7 +62,7 @@ public class GameLogDialog extends javax.swing.JDialog {
 
                 Helpers.translateComponents(tthis, false);
 
-                print("[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]"));
+                getTextArea().setText("[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]"));
             }
         });
     }
@@ -253,11 +253,13 @@ public class GameLogDialog extends javax.swing.JDialog {
         utf8_cards_menu = new javax.swing.JCheckBoxMenuItem();
 
         setTitle("REGISTRO");
+        setFocusable(false);
 
         jScrollPane1.setDoubleBuffered(true);
+        jScrollPane1.setFocusable(false);
 
         textarea.setEditable(false);
-        textarea.setBackground(new java.awt.Color(0, 0, 153));
+        textarea.setBackground(new java.awt.Color(102, 102, 102));
         textarea.setColumns(20);
         textarea.setFont(new java.awt.Font("Dialog", 0, 20)); // NOI18N
         textarea.setForeground(new java.awt.Color(255, 255, 255));
@@ -265,9 +267,11 @@ public class GameLogDialog extends javax.swing.JDialog {
         textarea.setRows(5);
         textarea.setText("\n");
         textarea.setDoubleBuffered(true);
+        textarea.setFocusable(false);
         jScrollPane1.setViewportView(textarea);
 
         jMenuBar1.setDoubleBuffered(true);
+        jMenuBar1.setFocusable(false);
 
         opciones_menu.setText("Preferencias");
         opciones_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N

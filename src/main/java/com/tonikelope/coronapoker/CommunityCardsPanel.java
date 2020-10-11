@@ -130,6 +130,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         turn = new com.tonikelope.coronapoker.Card();
         flop1 = new com.tonikelope.coronapoker.Card();
 
+        setFocusable(false);
         setOpaque(false);
 
         pot_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
@@ -137,34 +138,40 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         pot_label.setText("Bote:");
         pot_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
         pot_label.setDoubleBuffered(true);
+        pot_label.setFocusable(false);
 
         bet_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         bet_label.setForeground(new java.awt.Color(153, 204, 0));
         bet_label.setText("---------");
         bet_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         bet_label.setDoubleBuffered(true);
+        bet_label.setFocusable(false);
 
         blinds_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         blinds_label.setForeground(new java.awt.Color(153, 204, 0));
         blinds_label.setText("Ciegas:");
         blinds_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         blinds_label.setDoubleBuffered(true);
+        blinds_label.setFocusable(false);
 
         hand_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         hand_label.setForeground(new java.awt.Color(153, 204, 0));
         hand_label.setText("Mano:");
         hand_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         hand_label.setDoubleBuffered(true);
+        hand_label.setFocusable(false);
 
         tiempo_partida.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         tiempo_partida.setForeground(new java.awt.Color(153, 204, 0));
         tiempo_partida.setText("00:00:00");
         tiempo_partida.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         tiempo_partida.setDoubleBuffered(true);
+        tiempo_partida.setFocusable(false);
 
         sound_icon.setToolTipText("Click para activar/desactivar el sonido");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         sound_icon.setDoubleBuffered(true);
+        sound_icon.setFocusable(false);
         sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -172,9 +179,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
+        panel_barra.setFocusable(false);
         panel_barra.setOpaque(false);
 
         barra_tiempo.setDoubleBuffered(true);
+        barra_tiempo.setFocusable(false);
         barra_tiempo.setMinimumSize(new java.awt.Dimension(1, 1));
         barra_tiempo.setPreferredSize(new Dimension(-1, (int)Math.round((float)pot_label.getHeight()*0.65)));
 
@@ -189,7 +198,18 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
+        cards_panel.setFocusable(false);
         cards_panel.setOpaque(false);
+
+        flop3.setFocusable(false);
+
+        river.setFocusable(false);
+
+        flop2.setFocusable(false);
+
+        turn.setFocusable(false);
+
+        flop1.setFocusable(false);
 
         javax.swing.GroupLayout cards_panelLayout = new javax.swing.GroupLayout(cards_panel);
         cards_panel.setLayout(cards_panelLayout);
@@ -240,12 +260,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(pot_label)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(bet_label))
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(pot_label)
+                        .addComponent(bet_label)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(cards_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(cards_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)

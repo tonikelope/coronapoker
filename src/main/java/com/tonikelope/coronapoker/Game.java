@@ -779,7 +779,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             @Override
             public boolean dispatchKeyEvent(KeyEvent e) {
                 KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-                if (actionMap.containsKey(keyStroke)) {
+                if (actionMap.containsKey(keyStroke) && hasFocus()) {
                     final Action a = actionMap.get(keyStroke);
                     final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
 
@@ -1420,6 +1420,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         menu_bar.setDoubleBuffered(true);
         menu_bar.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
 
+        file_menu.setMnemonic('i');
         file_menu.setText("Archivo");
         file_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
 

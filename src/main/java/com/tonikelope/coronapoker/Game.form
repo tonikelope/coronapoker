@@ -12,6 +12,7 @@
       <SubComponents>
         <Menu class="javax.swing.JMenu" name="file_menu">
           <Properties>
+            <Property name="mnemonic" type="int" value="105"/>
             <Property name="text" type="java.lang.String" value="Archivo"/>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="14" style="0"/>

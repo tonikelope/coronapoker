@@ -253,10 +253,8 @@ public class GameLogDialog extends javax.swing.JDialog {
         utf8_cards_menu = new javax.swing.JCheckBoxMenuItem();
 
         setTitle("REGISTRO");
-        setFocusable(false);
 
         jScrollPane1.setDoubleBuffered(true);
-        jScrollPane1.setFocusable(false);
 
         textarea.setEditable(false);
         textarea.setBackground(new java.awt.Color(102, 102, 102));
@@ -267,12 +265,11 @@ public class GameLogDialog extends javax.swing.JDialog {
         textarea.setRows(5);
         textarea.setText("\n");
         textarea.setDoubleBuffered(true);
-        textarea.setFocusable(false);
         jScrollPane1.setViewportView(textarea);
 
         jMenuBar1.setDoubleBuffered(true);
-        jMenuBar1.setFocusable(false);
 
+        opciones_menu.setMnemonic('p');
         opciones_menu.setText("Preferencias");
         opciones_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
 

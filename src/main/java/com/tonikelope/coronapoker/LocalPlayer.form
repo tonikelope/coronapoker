@@ -5,6 +5,7 @@
     <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
       <Connection code="javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.Game.ZOOM_LEVEL*com.tonikelope.coronapoker.Game.ZOOM_STEP)))" type="code"/>
     </Property>
+    <Property name="focusable" type="boolean" value="false"/>
     <Property name="opaque" type="boolean" value="false"/>
   </Properties>
   <AuxValues>
@@ -61,6 +62,7 @@
   <SubComponents>
     <Container class="javax.swing.JPanel" name="panel_cartas">
       <Properties>
+        <Property name="focusable" type="boolean" value="false"/>
         <Property name="opaque" type="boolean" value="false"/>
       </Properties>
 
@@ -70,7 +72,7 @@
               <Group type="102" attributes="0">
                   <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                   <Component id="playingCard1" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace type="unrelated" max="32767" attributes="0"/>
+                  <EmptySpace type="separate" max="32767" attributes="0"/>
                   <Component id="playingCard2" min="-2" max="-2" attributes="0"/>
               </Group>
           </Group>
@@ -90,13 +92,20 @@
       </Layout>
       <SubComponents>
         <Component class="com.tonikelope.coronapoker.Card" name="playingCard2">
+          <Properties>
+            <Property name="focusable" type="boolean" value="false"/>
+          </Properties>
         </Component>
         <Component class="com.tonikelope.coronapoker.Card" name="playingCard1">
+          <Properties>
+            <Property name="focusable" type="boolean" value="false"/>
+          </Properties>
         </Component>
       </SubComponents>
     </Container>
     <Container class="javax.swing.JPanel" name="indicadores_arriba">
       <Properties>
+        <Property name="focusable" type="boolean" value="false"/>
         <Property name="opaque" type="boolean" value="false"/>
       </Properties>
 
@@ -127,6 +136,7 @@
       <SubComponents>
         <Container class="javax.swing.JPanel" name="avatar_panel">
           <Properties>
+            <Property name="focusable" type="boolean" value="false"/>
             <Property name="opaque" type="boolean" value="false"/>
           </Properties>
 
@@ -170,6 +180,7 @@
                   <Image iconType="3" name="/images/avatar_null.png"/>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
               </Properties>
             </Component>
             <Component class="javax.swing.JLabel" name="timeout">
@@ -178,6 +189,7 @@
                   <Image iconType="3" name="/images/timeout.png"/>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
               </Properties>
             </Component>
             <Component class="javax.swing.JLabel" name="player_bet">
@@ -194,6 +206,7 @@
                     <EmptyBorder bottom="5" left="5" right="5" top="5"/>
                   </Border>
                 </Property>
+                <Property name="focusable" type="boolean" value="false"/>
                 <Property name="opaque" type="boolean" value="true"/>
               </Properties>
             </Component>
@@ -215,6 +228,7 @@
                     <EmptyBorder bottom="2" left="5" right="5" top="2"/>
                   </Border>
                 </Property>
+                <Property name="focusable" type="boolean" value="false"/>
                 <Property name="opaque" type="boolean" value="true"/>
               </Properties>
             </Component>
@@ -234,6 +248,7 @@
                   </Border>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
                 <Property name="opaque" type="boolean" value="true"/>
               </Properties>
             </Component>
@@ -241,6 +256,7 @@
         </Container>
         <Container class="javax.swing.JPanel" name="jPanel5">
           <Properties>
+            <Property name="focusable" type="boolean" value="false"/>
             <Property name="opaque" type="boolean" value="false"/>
           </Properties>
 
@@ -286,6 +302,7 @@
                   </Border>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
               </Properties>
             </Component>
             <Component class="javax.swing.JLabel" name="utg_textfield">
@@ -304,6 +321,7 @@
                   </Border>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
                 <Property name="opaque" type="boolean" value="true"/>
               </Properties>
             </Component>
@@ -326,6 +344,7 @@
                   </Border>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
                 <Property name="opaque" type="boolean" value="true"/>
               </Properties>
             </Component>
@@ -335,6 +354,7 @@
     </Container>
     <Container class="javax.swing.JPanel" name="botonera">
       <Properties>
+        <Property name="focusable" type="boolean" value="false"/>
         <Property name="opaque" type="boolean" value="false"/>
       </Properties>
 
@@ -391,6 +411,7 @@
               <Color id="Cursor de Mano"/>
             </Property>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_allin_buttonActionPerformed"/>
@@ -405,6 +426,7 @@
               <Color id="Cursor de Mano"/>
             </Property>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
           <Events>
             <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="bet_sliderStateChanged"/>
@@ -426,6 +448,7 @@
               <Color id="Cursor de Mano"/>
             </Property>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_fold_buttonActionPerformed"/>
@@ -445,6 +468,7 @@
             </Property>
             <Property name="horizontalAlignment" type="int" value="4"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JButton" name="player_check_button">
@@ -457,6 +481,7 @@
               <Color id="Cursor de Mano"/>
             </Property>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_check_buttonActionPerformed"/>
@@ -475,6 +500,7 @@
               <Color id="Cursor de Mano"/>
             </Property>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_bet_buttonActionPerformed"/>
@@ -495,6 +521,7 @@
           </Border>
         </Property>
         <Property name="doubleBuffered" type="boolean" value="true"/>
+        <Property name="focusable" type="boolean" value="false"/>
         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
           <Connection code="new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP())), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP())))" type="code"/>
         </Property>

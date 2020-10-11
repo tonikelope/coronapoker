@@ -538,6 +538,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         card1 = new com.tonikelope.coronapoker.Card();
         card3 = new com.tonikelope.coronapoker.Card();
 
+        setFocusable(false);
         setResizable(false);
         addComponentListener(new java.awt.event.ComponentAdapter() {
             public void componentShown(java.awt.event.ComponentEvent evt) {
@@ -549,6 +550,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         superior_button.setText("Jugada superior");
         superior_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         superior_button.setDoubleBuffered(true);
+        superior_button.setFocusable(false);
         superior_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 superior_buttonActionPerformed(evt);
@@ -559,6 +561,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         inferior_button.setText("Jugada inferior");
         inferior_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         inferior_button.setDoubleBuffered(true);
+        inferior_button.setFocusable(false);
         inferior_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 inferior_buttonActionPerformed(evt);
@@ -569,13 +572,26 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         nombre_jugada.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         nombre_jugada.setText("Escalera de color real");
         nombre_jugada.setDoubleBuffered(true);
+        nombre_jugada.setFocusable(false);
 
         probability.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         probability.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         probability.setText("(4 de 2.598.960) ");
         probability.setDoubleBuffered(true);
+        probability.setFocusable(false);
 
+        cartas_panel.setFocusable(false);
         cartas_panel.setOpaque(false);
+
+        card4.setFocusable(false);
+
+        card2.setFocusable(false);
+
+        card5.setFocusable(false);
+
+        card1.setFocusable(false);
+
+        card3.setFocusable(false);
 
         javax.swing.GroupLayout cartas_panelLayout = new javax.swing.GroupLayout(cartas_panel);
         cartas_panel.setLayout(cartas_panelLayout);
@@ -584,13 +600,13 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             .addGroup(cartas_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addComponent(card1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
+                .addGap(18, 18, Short.MAX_VALUE)
                 .addComponent(card2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
+                .addGap(18, 18, Short.MAX_VALUE)
                 .addComponent(card3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
+                .addGap(18, 18, Short.MAX_VALUE)
                 .addComponent(card4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
+                .addGap(18, 18, Short.MAX_VALUE)
                 .addComponent(card5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, 0))
         );

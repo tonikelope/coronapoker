@@ -141,14 +141,14 @@
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="timeout" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="32767" attributes="0"/>
-                      <Component id="player_bet" min="-2" max="-2" attributes="0"/>
+                      <Component id="player_pot" min="-2" max="-2" attributes="0"/>
                   </Group>
               </Group>
             </DimensionLayout>
             <DimensionLayout dim="1">
               <Group type="103" groupAlignment="0" attributes="0">
                   <Component id="avatar" alignment="0" max="32767" attributes="0"/>
-                  <Component id="player_bet" alignment="0" max="32767" attributes="0"/>
+                  <Component id="player_pot" alignment="0" max="32767" attributes="0"/>
                   <Group type="102" alignment="0" attributes="0">
                       <Group type="103" groupAlignment="1" attributes="0">
                           <Component id="timeout" min="-2" max="-2" attributes="0"/>
@@ -187,7 +187,7 @@
                 <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="timeoutMouseClicked"/>
               </Events>
             </Component>
-            <Component class="javax.swing.JLabel" name="player_bet">
+            <Component class="javax.swing.JLabel" name="player_pot">
               <Properties>
                 <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
                   <Color blue="ff" green="ff" red="ff" type="rgb"/>

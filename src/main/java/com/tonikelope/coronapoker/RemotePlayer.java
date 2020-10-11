@@ -177,14 +177,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                if (Helpers.float1DSecureCompare(0f, bet) < 0) {
+                if (Helpers.float1DSecureCompare(0f, bote) < 0) {
 
-                    player_bet.setText(Helpers.float2String(bet));
+                    player_pot.setText(Helpers.float2String(bote));
 
                 } else {
-                    player_bet.setBackground(Color.WHITE);
-                    player_bet.setForeground(Color.BLACK);
-                    player_bet.setText("----");
+                    player_pot.setBackground(Color.WHITE);
+                    player_pot.setForeground(Color.BLACK);
+                    player_pot.setText("----");
 
                 }
 
@@ -204,9 +204,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 public void run() {
                     setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
-                    player_bet.setBackground(Color.WHITE);
+                    player_pot.setBackground(Color.WHITE);
 
-                    player_bet.setForeground(Color.BLACK);
+                    player_pot.setForeground(Color.BLACK);
 
                     player_action.setBackground(Color.WHITE);
 
@@ -383,11 +383,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
 
-                player_bet.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
 
                 player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
 
-                player_bet.setForeground(ACTIONS_COLORS[dec - 1][1]);
+                player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
 
                 player_action.setEnabled(true);
             }
@@ -527,7 +527,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 timeout.setVisible(false);
 
-                player_bet.setText("----");
+                player_pot.setText("----");
 
                 player_action.setText(" ");
 
@@ -539,9 +539,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_blind.setVisible(false);
 
-                player_bet.setBackground(Color.WHITE);
+                player_pot.setBackground(Color.WHITE);
 
-                player_bet.setForeground(Color.BLACK);
+                player_pot.setForeground(Color.BLACK);
 
                 player_buyin.setText(String.valueOf(Game.BUYIN));
             }
@@ -592,7 +592,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         avatar_panel = new javax.swing.JPanel();
         avatar = new javax.swing.JLabel();
         timeout = new javax.swing.JLabel();
-        player_bet = new javax.swing.JLabel();
+        player_pot = new javax.swing.JLabel();
         player_buyin = new javax.swing.JLabel();
         player_stack = new javax.swing.JLabel();
         jPanel3 = new javax.swing.JPanel();
@@ -651,13 +651,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        player_bet.setBackground(new java.awt.Color(255, 255, 255));
-        player_bet.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
-        player_bet.setText("----");
-        player_bet.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        player_bet.setDoubleBuffered(true);
-        player_bet.setFocusable(false);
-        player_bet.setOpaque(true);
+        player_pot.setBackground(new java.awt.Color(255, 255, 255));
+        player_pot.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
+        player_pot.setText("----");
+        player_pot.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        player_pot.setDoubleBuffered(true);
+        player_pot.setFocusable(false);
+        player_pot.setOpaque(true);
 
         player_buyin.setBackground(new java.awt.Color(204, 204, 204));
         player_buyin.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
@@ -691,12 +691,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(timeout)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(player_bet))
+                .addComponent(player_pot))
         );
         avatar_panelLayout.setVerticalGroup(
             avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(avatar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(player_bet, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(player_pot, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(avatar_panelLayout.createSequentialGroup()
                 .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(timeout)
@@ -832,10 +832,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel panel_cartas;
     private javax.swing.JLabel player_action;
-    private javax.swing.JLabel player_bet;
     private javax.swing.JLabel player_blind;
     private javax.swing.JLabel player_buyin;
     private javax.swing.JLabel player_name;
+    private javax.swing.JLabel player_pot;
     private javax.swing.JLabel player_stack;
     private com.tonikelope.coronapoker.Card playingCard1;
     private com.tonikelope.coronapoker.Card playingCard2;
@@ -950,8 +950,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                player_bet.setBackground(Color.WHITE);
-                player_bet.setForeground(Color.black);
+                player_pot.setBackground(Color.WHITE);
+                player_pot.setForeground(Color.black);
             }
         });
 
@@ -1081,9 +1081,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_blind.setText(" ");
                     player_blind.setVisible(true);
 
-                    player_bet.setBackground(new Color(0, 0, 0, 0));
-                    player_bet.setText(" ");
-                    player_bet.setVisible(true);
+                    player_pot.setBackground(new Color(0, 0, 0, 0));
+                    player_pot.setText(" ");
+                    player_pot.setVisible(true);
 
                     avatar.setVisible(false);
 
@@ -1157,11 +1157,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_blind.setVisible(false);
 
-                player_bet.setBackground(Color.WHITE);
+                player_pot.setBackground(Color.WHITE);
 
-                player_bet.setForeground(Color.BLACK);
+                player_pot.setForeground(Color.BLACK);
 
-                player_bet.setText("----");
+                player_pot.setText("----");
 
                 player_stack.setBackground(new Color(51, 153, 0));
 
@@ -1302,9 +1302,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
                     player_blind.setVisible(false);
-                    player_bet.setText("----");
-                    player_bet.setBackground(null);
-                    player_bet.setEnabled(false);
+                    player_pot.setText("----");
+                    player_pot.setBackground(null);
+                    player_pot.setEnabled(false);
                     utg_textfield.setVisible(false);
                     playingCard1.descargarCarta();
                     playingCard2.descargarCarta();
@@ -1326,8 +1326,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
-                player_bet.setVisible(true);
-                player_bet.setEnabled(true);
+                player_pot.setVisible(true);
+                player_pot.setEnabled(true);
                 player_stack.setEnabled(true);
                 player_action.setText(" ");
             }

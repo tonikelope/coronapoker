@@ -779,7 +779,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             @Override
             public boolean dispatchKeyEvent(KeyEvent e) {
                 KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-                if (actionMap.containsKey(keyStroke) && hasFocus()) {
+
+                JFrame frame = Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance();
+
+                if (actionMap.containsKey(keyStroke) && frame.hasFocus()) {
                     final Action a = actionMap.get(keyStroke);
                     final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
 
@@ -792,6 +795,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     return true;
                 }
+
                 return false;
             }
         });

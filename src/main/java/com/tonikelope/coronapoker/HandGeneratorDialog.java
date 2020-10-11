@@ -538,7 +538,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         card1 = new com.tonikelope.coronapoker.Card();
         card3 = new com.tonikelope.coronapoker.Card();
 
-        setFocusable(false);
         setResizable(false);
         addComponentListener(new java.awt.event.ComponentAdapter() {
             public void componentShown(java.awt.event.ComponentEvent evt) {
@@ -550,7 +549,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         superior_button.setText("Jugada superior");
         superior_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         superior_button.setDoubleBuffered(true);
-        superior_button.setFocusable(false);
         superior_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 superior_buttonActionPerformed(evt);
@@ -561,7 +559,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         inferior_button.setText("Jugada inferior");
         inferior_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         inferior_button.setDoubleBuffered(true);
-        inferior_button.setFocusable(false);
         inferior_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 inferior_buttonActionPerformed(evt);

@@ -539,11 +539,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         card3 = new com.tonikelope.coronapoker.Card();
 
         setResizable(false);
-        addComponentListener(new java.awt.event.ComponentAdapter() {
-            public void componentShown(java.awt.event.ComponentEvent evt) {
-                formComponentShown(evt);
-            }
-        });
 
         superior_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         superior_button.setText("Jugada superior");
@@ -681,12 +676,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         pintarJugada();
 
     }//GEN-LAST:event_superior_buttonActionPerformed
-
-    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
-        // TODO add your handling code here:
-        valor_jugada = 9;
-        pintarJugada();
-    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.Card card1;

@@ -537,15 +537,19 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
             if (isCargada()) {
 
                 if (!isTapada()) {
-                    visor = new CardVisorDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, this.valor, this.palo, false);
+
+                    visor = new CardVisorDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), false, this.valor, this.palo, false);
 
                 } else {
-                    visor = new CardVisorDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, 53, false);
+
+                    visor = new CardVisorDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), false, 53, false);
+
                 }
 
             } else {
 
-                visor = new CardVisorDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, 54, false);
+                visor = new CardVisorDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), false, 54, false);
+
             }
 
             visor.setLocationRelativeTo(visor.getParent());

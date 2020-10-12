@@ -1995,11 +1995,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         // TODO add your handling code here:
 
         if (this.jugadas_dialog == null) {
-
             this.jugadas_dialog = new HandGeneratorDialog(getFull_screen_frame() != null ? getFull_screen_frame() : this, false);
-
-            this.jugadas_dialog.pintarJugada();
         }
+
+        this.jugadas_dialog.pintarJugada();
 
         if (!this.jugadas_dialog.isActive()) {
             this.jugadas_dialog.setVisible(false);

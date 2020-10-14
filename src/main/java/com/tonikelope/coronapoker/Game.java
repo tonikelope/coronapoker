@@ -72,6 +72,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final String DEFAULT_LANGUAGE = "es";
     public static final int PEPILLO_COUNTER_MAX = 5;
     public static final int AUTO_ZOOM_TIMEOUT = 2000;
+    public static final int GUI_ZOOM_WAIT = 250;
 
     public static boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
@@ -167,8 +168,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     t = 0;
 
                     while (t < AUTO_ZOOM_TIMEOUT && (tapete.getLocationOnScreen().getY() != 0 || tapete.getHeight() != screenSize.getHeight())) {
-                        Helpers.pausar(125);
-                        t += 125;
+                        Helpers.pausar(GUI_ZOOM_WAIT);
+                        t += GUI_ZOOM_WAIT;
                     }
 
                     if (tapete.getLocationOnScreen().getY() == 0 && tapete.getHeight() == screenSize.getHeight()) {
@@ -198,8 +199,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                             while (t < AUTO_ZOOM_TIMEOUT && (playerWidth == getLocalPlayer().getWidth() && playerHeight == getLocalPlayer().getHeight())) {
 
-                                Helpers.pausar(125);
-                                t += 125;
+                                Helpers.pausar(GUI_ZOOM_WAIT);
+                                t += GUI_ZOOM_WAIT;
                             }
 
                             if (playerWidth != getLocalPlayer().getWidth() || playerHeight != getLocalPlayer().getHeight()) {
@@ -1196,8 +1197,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 setupGlobalShortcuts();
 
-                registro_dialog = new GameLogDialog(THIS, false);
-
                 // pausa_dialog = new PauseDialog(this, false);
                 crupier = new Crupier();
 
@@ -1356,6 +1355,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         if (!Game.MUSICA_AMBIENTAL) {
             Helpers.pauseLoopMp3Resource("misc/background_music.mp3");
         }
+
+        registro_dialog = new GameLogDialog(this, false);
 
         getRegistro().print(Translator.translate("COMIENZA LA TIMBA -> ") + Helpers.getFechaHoraActual());
 
@@ -1865,36 +1866,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void registro_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_registro_menuActionPerformed
         // TODO add your handling code here:
 
-        if (getFull_screen_frame() != null && this.registro_dialog.getParent() != getFull_screen_frame()) {
-            synchronized (registro_lock) {
+        this.registro_dialog.setVisible(false);
 
-                GameLogDialog nuevo_registro_dialog = new GameLogDialog(full_screen_frame, registro_dialog);
+        this.registro_dialog.setLocationRelativeTo(getFull_screen_frame() != null ? getFull_screen_frame() : this);
 
-                registro_dialog.setVisible(false);
-
-                registro_dialog.dispose();
-
-                registro_dialog = nuevo_registro_dialog;
-            }
-        } else if (getFull_screen_frame() == null && this.registro_dialog.getParent() != Game.getInstance()) {
-            synchronized (registro_lock) {
-
-                GameLogDialog nuevo_registro_dialog = new GameLogDialog(Game.getInstance(), registro_dialog);
-
-                registro_dialog.setVisible(false);
-
-                registro_dialog.dispose();
-
-                registro_dialog = nuevo_registro_dialog;
-            }
-
-        }
-
-        if (!this.registro_dialog.isActive()) {
-            this.registro_dialog.setVisible(false);
-        }
-
-        this.registro_dialog.setLocationRelativeTo(registro_dialog.getParent());
         this.registro_dialog.setVisible(true);
 
     }//GEN-LAST:event_registro_menuActionPerformed
@@ -1995,16 +1970,14 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         // TODO add your handling code here:
 
         if (this.jugadas_dialog == null) {
-            this.jugadas_dialog = new HandGeneratorDialog(getFull_screen_frame() != null ? getFull_screen_frame() : this, false);
+            this.jugadas_dialog = new HandGeneratorDialog(this, false);
         }
+
+        this.jugadas_dialog.setVisible(false);
 
         this.jugadas_dialog.pintarJugada();
 
-        if (!this.jugadas_dialog.isActive()) {
-            this.jugadas_dialog.setVisible(false);
-        }
-
-        this.jugadas_dialog.setLocationRelativeTo(jugadas_dialog.getParent());
+        this.jugadas_dialog.setLocationRelativeTo(getFull_screen_frame() != null ? getFull_screen_frame() : this);
 
         this.jugadas_dialog.setVisible(true);
     }//GEN-LAST:event_jugadas_menuActionPerformed

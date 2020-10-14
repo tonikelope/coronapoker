@@ -62,11 +62,12 @@ public class GameLogDialog extends javax.swing.JDialog {
 
                 Helpers.translateComponents(tthis, false);
 
-                getTextArea().setText("[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]"));
+                getTextArea().setText("[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n");
             }
         });
     }
 
+    /*
     public GameLogDialog(java.awt.Frame parent, GameLogDialog dialog) {
         super(parent, dialog.isModal());
 
@@ -102,8 +103,7 @@ public class GameLogDialog extends javax.swing.JDialog {
                 Helpers.translateComponents(tthis, false);
             }
         });
-    }
-
+    }*/
     public JTextArea getTextArea() {
         return textarea;
     }

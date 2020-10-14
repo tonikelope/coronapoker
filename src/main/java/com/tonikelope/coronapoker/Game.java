@@ -1969,17 +1969,33 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void jugadas_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jugadas_menuActionPerformed
         // TODO add your handling code here:
 
-        if (this.jugadas_dialog == null) {
-            this.jugadas_dialog = new HandGeneratorDialog(this, false);
-        }
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+                if (jugadas_dialog == null) {
 
-        this.jugadas_dialog.setVisible(false);
+                    jugadas_dialog = new HandGeneratorDialog(Game.getInstance(), false);
 
-        this.jugadas_dialog.pintarJugada();
+                    jugadas_dialog.pintarJugada();
 
-        this.jugadas_dialog.setLocationRelativeTo(getFull_screen_frame() != null ? getFull_screen_frame() : this);
+                    for (Card carta : jugadas_dialog.getCartas()) {
+                        carta.refreshCard();
+                    }
 
-        this.jugadas_dialog.setVisible(true);
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            jugadas_dialog.pack();
+                        }
+                    });
+                } else {
+
+                    jugadas_dialog.setVisible(false);
+                }
+
+                jugadas_dialog.setLocationRelativeTo(getFull_screen_frame() != null ? getFull_screen_frame() : Game.getInstance());
+
+                jugadas_dialog.setVisible(true);
+            }
+        });
     }//GEN-LAST:event_jugadas_menuActionPerformed
 
     private void full_screen_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_full_screen_menuActionPerformed

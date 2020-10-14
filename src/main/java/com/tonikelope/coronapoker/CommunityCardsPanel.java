@@ -100,10 +100,27 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
-
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(SOUND_ICON_WIDTH, SOUND_ICON_WIDTH, Image.SCALE_SMOOTH)));
             }
         });
+
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+
+                while (pot_label.getHeight() == 0) {
+                    Helpers.pausar(125);
+                }
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        sound_icon.setPreferredSize(new Dimension(pot_label.getHeight(), pot_label.getHeight()));
+                        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+                        panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) pot_label.getHeight() * 0.65)));
+                    }
+                });
+            }
+        });
+
     }
 
     /**
@@ -315,15 +332,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         int altura_sound = pot_label.getHeight();
 
-        Helpers.zoomFonts(pot_label, factor);
-        Helpers.zoomFonts(bet_label, factor);
-        Helpers.zoomFonts(blinds_label, factor);
-        Helpers.zoomFonts(tiempo_partida, factor);
-        Helpers.zoomFonts(hand_label, factor);
+        Helpers.zoomFonts(this, factor);
 
         while (altura_sound == pot_label.getHeight()) {
             try {
-                Thread.sleep(250);
+                Thread.sleep(Game.GUI_ZOOM_WAIT);
             } catch (InterruptedException ex) {
                 Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
             }

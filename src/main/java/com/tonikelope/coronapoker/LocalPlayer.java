@@ -1106,27 +1106,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             while (altura_avatar == player_pot.getHeight()) {
 
                 try {
-                    Thread.sleep(250);
+                    Thread.sleep(Game.GUI_ZOOM_WAIT);
                 } catch (InterruptedException ex) {
                     Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    if (Game.getInstance().getSala_espera().getAvatar() != null) {
-                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-                        getAvatar().setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-                    } else {
-                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-                        getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-                    }
-
-                    getAvatar().setVisible(true);
-                }
-            });
+            setAvatar();
 
         }
 
@@ -2171,6 +2157,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
+
+                while (avatar_panel.getHeight() == 0) {
+                    Helpers.pausar(Game.GUI_ZOOM_WAIT);
+                }
 
                 if (Game.getInstance().getSala_espera().getAvatar() != null) {
                     getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));

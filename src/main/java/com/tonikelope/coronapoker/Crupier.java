@@ -21,7 +21,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
-import javax.swing.JFrame;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -4479,24 +4478,37 @@ public class Crupier implements Runnable {
             @Override
             public void run() {
 
-                Game.getInstance().getSala_espera().getStatus().setText(Translator.translate("Timba en curso"));
+                Game.getInstance().getSala_espera().getStatus().setText(Translator.translate("Preparando mesa..."));
             }
         });
 
         if (!Game.TEST_MODE || Game.getInstance().isPartida_local()) {
 
+            if (Game.getZoom_level() != 0) {
+                Helpers.GUIRunAndWait(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        Game.getInstance().getSala_espera().getStatus().setText(Translator.translate("Restaurando zoom..."));
+                    }
+                });
+                Game.getInstance().zoom(1f + Game.getZoom_level() * Game.ZOOM_STEP);
+
+            }
+
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
 
-                    if (Game.getZoom_level() != 0) {
-                        Game.getInstance().zoom(1f + Game.getZoom_level() * Game.ZOOM_STEP);
-                    }
+                    Game.getInstance().getSala_espera().getStatus().setText(Translator.translate("Timba en curso"));
+                }
+            });
 
-                    Helpers.centrarJFrame(Game.getInstance(), 0);
-                    Game.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+
                     Game.getInstance().getSala_espera().setVisible(false);
-                    Game.getInstance().setVisible(true);
                 }
             });
 

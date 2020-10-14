@@ -868,7 +868,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             if (!this.disabled) {
                 while (altura_avatar == avatar_panel.getHeight()) {
                     try {
-                        Thread.sleep(250);
+                        Thread.sleep(Game.GUI_ZOOM_WAIT);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -1355,6 +1355,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
+
+                while (avatar_panel.getHeight() == 0) {
+                    Helpers.pausar(Game.GUI_ZOOM_WAIT);
+                }
+
                 Participant p = Game.getInstance().getParticipantes().get(nickname);
                 if (p != null) {
                     if (p.getAvatar() != null) {

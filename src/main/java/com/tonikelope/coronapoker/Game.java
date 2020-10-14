@@ -1977,23 +1977,28 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     jugadas_dialog.pintarJugada();
 
-                    for (Card carta : jugadas_dialog.getCartas()) {
-                        carta.refreshCard();
-                    }
-
+                } else {
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
-                            jugadas_dialog.pack();
+                            jugadas_dialog.setVisible(false);
                         }
                     });
-                } else {
-
-                    jugadas_dialog.setVisible(false);
                 }
 
-                jugadas_dialog.setLocationRelativeTo(getFull_screen_frame() != null ? getFull_screen_frame() : Game.getInstance());
+                for (Card carta : jugadas_dialog.getCartas()) {
+                    carta.refreshCard();
+                }
 
-                jugadas_dialog.setVisible(true);
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+                        jugadas_dialog.pack();
+
+                        jugadas_dialog.setLocationRelativeTo(getFull_screen_frame() != null ? getFull_screen_frame() : Game.getInstance());
+
+                        jugadas_dialog.setVisible(true);
+                    }
+                });
+
             }
         });
     }//GEN-LAST:event_jugadas_menuActionPerformed

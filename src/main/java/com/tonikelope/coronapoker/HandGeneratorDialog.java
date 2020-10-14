@@ -57,58 +57,53 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     public void pintarJugada() {
 
-        Helpers.threadRun(new Runnable() {
+        for (Card carta : cartas) {
+            carta.descargarCarta();
+        }
+
+        switch (valor_jugada) {
+
+            case 0:
+                cartaAlta(valor_jugada);
+                break;
+            case 1:
+                pareja(valor_jugada);
+                break;
+            case 2:
+                doblePareja(valor_jugada);
+                break;
+            case 3:
+                trio(valor_jugada);
+                break;
+            case 4:
+                escalera(valor_jugada);
+                break;
+            case 5:
+                color(valor_jugada);
+                break;
+            case 6:
+                full(valor_jugada);
+                break;
+            case 7:
+                poker(valor_jugada);
+                break;
+            case 8:
+                escaleraColor(valor_jugada);
+                break;
+            case 9:
+                escaleraColorReal(valor_jugada);
+                break;
+        }
+
+        Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                for (Card carta : cartas) {
-                    carta.descargarCarta();
-                }
-
-                switch (valor_jugada) {
-
-                    case 0:
-                        cartaAlta(valor_jugada);
-                        break;
-                    case 1:
-                        pareja(valor_jugada);
-                        break;
-                    case 2:
-                        doblePareja(valor_jugada);
-                        break;
-                    case 3:
-                        trio(valor_jugada);
-                        break;
-                    case 4:
-                        escalera(valor_jugada);
-                        break;
-                    case 5:
-                        color(valor_jugada);
-                        break;
-                    case 6:
-                        full(valor_jugada);
-                        break;
-                    case 7:
-                        poker(valor_jugada);
-                        break;
-                    case 8:
-                        escaleraColor(valor_jugada);
-                        break;
-                    case 9:
-                        escaleraColorReal(valor_jugada);
-                        break;
-                }
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-
-                        inferior_button.setEnabled(valor_jugada > 0);
-                        superior_button.setEnabled(valor_jugada < 9);
-
-                    }
-                });
+                inferior_button.setEnabled(valor_jugada > 0);
+                superior_button.setEnabled(valor_jugada < 9);
 
             }
         });
+
     }
 
     private void cartaAlta(int v) {
@@ -641,7 +636,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
                 .addComponent(nombre_jugada)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(probability)
-                .addGap(18, 18, Short.MAX_VALUE)
+                .addGap(18, 18, 18)
                 .addComponent(superior_button)
                 .addGap(18, 18, 18)
                 .addComponent(cartas_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -661,7 +656,12 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         }
 
-        pintarJugada();
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+
+                pintarJugada();
+            }
+        });
 
     }//GEN-LAST:event_inferior_buttonActionPerformed
 
@@ -672,8 +672,11 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             this.valor_jugada++;
 
         }
-
-        pintarJugada();
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+                pintarJugada();
+            }
+        });
 
     }//GEN-LAST:event_superior_buttonActionPerformed
 

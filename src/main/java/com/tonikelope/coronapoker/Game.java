@@ -464,16 +464,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         for (RemotePlayer jugador : players) {
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    if (Game.VISTA_COMPACTA) {
-                        jugador.getPlayer_action().setMinimumSize(null);
-                    } else {
-                        jugador.getPlayer_action().setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + Game.getZoom_level() * Game.getZOOM_STEP())), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + Game.getZoom_level() * Game.getZOOM_STEP()))));
-                    }
-                }
-            });
-
             jugador.getPlayingCard1().refreshCard();
             jugador.getPlayingCard2().refreshCard();
         }

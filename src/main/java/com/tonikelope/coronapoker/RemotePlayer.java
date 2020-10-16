@@ -851,7 +851,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
-                    player_action.setMinimumSize((disabled || Game.VISTA_COMPACTA) ? null : new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
+                    player_action.setMinimumSize(disabled ? null : new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
                     LineBorder border = (LineBorder) getBorder();
                     setBorder(javax.swing.BorderFactory.createLineBorder(border.getLineColor(), Math.round(Player.BORDER * zoom_factor)));
                     getAvatar().setVisible(false);

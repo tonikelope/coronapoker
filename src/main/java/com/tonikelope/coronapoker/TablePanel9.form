@@ -19,28 +19,34 @@
           <Group type="102" attributes="0">
               <EmptySpace max="-2" attributes="0"/>
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" alignment="0" attributes="0">
+                  <Group type="102" attributes="0">
                       <Component id="remotePlayer1" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="32767" attributes="0"/>
                       <Component id="localPlayer" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="32767" attributes="0"/>
                       <Component id="remotePlayer8" min="-2" max="-2" attributes="0"/>
                   </Group>
-                  <Group type="102" alignment="0" attributes="0">
-                      <Component id="remotePlayer3" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace pref="162" max="32767" attributes="0"/>
-                      <Component id="remotePlayer4" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace pref="162" max="32767" attributes="0"/>
-                      <Component id="remotePlayer5" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace pref="162" max="32767" attributes="0"/>
-                      <Component id="remotePlayer6" min="-2" max="-2" attributes="0"/>
-                  </Group>
-                  <Group type="102" alignment="0" attributes="0">
-                      <Component id="remotePlayer2" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="32767" attributes="0"/>
-                      <Component id="communityCards" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="32767" attributes="0"/>
-                      <Component id="remotePlayer7" min="-2" max="-2" attributes="0"/>
+                  <Group type="102" alignment="1" attributes="0">
+                      <Group type="103" groupAlignment="0" attributes="0">
+                          <Component id="remotePlayer2" alignment="0" min="-2" max="-2" attributes="0"/>
+                          <Component id="remotePlayer3" alignment="0" min="-2" max="-2" attributes="0"/>
+                      </Group>
+                      <Group type="103" groupAlignment="1" attributes="0">
+                          <Group type="102" alignment="1" attributes="0">
+                              <EmptySpace max="32767" attributes="0"/>
+                              <Component id="remotePlayer4" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace max="32767" attributes="0"/>
+                              <Component id="remotePlayer5" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace max="32767" attributes="0"/>
+                              <Component id="remotePlayer6" min="-2" max="-2" attributes="0"/>
+                          </Group>
+                          <Group type="102" alignment="1" attributes="0">
+                              <EmptySpace pref="332" max="32767" attributes="0"/>
+                              <Component id="communityCards" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace pref="332" max="32767" attributes="0"/>
+                              <Component id="remotePlayer7" min="-2" max="-2" attributes="0"/>
+                          </Group>
+                      </Group>
                   </Group>
               </Group>
               <EmptySpace max="-2" attributes="0"/>
@@ -51,30 +57,24 @@
       <Group type="103" groupAlignment="0" attributes="0">
           <Group type="102" alignment="1" attributes="0">
               <EmptySpace max="-2" attributes="0"/>
-              <Group type="103" groupAlignment="1" attributes="0">
+              <Group type="103" groupAlignment="0" attributes="0">
+                  <Component id="remotePlayer3" min="-2" max="-2" attributes="0"/>
                   <Component id="remotePlayer4" min="-2" max="-2" attributes="0"/>
                   <Component id="remotePlayer5" min="-2" max="-2" attributes="0"/>
                   <Component id="remotePlayer6" min="-2" max="-2" attributes="0"/>
-                  <Component id="remotePlayer3" min="-2" max="-2" attributes="0"/>
               </Group>
               <Group type="103" groupAlignment="0" attributes="0">
                   <Group type="102" alignment="0" attributes="0">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" attributes="0">
-                              <EmptySpace pref="8" max="32767" attributes="0"/>
-                              <Component id="remotePlayer2" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace pref="8" max="32767" attributes="0"/>
-                          </Group>
-                          <Group type="102" alignment="1" attributes="0">
-                              <EmptySpace pref="44" max="32767" attributes="0"/>
-                              <Component id="communityCards" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace pref="44" max="32767" attributes="0"/>
-                          </Group>
-                      </Group>
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="localPlayer" alignment="1" min="-2" max="-2" attributes="0"/>
-                          <Component id="remotePlayer1" alignment="1" min="-2" max="-2" attributes="0"/>
-                      </Group>
+                      <EmptySpace pref="94" max="32767" attributes="0"/>
+                      <Component id="communityCards" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace pref="78" max="32767" attributes="0"/>
+                      <Component id="localPlayer" min="-2" max="-2" attributes="0"/>
+                  </Group>
+                  <Group type="102" alignment="0" attributes="0">
+                      <EmptySpace max="32767" attributes="0"/>
+                      <Component id="remotePlayer2" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace max="32767" attributes="0"/>
+                      <Component id="remotePlayer1" min="-2" max="-2" attributes="0"/>
                   </Group>
                   <Group type="102" alignment="0" attributes="0">
                       <EmptySpace max="32767" attributes="0"/>
@@ -89,7 +89,9 @@
     </DimensionLayout>
   </Layout>
   <SubComponents>
-    <Component class="com.tonikelope.coronapoker.LocalPlayer" name="localPlayer">
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer1">
+    </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer2">
     </Component>
     <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer3">
     </Component>
@@ -99,15 +101,13 @@
     </Component>
     <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer6">
     </Component>
+    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer7">
+    </Component>
     <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer8">
     </Component>
-    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer1">
+    <Component class="com.tonikelope.coronapoker.LocalPlayer" name="localPlayer">
     </Component>
     <Component class="com.tonikelope.coronapoker.CommunityCardsPanel" name="communityCards">
-    </Component>
-    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer2">
-    </Component>
-    <Component class="com.tonikelope.coronapoker.RemotePlayer" name="remotePlayer7">
     </Component>
   </SubComponents>
 </Form>

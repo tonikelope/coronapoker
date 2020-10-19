@@ -48,7 +48,7 @@ public class Translator {
             {"Compra inicial:", "BUYIN:"},
             {"Permitir recomprar", "Allow rebuy"},
             {"Doblar ciegas (minutos):", "Double blinds (minutes):"},
-            {"RECUPERAR TIMBA (o intentarlo)", "RECOVER GAME (or try)"},
+            {"RECUPERAR ÚLTIMA TIMBA", "RECOVER LAST GAME"},
             {"¡VAMOS!", "GO!"},
             {"Seguro", "Safe"},
             {"Muy seguro", "Very safe"},

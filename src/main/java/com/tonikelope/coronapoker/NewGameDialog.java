@@ -277,7 +277,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         jLabel3.setDoubleBuffered(true);
 
         recover_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        recover_checkbox.setText("RECUPERAR TIMBA (o intentarlo)");
+        recover_checkbox.setText("RECUPERAR ÚLTIMA TIMBA");
         recover_checkbox.setToolTipText("El MODO RECUPERACIÓN permite arrancar una timba que se interrumpió previamente");
         recover_checkbox.setDoubleBuffered(true);
         recover_checkbox.addActionListener(new java.awt.event.ActionListener() {

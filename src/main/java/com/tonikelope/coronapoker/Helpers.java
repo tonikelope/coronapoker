@@ -890,7 +890,7 @@ public class Helpers {
 
                 return mod;
             } catch (ParserConfigurationException | SAXException ex) {
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             } catch (IOException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -1420,7 +1420,7 @@ public class Helpers {
         try {
             Thread.sleep(pause);
         } catch (InterruptedException ex) {
-            Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
     }
@@ -1440,7 +1440,7 @@ public class Helpers {
                 }
             } catch (Exception ex) {
                 ok = false;
-                Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                 Helpers.pausar(250);
             }
 

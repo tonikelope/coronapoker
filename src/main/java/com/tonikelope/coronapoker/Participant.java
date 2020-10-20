@@ -24,6 +24,7 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -44,6 +45,7 @@ public class Participant implements Runnable {
     private final Object keep_alive_lock = new Object();
     private volatile int pong;
     private volatile boolean cpu = false;
+    private volatile SecretKeySpec aes_key = null;
 
     public Participant(String nick, File avatar, Socket socket, WaitingRoom espera, Integer id, boolean cpu) {
         this.nick = nick;
@@ -52,6 +54,14 @@ public class Participant implements Runnable {
         this.avatar = avatar;
         this.id = id;
         this.cpu = cpu;
+    }
+
+    public SecretKeySpec getAes_key() {
+        return aes_key;
+    }
+
+    public void setAes_key(SecretKeySpec aes_key) {
+        this.aes_key = aes_key;
     }
 
     public boolean isCpu() {

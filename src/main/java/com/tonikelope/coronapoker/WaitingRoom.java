@@ -20,6 +20,8 @@ import static com.tonikelope.coronapoker.Game.WAIT_QUEUES;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -31,6 +33,11 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PublicKey;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -39,6 +46,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.KeyAgreement;
+import javax.crypto.interfaces.DHPublicKey;
+import javax.crypto.spec.DHParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
@@ -63,6 +74,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     private String local_nick;
     private Map<String, Participant> participantes;
     private volatile ServerSocket server_socket;
+    private volatile SecretKeySpec client_aes_key = null;
     private volatile Socket client_socket;
     private volatile String server_ip_port;
     private Init ventana_inicio;
@@ -81,6 +93,10 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
         return received_confirmations;
+    }
+
+    public SecretKeySpec getClient_aes_key() {
+        return client_aes_key;
     }
 
     public static boolean isExit() {
@@ -262,6 +278,46 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     client_socket.getOutputStream().write(magic);
 
+                    /* INICIO INTERCAMBIO CLAVES */
+                    KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("DH");
+
+                    clientKpairGen.initialize(2048);
+
+                    KeyPair clientKpair = clientKpairGen.generateKeyPair();
+
+                    KeyAgreement clientKeyAgree = KeyAgreement.getInstance("DH");
+
+                    clientKeyAgree.init(clientKpair.getPrivate());
+
+                    byte[] clientPubKeyEnc = clientKpair.getPublic().getEncoded();
+
+                    DataOutputStream dOut = new DataOutputStream(client_socket.getOutputStream());
+
+                    dOut.writeInt(clientPubKeyEnc.length);
+
+                    dOut.write(clientPubKeyEnc);
+
+                    DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
+
+                    int length = dIn.readInt();
+
+                    byte[] serverPubKeyEnc = new byte[length];
+
+                    dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
+
+                    KeyFactory clientKeyFac = KeyFactory.getInstance("DH");
+
+                    X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(serverPubKeyEnc);
+
+                    PublicKey serverPubKey = clientKeyFac.generatePublic(x509KeySpec);
+
+                    clientKeyAgree.doPhase(serverPubKey, true);
+
+                    byte[] clientSharedSecret = clientKeyAgree.generateSecret();
+
+                    client_aes_key = new SecretKeySpec(clientSharedSecret, 0, 16, "AES");
+
+                    /* FIN INTERCAMBIO CLAVES */
                     //Le mandamos nuestro nick al server y el código secreto de reconexión
                     client_socket.getOutputStream().write((Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + "#*#" + String.valueOf(client_id) + "\n").getBytes("UTF-8"));
 
@@ -560,6 +616,46 @@ public class WaitingRoom extends javax.swing.JFrame {
                         }
                     });
 
+                    /* INICIO INTERCAMBIO CLAVES */
+                    KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("DH");
+
+                    clientKpairGen.initialize(2048);
+
+                    KeyPair clientKpair = clientKpairGen.generateKeyPair();
+
+                    KeyAgreement clientKeyAgree = KeyAgreement.getInstance("DH");
+
+                    clientKeyAgree.init(clientKpair.getPrivate());
+
+                    byte[] clientPubKeyEnc = clientKpair.getPublic().getEncoded();
+
+                    DataOutputStream dOut = new DataOutputStream(client_socket.getOutputStream());
+
+                    dOut.writeInt(clientPubKeyEnc.length);
+
+                    dOut.write(clientPubKeyEnc);
+
+                    DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
+
+                    int length = dIn.readInt();
+
+                    byte[] serverPubKeyEnc = new byte[length];
+
+                    dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
+
+                    KeyFactory clientKeyFac = KeyFactory.getInstance("DH");
+
+                    X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(serverPubKeyEnc);
+
+                    PublicKey serverPubKey = clientKeyFac.generatePublic(x509KeySpec);
+
+                    clientKeyAgree.doPhase(serverPubKey, true);
+
+                    byte[] clientSharedSecret = clientKeyAgree.generateSecret();
+
+                    client_aes_key = new SecretKeySpec(clientSharedSecret, 0, 16, "AES");
+
+                    /* FIN INTERCAMBIO CLAVES */
                     byte[] avatar_bytes = null;
 
                     if (local_avatar != null && local_avatar.length() > 0) {
@@ -1042,6 +1138,48 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                         if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
 
+                            /* INICIO INTERCAMBIO DE CLAVES */
+                            DataInputStream dIn = new DataInputStream(client.getInputStream());
+
+                            int length = dIn.readInt();
+
+                            byte[] clientPubKeyEnc = new byte[length];
+
+                            dIn.readFully(clientPubKeyEnc, 0, clientPubKeyEnc.length);
+
+                            KeyFactory serverKeyFac = KeyFactory.getInstance("DH");
+
+                            X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(clientPubKeyEnc);
+
+                            PublicKey clientPubKey = serverKeyFac.generatePublic(x509KeySpec);
+
+                            DHParameterSpec dhParamFromClientPubKey = ((DHPublicKey) clientPubKey).getParams();
+
+                            KeyPairGenerator serverKpairGen = KeyPairGenerator.getInstance("DH");
+
+                            serverKpairGen.initialize(dhParamFromClientPubKey);
+
+                            KeyPair serverKpair = serverKpairGen.generateKeyPair();
+
+                            KeyAgreement serverKeyAgree = KeyAgreement.getInstance("DH");
+
+                            serverKeyAgree.init(serverKpair.getPrivate());
+
+                            byte[] serverPubKeyEnc = serverKpair.getPublic().getEncoded();
+
+                            DataOutputStream dOut = new DataOutputStream(client.getOutputStream());
+
+                            dOut.writeInt(serverPubKeyEnc.length);
+
+                            dOut.write(serverPubKeyEnc);
+
+                            serverKeyAgree.doPhase(clientPubKey, true);
+
+                            byte[] serverSharedSecret = serverKeyAgree.generateSecret();
+
+                            SecretKeySpec aes_key = new SecretKeySpec(serverSharedSecret, 0, 16, "AES");
+
+                            /* FIN INTERCAMBIO DE CLAVES */
                             BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
 
                             //Leemos el nick del usuario
@@ -1142,6 +1280,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                 //Añadimos al participante
                                 nuevoParticipante(client_nick, client_avatar, client, cid, false);
+
+                                participantes.get(client_nick).setAes_key(aes_key);
 
                                 //Mandamos la lista de participantes actuales al nuevo participante
                                 if (participantes.size() > 2) {

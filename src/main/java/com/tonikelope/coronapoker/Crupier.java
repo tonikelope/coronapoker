@@ -1245,13 +1245,10 @@ public class Crupier implements Runnable {
 
                             cifrado.init(Cipher.DECRYPT_MODE, Game.getInstance().getSala_espera().getClient_aes_key(), new IvParameterSpec(iv));
 
-                            byte[] carta1_bytes = cifrado.doFinal(Base64.decodeBase64(partes[4]));
+                            byte[] cartas_bytes = cifrado.doFinal(Base64.decodeBase64(partes[4]));
 
-                            cartas[0] = new String(carta1_bytes, "UTF-8");
+                            cartas = new String(cartas_bytes, "UTF-8").split("@");
 
-                            byte[] carta2_bytes = cifrado.doFinal(Base64.decodeBase64(partes[5]));
-
-                            cartas[1] = new String(carta2_bytes, "UTF-8");
                         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | UnsupportedEncodingException | InvalidAlgorithmParameterException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -2471,11 +2468,9 @@ public class Crupier implements Runnable {
 
                             cifrado.init(Cipher.ENCRYPT_MODE, p.getAes_key(), new IvParameterSpec(iv));
 
-                            byte[] carta1_bytes = cifrado.doFinal(carta1.getBytes("UTF-8"));
+                            byte[] cartas_bytes = cifrado.doFinal((carta1 + "@" + carta2).getBytes("UTF-8"));
 
-                            byte[] carta2_bytes = cifrado.doFinal(carta2.getBytes("UTF-8"));
-
-                            p.getSocket().getOutputStream().write((command + "#" + Base64.encodeBase64String(iv) + "#" + Base64.encodeBase64String(carta1_bytes) + "#" + Base64.encodeBase64String(carta2_bytes) + "\n").getBytes("UTF-8"));
+                            p.getSocket().getOutputStream().write((command + "#" + Base64.encodeBase64String(iv) + "#" + Base64.encodeBase64String(cartas_bytes) + "\n").getBytes("UTF-8"));
                         } catch (IOException ex) {
                         } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | IllegalBlockSizeException | BadPaddingException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);

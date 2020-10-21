@@ -47,8 +47,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.KeyAgreement;
-import javax.crypto.interfaces.DHPublicKey;
-import javax.crypto.spec.DHParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
@@ -66,6 +64,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final int PING_PONG_TIMEOUT = 15000;
     public static final int MAX_PING_PONG_ERROR = 3;
+    public static final int EC_KEY_LENGTH = 256;
     private static boolean partida_empezada = false;
     private static boolean exit = false;
     private static WaitingRoom THIS;
@@ -74,7 +73,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     private String local_nick;
     private Map<String, Participant> participantes;
     private volatile ServerSocket server_socket;
-    private volatile SecretKeySpec client_aes_key = null;
+    private volatile SecretKeySpec local_client_aes_key = null;
     private volatile Socket client_socket;
     private volatile String server_ip_port;
     private Init ventana_inicio;
@@ -96,7 +95,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     }
 
     public SecretKeySpec getClient_aes_key() {
-        return client_aes_key;
+        return local_client_aes_key;
     }
 
     public static boolean isExit() {
@@ -279,13 +278,13 @@ public class WaitingRoom extends javax.swing.JFrame {
                     client_socket.getOutputStream().write(magic);
 
                     /* INICIO INTERCAMBIO CLAVES */
-                    KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("DH");
+                    KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
 
-                    clientKpairGen.initialize(2048);
+                    clientKpairGen.initialize(EC_KEY_LENGTH);
 
                     KeyPair clientKpair = clientKpairGen.generateKeyPair();
 
-                    KeyAgreement clientKeyAgree = KeyAgreement.getInstance("DH");
+                    KeyAgreement clientKeyAgree = KeyAgreement.getInstance("ECDH");
 
                     clientKeyAgree.init(clientKpair.getPrivate());
 
@@ -305,7 +304,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
 
-                    KeyFactory clientKeyFac = KeyFactory.getInstance("DH");
+                    KeyFactory clientKeyFac = KeyFactory.getInstance("EC");
 
                     X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(serverPubKeyEnc);
 
@@ -315,7 +314,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     byte[] clientSharedSecret = clientKeyAgree.generateSecret();
 
-                    client_aes_key = new SecretKeySpec(clientSharedSecret, 0, 16, "AES");
+                    local_client_aes_key = new SecretKeySpec(clientSharedSecret, 0, 16, "AES");
 
                     /* FIN INTERCAMBIO CLAVES */
                     //Le mandamos nuestro nick al server y el código secreto de reconexión
@@ -617,13 +616,13 @@ public class WaitingRoom extends javax.swing.JFrame {
                     });
 
                     /* INICIO INTERCAMBIO CLAVES */
-                    KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("DH");
+                    KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
 
-                    clientKpairGen.initialize(2048);
+                    clientKpairGen.initialize(EC_KEY_LENGTH);
 
                     KeyPair clientKpair = clientKpairGen.generateKeyPair();
 
-                    KeyAgreement clientKeyAgree = KeyAgreement.getInstance("DH");
+                    KeyAgreement clientKeyAgree = KeyAgreement.getInstance("ECDH");
 
                     clientKeyAgree.init(clientKpair.getPrivate());
 
@@ -643,7 +642,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
 
-                    KeyFactory clientKeyFac = KeyFactory.getInstance("DH");
+                    KeyFactory clientKeyFac = KeyFactory.getInstance("EC");
 
                     X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(serverPubKeyEnc);
 
@@ -653,7 +652,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     byte[] clientSharedSecret = clientKeyAgree.generateSecret();
 
-                    client_aes_key = new SecretKeySpec(clientSharedSecret, 0, 16, "AES");
+                    local_client_aes_key = new SecretKeySpec(clientSharedSecret, 0, 16, "AES");
 
                     /* FIN INTERCAMBIO CLAVES */
                     byte[] avatar_bytes = null;
@@ -1147,21 +1146,19 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                             dIn.readFully(clientPubKeyEnc, 0, clientPubKeyEnc.length);
 
-                            KeyFactory serverKeyFac = KeyFactory.getInstance("DH");
+                            KeyFactory serverKeyFac = KeyFactory.getInstance("EC");
 
                             X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(clientPubKeyEnc);
 
                             PublicKey clientPubKey = serverKeyFac.generatePublic(x509KeySpec);
 
-                            DHParameterSpec dhParamFromClientPubKey = ((DHPublicKey) clientPubKey).getParams();
+                            KeyPairGenerator serverKpairGen = KeyPairGenerator.getInstance("EC");
 
-                            KeyPairGenerator serverKpairGen = KeyPairGenerator.getInstance("DH");
-
-                            serverKpairGen.initialize(dhParamFromClientPubKey);
+                            serverKpairGen.initialize(EC_KEY_LENGTH);
 
                             KeyPair serverKpair = serverKpairGen.generateKeyPair();
 
-                            KeyAgreement serverKeyAgree = KeyAgreement.getInstance("DH");
+                            KeyAgreement serverKeyAgree = KeyAgreement.getInstance("ECDH");
 
                             serverKeyAgree.init(serverKpair.getPrivate());
 

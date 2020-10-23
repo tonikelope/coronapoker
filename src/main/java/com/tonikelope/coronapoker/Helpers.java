@@ -38,6 +38,10 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.CodeSource;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -59,6 +63,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.Mac;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
@@ -94,6 +105,7 @@ import javazoom.jlgui.basicplayer.BasicPlayer;
 import javazoom.jlgui.basicplayer.BasicPlayerEvent;
 import javazoom.jlgui.basicplayer.BasicPlayerException;
 import javazoom.jlgui.basicplayer.BasicPlayerListener;
+import org.apache.commons.codec.binary.Base64;
 import org.random.api.RandomOrgClient;
 import org.random.api.exception.RandomOrgBadHTTPResponseException;
 import org.random.api.exception.RandomOrgInsufficientBitsError;
@@ -137,6 +149,131 @@ public class Helpers {
     public static boolean MUTED = false;
     public static boolean MUTED_MP3 = false;
     public static boolean RANDOMORG_ERROR_MSG = false;
+
+    public static byte[] encryptCommand(String command, SecretKeySpec key, byte[] iv) {
+
+        try {
+            Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
+
+            cifrado.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
+
+            byte[] cmsg = cifrado.doFinal(command.getBytes("UTF-8"));
+
+            Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+
+            SecretKeySpec secret_key = new SecretKeySpec(digest.digest(key.getEncoded()), "HmacSHA256");
+
+            sha256_HMAC.init(secret_key);
+
+            byte[] full_command = new byte[32 + iv.length + cmsg.length];
+
+            byte[] iv_cmsg = new byte[iv.length + cmsg.length];
+
+            int i;
+
+            for (i = 0; i < iv.length; i++) {
+                iv_cmsg[i] = iv[i];
+            }
+
+            for (i = 0; i < cmsg.length; i++) {
+                iv_cmsg[i + iv.length] = cmsg[i];
+            }
+
+            byte[] hmac = sha256_HMAC.doFinal(iv_cmsg);
+
+            for (i = 0; i < hmac.length; i++) {
+                full_command[i] = hmac[i];
+            }
+
+            for (i = 0; i < iv_cmsg.length; i++) {
+                full_command[i + hmac.length] = iv_cmsg[i];
+            }
+
+            return ("*" + Base64.encodeBase64String(full_command) + "\n").getBytes("UTF-8");
+
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | UnsupportedEncodingException | IllegalBlockSizeException | BadPaddingException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
+
+    }
+
+    public static byte[] encryptCommand(String command, SecretKeySpec key) {
+
+        byte[] iv = new byte[16];
+
+        Helpers.SPRNG_GENERATOR.nextBytes(iv);
+
+        return encryptCommand(command, key, iv);
+
+    }
+
+    public static String decryptCommand(String command, SecretKeySpec key) throws IOException {
+
+        try {
+
+            Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
+
+            byte[] full_command = Base64.decodeBase64(command.substring(1));
+
+            byte[] hmac = new byte[32];
+
+            byte[] iv = new byte[cifrado.getBlockSize()];
+
+            byte[] cmsg = new byte[full_command.length - hmac.length - iv.length];
+
+            int i;
+
+            for (i = 0; i < hmac.length; i++) {
+                hmac[i] = full_command[i];
+            }
+
+            for (i = 0; i < iv.length; i++) {
+                iv[i] = full_command[i + hmac.length];
+            }
+
+            for (i = 0; i < cmsg.length; i++) {
+                cmsg[i] = full_command[i + hmac.length + iv.length];
+            }
+
+            byte[] iv_cmsg = new byte[iv.length + cmsg.length];
+
+            for (i = 0; i < iv.length; i++) {
+                iv_cmsg[i] = iv[i];
+            }
+
+            for (i = 0; i < cmsg.length; i++) {
+                iv_cmsg[i + iv.length] = cmsg[i];
+            }
+
+            Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+
+            SecretKeySpec secret_key = new SecretKeySpec(digest.digest(key.getEncoded()), "HmacSHA256");
+
+            sha256_HMAC.init(secret_key);
+
+            byte[] current_hmac = sha256_HMAC.doFinal(iv_cmsg);
+
+            if (!MessageDigest.isEqual(hmac, current_hmac)) {
+                throw new IOException();
+            }
+
+            cifrado.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+
+            byte[] msg = cifrado.doFinal(cmsg);
+
+            return new String(msg, "UTF-8");
+
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | UnsupportedEncodingException | IllegalBlockSizeException | BadPaddingException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
+
+    }
 
     public static void createIfNoExistsCoronaDirs() {
 

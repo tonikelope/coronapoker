@@ -79,7 +79,7 @@ public class Participant implements Runnable {
             try {
 
                 if (!WaitingRoom.isPartida_empezada()) {
-                    this.socket.getOutputStream().write("EXIT\n".getBytes("UTF-8"));
+                    this.socket.getOutputStream().write(Helpers.encryptCommand("EXIT", aes_key));
                 }
                 this.socket.getOutputStream().close();
             } catch (IOException ex) {
@@ -200,6 +200,10 @@ public class Participant implements Runnable {
                         recibido = this.input_stream.readLine().trim();
 
                         if (recibido != null) {
+
+                            if (recibido.startsWith("*")) {
+                                recibido = Helpers.decryptCommand(recibido, aes_key);
+                            }
 
                             String[] partes_comando = recibido.split("#");
 

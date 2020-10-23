@@ -11,9 +11,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -23,11 +20,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.spec.IvParameterSpec;
 import javax.swing.ImageIcon;
 import org.apache.commons.codec.binary.Base64;
 
@@ -1236,22 +1228,9 @@ public class Crupier implements Runnable {
 
                     if (partes[2].equals("YOURCARDS")) {
 
-                        try {
-                            ok = true;
+                        ok = true;
 
-                            Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
-
-                            byte[] iv = Base64.decodeBase64(partes[3]);
-
-                            cifrado.init(Cipher.DECRYPT_MODE, Game.getInstance().getSala_espera().getClient_aes_key(), new IvParameterSpec(iv));
-
-                            byte[] cartas_bytes = cifrado.doFinal(Base64.decodeBase64(partes[4]));
-
-                            cartas = new String(cartas_bytes, "UTF-8").split("@");
-
-                        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | UnsupportedEncodingException | InvalidAlgorithmParameterException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
+                        cartas = partes[3].split("@");
 
                     } else {
                         rejected.add(comando);
@@ -2442,6 +2421,10 @@ public class Crupier implements Runnable {
 
         boolean timeout = false;
 
+        byte[] iv = new byte[16];
+
+        Helpers.SPRNG_GENERATOR.nextBytes(iv);
+
         do {
 
             String command = "GAME#" + String.valueOf(id) + "#YOURCARDS";
@@ -2454,29 +2437,16 @@ public class Crupier implements Runnable {
 
                     if (p != null && !p.isCpu()) {
 
-                        String carta1 = jugador.getPlayingCard1().toShortString();
-
-                        String carta2 = jugador.getPlayingCard2().toShortString();
-
                         try {
+                            String carta1 = jugador.getPlayingCard1().toShortString();
 
-                            Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
+                            String carta2 = jugador.getPlayingCard2().toShortString();
 
-                            byte[] iv = new byte[cifrado.getBlockSize()];
-
-                            Helpers.SPRNG_GENERATOR.nextBytes(iv);
-
-                            cifrado.init(Cipher.ENCRYPT_MODE, p.getAes_key(), new IvParameterSpec(iv));
-
-                            byte[] cartas_bytes = cifrado.doFinal((carta1 + "@" + carta2).getBytes("UTF-8"));
-
-                            p.getSocket().getOutputStream().write((command + "#" + Base64.encodeBase64String(iv) + "#" + Base64.encodeBase64String(cartas_bytes) + "\n").getBytes("UTF-8"));
+                            p.getSocket().getOutputStream().write(Helpers.encryptCommand(command + "#" + carta1 + "@" + carta2, p.getAes_key(), iv));
                         } catch (IOException ex) {
-                        } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | IllegalBlockSizeException | BadPaddingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (InvalidAlgorithmParameterException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
+
                     }
                 }
             }
@@ -2559,7 +2529,7 @@ public class Crupier implements Runnable {
 
             try {
 
-                Game.getInstance().getSala_espera().getClient_socket().getOutputStream().write((full_command + "\n").getBytes("UTF-8"));
+                Game.getInstance().getSala_espera().getClient_socket().getOutputStream().write(Helpers.encryptCommand(full_command, Game.getInstance().getSala_espera().getClient_aes_key()));
 
                 if (confirmation) {
                     this.waitConfirmations(id, pendientes);
@@ -3352,6 +3322,10 @@ public class Crupier implements Runnable {
 
             boolean timeout = false;
 
+            byte[] iv = new byte[16];
+
+            Helpers.SPRNG_GENERATOR.nextBytes(iv);
+
             do {
 
                 String full_command = "GAME#" + String.valueOf(id) + "#" + command;
@@ -3363,7 +3337,7 @@ public class Crupier implements Runnable {
                     if (p != null && !p.isCpu() && pendientes.contains(p.getNick())) {
 
                         try {
-                            p.getSocket().getOutputStream().write((full_command + "\n").getBytes("UTF-8"));
+                            p.getSocket().getOutputStream().write(Helpers.encryptCommand(full_command, p.getAes_key(), iv));
                         } catch (IOException ex) {
                         }
 

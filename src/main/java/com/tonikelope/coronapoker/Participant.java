@@ -47,13 +47,14 @@ public class Participant implements Runnable {
     private volatile boolean cpu = false;
     private volatile SecretKeySpec aes_key = null;
 
-    public Participant(String nick, File avatar, Socket socket, WaitingRoom espera, Integer id, boolean cpu) {
+    public Participant(WaitingRoom espera, String nick, File avatar, Socket socket, SecretKeySpec key, Integer id, boolean cpu) {
         this.nick = nick;
         this.setSocket(socket);
         this.sala_espera = espera;
         this.avatar = avatar;
         this.id = id;
         this.cpu = cpu;
+        this.aes_key = key;
     }
 
     public SecretKeySpec getAes_key() {
@@ -79,9 +80,9 @@ public class Participant implements Runnable {
             try {
 
                 if (!WaitingRoom.isPartida_empezada()) {
-                    this.socket.getOutputStream().write(Helpers.encryptCommand("EXIT", aes_key));
+                    this.socketWrite(Helpers.encryptCommand("EXIT", aes_key));
                 }
-                this.socket.getOutputStream().close();
+                this.closeSocket();
             } catch (IOException ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -108,10 +109,18 @@ public class Participant implements Runnable {
         return nick;
     }
 
-    public synchronized Socket getSocket() {
+    public Socket getSocket() {
 
         return socket;
 
+    }
+
+    public synchronized void socketWrite(byte[] data) throws IOException {
+        this.socket.getOutputStream().write(data);
+    }
+
+    public synchronized void closeSocket() throws IOException {
+        this.socket.getOutputStream().close();
     }
 
     private synchronized void setSocket(Socket socket) {
@@ -165,7 +174,7 @@ public class Participant implements Runnable {
 
                         try {
 
-                            getSocket().getOutputStream().write(("PING#" + String.valueOf(ping) + "\n").getBytes("UTF-8"));
+                            socketWrite(("PING#" + String.valueOf(ping) + "\n").getBytes("UTF-8"));
 
                         } catch (IOException ex) {
                             Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
@@ -212,7 +221,7 @@ public class Participant implements Runnable {
                                     pong = Integer.parseInt(partes_comando[1]);
                                     break;
                                 case "PING":
-                                    this.socket.getOutputStream().write(("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1) + "\n").getBytes("UTF-8"));
+                                    this.socketWrite(("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1) + "\n").getBytes("UTF-8"));
                                     break;
                                 case "EXIT":
                                     exit = true;
@@ -241,7 +250,7 @@ public class Participant implements Runnable {
                                     //Es un comando de juego del cliente
                                     String subcomando = partes_comando[2];
                                     int command_id = Integer.valueOf(partes_comando[1]); //Los comandos del juego llevan confirmación de recepción
-                                    this.socket.getOutputStream().write(("CONF#" + String.valueOf(command_id + 1) + "#OK\n").getBytes("UTF-8"));
+                                    this.socketWrite(("CONF#" + String.valueOf(command_id + 1) + "#OK\n").getBytes("UTF-8"));
                                     if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != command_id) {
 
                                         last_received.put(subcomando, command_id);

@@ -6,6 +6,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.event.ActionEvent;
@@ -568,6 +569,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 player_name.setText(nickname);
 
+                if (Game.getInstance().isPartida_local() && !Game.getInstance().getParticipantes().get(nickname).isCpu()) {
+                    player_name.setToolTipText("CLICK -> AES-KEY");
+                    player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                }
+
             }
         });
 
@@ -715,6 +721,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
         player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
+        player_name.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                player_nameMouseClicked(evt);
+            }
+        });
 
         utg_textfield.setBackground(new java.awt.Color(255, 204, 204));
         utg_textfield.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
@@ -824,6 +835,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             });
         }
     }//GEN-LAST:event_timeoutMouseClicked
+
+    private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
+        // TODO add your handling code here:
+
+        if (Game.getInstance().isPartida_local() && !Game.getInstance().getParticipantes().get(player_name.getText()).isCpu()) {
+
+            Identicon identicon = new Identicon(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, player_name.getText(), Game.getInstance().getParticipantes().get(player_name.getText()).getAes_key().getEncoded());
+
+            identicon.setLocationRelativeTo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance());
+
+            identicon.setVisible(true);
+        }
+    }//GEN-LAST:event_player_nameMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;

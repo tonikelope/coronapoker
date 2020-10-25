@@ -304,6 +304,9 @@
                 <Property name="doubleBuffered" type="boolean" value="true"/>
                 <Property name="focusable" type="boolean" value="false"/>
               </Properties>
+              <Events>
+                <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="player_nameMouseClicked"/>
+              </Events>
             </Component>
             <Component class="javax.swing.JLabel" name="utg_textfield">
               <Properties>

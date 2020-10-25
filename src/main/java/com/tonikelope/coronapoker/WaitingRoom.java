@@ -427,7 +427,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     }
 
-    public void broadcastCommandFromServer(String command, String skip_nick, boolean confirmation) {
+    public void broadcastCommandFromServer(String command, Participant par, boolean confirmation) {
 
         ArrayList<String> pendientes = new ArrayList<>();
 
@@ -435,7 +435,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             Participant p = entry.getValue();
 
-            if (p != null && !p.isCpu() && !p.getNick().equals(skip_nick) && !p.isExit()) {
+            if (p != null && !p.isCpu() && p != par && !p.isExit()) {
 
                 pendientes.add(p.getNick());
 
@@ -492,11 +492,11 @@ public class WaitingRoom extends javax.swing.JFrame {
         }
     }
 
-    public void sendCommandFromServer(String command, String nick, Socket socket, boolean confirmation) {
+    public void sendCommandFromServer(String command, Participant p, boolean confirmation) {
 
         ArrayList<String> pendientes = new ArrayList<>();
 
-        pendientes.add(nick);
+        pendientes.add(p.getNick());
 
         int id = Helpers.PRNG_GENERATOR.nextInt();
 
@@ -508,7 +508,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             try {
 
-                socket.getOutputStream().write(Helpers.encryptCommand(full_command, participantes.get(nick).getAes_key()));
+                p.socketWrite(Helpers.encryptCommand(full_command, p.getAes_key()));
 
             } catch (IOException ex) {
             }
@@ -761,10 +761,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                         });
 
                         //Añadimos al servidor
-                        nuevoParticipante(server_nick, server_avatar, null, null, false);
+                        nuevoParticipante(server_nick, server_avatar, null, null, null, false);
 
                         //Nos añadimos nosotros
-                        nuevoParticipante(local_nick, local_avatar, null, null, false);
+                        nuevoParticipante(local_nick, local_avatar, null, null, null, false);
 
                         //Cada X segundos mandamos un comando KEEP ALIVE al server 
                         Helpers.threadRun(new Runnable() {
@@ -935,7 +935,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                         if (!participantes.containsKey(nick)) {
                                                             //Añadimos al participante
-                                                            nuevoParticipante(nick, avatar, null, null, false);
+                                                            nuevoParticipante(nick, avatar, null, null, null, false);
                                                         } else {
                                                             participantes.get(nick).setAvatar(avatar);
                                                         }
@@ -969,7 +969,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                             if (!participantes.containsKey(nick)) {
                                                                 //Añadimos al participante
-                                                                nuevoParticipante(nick, avatar, null, null, false);
+                                                                nuevoParticipante(nick, avatar, null, null, null, false);
                                                             } else {
                                                                 participantes.get(nick).setAvatar(avatar);
                                                             }
@@ -1095,7 +1095,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         });
     }
 
-    private void enviarListaUsuariosActualesAlNuevoUsuario(String nick, Socket socket) {
+    private void enviarListaUsuariosActualesAlNuevoUsuario(Participant par) {
 
         String command = "USERSLIST#";
 
@@ -1105,7 +1105,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             try {
 
-                if (p != null && !p.getNick().equals(nick)) {
+                if (p != null && p != par) {
 
                     command += Base64.encodeBase64String(p.getNick().getBytes("UTF-8"));
 
@@ -1128,7 +1128,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         }
 
-        this.sendCommandFromServer(command, nick, socket, true);
+        this.sendCommandFromServer(command, par, true);
 
     }
 
@@ -1221,6 +1221,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 if (participantes.containsKey(client_nick) && Integer.parseInt(partes[3]) == participantes.get(client_nick).getId()) {
 
                                     //Es un usuario intentado reconectar
+                                    participantes.get(client_nick).setAes_key(aes_key);
+
                                     participantes.get(client_nick).resetSocket(client);
 
                                     synchronized (getSocket_reconnect_lock()) {
@@ -1228,14 +1230,12 @@ public class WaitingRoom extends javax.swing.JFrame {
                                         getSocket_reconnect_lock().notifyAll();
                                     }
 
-                                    participantes.get(client_nick).setAes_key(aes_key);
-
                                     //Mandamos el chat
-                                    client.getOutputStream().write(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key));
+                                    participantes.get(client_nick).getSocket().getOutputStream().write(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key));
 
                                     if (!isPartida_empezada() && participantes.size() > 2) {
 
-                                        enviarListaUsuariosActualesAlNuevoUsuario(client_nick, client);
+                                        enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
                                     }
 
                                     Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, null, "El usuario " + client_nick + " ha reconectado correctamente su socket.");
@@ -1306,32 +1306,28 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 client.getOutputStream().write(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key));
 
                                 //Añadimos al participante
-                                nuevoParticipante(client_nick, client_avatar, client, cid, false);
-
-                                participantes.get(client_nick).setAes_key(aes_key);
+                                nuevoParticipante(client_nick, client_avatar, client, aes_key, cid, false);
 
                                 //Mandamos la lista de participantes actuales al nuevo participante
                                 if (participantes.size() > 2) {
-                                    enviarListaUsuariosActualesAlNuevoUsuario(client_nick, client);
+                                    enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
                                 }
-
-                                File client_avatar_new = client_avatar;
 
                                 //Mandamos el nuevo participante al resto de participantes
                                 String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
 
-                                if (client_avatar_new != null) {
+                                if (client_avatar != null) {
 
                                     byte[] avatar_b;
 
-                                    try (FileInputStream is = new FileInputStream(client_avatar_new)) {
+                                    try (FileInputStream is = new FileInputStream(client_avatar)) {
                                         avatar_b = is.readAllBytes();
                                     }
 
                                     comando += "#" + Base64.encodeBase64String(avatar_b);
                                 }
 
-                                broadcastCommandFromServer(comando, client_nick, true);
+                                broadcastCommandFromServer(comando, participantes.get(client_nick), true);
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
@@ -1466,10 +1462,10 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             Helpers.playWavResource("misc/toilet.wav");
 
+            participantes.remove(nick);
+
             Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
-
-                    participantes.remove(nick);
 
                     DefaultListModel listModel = new DefaultListModel();
 
@@ -1517,7 +1513,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                 String comando;
                 try {
                     comando = "DELUSER#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
-                    this.broadcastCommandFromServer(comando, nick, true);
+                    this.broadcastCommandFromServer(comando, participantes.get(nick), true);
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -1527,9 +1523,11 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     }
 
-    private void nuevoParticipante(String nick, File avatar, Socket socket, Integer cid, boolean cpu) {
+    private void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec key, Integer cid, boolean cpu) {
 
-        Participant participante = new Participant(nick, avatar, socket, this, cid, cpu);
+        Participant participante = new Participant(this, nick, avatar, socket, key, cid, cpu);
+
+        participantes.put(nick, participante);
 
         if (socket != null) {
 
@@ -1539,8 +1537,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
-
-                participantes.put(nick, participante);
 
                 DefaultListModel listModel = new DefaultListModel();
 
@@ -2009,7 +2005,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 } while (participantes.get(bot_nick) != null);
 
-                nuevoParticipante(bot_nick, null, null, null, true);
+                nuevoParticipante(bot_nick, null, null, null, null, true);
 
                 //Mandamos el nuevo participante al resto de participantes
                 String comando = "NEWUSER#" + Base64.encodeBase64String(bot_nick.getBytes("UTF-8"));
@@ -2024,7 +2020,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 comando += "#" + Base64.encodeBase64String(avatar_b);
 
-                broadcastCommandFromServer(comando, bot_nick, true);
+                broadcastCommandFromServer(comando, participantes.get(bot_nick), true);
 
                 Helpers.GUIRun(new Runnable() {
                     public void run() {

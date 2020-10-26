@@ -1899,7 +1899,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!Game.getInstance().isPartida_local()) {
 
-            Identicon identicon = new Identicon(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, player_name.getText(), Game.getInstance().getSala_espera().getClient_aes_key().getEncoded());
+            Identicon identicon = new Identicon(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, player_name.getText(), Game.getInstance().getSala_espera().getClient_aes_key());
 
             identicon.setLocationRelativeTo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance());
 

@@ -150,7 +150,7 @@ public class Helpers {
     public static boolean MUTED_MP3 = false;
     public static boolean RANDOMORG_ERROR_MSG = false;
 
-    public static byte[] encryptCommand(String command, SecretKeySpec key, byte[] iv) {
+    public static String encryptCommand(String command, SecretKeySpec key, byte[] iv) {
 
         try {
             Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
@@ -191,7 +191,7 @@ public class Helpers {
                 full_command[i + hmac.length] = iv_cmsg[i];
             }
 
-            return ("*" + Base64.encodeBase64String(full_command) + "\n").getBytes("UTF-8");
+            return ("*" + Base64.encodeBase64String(full_command));
 
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | UnsupportedEncodingException | IllegalBlockSizeException | BadPaddingException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -200,7 +200,7 @@ public class Helpers {
 
     }
 
-    public static byte[] encryptCommand(String command, SecretKeySpec key) {
+    public static String encryptCommand(String command, SecretKeySpec key) {
 
         byte[] iv = new byte[16];
 

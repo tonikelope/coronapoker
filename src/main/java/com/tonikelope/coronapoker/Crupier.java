@@ -2442,7 +2442,7 @@ public class Crupier implements Runnable {
 
                             String carta2 = jugador.getPlayingCard2().toShortString();
 
-                            p.getSocket().getOutputStream().write(Helpers.encryptCommand(command + "#" + carta1 + "@" + carta2, p.getAes_key(), iv));
+                            p.sendCommandFromServer(Helpers.encryptCommand(command + "#" + carta1 + "@" + carta2, p.getAes_key(), iv));
                         } catch (IOException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -2529,7 +2529,7 @@ public class Crupier implements Runnable {
 
             try {
 
-                Game.getInstance().getSala_espera().getClient_socket().getOutputStream().write(Helpers.encryptCommand(full_command, Game.getInstance().getSala_espera().getClient_aes_key()));
+                Game.getInstance().getSala_espera().sendCommandToServer(Helpers.encryptCommand(full_command, Game.getInstance().getSala_espera().getClient_aes_key()));
 
                 if (confirmation) {
                     this.waitConfirmations(id, pendientes);
@@ -2539,10 +2539,10 @@ public class Crupier implements Runnable {
 
                 if (confirmation) {
 
-                    synchronized (Game.getInstance().getSala_espera().getSocket_reconnect_lock()) {
+                    synchronized (Game.getInstance().getSala_espera().getLocalClientSocketLock()) {
 
                         try {
-                            Game.getInstance().getSala_espera().getSocket_reconnect_lock().wait(Game.WAIT_QUEUES);
+                            Game.getInstance().getSala_espera().getLocalClientSocketLock().wait(Game.WAIT_QUEUES);
                         } catch (InterruptedException ex1) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex1);
                         }
@@ -3337,7 +3337,7 @@ public class Crupier implements Runnable {
                     if (p != null && !p.isCpu() && pendientes.contains(p.getNick())) {
 
                         try {
-                            p.getSocket().getOutputStream().write(Helpers.encryptCommand(full_command, p.getAes_key(), iv));
+                            p.sendCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv));
                         } catch (IOException ex) {
                         }
 

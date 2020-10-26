@@ -39,7 +39,9 @@ public class Identicon extends javax.swing.JDialog {
                 public void run() {
                     initComponents();
 
-                    name.setText(nick);
+                    setTitle("AES-KEY " + nick);
+
+                    icon_panel.setPreferredSize(new Dimension(SIZE, SIZE));
 
                     identicon.setPreferredSize(new Dimension(SIZE, SIZE));
 
@@ -102,39 +104,46 @@ public class Identicon extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        icon_panel = new javax.swing.JPanel();
         identicon = new javax.swing.JLabel();
-        name = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("AES-KEY");
         setResizable(false);
 
+        icon_panel.setBackground(new java.awt.Color(255, 255, 255));
+
         identicon.setPreferredSize(new Dimension(SIZE, SIZE));
 
-        name.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        name.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        name.setText("jLabel1");
+        javax.swing.GroupLayout icon_panelLayout = new javax.swing.GroupLayout(icon_panel);
+        icon_panel.setLayout(icon_panelLayout);
+        icon_panelLayout.setHorizontalGroup(
+            icon_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(identicon, javax.swing.GroupLayout.DEFAULT_SIZE, 352, Short.MAX_VALUE)
+        );
+        icon_panelLayout.setVerticalGroup(
+            icon_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(identicon, javax.swing.GroupLayout.DEFAULT_SIZE, 286, Short.MAX_VALUE)
+        );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(identicon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(name, javax.swing.GroupLayout.DEFAULT_SIZE, 352, Short.MAX_VALUE)
+            .addComponent(icon_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(identicon, javax.swing.GroupLayout.DEFAULT_SIZE, 286, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(name))
+                .addComponent(icon_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(0, 0, 0))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JPanel icon_panel;
     private javax.swing.JLabel identicon;
-    private javax.swing.JLabel name;
     // End of variables declaration//GEN-END:variables
 }

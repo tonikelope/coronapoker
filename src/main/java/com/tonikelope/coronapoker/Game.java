@@ -45,7 +45,7 @@ import javax.swing.Timer;
  */
 public final class Game extends javax.swing.JFrame implements ZoomableInterface {
 
-    public static final boolean DEBUG_TO_FILE = true;
+    public static final boolean DEBUG_TO_FILE = false;
     public static final boolean TEST_MODE = false;
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;
@@ -62,8 +62,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final int TIEMPO_PENSAR = 30; //Segundos
     public static final int WAIT_QUEUES = 1000;
     public static final int WAIT_PAUSE = 1000;
-    public static final int CLIENT_RECEPTION_TIMEOUT = 15000;
-    public static final int CONFIRMATION_TIMEOUT = 15000;
+    public static final int CLIENT_RECEPTION_TIMEOUT = 10000;
+    public static final int CONFIRMATION_TIMEOUT = 10000;
     public static final int CLIENT_RECON_TIMEOUT = 2 * TIEMPO_PENSAR * 1000; // Tiempo en milisegundos que esperaremos cliente que perdió la conexión antes (preguntar) si echarle de la timba
     public static final int CLIENT_RECON_ERROR_PAUSE = 5000;
     public static final int REBUY_TIMEOUT = 25000;
@@ -771,9 +771,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             public boolean dispatchKeyEvent(KeyEvent e) {
                 KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
 
-                JFrame frame = Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance();
-
-                if (actionMap.containsKey(keyStroke) && frame.hasFocus()) {
+                if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected()) {
                     final Action a = actionMap.get(keyStroke);
                     final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
 

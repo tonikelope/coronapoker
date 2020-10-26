@@ -43,6 +43,7 @@ public class Participant implements Runnable {
     private volatile BufferedReader input_stream = null;
     private volatile boolean reconnected = false;
     private final Object keep_alive_lock = new Object();
+    private final Object participant_socket_lock = new Object();
     private volatile int pong;
     private volatile boolean cpu = false;
     private volatile SecretKeySpec aes_key = null;
@@ -80,9 +81,9 @@ public class Participant implements Runnable {
             try {
 
                 if (!WaitingRoom.isPartida_empezada()) {
-                    this.socketWrite(Helpers.encryptCommand("EXIT", aes_key));
+                    this.sendCommandFromServer(Helpers.encryptCommand("EXIT", aes_key));
                 }
-                this.closeSocket();
+                this.socketClose();
             } catch (IOException ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -109,54 +110,71 @@ public class Participant implements Runnable {
         return nick;
     }
 
-    public Socket getSocket() {
-
-        return socket;
-
+    public void sendCommandFromServer(String command) throws IOException {
+        synchronized (participant_socket_lock) {
+            this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+        }
     }
 
-    public synchronized void socketWrite(byte[] data) throws IOException {
-        this.socket.getOutputStream().write(data);
+    public String readCommandFromClient() throws IOException {
+
+        String recibido = this.input_stream.readLine().trim();
+
+        if (recibido != null) {
+
+            if (recibido.startsWith("*")) {
+                recibido = Helpers.decryptCommand(recibido, aes_key);
+            }
+        }
+
+        return recibido;
     }
 
-    public synchronized void closeSocket() throws IOException {
-        this.socket.getOutputStream().close();
+    public void socketClose() throws IOException {
+        synchronized (participant_socket_lock) {
+            this.socket.getOutputStream().close();
+        }
     }
 
-    private synchronized void setSocket(Socket socket) {
+    private void setSocket(Socket socket) {
 
-        this.socket = socket;
+        synchronized (participant_socket_lock) {
+            this.socket = socket;
 
-        if (this.socket != null) {
+            if (this.socket != null) {
+
+                try {
+                    this.input_stream = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+                } catch (IOException ex) {
+                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }
+
+    public void resetSocket(Socket socket) {
+
+        synchronized (participant_socket_lock) {
+
+            if (this.socket != null) {
+
+                try {
+                    this.socket.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            this.socket = socket;
 
             try {
                 this.input_stream = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
             } catch (IOException ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
             }
+
+            this.reconnected = true;
         }
-    }
-
-    public synchronized void resetSocket(Socket socket) {
-
-        if (this.socket != null) {
-
-            try {
-                this.socket.close();
-            } catch (IOException ex) {
-                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-
-        this.socket = socket;
-
-        try {
-            this.input_stream = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-        } catch (IOException ex) {
-            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        this.reconnected = true;
     }
 
     @Override
@@ -174,7 +192,7 @@ public class Participant implements Runnable {
 
                         try {
 
-                            socketWrite(("PING#" + String.valueOf(ping) + "\n").getBytes("UTF-8"));
+                            sendCommandFromServer(("PING#" + String.valueOf(ping)));
 
                         } catch (IOException ex) {
                             Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
@@ -206,13 +224,9 @@ public class Participant implements Runnable {
 
                     try {
 
-                        recibido = this.input_stream.readLine().trim();
+                        recibido = this.readCommandFromClient();
 
                         if (recibido != null) {
-
-                            if (recibido.startsWith("*")) {
-                                recibido = Helpers.decryptCommand(recibido, aes_key);
-                            }
 
                             String[] partes_comando = recibido.split("#");
 
@@ -221,7 +235,7 @@ public class Participant implements Runnable {
                                     pong = Integer.parseInt(partes_comando[1]);
                                     break;
                                 case "PING":
-                                    this.socketWrite(("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1) + "\n").getBytes("UTF-8"));
+                                    this.sendCommandFromServer(("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1)));
                                     break;
                                 case "EXIT":
                                     exit = true;
@@ -250,7 +264,7 @@ public class Participant implements Runnable {
                                     //Es un comando de juego del cliente
                                     String subcomando = partes_comando[2];
                                     int command_id = Integer.valueOf(partes_comando[1]); //Los comandos del juego llevan confirmación de recepción
-                                    this.socketWrite(("CONF#" + String.valueOf(command_id + 1) + "#OK\n").getBytes("UTF-8"));
+                                    this.sendCommandFromServer(("CONF#" + String.valueOf(command_id + 1) + "#OK"));
                                     if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != command_id) {
 
                                         last_received.put(subcomando, command_id);
@@ -298,9 +312,9 @@ public class Participant implements Runnable {
                         do {
 
                             while (!reconnected) {
-                                synchronized (sala_espera.getSocket_reconnect_lock()) {
+                                synchronized (sala_espera.getLocalClientSocketLock()) {
 
-                                    sala_espera.getSocket_reconnect_lock().wait(Game.WAIT_QUEUES);
+                                    sala_espera.getLocalClientSocketLock().wait(Game.WAIT_QUEUES);
                                 }
                             }
 

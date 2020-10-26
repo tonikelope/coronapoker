@@ -14,6 +14,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.ImageIcon;
 
 /**
@@ -22,18 +23,16 @@ import javax.swing.ImageIcon;
  */
 public class Identicon extends javax.swing.JDialog {
 
-    public static final int SIZE = 350;
-
     /**
      * Creates new form Identicon
      */
-    public Identicon(java.awt.Frame parent, boolean modal, String nick, byte[] data) {
+    public Identicon(java.awt.Frame parent, boolean modal, String nick, SecretKeySpec key) {
         super(parent, modal);
-        Identicon tthis = this;
+
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
 
-            String hash = Helpers.toHexString(md.digest(data));
+            String hash = Helpers.toHexString(md.digest(key.getEncoded()));
 
             Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
@@ -41,15 +40,23 @@ public class Identicon extends javax.swing.JDialog {
 
                     setTitle("AES-KEY " + nick);
 
-                    icon_panel.setPreferredSize(new Dimension(SIZE, SIZE));
+                    int SIZE = Math.round(parent.getHeight() * 0.3f);
 
-                    identicon.setPreferredSize(new Dimension(SIZE, SIZE));
+                    while (SIZE % 5 != 0) {
+                        SIZE--;
+                    }
 
-                    identicon.setIcon(new ImageIcon(generateIdenticon(hash, SIZE, SIZE)));
+                    ImageIcon icon = new ImageIcon(generateIdenticon(hash, SIZE, SIZE));
 
-                    Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+                    setSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
 
-                    pack();
+                    setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
+
+                    icon_panel.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
+
+                    icon_label.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
+
+                    icon_label.setIcon(icon);
                 }
             });
         } catch (NoSuchAlgorithmException ex) {
@@ -105,7 +112,7 @@ public class Identicon extends javax.swing.JDialog {
     private void initComponents() {
 
         icon_panel = new javax.swing.JPanel();
-        identicon = new javax.swing.JLabel();
+        icon_label = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("AES-KEY");
@@ -113,29 +120,27 @@ public class Identicon extends javax.swing.JDialog {
 
         icon_panel.setBackground(new java.awt.Color(255, 255, 255));
 
-        identicon.setPreferredSize(new Dimension(SIZE, SIZE));
-
         javax.swing.GroupLayout icon_panelLayout = new javax.swing.GroupLayout(icon_panel);
         icon_panel.setLayout(icon_panelLayout);
         icon_panelLayout.setHorizontalGroup(
             icon_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(identicon, javax.swing.GroupLayout.DEFAULT_SIZE, 352, Short.MAX_VALUE)
+            .addComponent(icon_label, javax.swing.GroupLayout.DEFAULT_SIZE, 340, Short.MAX_VALUE)
         );
         icon_panelLayout.setVerticalGroup(
             icon_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(identicon, javax.swing.GroupLayout.DEFAULT_SIZE, 286, Short.MAX_VALUE)
+            .addComponent(icon_label, javax.swing.GroupLayout.DEFAULT_SIZE, 292, Short.MAX_VALUE)
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(icon_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(icon_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 340, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(icon_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(icon_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 292, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
         );
 
@@ -143,7 +148,7 @@ public class Identicon extends javax.swing.JDialog {
     }// </editor-fold>//GEN-END:initComponents
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JLabel icon_label;
     private javax.swing.JPanel icon_panel;
-    private javax.swing.JLabel identicon;
     // End of variables declaration//GEN-END:variables
 }

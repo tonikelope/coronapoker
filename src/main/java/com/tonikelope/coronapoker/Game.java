@@ -45,7 +45,7 @@ import javax.swing.Timer;
  */
 public final class Game extends javax.swing.JFrame implements ZoomableInterface {
 
-    public static final boolean DEBUG_TO_FILE = true;
+    public static final boolean DEBUG_TO_FILE = false;
     public static final boolean TEST_MODE = false;
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;

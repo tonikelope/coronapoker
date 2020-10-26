@@ -841,7 +841,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (Game.getInstance().isPartida_local() && !Game.getInstance().getParticipantes().get(player_name.getText()).isCpu()) {
 
-            Identicon identicon = new Identicon(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, player_name.getText(), Game.getInstance().getParticipantes().get(player_name.getText()).getAes_key().getEncoded());
+            Identicon identicon = new Identicon(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, player_name.getText(), Game.getInstance().getParticipantes().get(player_name.getText()).getAes_key());
 
             identicon.setLocationRelativeTo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance());
 

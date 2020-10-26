@@ -14,7 +14,6 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
-import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -153,6 +152,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     }
                 }
 
+                boolean fullscreen_error = false;
+
                 if (full_screen) {
 
                     Helpers.GUIRun(new Runnable() {
@@ -163,16 +164,18 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         }
                     });
 
-                    Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+                    double frameHeight = tapete.getHeight();
+
+                    double frameWidth = tapete.getWidth();
 
                     t = 0;
 
-                    while (t < AUTO_ZOOM_TIMEOUT && (tapete.getLocationOnScreen().getY() != 0 || tapete.getHeight() != screenSize.getHeight())) {
+                    while (t < AUTO_ZOOM_TIMEOUT && frameWidth == tapete.getWidth() && frameHeight == tapete.getHeight()) {
                         Helpers.pausar(GUI_ZOOM_WAIT);
                         t += GUI_ZOOM_WAIT;
                     }
 
-                    if (tapete.getLocationOnScreen().getY() == 0 && tapete.getHeight() == screenSize.getHeight()) {
+                    if (frameWidth != tapete.getWidth() || frameHeight != tapete.getHeight()) {
 
                         double playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
 
@@ -197,7 +200,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                             t = 0;
 
-                            while (t < AUTO_ZOOM_TIMEOUT && (playerWidth == getLocalPlayer().getWidth() && playerHeight == getLocalPlayer().getHeight())) {
+                            while (t < AUTO_ZOOM_TIMEOUT && playerWidth == getLocalPlayer().getWidth() && playerHeight == getLocalPlayer().getHeight()) {
 
                                 Helpers.pausar(GUI_ZOOM_WAIT);
                                 t += GUI_ZOOM_WAIT;
@@ -207,7 +210,27 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                                 playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
                             }
                         }
+
+                    } else {
+
+                        fullscreen_error = true;
                     }
+
+                } else {
+
+                    fullscreen_error = true;
+                }
+
+                if (fullscreen_error) {
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            setVisible(true);
+
+                        }
+                    });
                 }
 
                 Helpers.GUIRun(new Runnable() {

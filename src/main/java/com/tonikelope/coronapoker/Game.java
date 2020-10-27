@@ -1260,6 +1260,13 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public synchronized void finTransmision(boolean partida_terminada) {
 
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                exit_menu.setEnabled(false);
+                menu_bar.setVisible(false);
+            }
+        });
+
         if (partida_terminada) {
 
             getRegistro().print("\n*************** LA TIMBA HA TERMINADO ***************");
@@ -1292,18 +1299,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         }
 
-        getCrupier().setFin_de_la_transmision(true);
-
-        Helpers.muteLoopMp3();
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                exit_menu.setEnabled(false);
-                menu_bar.setVisible(false);
-            }
-        });
-
         getLocalPlayer().setExit(true);
+
+        getCrupier().setFin_de_la_transmision(true); //AQUí, y NO ANTES porque si el hilo del crupier termina antes la liamos
 
         String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
 
@@ -1322,6 +1320,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         }
 
         if (Game.SONIDOS) {
+            Helpers.muteLoopMp3();
             Helpers.playWavResourceAndWait("misc/end.wav");
         }
 

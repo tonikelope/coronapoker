@@ -1260,19 +1260,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public synchronized void finTransmision(boolean partida_terminada) {
 
-        getCrupier().setFin_de_la_transmision(true);
-
-        Helpers.muteLoopMp3();
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                exit_menu.setEnabled(false);
-                menu_bar.setVisible(false);
-            }
-        });
-
-        getLocalPlayer().setExit(true);
-
         if (partida_terminada) {
 
             getRegistro().print("\n*************** LA TIMBA HA TERMINADO ***************");
@@ -1305,12 +1292,25 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         }
 
+        getCrupier().setFin_de_la_transmision(true);
+
+        Helpers.muteLoopMp3();
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                exit_menu.setEnabled(false);
+                menu_bar.setVisible(false);
+            }
+        });
+
+        getLocalPlayer().setExit(true);
+
         String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
 
         try {
             Files.writeString(Paths.get(log_file), getRegistro().getText());
         } catch (IOException ex1) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex1);
+            Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
         }
 
         String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
@@ -1318,7 +1318,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         try {
             Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());
         } catch (IOException ex1) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex1);
+            Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
         }
 
         if (Game.SONIDOS) {

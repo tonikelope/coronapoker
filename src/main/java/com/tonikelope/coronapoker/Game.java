@@ -1299,7 +1299,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         }
 
-        getLocalPlayer().setExit(true);
+        getLocalPlayer().setExit();
 
         getCrupier().setFin_de_la_transmision(true); //AQUí, y NO ANTES porque si el hilo del crupier termina antes la liamos
 
@@ -1324,7 +1324,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             Helpers.playWavResourceAndWait("misc/end.wav");
         }
 
-        System.exit(0);
+        System.exit(0); //No hay otra
     }
 
     public Timer getTiempo_juego() {
@@ -1721,13 +1721,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 // 0=yes, 1=no, 2=cancel
                 if (Helpers.mostrarMensajeInformativoSINO(this, "¡CUIDADO! ERES EL ANFITRIÓN Y SI SALES SE TERMINARÁ LA TIMBA. ¿ESTÁS SEGURO?") == 0) {
 
-                    this.exit_menu.setEnabled(false);
-
                     Helpers.threadRun(new Runnable() {
                         public void run() {
                             //Hay que avisar a los clientes de que la timba ha terminado
                             crupier.broadcastCommandFromServer("SERVEREXIT", null, false);
-
                             finTransmision(true);
                         }
                     });
@@ -1735,8 +1732,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 }
 
             } else {
-
-                this.exit_menu.setEnabled(false);
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
@@ -1749,7 +1744,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         } else {
             // 0=yes, 1=no, 2=cancel
             if (Helpers.mostrarMensajeInformativoSINO(this, "¡CUIDADO! Si sales de la timba no podrás volver a entrar. ¿ESTÁS SEGURO?") == 0) {
-                this.exit_menu.setEnabled(false);
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {

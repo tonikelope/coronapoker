@@ -113,34 +113,38 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return exit;
     }
 
-    public synchronized void setExit(boolean exit) {
-        this.exit = exit;
-        this.spectator = false;
+    public synchronized void setExit() {
 
-        if (crupier.getJugadoresActivos() + crupier.getTotalCalentando() < 2) {
-            crupier.setJugadores_suficientes(false);
-        }
+        if (!this.exit) {
+            this.exit = true;
+            this.spectator = false;
 
-        if (auto_action != null) {
-            auto_action.stop();
-        }
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
-
-                playingCard1.descargarCarta();
-                playingCard2.descargarCarta();
-
-                player_action.setBackground(new Color(255, 102, 0));
-                player_action.setForeground(Color.WHITE);
-                player_action.setText(Translator.translate("ABANDONA LA TIMBA"));
-                player_action.setVisible(true);
-                player_action.setEnabled(true);
+            if (crupier.getJugadoresActivos() + crupier.getTotalCalentando() < 2) {
+                crupier.setJugadores_suficientes(false);
             }
-        });
+
+            if (auto_action != null) {
+                auto_action.stop();
+            }
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+
+                    playingCard1.descargarCarta();
+                    playingCard2.descargarCarta();
+
+                    player_action.setBackground(new Color(255, 102, 0));
+                    player_action.setForeground(Color.WHITE);
+                    player_action.setText(Translator.translate("ABANDONA LA TIMBA"));
+                    player_action.setVisible(true);
+                    player_action.setEnabled(true);
+                }
+            });
+
+        }
 
     }
 
@@ -830,7 +834,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
-                    crupier.playerExit(nickname);
+                    crupier.playerQuit(nickname);
                 }
             });
         }

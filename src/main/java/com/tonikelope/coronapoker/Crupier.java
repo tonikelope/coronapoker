@@ -975,7 +975,7 @@ public class Crupier implements Runnable {
                             timeout = true;
 
                             for (String nick : pending) {
-                                this.playerExit(nick);
+                                this.playerQuit(nick);
                             }
 
                         } else {
@@ -1014,32 +1014,21 @@ public class Crupier implements Runnable {
 
     }
 
-    public synchronized void playerExit(String nick) {
+    public synchronized void playerQuit(String nick) {
 
         Player jugador = nick2player.get(nick);
 
         if (jugador != null && !jugador.isExit()) {
 
-            jugador.setExit(true);
+            jugador.setExit();
 
             if (Game.getInstance().isPartida_local()) {
 
-                if (nick.equals(Game.getInstance().getLocalPlayer().getNickname())) {
-                    try {
-                        Game.getInstance().getLocalPlayer().setExit(true);
-                        broadcastCommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
-                } else {
-                    try {
-                        Game.getInstance().getParticipantes().get(nick).setExit();
-                        broadcastCommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
+                try {
+                    Game.getInstance().getParticipantes().get(nick).setExit();
+                    broadcastCommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
@@ -2489,7 +2478,7 @@ public class Crupier implements Runnable {
 
             for (String nick : pendientes) {
                 if (!nick2player.get(nick).isExit()) {
-                    this.playerExit(nick);
+                    this.playerQuit(nick);
                 }
             }
         }
@@ -2701,7 +2690,7 @@ public class Crupier implements Runnable {
 
                                 timeout = true;
 
-                                this.playerExit(jugador.getNickname());
+                                this.playerQuit(jugador.getNickname());
 
                             } else {
                                 start = System.currentTimeMillis();
@@ -3385,7 +3374,7 @@ public class Crupier implements Runnable {
                             if (!nick2player.isEmpty()) {
                                 for (String nick : pendientes) {
                                     if (!nick2player.get(nick).isExit()) {
-                                        this.playerExit(nick);
+                                        this.playerQuit(nick);
                                     }
                                 }
                             } else {

@@ -71,7 +71,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final String DEFAULT_LANGUAGE = "es";
     public static final int PEPILLO_COUNTER_MAX = 5;
     public static final int AUTO_ZOOM_TIMEOUT = 2000;
-    public static final int GUI_ZOOM_WAIT = 250;
+    public static final int GUI_ZOOM_WAIT = 125;
 
     public static boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));

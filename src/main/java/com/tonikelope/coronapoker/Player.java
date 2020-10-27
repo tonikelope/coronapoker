@@ -90,7 +90,7 @@ public interface Player {
 
     public boolean isExit();
 
-    public void setExit(boolean exit);
+    public void setExit();
 
     public String getLastActionString();
 

@@ -1319,7 +1319,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
         }
 
-        if (Game.SONIDOS) {
+        if (Game.SONIDOS && Game.SONIDOS_CHORRA) {
             Helpers.muteLoopMp3();
             Helpers.playWavResourceAndWait("misc/end.wav");
         }

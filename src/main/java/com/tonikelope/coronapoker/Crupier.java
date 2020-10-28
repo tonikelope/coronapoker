@@ -6,6 +6,7 @@
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.Game.WAIT_QUEUES;
+import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -1914,7 +1915,9 @@ public class Crupier implements Runnable {
 
         if (Helpers.float1DSecureCompare(0f, this.bote_sobrante) < 0) {
 
-            Helpers.playWavResource("misc/indivisible.wav");
+            if (Game.SONIDOS_CHORRA) {
+                Helpers.playWavResource("misc/indivisible.wav");
+            }
 
             Helpers.playWavResource("misc/cash_register.wav");
 
@@ -4564,6 +4567,12 @@ public class Crupier implements Runnable {
 
                             Game.getInstance().getRegistro().print(resisten.get(0).getNickname() + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal()) + Translator.translate(") SIN TENER QUE MOSTRAR"));
 
+                            Game.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+
+                            Game.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
+
+                            Game.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
+
                             this.bote_total = 0f;
 
                             this.bote_sobrante = 0f;
@@ -4665,6 +4674,10 @@ public class Crupier implements Runnable {
                                 }
 
                                 this.showdown(jugadas, ganadores);
+
+                                Game.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+                                Game.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
+                                Game.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
 
                             } else {
 
@@ -4819,6 +4832,10 @@ public class Crupier implements Runnable {
                                     conta_bote_secundario++;
 
                                 }
+
+                                Game.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+                                Game.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.YELLOW);
+                                Game.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
 
                             }
 

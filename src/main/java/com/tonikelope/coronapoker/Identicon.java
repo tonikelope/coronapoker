@@ -38,7 +38,7 @@ public class Identicon extends javax.swing.JDialog {
                 public void run() {
                     initComponents();
 
-                    setTitle("AES-KEY " + nick);
+                    setTitle(nick);
 
                     int SIZE = Math.round(parent.getHeight() * 0.3f);
 
@@ -65,7 +65,7 @@ public class Identicon extends javax.swing.JDialog {
 
     }
 
-    public static BufferedImage generateIdenticon(String text, int image_width, int image_height) {
+    public BufferedImage generateIdenticon(String text, int image_width, int image_height) {
         int width = 5, height = 5;
 
         byte[] hash = text.getBytes();
@@ -75,6 +75,17 @@ public class Identicon extends javax.swing.JDialog {
 
         int[] background = new int[]{255, 255, 255, 0};
         int[] foreground = new int[]{hash[0] & 255, hash[1] & 255, hash[2] & 255, 255};
+        byte[] hash_rgb = new byte[]{hash[0], hash[1], hash[2]};
+        String[] hash_rgb_parts = Helpers.toHexString(hash_rgb).toUpperCase().split("(?<=\\G.{2})");
+        String hash_rgb_title = String.join(":", hash_rgb_parts);
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+
+                setTitle(getTitle() + " - " + hash_rgb_title);
+            }
+        });
 
         for (int x = 0; x < width; x++) {
             //Enforce horizontal symmetry

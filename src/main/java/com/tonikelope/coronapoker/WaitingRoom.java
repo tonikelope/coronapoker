@@ -36,6 +36,7 @@ import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
@@ -74,6 +75,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     private Map<String, Participant> participantes;
     private volatile ServerSocket server_socket;
     private volatile SecretKeySpec local_client_aes_key = null;
+    private volatile SecretKeySpec local_client_hmac_key = null;
     private volatile Socket local_client_socket;
     private volatile BufferedReader local_client_buffer_read_is = null;
     private volatile String server_ip_port;
@@ -93,6 +95,10 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
         return received_confirmations;
+    }
+
+    public SecretKeySpec getLocal_client_hmac_key() {
+        return local_client_hmac_key;
     }
 
     public SecretKeySpec getClient_aes_key() {
@@ -166,9 +172,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                 partida_empezada = false;
 
                 sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
-
-                empezar_timba.setVisible(false);
-                new_bot_button.setVisible(false);
+                kick_user.setEnabled(false);
+                empezar_timba.setEnabled(false);
                 ventana_inicio = ventana_ini;
                 server = local;
                 local_avatar = avatar;
@@ -197,7 +202,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 if (server) {
 
-                    new_bot_button.setVisible(true);
+                    new_bot_button.setEnabled(true);
 
                     status.setText("Esperando jugadores...");
 
@@ -224,9 +229,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                     servidor();
 
                 } else {
-                    status.setText("Conectando...");
                     empezar_timba.setVisible(false);
+                    new_bot_button.setVisible(false);
                     kick_user.setVisible(false);
+                    status.setText("Conectando...");
                     cliente();
                 }
 
@@ -249,7 +255,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
     }
 
-    public String readCommandFromClient(Socket socket, SecretKeySpec key) throws IOException {
+    public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) throws IOException {
 
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
@@ -258,7 +264,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         if (recibido != null) {
 
             if (recibido.startsWith("*")) {
-                recibido = Helpers.decryptCommand(recibido, key);
+                recibido = Helpers.decryptCommand(recibido, key, hmac_key);
             }
         }
 
@@ -272,7 +278,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         if (recibido != null) {
 
             if (recibido.startsWith("*")) {
-                recibido = Helpers.decryptCommand(recibido, this.local_client_aes_key);
+                recibido = Helpers.decryptCommand(recibido, this.local_client_aes_key, this.local_client_hmac_key);
             }
         }
 
@@ -354,11 +360,15 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     byte[] clientSharedSecret = clientKeyAgree.generateSecret();
 
-                    local_client_aes_key = new SecretKeySpec(clientSharedSecret, 0, 16, "AES");
+                    byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(clientSharedSecret);
+
+                    local_client_aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
+
+                    local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
 
                     /* FIN INTERCAMBIO CLAVES */
                     //Le mandamos nuestro nick al server y el código secreto de reconexión
-                    this.sendCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + "#*#" + String.valueOf(client_id), local_client_aes_key));
+                    this.sendCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + "#*#" + String.valueOf(client_id), local_client_aes_key, local_client_hmac_key));
 
                     local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
 
@@ -504,7 +514,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                         try {
 
-                            p.sendCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv));
+                            p.sendCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
                         } catch (IOException ex) {
                         }
 
@@ -547,7 +557,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             try {
 
-                p.sendCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key()));
+                p.sendCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
 
             } catch (IOException ex) {
             }
@@ -699,7 +709,11 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     byte[] clientSharedSecret = clientKeyAgree.generateSecret();
 
-                    local_client_aes_key = new SecretKeySpec(clientSharedSecret, 0, 16, "AES");
+                    byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(clientSharedSecret);
+
+                    local_client_aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
+
+                    local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
 
                     /* FIN INTERCAMBIO CLAVES */
                     byte[] avatar_bytes = null;
@@ -711,7 +725,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                     }
 
                     //Le mandamos nuestro nick + VERSION + AVATAR al server
-                    sendCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : ""), local_client_aes_key));
+                    sendCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : ""), local_client_aes_key, local_client_hmac_key));
 
                     local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
 
@@ -788,10 +802,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                         });
 
                         //Añadimos al servidor
-                        nuevoParticipante(server_nick, server_avatar, null, null, null, false);
+                        nuevoParticipante(server_nick, server_avatar, null, null, null, null, false);
 
                         //Nos añadimos nosotros
-                        nuevoParticipante(local_nick, local_avatar, null, null, null, false);
+                        nuevoParticipante(local_nick, local_avatar, null, null, null, null, false);
 
                         //Cada X segundos mandamos un comando KEEP ALIVE al server 
                         Helpers.threadRun(new Runnable() {
@@ -955,7 +969,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                         if (!participantes.containsKey(nick)) {
                                                             //Añadimos al participante
-                                                            nuevoParticipante(nick, avatar, null, null, null, false);
+                                                            nuevoParticipante(nick, avatar, null, null, null, null, false);
                                                         } else {
                                                             participantes.get(nick).setAvatar(avatar);
                                                         }
@@ -989,7 +1003,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                             if (!participantes.containsKey(nick)) {
                                                                 //Añadimos al participante
-                                                                nuevoParticipante(nick, avatar, null, null, null, false);
+                                                                nuevoParticipante(nick, avatar, null, null, null, null, false);
                                                             } else {
                                                                 participantes.get(nick).setAvatar(avatar);
                                                             }
@@ -1218,11 +1232,15 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                             byte[] serverSharedSecret = serverKeyAgree.generateSecret();
 
-                            SecretKeySpec aes_key = new SecretKeySpec(serverSharedSecret, 0, 16, "AES");
+                            byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(serverSharedSecret);
+
+                            SecretKeySpec aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
+
+                            SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
 
                             /* FIN INTERCAMBIO DE CLAVES */
                             //Leemos el nick del usuario
-                            recibido = readCommandFromClient(client_socket, aes_key);
+                            recibido = readCommandFromClient(client_socket, aes_key, hmac_key);
 
                             partes = recibido.split("#");
 
@@ -1237,6 +1255,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                                     //Es un usuario intentado reconectar
                                     participantes.get(client_nick).setAes_key(aes_key);
 
+                                    participantes.get(client_nick).setHmac_key(hmac_key);
+
                                     participantes.get(client_nick).resetSocket(client_socket);
 
                                     synchronized (getLocalClientSocketLock()) {
@@ -1245,7 +1265,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                     }
 
                                     //Mandamos el chat
-                                    participantes.get(client_nick).sendCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key));
+                                    participantes.get(client_nick).sendCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key));
 
                                     if (!isPartida_empezada() && participantes.size() > 2) {
 
@@ -1262,13 +1282,13 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 }
 
                             } else if (partida_empezada) {
-                                sendCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key), client_socket);
+                                sendCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
                             } else if (!partes[1].equals(AboutDialog.VERSION)) {
-                                sendCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key), client_socket);
+                                sendCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
                             } else if (participantes.size() == MAX_PARTICIPANTES) {
-                                sendCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key), client_socket);
+                                sendCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
                             } else if (participantes.containsKey(client_nick)) {
-                                sendCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key), client_socket);
+                                sendCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
                             } else {
 
                                 //Procesamos su avatar
@@ -1302,7 +1322,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 int cid = Helpers.PRNG_GENERATOR.nextInt();
 
                                 //Mandamos al cliente su ID
-                                sendCommandFromServer(Helpers.encryptCommand("NICKOK#" + String.valueOf(cid), aes_key), client_socket);
+                                sendCommandFromServer(Helpers.encryptCommand("NICKOK#" + String.valueOf(cid), aes_key, hmac_key), client_socket);
 
                                 byte[] avatar_bytes = null;
 
@@ -1314,13 +1334,13 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 }
 
                                 //Mandamos nuestro nick + avatar
-                                sendCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : ""), aes_key), client_socket);
+                                sendCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : ""), aes_key, hmac_key), client_socket);
 
                                 //Mandamos el contenido del chat
-                                sendCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key), client_socket);
+                                sendCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 
                                 //Añadimos al participante
-                                nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, cid, false);
+                                nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, cid, false);
 
                                 //Mandamos la lista de participantes actuales al nuevo participante
                                 if (participantes.size() > 2) {
@@ -1345,9 +1365,9 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
-                                        empezar_timba.setVisible(true);
-                                        kick_user.setVisible(true);
-                                        new_bot_button.setVisible(participantes.size() < WaitingRoom.MAX_PARTICIPANTES);
+                                        empezar_timba.setEnabled(true);
+                                        kick_user.setEnabled(true);
+                                        new_bot_button.setEnabled(participantes.size() < WaitingRoom.MAX_PARTICIPANTES);
                                     }
                                 });
                             }
@@ -1421,7 +1441,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                         String comando = "CHAT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(msg.getBytes("UTF-8"));
 
-                        p.sendCommandFromServer(Helpers.encryptCommand(comando, p.getAes_key(), iv));
+                        p.sendCommandFromServer(Helpers.encryptCommand(comando, p.getAes_key(), iv, p.getHmac_key()));
                     }
 
                 } catch (IOException ex) {
@@ -1447,7 +1467,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                 if (!server) {
                     try {
                         String comando = "CHAT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(msg.getBytes("UTF-8"));
-                        sendCommandToServer(Helpers.encryptCommand(comando, local_client_aes_key, iv));
+                        sendCommandToServer(Helpers.encryptCommand(comando, local_client_aes_key, iv, local_client_hmac_key));
                     } catch (IOException ex) {
                         Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -1458,7 +1478,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                             Participant participante = entry.getValue();
                             if (participante != null && !participante.isCpu()) {
                                 String comando = "CHAT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(msg.getBytes("UTF-8"));
-                                participante.sendCommandFromServer(Helpers.encryptCommand(comando, participante.getAes_key(), iv));
+                                participante.sendCommandFromServer(Helpers.encryptCommand(comando, participante.getAes_key(), iv, participante.getHmac_key()));
                             }
                         } catch (IOException ex) {
                             Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
@@ -1513,11 +1533,11 @@ public class WaitingRoom extends javax.swing.JFrame {
                     if (server) {
 
                         if (participantes.size() < 2) {
-                            empezar_timba.setVisible(false);
-                            kick_user.setVisible(false);
+                            empezar_timba.setEnabled(false);
+                            kick_user.setEnabled(false);
                         }
 
-                        new_bot_button.setVisible(true);
+                        new_bot_button.setEnabled(true);
                     }
                 }
             });
@@ -1537,9 +1557,9 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     }
 
-    private void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec key, Integer cid, boolean cpu) {
+    private void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, Integer cid, boolean cpu) {
 
-        Participant participante = new Participant(this, nick, avatar, socket, key, cid, cpu);
+        Participant participante = new Participant(this, nick, avatar, socket, aes_k, hmac_k, cid, cpu);
 
         participantes.put(nick, participante);
 
@@ -1807,6 +1827,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             if (!expulsado.equals(local_nick)) {
 
+                kick_user.setEnabled(false);
+
                 Helpers.threadRun(new Runnable() {
                     public void run() {
                         try {
@@ -1814,7 +1836,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                             if (!participantes.get(expulsado).isCpu()) {
 
                                 String comando = "KICKED#" + Base64.encodeBase64String(expulsado.getBytes("UTF-8"));
-                                participantes.get(expulsado).sendCommandFromServer(Helpers.encryptCommand(comando, participantes.get(expulsado).getAes_key()));
+                                participantes.get(expulsado).sendCommandFromServer(Helpers.encryptCommand(comando, participantes.get(expulsado).getAes_key(), participantes.get(expulsado).getHmac_key()));
                             }
 
                             participantes.get(expulsado).setExit();
@@ -1826,6 +1848,12 @@ public class WaitingRoom extends javax.swing.JFrame {
                         } catch (IOException ex) {
                             Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                         }
+
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+                                kick_user.setEnabled(participantes.size() > 1);
+                            }
+                        });
                     }
                 });
             }
@@ -1875,11 +1903,11 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                 this.empezar_timba.setEnabled(false);
-                this.empezar_timba.setVisible(false);
+                this.empezar_timba.setEnabled(false);
                 this.new_bot_button.setEnabled(false);
-                this.new_bot_button.setVisible(false);
+                this.new_bot_button.setEnabled(false);
                 this.kick_user.setEnabled(false);
-                this.kick_user.setVisible(false);
+                this.kick_user.setEnabled(false);
                 this.sound_icon.setVisible(false);
                 this.status.setText(Translator.translate("Inicializando timba..."));
                 pack();
@@ -1942,7 +1970,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                     } else if (local_client_socket != null) {
 
                         try {
-                            sendCommandToServer(Helpers.encryptCommand("EXIT", local_client_aes_key));
+                            sendCommandToServer(Helpers.encryptCommand("EXIT", local_client_aes_key, local_client_hmac_key));
                             local_client_socket.close();
                         } catch (Exception ex) {
                             Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
@@ -2004,6 +2032,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         if (participantes.size() < MAX_PARTICIPANTES) {
 
+            new_bot_button.setEnabled(false);
+
             Helpers.playWavResource("misc/laser.wav");
 
             try {
@@ -2018,8 +2048,6 @@ public class WaitingRoom extends javax.swing.JFrame {
                     bot_nick = "CoronaBot#" + String.valueOf(conta_bot);
 
                 } while (participantes.get(bot_nick) != null);
-
-                nuevoParticipante(bot_nick, null, null, null, null, true);
 
                 //Mandamos el nuevo participante al resto de participantes
                 String comando = "NEWUSER#" + Base64.encodeBase64String(bot_nick.getBytes("UTF-8"));
@@ -2036,13 +2064,13 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 broadcastCommandFromServer(comando, participantes.get(bot_nick), true);
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        empezar_timba.setVisible(true);
-                        kick_user.setVisible(true);
-                        new_bot_button.setVisible(participantes.size() < WaitingRoom.MAX_PARTICIPANTES);
-                    }
-                });
+                nuevoParticipante(bot_nick, null, null, null, null, null, true);
+
+                empezar_timba.setEnabled(true);
+
+                kick_user.setEnabled(true);
+
+                new_bot_button.setEnabled(participantes.size() < WaitingRoom.MAX_PARTICIPANTES);
 
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);

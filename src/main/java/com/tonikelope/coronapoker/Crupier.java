@@ -2434,7 +2434,7 @@ public class Crupier implements Runnable {
 
                             String carta2 = jugador.getPlayingCard2().toShortString();
 
-                            p.sendCommandFromServer(Helpers.encryptCommand(command + "#" + carta1 + "@" + carta2, p.getAes_key(), iv));
+                            p.sendCommandFromServer(Helpers.encryptCommand(command + "#" + carta1 + "@" + carta2, p.getAes_key(), iv, p.getHmac_key()));
                         } catch (IOException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -2521,7 +2521,7 @@ public class Crupier implements Runnable {
 
             try {
 
-                Game.getInstance().getSala_espera().sendCommandToServer(Helpers.encryptCommand(full_command, Game.getInstance().getSala_espera().getClient_aes_key()));
+                Game.getInstance().getSala_espera().sendCommandToServer(Helpers.encryptCommand(full_command, Game.getInstance().getSala_espera().getClient_aes_key(), Game.getInstance().getSala_espera().getLocal_client_hmac_key()));
 
                 if (confirmation) {
                     this.waitConfirmations(id, pendientes);
@@ -3329,7 +3329,7 @@ public class Crupier implements Runnable {
                     if (p != null && !p.isCpu() && pendientes.contains(p.getNick())) {
 
                         try {
-                            p.sendCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv));
+                            p.sendCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
                         } catch (IOException ex) {
                         }
 

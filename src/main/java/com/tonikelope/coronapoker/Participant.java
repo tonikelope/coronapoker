@@ -47,15 +47,25 @@ public class Participant implements Runnable {
     private volatile int pong;
     private volatile boolean cpu = false;
     private volatile SecretKeySpec aes_key = null;
+    private volatile SecretKeySpec hmac_key = null;
 
-    public Participant(WaitingRoom espera, String nick, File avatar, Socket socket, SecretKeySpec key, Integer id, boolean cpu) {
+    public Participant(WaitingRoom espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, Integer id, boolean cpu) {
         this.nick = nick;
         this.setSocket(socket);
         this.sala_espera = espera;
         this.avatar = avatar;
         this.id = id;
         this.cpu = cpu;
-        this.aes_key = key;
+        this.aes_key = aes_k;
+        this.hmac_key = hmac_k;
+    }
+
+    public SecretKeySpec getHmac_key() {
+        return hmac_key;
+    }
+
+    public void setHmac_key(SecretKeySpec hmac_key) {
+        this.hmac_key = hmac_key;
     }
 
     public SecretKeySpec getAes_key() {
@@ -81,7 +91,7 @@ public class Participant implements Runnable {
             try {
 
                 if (!WaitingRoom.isPartida_empezada()) {
-                    this.sendCommandFromServer(Helpers.encryptCommand("EXIT", aes_key));
+                    this.sendCommandFromServer(Helpers.encryptCommand("EXIT", aes_key, hmac_key));
                 }
                 this.socketClose();
             } catch (IOException ex) {
@@ -123,7 +133,7 @@ public class Participant implements Runnable {
         if (recibido != null) {
 
             if (recibido.startsWith("*")) {
-                recibido = Helpers.decryptCommand(recibido, aes_key);
+                recibido = Helpers.decryptCommand(recibido, aes_key, hmac_key);
             }
         }
 

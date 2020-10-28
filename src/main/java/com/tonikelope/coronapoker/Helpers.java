@@ -150,22 +150,18 @@ public class Helpers {
     public static boolean MUTED_MP3 = false;
     public static boolean RANDOMORG_ERROR_MSG = false;
 
-    public static String encryptCommand(String command, SecretKeySpec key, byte[] iv) {
+    public static String encryptCommand(String command, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
 
         try {
             Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
-            cifrado.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
+            cifrado.init(Cipher.ENCRYPT_MODE, aes_key, new IvParameterSpec(iv));
 
             byte[] cmsg = cifrado.doFinal(command.getBytes("UTF-8"));
 
             Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
 
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-
-            SecretKeySpec secret_key = new SecretKeySpec(digest.digest(key.getEncoded()), "HmacSHA256");
-
-            sha256_HMAC.init(secret_key);
+            sha256_HMAC.init(hmac_key);
 
             byte[] full_command = new byte[32 + iv.length + cmsg.length];
 
@@ -200,17 +196,17 @@ public class Helpers {
 
     }
 
-    public static String encryptCommand(String command, SecretKeySpec key) {
+    public static String encryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) {
 
         byte[] iv = new byte[16];
 
         Helpers.SPRNG_GENERATOR.nextBytes(iv);
 
-        return encryptCommand(command, key, iv);
+        return encryptCommand(command, aes_key, iv, hmac_key);
 
     }
 
-    public static String decryptCommand(String command, SecretKeySpec key) throws IOException {
+    public static String decryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) {
 
         try {
 
@@ -250,19 +246,15 @@ public class Helpers {
 
             Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
 
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-
-            SecretKeySpec secret_key = new SecretKeySpec(digest.digest(key.getEncoded()), "HmacSHA256");
-
-            sha256_HMAC.init(secret_key);
+            sha256_HMAC.init(hmac_key);
 
             byte[] current_hmac = sha256_HMAC.doFinal(iv_cmsg);
 
             if (!MessageDigest.isEqual(hmac, current_hmac)) {
-                throw new IOException();
+                return null;
             }
 
-            cifrado.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+            cifrado.init(Cipher.DECRYPT_MODE, aes_key, new IvParameterSpec(iv));
 
             byte[] msg = cifrado.doFinal(cmsg);
 
@@ -271,8 +263,8 @@ public class Helpers {
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | UnsupportedEncodingException | IllegalBlockSizeException | BadPaddingException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return null;
 
+        return null;
     }
 
     public static void createIfNoExistsCoronaDirs() {

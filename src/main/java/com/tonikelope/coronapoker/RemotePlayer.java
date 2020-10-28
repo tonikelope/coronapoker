@@ -920,9 +920,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setForeground(Color.BLACK);
                 player_action.setText(msg);
                 player_action.setEnabled(true);
-                Game.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-                Game.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
-                Game.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
             }
         });
     }

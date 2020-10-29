@@ -964,7 +964,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                             } catch (ClassCastException ex) {
                                                                 ok = false;
-                                                                Helpers.pausar(500);
+                                                                Helpers.pausar(250);
                                                             }
                                                         } while (!ok);
 
@@ -1817,14 +1817,12 @@ public class WaitingRoom extends javax.swing.JFrame {
             if (vamos) {
 
                 WaitingRoom tthis = this;
+
                 WaitingRoom.partida_empezada = true;
 
                 setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                 this.empezar_timba.setEnabled(false);
-                this.empezar_timba.setEnabled(false);
                 this.new_bot_button.setEnabled(false);
-                this.new_bot_button.setEnabled(false);
-                this.kick_user.setEnabled(false);
                 this.kick_user.setEnabled(false);
                 this.sound_icon.setVisible(false);
                 this.status.setText(Translator.translate("Inicializando timba..."));
@@ -1832,6 +1830,33 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
+
+                        boolean ocupados;
+
+                        do {
+
+                            ocupados = false;
+
+                            for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
+
+                                Participant p = entry.getValue();
+
+                                if (p != null && !p.isCpu() && !p.getAsync_command_queue().isEmpty()) {
+
+                                    ocupados = true;
+
+                                    break;
+
+                                }
+
+                            }
+
+                            if (ocupados) {
+
+                                Helpers.pausar(1000);
+                            }
+
+                        } while (ocupados);
 
                         boolean ok;
 
@@ -1844,7 +1869,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                             } catch (ClassCastException ex) {
                                 ok = false;
-                                Helpers.pausar(500);
+
+                                Helpers.pausar(250);
                             }
                         } while (!ok);
 
@@ -1954,45 +1980,49 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             Helpers.playWavResource("misc/laser.wav");
 
-            try {
-                // TODO add your handling code here:
-                String bot_nick;
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+                    try {
+                        // TODO add your handling code here:
+                        String bot_nick;
 
-                int conta_bot = 0;
+                        int conta_bot = 0;
 
-                do {
-                    conta_bot++;
+                        do {
+                            conta_bot++;
 
-                    bot_nick = "CoronaBot#" + String.valueOf(conta_bot);
+                            bot_nick = "CoronaBot#" + String.valueOf(conta_bot);
 
-                } while (participantes.get(bot_nick) != null);
+                        } while (participantes.get(bot_nick) != null);
 
-                //Mandamos el nuevo participante al resto de participantes
-                String comando = "NEWUSER#" + Base64.encodeBase64String(bot_nick.getBytes("UTF-8"));
+                        //Mandamos el nuevo participante al resto de participantes
+                        String comando = "NEWUSER#" + Base64.encodeBase64String(bot_nick.getBytes("UTF-8"));
 
-                byte[] avatar_b = null;
+                        byte[] avatar_b = null;
 
-                try (InputStream is = WaitingRoom.class.getResourceAsStream("/images/avatar_bot.png")) {
-                    avatar_b = is.readAllBytes();
-                } catch (IOException ex) {
-                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                        try (InputStream is = WaitingRoom.class.getResourceAsStream("/images/avatar_bot.png")) {
+                            avatar_b = is.readAllBytes();
+                        } catch (IOException ex) {
+                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                        comando += "#" + Base64.encodeBase64String(avatar_b);
+
+                        nuevoParticipante(bot_nick, null, null, null, null, null, true);
+
+                        broadcastGAMECommandFromServer(comando, participantes.get(bot_nick), true);
+
+                        empezar_timba.setEnabled(true);
+
+                        kick_user.setEnabled(true);
+
+                        new_bot_button.setEnabled(participantes.size() < WaitingRoom.MAX_PARTICIPANTES);
+
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
-
-                comando += "#" + Base64.encodeBase64String(avatar_b);
-
-                broadcastGAMECommandFromServer(comando, participantes.get(bot_nick), true);
-
-                nuevoParticipante(bot_nick, null, null, null, null, null, true);
-
-                empezar_timba.setEnabled(true);
-
-                kick_user.setEnabled(true);
-
-                new_bot_button.setEnabled(participantes.size() < WaitingRoom.MAX_PARTICIPANTES);
-
-            } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            });
         }
     }//GEN-LAST:event_new_bot_buttonActionPerformed
 

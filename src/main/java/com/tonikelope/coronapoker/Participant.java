@@ -294,42 +294,41 @@ public class Participant implements Runnable {
 
                         while (!getAsync_command_queue().isEmpty() && !exit) {
 
-                            synchronized (getAsync_command_queue()) {
+                            String command = getAsync_command_queue().peek();
 
-                                String command = getAsync_command_queue().poll();
+                            int id = Helpers.PRNG_GENERATOR.nextInt();
 
-                                int id = Helpers.PRNG_GENERATOR.nextInt();
+                            String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
-                                String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+                            String enc_full_command = Helpers.encryptCommand(full_command, getAes_key(), getHmac_key());
 
-                                String enc_full_command = Helpers.encryptCommand(full_command, getAes_key(), getHmac_key());
+                            int conta_timeout = 0;
 
-                                int conta_timeout = 0;
+                            ArrayList<String> pendientes = new ArrayList<>();
 
-                                ArrayList<String> pendientes = new ArrayList<>();
+                            pendientes.add(getNick());
 
-                                pendientes.add(getNick());
-
-                                do {
-                                    try {
-                                        writeCommandFromServer(enc_full_command);
-                                    } catch (IOException ex) {
-                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-
-                                    if (waitAsyncConfirmations(id, pendientes)) {
-                                        conta_timeout++;
-                                    }
-
-                                } while (!pendientes.isEmpty() && conta_timeout < Game.MAX_TIMEOUT_CONFIRMATION_ERROR);
-
-                                if (!pendientes.isEmpty()) {
-
-                                    setExit();
-
-                                    sala_espera.borrarParticipante(nick);
-
+                            do {
+                                try {
+                                    writeCommandFromServer(enc_full_command);
+                                } catch (IOException ex) {
+                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                                 }
+
+                                if (waitAsyncConfirmations(id, pendientes)) {
+                                    conta_timeout++;
+                                } else {
+                                    getAsync_command_queue().poll();
+                                }
+
+                            } while (!pendientes.isEmpty() && conta_timeout < Game.MAX_TIMEOUT_CONFIRMATION_ERROR);
+
+                            if (!pendientes.isEmpty()) {
+
+                                setExit();
+
+                                sala_espera.borrarParticipante(nick);
+
                             }
 
                         }

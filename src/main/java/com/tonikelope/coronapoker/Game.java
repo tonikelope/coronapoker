@@ -88,7 +88,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es");
     public static boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static boolean RECOVER = false;
-    private static Game THIS;
+    private static Game THIS = null;
 
     public static Game getInstance() {
         return THIS;
@@ -1072,7 +1072,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
      * Creates new form CoronaMainView
      */
     public Game(Map<String, Participant> parts, WaitingRoom salaespera, String nicklocal, boolean partidalocal) {
+
         THIS = this;
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();

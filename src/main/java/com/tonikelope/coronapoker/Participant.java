@@ -16,12 +16,15 @@
  */
 package com.tonikelope.coronapoker;
 
+import static com.tonikelope.coronapoker.Game.WAIT_QUEUES;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.spec.SecretKeySpec;
@@ -32,6 +35,8 @@ import org.apache.commons.codec.binary.Base64;
  * @author tonikelope
  */
 public class Participant implements Runnable {
+
+    public static final int ASYNC_COMMAND_QUEUE_WAIT = 1000;
 
     private final String nick;
     private File avatar;
@@ -48,6 +53,7 @@ public class Participant implements Runnable {
     private volatile boolean cpu = false;
     private volatile SecretKeySpec aes_key = null;
     private volatile SecretKeySpec hmac_key = null;
+    private volatile ConcurrentLinkedQueue<String> async_command_queue = new ConcurrentLinkedQueue<>();
 
     public Participant(WaitingRoom espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, Integer id, boolean cpu) {
         this.nick = nick;
@@ -58,6 +64,10 @@ public class Participant implements Runnable {
         this.cpu = cpu;
         this.aes_key = aes_k;
         this.hmac_key = hmac_k;
+    }
+
+    public ConcurrentLinkedQueue<String> getAsync_command_queue() {
+        return async_command_queue;
     }
 
     public SecretKeySpec getHmac_key() {
@@ -91,7 +101,7 @@ public class Participant implements Runnable {
             try {
 
                 if (!WaitingRoom.isPartida_empezada()) {
-                    this.sendCommandFromServer(Helpers.encryptCommand("EXIT", aes_key, hmac_key));
+                    this.writeCommandFromServer(Helpers.encryptCommand("EXIT", aes_key, hmac_key));
                 }
                 this.socketClose();
             } catch (IOException ex) {
@@ -120,7 +130,7 @@ public class Participant implements Runnable {
         return nick;
     }
 
-    public void sendCommandFromServer(String command) throws IOException {
+    public void writeCommandFromServer(String command) throws IOException {
         synchronized (participant_socket_lock) {
             this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
         }
@@ -187,6 +197,57 @@ public class Participant implements Runnable {
         }
     }
 
+    public boolean waitAsyncConfirmations(int id, ArrayList<String> pending) {
+
+        //Esperamos confirmación
+        long start_time = System.currentTimeMillis();
+
+        boolean timeout = false;
+
+        while (!pending.isEmpty() && !timeout) {
+
+            synchronized (WaitingRoom.getInstance().getReceived_confirmations()) {
+
+                ArrayList<Object[]> rejected = new ArrayList<>();
+
+                Object[] confirmation;
+
+                while (!WaitingRoom.getInstance().getReceived_confirmations().isEmpty()) {
+
+                    confirmation = WaitingRoom.getInstance().getReceived_confirmations().poll();
+
+                    if ((int) confirmation[1] == id + 1) {
+
+                        pending.remove(confirmation[0]);
+
+                    } else {
+                        rejected.add(confirmation);
+                    }
+                }
+
+                if (System.currentTimeMillis() - start_time > Game.CONFIRMATION_TIMEOUT) {
+                    timeout = true;
+                } else if (!pending.isEmpty()) {
+
+                    if (!rejected.isEmpty()) {
+                        WaitingRoom.getInstance().getReceived_confirmations().addAll(rejected);
+                        rejected.clear();
+                    }
+
+                    try {
+                        WaitingRoom.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                }
+
+            }
+        }
+
+        return !pending.isEmpty();
+    }
+
     @Override
     public void run() {
 
@@ -202,7 +263,7 @@ public class Participant implements Runnable {
 
                         try {
 
-                            sendCommandFromServer(("PING#" + String.valueOf(ping)));
+                            writeCommandFromServer(("PING#" + String.valueOf(ping)));
 
                         } catch (IOException ex) {
                             Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
@@ -225,6 +286,67 @@ public class Participant implements Runnable {
                 }
             });
 
+            //Creamos un hilo por cada participante para enviar comandos de juego con confirmación y no bloquear el servidor por si se conectan nuevos usuarios
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+
+                    while (!WaitingRoom.isExit() && !exit && !WaitingRoom.isPartida_empezada()) {
+
+                        while (!getAsync_command_queue().isEmpty() && !exit) {
+
+                            synchronized (getAsync_command_queue()) {
+
+                                String command = getAsync_command_queue().poll();
+
+                                int id = Helpers.PRNG_GENERATOR.nextInt();
+
+                                String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+
+                                String enc_full_command = Helpers.encryptCommand(full_command, getAes_key(), getHmac_key());
+
+                                int conta_timeout = 0;
+
+                                ArrayList<String> pendientes = new ArrayList<>();
+
+                                pendientes.add(getNick());
+
+                                do {
+                                    try {
+                                        writeCommandFromServer(enc_full_command);
+                                    } catch (IOException ex) {
+                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+
+                                    if (waitAsyncConfirmations(id, pendientes)) {
+                                        conta_timeout++;
+                                    }
+
+                                } while (!pendientes.isEmpty() && conta_timeout < Game.MAX_TIMEOUT_CONFIRMATION_ERROR);
+
+                                if (!pendientes.isEmpty()) {
+
+                                    setExit();
+
+                                    sala_espera.borrarParticipante(nick);
+
+                                }
+                            }
+
+                        }
+
+                        synchronized (getAsync_command_queue()) {
+
+                            try {
+                                getAsync_command_queue().wait(ASYNC_COMMAND_QUEUE_WAIT);
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    }
+                }
+
+            });
+
             try {
 
                 String recibido;
@@ -245,7 +367,7 @@ public class Participant implements Runnable {
                                     pong = Integer.parseInt(partes_comando[1]);
                                     break;
                                 case "PING":
-                                    this.sendCommandFromServer(("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1)));
+                                    this.writeCommandFromServer(("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1)));
                                     break;
                                 case "EXIT":
                                     exit = true;
@@ -274,7 +396,7 @@ public class Participant implements Runnable {
                                     //Es un comando de juego del cliente
                                     String subcomando = partes_comando[2];
                                     int command_id = Integer.valueOf(partes_comando[1]); //Los comandos del juego llevan confirmación de recepción
-                                    this.sendCommandFromServer(("CONF#" + String.valueOf(command_id + 1) + "#OK"));
+                                    this.writeCommandFromServer(("CONF#" + String.valueOf(command_id + 1) + "#OK"));
                                     if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != command_id) {
 
                                         last_received.put(subcomando, command_id);

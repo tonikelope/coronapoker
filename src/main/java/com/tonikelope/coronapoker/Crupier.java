@@ -396,7 +396,7 @@ public class Crupier implements Runnable {
 
         if (Game.getInstance().isPartida_local()) {
 
-            broadcastCommandFromServer("CINEMATICEND", nick);
+            broadcastGAMECommandFromServer("CINEMATICEND", nick);
         }
 
         playing_cinematic = false;
@@ -485,11 +485,11 @@ public class Crupier implements Runnable {
 
                                 if (Game.getInstance().isPartida_local()) {
 
-                                    broadcastCommandFromServer("CINEMATICEND", null);
+                                    broadcastGAMECommandFromServer("CINEMATICEND", null);
 
                                 } else {
 
-                                    sendCommandToServer("CINEMATICEND");
+                                    sendGAMECommandToServer("CINEMATICEND");
                                 }
 
                                 playing_cinematic = false;
@@ -924,7 +924,7 @@ public class Crupier implements Runnable {
 
                         if (Game.getInstance().isPartida_local()) {
 
-                            broadcastCommandFromServer("REBUY#" + partes[3] + (partes.length > 4 ? "#" + partes[4] : ""), nick);
+                            broadcastGAMECommandFromServer("REBUY#" + partes[3] + (partes.length > 4 ? "#" + partes[4] : ""), nick);
                         }
 
                         if (partes.length > 4 && partes[4].equals("0")) {
@@ -986,7 +986,7 @@ public class Crupier implements Runnable {
                     } else {
 
                         //Comprobamos si la conexión con el servidor está funcionando
-                        this.sendCommandToServer("PING");
+                        this.sendGAMECommandToServer("PING");
 
                         start_time = System.currentTimeMillis();
                     }
@@ -1027,7 +1027,7 @@ public class Crupier implements Runnable {
 
                 try {
                     Game.getInstance().getParticipantes().get(nick).setExit();
-                    broadcastCommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
+                    broadcastGAMECommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -1094,7 +1094,7 @@ public class Crupier implements Runnable {
             try {
                 String comando = "SHOWCARDS#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + jugador.getPlayingCard1().toShortString() + "#" + jugador.getPlayingCard2().toShortString();
 
-                broadcastCommandFromServer(comando, nick);
+                broadcastGAMECommandFromServer(comando, nick);
 
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -1240,7 +1240,7 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > Game.CLIENT_RECEPTION_TIMEOUT) {
 
-                    this.sendCommandToServer("PING");
+                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -1311,7 +1311,7 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > Game.CLIENT_RECEPTION_TIMEOUT) {
 
-                    this.sendCommandToServer("PING");
+                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -1377,7 +1377,7 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > Game.CLIENT_RECEPTION_TIMEOUT) {
 
-                    this.sendCommandToServer("PING");
+                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -1445,7 +1445,7 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > Game.CLIENT_RECEPTION_TIMEOUT) {
 
-                    this.sendCommandToServer("PING");
+                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -1521,7 +1521,7 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > Game.CLIENT_RECEPTION_TIMEOUT) {
 
-                    this.sendCommandToServer("PING");
+                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -1781,7 +1781,7 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > Game.CLIENT_RECEPTION_TIMEOUT) {
 
-                    this.sendCommandToServer("PING");
+                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -1959,7 +1959,7 @@ public class Crupier implements Runnable {
                         data += "#" + Base64.encodeBase64String(Files.readString(Paths.get(Crupier.RECOVER_ACTIONS_FILE)).getBytes("UTF-8"));
                     }
 
-                    this.broadcastCommandFromServer("RECOVERDATA#" + data, null);
+                    this.broadcastGAMECommandFromServer("RECOVERDATA#" + data, null);
                 } catch (IOException ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -2434,7 +2434,7 @@ public class Crupier implements Runnable {
 
                             String carta2 = jugador.getPlayingCard2().toShortString();
 
-                            p.sendCommandFromServer(Helpers.encryptCommand(command + "#" + carta1 + "@" + carta2, p.getAes_key(), iv, p.getHmac_key()));
+                            p.writeCommandFromServer(Helpers.encryptCommand(command + "#" + carta1 + "@" + carta2, p.getAes_key(), iv, p.getHmac_key()));
                         } catch (IOException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -2444,7 +2444,7 @@ public class Crupier implements Runnable {
             }
 
             //Esperamos confirmaciones
-            this.waitConfirmations(id, pendientes);
+            this.waitSyncConfirmations(id, pendientes);
 
             for (Player jugador : Game.getInstance().getJugadores()) {
 
@@ -2507,7 +2507,7 @@ public class Crupier implements Runnable {
 
     }
 
-    public void sendCommandToServer(String command, boolean confirmation) {
+    public void sendGAMECommandToServer(String command, boolean confirmation) {
 
         ArrayList<String> pendientes = new ArrayList<>();
 
@@ -2521,10 +2521,10 @@ public class Crupier implements Runnable {
 
             try {
 
-                Game.getInstance().getSala_espera().sendCommandToServer(Helpers.encryptCommand(full_command, Game.getInstance().getSala_espera().getClient_aes_key(), Game.getInstance().getSala_espera().getLocal_client_hmac_key()));
+                Game.getInstance().getSala_espera().writeCommandToServer(Helpers.encryptCommand(full_command, Game.getInstance().getSala_espera().getClient_aes_key(), Game.getInstance().getSala_espera().getLocal_client_hmac_key()));
 
                 if (confirmation) {
-                    this.waitConfirmations(id, pendientes);
+                    this.waitSyncConfirmations(id, pendientes);
                 }
 
             } catch (IOException ex) {
@@ -2553,13 +2553,13 @@ public class Crupier implements Runnable {
         } while (!pendientes.isEmpty() && confirmation);
     }
 
-    public void sendCommandToServer(String command) {
+    public void sendGAMECommandToServer(String command) {
 
-        this.sendCommandToServer(command, true);
+        this.sendGAMECommandToServer(command, true);
 
     }
 
-    private boolean waitConfirmations(int id, ArrayList<String> pending) {
+    private boolean waitSyncConfirmations(int id, ArrayList<String> pending) {
 
         //Esperamos confirmación
         long start_time = System.currentTimeMillis();
@@ -2702,7 +2702,7 @@ public class Crupier implements Runnable {
                         } else {
 
                             //Comprobamos si la conexión con el servidor está funcionando
-                            this.sendCommandToServer("PING");
+                            this.sendGAMECommandToServer("PING");
 
                             start = System.currentTimeMillis();
                         }
@@ -2823,7 +2823,7 @@ public class Crupier implements Runnable {
                         break;
                 }
 
-                broadcastCommandFromServer(comando, null);
+                broadcastGAMECommandFromServer(comando, null);
 
             } else {
 
@@ -2993,12 +2993,12 @@ public class Crupier implements Runnable {
                             if (Game.getInstance().isPartida_local()) {
 
                                 //Mandamos nuestra decisión a todos los jugadores
-                                broadcastCommandFromServer(comando, null);
+                                broadcastGAMECommandFromServer(comando, null);
 
                             } else {
 
                                 //Mandamos nuestra decisión al servidor
-                                this.sendCommandToServer(comando);
+                                this.sendGAMECommandToServer(comando);
                             }
                         }
 
@@ -3121,7 +3121,7 @@ public class Crupier implements Runnable {
                                 }
 
                                 //Le mandamos la decisión del jugador remoto al resto de jugadores
-                                broadcastCommandFromServer(comando, current_player.getNickname());
+                                broadcastGAMECommandFromServer(comando, current_player.getNickname());
 
                             }
 
@@ -3290,7 +3290,7 @@ public class Crupier implements Runnable {
 
     }
 
-    public void broadcastCommandFromServer(String command, String skip_nick, boolean confirmation) {
+    public void broadcastGAMECommandFromServer(String command, String skip_nick, boolean confirmation) {
 
         long start = System.currentTimeMillis();
 
@@ -3329,7 +3329,7 @@ public class Crupier implements Runnable {
                     if (p != null && !p.isCpu() && pendientes.contains(p.getNick())) {
 
                         try {
-                            p.sendCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
+                            p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
                         } catch (IOException ex) {
                         }
 
@@ -3338,7 +3338,7 @@ public class Crupier implements Runnable {
 
                 if (confirmation) {
                     //Esperamos confirmaciones y en caso de que alguna no llegue pasado un tiempo volvermos a enviar todos los que fallaron la confirmación la primera vez
-                    this.waitConfirmations(id, pendientes);
+                    this.waitSyncConfirmations(id, pendientes);
 
                     for (Map.Entry<String, Participant> entry : Game.getInstance().getParticipantes().entrySet()) {
 
@@ -3396,9 +3396,9 @@ public class Crupier implements Runnable {
         }
     }
 
-    public void broadcastCommandFromServer(String command, String skip_nick) {
+    public void broadcastGAMECommandFromServer(String command, String skip_nick) {
 
-        broadcastCommandFromServer(command, skip_nick, true);
+        broadcastGAMECommandFromServer(command, skip_nick, true);
     }
 
     private void calcularPosiciones() {
@@ -3481,7 +3481,7 @@ public class Crupier implements Runnable {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            broadcastCommandFromServer(comando, null);
+            broadcastGAMECommandFromServer(comando, null);
 
             if (doblar_ciegas) {
                 this.doblarCiegas();
@@ -3854,7 +3854,7 @@ public class Crupier implements Runnable {
                 }
             }
 
-            this.broadcastCommandFromServer(command, null);
+            this.broadcastGAMECommandFromServer(command, null);
 
             return permutados;
 
@@ -3913,7 +3913,7 @@ public class Crupier implements Runnable {
                         start_time = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start_time > Game.CLIENT_RECEPTION_TIMEOUT) {
 
-                        this.sendCommandToServer("PING");
+                        this.sendGAMECommandToServer("PING");
 
                         start_time = System.currentTimeMillis();
                     } else {
@@ -4078,7 +4078,7 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > Game.CLIENT_RECEPTION_TIMEOUT) {
 
-                    this.sendCommandToServer("PING");
+                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -4119,7 +4119,7 @@ public class Crupier implements Runnable {
                     }
                 }
 
-                broadcastCommandFromServer(comando, null);
+                broadcastGAMECommandFromServer(comando, null);
 
                 if (destapar) {
                     Helpers.playWavResource("misc/uncover.wav");
@@ -4452,7 +4452,7 @@ public class Crupier implements Runnable {
         });
 
         if (Game.getInstance().isPartida_local()) {
-            broadcastCommandFromServer("INIT#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.CIEGA_PEQUEÑA) + "#" + String.valueOf(Game.CIEGA_GRANDE) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(Game.isRECOVER()) + "#" + String.valueOf(Game.REBUY), null);
+            broadcastGAMECommandFromServer("INIT#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.CIEGA_PEQUEÑA) + "#" + String.valueOf(Game.CIEGA_GRANDE) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(Game.isRECOVER()) + "#" + String.valueOf(Game.REBUY), null);
         }
 
         Helpers.GUIRun(new Runnable() {
@@ -4920,9 +4920,9 @@ public class Crupier implements Runnable {
                                             String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"));
 
                                             if (Game.getInstance().isPartida_local()) {
-                                                this.broadcastCommandFromServer(comando, null);
+                                                this.broadcastGAMECommandFromServer(comando, null);
                                             } else {
-                                                this.sendCommandToServer(comando);
+                                                this.sendGAMECommandToServer(comando);
                                             }
                                         } catch (UnsupportedEncodingException ex) {
                                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -4935,9 +4935,9 @@ public class Crupier implements Runnable {
                                             String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#0";
 
                                             if (Game.getInstance().isPartida_local()) {
-                                                this.broadcastCommandFromServer(comando, null);
+                                                this.broadcastGAMECommandFromServer(comando, null);
                                             } else {
-                                                this.sendCommandToServer(comando);
+                                                this.sendGAMECommandToServer(comando);
                                             }
                                         } catch (UnsupportedEncodingException ex) {
                                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -4957,9 +4957,9 @@ public class Crupier implements Runnable {
                                         String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"));
 
                                         if (Game.getInstance().isPartida_local()) {
-                                            this.broadcastCommandFromServer(comando, null);
+                                            this.broadcastGAMECommandFromServer(comando, null);
                                         } else {
-                                            this.sendCommandToServer(comando);
+                                            this.sendGAMECommandToServer(comando);
                                         }
                                     } catch (UnsupportedEncodingException ex) {
                                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -5004,7 +5004,7 @@ public class Crupier implements Runnable {
                                         try {
                                             String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!Game.REBUY || res != 0) ? "#0" : "");
 
-                                            this.broadcastCommandFromServer(comando, null);
+                                            this.broadcastGAMECommandFromServer(comando, null);
 
                                         } catch (UnsupportedEncodingException ex) {
                                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -5059,7 +5059,7 @@ public class Crupier implements Runnable {
         }
 
         if (!fin_de_la_transmision && !Game.getInstance().isPartida_local()) {
-            sendCommandToServer("EXIT", false);
+            sendGAMECommandToServer("EXIT", false);
         }
 
         Game.getInstance().finTransmision(fin_de_la_transmision);

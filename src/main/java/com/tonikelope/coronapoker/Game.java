@@ -508,7 +508,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         if (this.isPartida_local()) {
 
-            getCrupier().broadcastCommandFromServer("PAUSE", null);
+            getCrupier().broadcastGAMECommandFromServer("PAUSE", null);
         }
 
         this.timba_pausada = !this.timba_pausada;
@@ -1724,7 +1724,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     Helpers.threadRun(new Runnable() {
                         public void run() {
                             //Hay que avisar a los clientes de que la timba ha terminado
-                            crupier.broadcastCommandFromServer("SERVEREXIT", null, false);
+                            crupier.broadcastGAMECommandFromServer("SERVEREXIT", null, false);
                             finTransmision(true);
                         }
                     });
@@ -1749,7 +1749,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     public void run() {
 
                         if (!getSala_espera().isReconnecting()) {
-                            crupier.sendCommandToServer("EXIT", false);
+                            crupier.sendGAMECommandToServer("EXIT", false);
                         }
 
                         finTransmision(false);

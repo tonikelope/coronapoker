@@ -1671,7 +1671,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                             if (Game.getInstance().isPartida_local()) {
                                                 crupier.showAndBroadcastPlayerCards(nickname);
                                             } else {
-                                                crupier.sendCommandToServer("SHOWMYCARDS");
+                                                crupier.sendGAMECommandToServer("SHOWMYCARDS");
                                                 crupier.setTiempo_pausa(Game.PAUSA_ENTRE_MANOS);
                                             }
                                         }

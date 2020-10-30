@@ -9,7 +9,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import javax.swing.ImageIcon;
-import javax.swing.JFrame;
 import javax.swing.Timer;
 
 /**
@@ -221,7 +220,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                             }
                         });
 
-                        if (Helpers.mostrarMensajeInformativoSINO((JFrame) getParent(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
+                        if (Helpers.mostrarMensajeInformativoSINO(null, "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
 
                             continua = true;
                             Helpers.playWavResourceAndWait("misc/rebuy.wav");

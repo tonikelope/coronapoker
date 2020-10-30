@@ -1448,7 +1448,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     conectados.setModel(listModel);
 
-                    if (server) {
+                    if (server && !WaitingRoom.isPartida_empezada()) {
 
                         if (participantes.size() < 2) {
                             empezar_timba.setEnabled(false);
@@ -1822,8 +1822,11 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                 this.empezar_timba.setEnabled(false);
+                this.empezar_timba.setVisible(false);
                 this.new_bot_button.setEnabled(false);
+                this.new_bot_button.setVisible(false);
                 this.kick_user.setEnabled(false);
+                this.kick_user.setVisible(false);
                 this.sound_icon.setVisible(false);
                 this.status.setText(Translator.translate("Inicializando timba..."));
                 pack();

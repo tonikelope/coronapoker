@@ -933,6 +933,15 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         });
     }
 
+    public void setTapeteBote(String bote) {
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                tapete.getCommunityCards().getPot_label().setText(Translator.translate("Bote: ") + bote);
+            }
+        });
+    }
+
     public void setTapeteApuestas(float apuestas) {
 
         Helpers.GUIRun(new Runnable() {
@@ -959,6 +968,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 }
 
                 tapete.getCommunityCards().getBet_label().setText(fase + Helpers.float2String(apuestas));
+                tapete.getCommunityCards().getBet_label().setVisible(true);
             }
         });
 
@@ -969,7 +979,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                tapete.getCommunityCards().getBet_label().setText("---------");
+                tapete.getCommunityCards().getBet_label().setVisible(false);
             }
         });
 

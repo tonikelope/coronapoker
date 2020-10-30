@@ -4682,6 +4682,8 @@ public class Crupier implements Runnable {
                             } else {
 
                                 //Vamos a ver los ganadores de cada bote_total
+                                String bote_tapete = Helpers.float2String(this.bote.getTotal()) + " ";
+
                                 jugadas = this.calcularJugadas(resisten);
 
                                 ganadores = this.calcularGanadores(new HashMap<Player, Hand>(jugadas));
@@ -4769,7 +4771,10 @@ public class Crupier implements Runnable {
 
                                     float pagar = current.getTotal();
 
+                                    bote_tapete = bote_tapete + " + [#" + String.valueOf(conta_bote_secundario) + "|" + Helpers.float2String(current.getTotal()) + "]";
+
                                     if (current.getPlayers().size() == 1) {
+
                                         current.getPlayers().get(0).pagar(pagar);
 
                                         this.bote_total -= pagar;
@@ -4833,10 +4838,11 @@ public class Crupier implements Runnable {
 
                                 }
 
+                                Game.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
                                 Game.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-                                Game.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.YELLOW);
-                                Game.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
-
+                                Game.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.BLACK);
+                                Game.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
+                                Game.getInstance().setTapeteBote(bote_tapete);
                             }
 
                         }

@@ -257,7 +257,7 @@ public class Participant implements Runnable {
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    while (!WaitingRoom.isExit() && !exit && !WaitingRoom.isPartida_empezada()) {
+                    while (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
 
                         int ping = Helpers.PRNG_GENERATOR.nextInt();
 
@@ -265,22 +265,25 @@ public class Participant implements Runnable {
 
                             writeCommandFromServer(("PING#" + String.valueOf(ping)));
 
+                            if (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
+                                synchronized (keep_alive_lock) {
+                                    try {
+                                        keep_alive_lock.wait(WaitingRoom.PING_PONG_TIMEOUT);
+                                    } catch (InterruptedException ex) {
+                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                }
+                            }
+
+                            if (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada() && ping + 1 != pong) {
+
+                                Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, nick + " NO respondió al PING");
+
+                            }
+
                         } catch (IOException ex) {
                             Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-
-                        synchronized (keep_alive_lock) {
-                            try {
-                                keep_alive_lock.wait(WaitingRoom.PING_PONG_TIMEOUT);
-                            } catch (InterruptedException ex) {
-                                Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                        }
-
-                        if (!exit && !WaitingRoom.isPartida_empezada() && ping + 1 != pong) {
-
-                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, nick + " NO respondió al PING");
-
+                            setExit();
                         }
                     }
                 }
@@ -290,9 +293,9 @@ public class Participant implements Runnable {
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    while (!WaitingRoom.isExit() && !exit && !WaitingRoom.isPartida_empezada()) {
+                    while (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
 
-                        while (!getAsync_command_queue().isEmpty() && !exit) {
+                        while (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada() && !getAsync_command_queue().isEmpty()) {
 
                             String command = getAsync_command_queue().peek();
 
@@ -311,19 +314,21 @@ public class Participant implements Runnable {
                             do {
                                 try {
                                     writeCommandFromServer(enc_full_command);
+
+                                    if (waitAsyncConfirmations(id, pendientes)) {
+                                        conta_timeout++;
+
+                                    } else {
+                                        getAsync_command_queue().poll();
+                                    }
                                 } catch (IOException ex) {
                                     Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                    setExit();
                                 }
 
-                                if (waitAsyncConfirmations(id, pendientes)) {
-                                    conta_timeout++;
-                                } else {
-                                    getAsync_command_queue().poll();
-                                }
+                            } while (!pendientes.isEmpty() && conta_timeout < Game.MAX_TIMEOUT_CONFIRMATION_ERROR && !exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada());
 
-                            } while (!pendientes.isEmpty() && conta_timeout < Game.MAX_TIMEOUT_CONFIRMATION_ERROR);
-
-                            if (!pendientes.isEmpty()) {
+                            if (!pendientes.isEmpty() && !exit) {
 
                                 setExit();
 
@@ -333,15 +338,18 @@ public class Participant implements Runnable {
 
                         }
 
-                        synchronized (getAsync_command_queue()) {
+                        if (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
+                            synchronized (getAsync_command_queue()) {
 
-                            try {
-                                getAsync_command_queue().wait(ASYNC_COMMAND_QUEUE_WAIT);
-                            } catch (InterruptedException ex) {
-                                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                try {
+                                    getAsync_command_queue().wait(ASYNC_COMMAND_QUEUE_WAIT);
+                                } catch (InterruptedException ex) {
+                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
                         }
                     }
+
                 }
 
             });

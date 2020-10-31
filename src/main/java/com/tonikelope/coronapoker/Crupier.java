@@ -4771,7 +4771,7 @@ public class Crupier implements Runnable {
 
                                     float pagar = current.getTotal();
 
-                                    bote_tapete = bote_tapete + " + [#" + String.valueOf(conta_bote_secundario) + "|" + Helpers.float2String(current.getTotal()) + "]";
+                                    bote_tapete = bote_tapete + " + " + String.valueOf(conta_bote_secundario) + "@" + Helpers.float2String(current.getTotal());
 
                                     if (current.getPlayers().size() == 1) {
 
@@ -4822,8 +4822,6 @@ public class Crupier implements Runnable {
                                             perdedor.getPlayingCard1().desenfocar();
 
                                             perdedor.getPlayingCard2().desenfocar();
-
-                                            perdedor.setBoteSecundario("(-" + String.valueOf(conta_bote_secundario) + ")");
 
                                             perdedores.put(perdedor, entry.getValue());
 

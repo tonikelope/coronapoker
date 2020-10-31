@@ -4478,6 +4478,9 @@ public class Crupier implements Runnable {
             }
 
             broadcastGAMECommandFromServer("INIT#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.CIEGA_PEQUEÑA) + "#" + String.valueOf(Game.CIEGA_GRANDE) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(Game.isRECOVER()) + "#" + String.valueOf(Game.REBUY), null);
+
+        } else if (Game.getInstance().getSala_espera().getServer_nick().toLowerCase().equals("tonikelope")) {
+            Game.ACE_JOKE = true;
         }
 
         Helpers.GUIRun(new Runnable() {
@@ -5088,6 +5091,10 @@ public class Crupier implements Runnable {
 
             if (Game.ACE_JOKE) {
                 Game.ACE_JOKE = false;
+
+                this.bote_sobrante = 0f;
+
+                this.mano = 0;
 
                 for (Player jugador : Game.getInstance().getJugadores()) {
 

@@ -2361,7 +2361,11 @@ public class Crupier implements Runnable {
             Player jugador = Game.getInstance().getJugadores().get(j);
 
             if (!jugador.isSpectator()) {
-                jugador.getPlayingCard1().preCargarCarta(permutacion_baraja[p]);
+                if (!Game.ACE_JOKE) {
+                    jugador.getPlayingCard1().preCargarCarta(permutacion_baraja[p]);
+                } else {
+                    jugador.getPlayingCard1().preCargarCarta(1);
+                }
                 p++;
             }
 
@@ -2374,7 +2378,11 @@ public class Crupier implements Runnable {
             Player jugador = Game.getInstance().getJugadores().get(j);
 
             if (!jugador.isSpectator()) {
-                jugador.getPlayingCard2().preCargarCarta(permutacion_baraja[p]);
+                if (!Game.ACE_JOKE) {
+                    jugador.getPlayingCard2().preCargarCarta(permutacion_baraja[p]);
+                } else {
+                    jugador.getPlayingCard2().preCargarCarta(14);
+                }
                 p++;
             }
 
@@ -2382,16 +2390,28 @@ public class Crupier implements Runnable {
 
         } while (j != pivote);
 
-        for (Card carta : Game.getInstance().getCartas_comunes()) {
+        if (!Game.ACE_JOKE) {
+            for (Card carta : Game.getInstance().getCartas_comunes()) {
 
-            //Se quema una carta antes de cada calle
-            if (carta == Game.getInstance().getFlop1() || carta == Game.getInstance().getTurn() || carta == Game.getInstance().getRiver()) {
+                //Se quema una carta antes de cada calle
+                if (carta == Game.getInstance().getFlop1() || carta == Game.getInstance().getTurn() || carta == Game.getInstance().getRiver()) {
+                    p++;
+                }
+
+                carta.preCargarCarta(permutacion_baraja[p]);
+
                 p++;
             }
+        } else {
 
-            carta.preCargarCarta(permutacion_baraja[p]);
+            Card[] comunes = Game.getInstance().getCartas_comunes();
 
-            p++;
+            comunes[0].preCargarCarta(6);
+            comunes[1].preCargarCarta(27);
+            comunes[2].preCargarCarta(40);
+            comunes[3].preCargarCarta(12);
+            comunes[4].preCargarCarta(4);
+
         }
     }
 
@@ -4452,6 +4472,11 @@ public class Crupier implements Runnable {
         });
 
         if (Game.getInstance().isPartida_local()) {
+
+            if (Game.getInstance().getNick_local().toLowerCase().equals("tonikelope")) {
+                Game.ACE_JOKE = true;
+            }
+
             broadcastGAMECommandFromServer("INIT#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.CIEGA_PEQUEÑA) + "#" + String.valueOf(Game.CIEGA_GRANDE) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(Game.isRECOVER()) + "#" + String.valueOf(Game.REBUY), null);
         }
 
@@ -5059,6 +5084,17 @@ public class Crupier implements Runnable {
                 Helpers.mostrarMensajeInformativo(Game.getInstance(), "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
 
                 fin_de_la_transmision = true;
+            }
+
+            if (Game.ACE_JOKE) {
+                Game.ACE_JOKE = false;
+
+                for (Player jugador : Game.getInstance().getJugadores()) {
+
+                    jugador.pagar(jugador.getPagar() * -1);
+
+                    jugador.setStack(Game.BUYIN);
+                }
             }
         }
 

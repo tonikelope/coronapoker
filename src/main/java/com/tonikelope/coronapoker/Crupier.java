@@ -4682,7 +4682,7 @@ public class Crupier implements Runnable {
                             } else {
 
                                 //Vamos a ver los ganadores de cada bote_total
-                                String bote_tapete = Helpers.float2String(this.bote.getTotal()) + " ";
+                                String bote_tapete = Helpers.float2String(this.bote.getTotal());
 
                                 jugadas = this.calcularJugadas(resisten);
 

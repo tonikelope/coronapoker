@@ -418,6 +418,9 @@ public class Participant implements Runnable {
                                             case "SHOWMYCARDS":
                                                 Game.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
                                                 break;
+                                            case "NEWHANDREADY":
+                                                Game.getInstance().getCrupier().remotePlayerNewHandReady(nick, Integer.parseInt(partes_comando[3]));
+                                                break;
                                             case "EXIT":
                                                 Game.getInstance().getCrupier().clientPlayerQuit(nick);
                                                 exit = true;

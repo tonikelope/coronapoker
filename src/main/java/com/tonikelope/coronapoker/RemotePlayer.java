@@ -55,6 +55,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean disabled;
     private volatile boolean turno = false;
     private volatile Bot bot = null;
+    private volatile int new_hand_ready = 0;
 
     public int getPos() {
         return pos;
@@ -1420,4 +1421,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return (!exit && !spectator);
     }
 
+    public void setNewHandReady(int hand) {
+        this.new_hand_ready = hand;
+    }
+
+    public int getNewHandReady() {
+        return this.new_hand_ready;
+    }
 }

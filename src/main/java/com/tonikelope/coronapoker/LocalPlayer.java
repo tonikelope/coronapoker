@@ -2202,4 +2202,5 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public boolean isActivo() {
         return (!exit && !spectator);
     }
+
 }

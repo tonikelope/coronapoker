@@ -48,7 +48,7 @@ public final class Pot {
         float total = 0f;
 
         for (Player jugador : players) {
-            if (jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator()) {
+            if (jugador.getDecision() != Player.FOLD && jugador.isActivo()) {
                 total += bet;
             } else {
                 total += jugador.getBote();
@@ -88,7 +88,7 @@ public final class Pot {
 
             for (Player jugador : players) {
 
-                if (jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator()) {
+                if (jugador.getDecision() != Player.FOLD && jugador.isActivo()) {
                     break;
                 } else {
                     i++;
@@ -107,7 +107,7 @@ public final class Pot {
 
                     for (var jugador : players) {
 
-                        if (jugador.getDecision() != Player.FOLD && !jugador.isExit() && !jugador.isSpectator() && Helpers.float1DSecureCompare(apuesta_menor, jugador.getBote() - this.diff) < 0) {
+                        if (jugador.getDecision() != Player.FOLD && jugador.isActivo() && Helpers.float1DSecureCompare(apuesta_menor, jugador.getBote() - this.diff) < 0) {
                             jugadores_hijo.add(jugador);
                         }
 

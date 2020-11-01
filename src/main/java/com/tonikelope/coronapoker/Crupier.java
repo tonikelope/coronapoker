@@ -157,6 +157,7 @@ public class Crupier implements Runnable {
     private final Object lock_apuestas = new Object();
     private final Object lock_contabilidad = new Object();
     private final Object lock_cinematics = new Object();
+    private final Object lock_mostrar = new Object();
 
     private int dealer_pos = -1;
     private int small_pos = -1;
@@ -436,11 +437,15 @@ public class Crupier implements Runnable {
     }
 
     public synchronized void decrementPausaBarra() {
+
         tiempo_pausa--;
+
     }
 
     public synchronized int getTiempo_pausa() {
+
         return tiempo_pausa;
+
     }
 
     public synchronized void setTiempo_pausa(int tiempo) {
@@ -976,7 +981,7 @@ public class Crupier implements Runnable {
                             timeout = true;
 
                             for (String nick : pending) {
-                                this.playerQuit(nick);
+                                this.clientPlayerQuit(nick);
                             }
 
                         } else {
@@ -1015,7 +1020,7 @@ public class Crupier implements Runnable {
 
     }
 
-    public synchronized void playerQuit(String nick) {
+    public synchronized void clientPlayerQuit(String nick) {
 
         Player jugador = nick2player.get(nick);
 
@@ -1023,10 +1028,12 @@ public class Crupier implements Runnable {
 
             jugador.setExit();
 
-            if (Game.getInstance().isPartida_local()) {
+            if (Game.getInstance().isPartida_local() && jugador != Game.getInstance().getLocalPlayer()) {
 
                 try {
+
                     Game.getInstance().getParticipantes().get(nick).setExit();
+
                     broadcastGAMECommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -1079,28 +1086,94 @@ public class Crupier implements Runnable {
 
         for (Player jugador : jugadores) {
 
-            if (!jugador.isExit() && !jugador.isSpectator() && jugador.getDecision() != Player.FOLD && jugador.getDecision() != Player.ALLIN && (nick == null || !jugador.getNickname().equals(nick))) {
+            if (jugador.isActivo() && jugador.getDecision() != Player.FOLD && jugador.getDecision() != Player.ALLIN && (nick == null || !jugador.getNickname().equals(nick))) {
                 jugador.resetBetDecision();
             }
         }
     }
 
+    public Object getLock_mostrar() {
+        return lock_mostrar;
+    }
+
     public void showAndBroadcastPlayerCards(String nick) {
 
-        if (this.show_time) {
+        synchronized (lock_mostrar) {
 
-            Player jugador = nick2player.get(nick);
+            if (this.show_time) {
 
-            try {
-                String comando = "SHOWCARDS#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + jugador.getPlayingCard1().toShortString() + "#" + jugador.getPlayingCard2().toShortString();
+                Player jugador = nick2player.get(nick);
 
-                broadcastGAMECommandFromServer(comando, nick);
+                try {
+                    String comando = "SHOWCARDS#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + jugador.getPlayingCard1().toShortString() + "#" + jugador.getPlayingCard2().toShortString();
 
-            } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    broadcastGAMECommandFromServer(comando, nick);
+
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+                if (jugador != Game.getInstance().getLocalPlayer()) {
+
+                    Helpers.playWavResource("misc/uncover.wav");
+
+                    jugador.getPlayingCard1().destapar(false);
+                    jugador.getPlayingCard2().destapar(false);
+
+                    ArrayList<Card> cartas = new ArrayList<>();
+
+                    cartas.add(jugador.getPlayingCard1());
+                    cartas.add(jugador.getPlayingCard2());
+
+                    String lascartas = Card.collection2String(cartas);
+
+                    for (Card carta_comun : Game.getInstance().getCartas_comunes()) {
+
+                        if (!carta_comun.isTapada()) {
+                            cartas.add(carta_comun);
+                        }
+                    }
+
+                    Hand jugada = new Hand(cartas);
+
+                    jugador.showCards(jugada.getName());
+
+                    if (Game.SONIDOS_CHORRA && jugador.getDecision() == Player.FOLD) {
+                        Helpers.playWavResource("misc/showyourcards.wav");
+                    }
+
+                    if (!perdedores.containsKey(jugador)) {
+                        Game.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
+                    }
+                }
+
+                setTiempo_pausa(Game.TEST_MODE ? Game.PAUSA_ENTRE_MANOS_TEST : Game.PAUSA_ENTRE_MANOS);
+
             }
+        }
+    }
 
-            if (jugador != Game.getInstance().getLocalPlayer()) {
+    public HashMap<Player, Hand> getPerdedores() {
+        return perdedores;
+    }
+
+    public boolean isShow_time() {
+        return show_time;
+    }
+
+    public void showPlayerCards(String nick, String carta1, String carta2) {
+
+        synchronized (lock_mostrar) {
+
+            if (this.show_time) {
+
+                Player jugador = nick2player.get(nick);
+
+                String[] carta1_partes = carta1.split("_");
+                String[] carta2_partes = carta2.split("_");
+
+                jugador.getPlayingCard1().cargarCarta(carta1_partes[0], carta1_partes[1]);
+                jugador.getPlayingCard2().cargarCarta(carta2_partes[0], carta2_partes[1]);
 
                 Helpers.playWavResource("misc/uncover.wav");
 
@@ -1132,65 +1205,10 @@ public class Crupier implements Runnable {
                 if (!perdedores.containsKey(jugador)) {
                     Game.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
                 }
+
+                setTiempo_pausa(Game.TEST_MODE ? Game.PAUSA_ENTRE_MANOS_TEST : Game.PAUSA_ENTRE_MANOS);
             }
 
-            setTiempo_pausa(Game.TEST_MODE ? Game.PAUSA_ENTRE_MANOS_TEST : Game.PAUSA_ENTRE_MANOS);
-
-        }
-    }
-
-    public HashMap<Player, Hand> getPerdedores() {
-        return perdedores;
-    }
-
-    public boolean isShow_time() {
-        return show_time;
-    }
-
-    public void showPlayerCards(String nick, String carta1, String carta2) {
-
-        if (this.show_time) {
-
-            Player jugador = nick2player.get(nick);
-
-            String[] carta1_partes = carta1.split("_");
-            String[] carta2_partes = carta2.split("_");
-
-            jugador.getPlayingCard1().cargarCarta(carta1_partes[0], carta1_partes[1]);
-            jugador.getPlayingCard2().cargarCarta(carta2_partes[0], carta2_partes[1]);
-
-            Helpers.playWavResource("misc/uncover.wav");
-
-            jugador.getPlayingCard1().destapar(false);
-            jugador.getPlayingCard2().destapar(false);
-
-            ArrayList<Card> cartas = new ArrayList<>();
-
-            cartas.add(jugador.getPlayingCard1());
-            cartas.add(jugador.getPlayingCard2());
-
-            String lascartas = Card.collection2String(cartas);
-
-            for (Card carta_comun : Game.getInstance().getCartas_comunes()) {
-
-                if (!carta_comun.isTapada()) {
-                    cartas.add(carta_comun);
-                }
-            }
-
-            Hand jugada = new Hand(cartas);
-
-            jugador.showCards(jugada.getName());
-
-            if (Game.SONIDOS_CHORRA && jugador.getDecision() == Player.FOLD) {
-                Helpers.playWavResource("misc/showyourcards.wav");
-            }
-
-            if (!perdedores.containsKey(jugador)) {
-                Game.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
-            }
-
-            setTiempo_pausa(Game.TEST_MODE ? Game.PAUSA_ENTRE_MANOS_TEST : Game.PAUSA_ENTRE_MANOS);
         }
     }
 
@@ -1542,7 +1560,16 @@ public class Crupier implements Runnable {
     }
 
     public int getJugadoresActivos() {
-        return Game.getInstance().getJugadores().size() - (this.getTotalSpectators() + this.getTotalExit());
+
+        int t = 0;
+
+        for (Player j : Game.getInstance().getJugadores()) {
+            if (j.isActivo()) {
+                t++;
+            }
+        }
+
+        return t;
     }
 
     private boolean recuperarDatosClavePartida() {
@@ -1682,7 +1709,7 @@ public class Crupier implements Runnable {
 
                 this.big_pos = (this.dealer_pos + 1) % Game.getInstance().getJugadores().size();
 
-                while (Game.getInstance().getJugadores().get(this.big_pos).isSpectator()) {
+                while (!Game.getInstance().getJugadores().get(this.big_pos).isActivo()) {
 
                     this.big_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
                 }
@@ -1691,21 +1718,21 @@ public class Crupier implements Runnable {
 
                 this.small_pos = (this.dealer_pos + 1) % Game.getInstance().getJugadores().size();
 
-                while (Game.getInstance().getJugadores().get(this.small_pos).isSpectator()) {
+                while (!Game.getInstance().getJugadores().get(this.small_pos).isActivo()) {
 
                     this.small_pos = (this.small_pos + 1) % Game.getInstance().getJugadores().size();
                 }
 
                 this.big_pos = (this.small_pos + 1) % Game.getInstance().getJugadores().size();
 
-                while (Game.getInstance().getJugadores().get(this.big_pos).isSpectator()) {
+                while (!Game.getInstance().getJugadores().get(this.big_pos).isActivo()) {
 
                     this.big_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
                 }
 
                 this.utg_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
 
-                while (Game.getInstance().getJugadores().get(this.utg_pos).isSpectator()) {
+                while (!Game.getInstance().getJugadores().get(this.utg_pos).isActivo()) {
                     this.utg_pos = (this.utg_pos + 1) % Game.getInstance().getJugadores().size();
                 }
             }
@@ -1873,7 +1900,7 @@ public class Crupier implements Runnable {
 
         for (Player jugador : Game.getInstance().getJugadores()) {
 
-            if (!jugador.isSpectator()) {
+            if (jugador.isActivo()) {
                 jugador.getPlayingCard1().descargarCarta();
                 jugador.getPlayingCard2().descargarCarta();
             }
@@ -1933,7 +1960,7 @@ public class Crupier implements Runnable {
 
         for (Player jugador : Game.getInstance().getJugadores()) {
 
-            if (!jugador.isExit() && !jugador.isSpectator()) {
+            if (jugador.isActivo()) {
                 jugador.nuevaMano(i);
             }
 
@@ -2116,7 +2143,7 @@ public class Crupier implements Runnable {
 
                 enviarCartasJugadoresRemotos();
 
-            } else if (!Game.getInstance().getLocalPlayer().isSpectator()) {
+            } else if (Game.getInstance().getLocalPlayer().isActivo()) {
 
                 //Leemos las cartas que nos han tocado del servidor
                 cartas_locales_recibidas = recibirMisCartas();
@@ -2154,7 +2181,7 @@ public class Crupier implements Runnable {
 
             for (Player jugador : Game.getInstance().getJugadores()) {
 
-                if (!jugador.isExit() && !jugador.isSpectator()) {
+                if (jugador.isActivo()) {
                     jugador.pagar(jugador.getBet());
                 }
 
@@ -2197,7 +2224,7 @@ public class Crupier implements Runnable {
 
             for (Player jugador : Game.getInstance().getJugadores()) {
 
-                if (!jugador.isSpectator()) {
+                if (jugador.isActivo()) {
 
                     jugador.getPlayingCard1().cargarCarta();
                     jugador.getPlayingCard2().cargarCarta();
@@ -2213,7 +2240,7 @@ public class Crupier implements Runnable {
 
             Player jugador = Game.getInstance().getJugadores().get(j);
 
-            if (!jugador.isSpectator() && Game.ANIMACION_REPARTIR) {
+            if (jugador.isActivo() && Game.ANIMACION_REPARTIR) {
 
                 Helpers.playWavResource("misc/deal.wav");
 
@@ -2237,7 +2264,7 @@ public class Crupier implements Runnable {
                     jugador.getPlayingCard1().cargarCarta();
 
                 }
-            } else if (!jugador.isSpectator() && jugador == Game.getInstance().getLocalPlayer()) {
+            } else if (jugador.isActivo() && jugador == Game.getInstance().getLocalPlayer()) {
 
                 Helpers.playWavResource("misc/deal.wav");
 
@@ -2256,7 +2283,7 @@ public class Crupier implements Runnable {
 
             }
 
-            if (!jugador.isSpectator()) {
+            if (jugador.isActivo()) {
                 Helpers.pausar(pausa);
             }
 
@@ -2268,7 +2295,7 @@ public class Crupier implements Runnable {
 
             Player jugador = Game.getInstance().getJugadores().get(j);
 
-            if (!jugador.isSpectator() && Game.ANIMACION_REPARTIR) {
+            if (jugador.isActivo() && Game.ANIMACION_REPARTIR) {
 
                 Helpers.playWavResource("misc/deal.wav");
 
@@ -2292,7 +2319,7 @@ public class Crupier implements Runnable {
 
                     jugador.getPlayingCard2().cargarCarta();
                 }
-            } else if (!jugador.isSpectator() && jugador == Game.getInstance().getLocalPlayer()) {
+            } else if (jugador.isActivo() && jugador == Game.getInstance().getLocalPlayer()) {
 
                 Helpers.playWavResource("misc/deal.wav");
 
@@ -2311,7 +2338,7 @@ public class Crupier implements Runnable {
 
             }
 
-            if (!jugador.isSpectator()) {
+            if (jugador.isActivo()) {
                 Helpers.pausar(pausa);
             }
 
@@ -2360,12 +2387,10 @@ public class Crupier implements Runnable {
 
             Player jugador = Game.getInstance().getJugadores().get(j);
 
-            if (!jugador.isSpectator()) {
-                if (!Game.ACE_JOKE) {
-                    jugador.getPlayingCard1().preCargarCarta(permutacion_baraja[p]);
-                } else {
-                    jugador.getPlayingCard1().preCargarCarta(1);
-                }
+            if (jugador.isActivo()) {
+
+                jugador.getPlayingCard1().preCargarCarta(permutacion_baraja[p]);
+
                 p++;
             }
 
@@ -2377,12 +2402,10 @@ public class Crupier implements Runnable {
 
             Player jugador = Game.getInstance().getJugadores().get(j);
 
-            if (!jugador.isSpectator()) {
-                if (!Game.ACE_JOKE) {
-                    jugador.getPlayingCard2().preCargarCarta(permutacion_baraja[p]);
-                } else {
-                    jugador.getPlayingCard2().preCargarCarta(14);
-                }
+            if (jugador.isActivo()) {
+
+                jugador.getPlayingCard2().preCargarCarta(permutacion_baraja[p]);
+
                 p++;
             }
 
@@ -2390,29 +2413,18 @@ public class Crupier implements Runnable {
 
         } while (j != pivote);
 
-        if (!Game.ACE_JOKE) {
-            for (Card carta : Game.getInstance().getCartas_comunes()) {
+        for (Card carta : Game.getInstance().getCartas_comunes()) {
 
-                //Se quema una carta antes de cada calle
-                if (carta == Game.getInstance().getFlop1() || carta == Game.getInstance().getTurn() || carta == Game.getInstance().getRiver()) {
-                    p++;
-                }
-
-                carta.preCargarCarta(permutacion_baraja[p]);
-
+            //Se quema una carta antes de cada calle
+            if (carta == Game.getInstance().getFlop1() || carta == Game.getInstance().getTurn() || carta == Game.getInstance().getRiver()) {
                 p++;
             }
-        } else {
 
-            Card[] comunes = Game.getInstance().getCartas_comunes();
+            carta.preCargarCarta(permutacion_baraja[p]);
 
-            comunes[0].preCargarCarta(6);
-            comunes[1].preCargarCarta(27);
-            comunes[2].preCargarCarta(40);
-            comunes[3].preCargarCarta(12);
-            comunes[4].preCargarCarta(4);
-
+            p++;
         }
+
     }
 
     private void enviarCartasJugadoresRemotos() {
@@ -2423,7 +2435,7 @@ public class Crupier implements Runnable {
 
         for (Player jugador : Game.getInstance().getJugadores()) {
 
-            if (!jugador.getNickname().equals(Game.getInstance().getNick_local()) && !jugador.isSpectator() && !Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
+            if (jugador != Game.getInstance().getLocalPlayer() && jugador.isActivo() && !Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
 
                 pendientes.add(jugador.getNickname());
             }
@@ -2501,7 +2513,7 @@ public class Crupier implements Runnable {
 
             for (String nick : pendientes) {
                 if (!nick2player.get(nick).isExit()) {
-                    this.playerQuit(nick);
+                    this.clientPlayerQuit(nick);
                 }
             }
         }
@@ -2713,7 +2725,7 @@ public class Crupier implements Runnable {
 
                                 timeout = true;
 
-                                this.playerQuit(jugador.getNickname());
+                                this.clientPlayerQuit(jugador.getNickname());
 
                             } else {
                                 start = System.currentTimeMillis();
@@ -2763,7 +2775,7 @@ public class Crupier implements Runnable {
 
         for (Player jugador : jugadores) {
 
-            if (!jugador.isExit() && !jugador.isSpectator() && jugador.getDecision() != Player.ALLIN && jugador.getDecision() != Player.FOLD) {
+            if (jugador.isActivo() && jugador.getDecision() != Player.ALLIN && jugador.getDecision() != Player.FOLD) {
                 tot++;
             }
         }
@@ -2801,7 +2813,7 @@ public class Crupier implements Runnable {
         while (iterator.hasNext()) {
             Player jugador = iterator.next();
 
-            if (jugador.isSpectator()) {
+            if (!jugador.isActivo()) {
                 iterator.remove();
             }
 
@@ -2923,7 +2935,7 @@ public class Crupier implements Runnable {
 
                 Player current_player = Game.getInstance().getJugadores().get(conta_pos);
 
-                if (!current_player.isExit() && !current_player.isSpectator() && current_player.getDecision() != Player.FOLD && current_player.getDecision() != Player.ALLIN) {
+                if (current_player.isActivo() && current_player.getDecision() != Player.FOLD && current_player.getDecision() != Player.ALLIN) {
 
                     if (Game.AUTO_ACTION_BUTTONS && current_player != Game.getInstance().getLocalPlayer() && Game.getInstance().getLocalPlayer().getDecision() != Player.FOLD && Game.getInstance().getLocalPlayer().getDecision() != Player.ALLIN) {
                         Game.getInstance().getLocalPlayer().activarPreBotones();
@@ -3397,7 +3409,7 @@ public class Crupier implements Runnable {
                             if (!nick2player.isEmpty()) {
                                 for (String nick : pendientes) {
                                     if (!nick2player.get(nick).isExit()) {
-                                        this.playerQuit(nick);
+                                        this.clientPlayerQuit(nick);
                                     }
                                 }
                             } else {
@@ -3440,7 +3452,7 @@ public class Crupier implements Runnable {
 
                 this.dealer_pos = (this.dealer_pos + 1) % Game.getInstance().getJugadores().size();
 
-                while (Game.getInstance().getJugadores().get(this.dealer_pos).isSpectator()) {
+                while (!Game.getInstance().getJugadores().get(this.dealer_pos).isActivo()) {
 
                     this.dealer_pos = (this.dealer_pos + 1) % Game.getInstance().getJugadores().size();
                 }
@@ -3456,7 +3468,7 @@ public class Crupier implements Runnable {
 
             this.big_pos = (this.dealer_pos + 1) % Game.getInstance().getJugadores().size();
 
-            while (Game.getInstance().getJugadores().get(this.big_pos).isSpectator()) {
+            while (!Game.getInstance().getJugadores().get(this.big_pos).isActivo()) {
 
                 this.big_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
             }
@@ -3465,21 +3477,21 @@ public class Crupier implements Runnable {
 
             this.small_pos = (this.dealer_pos + 1) % Game.getInstance().getJugadores().size();
 
-            while (Game.getInstance().getJugadores().get(this.small_pos).isSpectator()) {
+            while (!Game.getInstance().getJugadores().get(this.small_pos).isActivo()) {
 
                 this.small_pos = (this.small_pos + 1) % Game.getInstance().getJugadores().size();
             }
 
             this.big_pos = (this.small_pos + 1) % Game.getInstance().getJugadores().size();
 
-            while (Game.getInstance().getJugadores().get(this.big_pos).isSpectator()) {
+            while (!Game.getInstance().getJugadores().get(this.big_pos).isActivo()) {
 
                 this.big_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
             }
 
             this.utg_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
 
-            while (Game.getInstance().getJugadores().get(this.utg_pos).isSpectator()) {
+            while (!Game.getInstance().getJugadores().get(this.utg_pos).isActivo()) {
                 this.utg_pos = (this.utg_pos + 1) % Game.getInstance().getJugadores().size();
             }
         }
@@ -4290,6 +4302,7 @@ public class Crupier implements Runnable {
                     }
                 });
             }
+
         }
 
         Helpers.GUIRun(new Runnable() {
@@ -4473,14 +4486,8 @@ public class Crupier implements Runnable {
 
         if (Game.getInstance().isPartida_local()) {
 
-            if (Game.getInstance().getNick_local().toLowerCase().equals("tonikelope")) {
-                Game.ACE_JOKE = true;
-            }
-
             broadcastGAMECommandFromServer("INIT#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.CIEGA_PEQUEÑA) + "#" + String.valueOf(Game.CIEGA_GRANDE) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(Game.isRECOVER()) + "#" + String.valueOf(Game.REBUY), null);
 
-        } else if (Game.getInstance().getSala_espera().getServer_nick().toLowerCase().equals("tonikelope")) {
-            Game.ACE_JOKE = true;
         }
 
         Helpers.GUIRun(new Runnable() {
@@ -4545,7 +4552,7 @@ public class Crupier implements Runnable {
 
         while (!fin_de_la_transmision) {
 
-            if (isJugadores_suficientes() && (!Game.getInstance().getLocalPlayer().isExit() || Game.getInstance().getLocalPlayer().isSpectator())) {
+            if (isJugadores_suficientes() && !Game.getInstance().getLocalPlayer().isExit()) {
 
                 if (this.NUEVA_MANO()) {
 
@@ -4875,7 +4882,7 @@ public class Crupier implements Runnable {
 
                         if (!Game.TEST_MODE && !resisten.contains(Game.getInstance().getLocalPlayer())) {
 
-                            if (!Game.getInstance().getLocalPlayer().isExit() && !Game.getInstance().getLocalPlayer().isSpectator() && Game.getInstance().getLocalPlayer().getParguela_counter() > 0) {
+                            if (Game.getInstance().getLocalPlayer().isActivo() && Game.getInstance().getLocalPlayer().getParguela_counter() > 0) {
 
                                 Game.getInstance().getLocalPlayer().activar_boton_mostrar(true);
                             }
@@ -4897,12 +4904,14 @@ public class Crupier implements Runnable {
 
                     if (!Game.TEST_MODE) {
 
-                        if (isJugadores_suficientes() && (!Game.getInstance().getLocalPlayer().isExit() || Game.getInstance().getLocalPlayer().isSpectator())) {
+                        if (isJugadores_suficientes() && !Game.getInstance().getLocalPlayer().isExit()) {
 
                             this.pausaConBarra(Game.PAUSA_ENTRE_MANOS);
                         }
 
-                        this.show_time = false;
+                        synchronized (lock_mostrar) {
+                            this.show_time = false;
+                        }
 
                         Game.getInstance().getLocalPlayer().desactivar_boton_mostrar();
 
@@ -4912,7 +4921,7 @@ public class Crupier implements Runnable {
 
                         for (Player jugador : Game.getInstance().getJugadores()) {
 
-                            if (jugador != Game.getInstance().getLocalPlayer() && !jugador.isExit() && !jugador.isSpectator() && Helpers.float1DSecureCompare(0f, Helpers.clean1DFloat(jugador.getStack()) + Helpers.clean1DFloat(jugador.getPagar())) == 0) {
+                            if (jugador != Game.getInstance().getLocalPlayer() && jugador.isActivo() && Helpers.float1DSecureCompare(0f, Helpers.clean1DFloat(jugador.getStack()) + Helpers.clean1DFloat(jugador.getPagar())) == 0) {
 
                                 if (Game.REBUY) {
                                     rebuy_players.add(jugador.getNickname());
@@ -5059,7 +5068,9 @@ public class Crupier implements Runnable {
 
                         this.pausaConBarra(Game.PAUSA_ENTRE_MANOS_TEST);
 
-                        this.show_time = false;
+                        synchronized (lock_mostrar) {
+                            this.show_time = false;
+                        }
 
                         Game.getInstance().getLocalPlayer().desactivar_boton_mostrar();
 
@@ -5089,20 +5100,6 @@ public class Crupier implements Runnable {
                 fin_de_la_transmision = true;
             }
 
-            if (Game.ACE_JOKE) {
-                Game.ACE_JOKE = false;
-
-                this.bote_sobrante = 0f;
-
-                this.mano = 0;
-
-                for (Player jugador : Game.getInstance().getJugadores()) {
-
-                    jugador.pagar(jugador.getPagar() * -1);
-
-                    jugador.setStack(Game.BUYIN);
-                }
-            }
         }
 
         if (!fin_de_la_transmision && !Game.getInstance().isPartida_local()) {

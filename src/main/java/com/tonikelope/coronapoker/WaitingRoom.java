@@ -835,7 +835,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                         Game.getInstance().getCrupier().showPlayerCards(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), partes_comando[4], partes_comando[5]);
                                                         break;
                                                     case "EXIT":
-                                                        Game.getInstance().getCrupier().playerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                        Game.getInstance().getCrupier().clientPlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         borrarParticipante(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         break;
                                                     case "SERVEREXIT":
@@ -858,7 +858,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                     case "DELUSER":
                                                         if (partida_empezada) {
-                                                            Game.getInstance().getCrupier().playerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                            Game.getInstance().getCrupier().clientPlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         }
 
                                                         borrarParticipante(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));

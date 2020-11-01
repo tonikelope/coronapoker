@@ -117,7 +117,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!this.exit) {
             this.exit = true;
-            this.spectator = false;
 
             if (crupier.getJugadoresActivos() + crupier.getTotalCalentando() < 2) {
                 crupier.setJugadores_suficientes(false);
@@ -834,7 +833,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
-                    crupier.playerQuit(nickname);
+                    crupier.clientPlayerQuit(nickname);
                 }
             });
         }
@@ -1414,6 +1413,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             }
         });
+    }
+
+    @Override
+    public boolean isActivo() {
+        return (!exit && !spectator);
     }
 
 }

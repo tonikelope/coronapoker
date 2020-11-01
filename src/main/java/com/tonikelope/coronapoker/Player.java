@@ -34,6 +34,8 @@ public interface Player {
 
     public static final int BORDER = 8;
 
+    public boolean isActivo();
+
     public boolean isTurno();
 
     public void resetBote();

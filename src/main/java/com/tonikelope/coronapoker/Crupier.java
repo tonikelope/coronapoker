@@ -158,6 +158,7 @@ public class Crupier implements Runnable {
     private final Object lock_contabilidad = new Object();
     private final Object lock_cinematics = new Object();
     private final Object lock_mostrar = new Object();
+    private final Object lock_nueva_mano = new Object();
 
     private int dealer_pos = -1;
     private int small_pos = -1;
@@ -1874,6 +1875,20 @@ public class Crupier implements Runnable {
         return bote_total;
     }
 
+    public void remotePlayerNewHandReady(String nick, int hand) {
+
+        Player jugador = nick2player.get(nick);
+
+        if (jugador != null && jugador.isActivo()) {
+
+            ((RemotePlayer) jugador).setNewHandReady(hand);
+
+            synchronized (lock_nueva_mano) {
+                lock_nueva_mano.notifyAll();
+            }
+        }
+    }
+
     private boolean NUEVA_MANO() {
 
         Helpers.GUIRun(new Runnable() {
@@ -1890,6 +1905,45 @@ public class Crupier implements Runnable {
                 }
             }
         });
+
+        //SINCRONIZACIÓN DE LA MANO
+        //Esperamos a recibir el comando de confirmación de que están listos para una nueva mano
+        if (Game.getInstance().isPartida_local()) {
+
+            boolean ready;
+
+            do {
+
+                ready = true;
+
+                for (Player j : Game.getInstance().getJugadores()) {
+                    if (j != Game.getInstance().getLocalPlayer() && !Game.getInstance().getParticipantes().get(j.getNickname()).isCpu() && j.isActivo() && ((RemotePlayer) j).getNewHandReady() <= this.mano) {
+
+                        ready = false;
+
+                        break;
+                    }
+                }
+
+                if (!ready) {
+
+                    synchronized (lock_nueva_mano) {
+
+                        try {
+                            lock_nueva_mano.wait(1000);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                }
+
+            } while (!ready);
+
+        } else {
+
+            this.sendGAMECommandToServer("NEWHANDREADY#" + String.valueOf(this.mano + 1));
+
+        }
 
         for (Player jugador : Game.getInstance().getJugadores()) {
 

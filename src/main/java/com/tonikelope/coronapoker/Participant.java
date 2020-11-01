@@ -419,7 +419,7 @@ public class Participant implements Runnable {
                                                 Game.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
                                                 break;
                                             case "EXIT":
-                                                Game.getInstance().getCrupier().playerQuit(nick);
+                                                Game.getInstance().getCrupier().clientPlayerQuit(nick);
                                                 exit = true;
                                                 break;
                                             default:
@@ -488,7 +488,7 @@ public class Participant implements Runnable {
 
                 if (WaitingRoom.isPartida_empezada() && !exit) {
 
-                    Game.getInstance().getCrupier().playerQuit(nick);
+                    Game.getInstance().getCrupier().clientPlayerQuit(nick);
                 }
 
                 sala_espera.borrarParticipante(nick);

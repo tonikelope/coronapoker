@@ -253,7 +253,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!this.exit) {
             this.exit = true;
-            this.spectator = false;
 
             if (crupier.getJugadoresActivos() + crupier.getTotalCalentando() < 2) {
                 crupier.setJugadores_suficientes(false);
@@ -1660,13 +1659,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.threadRun(new Runnable() {
                         public void run() {
 
-                            if (crupier.isShow_time()) {
+                            synchronized (crupier.getLock_mostrar()) {
+                                if (crupier.isShow_time()) {
 
-                                Helpers.threadRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        if (crupier.isShow_time()) {
+                                    Helpers.threadRun(new Runnable() {
+                                        @Override
+                                        public void run() {
 
                                             if (Game.getInstance().isPartida_local()) {
                                                 crupier.showAndBroadcastPlayerCards(nickname);
@@ -1674,48 +1672,49 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                 crupier.sendGAMECommandToServer("SHOWMYCARDS");
                                                 crupier.setTiempo_pausa(Game.PAUSA_ENTRE_MANOS);
                                             }
+
+                                        }
+                                    });
+
+                                    ArrayList<Card> cartas = new ArrayList<>();
+
+                                    cartas.add(getPlayingCard1());
+                                    cartas.add(getPlayingCard2());
+
+                                    String lascartas = Card.collection2String(cartas);
+
+                                    for (Card carta_comun : Game.getInstance().getCartas_comunes()) {
+
+                                        if (!carta_comun.isTapada()) {
+                                            cartas.add(carta_comun);
                                         }
                                     }
-                                });
 
-                                ArrayList<Card> cartas = new ArrayList<>();
+                                    Hand jugada = new Hand(cartas);
 
-                                cartas.add(getPlayingCard1());
-                                cartas.add(getPlayingCard2());
+                                    player_action.setForeground(Color.WHITE);
 
-                                String lascartas = Card.collection2String(cartas);
+                                    player_action.setBackground(new Color(51, 153, 255));
 
-                                for (Card carta_comun : Game.getInstance().getCartas_comunes()) {
+                                    player_action.setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
 
-                                    if (!carta_comun.isTapada()) {
-                                        cartas.add(carta_comun);
+                                    if (Game.SONIDOS_CHORRA && decision == Player.FOLD) {
+
+                                        Helpers.playWavResource("misc/showyourcards.wav");
+
                                     }
-                                }
 
-                                Hand jugada = new Hand(cartas);
+                                    if (!crupier.getPerdedores().containsKey(this)) {
+                                        Game.getInstance().getRegistro().print(nickname + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
+                                    }
 
-                                player_action.setForeground(Color.WHITE);
+                                    Helpers.translateComponents(botonera, false);
 
-                                player_action.setBackground(new Color(51, 153, 255));
-
-                                player_action.setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
-
-                                if (Game.SONIDOS_CHORRA && decision == Player.FOLD) {
-
-                                    Helpers.playWavResource("misc/showyourcards.wav");
+                                    Helpers.translateComponents(player_action, false);
 
                                 }
-
-                                if (!crupier.getPerdedores().containsKey(this)) {
-                                    Game.getInstance().getRegistro().print(nickname + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
-                                }
-
-                                Helpers.translateComponents(botonera, false);
-
-                                Helpers.translateComponents(player_action, false);
 
                             }
-
                         }
                     });
 
@@ -2199,4 +2198,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
+    public boolean isActivo() {
+        return (!exit && !spectator);
+    }
 }

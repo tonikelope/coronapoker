@@ -90,8 +90,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static boolean RECOVER = false;
     private static Game THIS = null;
 
-    public static boolean ACE_JOKE = false;
-
     public static Game getInstance() {
         return THIS;
     }

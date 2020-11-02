@@ -97,11 +97,15 @@ public class WaitingRoom extends javax.swing.JFrame {
     }
 
     public SecretKeySpec getLocal_client_hmac_key() {
-        return local_client_hmac_key;
+        synchronized (getLocalClientSocketLock()) {
+            return local_client_hmac_key;
+        }
     }
 
     public SecretKeySpec getClient_aes_key() {
-        return local_client_aes_key;
+        synchronized (getLocalClientSocketLock()) {
+            return local_client_aes_key;
+        }
     }
 
     public static boolean isExit() {
@@ -260,11 +264,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         String recibido = in.readLine().trim();
 
-        if (recibido != null) {
-
-            if (recibido.startsWith("*")) {
-                recibido = Helpers.decryptCommand(recibido, key, hmac_key);
-            }
+        if (recibido != null && recibido.startsWith("*")) {
+            recibido = Helpers.decryptCommand(recibido, key, hmac_key);
         }
 
         return recibido;
@@ -274,11 +275,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         String recibido = this.local_client_buffer_read_is.readLine().trim();
 
-        if (recibido != null) {
-
-            if (recibido.startsWith("*")) {
-                recibido = Helpers.decryptCommand(recibido, this.local_client_aes_key, this.local_client_hmac_key);
-            }
+        if (recibido != null && recibido.startsWith("*")) {
+            recibido = Helpers.decryptCommand(recibido, this.local_client_aes_key, this.local_client_hmac_key);
         }
 
         return recibido;
@@ -465,9 +463,9 @@ public class WaitingRoom extends javax.swing.JFrame {
                 Helpers.playWavResource("misc/yahoo.wav");
             }
 
-            getLocalClientSocketLock().notifyAll();
-
             this.reconnecting = false;
+
+            getLocalClientSocketLock().notifyAll();
 
             return ok;
 
@@ -1177,11 +1175,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                     participantes.get(client_nick).resetSocket(client_socket);
 
-                                    synchronized (getLocalClientSocketLock()) {
-
-                                        getLocalClientSocketLock().notifyAll();
-                                    }
-
                                     //Mandamos el chat
                                     participantes.get(client_nick).writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key));
 
@@ -1190,7 +1183,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                         enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
                                     }
 
-                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, null, "El usuario " + client_nick + " ha reconectado correctamente su socket.");
+                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El usuario " + client_nick + " ha reconectado correctamente su socket.");
 
                                 } else {
                                     try {

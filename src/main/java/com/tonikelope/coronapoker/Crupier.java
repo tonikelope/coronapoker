@@ -2601,9 +2601,9 @@ public class Crupier implements Runnable {
 
         int id = Helpers.PRNG_GENERATOR.nextInt();
 
-        do {
+        String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
-            String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+        do {
 
             try {
 
@@ -2620,7 +2620,7 @@ public class Crupier implements Runnable {
                     synchronized (Game.getInstance().getSala_espera().getLocalClientSocketLock()) {
 
                         try {
-                            Game.getInstance().getSala_espera().getLocalClientSocketLock().wait(Game.WAIT_QUEUES);
+                            Game.getInstance().getSala_espera().getLocalClientSocketLock().wait(1000);
                         } catch (InterruptedException ex1) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex1);
                         }

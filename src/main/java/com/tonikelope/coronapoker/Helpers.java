@@ -339,7 +339,7 @@ public class Helpers {
         try {
             Desktop.getDesktop().browse(new URI(url));
         } catch (URISyntaxException | IOException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, ex.getMessage());
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex.getMessage());
         }
     }
 
@@ -531,7 +531,7 @@ public class Helpers {
             ge.registerFont(font);
 
         } catch (FontFormatException | IOException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, ex.getMessage());
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex.getMessage());
         }
 
         return font;

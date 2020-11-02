@@ -192,17 +192,15 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 }
 
-                double playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
+                double playerBottom = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
 
-                double tapetePos = tapete.getLocationOnScreen().getY() + tapete.getHeight();
+                double tapeteBottom = tapete.getLocationOnScreen().getY() + tapete.getHeight();
 
                 t = 0;
 
-                while (t < AUTO_ZOOM_TIMEOUT && playerPos > tapetePos) {
+                while (t < AUTO_ZOOM_TIMEOUT && playerBottom > tapeteBottom) {
 
                     double playerHeight = getLocalPlayer().getHeight();
-
-                    double playerWidth = getLocalPlayer().getWidth();
 
                     Helpers.GUIRun(new Runnable() {
                         @Override
@@ -215,15 +213,17 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     t = 0;
 
-                    while (t < AUTO_ZOOM_TIMEOUT && playerWidth == getLocalPlayer().getWidth() && playerHeight == getLocalPlayer().getHeight()) {
+                    while (t < AUTO_ZOOM_TIMEOUT && playerHeight == getLocalPlayer().getHeight()) {
 
                         Helpers.pausar(GUI_ZOOM_WAIT);
                         t += GUI_ZOOM_WAIT;
                     }
 
-                    if (playerWidth != getLocalPlayer().getWidth() || playerHeight != getLocalPlayer().getHeight()) {
-                        playerPos = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
+                    if (playerHeight != getLocalPlayer().getHeight()) {
+                        playerBottom = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
+                        tapeteBottom = tapete.getLocationOnScreen().getY() + tapete.getHeight();
                     }
+
                 }
 
                 Helpers.GUIRun(new Runnable() {

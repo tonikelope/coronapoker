@@ -66,12 +66,18 @@ public class Participant implements Runnable {
         this.hmac_key = hmac_k;
     }
 
+    public Object getParticipant_socket_lock() {
+        return participant_socket_lock;
+    }
+
     public ConcurrentLinkedQueue<String> getAsync_command_queue() {
         return async_command_queue;
     }
 
     public SecretKeySpec getHmac_key() {
-        return hmac_key;
+        synchronized (participant_socket_lock) {
+            return hmac_key;
+        }
     }
 
     public void setHmac_key(SecretKeySpec hmac_key) {
@@ -79,7 +85,9 @@ public class Participant implements Runnable {
     }
 
     public SecretKeySpec getAes_key() {
-        return aes_key;
+        synchronized (participant_socket_lock) {
+            return aes_key;
+        }
     }
 
     public void setAes_key(SecretKeySpec aes_key) {
@@ -140,11 +148,8 @@ public class Participant implements Runnable {
 
         String recibido = this.input_stream.readLine().trim();
 
-        if (recibido != null) {
-
-            if (recibido.startsWith("*")) {
-                recibido = Helpers.decryptCommand(recibido, aes_key, hmac_key);
-            }
+        if (recibido != null && recibido.startsWith("*")) {
+            recibido = Helpers.decryptCommand(recibido, aes_key, hmac_key);
         }
 
         return recibido;
@@ -194,6 +199,8 @@ public class Participant implements Runnable {
             }
 
             this.reconnected = true;
+
+            participant_socket_lock.notifyAll();
         }
     }
 
@@ -453,14 +460,13 @@ public class Participant implements Runnable {
 
                         do {
 
-                            while (!reconnected) {
-                                synchronized (sala_espera.getLocalClientSocketLock()) {
-
-                                    sala_espera.getLocalClientSocketLock().wait(Game.WAIT_QUEUES);
+                            if (!reconnected) {
+                                synchronized (participant_socket_lock) {
+                                    participant_socket_lock.wait(1000);
                                 }
                             }
 
-                            if (System.currentTimeMillis() - start > Game.CLIENT_RECON_TIMEOUT) {
+                            if (!reconnected && System.currentTimeMillis() - start > Game.CLIENT_RECON_TIMEOUT) {
                                 int input = Helpers.mostrarMensajeErrorSINO(Game.getInstance(), nick + Translator.translate(" parece que perdió la conexión y no ha vuelto a conectar (se le eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?"));
 
                                 // 0=yes, 1=no, 2=cancel

@@ -117,7 +117,7 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         ip_port.setDoubleBuffered(true);
 
         yes.setBackground(new java.awt.Color(0, 204, 51));
-        yes.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        yes.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         yes.setForeground(new java.awt.Color(255, 255, 255));
         yes.setText("RECONECTAR");
         yes.setDoubleBuffered(true);

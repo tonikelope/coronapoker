@@ -23,11 +23,11 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
     protected volatile TexturePaint tp = null;
 
-    protected RemotePlayer[] remotePlayers;
+    protected volatile RemotePlayer[] remotePlayers;
 
-    protected Player[] players;
+    protected volatile Player[] players;
 
-    protected ZoomableInterface[] zoomables;
+    protected volatile ZoomableInterface[] zoomables;
 
     public RemotePlayer[] getRemotePlayers() {
         return remotePlayers;

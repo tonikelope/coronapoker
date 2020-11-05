@@ -146,7 +146,7 @@ public class CardVisorDialog extends javax.swing.JDialog {
         boolean baraja_mod = (boolean) ((Object[]) Card.BARAJAS.get(Game.BARAJA))[1];
 
         if (baraja_mod && !Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/decks/" + Game.BARAJA + "/hq/" + c))) {
-            Logger.getLogger(getClass().getName()).log(Level.INFO, "No existe {0}", Helpers.getCurrentJarPath() + "/mod/decks/" + Game.BARAJA + "/hq/" + c);
+            Logger.getLogger(CardVisorDialog.class.getName()).log(Level.INFO, "No existe {0}", Helpers.getCurrentJarPath() + "/mod/decks/" + Game.BARAJA + "/hq/" + c);
             this.setVisible(false);
         } else {
             icon = baraja_mod ? new ImageIcon(Helpers.getCurrentJarPath() + "/mod/decks/" + Game.BARAJA + "/hq/" + c) : new ImageIcon(getClass().getResource("/images/decks/" + Game.BARAJA + "/hq/" + c));

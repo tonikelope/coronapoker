@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -135,43 +136,44 @@ public class Crupier implements Runnable {
     public static final String RECOVER_BALANCE_FILE = Init.REC_DIR + "/coronapoker_balance";
     public static final String RECOVER_ACTIONS_FILE = Init.REC_DIR + "/coronapoker_actions";
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.5f, 1.0f}};
-    public static boolean FUSION_MOD_SOUNDS = true;
-    public static boolean FUSION_MOD_CINEMATICS = true;
+    public volatile static boolean FUSION_MOD_SOUNDS = true;
+    public volatile static boolean FUSION_MOD_CINEMATICS = true;
 
     //Segundos para doblar ciegas
     private volatile int mano = 0;
     private volatile float bote_total = 0f;
     private volatile float apuestas = 0f;
-    private float ciega_grande = Game.CIEGA_GRANDE;
-    private float ciega_pequeña = Game.CIEGA_PEQUEÑA;
-    private Integer[] permutacion_baraja;
+    private volatile float ciega_grande = Game.CIEGA_GRANDE;
+    private volatile float ciega_pequeña = Game.CIEGA_PEQUEÑA;
+    private volatile Integer[] permutacion_baraja;
     private volatile float apuesta_actual = 0f;
     private volatile float ultimo_raise = 0f;
     private volatile int conta_raise = 0;
     private volatile int conta_bet = 0;
     private volatile float bote_sobrante = 0f;
-    private String[] nicks_permutados;
+    private volatile String[] nicks_permutados;
+
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones_recuperadas = new ConcurrentLinkedQueue<>();
+    private final HashMap<String, Float[]> auditor = new HashMap<>();
     private final Object lock_apuestas = new Object();
     private final Object lock_contabilidad = new Object();
     private final Object lock_cinematics = new Object();
     private final Object lock_mostrar = new Object();
     private final Object lock_nueva_mano = new Object();
+    private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
 
-    private int dealer_pos = -1;
-    private int small_pos = -1;
-    private int big_pos = -1;
-    private int utg_pos = -1;
+    private volatile int dealer_pos = -1;
+    private volatile int small_pos = -1;
+    private volatile int big_pos = -1;
+    private volatile int utg_pos = -1;
     private volatile boolean fin_de_la_transmision = false;
-    private int fase = PREFLOP;
-    private final HashMap<String, Player> nick2player = new HashMap<>();
-    private final HashMap<Player, Hand> perdedores = new HashMap<>();
-    private Pot bote = null;
-    private boolean cartas_resistencia = false;
-    private final HashMap<String, Float[]> auditor = new HashMap<>();
-    private int ciegas_double = 0;
+    private volatile int fase = PREFLOP;
+    private volatile Pot bote = null;
+    private volatile boolean cartas_resistencia = false;
+    private volatile int ciegas_double = 0;
     private volatile long turno = 0;
     private volatile boolean fold_sound_playing = false;
     private volatile int tiempo_pausa = 0;
@@ -188,6 +190,10 @@ public class Crupier implements Runnable {
     private volatile boolean playing_cinematic = false;
     private volatile String current_local_cinematic_b64 = null;
     private volatile String current_remote_cinematic_b64 = null;
+
+    public Object getLock_nueva_mano() {
+        return lock_nueva_mano;
+    }
 
     public float getApuestas() {
         return apuestas;
@@ -1154,7 +1160,7 @@ public class Crupier implements Runnable {
         }
     }
 
-    public HashMap<Player, Hand> getPerdedores() {
+    public ConcurrentHashMap<Player, Hand> getPerdedores() {
         return perdedores;
     }
 
@@ -1875,20 +1881,6 @@ public class Crupier implements Runnable {
         return bote_total;
     }
 
-    public void remotePlayerNewHandReady(String nick, int hand) {
-
-        Player jugador = nick2player.get(nick);
-
-        if (jugador != null && jugador.isActivo()) {
-
-            ((RemotePlayer) jugador).setNewHandReady(hand);
-
-            synchronized (lock_nueva_mano) {
-                lock_nueva_mano.notifyAll();
-            }
-        }
-    }
-
     private boolean NUEVA_MANO() {
 
         Helpers.GUIRun(new Runnable() {
@@ -1916,13 +1908,18 @@ public class Crupier implements Runnable {
 
                 ready = true;
 
-                for (Player j : Game.getInstance().getJugadores()) {
-                    if (j != Game.getInstance().getLocalPlayer() && !Game.getInstance().getParticipantes().get(j.getNickname()).isCpu() && j.isActivo() && ((RemotePlayer) j).getNewHandReady() <= this.mano) {
+                for (Map.Entry<String, Participant> entry : Game.getInstance().getParticipantes().entrySet()) {
+
+                    Participant p = entry.getValue();
+
+                    if (p != null && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.mano) {
 
                         ready = false;
 
                         break;
+
                     }
+
                 }
 
                 if (!ready) {
@@ -1935,6 +1932,7 @@ public class Crupier implements Runnable {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
                     }
+
                 }
 
             } while (!ready);
@@ -2607,7 +2605,7 @@ public class Crupier implements Runnable {
 
             try {
 
-                Game.getInstance().getSala_espera().writeCommandToServer(Helpers.encryptCommand(full_command, Game.getInstance().getSala_espera().getClient_aes_key(), Game.getInstance().getSala_espera().getLocal_client_hmac_key()));
+                Game.getInstance().getSala_espera().writeCommandToServer(Helpers.encryptCommand(full_command, Game.getInstance().getSala_espera().getLocal_client_aes_key(), Game.getInstance().getSala_espera().getLocal_client_hmac_key()));
 
                 if (confirmation) {
                     this.waitSyncConfirmations(id, pendientes);
@@ -2654,49 +2652,48 @@ public class Crupier implements Runnable {
 
         while (!pending.isEmpty() && !timeout) {
 
-            synchronized (WaitingRoom.getInstance().getReceived_confirmations()) {
+            ArrayList<Object[]> rejected = new ArrayList<>();
 
-                ArrayList<Object[]> rejected = new ArrayList<>();
+            Object[] confirmation;
 
-                Object[] confirmation;
+            while (!WaitingRoom.getInstance().getReceived_confirmations().isEmpty()) {
 
-                while (!WaitingRoom.getInstance().getReceived_confirmations().isEmpty()) {
+                confirmation = WaitingRoom.getInstance().getReceived_confirmations().poll();
 
-                    confirmation = WaitingRoom.getInstance().getReceived_confirmations().poll();
+                if ((int) confirmation[1] == id + 1) {
 
-                    if ((int) confirmation[1] == id + 1) {
+                    pending.remove(confirmation[0]);
 
-                        pending.remove(confirmation[0]);
+                    if (nick2player.containsKey(confirmation[0])) {
 
-                        if (nick2player.containsKey(confirmation[0])) {
+                        nick2player.get(confirmation[0]).setTimeout(false);
 
-                            nick2player.get(confirmation[0]).setTimeout(false);
-
-                        }
-
-                    } else {
-                        rejected.add(confirmation);
                     }
+
+                } else {
+                    rejected.add(confirmation);
                 }
+            }
 
-                if (System.currentTimeMillis() - start_time > Game.CONFIRMATION_TIMEOUT) {
-                    timeout = true;
-                } else if (!pending.isEmpty()) {
+            if (!rejected.isEmpty()) {
+                WaitingRoom.getInstance().getReceived_confirmations().addAll(rejected);
+                rejected.clear();
+            }
 
-                    if (!rejected.isEmpty()) {
-                        WaitingRoom.getInstance().getReceived_confirmations().addAll(rejected);
-                        rejected.clear();
-                    }
+            if (System.currentTimeMillis() - start_time > Game.CONFIRMATION_TIMEOUT) {
+                timeout = true;
+            } else if (!pending.isEmpty()) {
 
+                synchronized (WaitingRoom.getInstance().getReceived_confirmations()) {
                     try {
                         WaitingRoom.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
                 }
 
             }
+
         }
 
         return !pending.isEmpty();

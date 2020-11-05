@@ -28,8 +28,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
     public final static String TITLE = "Generador de jugadas";
     public final static String[] PALOS = {"P", "C", "T", "D"};
     public final static String[] VALORES = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"};
-    private Card[] cartas = null;
-    private int valor_jugada = 9;
+    private volatile Card[] cartas = null;
+    private volatile int valor_jugada = 9;
 
     /**
      * Creates new form HandGenerator

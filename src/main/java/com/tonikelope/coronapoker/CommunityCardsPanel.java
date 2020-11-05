@@ -338,7 +338,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             try {
                 Thread.sleep(Game.GUI_ZOOM_WAIT);
             } catch (InterruptedException ex) {
-                Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(CommunityCardsPanel.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 

@@ -20,7 +20,7 @@ public class GameOverDialog extends javax.swing.JDialog {
     public static final int COUNTDOWN_PAUSE = 1350;
     private volatile Timer timer = null;
     private volatile boolean continua = false;
-    private String last_mp3_loop = null;
+    private volatile String last_mp3_loop = null;
     private volatile boolean direct_gameover = false;
 
     public boolean isContinua() {

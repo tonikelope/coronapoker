@@ -27,35 +27,34 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public static final String[][] ACTIONS_LABELS_ES = new String[][]{new String[]{"NO VA"}, new String[]{"PASA", "VA"}, new String[]{"APUESTA", "SUBE"}, new String[]{"ALL IN"}};
     public static final String[][] ACTIONS_LABELS_EN = new String[][]{new String[]{"FOLD"}, new String[]{"CHECK", "CALL"}, new String[]{"BET", "RAISE"}, new String[]{"ALL IN"}};
-    public static String[][] ACTIONS_LABELS = Game.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
+    public static volatile String[][] ACTIONS_LABELS = Game.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
     public static final String[] POSITIONS_LABELS_ES = new String[]{"CP", "CG", "DE"};
     public static final String[] POSITIONS_LABELS_EN = new String[]{"SB", "BB", "DE"};
-    public static String[] POSITIONS_LABELS = Game.LANGUAGE.equals("es") ? POSITIONS_LABELS_ES : POSITIONS_LABELS_EN;
+    public static volatile String[] POSITIONS_LABELS = Game.LANGUAGE.equals("es") ? POSITIONS_LABELS_ES : POSITIONS_LABELS_EN;
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.ORANGE, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 300;
     public static final int MIN_ACTION_HEIGHT = 45;
 
-    private String nickname;
-    private float stack;
-    private int buyin = Game.BUYIN;
-    private Crupier crupier = null;
-    private float bet;
+    private volatile String nickname;
+    private volatile float stack;
+    private volatile int buyin = Game.BUYIN;
+    private volatile Crupier crupier = null;
+    private volatile float bet;
     private volatile int decision = -1;
-    private boolean utg;
+    private volatile boolean utg;
     private volatile boolean spectator = false;
-    private float pagar = 0f;
-    private float bote = 0f;
+    private volatile float pagar = 0f;
+    private volatile float bote = 0f;
     private volatile boolean exit = false;
     private volatile Timer auto_action = null;
-    private boolean timeout_val = false;
-    private boolean winner = false;
-    private boolean loser = false;
+    private volatile boolean timeout_val = false;
+    private volatile boolean winner = false;
+    private volatile boolean loser = false;
     private volatile int pos;
-    private float call_required;
+    private volatile float call_required;
     private volatile boolean disabled;
     private volatile boolean turno = false;
     private volatile Bot bot = null;
-    private volatile int new_hand_ready = 0;
 
     public int getPos() {
         return pos;
@@ -898,7 +897,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     try {
                         Thread.sleep(Game.GUI_ZOOM_WAIT);
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
 
@@ -1421,11 +1420,4 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return (!exit && !spectator);
     }
 
-    public void setNewHandReady(int hand) {
-        this.new_hand_ready = hand;
-    }
-
-    public int getNewHandReady() {
-        return this.new_hand_ready;
-    }
 }

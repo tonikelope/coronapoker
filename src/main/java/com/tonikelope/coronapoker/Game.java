@@ -50,11 +50,11 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final int DEFAULT_ZOOM_LEVEL = -2;
     public static final float MIN_BIG_BLIND = 0.20f;
     public static final float ZOOM_STEP = 0.05f;
-    public static float CIEGA_PEQUEÑA = 0.10f;
-    public static float CIEGA_GRANDE = 0.20f;
-    public static int BUYIN = 10;
-    public static int CIEGAS_TIME = 60;
-    public static boolean REBUY = true;
+    public static volatile float CIEGA_PEQUEÑA = 0.10f;
+    public static volatile float CIEGA_GRANDE = 0.20f;
+    public static volatile int BUYIN = 10;
+    public static volatile int CIEGAS_TIME = 60;
+    public static volatile boolean REBUY = true;
     public static final int PAUSA_ENTRE_MANOS = 7; //Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
@@ -66,29 +66,29 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final int CLIENT_RECON_TIMEOUT = 2 * TIEMPO_PENSAR * 1000; // Tiempo en milisegundos que esperaremos cliente que perdió la conexión antes (preguntar) si echarle de la timba
     public static final int CLIENT_RECON_ERROR_PAUSE = 5000;
     public static final int REBUY_TIMEOUT = 25000;
-    public static final int MAX_TIMEOUT_CONFIRMATION_ERROR = 3;
+    public static final int MAX_TIMEOUT_CONFIRMATION_ERROR = 10;
     public static final String BARAJA_DEFAULT = "coronapoker";
     public static final String DEFAULT_LANGUAGE = "es";
     public static final int PEPILLO_COUNTER_MAX = 5;
     public static final int AUTO_ZOOM_TIMEOUT = 2000;
     public static final int GUI_ZOOM_WAIT = 250;
 
-    public static boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
-    public static boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
-    public static boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
-    public static boolean AUTO_REBUY = false;
-    public static boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
-    public static boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
-    public static int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(Game.DEFAULT_ZOOM_LEVEL)));
-    public static String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
-    public static boolean VISTA_COMPACTA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("vista_compacta", "false")) && !TEST_MODE;
-    public static boolean ANIMACION_REPARTIR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
-    public static boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
-    public static String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
-    public static String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es");
-    public static boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
-    public static boolean RECOVER = false;
-    private static Game THIS = null;
+    public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
+    public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
+    public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
+    public static volatile boolean AUTO_REBUY = false;
+    public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
+    public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
+    public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(Game.DEFAULT_ZOOM_LEVEL)));
+    public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
+    public static volatile boolean VISTA_COMPACTA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("vista_compacta", "false")) && !TEST_MODE;
+    public static volatile boolean ANIMACION_REPARTIR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
+    public static volatile boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
+    public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
+    public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es");
+    public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
+    public static volatile boolean RECOVER = false;
+    private static volatile Game THIS = null;
 
     public static Game getInstance() {
         return THIS;
@@ -569,7 +569,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     try {
                         this.lock_pause.wait(Game.WAIT_PAUSE);
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
 

@@ -1,8 +1,8 @@
 package com.tonikelope.coronapoker;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.swing.JTextArea;
 
 /*
@@ -27,8 +27,8 @@ import javax.swing.JTextArea;
  */
 public class GameLogDialog extends javax.swing.JDialog {
 
-    private volatile String text = "";
     public final static String TITLE = "REGISTRO DE LA TIMBA";
+    private volatile String text = "";
     private volatile boolean auto_scroll = true;
     private volatile boolean utf8_cards = false;
 
@@ -112,7 +112,7 @@ public class GameLogDialog extends javax.swing.JDialog {
         return text;
     }
 
-    public synchronized void actualizarCartasPerdedores(HashMap<Player, Hand> perdedores) {
+    public synchronized void actualizarCartasPerdedores(ConcurrentHashMap<Player, Hand> perdedores) {
 
         if (perdedores != null && !perdedores.isEmpty()) {
             for (Map.Entry<Player, Hand> entry : perdedores.entrySet()) {

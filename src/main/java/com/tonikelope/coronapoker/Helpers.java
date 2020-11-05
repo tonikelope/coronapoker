@@ -40,6 +40,7 @@ import java.nio.file.Paths;
 import java.security.CodeSource;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.KeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
@@ -206,7 +207,7 @@ public class Helpers {
 
     }
 
-    public static String decryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) {
+    public static String decryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
 
         try {
 
@@ -251,7 +252,7 @@ public class Helpers {
             byte[] current_hmac = sha256_HMAC.doFinal(iv_cmsg);
 
             if (!MessageDigest.isEqual(hmac, current_hmac)) {
-                return null;
+                throw new KeyException("BAD HMAC or BAD KEY");
             }
 
             cifrado.init(Cipher.DECRYPT_MODE, aes_key, new IvParameterSpec(iv));

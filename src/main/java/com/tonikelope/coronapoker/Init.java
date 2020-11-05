@@ -41,8 +41,8 @@ import javax.swing.UIManager;
  */
 public class Init extends javax.swing.JFrame {
 
-    public static ConcurrentHashMap<String, Object> MOD = null;
-    public static String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
+    public static volatile ConcurrentHashMap<String, Object> MOD = null;
+    public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";

@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Translator {
 
-    private static String LANG = "";
+    private static volatile String LANG = "";
 
     private static final ConcurrentHashMap<String, String> _rosetta = new ConcurrentHashMap();
 

@@ -61,7 +61,7 @@ public class InitPanel extends javax.swing.JPanel {
                 ok = true;
 
             } catch (IOException ex) {
-                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         } while (!ok);

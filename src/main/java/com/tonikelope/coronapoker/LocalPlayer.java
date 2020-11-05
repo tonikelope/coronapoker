@@ -38,16 +38,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public static final int MIN_ACTION_WIDTH = 550;
     public static final int MIN_ACTION_HEIGHT = 45;
 
-    private String nickname;
-    private float stack;
-    private int buyin = Game.BUYIN;
-    private float bet;
-    private boolean utg = false;
+    private final ConcurrentHashMap<JButton, Color[]> action_button_colors = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<JButton, Boolean> action_button_armed = new ConcurrentHashMap<>();
+    private final Object pre_pulsar_lock = new Object();
+
+    private volatile String nickname;
+
+    private volatile int buyin = Game.BUYIN;
+    private volatile float stack;
+    private volatile float bet;
+    private volatile boolean utg = false;
     private volatile int decision = -1;
-    private Crupier crupier = null;
+    private volatile Crupier crupier = null;
     private volatile boolean spectator = false;
-    private float pagar = 0f;
-    private float bote = 0f;
+    private volatile float pagar = 0f;
+    private volatile float bote = 0f;
     private volatile boolean exit = false;
     private volatile boolean turno = false;
     private volatile Timer auto_action = null;
@@ -58,12 +63,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Float apuesta_recuperada = null;
     private volatile boolean click_recuperacion = false;
     private volatile int pos;
-    private float call_required;
-    private float min_raise;
-    private final ConcurrentHashMap<JButton, Color[]> action_button_colors = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<JButton, Boolean> action_button_armed = new ConcurrentHashMap<>();
+    private volatile float call_required;
+    private volatile float min_raise;
     private volatile int pre_pulsado = Player.NODEC;
-    private final Object pre_pulsar_lock = new Object();
+
     private volatile boolean muestra = false;
     private volatile float slider_divisor = 10f;
     private volatile int parguela_counter = Game.PEPILLO_COUNTER_MAX;
@@ -1900,7 +1903,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!Game.getInstance().isPartida_local()) {
 
-            Identicon identicon = new Identicon(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, player_name.getText(), Game.getInstance().getSala_espera().getClient_aes_key());
+            Identicon identicon = new Identicon(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, player_name.getText(), Game.getInstance().getSala_espera().getLocal_client_aes_key());
 
             identicon.setLocationRelativeTo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance());
 

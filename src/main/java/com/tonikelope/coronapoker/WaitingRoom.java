@@ -30,12 +30,16 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.InvalidKeyException;
+import java.security.KeyException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
@@ -47,6 +51,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.KeyAgreement;
+import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
@@ -55,7 +60,7 @@ import javax.swing.JTextArea;
 import org.apache.commons.codec.binary.Base64;
 
 /**
- *
+ * Appearances can be deceiving...
  * @author tonikelope
  */
 public class WaitingRoom extends javax.swing.JFrame {
@@ -65,32 +70,29 @@ public class WaitingRoom extends javax.swing.JFrame {
     public static final int PING_PONG_TIMEOUT = 15000;
     public static final int MAX_PING_PONG_ERROR = 3;
     public static final int EC_KEY_LENGTH = 256;
-    private static boolean partida_empezada = false;
-    private static boolean exit = false;
-    private static WaitingRoom THIS;
+    private static volatile boolean partida_empezada = false;
+    private static volatile boolean exit = false;
+    private static volatile WaitingRoom THIS;
 
-    private boolean server;
-    private String local_nick;
-    private Map<String, Participant> participantes;
-    private volatile ServerSocket server_socket;
-    private volatile SecretKeySpec local_client_aes_key = null;
-    private volatile SecretKeySpec local_client_hmac_key = null;
-    private volatile Socket local_client_socket;
-    private volatile BufferedReader local_client_buffer_read_is = null;
-    private volatile String server_ip_port;
-    private Init ventana_inicio;
-    private File local_avatar;
-
-    private volatile String server_nick;
-    private volatile Integer client_id;
+    private final Init ventana_inicio;
+    private final File local_avatar;
+    private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
     private final Object local_client_socket_lock = new Object();
     private final Object keep_alive_lock = new Object();
-
+    private final Object lock_reconnect = new Object();
+    private final boolean server;
+    private final String local_nick;
+    private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
+    private volatile ServerSocket server_socket = null;
+    private volatile SecretKeySpec local_client_aes_key = null;
+    private volatile SecretKeySpec local_client_hmac_key = null;
+    private volatile Socket local_client_socket = null;
+    private volatile BufferedReader local_client_buffer_read_is = null;
+    private volatile String server_ip_port;
+    private volatile String server_nick;
     private volatile Reconnect2ServerDialog reconnect_dialog = null;
     private volatile boolean reconnecting = false;
-    private final Object lock_reconnect = new Object();
     private volatile int pong;
-    private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
 
     public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
         return received_confirmations;
@@ -102,7 +104,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         }
     }
 
-    public SecretKeySpec getClient_aes_key() {
+    public SecretKeySpec getLocal_client_aes_key() {
         synchronized (getLocalClientSocketLock()) {
             return local_client_aes_key;
         }
@@ -165,27 +167,20 @@ public class WaitingRoom extends javax.swing.JFrame {
     public WaitingRoom(Init ventana_ini, boolean local, String nick, String servidor_ip_port, File avatar) {
         THIS = this;
 
+        ventana_inicio = ventana_ini;
+        server = local;
+        local_nick = nick;
+        server_ip_port = servidor_ip_port;
+        local_avatar = avatar;
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
                 setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
 
-                exit = false;
-
-                partida_empezada = false;
-
                 sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
                 kick_user.setEnabled(false);
                 empezar_timba.setEnabled(false);
-                ventana_inicio = ventana_ini;
-                server = local;
-                local_avatar = avatar;
-                server_ip_port = servidor_ip_port;
-                local_client_socket = null;
-                server_socket = null;
-                local_nick = nick;
-
-                participantes = Collections.synchronizedMap(new LinkedHashMap<>());
 
                 Helpers.JTextFieldRegularPopupMenu.addTo(chat);
                 Helpers.JTextFieldRegularPopupMenu.addTo(mensaje);
@@ -249,6 +244,17 @@ public class WaitingRoom extends javax.swing.JFrame {
     }
 
     public void writeCommandToServer(String command) throws IOException {
+
+        while (this.reconnecting) {
+            synchronized (getLocalClientSocketLock()) {
+                try {
+                    getLocalClientSocketLock().wait(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
         synchronized (getLocalClientSocketLock()) {
             this.local_client_socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
         }
@@ -258,25 +264,39 @@ public class WaitingRoom extends javax.swing.JFrame {
         socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
     }
 
-    public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) throws IOException {
+    public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) throws KeyException, IOException {
 
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-        String recibido = in.readLine().trim();
+        String recibido = in.readLine();
 
         if (recibido != null && recibido.startsWith("*")) {
-            recibido = Helpers.decryptCommand(recibido, key, hmac_key);
+            recibido = Helpers.decryptCommand(recibido.trim(), key, hmac_key);
+        } else if (recibido != null) {
+            recibido = recibido.trim();
         }
 
         return recibido;
     }
 
-    public String readCommandFromServer() throws IOException {
+    public String readCommandFromServer() throws KeyException, IOException {
 
-        String recibido = this.local_client_buffer_read_is.readLine().trim();
+        while (this.reconnecting) {
+            synchronized (getLocalClientSocketLock()) {
+                try {
+                    getLocalClientSocketLock().wait(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
+        String recibido = this.local_client_buffer_read_is.readLine();
 
         if (recibido != null && recibido.startsWith("*")) {
-            recibido = Helpers.decryptCommand(recibido, this.local_client_aes_key, this.local_client_hmac_key);
+            recibido = Helpers.decryptCommand(recibido.trim(), this.getLocal_client_aes_key(), this.getLocal_client_hmac_key());
+        } else if (recibido != null) {
+            recibido = recibido.trim();
         }
 
         return recibido;
@@ -285,191 +305,241 @@ public class WaitingRoom extends javax.swing.JFrame {
     //Función AUTO-RECONNECT
     public boolean reconectarCliente() {
 
+        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Intentando reconectar con el servidor...");
+
+        this.reconnecting = true;
+
         synchronized (getLocalClientSocketLock()) {
 
-            WaitingRoom tthis = this;
+            try {
+                WaitingRoom tthis = this;
 
-            this.reconnecting = true;
+                boolean ok;
 
-            boolean ok;
+                if (!local_client_socket.isClosed()) {
+                    try {
+                        local_client_socket.close();
 
-            if (!local_client_socket.isClosed()) {
-                try {
-                    local_client_socket.close();
-
-                } catch (Exception ex) {
-                }
-            }
-
-            local_client_socket = null;
-
-            long start = System.currentTimeMillis();
-
-            ok = false;
-
-            do {
-
-                try {
-
-                    String[] server_address = server_ip_port.split(":");
-
-                    local_client_socket = new Socket(server_address[0], Integer.valueOf(server_address[1]));
-
-                    //Le mandamos los bytes "mágicos"
-                    byte[] magic = Helpers.toByteArray(MAGIC_BYTES);
-
-                    writeRawBytesToServer(magic);
-
-                    /* INICIO INTERCAMBIO CLAVES */
-                    KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
-
-                    clientKpairGen.initialize(EC_KEY_LENGTH);
-
-                    KeyPair clientKpair = clientKpairGen.generateKeyPair();
-
-                    KeyAgreement clientKeyAgree = KeyAgreement.getInstance("ECDH");
-
-                    clientKeyAgree.init(clientKpair.getPrivate());
-
-                    byte[] clientPubKeyEnc = clientKpair.getPublic().getEncoded();
-
-                    DataOutputStream dOut = new DataOutputStream(local_client_socket.getOutputStream());
-
-                    dOut.writeInt(clientPubKeyEnc.length);
-
-                    dOut.write(clientPubKeyEnc);
-
-                    DataInputStream dIn = new DataInputStream(local_client_socket.getInputStream());
-
-                    int length = dIn.readInt();
-
-                    byte[] serverPubKeyEnc = new byte[length];
-
-                    dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
-
-                    KeyFactory clientKeyFac = KeyFactory.getInstance("EC");
-
-                    X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(serverPubKeyEnc);
-
-                    PublicKey serverPubKey = clientKeyFac.generatePublic(x509KeySpec);
-
-                    clientKeyAgree.doPhase(serverPubKey, true);
-
-                    byte[] clientSharedSecret = clientKeyAgree.generateSecret();
-
-                    byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(clientSharedSecret);
-
-                    local_client_aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
-
-                    local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
-
-                    /* FIN INTERCAMBIO CLAVES */
-                    //Le mandamos nuestro nick al server y el código secreto de reconexión
-                    this.writeCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + "#*#" + String.valueOf(client_id), local_client_aes_key, local_client_hmac_key));
-
-                    local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
-
-                    //Leemos el contenido del chat
-                    String recibido = this.readCommandFromServer();
-
-                    String chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            chat.setText(chat_text);
-                        }
-                    });
-
-                    ok = true;
-
-                } catch (Exception ex) {
-                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-
-                    if (local_client_socket != null && !local_client_socket.isClosed()) {
-
-                        try {
-                            local_client_socket.close();
-
-                        } catch (Exception ex2) {
-                        }
-
-                        local_client_socket = null;
+                    } catch (Exception ex) {
                     }
                 }
 
-                if (!ok) {
+                local_client_socket = null;
 
-                    if (System.currentTimeMillis() - start > Game.CLIENT_RECON_TIMEOUT && partida_empezada) {
+                long start = System.currentTimeMillis();
 
-                        if (this.reconnect_dialog == null) {
-                            this.reconnect_dialog = new Reconnect2ServerDialog(Game.getInstance() != null ? Game.getInstance() : tthis, true, server_ip_port);
+                ok = false;
 
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
+                Mac old_sha256_HMAC = Mac.getInstance("HmacSHA256");
 
-                                    reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
-                                    reconnect_dialog.setVisible(true);
+                old_sha256_HMAC.init(local_client_hmac_key);
 
-                                }
-                            });
+                String b64_nick = Base64.encodeBase64String(local_nick.getBytes("UTF-8"));
 
-                        } else {
-                            reconnect_dialog.setReconectar(false);
+                String b64_hmac_nick = Base64.encodeBase64String(old_sha256_HMAC.doFinal(local_nick.getBytes("UTF-8")));
 
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-                                    reconnect_dialog.reset();
-                                    reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
-                                    reconnect_dialog.setVisible(true);
+                do {
 
-                                }
-                            });
-                        }
+                    try {
 
-                        while (!reconnect_dialog.isReconectar()) {
-                            synchronized (this.lock_reconnect) {
+                        String[] server_address = server_ip_port.split(":");
+
+                        local_client_socket = new Socket(server_address[0], Integer.valueOf(server_address[1]));
+
+                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "¡Conectado al servidor! Vamos a intercambiar las claves...");
+
+                        //Le mandamos los bytes "mágicos"
+                        byte[] magic = Helpers.toByteArray(MAGIC_BYTES);
+
+                        local_client_socket.getOutputStream().write(magic);
+
+                        /* INICIO INTERCAMBIO CLAVES */
+                        KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
+
+                        clientKpairGen.initialize(EC_KEY_LENGTH);
+
+                        KeyPair clientKpair = clientKpairGen.generateKeyPair();
+
+                        KeyAgreement clientKeyAgree = KeyAgreement.getInstance("ECDH");
+
+                        clientKeyAgree.init(clientKpair.getPrivate());
+
+                        byte[] clientPubKeyEnc = clientKpair.getPublic().getEncoded();
+
+                        DataOutputStream dOut = new DataOutputStream(local_client_socket.getOutputStream());
+
+                        dOut.writeInt(clientPubKeyEnc.length);
+
+                        dOut.write(clientPubKeyEnc);
+
+                        DataInputStream dIn = new DataInputStream(local_client_socket.getInputStream());
+
+                        int length = dIn.readInt();
+
+                        byte[] serverPubKeyEnc = new byte[length];
+
+                        dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
+
+                        KeyFactory clientKeyFac = KeyFactory.getInstance("EC");
+
+                        X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(serverPubKeyEnc);
+
+                        PublicKey serverPubKey = clientKeyFac.generatePublic(x509KeySpec);
+
+                        clientKeyAgree.doPhase(serverPubKey, true);
+
+                        byte[] clientSharedSecret = clientKeyAgree.generateSecret();
+
+                        byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(clientSharedSecret);
+
+                        local_client_aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
+
+                        local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
+
+                        /* FIN INTERCAMBIO CLAVES */
+                        //Le mandamos nuestro nick al server autenticado con la clave HMAC antigua
+                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Enviando datos de reconexión...");
+
+                        local_client_socket.getOutputStream().write((Helpers.encryptCommand(b64_nick + "#" + AboutDialog.VERSION + "#*#" + b64_hmac_nick, local_client_aes_key, local_client_hmac_key) + "\n").getBytes("UTF-8"));
+
+                        local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
+
+                        //Leemos el contenido del chat
+                        String recibido;
+
+                        do {
+
+                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Leyendo datos del chat...");
+
+                            recibido = this.local_client_buffer_read_is.readLine();
+
+                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, recibido);
+
+                            if (recibido != null && recibido.startsWith("*")) {
+
                                 try {
-                                    this.lock_reconnect.wait(1000);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+
+                                    recibido = Helpers.decryptCommand(recibido.trim(), local_client_aes_key, local_client_hmac_key);
+
+                                    String chat_text;
+
+                                    chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
+
+                                    Helpers.GUIRun(new Runnable() {
+                                        public void run() {
+
+                                            chat.setText(chat_text);
+                                        }
+                                    });
+
+                                    ok = true;
+
+                                } catch (Exception ex) {
+
+                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, null, ex);
+                                    Helpers.pausar(1000);
+                                }
+
+                            } else {
+                                Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "EL SOCKET RECIBIÓ NULL");
+                                Helpers.pausar(1000);
+                            }
+
+                        } while (!ok);
+
+                    } catch (Exception ex) {
+                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+
+                        if (local_client_socket != null && !local_client_socket.isClosed()) {
+
+                            try {
+                                local_client_socket.close();
+
+                            } catch (Exception ex2) {
+                            }
+
+                            local_client_socket = null;
+                        }
+                    }
+
+                    if (!ok) {
+
+                        if (System.currentTimeMillis() - start > Game.CLIENT_RECON_TIMEOUT && partida_empezada) {
+
+                            if (this.reconnect_dialog == null) {
+                                this.reconnect_dialog = new Reconnect2ServerDialog(Game.getInstance() != null ? Game.getInstance() : tthis, true, server_ip_port);
+
+                                Helpers.GUIRun(new Runnable() {
+                                    public void run() {
+
+                                        reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
+                                        reconnect_dialog.setVisible(true);
+
+                                    }
+                                });
+
+                            } else {
+                                reconnect_dialog.setReconectar(false);
+
+                                Helpers.GUIRun(new Runnable() {
+                                    public void run() {
+                                        reconnect_dialog.reset();
+                                        reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
+                                        reconnect_dialog.setVisible(true);
+
+                                    }
+                                });
+                            }
+
+                            while (!reconnect_dialog.isReconectar()) {
+                                synchronized (this.lock_reconnect) {
+                                    try {
+                                        this.lock_reconnect.wait(1000);
+                                    } catch (InterruptedException ex) {
+                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
                                 }
                             }
+
+                            start = System.currentTimeMillis();
+                            server_ip_port = reconnect_dialog.getIp_port().getText().trim();
+
+                        } else {
+
+                            Helpers.pausar(Game.CLIENT_RECON_ERROR_PAUSE);
                         }
-
-                        start = System.currentTimeMillis();
-                        server_ip_port = reconnect_dialog.getIp_port().getText().trim();
-
-                    } else {
-
-                        Helpers.pausar(Game.CLIENT_RECON_ERROR_PAUSE);
                     }
+
+                } while (!ok && (!partida_empezada || !Game.getInstance().getLocalPlayer().isExit()));
+
+                if (this.reconnect_dialog != null) {
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            reconnect_dialog.dispose();
+                            reconnect_dialog = null;
+                        }
+                    });
                 }
 
-            } while (!ok && (!partida_empezada || !Game.getInstance().getLocalPlayer().isExit()));
+                if (ok) {
+                    Helpers.playWavResource("misc/yahoo.wav");
+                }
 
-            if (this.reconnect_dialog != null) {
+                this.reconnecting = false;
 
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-                        reconnect_dialog.dispose();
-                        reconnect_dialog = null;
-                    }
-                });
+                getLocalClientSocketLock().notifyAll();
+
+                return ok;
+
+            } catch (InvalidKeyException | NoSuchAlgorithmException | UnsupportedEncodingException ex) {
+                Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
             }
-
-            if (ok) {
-                Helpers.playWavResource("misc/yahoo.wav");
-            }
-
-            this.reconnecting = false;
-
-            getLocalClientSocketLock().notifyAll();
-
-            return ok;
 
         }
+
+        return false;
 
     }
 
@@ -668,8 +738,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     } else if (partes[0].equals("NICKOK")) {
 
-                        client_id = Integer.parseInt(partes[1]);
-
                         //Leemos el nick del server
                         recibido = readCommandFromServer();
 
@@ -718,10 +786,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                         });
 
                         //Añadimos al servidor
-                        nuevoParticipante(server_nick, server_avatar, null, null, null, null, false);
+                        nuevoParticipante(server_nick, server_avatar, null, null, null, false);
 
                         //Nos añadimos nosotros
-                        nuevoParticipante(local_nick, local_avatar, null, null, null, null, false);
+                        nuevoParticipante(local_nick, local_avatar, null, null, null, false);
 
                         //Cada X segundos mandamos un comando KEEP ALIVE al server 
                         Helpers.threadRun(new Runnable() {
@@ -749,7 +817,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                     if (!exit && !WaitingRoom.isPartida_empezada() && ping + 1 != pong) {
 
-                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El servidor no respondió el PING");
+                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
 
                                     }
 
@@ -760,8 +828,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                         //Nos quedamos en bucle esperando mensajes del server
                         do {
-
-                            recibido = null;
 
                             try {
 
@@ -885,9 +951,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                         if (!participantes.containsKey(nick)) {
                                                             //Añadimos al participante
-                                                            nuevoParticipante(nick, avatar, null, null, null, null, false);
-                                                        } else {
-                                                            participantes.get(nick).setAvatar(avatar);
+                                                            nuevoParticipante(nick, avatar, null, null, null, false);
                                                         }
 
                                                         break;
@@ -919,9 +983,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                             if (!participantes.containsKey(nick)) {
                                                                 //Añadimos al participante
-                                                                nuevoParticipante(nick, avatar, null, null, null, null, false);
-                                                            } else {
-                                                                participantes.get(nick).setAvatar(avatar);
+                                                                nuevoParticipante(nick, avatar, null, null, null, false);
                                                             }
 
                                                         }
@@ -975,31 +1037,35 @@ public class WaitingRoom extends javax.swing.JFrame {
                                     } else if (partes_comando[0].equals("CONF")) {
                                         //Es una confirmación del servidor
 
+                                        WaitingRoom.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
                                         synchronized (WaitingRoom.getInstance().getReceived_confirmations()) {
-                                            WaitingRoom.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
+
                                             WaitingRoom.getInstance().getReceived_confirmations().notifyAll();
                                         }
+
                                     }
 
+                                } else {
+                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "EL SOCKET RECIBIÓ NULL");
+                                    Helpers.pausar(1000);
                                 }
 
-                            } catch (IOException ex) {
-                                //Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-                                recibido = null;
-                            } catch (Exception ex) {
+                            } catch (SocketException ex) {
+
                                 Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-                                recibido = null;
-                            }
 
-                            if (recibido == null && !exit && (!isPartida_empezada() || !Game.getInstance().getLocalPlayer().isExit())) {
+                                if (!exit && (!isPartida_empezada() || !Game.getInstance().getLocalPlayer().isExit())) {
 
-                                if (reconectarCliente()) {
-                                    recibido = "";
+                                    if (!reconectarCliente()) {
+                                        exit = true;
+                                    }
                                 }
-
+                            } catch (KeyException ex) {
+                                Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "KEY-EXCEPTION AL LEER DEL SOCKET", ex);
+                                Helpers.pausar(1000);
                             }
 
-                        } while (!exit && recibido != null);
+                        } while (!exit);
 
                     }
 
@@ -1166,26 +1232,51 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                             if (partes.length == 4) {
 
-                                if (participantes.containsKey(client_nick) && Integer.parseInt(partes[3]) == participantes.get(client_nick).getId()) {
+                                Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Un supuesto cliente quiere reconectar...");
 
-                                    //Es un usuario intentado reconectar
-                                    participantes.get(client_nick).setAes_key(aes_key);
+                                if (participantes.containsKey(client_nick)) {
 
-                                    participantes.get(client_nick).setHmac_key(hmac_key);
+                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El cliente existe");
 
-                                    participantes.get(client_nick).resetSocket(client_socket);
+                                    Mac old_sha256_HMAC = Mac.getInstance("HmacSHA256");
 
-                                    //Mandamos el chat
-                                    participantes.get(client_nick).writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key));
+                                    old_sha256_HMAC.init(participantes.get(client_nick).getHmac_key());
 
-                                    if (!isPartida_empezada() && participantes.size() > 2) {
+                                    byte[] old_hmac = old_sha256_HMAC.doFinal(client_nick.getBytes("UTF-8"));
+
+                                    if (MessageDigest.isEqual(old_hmac, Base64.decodeBase64(partes[3]))) {
+
+                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El HMAC del cliente es auténtico");
+
+                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Reseteando el socket del cliente...");
+                                        //Es un usuario intentado reconectar
+                                        participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key);
+
+                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
+
+                                        //Mandamos el chat
+                                        client_socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
+
+                                        /*if (!isPartida_empezada() && participantes.size() > 2) {
 
                                         enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
+                                    }*/
+                                        Helpers.playWavResource("misc/yahoo.wav");
+
+                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
+
+                                    } else {
+                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR");
+
+                                        try {
+                                            client_socket.close();
+                                        } catch (Exception ex) {
+                                        }
                                     }
 
-                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El usuario " + client_nick + " ha reconectado correctamente su socket.");
-
                                 } else {
+                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El usuario " + client_nick + " HA FALLADO AL RECONECTAR su socket.");
+
                                     try {
                                         client_socket.close();
                                     } catch (Exception ex) {
@@ -1230,10 +1321,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                                     Helpers.playWavResource("misc/new_user.wav");
                                 }
 
-                                int cid = Helpers.PRNG_GENERATOR.nextInt();
-
                                 //Mandamos al cliente su ID
-                                writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + String.valueOf(cid), aes_key, hmac_key), client_socket);
+                                writeCommandFromServer(Helpers.encryptCommand("NICKOK", aes_key, hmac_key), client_socket);
 
                                 byte[] avatar_bytes = null;
 
@@ -1251,7 +1340,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 
                                 //Añadimos al participante
-                                nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, cid, false);
+                                nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false);
 
                                 //Mandamos la lista de participantes actuales al nuevo participante
                                 if (participantes.size() > 2) {
@@ -1378,7 +1467,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                 if (!server) {
                     try {
                         String comando = "CHAT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(msg.getBytes("UTF-8"));
-                        writeCommandToServer(Helpers.encryptCommand(comando, local_client_aes_key, iv, local_client_hmac_key));
+                        writeCommandToServer(Helpers.encryptCommand(comando, getLocal_client_aes_key(), iv, getLocal_client_hmac_key()));
                     } catch (IOException ex) {
                         Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -1468,9 +1557,9 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     }
 
-    private void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, Integer cid, boolean cpu) {
+    private void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
-        Participant participante = new Participant(this, nick, avatar, socket, aes_k, hmac_k, cid, cpu);
+        Participant participante = new Participant(this, nick, avatar, socket, aes_k, hmac_k, cpu);
 
         participantes.put(nick, participante);
 
@@ -1811,8 +1900,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 WaitingRoom tthis = this;
 
-                WaitingRoom.partida_empezada = true;
-
                 setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                 this.empezar_timba.setEnabled(false);
                 this.empezar_timba.setVisible(false);
@@ -1849,6 +1936,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                             if (ocupados) {
 
+                                Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Hay algun participante con comandos sin confirmar. NO podemos empezar aún...");
                                 Helpers.pausar(1000);
                             }
 
@@ -1869,6 +1957,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 Helpers.pausar(250);
                             }
                         } while (!ok);
+
+                        WaitingRoom.partida_empezada = true;
 
                         Game.getInstance().AJUGAR();
                     }
@@ -1907,10 +1997,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                             }
                         }
 
-                    } else if (local_client_socket != null) {
+                    } else if (local_client_socket != null && !reconnecting) {
 
                         try {
-                            writeCommandToServer(Helpers.encryptCommand("EXIT", local_client_aes_key, local_client_hmac_key));
+                            writeCommandToServer(Helpers.encryptCommand("EXIT", getLocal_client_aes_key(), getLocal_client_hmac_key()));
                             local_client_socket.close();
                         } catch (Exception ex) {
                             Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
@@ -2004,7 +2094,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                         comando += "#" + Base64.encodeBase64String(avatar_b);
 
-                        nuevoParticipante(bot_nick, null, null, null, null, null, true);
+                        nuevoParticipante(bot_nick, null, null, null, null, true);
 
                         broadcastGAMECommandFromServer(comando, participantes.get(bot_nick), true);
 

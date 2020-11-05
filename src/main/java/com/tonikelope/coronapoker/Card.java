@@ -33,20 +33,20 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
     public final static String[] VALORES = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"};
     public final static int DEFAULT_CORNER = 20;
     private final static HashMap<String, String> UNICODE_TABLE = loadUnicodeTable();
-    private static int width = -1;
-    private static int height = -1;
-    private static int corner = -1;
-    private static ImageIcon imagen_trasera = null;
-    private static ImageIcon imagen_trasera_b = null;
-    private static ImageIcon imagen_joker = null;
-    private static List<String> CARTAS_SONIDO = null;
+    private static volatile int width = -1;
+    private static volatile int height = -1;
+    private static volatile int corner = -1;
+    private static volatile ImageIcon imagen_trasera = null;
+    private static volatile ImageIcon imagen_trasera_b = null;
+    private static volatile ImageIcon imagen_joker = null;
+    private static volatile List<String> CARTAS_SONIDO = null;
 
-    private String valor = "";
-    private String palo = "";
-    private boolean cargada = false;
-    private boolean tapada = true;
-    private boolean desenfocada = false;
-    private boolean compactable = true;
+    private volatile String valor = "";
+    private volatile String palo = "";
+    private volatile boolean cargada = false;
+    private volatile boolean tapada = true;
+    private volatile boolean desenfocada = false;
+    private volatile boolean compactable = true;
 
     public void setCompactable(boolean compactable) {
         this.compactable = compactable;

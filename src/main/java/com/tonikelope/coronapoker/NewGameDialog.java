@@ -43,15 +43,15 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class NewGameDialog extends javax.swing.JDialog {
 
-    public static final int DEFAULT_PORT = 7234;
+    public final static int DEFAULT_PORT = 7234;
     public final static int DEFAULT_AVATAR_WIDTH = 50;
     public final static int AVATAR_MAX_FILESIZE = 256; //KB
     public final static int MAX_NICK_LENGTH = 20;
     public final static int MAX_PORT_LENGTH = 5;
 
-    private boolean dialog_ok = false;
-    private boolean partida_local;
-    private File avatar = null;
+    private volatile boolean dialog_ok = false;
+    private volatile boolean partida_local;
+    private volatile File avatar = null;
 
     public boolean isDialog_ok() {
         return dialog_ok;

@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>FINAL-5.17</version>
+    <version>FINAL-5.18</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -66,6 +66,16 @@
             <artifactId>jaxb-api</artifactId>
             <version>2.2.11</version>
             <type>jar</type>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.4.1</version>
         </dependency>
     </dependencies>
     <properties>

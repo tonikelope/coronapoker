@@ -61,6 +61,7 @@ import org.apache.commons.codec.binary.Base64;
 
 /**
  * Appearances can be deceiving...
+ *
  * @author tonikelope
  */
 public class WaitingRoom extends javax.swing.JFrame {
@@ -93,6 +94,21 @@ public class WaitingRoom extends javax.swing.JFrame {
     private volatile Reconnect2ServerDialog reconnect_dialog = null;
     private volatile boolean reconnecting = false;
     private volatile int pong;
+    private volatile String video_chat_link = null;
+
+    public String getVideo_chat_link() {
+        return video_chat_link;
+    }
+
+    public void setVideo_chat_link(String video_chat_link) {
+        this.video_chat_link = video_chat_link;
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                video_chat_button.setEnabled(true);
+            }
+        });
+    }
 
     public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
         return received_confirmations;
@@ -136,13 +152,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     public File getAvatar() {
         return local_avatar;
-    }
-
-    public void writeRawBytesToServer(byte[] data) throws IOException {
-
-        synchronized (getLocalClientSocketLock()) {
-            local_client_socket.getOutputStream().write(data);
-        }
     }
 
     public boolean isServer() {
@@ -227,6 +236,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                     servidor();
 
                 } else {
+                    video_chat_button.setEnabled(false);
                     empezar_timba.setVisible(false);
                     new_bot_button.setVisible(false);
                     kick_user.setVisible(false);
@@ -407,7 +417,11 @@ public class WaitingRoom extends javax.swing.JFrame {
                         //Leemos el contenido del chat
                         String recibido;
 
+                        boolean ok_chat;
+
                         do {
+
+                            ok_chat = false;
 
                             Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Leyendo datos del chat...");
 
@@ -432,7 +446,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                         }
                                     });
 
-                                    ok = true;
+                                    ok_chat = true;
 
                                 } catch (Exception ex) {
 
@@ -445,7 +459,19 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 Helpers.pausar(1000);
                             }
 
-                        } while (!ok);
+                        } while (!ok_chat);
+
+                        //Leemos el enlace del videochat (si existe)
+                        recibido = Helpers.decryptCommand(this.local_client_buffer_read_is.readLine(), local_client_aes_key, local_client_hmac_key);
+
+                        String video_chat_link = new String(Base64.decodeBase64(recibido), "UTF-8");
+
+                        if (video_chat_link.toLowerCase().startsWith("http")) {
+
+                            setVideo_chat_link(video_chat_link);
+                        }
+
+                        ok = true;
 
                     } catch (Exception ex) {
                         Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
@@ -648,7 +674,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                     //Le mandamos los bytes "mágicos"
                     byte[] magic = Helpers.toByteArray(MAGIC_BYTES);
 
-                    writeRawBytesToServer(magic);
+                    local_client_socket.getOutputStream().write(magic);
 
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
@@ -785,6 +811,16 @@ public class WaitingRoom extends javax.swing.JFrame {
                             }
                         });
 
+                        //Leemos el enlace del videochat (si existe)
+                        recibido = readCommandFromServer();
+
+                        String video_chat_link = new String(Base64.decodeBase64(recibido), "UTF-8");
+
+                        if (video_chat_link.toLowerCase().startsWith("http")) {
+
+                            setVideo_chat_link(video_chat_link);
+                        }
+
                         //Añadimos al servidor
                         nuevoParticipante(server_nick, server_avatar, null, null, null, false);
 
@@ -801,7 +837,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                     try {
 
-                                        writeRawBytesToServer(("PING#" + String.valueOf(ping) + "\n").getBytes("UTF-8"));
+                                        writeCommandToServer("PING#" + String.valueOf(ping));
 
                                     } catch (IOException ex) {
                                         Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
@@ -843,7 +879,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                     } else if (partes_comando[0].equals("PING")) {
 
-                                        writeRawBytesToServer(("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1) + "\n").getBytes("UTF-8"));
+                                        writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
 
                                     } else if (partes_comando[0].equals("CHAT")) {
 
@@ -880,7 +916,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                         int id = Integer.valueOf(partes_comando[1]);
 
-                                        writeRawBytesToServer(("CONF#" + String.valueOf(id + 1) + "#OK\n").getBytes("UTF-8"));
+                                        writeCommandToServer("CONF#" + String.valueOf(id + 1) + "#OK");
 
                                         if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != id) {
 
@@ -889,6 +925,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                                             if (partida_empezada) {
 
                                                 switch (subcomando) {
+                                                    case "VIDEOCHAT":
+                                                        setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+
+                                                        break;
                                                     case "PAUSE":
                                                         Game.getInstance().pauseTimba();
                                                         break;
@@ -919,6 +959,17 @@ public class WaitingRoom extends javax.swing.JFrame {
                                             } else {
 
                                                 switch (subcomando) {
+
+                                                    case "VIDEOCHAT":
+                                                        setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+
+                                                        Helpers.GUIRun(new Runnable() {
+                                                            public void run() {
+                                                                video_chat_button.setEnabled(true);
+                                                            }
+                                                        });
+
+                                                        break;
 
                                                     case "DELUSER":
                                                         if (partida_empezada) {
@@ -1052,8 +1103,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                             } catch (SocketException ex) {
 
-                                Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-
+                                //Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                                 if (!exit && (!isPartida_empezada() || !Game.getInstance().getLocalPlayer().isExit())) {
 
                                     if (!reconectarCliente()) {
@@ -1338,6 +1388,9 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                 //Mandamos el contenido del chat
                                 writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
+
+                                //Mandamos el link del videochat
+                                writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String((getVideo_chat_link() != null ? getVideo_chat_link() : "---").getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 
                                 //Añadimos al participante
                                 nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false);
@@ -1632,6 +1685,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         status1 = new javax.swing.JLabel();
         sound_icon = new javax.swing.JLabel();
         new_bot_button = new javax.swing.JButton();
+        video_chat_button = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -1741,6 +1795,17 @@ public class WaitingRoom extends javax.swing.JFrame {
             }
         });
 
+        video_chat_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        video_chat_button.setText("VIDEOLLAMADA");
+        video_chat_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        video_chat_button.setDoubleBuffered(true);
+        video_chat_button.setFocusable(false);
+        video_chat_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                video_chat_buttonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -1758,13 +1823,12 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                             .addComponent(status1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(new_bot_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(logo)
-                                .addGap(0, 0, Short.MAX_VALUE)))
+                            .addComponent(logo)
+                            .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)
-                            .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)))
+                            .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(avatar_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1782,7 +1846,9 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addComponent(kick_user))
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(logo)
-                        .addGap(20, 20, 20)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(video_chat_button)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(new_bot_button)
                         .addGap(18, 18, 18)
                         .addComponent(status1)
@@ -1793,7 +1859,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addGap(18, 18, 18)
                         .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(12, 12, 12)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 173, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 149, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2112,6 +2178,31 @@ public class WaitingRoom extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_new_bot_buttonActionPerformed
 
+    private void video_chat_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_video_chat_buttonActionPerformed
+        // TODO add your handling code here:
+
+        if (server && this.getVideo_chat_link() == null) {
+            Helpers.openBrowserURL("https://demos.openvidu.io/getaroom/");
+        }
+
+        QRChat chat_dialog = new QRChat(this, true, this.getVideo_chat_link(), server);
+
+        chat_dialog.setLocationRelativeTo(this);
+
+        chat_dialog.setVisible(true);
+
+        if (server && !chat_dialog.isCancel() && chat_dialog.getLink() != null) {
+
+            this.setVideo_chat_link(chat_dialog.getLink());
+
+            try {
+                this.broadcastGAMECommandFromServer("VIDEOCHAT#" + Base64.encodeBase64String(this.getVideo_chat_link().getBytes("UTF-8")), null, true);
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }//GEN-LAST:event_video_chat_buttonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
     private javax.swing.JTextArea chat;
@@ -2126,5 +2217,6 @@ public class WaitingRoom extends javax.swing.JFrame {
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel status;
     private javax.swing.JLabel status1;
+    private javax.swing.JButton video_chat_button;
     // End of variables declaration//GEN-END:variables
 }

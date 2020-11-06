@@ -55,8 +55,6 @@ public class GifAnimation extends javax.swing.JDialog {
                 gif.setPreferredSize(new Dimension(width, height));
 
                 setPreferredSize(new Dimension(width, height));
-
-                pack();
             }
         });
     }
@@ -73,10 +71,12 @@ public class GifAnimation extends javax.swing.JDialog {
         gif = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        setFocusable(false);
         setUndecorated(true);
         setResizable(false);
 
         gif.setDoubleBuffered(true);
+        gif.setFocusable(false);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);

@@ -18,6 +18,8 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.RenderingHints;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.geom.RoundRectangle2D;
@@ -135,6 +137,7 @@ public class Helpers {
     public static final int PRNG = 3;
     public static final int SPRNG = 2;
     public static final int TRNG = 1;
+    public static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
     public static int DECK_RANDOM_GENERATOR = SPRNG;
     public static String RANDOM_ORG_APIKEY = "";
     public static Random SPRNG_GENERATOR = null;
@@ -335,13 +338,39 @@ public class Helpers {
         return output;
     }
 
-    public static void openBrowserURL(final String url) {
+    public static String extractStringFromClipboardContents(Transferable contents) {
 
-        try {
-            Desktop.getDesktop().browse(new URI(url));
-        } catch (URISyntaxException | IOException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex.getMessage());
+        String ret = null;
+
+        if (contents != null) {
+
+            try {
+
+                Object o = contents.getTransferData(DataFlavor.stringFlavor);
+
+                if (o instanceof String) {
+
+                    ret = (String) o;
+                }
+
+            } catch (Exception ex) {
+            }
         }
+
+        return ret;
+
+    }
+
+    public static void openBrowserURL(final String url) {
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+                try {
+                    Desktop.getDesktop().browse(new URI(url));
+                } catch (URISyntaxException | IOException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex.getMessage());
+                }
+            }
+        });
     }
 
     public static String toHexString(byte[] array) {

@@ -433,7 +433,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                 try {
 
-                                    recibido = Helpers.decryptCommand(recibido.trim(), local_client_aes_key, local_client_hmac_key);
+                                    recibido = Helpers.decryptCommand(recibido, local_client_aes_key, local_client_hmac_key);
 
                                     String chat_text;
 
@@ -1299,6 +1299,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                         Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El HMAC del cliente es auténtico");
 
                                         Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Reseteando el socket del cliente...");
+
                                         //Es un usuario intentado reconectar
                                         participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key);
 
@@ -1307,10 +1308,9 @@ public class WaitingRoom extends javax.swing.JFrame {
                                         //Mandamos el chat
                                         client_socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
 
-                                        /*if (!isPartida_empezada() && participantes.size() > 2) {
+                                        //Mandamos el link del videochat
+                                        client_socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String((getVideo_chat_link() != null ? getVideo_chat_link() : "---").getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
 
-                                        enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
-                                    }*/
                                         Helpers.playWavResource("misc/yahoo.wav");
 
                                         Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
@@ -1796,6 +1796,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         });
 
         video_chat_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        video_chat_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/meet.png"))); // NOI18N
         video_chat_button.setText("VIDEOLLAMADA");
         video_chat_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         video_chat_button.setDoubleBuffered(true);
@@ -1859,7 +1860,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addGap(18, 18, 18)
                         .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(12, 12, 12)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 149, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 141, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2182,7 +2183,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         // TODO add your handling code here:
 
         if (server && this.getVideo_chat_link() == null) {
-            Helpers.openBrowserURL("https://demos.openvidu.io/getaroom/");
+            Helpers.openBrowserURL("https://meet.google.com/new");
         }
 
         QRChat chat_dialog = new QRChat(this, true, this.getVideo_chat_link(), server);

@@ -151,6 +151,12 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
         qr_status.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         qr_status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         qr_status.setText("Monitorizando portapapeles...");
+        qr_status.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        qr_status.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                qr_statusMouseClicked(evt);
+            }
+        });
 
         share_button.setBackground(new java.awt.Color(102, 255, 102));
         share_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
@@ -233,6 +239,20 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
         }
     }//GEN-LAST:event_icon_labelMouseClicked
 
+    private void qr_statusMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_qr_statusMouseClicked
+        // TODO add your handling code here:
+
+        if (this.link != null) {
+            Helpers.openBrowserURL(this.link);
+
+            if (cboard_monitor) {
+                Helpers.CLIPBOARD_SPY.detachObserver(this);
+            }
+
+            dispose();
+        }
+    }//GEN-LAST:event_qr_statusMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton close_button;
     private javax.swing.JLabel icon_label;
@@ -247,7 +267,7 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
 
         if (contenido != null) {
 
-            Pattern pattern = Pattern.compile("https://demos.openvidu.io/getaroom/[^ \r\n]+", Pattern.DOTALL);
+            Pattern pattern = Pattern.compile("https://meet.google.com/[^ \r\n]+", Pattern.DOTALL);
 
             Matcher matcher = pattern.matcher(contenido);
 

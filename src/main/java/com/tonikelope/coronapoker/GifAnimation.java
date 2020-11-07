@@ -55,6 +55,8 @@ public class GifAnimation extends javax.swing.JDialog {
                 gif.setPreferredSize(new Dimension(width, height));
 
                 setPreferredSize(new Dimension(width, height));
+
+                pack();
             }
         });
     }

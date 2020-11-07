@@ -461,16 +461,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                         } while (!ok_chat);
 
-                        //Leemos el enlace del videochat (si existe)
-                        recibido = Helpers.decryptCommand(this.local_client_buffer_read_is.readLine(), local_client_aes_key, local_client_hmac_key);
-
-                        String video_chat_link = new String(Base64.decodeBase64(recibido), "UTF-8");
-
-                        if (video_chat_link.toLowerCase().startsWith("http")) {
-
-                            setVideo_chat_link(video_chat_link);
-                        }
-
                         ok = true;
 
                     } catch (Exception ex) {
@@ -1307,9 +1297,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                         //Mandamos el chat
                                         client_socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
-
-                                        //Mandamos el link del videochat
-                                        client_socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String((getVideo_chat_link() != null ? getVideo_chat_link() : "---").getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
 
                                         Helpers.playWavResource("misc/yahoo.wav");
 

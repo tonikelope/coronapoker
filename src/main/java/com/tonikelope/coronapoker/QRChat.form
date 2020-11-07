@@ -105,6 +105,7 @@
         </Property>
         <Property name="horizontalAlignment" type="int" value="0"/>
         <Property name="text" type="java.lang.String" value="Monitorizando portapapeles..."/>
+        <Property name="toolTipText" type="java.lang.String" value="Click para abrir navegador"/>
         <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
           <Color id="Cursor de Mano"/>
         </Property>

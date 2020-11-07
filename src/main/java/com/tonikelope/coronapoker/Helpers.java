@@ -161,7 +161,7 @@ public class Helpers {
 
             cifrado.init(Cipher.ENCRYPT_MODE, aes_key, new IvParameterSpec(iv));
 
-            byte[] cmsg = cifrado.doFinal(command.getBytes("UTF-8"));
+            byte[] cmsg = cifrado.doFinal(command.trim().getBytes("UTF-8"));
 
             Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
 
@@ -216,7 +216,7 @@ public class Helpers {
 
             Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
-            byte[] full_command = Base64.decodeBase64(command.substring(1));
+            byte[] full_command = Base64.decodeBase64(command.trim().substring(1));
 
             byte[] hmac = new byte[32];
 

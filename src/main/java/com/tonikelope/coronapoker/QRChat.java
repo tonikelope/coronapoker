@@ -151,6 +151,7 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
         qr_status.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         qr_status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         qr_status.setText("Monitorizando portapapeles...");
+        qr_status.setToolTipText("Click para abrir navegador");
         qr_status.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         qr_status.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -231,11 +232,10 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
         if (this.link != null) {
             Helpers.openBrowserURL(this.link);
 
-            if (cboard_monitor) {
-                Helpers.CLIPBOARD_SPY.detachObserver(this);
+            if (!cboard_monitor) {
+                dispose();
             }
 
-            dispose();
         }
     }//GEN-LAST:event_icon_labelMouseClicked
 
@@ -245,11 +245,9 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
         if (this.link != null) {
             Helpers.openBrowserURL(this.link);
 
-            if (cboard_monitor) {
-                Helpers.CLIPBOARD_SPY.detachObserver(this);
+            if (!cboard_monitor) {
+                dispose();
             }
-
-            dispose();
         }
     }//GEN-LAST:event_qr_statusMouseClicked
 

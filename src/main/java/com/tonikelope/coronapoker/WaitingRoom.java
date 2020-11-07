@@ -559,6 +559,12 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     }
 
+    public void broadcastGAMECommandFromServer(String command, Participant par) {
+
+        broadcastGAMECommandFromServer(command, par, true);
+
+    }
+
     public void broadcastGAMECommandFromServer(String command, Participant par, boolean confirmation) {
 
         ArrayList<String> pendientes = new ArrayList<>();
@@ -612,6 +618,11 @@ public class WaitingRoom extends javax.swing.JFrame {
             }
 
         }
+    }
+
+    public void sendGAMECommandFromServer(String command, Participant p) {
+
+        sendGAMECommandFromServer(command, p, true);
     }
 
     public void sendGAMECommandFromServer(String command, Participant p, boolean confirmation) {
@@ -912,30 +923,35 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                             last_received.put(subcomando, id);
 
-                                            if (partida_empezada) {
+                                            if (isPartida_empezada()) {
 
                                                 switch (subcomando) {
                                                     case "VIDEOCHAT":
                                                         setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-
                                                         break;
+
                                                     case "PAUSE":
                                                         Game.getInstance().pauseTimba();
                                                         break;
+
                                                     case "CINEMATICEND":
                                                         Game.getInstance().getCrupier().remoteCinematicEnd(null);
                                                         break;
+
                                                     case "SHOWCARDS":
                                                         Game.getInstance().getCrupier().showPlayerCards(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), partes_comando[4], partes_comando[5]);
                                                         break;
+
                                                     case "EXIT":
                                                         Game.getInstance().getCrupier().clientPlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         borrarParticipante(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         break;
+
                                                     case "SERVEREXIT":
                                                         exit = true;
                                                         Helpers.mostrarMensajeInformativo(Game.getInstance(), "EL SERVIDOR HA TERMINADO LA TIMBA");
                                                         break;
+
                                                     default:
 
                                                         synchronized (Game.getInstance().getCrupier().getReceived_commands()) {
@@ -949,16 +965,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                                             } else {
 
                                                 switch (subcomando) {
-
                                                     case "VIDEOCHAT":
                                                         setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-
-                                                        Helpers.GUIRun(new Runnable() {
-                                                            public void run() {
-                                                                video_chat_button.setEnabled(true);
-                                                            }
-                                                        });
-
                                                         break;
 
                                                     case "DELUSER":
@@ -1184,7 +1192,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         }
 
-        this.sendGAMECommandFromServer(command, par, true);
+        this.sendGAMECommandFromServer(command, par);
 
     }
 
@@ -1401,7 +1409,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                     comando += "#" + Base64.encodeBase64String(avatar_b);
                                 }
 
-                                broadcastGAMECommandFromServer(comando, participantes.get(client_nick), true);
+                                broadcastGAMECommandFromServer(comando, participantes.get(client_nick));
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
@@ -1587,7 +1595,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                 String comando;
                 try {
                     comando = "DELUSER#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
-                    this.broadcastGAMECommandFromServer(comando, participantes.get(nick), true);
+                    this.broadcastGAMECommandFromServer(comando, participantes.get(nick));
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -1835,9 +1843,9 @@ public class WaitingRoom extends javax.swing.JFrame {
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(logo)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(video_chat_button)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(new_bot_button)
+                        .addGap(18, 18, 18)
+                        .addComponent(video_chat_button)
                         .addGap(18, 18, 18)
                         .addComponent(status1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -1847,7 +1855,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addGap(18, 18, 18)
                         .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(12, 12, 12)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 141, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 91, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2150,7 +2158,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                         nuevoParticipante(bot_nick, null, null, null, null, true);
 
-                        broadcastGAMECommandFromServer(comando, participantes.get(bot_nick), true);
+                        broadcastGAMECommandFromServer(comando, participantes.get(bot_nick));
 
                         empezar_timba.setEnabled(true);
 
@@ -2184,7 +2192,17 @@ public class WaitingRoom extends javax.swing.JFrame {
             this.setVideo_chat_link(chat_dialog.getLink());
 
             try {
-                this.broadcastGAMECommandFromServer("VIDEOCHAT#" + Base64.encodeBase64String(this.getVideo_chat_link().getBytes("UTF-8")), null, true);
+
+                if (isPartida_empezada()) {
+
+                    Game.getInstance().getCrupier().broadcastGAMECommandFromServer("VIDEOCHAT#" + Base64.encodeBase64String(this.getVideo_chat_link().getBytes("UTF-8")), null);
+
+                } else {
+
+                    broadcastGAMECommandFromServer("VIDEOCHAT#" + Base64.encodeBase64String(this.getVideo_chat_link().getBytes("UTF-8")), null);
+
+                }
+
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
             }

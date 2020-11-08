@@ -41,7 +41,7 @@ public class Crupier implements Runnable {
                 {"casinoroyale.gif", 4500L}
             });
 
-    public static Map.Entry<String, Object[][]> ALLIN_CINEMATICS_MOD = null;
+    public static volatile Map.Entry<String, Object[][]> ALLIN_CINEMATICS_MOD = null;
 
     public static final Map.Entry<String, String[]> ALLIN_SOUNDS = new HashMap.SimpleEntry<String, String[]>("allin/", new String[]{
         "dolor.wav",
@@ -57,7 +57,7 @@ public class Crupier implements Runnable {
         "vanidoso.wav",
         "vietnam.wav"});
 
-    public static Map.Entry<String, String[]> ALLIN_SOUNDS_MOD = null;
+    public static volatile Map.Entry<String, String[]> ALLIN_SOUNDS_MOD = null;
 
     public static final Map.Entry<String, String[]> FOLD_SOUNDS = new HashMap.SimpleEntry<String, String[]>("fold/", new String[]{
         "fary.wav",
@@ -68,14 +68,14 @@ public class Crupier implements Runnable {
         "mierda_alta.wav",
         "percibo_miedo.wav"});
 
-    public static Map.Entry<String, String[]> FOLD_SOUNDS_MOD = null;
+    public static volatile Map.Entry<String, String[]> FOLD_SOUNDS_MOD = null;
 
     public static final Map.Entry<String, String[]> SHOWDOWN_SOUNDS = new HashMap.SimpleEntry<String, String[]>("showdown/", new String[]{
         "berto.wav",
         "bond.wav",
         "kbill_show.wav"});
 
-    public static Map.Entry<String, String[]> SHOWDOWN_SOUNDS_MOD = null;
+    public static volatile Map.Entry<String, String[]> SHOWDOWN_SOUNDS_MOD = null;
 
     public static final Map.Entry<String, String[]> WINNER_SOUNDS = new HashMap.SimpleEntry<String, String[]>("winner/", new String[]{
         "ateam.wav",
@@ -88,7 +88,7 @@ public class Crupier implements Runnable {
         "reymundo.wav",
         "vivarey.wav"});
 
-    public static Map.Entry<String, String[]> WINNER_SOUNDS_MOD = null;
+    public static volatile Map.Entry<String, String[]> WINNER_SOUNDS_MOD = null;
 
     public static final Map.Entry<String, String[]> LOSER_SOUNDS = new HashMap.SimpleEntry<String, String[]>("loser/", new String[]{
         "afregar.wav",
@@ -105,7 +105,7 @@ public class Crupier implements Runnable {
         "quecabron.wav",
         "vamos_no_me_jodas.wav"});
 
-    public static Map.Entry<String, String[]> LOSER_SOUNDS_MOD = null;
+    public static volatile Map.Entry<String, String[]> LOSER_SOUNDS_MOD = null;
 
     public static final int CARTA_ALTA = 1;
     public static final int PAREJA = 2;
@@ -136,8 +136,8 @@ public class Crupier implements Runnable {
     public static final String RECOVER_BALANCE_FILE = Init.REC_DIR + "/coronapoker_balance";
     public static final String RECOVER_ACTIONS_FILE = Init.REC_DIR + "/coronapoker_actions";
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.5f, 1.0f}};
-    public volatile static boolean FUSION_MOD_SOUNDS = true;
-    public volatile static boolean FUSION_MOD_CINEMATICS = true;
+    public static volatile boolean FUSION_MOD_SOUNDS = true;
+    public static volatile boolean FUSION_MOD_CINEMATICS = true;
 
     //Segundos para doblar ciegas
     private volatile int mano = 0;

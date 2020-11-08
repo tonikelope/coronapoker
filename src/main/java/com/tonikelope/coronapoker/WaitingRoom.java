@@ -72,6 +72,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     public static final int MAX_PING_PONG_ERROR = 3;
     public static final int EC_KEY_LENGTH = 256;
     private static volatile boolean partida_empezada = false;
+    private static volatile boolean partida_empezando = false;
     private static volatile boolean exit = false;
     private static volatile WaitingRoom THIS;
 
@@ -95,6 +96,10 @@ public class WaitingRoom extends javax.swing.JFrame {
     private volatile boolean reconnecting = false;
     private volatile int pong;
     private volatile String video_chat_link = null;
+
+    public static boolean isPartida_empezando() {
+        return partida_empezando;
+    }
 
     public String getVideo_chat_link() {
         return video_chat_link;
@@ -485,7 +490,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     if (!ok) {
 
-                        if (System.currentTimeMillis() - start > Game.CLIENT_RECON_TIMEOUT && partida_empezada) {
+                        if (System.currentTimeMillis() - start > Game.CLIENT_RECON_TIMEOUT && WaitingRoom.isPartida_empezada()) {
 
                             if (this.reconnect_dialog == null) {
                                 this.reconnect_dialog = new Reconnect2ServerDialog(Game.getInstance() != null ? Game.getInstance() : tthis, true, server_ip_port);
@@ -531,7 +536,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         }
                     }
 
-                } while (!ok && (!partida_empezada || !Game.getInstance().getLocalPlayer().isExit()));
+                } while (!ok && (!WaitingRoom.isPartida_empezada() || !Game.getInstance().getLocalPlayer().isExit()));
 
                 if (this.reconnect_dialog != null) {
 
@@ -668,8 +673,6 @@ public class WaitingRoom extends javax.swing.JFrame {
                 String recibido = "";
 
                 String[] partes = null;
-
-                exit = false;
 
                 try {
 
@@ -975,7 +978,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                         break;
 
                                                     case "DELUSER":
-                                                        if (partida_empezada) {
+                                                        if (WaitingRoom.isPartida_empezada()) {
                                                             Game.getInstance().getCrupier().clientPlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         }
 
@@ -1130,7 +1133,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                     System.exit(1);
                 }
 
-                if (partida_empezada) {
+                if (WaitingRoom.isPartida_empezada()) {
 
                     Game.getInstance().finTransmision(exit);
 
@@ -1333,7 +1336,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                     }
                                 }
 
-                            } else if (partida_empezada) {
+                            } else if (WaitingRoom.isPartida_empezando() || WaitingRoom.isPartida_empezada()) {
                                 writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
                             } else if (!partes[1].equals(AboutDialog.VERSION)) {
                                 writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
@@ -1367,7 +1370,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                     client_avatar = null;
                                 }
 
-                                if (!partida_empezada) {
+                                if (!WaitingRoom.isPartida_empezada()) {
                                     Helpers.playWavResource("misc/new_user.wav");
                                 }
 
@@ -1931,7 +1934,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     private void empezar_timbaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_empezar_timbaActionPerformed
         // TODO add your handling code here:
 
-        if (participantes.size() >= 2 && !partida_empezada) {
+        if (participantes.size() >= 2 && !WaitingRoom.isPartida_empezada() && !WaitingRoom.isPartida_empezando()) {
 
             boolean faltan_jugadores = false;
 
@@ -1964,6 +1967,8 @@ public class WaitingRoom extends javax.swing.JFrame {
             boolean vamos = (!faltan_jugadores || Helpers.mostrarMensajeInformativoSINO(this, "Hay jugadores de la timba anterior que no se han vuelto a conectar.\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n¿EMPEZAMOS YA?") == 0);
 
             if (vamos) {
+
+                partida_empezando = true;
 
                 WaitingRoom tthis = this;
 
@@ -2036,7 +2041,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
-        if (!WaitingRoom.partida_empezada) {
+        if (!WaitingRoom.isPartida_empezada()) {
 
             exit = true;
 

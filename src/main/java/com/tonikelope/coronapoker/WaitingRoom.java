@@ -101,6 +101,11 @@ public class WaitingRoom extends javax.swing.JFrame {
     }
 
     public void setVideo_chat_link(String video_chat_link) {
+
+        if (!server && (this.video_chat_link == null || !this.video_chat_link.equals(video_chat_link))) {
+            Helpers.playWavResource("misc/chat_alert.wav");
+        }
+
         this.video_chat_link = video_chat_link;
 
         Helpers.GUIRun(new Runnable() {
@@ -1791,7 +1796,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         });
 
         video_chat_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        video_chat_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/meet.png"))); // NOI18N
+        video_chat_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/duo.png"))); // NOI18N
         video_chat_button.setText("VIDEOLLAMADA");
         video_chat_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         video_chat_button.setDoubleBuffered(true);
@@ -1855,7 +1860,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addGap(18, 18, 18)
                         .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(12, 12, 12)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 91, Short.MAX_VALUE)
+                .addComponent(jScrollPane1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2178,7 +2183,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         // TODO add your handling code here:
 
         if (server && this.getVideo_chat_link() == null) {
-            Helpers.openBrowserURL("https://meet.google.com/new");
+            Helpers.openBrowserURL("https://duo.google.com/");
         }
 
         QRChat chat_dialog = new QRChat(this, true, this.getVideo_chat_link(), server);

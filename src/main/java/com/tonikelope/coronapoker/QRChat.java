@@ -124,7 +124,6 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
         setUndecorated(true);
         setResizable(false);
 
-        icon_label.setToolTipText("Click para abrir navegador");
         icon_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         icon_label.setDoubleBuffered(true);
         icon_label.setFocusable(false);
@@ -136,7 +135,7 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
         });
 
         close_button.setBackground(new java.awt.Color(255, 0, 0));
-        close_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        close_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         close_button.setForeground(new java.awt.Color(255, 255, 255));
         close_button.setText("CERRAR");
         close_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -159,8 +158,9 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
             }
         });
 
-        share_button.setBackground(new java.awt.Color(102, 255, 102));
+        share_button.setBackground(new java.awt.Color(26, 115, 232));
         share_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        share_button.setForeground(new java.awt.Color(255, 255, 255));
         share_button.setText("COMPARTIR CON EL RESTO DE JUGADORES");
         share_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         share_button.setDoubleBuffered(true);
@@ -265,7 +265,7 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
 
         if (contenido != null) {
 
-            Pattern pattern = Pattern.compile("https://meet.google.com/[^ \r\n]+", Pattern.DOTALL);
+            Pattern pattern = Pattern.compile("https://duo.app.goo.gl/[^ \r\n]+", Pattern.DOTALL);
 
             Matcher matcher = pattern.matcher(contenido);
 

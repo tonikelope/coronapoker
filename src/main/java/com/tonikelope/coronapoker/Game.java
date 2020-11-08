@@ -14,7 +14,6 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
-import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -94,33 +93,29 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return THIS;
     }
 
-    private ZoomableInterface[] zoomeables;
-    private Card[] cartas_comunes;
-    private ArrayList<Player> jugadores;
-    private Map<String, Participant> participantes;
-    private volatile GameLogDialog registro_dialog = null;
-    private final int contador_manos = 0;
-    private final float acumulador_bote = 0f;
-    private final float acumulador_apuestas = 0f;
-    private Crupier crupier;
-    private boolean partida_local;
-    private String nick_local;
-    private volatile Timer tiempo_juego;
-    private volatile long conta_tiempo_juego = 0L;
-    private volatile boolean full_screen = false;
-    private final HashMap<KeyStroke, Action> actionMap = new HashMap<>();
-    private volatile boolean timba_pausada = false;
-    private volatile PauseDialog pausa_dialog = null;
-    private final Object lock_pause = new Object();
-    private volatile boolean game_over_dialog = false;
-    private volatile JFrame full_screen_frame = null;
-    private volatile Window full_screen_window = null;
-    private volatile AboutDialog about_dialog = null;
-    private volatile HandGeneratorDialog jugadas_dialog = null;
+    private final ZoomableInterface[] zoomeables;
     private final Object registro_lock = new Object();
     private final Object full_screen_lock = new Object();
+    private final Object lock_pause = new Object();
+    private final ArrayList<Player> jugadores;
+    private final Map<String, Participant> participantes;
+    private final Crupier crupier;
+    private final boolean partida_local;
+    private final String nick_local;
+    private final HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
-    private TablePanel tapete = null;
+    private volatile long conta_tiempo_juego = 0L;
+    private volatile boolean full_screen = false;
+    private volatile boolean timba_pausada = false;
+    private volatile PauseDialog pausa_dialog = null;
+    private volatile boolean game_over_dialog = false;
+    private volatile JFrame full_screen_frame = null;
+    private volatile AboutDialog about_dialog = null;
+    private volatile HandGeneratorDialog jugadas_dialog = null;
+    private volatile Card[] cartas_comunes;
+    private volatile GameLogDialog registro_dialog = null;
+    private volatile TablePanel tapete = null;
+    private volatile Timer tiempo_juego;
 
     public void autoZoomFullScreen() {
 
@@ -323,10 +318,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return exit_menu;
     }
 
-    public void setFull_screen_window(Window full_screen_window) {
-        this.full_screen_window = full_screen_window;
-    }
-
     public JFrame getFull_screen_frame() {
         return full_screen_frame;
     }
@@ -384,7 +375,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         menu_bar.setVisible(false);
                         setVisible(false);
                         device.setFullScreenWindow(Game.getInstance());
-                        setFull_screen_window(device.getFullScreenWindow());
                     }
 
                 } else {
@@ -413,7 +403,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     } else {
 
                         device.setFullScreenWindow(null);
-                        setFull_screen_window(null);
                         setExtendedState(JFrame.MAXIMIZED_BOTH);
                         setVisible(true);
                         menu_bar.setVisible(true);
@@ -1078,33 +1067,42 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         THIS = this;
 
+        participantes = parts;
+
+        tapete = TablePanelFactory.getPanel(participantes.size());
+
+        sala_espera = salaespera;
+
+        nick_local = nicklocal;
+
+        partida_local = partidalocal;
+        Player[] players = tapete.getPlayers();
+
+        Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD) : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
+
+        zoomeables = new ZoomableInterface[]{tapete};
+
+        jugadores = new ArrayList<>();
+
+        for (int j = 0; j < participantes.size(); j++) {
+            jugadores.add(players[j]);
+        }
+
+        crupier = new Crupier();
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
 
                 setTitle(Init.WINDOW_TITLE + Translator.translate(" - Timba en curso (") + nicklocal + ")");
 
-                participantes = parts;
-
-                tapete = TablePanelFactory.getPanel(participantes.size());
-
                 getContentPane().add(tapete);
-
-                Player[] players = tapete.getPlayers();
-
-                sala_espera = salaespera;
-
-                nick_local = nicklocal;
-
-                partida_local = partidalocal;
 
                 auto_rebuy_menu.setSelected(Game.AUTO_REBUY);
 
                 auto_rebuy_menu.setEnabled(Game.REBUY);
 
                 compact_menu.setSelected(Game.VISTA_COMPACTA);
-
-                Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD) : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
 
                 if (!map.containsKey("allin/") || map.get("allin/").length == 0) {
                     Game.CINEMATICAS = false;
@@ -1185,18 +1183,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 time_menu.setSelected(Game.SHOW_CLOCK);
 
-                zoomeables = new ZoomableInterface[]{tapete};
-
                 cartas_comunes = tapete.getCommunityCards().getCartasComunes();
 
                 tapete.getLocalPlayer().getPlayingCard1().setCompactable(false);
                 tapete.getLocalPlayer().getPlayingCard2().setCompactable(false);
-
-                jugadores = new ArrayList<>();
-
-                for (int j = 0; j < participantes.size(); j++) {
-                    jugadores.add(players[j]);
-                }
 
                 //Desactivamos los sitios no usados
                 for (Player j : players) {
@@ -1216,8 +1206,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 setupGlobalShortcuts();
 
                 // pausa_dialog = new PauseDialog(this, false);
-                crupier = new Crupier();
-
                 Helpers.TapetePopupMenu.addTo(tapete);
 
                 Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(Game.REBUY);
@@ -1342,7 +1330,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
             public void actionPerformed(ActionEvent ae) {
 
-                if (!crupier.isFin_de_la_transmision() && crupier.isJugadores_suficientes() && !isTimba_pausada() && !WaitingRoom.isExit() && !isRECOVER()) {
+                if (!crupier.isFin_de_la_transmision() && crupier.getJugadoresActivos() > 1 && !isTimba_pausada() && !WaitingRoom.isExit() && !isRECOVER()) {
                     conta_tiempo_juego++;
 
                     Helpers.GUIRun(new Runnable() {

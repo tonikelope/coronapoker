@@ -26,10 +26,10 @@ import java.util.Comparator;
  */
 public final class Pot {
 
-    private float diff = 0f;
-    private float bet = 0f;
     private final ArrayList<Player> players = new ArrayList<>();
-    private Pot sidePot = null;
+    private volatile float diff = 0f;
+    private volatile float bet = 0f;
+    private volatile Pot sidePot = null;
 
     public Pot(float dif) {
         this.diff = dif;

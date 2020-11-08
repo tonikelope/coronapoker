@@ -186,7 +186,6 @@ public class Crupier implements Runnable {
     private volatile int jugada_ganadora = 0;
     private volatile boolean sincronizando_mano = false;
     private volatile RecoverDialog recover_dialog = null;
-    private volatile boolean jugadores_suficientes = true;
     private volatile boolean playing_cinematic = false;
     private volatile String current_local_cinematic_b64 = null;
     private volatile String current_remote_cinematic_b64 = null;
@@ -421,14 +420,6 @@ public class Crupier implements Runnable {
 
     public void setFin_de_la_transmision(boolean fin_de_la_transmision) {
         this.fin_de_la_transmision = fin_de_la_transmision;
-    }
-
-    public boolean isJugadores_suficientes() {
-        return jugadores_suficientes;
-    }
-
-    public void setJugadores_suficientes(boolean jugadores_suficientes) {
-        this.jugadores_suficientes = jugadores_suficientes;
     }
 
     public boolean isSincronizando_mano() {
@@ -4273,9 +4264,6 @@ public class Crupier implements Runnable {
             }
         }
 
-        if (getJugadoresActivos() < 2) {
-            jugadores_suficientes = false;
-        }
     }
 
     public boolean ganaPorUltimaCarta(Player jugador, Hand jugada, int MIN) {
@@ -4603,7 +4591,7 @@ public class Crupier implements Runnable {
 
         while (!fin_de_la_transmision) {
 
-            if (isJugadores_suficientes() && !Game.getInstance().getLocalPlayer().isExit()) {
+            if (getJugadoresActivos() > 1 && !Game.getInstance().getLocalPlayer().isExit()) {
 
                 if (this.NUEVA_MANO()) {
 
@@ -4955,7 +4943,7 @@ public class Crupier implements Runnable {
 
                     if (!Game.TEST_MODE) {
 
-                        if (isJugadores_suficientes() && !Game.getInstance().getLocalPlayer().isExit()) {
+                        if (getJugadoresActivos() > 1 && !Game.getInstance().getLocalPlayer().isExit()) {
 
                             this.pausaConBarra(Game.PAUSA_ENTRE_MANOS);
                         }

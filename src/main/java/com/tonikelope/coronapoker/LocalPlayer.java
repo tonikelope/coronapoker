@@ -158,10 +158,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             this.spectator = true;
             this.bote = 0f;
 
-            if (crupier.getJugadoresActivos() + crupier.getTotalCalentando() < 2) {
-                crupier.setJugadores_suficientes(false);
-            }
-
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
@@ -256,10 +252,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!this.exit) {
             this.exit = true;
-
-            if (crupier.getJugadoresActivos() + crupier.getTotalCalentando() < 2) {
-                crupier.setJugadores_suficientes(false);
-            }
 
             desactivarControles();
 
@@ -643,7 +635,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         Helpers.playWavResource("misc/hurryup.wav");
                                     }
 
-                                    if (counter == 0 || !crupier.isJugadores_suficientes()) {
+                                    if (counter == 0 || crupier.getJugadoresActivos() < 2) {
 
                                         Helpers.threadRun(new Runnable() {
                                             public void run() {

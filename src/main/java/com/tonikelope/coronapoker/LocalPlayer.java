@@ -625,7 +625,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && !WaitingRoom.isExit() && counter > 0 && auto_action.isRunning() && t == crupier.getTurno()) {
+                                if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && counter > 0 && auto_action.isRunning() && t == crupier.getTurno()) {
 
                                     counter--;
 
@@ -1587,7 +1587,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 }
             }
 
-        } else if (!Game.getInstance().isTimba_pausada() && !WaitingRoom.isExit() && getDecision() == Player.NODEC && player_fold_button.isEnabled()) {
+        } else if (!Game.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_fold_button.isEnabled()) {
 
             if (pre_pulsado == Player.FOLD || !Game.CONFIRM_ACTIONS || Helpers.float1DSecureCompare(0f, bote) == 0 || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
 
@@ -1628,7 +1628,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_allin_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_player_allin_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (!Game.getInstance().isTimba_pausada() && !WaitingRoom.isExit()) {
+        if (!Game.getInstance().isTimba_pausada()) {
 
             if (player_allin_button.isEnabled()) {
 
@@ -1785,7 +1785,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 }
             }
 
-        } else if (!Game.getInstance().isTimba_pausada() && !WaitingRoom.isExit() && getDecision() == Player.NODEC && player_check_button.isEnabled()) {
+        } else if (!Game.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_check_button.isEnabled()) {
 
             if (pre_pulsado == Player.CHECK || !Game.CONFIRM_ACTIONS || this.action_button_armed.get(player_check_button) || click_recuperacion) {
 
@@ -1828,7 +1828,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_bet_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_player_bet_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (!Game.getInstance().isTimba_pausada() && !WaitingRoom.isExit() && getDecision() == Player.NODEC && player_bet_button.isEnabled()) {
+        if (!Game.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_bet_button.isEnabled()) {
 
             if (Helpers.float1DSecureCompare(stack, Float.valueOf(bet_slider_text.getText()) + call_required) == 0) {
 

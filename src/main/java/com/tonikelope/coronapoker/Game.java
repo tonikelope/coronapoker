@@ -49,11 +49,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final int DEFAULT_ZOOM_LEVEL = -2;
     public static final float MIN_BIG_BLIND = 0.20f;
     public static final float ZOOM_STEP = 0.05f;
-    public static volatile float CIEGA_PEQUEÑA = 0.10f;
-    public static volatile float CIEGA_GRANDE = 0.20f;
-    public static volatile int BUYIN = 10;
-    public static volatile int CIEGAS_TIME = 60;
-    public static volatile boolean REBUY = true;
     public static final int PAUSA_ENTRE_MANOS = 7; //Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
@@ -72,6 +67,11 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final int AUTO_ZOOM_TIMEOUT = 2000;
     public static final int GUI_ZOOM_WAIT = 250;
 
+    public static volatile float CIEGA_PEQUEÑA = 0.10f;
+    public static volatile float CIEGA_GRANDE = 0.20f;
+    public static volatile int BUYIN = 10;
+    public static volatile int CIEGAS_TIME = 60;
+    public static volatile boolean REBUY = true;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
@@ -1330,7 +1330,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
             public void actionPerformed(ActionEvent ae) {
 
-                if (!crupier.isFin_de_la_transmision() && crupier.getJugadoresActivos() > 1 && !isTimba_pausada() && !WaitingRoom.isExit() && !isRECOVER()) {
+                if (!crupier.isFin_de_la_transmision() && !isTimba_pausada() && !isRECOVER()) {
                     conta_tiempo_juego++;
 
                     Helpers.GUIRun(new Runnable() {

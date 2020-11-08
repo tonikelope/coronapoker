@@ -74,7 +74,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     private static volatile boolean partida_empezada = false;
     private static volatile boolean partida_empezando = false;
     private static volatile boolean exit = false;
-    private static volatile WaitingRoom THIS;
+    private static volatile WaitingRoom THIS = null;
 
     private final Init ventana_inicio;
     private final File local_avatar;
@@ -184,8 +184,10 @@ public class WaitingRoom extends javax.swing.JFrame {
      * Creates new form SalaEspera
      */
     public WaitingRoom(Init ventana_ini, boolean local, String nick, String servidor_ip_port, File avatar) {
+        partida_empezada = false;
+        partida_empezando = false;
+        exit = false;
         THIS = this;
-
         ventana_inicio = ventana_ini;
         server = local;
         local_nick = nick;

@@ -87,13 +87,13 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es");
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static volatile boolean RECOVER = false;
+    public static volatile KeyEventDispatcher key_event_dispatcher = null;
     private static volatile Game THIS = null;
 
     public static Game getInstance() {
         return THIS;
     }
 
-    private final ZoomableInterface[] zoomeables;
     private final Object registro_lock = new Object();
     private final Object full_screen_lock = new Object();
     private final Object lock_pause = new Object();
@@ -104,6 +104,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private final String nick_local;
     private final HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
+    private volatile ZoomableInterface[] zoomeables;
     private volatile long conta_tiempo_juego = 0L;
     private volatile boolean full_screen = false;
     private volatile boolean timba_pausada = false;
@@ -112,7 +113,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private volatile JFrame full_screen_frame = null;
     private volatile AboutDialog about_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
-    private volatile Card[] cartas_comunes;
     private volatile GameLogDialog registro_dialog = null;
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
@@ -347,7 +347,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     if (Helpers.OSValidator.isWindows()) {
                         setVisible(false);
-                        remove(Game.getInstance().getTapete());
+                        getContentPane().remove(Game.getInstance().getTapete());
                         full_screen_frame = new JFrame();
                         full_screen_frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
                         full_screen_frame.addWindowListener(new java.awt.event.WindowAdapter() {
@@ -358,7 +358,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         });
                         full_screen_frame.setTitle(Game.getInstance().getTitle());
                         full_screen_frame.setUndecorated(true);
-                        full_screen_frame.add(Game.getInstance().getTapete());
+                        full_screen_frame.getContentPane().add(Game.getInstance().getTapete());
                         full_screen_frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
                         full_screen_frame.setVisible(true);
 
@@ -381,13 +381,12 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     if (Helpers.OSValidator.isWindows()) {
 
-                        full_screen_frame.remove(Game.getInstance().getTapete());
+                        full_screen_frame.getContentPane().remove(Game.getInstance().getTapete());
                         full_screen_frame.setVisible(false);
                         full_screen_frame.dispose();
                         full_screen_frame = null;
 
-                        Game.getInstance().add(Game.getInstance().getTapete());
-                        Game.getInstance().pack();
+                        Game.getInstance().getContentPane().add(Game.getInstance().getTapete());
                         Game.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
                         Game.getInstance().setVisible(true);
 
@@ -436,7 +435,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             jugador.getPlayingCard2().refreshCard();
         }
 
-        for (Card carta : this.cartas_comunes) {
+        for (Card carta : this.tapete.getCommunityCards().getCartasComunes()) {
             carta.refreshCard();
         }
 
@@ -473,7 +472,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             jugador.getPlayingCard2().refreshCard();
         }
 
-        for (Card carta : this.cartas_comunes) {
+        for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {
             carta.refreshCard();
         }
     }
@@ -770,7 +769,12 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         });
 
         KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-        kfm.addKeyEventDispatcher(new KeyEventDispatcher() {
+
+        if (Game.key_event_dispatcher != null) {
+            kfm.removeKeyEventDispatcher(Game.key_event_dispatcher);
+        }
+
+        Game.key_event_dispatcher = new KeyEventDispatcher() {
 
             @Override
             public boolean dispatchKeyEvent(KeyEvent e) {
@@ -794,7 +798,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 return false;
             }
-        });
+        };
+
+        kfm.addKeyEventDispatcher(Game.key_event_dispatcher);
     }
 
     public JMenuItem getPausa_menu() {
@@ -875,7 +881,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     }
 
     public Card[] getCartas_comunes() {
-        return cartas_comunes;
+        return tapete.getCommunityCards().getCartasComunes();
     }
 
     public static int getZoom_level() {
@@ -961,6 +967,59 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
 
+    }
+
+    public void refreshTapete() {
+
+        TablePanel nuevo_tapete = TablePanelFactory.downgradePanel(tapete);
+
+        if (nuevo_tapete != null) {
+
+            Game.getInstance().getJugadores().clear();
+
+            for (Player jugador : nuevo_tapete.getPlayers()) {
+                Game.getInstance().getJugadores().add(jugador);
+            }
+
+            JFrame frame = getFull_screen_frame() != null ? getFull_screen_frame() : Game.getInstance();
+
+            Helpers.GUIRunAndWait(new Runnable() {
+                public void run() {
+                    frame.getContentPane().remove(tapete);
+
+                    tapete = nuevo_tapete;
+
+                    zoomeables = new ZoomableInterface[]{tapete};
+
+                    frame.getContentPane().add(tapete);
+
+                    Game.getInstance().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
+
+                    Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+
+                    Helpers.TapetePopupMenu.addTo(tapete);
+
+                    setupGlobalShortcuts();
+
+                    Helpers.loadOriginalFontSizes(frame);
+
+                    Helpers.updateFonts(frame, Helpers.GUI_FONT, null);
+
+                    Helpers.translateComponents(frame, false);
+
+                    Helpers.translateComponents(Helpers.TapetePopupMenu.popup, false);
+
+                    if (Game.getZoom_level() != 0) {
+
+                        Game.getInstance().zoom(1f + Game.getZoom_level() * Game.ZOOM_STEP);
+
+                    }
+
+                    pack();
+
+                }
+            });
+        }
     }
 
     public void hideTapeteApuestas() {
@@ -1076,6 +1135,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         nick_local = nicklocal;
 
         partida_local = partidalocal;
+
         Player[] players = tapete.getPlayers();
 
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD) : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
@@ -1183,20 +1243,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 time_menu.setSelected(Game.SHOW_CLOCK);
 
-                cartas_comunes = tapete.getCommunityCards().getCartasComunes();
-
                 tapete.getLocalPlayer().getPlayingCard1().setCompactable(false);
                 tapete.getLocalPlayer().getPlayingCard2().setCompactable(false);
-
-                //Desactivamos los sitios no usados
-                for (Player j : players) {
-                    if (!jugadores.contains(j)) {
-                        j.disablePlayer(false);
-                        getContentPane().remove((Component) j);
-                    }
-                }
-
-                getContentPane().revalidate();
 
                 //Metemos la pasta a todos (el BUY IN se podría parametrizar)
                 for (Player jugador : jugadores) {

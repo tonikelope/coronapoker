@@ -1919,7 +1919,7 @@ public class Helpers {
         public static JRadioButtonMenuItem TAPETE_AZUL;
         public static JRadioButtonMenuItem TAPETE_ROJO;
         public static JRadioButtonMenuItem TAPETE_MADERA;
-        public static JPopupMenu popup;
+        public static JPopupMenu popup = null;
 
         private static void generarBarajasMenu() {
 
@@ -1950,242 +1950,246 @@ public class Helpers {
         }
 
         public static void addTo(TablePanel tapete) {
-            popup = new JPopupMenu();
 
-            Action exitAction = new AbstractAction("Salir") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getExit_menu().doClick();
-                }
-            };
+            if (popup == null) {
 
-            Action soundAction = new AbstractAction("SONIDOS") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getSonidos_menu().doClick();
-                }
-            };
+                popup = new JPopupMenu();
 
-            Action comentariosAction = new AbstractAction("Comentarios profesionales") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getSonidos_chorra_menu().doClick();
-                }
-            };
+                Action exitAction = new AbstractAction("Salir") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getExit_menu().doClick();
+                    }
+                };
 
-            Action musicaAction = new AbstractAction("Música ambiental") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getAscensor_menu().doClick();
-                }
-            };
+                Action soundAction = new AbstractAction("SONIDOS") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getSonidos_menu().doClick();
+                    }
+                };
 
-            Action chatAction = new AbstractAction("Ver chat") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getChat_menu().doClick();
-                }
-            };
+                Action comentariosAction = new AbstractAction("Comentarios profesionales") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getSonidos_chorra_menu().doClick();
+                    }
+                };
 
-            Action registroAction = new AbstractAction("Ver registro") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getRegistro_menu().doClick();
-                }
-            };
+                Action musicaAction = new AbstractAction("Música ambiental") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getAscensor_menu().doClick();
+                    }
+                };
 
-            Action jugadasAction = new AbstractAction("Generador de jugadas") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getJugadas_menu().doClick();
-                }
-            };
+                Action chatAction = new AbstractAction("Ver chat") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getChat_menu().doClick();
+                    }
+                };
 
-            Action fullscreenAction = new AbstractAction("PANTALLA COMPLETA") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getFull_screen_menu().doClick();
-                }
-            };
+                Action registroAction = new AbstractAction("Ver registro") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getRegistro_menu().doClick();
+                    }
+                };
 
-            Action pauseAction = new AbstractAction("Pausar timba") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getPausa_menu().doClick();
-                }
-            };
+                Action jugadasAction = new AbstractAction("Generador de jugadas") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getJugadas_menu().doClick();
+                    }
+                };
 
-            Action zoominAction = new AbstractAction("Aumentar zoom") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getZoom_menu_in().doClick();
-                }
-            };
+                Action fullscreenAction = new AbstractAction("PANTALLA COMPLETA") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getFull_screen_menu().doClick();
+                    }
+                };
 
-            Action zoomoutAction = new AbstractAction("Reducir zoom") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getZoom_menu_out().doClick();
-                }
-            };
+                Action pauseAction = new AbstractAction("Pausar timba") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getPausa_menu().doClick();
+                    }
+                };
 
-            Action zoomresetAction = new AbstractAction("Reset zoom") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getZoom_menu_reset().doClick();
-                }
-            };
+                Action zoominAction = new AbstractAction("Aumentar zoom") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getZoom_menu_in().doClick();
+                    }
+                };
 
-            Action compactAction = new AbstractAction("Vista compacta") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getCompact_menu().doClick();
-                }
-            };
+                Action zoomoutAction = new AbstractAction("Reducir zoom") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getZoom_menu_out().doClick();
+                    }
+                };
 
-            Action relojAction = new AbstractAction("Mostrar reloj") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getTime_menu().doClick();
-                }
-            };
+                Action zoomresetAction = new AbstractAction("Reset zoom") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getZoom_menu_reset().doClick();
+                    }
+                };
 
-            Action rebuyAction = new AbstractAction("Recompra automática") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getAuto_rebuy_menu().doClick();
-                }
-            };
+                Action compactAction = new AbstractAction("Vista compacta") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getCompact_menu().doClick();
+                    }
+                };
 
-            Action confirmAction = new AbstractAction("Confirmar todas las acciones") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getConfirmar_menu().doClick();
-                }
-            };
+                Action relojAction = new AbstractAction("Mostrar reloj") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getTime_menu().doClick();
+                    }
+                };
 
-            Action cinematicasAction = new AbstractAction("Cinemáticas") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getMenu_cinematicas().doClick();
-                }
-            };
+                Action rebuyAction = new AbstractAction("Recompra automática") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getAuto_rebuy_menu().doClick();
+                    }
+                };
 
-            Action animacionAction = new AbstractAction("Animación al repartir") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getAnimacion_menu().doClick();
-                }
-            };
+                Action confirmAction = new AbstractAction("Confirmar todas las acciones") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getConfirmar_menu().doClick();
+                    }
+                };
 
-            Action autoactAction = new AbstractAction("Botones AUTO") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getAuto_action_menu().doClick();
-                }
-            };
+                Action cinematicasAction = new AbstractAction("Cinemáticas") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getMenu_cinematicas().doClick();
+                    }
+                };
 
-            Action tapeteVerdeAction = new AbstractAction("Verde") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getMenu_tapete_verde().doClick();
-                }
-            };
+                Action animacionAction = new AbstractAction("Animación al repartir") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getAnimacion_menu().doClick();
+                    }
+                };
 
-            Action tapeteAzulAction = new AbstractAction("Azul") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getMenu_tapete_azul().doClick();
-                }
-            };
+                Action autoactAction = new AbstractAction("Botones AUTO") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getAuto_action_menu().doClick();
+                    }
+                };
 
-            Action tapeteRojoAction = new AbstractAction("Rojo") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getMenu_tapete_rojo().doClick();
-                }
-            };
+                Action tapeteVerdeAction = new AbstractAction("Verde") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getMenu_tapete_verde().doClick();
+                    }
+                };
 
-            Action tapeteMaderaAction = new AbstractAction("Sin tapete") {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    Game.getInstance().getMenu_tapete_madera().doClick();
-                }
-            };
+                Action tapeteAzulAction = new AbstractAction("Azul") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getMenu_tapete_azul().doClick();
+                    }
+                };
 
-            popup.add(chatAction);
-            popup.add(registroAction);
-            popup.add(jugadasAction);
-            popup.addSeparator();
+                Action tapeteRojoAction = new AbstractAction("Rojo") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getMenu_tapete_rojo().doClick();
+                    }
+                };
 
-            if (Game.getInstance().isPartida_local()) {
-                PAUSA_MENU = new JMenuItem(pauseAction);
-                popup.add(PAUSA_MENU);
+                Action tapeteMaderaAction = new AbstractAction("Sin tapete") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getMenu_tapete_madera().doClick();
+                    }
+                };
+
+                popup.add(chatAction);
+                popup.add(registroAction);
+                popup.add(jugadasAction);
                 popup.addSeparator();
+
+                if (Game.getInstance().isPartida_local()) {
+                    PAUSA_MENU = new JMenuItem(pauseAction);
+                    popup.add(PAUSA_MENU);
+                    popup.addSeparator();
+                }
+
+                FULLSCREEN_MENU = new JCheckBoxMenuItem(fullscreenAction);
+                FULLSCREEN_MENU.setSelected(Game.getInstance().isFull_screen());
+                popup.add(FULLSCREEN_MENU);
+                popup.addSeparator();
+                popup.add(zoominAction);
+                popup.add(zoomoutAction);
+                popup.add(zoomresetAction);
+                popup.addSeparator();
+                COMPACTA_MENU = new JCheckBoxMenuItem(compactAction);
+                COMPACTA_MENU.setSelected(Game.VISTA_COMPACTA);
+                popup.add(COMPACTA_MENU);
+                popup.addSeparator();
+                SONIDOS_MENU = new JCheckBoxMenuItem(soundAction);
+                SONIDOS_MENU.setSelected(Game.SONIDOS);
+                popup.add(SONIDOS_MENU);
+                SONIDOS_COMENTARIOS_MENU = new JCheckBoxMenuItem(comentariosAction);
+                SONIDOS_COMENTARIOS_MENU.setSelected(Game.SONIDOS_CHORRA);
+                SONIDOS_COMENTARIOS_MENU.setEnabled(Game.SONIDOS);
+                popup.add(SONIDOS_COMENTARIOS_MENU);
+                SONIDOS_MUSICA_MENU = new JCheckBoxMenuItem(musicaAction);
+                SONIDOS_MUSICA_MENU.setSelected(Game.MUSICA_AMBIENTAL);
+                SONIDOS_MUSICA_MENU.setEnabled(Game.SONIDOS);
+                popup.add(SONIDOS_MUSICA_MENU);
+                popup.addSeparator();
+                CONFIRM_MENU = new JCheckBoxMenuItem(confirmAction);
+                CONFIRM_MENU.setSelected(Game.CONFIRM_ACTIONS);
+                popup.add(CONFIRM_MENU);
+                AUTO_ACTION_MENU = new JCheckBoxMenuItem(autoactAction);
+                AUTO_ACTION_MENU.setSelected(Game.AUTO_ACTION_BUTTONS);
+                popup.add(AUTO_ACTION_MENU);
+                popup.addSeparator();
+                CINEMATICAS_MENU = new JCheckBoxMenuItem(cinematicasAction);
+                CINEMATICAS_MENU.setSelected(Game.CINEMATICAS);
+                popup.add(CINEMATICAS_MENU);
+                ANIMACION_MENU = new JCheckBoxMenuItem(animacionAction);
+                ANIMACION_MENU.setSelected(Game.ANIMACION_REPARTIR);
+                popup.add(ANIMACION_MENU);
+                popup.addSeparator();
+                RELOJ_MENU = new JCheckBoxMenuItem(relojAction);
+                RELOJ_MENU.setSelected(Game.SHOW_CLOCK);
+                popup.add(RELOJ_MENU);
+                popup.addSeparator();
+                generarBarajasMenu();
+                popup.add(BARAJAS_MENU);
+                TAPETE_VERDE = new JRadioButtonMenuItem(tapeteVerdeAction);
+                TAPETE_AZUL = new JRadioButtonMenuItem(tapeteAzulAction);
+                TAPETE_ROJO = new JRadioButtonMenuItem(tapeteRojoAction);
+                TAPETE_MADERA = new JRadioButtonMenuItem(tapeteMaderaAction);
+                TAPETES_MENU.add(TAPETE_VERDE);
+                TAPETES_MENU.add(TAPETE_AZUL);
+                TAPETES_MENU.add(TAPETE_ROJO);
+                TAPETES_MENU.add(TAPETE_MADERA);
+                popup.add(TAPETES_MENU);
+                popup.addSeparator();
+                AUTOREBUY_MENU = new JCheckBoxMenuItem(rebuyAction);
+                AUTOREBUY_MENU.setSelected(Game.AUTO_REBUY);
+                popup.add(AUTOREBUY_MENU);
+                popup.addSeparator();
+                EXIT_MENU = new JMenuItem(exitAction);
+                popup.add(EXIT_MENU);
+
+                Helpers.updateFonts(popup, Helpers.GUI_FONT, 2);
             }
-
-            FULLSCREEN_MENU = new JCheckBoxMenuItem(fullscreenAction);
-            FULLSCREEN_MENU.setSelected(Game.getInstance().isFull_screen());
-            popup.add(FULLSCREEN_MENU);
-            popup.addSeparator();
-            popup.add(zoominAction);
-            popup.add(zoomoutAction);
-            popup.add(zoomresetAction);
-            popup.addSeparator();
-            COMPACTA_MENU = new JCheckBoxMenuItem(compactAction);
-            COMPACTA_MENU.setSelected(Game.VISTA_COMPACTA);
-            popup.add(COMPACTA_MENU);
-            popup.addSeparator();
-            SONIDOS_MENU = new JCheckBoxMenuItem(soundAction);
-            SONIDOS_MENU.setSelected(Game.SONIDOS);
-            popup.add(SONIDOS_MENU);
-            SONIDOS_COMENTARIOS_MENU = new JCheckBoxMenuItem(comentariosAction);
-            SONIDOS_COMENTARIOS_MENU.setSelected(Game.SONIDOS_CHORRA);
-            SONIDOS_COMENTARIOS_MENU.setEnabled(Game.SONIDOS);
-            popup.add(SONIDOS_COMENTARIOS_MENU);
-            SONIDOS_MUSICA_MENU = new JCheckBoxMenuItem(musicaAction);
-            SONIDOS_MUSICA_MENU.setSelected(Game.MUSICA_AMBIENTAL);
-            SONIDOS_MUSICA_MENU.setEnabled(Game.SONIDOS);
-            popup.add(SONIDOS_MUSICA_MENU);
-            popup.addSeparator();
-            CONFIRM_MENU = new JCheckBoxMenuItem(confirmAction);
-            CONFIRM_MENU.setSelected(Game.CONFIRM_ACTIONS);
-            popup.add(CONFIRM_MENU);
-            AUTO_ACTION_MENU = new JCheckBoxMenuItem(autoactAction);
-            AUTO_ACTION_MENU.setSelected(Game.AUTO_ACTION_BUTTONS);
-            popup.add(AUTO_ACTION_MENU);
-            popup.addSeparator();
-            CINEMATICAS_MENU = new JCheckBoxMenuItem(cinematicasAction);
-            CINEMATICAS_MENU.setSelected(Game.CINEMATICAS);
-            popup.add(CINEMATICAS_MENU);
-            ANIMACION_MENU = new JCheckBoxMenuItem(animacionAction);
-            ANIMACION_MENU.setSelected(Game.ANIMACION_REPARTIR);
-            popup.add(ANIMACION_MENU);
-            popup.addSeparator();
-            RELOJ_MENU = new JCheckBoxMenuItem(relojAction);
-            RELOJ_MENU.setSelected(Game.SHOW_CLOCK);
-            popup.add(RELOJ_MENU);
-            popup.addSeparator();
-            generarBarajasMenu();
-            popup.add(BARAJAS_MENU);
-            TAPETE_VERDE = new JRadioButtonMenuItem(tapeteVerdeAction);
-            TAPETE_AZUL = new JRadioButtonMenuItem(tapeteAzulAction);
-            TAPETE_ROJO = new JRadioButtonMenuItem(tapeteRojoAction);
-            TAPETE_MADERA = new JRadioButtonMenuItem(tapeteMaderaAction);
-            TAPETES_MENU.add(TAPETE_VERDE);
-            TAPETES_MENU.add(TAPETE_AZUL);
-            TAPETES_MENU.add(TAPETE_ROJO);
-            TAPETES_MENU.add(TAPETE_MADERA);
-            popup.add(TAPETES_MENU);
-            popup.addSeparator();
-            AUTOREBUY_MENU = new JCheckBoxMenuItem(rebuyAction);
-            AUTOREBUY_MENU.setSelected(Game.AUTO_REBUY);
-            popup.add(AUTOREBUY_MENU);
-            popup.addSeparator();
-            EXIT_MENU = new JMenuItem(exitAction);
-            popup.add(EXIT_MENU);
-
-            Helpers.updateFonts(popup, Helpers.GUI_FONT, 2);
 
             tapete.setComponentPopupMenu(popup);
         }

@@ -997,6 +997,27 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
 
+                    updateSoundIcon();
+
+                    switch (Game.COLOR_TAPETE) {
+
+                        case "verde":
+                            cambiarColorContadoresTapete(new Color(153, 204, 0));
+                            break;
+
+                        case "azul":
+                            cambiarColorContadoresTapete(new Color(102, 204, 255));
+                            break;
+
+                        case "rojo":
+                            cambiarColorContadoresTapete(new Color(255, 204, 51));
+                            break;
+
+                        case "madera":
+                            cambiarColorContadoresTapete(Color.WHITE);
+                            break;
+                    }
+
                     Helpers.TapetePopupMenu.addTo(tapete);
 
                     setupGlobalShortcuts();
@@ -1006,8 +1027,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     Helpers.updateFonts(frame, Helpers.GUI_FONT, null);
 
                     Helpers.translateComponents(frame, false);
-
-                    Helpers.translateComponents(Helpers.TapetePopupMenu.popup, false);
 
                     if (Game.getZoom_level() != 0) {
 
@@ -1253,7 +1272,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 setupGlobalShortcuts();
 
-                // pausa_dialog = new PauseDialog(this, false);
                 Helpers.TapetePopupMenu.addTo(tapete);
 
                 Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(Game.REBUY);

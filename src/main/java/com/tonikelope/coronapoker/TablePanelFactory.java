@@ -47,4 +47,42 @@ public class TablePanelFactory {
 
     }
 
+    public static TablePanel downgradePanel(TablePanel panel) {
+
+        RemotePlayer[] remotos = panel.getRemotePlayers();
+
+        int conta_disabled = 0;
+
+        for (RemotePlayer player : remotos) {
+
+            if (player.isDisabled()) {
+                conta_disabled++;
+            }
+        }
+
+        if (conta_disabled > 0) {
+
+            TablePanel nuevo_panel = TablePanelFactory.getPanel(panel.getPlayers().length - conta_disabled);
+
+            Player[] nuevos_jugadores = nuevo_panel.getPlayers();
+
+            int i = 0;
+
+            for (Player player : panel.getPlayers()) {
+
+                if (player instanceof LocalPlayer || !((RemotePlayer) player).isDisabled()) {
+                    nuevos_jugadores[i].setNickname(player.getNickname());
+                    nuevos_jugadores[i].setStack(player.getStack());
+                    nuevos_jugadores[i].setBuyin(player.getBuyin());
+                    i++;
+                }
+            }
+
+            return nuevo_panel;
+
+        } else {
+            return null;
+        }
+    }
+
 }

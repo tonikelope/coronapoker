@@ -42,8 +42,6 @@ public interface Player {
 
     public void showCards(String jugada);
 
-    public void setServer();
-
     public int getBuyin();
 
     public float getBote();

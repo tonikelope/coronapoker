@@ -36,12 +36,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public static final int MIN_ACTION_HEIGHT = 45;
 
     private volatile String nickname;
-    private volatile float stack;
+    private volatile float stack = 0f;
     private volatile int buyin = Game.BUYIN;
     private volatile Crupier crupier = null;
-    private volatile float bet;
-    private volatile int decision = -1;
-    private volatile boolean utg;
+    private volatile float bet = 0f;
+    private volatile int decision = Player.NODEC;
+    private volatile boolean utg = false;
     private volatile boolean spectator = false;
     private volatile float pagar = 0f;
     private volatile float bote = 0f;
@@ -50,11 +50,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean timeout_val = false;
     private volatile boolean winner = false;
     private volatile boolean loser = false;
-    private volatile int pos;
+    private volatile int pos = -1;
     private volatile float call_required;
-    private volatile boolean disabled;
+    private volatile boolean disabled = false;
     private volatile boolean turno = false;
     private volatile Bot bot = null;
+
+    public boolean isDisabled() {
+        return disabled;
+    }
 
     public int getPos() {
         return pos;
@@ -521,10 +525,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 initComponents();
 
-                decision = Player.NODEC;
-
-                bet = 0;
-
                 timeout.setVisible(false);
 
                 player_pot.setText("----");
@@ -569,8 +569,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_name.setText(nickname);
 
                 if (Game.getInstance().isPartida_local() && !Game.getInstance().getParticipantes().get(nickname).isCpu()) {
+
                     player_name.setToolTipText("CLICK -> AES-KEY");
                     player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                } else if (!Game.getInstance().isPartida_local()) {
+
+                    if (Game.getInstance().getSala_espera().getServer_nick().equals(player_name)) {
+                        player_name.setForeground(Color.YELLOW);
+                    }
                 }
 
             }
@@ -1295,16 +1302,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
             }
         });
-    }
-
-    @Override
-    public void setServer() {
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                player_name.setForeground(Color.YELLOW);
-            }
-        });
-
     }
 
     public void setSpectator(String msg) {

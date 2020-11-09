@@ -45,10 +45,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile String nickname;
 
     private volatile int buyin = Game.BUYIN;
-    private volatile float stack;
-    private volatile float bet;
+    private volatile float stack = 0f;
+    private volatile float bet = 0f;
     private volatile boolean utg = false;
-    private volatile int decision = -1;
+    private volatile int decision = Player.NODEC;
     private volatile Crupier crupier = null;
     private volatile boolean spectator = false;
     private volatile float pagar = 0f;
@@ -62,7 +62,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean loser = false;
     private volatile Float apuesta_recuperada = null;
     private volatile boolean click_recuperacion = false;
-    private volatile int pos;
+    private volatile int pos = -1;
     private volatile float call_required;
     private volatile float min_raise;
     private volatile int pre_pulsado = Player.NODEC;
@@ -295,8 +295,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_name.setText(nickname);
 
                 if (!Game.getInstance().isPartida_local()) {
+
                     player_name.setToolTipText("CLICK -> AES-KEY");
                     player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                } else {
+                    player_name.setForeground(Color.YELLOW);
                 }
             }
         });
@@ -355,10 +359,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 });
 
                 timeout.setVisible(false);
-
-                decision = Player.NODEC;
-
-                bet = 0f;
 
                 player_check_button.setEnabled(false);
 
@@ -2136,17 +2136,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if (buyin > Game.BUYIN) {
                     player_buyin.setBackground(Color.cyan);
                 }
-            }
-        });
-
-    }
-
-    @Override
-    public void setServer() {
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                player_name.setForeground(Color.YELLOW);
             }
         });
 

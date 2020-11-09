@@ -930,8 +930,13 @@ public class Crupier implements Runnable {
                             broadcastGAMECommandFromServer("REBUY#" + partes[3] + (partes.length > 4 ? "#" + partes[4] : ""), nick);
                         }
 
-                        if (partes.length > 4 && partes[4].equals("0")) {
-                            jugador.setSpectator(null);
+                        if (partes.length > 4) {
+
+                            if (partes[4].equals("0")) {
+                                jugador.setSpectator(null);
+                            } else if (partes[4].equals("*")) {
+                                jugador.setExit();
+                            }
                         }
 
                     } else {
@@ -3356,10 +3361,6 @@ public class Crupier implements Runnable {
         for (int j = 0; j < this.nicks_permutados.length; j++) {
 
             Game.getInstance().getJugadores().get(j).setNickname(this.nicks_permutados[(j + i) % this.nicks_permutados.length]);
-
-            if ((Game.getInstance().isPartida_local() && Game.getInstance().getJugadores().get(j) == Game.getInstance().getLocalPlayer()) || Game.getInstance().getJugadores().get(j).getNickname().equals(Game.getInstance().getSala_espera().getServer_nick())) {
-                Game.getInstance().getJugadores().get(j).setServer();
-            }
         }
 
     }
@@ -4237,6 +4238,8 @@ public class Crupier implements Runnable {
 
         Iterator<Player> iterator = Game.getInstance().getJugadores().iterator();
 
+        int exit = 0;
+
         while (iterator.hasNext()) {
             Player jugador = iterator.next();
 
@@ -4261,7 +4264,20 @@ public class Crupier implements Runnable {
 
                 iterator.remove();
 
+                exit++;
+
             }
+        }
+
+        if (exit > 0) {
+            Game.getInstance().refreshTapete();
+
+            nick2player.clear();
+
+            for (Player jugador : Game.getInstance().getJugadores()) {
+                nick2player.put(jugador.getNickname(), jugador);
+            }
+
         }
 
     }
@@ -4545,8 +4561,6 @@ public class Crupier implements Runnable {
         for (Player jugador : Game.getInstance().getJugadores()) {
             nick2player.put(jugador.getNickname(), jugador);
         }
-
-        colocarAvatares();
 
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
@@ -5082,7 +5096,7 @@ public class Crupier implements Runnable {
                                         rebuy_players.remove(jugador.getNickname());
 
                                         try {
-                                            String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!Game.REBUY || res != 0) ? "#0" : "");
+                                            String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!Game.REBUY || res != 0) ? "#*" : "");
 
                                             this.broadcastGAMECommandFromServer(comando, null);
 
@@ -5091,7 +5105,7 @@ public class Crupier implements Runnable {
                                         }
 
                                         if (res != 0) {
-                                            jugador.setSpectator(null);
+                                            jugador.setExit();
                                         }
 
                                     }

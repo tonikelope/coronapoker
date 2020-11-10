@@ -70,8 +70,6 @@ public interface Player {
 
     void refreshPos();
 
-    public void disablePlayer(boolean visible);
-
     public void nuevaMano(int pos);
 
     public void esTuTurno();

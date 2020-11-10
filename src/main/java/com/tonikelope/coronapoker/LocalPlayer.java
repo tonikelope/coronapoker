@@ -1991,30 +1991,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    @Override
-    public void disablePlayer(boolean visible) {
-
-        if (auto_action != null) {
-            auto_action.stop();
-        }
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                if (visible) {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(0, 0, 0, 0), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
-                    playingCard1.descargarCarta();
-                    playingCard2.descargarCarta();
-                    indicadores_arriba.setVisible(false);
-                    player_action.setVisible(false);
-                    botonera.setVisible(false);
-                } else {
-                    setVisible(false);
-                }
-            }
-        });
-    }
-
     public void setUTG() {
 
         this.utg = true;

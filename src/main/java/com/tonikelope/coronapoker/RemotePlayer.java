@@ -52,13 +52,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean loser = false;
     private volatile int pos = -1;
     private volatile float call_required;
-    private volatile boolean disabled = false;
     private volatile boolean turno = false;
     private volatile Bot bot = null;
-
-    public boolean isDisabled() {
-        return disabled;
-    }
 
     public int getPos() {
         return pos;
@@ -881,7 +876,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
-                    player_action.setMinimumSize(disabled ? null : new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
+                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
                     LineBorder border = (LineBorder) getBorder();
                     setBorder(javax.swing.BorderFactory.createLineBorder(border.getLineColor(), Math.round(Player.BORDER * zoom_factor)));
                     getAvatar().setVisible(false);
@@ -895,17 +890,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.zoomFonts(this, zoom_factor);
 
-            if (!this.disabled) {
-                while (altura_avatar == avatar_panel.getHeight()) {
-                    try {
-                        Thread.sleep(Game.GUI_ZOOM_WAIT);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
-                    }
+            while (altura_avatar == avatar_panel.getHeight()) {
+                try {
+                    Thread.sleep(Game.GUI_ZOOM_WAIT);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
-                setAvatar();
             }
+
+            setAvatar();
+
         }
 
     }
@@ -1082,54 +1076,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_buyin.setText(String.valueOf(buyin));
                 player_buyin.setBackground(Color.cyan);
 
-            }
-        });
-    }
-
-    @Override
-    public void disablePlayer(boolean visible) {
-
-        disabled = true;
-
-        if (auto_action != null) {
-            auto_action.stop();
-        }
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                if (visible) {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(0, 0, 0, 0), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
-                    playingCard1.descargarCarta();
-                    playingCard2.descargarCarta();
-
-                    player_blind.setBackground(new Color(0, 0, 0, 0));
-                    player_blind.setText(" ");
-                    player_blind.setVisible(true);
-
-                    player_pot.setBackground(new Color(0, 0, 0, 0));
-                    player_pot.setText(" ");
-                    player_pot.setVisible(true);
-
-                    avatar.setVisible(false);
-
-                    player_name.setVisible(false);
-                    player_stack.setVisible(false);
-                    player_buyin.setVisible(false);
-                    timeout.setVisible(false);
-                    utg_textfield.setVisible(false);
-
-                    player_action.setBorder(null);
-                    player_action.setMinimumSize(null);
-                    player_action.setBackground(new Color(0, 0, 0, 0));
-                    player_action.setText(" ");
-                    player_action.setVisible(true);
-
-                } else {
-
-                    setVisible(false);
-                }
             }
         });
     }

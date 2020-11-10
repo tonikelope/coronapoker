@@ -51,30 +51,33 @@ public class TablePanelFactory {
 
         RemotePlayer[] remotos = panel.getRemotePlayers();
 
-        int conta_disabled = 0;
+        int conta_exit = 0;
 
         for (RemotePlayer player : remotos) {
 
-            if (player.isDisabled()) {
-                conta_disabled++;
+            if (player.isExit()) {
+                conta_exit++;
             }
         }
 
-        if (conta_disabled > 0) {
+        if (conta_exit > 0) {
 
-            TablePanel nuevo_panel = TablePanelFactory.getPanel(panel.getPlayers().length - conta_disabled);
+            TablePanel nuevo_panel = TablePanelFactory.getPanel(panel.getPlayers().length - conta_exit);
 
-            Player[] nuevos_jugadores = nuevo_panel.getPlayers();
+            if (nuevo_panel != null) {
 
-            int i = 0;
+                Player[] nuevos_jugadores = nuevo_panel.getPlayers();
 
-            for (Player player : panel.getPlayers()) {
+                int i = 0;
 
-                if (player instanceof LocalPlayer || !((RemotePlayer) player).isDisabled()) {
-                    nuevos_jugadores[i].setNickname(player.getNickname());
-                    nuevos_jugadores[i].setStack(player.getStack());
-                    nuevos_jugadores[i].setBuyin(player.getBuyin());
-                    i++;
+                for (Player player : panel.getPlayers()) {
+
+                    if (player instanceof LocalPlayer || !((RemotePlayer) player).isExit()) {
+                        nuevos_jugadores[i].setNickname(player.getNickname());
+                        nuevos_jugadores[i].setStack(player.getStack());
+                        nuevos_jugadores[i].setBuyin(player.getBuyin());
+                        i++;
+                    }
                 }
             }
 

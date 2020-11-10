@@ -197,13 +197,17 @@ public class WaitingRoom extends javax.swing.JFrame {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+
                 setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
 
                 sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+
                 kick_user.setEnabled(false);
+
                 empezar_timba.setEnabled(false);
 
                 Helpers.JTextFieldRegularPopupMenu.addTo(chat);
+
                 Helpers.JTextFieldRegularPopupMenu.addTo(mensaje);
 
                 if (avatar != null) {
@@ -219,6 +223,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 status1.setText(server_ip_port);
 
+                DefaultListModel listModel = new DefaultListModel();
+
                 if (server) {
 
                     new_bot_button.setEnabled(true);
@@ -226,8 +232,6 @@ public class WaitingRoom extends javax.swing.JFrame {
                     status.setText("Esperando jugadores...");
 
                     participantes.put(local_nick, null);
-
-                    DefaultListModel listModel = new DefaultListModel();
 
                     ParticipantsListRenderer label = new ParticipantsListRenderer();
 
@@ -242,10 +246,9 @@ public class WaitingRoom extends javax.swing.JFrame {
                     }
 
                     listModel.addElement(label);
-
                     conectados.setModel(listModel);
-
-                    servidor();
+                    conectados.revalidate();
+                    conectados.repaint();
 
                 } else {
                     video_chat_button.setEnabled(false);
@@ -253,7 +256,9 @@ public class WaitingRoom extends javax.swing.JFrame {
                     new_bot_button.setVisible(false);
                     kick_user.setVisible(false);
                     status.setText("Conectando...");
-                    cliente();
+                    conectados.setModel(listModel);
+                    conectados.revalidate();
+                    conectados.repaint();
                 }
 
                 Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
@@ -263,6 +268,12 @@ public class WaitingRoom extends javax.swing.JFrame {
                 pack();
             }
         });
+
+        if (server) {
+            servidor();
+        } else {
+            cliente();
+        }
     }
 
     public void writeCommandToServer(String command) throws IOException {
@@ -954,7 +965,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                     case "EXIT":
                                                         Game.getInstance().getCrupier().clientPlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-                                                        borrarParticipante(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         break;
 
                                                     case "SERVEREXIT":
@@ -980,10 +990,6 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                         break;
 
                                                     case "DELUSER":
-                                                        if (WaitingRoom.isPartida_empezada()) {
-                                                            Game.getInstance().getCrupier().clientPlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-                                                        }
-
                                                         borrarParticipante(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         break;
 
@@ -1556,37 +1562,26 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             participantes.remove(nick);
 
-            Helpers.GUIRunAndWait(new Runnable() {
+            Helpers.GUIRun(new Runnable() {
                 public void run() {
 
-                    DefaultListModel listModel = new DefaultListModel();
+                    DefaultListModel model = (DefaultListModel) conectados.getModel();
 
-                    for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
-                        ParticipantsListRenderer label = new ParticipantsListRenderer();
+                    ParticipantsListRenderer rem_element = null;
 
-                        label.setText(entry.getKey());
-                        label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                        if (entry.getValue() != null) {
+                    for (int i = 0; i < model.getSize(); i++) {
 
-                            if (entry.getValue().getAvatar() != null) {
-                                label.setIcon(new ImageIcon(new ImageIcon(entry.getValue().getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                            } else {
-                                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((server && entry.getValue().isCpu()) ? "/images/avatar_bot.png" : "/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                            }
-                        } else {
-
-                            if (local_avatar != null) {
-                                label.setIcon(new ImageIcon(new ImageIcon(local_avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                            } else {
-                                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                            }
-
+                        if (((ParticipantsListRenderer) model.getElementAt(i)).getText().equals(nick)) {
+                            rem_element = (ParticipantsListRenderer) model.getElementAt(i);
+                            break;
                         }
-
-                        listModel.addElement(label);
                     }
 
-                    conectados.setModel(listModel);
+                    model.removeElement(rem_element);
+
+                    conectados.revalidate();
+
+                    conectados.repaint();
 
                     if (server && !WaitingRoom.isPartida_empezada()) {
 
@@ -1602,9 +1597,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             if (this.isServer() && !WaitingRoom.isPartida_empezada() && !exit) {
 
-                String comando;
                 try {
-                    comando = "DELUSER#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
+                    String comando = "DELUSER#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
                     this.broadcastGAMECommandFromServer(comando, participantes.get(nick));
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
@@ -1615,7 +1609,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     }
 
-    private void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
+    private synchronized void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
         Participant participante = new Participant(this, nick, avatar, socket, aes_k, hmac_k, cpu);
 
@@ -1627,45 +1621,30 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         }
 
-        Helpers.GUIRunAndWait(new Runnable() {
+        Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                DefaultListModel listModel = new DefaultListModel();
+                ParticipantsListRenderer label = new ParticipantsListRenderer();
 
-                for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
-                    ParticipantsListRenderer label = new ParticipantsListRenderer();
+                label.setText(nick);
 
-                    label.setText(entry.getKey());
-                    label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
+                label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
 
-                    if (entry.getValue() != null) {
-
-                        if (entry.getValue().getAvatar() != null) {
-                            label.setIcon(new ImageIcon(new ImageIcon(entry.getValue().getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                        } else {
-                            label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((server && entry.getValue().isCpu()) ? "/images/avatar_bot.png" : "/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                        }
-
-                    } else {
-
-                        if (local_avatar != null) {
-                            label.setIcon(new ImageIcon(new ImageIcon(local_avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                        } else {
-                            label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                        }
-
-                    }
-                    listModel.addElement(label);
+                if (avatar != null) {
+                    label.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                } else {
+                    label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
                 }
 
-                conectados.setModel(listModel);
+                ((DefaultListModel) conectados.getModel()).addElement(label);
 
-                if (nick.equals(local_nick)) {
-                    pack();
-                }
+                conectados.revalidate();
+
+                conectados.repaint();
 
             }
         });
+
     }
 
     /**
@@ -1682,7 +1661,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         logo = new javax.swing.JLabel();
         mensaje = new javax.swing.JTextField();
         status = new javax.swing.JLabel();
-        jScrollPane3 = new javax.swing.JScrollPane();
+        panel_conectados = new javax.swing.JScrollPane();
         conectados = new javax.swing.JList<>();
         empezar_timba = new javax.swing.JButton();
         kick_user = new javax.swing.JButton();
@@ -1740,7 +1719,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         status.setText("Estado");
         status.setDoubleBuffered(true);
 
-        jScrollPane3.setDoubleBuffered(true);
+        panel_conectados.setDoubleBuffered(true);
 
         conectados.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         conectados.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
@@ -1748,7 +1727,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         conectados.setCellRenderer(new com.tonikelope.coronapoker.ParticipantsListRenderer());
         conectados.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         conectados.setDoubleBuffered(true);
-        jScrollPane3.setViewportView(conectados);
+        panel_conectados.setViewportView(conectados);
 
         empezar_timba.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         empezar_timba.setText("EMPEZAR YA");
@@ -1833,7 +1812,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                             .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)
+                            .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)
                             .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(avatar_label)
@@ -1847,7 +1826,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                     .addGroup(layout.createSequentialGroup()
-                        .addComponent(jScrollPane3)
+                        .addComponent(panel_conectados)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(kick_user))
                     .addGroup(layout.createSequentialGroup()
@@ -2118,6 +2097,11 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
+
+        conectados.revalidate();
+
+        conectados.repaint();
+
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
         mensaje.requestFocusInWindow();
@@ -2227,11 +2211,11 @@ public class WaitingRoom extends javax.swing.JFrame {
     private javax.swing.JList<String> conectados;
     private javax.swing.JButton empezar_timba;
     private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JButton kick_user;
     private javax.swing.JLabel logo;
     private javax.swing.JTextField mensaje;
     private javax.swing.JButton new_bot_button;
+    private javax.swing.JScrollPane panel_conectados;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel status;
     private javax.swing.JLabel status1;

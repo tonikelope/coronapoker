@@ -96,6 +96,8 @@ public interface Player {
 
     public float getPagar();
 
+    public void setPagar(float pagar);
+
     public void setSpectator(String msg);
 
     public void unsetSpectator();

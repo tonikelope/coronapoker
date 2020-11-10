@@ -76,6 +76,7 @@ public class TablePanelFactory {
                         nuevos_jugadores[i].setNickname(player.getNickname());
                         nuevos_jugadores[i].setStack(player.getStack());
                         nuevos_jugadores[i].setBuyin(player.getBuyin());
+                        nuevos_jugadores[i].setPagar(player.getPagar());
                         i++;
                     }
                 }

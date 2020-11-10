@@ -1355,4 +1355,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return (!exit && !spectator);
     }
 
+    @Override
+    public void setPagar(float pagar) {
+        this.pagar = pagar;
+    }
+
 }

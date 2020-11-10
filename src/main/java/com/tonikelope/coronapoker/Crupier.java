@@ -1033,13 +1033,18 @@ public class Crupier implements Runnable {
 
             if (Game.getInstance().isPartida_local() && jugador != Game.getInstance().getLocalPlayer()) {
 
-                try {
+                if (!Game.getInstance().getParticipantes().get(nick).isCpu()) {
 
-                    Game.getInstance().getParticipantes().get(nick).setExit();
+                    try {
 
-                    broadcastGAMECommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
-                } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        Game.getInstance().getParticipantes().get(nick).setExit();
+
+                        broadcastGAMECommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                } else {
+                    Game.getInstance().getSala_espera().borrarParticipante(nick);
                 }
 
             }
@@ -4236,13 +4241,9 @@ public class Crupier implements Runnable {
 
     private void updateExitPlayers() {
 
-        Iterator<Player> iterator = Game.getInstance().getJugadores().iterator();
-
         int exit = 0;
 
-        while (iterator.hasNext()) {
-            Player jugador = iterator.next();
-
+        for (Player jugador : Game.getInstance().getJugadores()) {
             if (jugador.isExit()) {
                 this.auditor.put(jugador.getNickname(), new Float[]{jugador.getStack() + jugador.getPagar(), (float) jugador.getBuyin()});
 
@@ -4260,10 +4261,7 @@ public class Crupier implements Runnable {
 
                 Game.getInstance().getRegistro().print(jugador.getNickname() + " " + Translator.translate("ABANDONA LA TIMBA") + " -> " + ganancia_msg);
 
-                iterator.remove();
-
                 exit++;
-
             }
         }
 
@@ -5103,7 +5101,7 @@ public class Crupier implements Runnable {
                                         }
 
                                         if (res != 0) {
-                                            jugador.setExit();
+                                            clientPlayerQuit(jugador.getNickname());
                                         }
 
                                     }

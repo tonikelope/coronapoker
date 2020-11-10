@@ -513,43 +513,6 @@ public class Participant implements Runnable {
 
                 }
 
-                /*  if (recibido == null && !exit && !WaitingRoom.isExit()) {
-                        
-                        boolean timeout = false;
-
-                        //El cliente ha perdido la conexión. Esperamos que consiga reconectar
-                        long start = System.currentTimeMillis();
-
-                        do {
-
-                            if (resetting_socket) {
-                                synchronized (resetting_socket) {
-                                    resetting_socket.wait(1000);
-                                }
-                            }
-                            
-                            Logger.getLogger(Participant.class.getName()).log(Level.WARNING,"A ver");
-
-                            if (resetting_socket && System.currentTimeMillis() - start > Game.CLIENT_RECON_TIMEOUT) {
-                                int input = Helpers.mostrarMensajeErrorSINO(Game.getInstance(), nick + Translator.translate(" parece que perdió la conexión y no ha vuelto a conectar (se le eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?"));
-
-                                // 0=yes, 1=no, 2=cancel
-                                if (input == 1) {
-
-                                    timeout = true;
-
-                                } else {
-                                    start = System.currentTimeMillis();
-                                }
-                            }
-
-                        } while (resetting_socket && !timeout);
-
-                        if (!resetting_socket) {
-                            Logger.getLogger(Participant.class.getName()).log(Level.WARNING,"El participante ha reconectado y voy a volver a escuchar");
-                            recibido = "";
-                        }
-                    }*/
             } while (!exit && !WaitingRoom.isExit());
 
             if (!WaitingRoom.isExit()) {
@@ -557,9 +520,11 @@ public class Participant implements Runnable {
                 if (WaitingRoom.isPartida_empezada() && !exit) {
 
                     Game.getInstance().getCrupier().clientPlayerQuit(nick);
+
                 }
 
                 sala_espera.borrarParticipante(nick);
+
             }
 
             exit = true;

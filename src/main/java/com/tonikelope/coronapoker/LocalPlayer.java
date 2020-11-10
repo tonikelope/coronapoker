@@ -2163,4 +2163,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return (!exit && !spectator);
     }
 
+    @Override
+    public void setPagar(float pagar) {
+        this.pagar = pagar;
+    }
+
 }

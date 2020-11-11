@@ -77,6 +77,11 @@ public class TablePanelFactory {
                         nuevos_jugadores[i].setStack(player.getStack());
                         nuevos_jugadores[i].setBuyin(player.getBuyin());
                         nuevos_jugadores[i].setPagar(player.getPagar());
+
+                        if (player.isSpectator()) {
+                            nuevos_jugadores[i].setSpectator(null);
+                        }
+
                         i++;
                     }
                 }

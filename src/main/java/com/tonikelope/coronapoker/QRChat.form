@@ -34,7 +34,6 @@
                   <Component id="qr_status" alignment="0" max="32767" attributes="0"/>
                   <Component id="share_button" max="32767" attributes="0"/>
                   <Group type="102" alignment="0" attributes="0">
-                      <EmptySpace max="32767" attributes="0"/>
                       <Component id="icon_label" min="-2" pref="300" max="-2" attributes="0"/>
                       <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                   </Group>

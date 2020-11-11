@@ -158,6 +158,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             this.spectator = true;
             this.bote = 0f;
 
+            desactivarControles();
+
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
@@ -756,7 +758,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 bet_slider_text.setText("");
                 bet_slider_text.setEnabled(false);
-
                 bet_slider.setEnabled(false);
 
                 for (Map.Entry<JButton, Color[]> entry : action_button_colors.entrySet()) {

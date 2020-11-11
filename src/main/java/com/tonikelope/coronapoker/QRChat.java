@@ -265,7 +265,7 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
 
         if (contenido != null) {
 
-            Pattern pattern = Pattern.compile("https://duo.app.goo.gl/[^ \r\n]+", Pattern.DOTALL);
+            Pattern pattern = Pattern.compile("https://(?:duo\\.app\\.goo\\.gl|meet\\.google\\.com)/[^ \r\n]+", Pattern.DOTALL);
 
             Matcher matcher = pattern.matcher(contenido);
 

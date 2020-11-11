@@ -117,21 +117,24 @@ public class Participant implements Runnable {
     }
 
     public void setExit() {
-        this.exit = true;
 
-        if (this.socket != null) {
-            try {
+        if (!this.exit) {
+            this.exit = true;
 
-                if (!WaitingRoom.isPartida_empezada()) {
-                    this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
+            if (this.socket != null) {
+                try {
+
+                    if (!WaitingRoom.isPartida_empezada()) {
+                        this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
+                    }
+                    this.socketClose();
+                } catch (IOException ex) {
+                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                 }
-                this.socketClose();
-            } catch (IOException ex) {
-                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-            }
 
-            synchronized (keep_alive_lock) {
-                keep_alive_lock.notifyAll();
+                synchronized (keep_alive_lock) {
+                    keep_alive_lock.notifyAll();
+                }
             }
         }
     }
@@ -485,7 +488,7 @@ public class Participant implements Runnable {
                                             }
                                             break;
                                         case "EXIT":
-                                            Game.getInstance().getCrupier().clientPlayerQuit(nick);
+                                            Game.getInstance().getCrupier().remotePlayerQuit(nick);
                                             exit = true;
                                             break;
                                         default:
@@ -519,7 +522,7 @@ public class Participant implements Runnable {
 
                 if (WaitingRoom.isPartida_empezada() && !exit) {
 
-                    Game.getInstance().getCrupier().clientPlayerQuit(nick);
+                    Game.getInstance().getCrupier().remotePlayerQuit(nick);
 
                 }
 
@@ -533,6 +536,8 @@ public class Participant implements Runnable {
                 keep_alive_lock.notifyAll();
             }
 
+        } else {
+            this.exit = true;
         }
 
     }

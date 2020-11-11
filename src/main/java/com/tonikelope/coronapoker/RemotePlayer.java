@@ -831,7 +831,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
-                    crupier.clientPlayerQuit(nickname);
+                    crupier.remotePlayerQuit(nickname);
                 }
             });
         }

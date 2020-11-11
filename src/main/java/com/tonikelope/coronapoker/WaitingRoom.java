@@ -964,7 +964,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                         break;
 
                                                     case "EXIT":
-                                                        Game.getInstance().getCrupier().clientPlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                        Game.getInstance().getCrupier().remotePlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         break;
 
                                                     case "SERVEREXIT":

@@ -982,7 +982,7 @@ public class Crupier implements Runnable {
                             timeout = true;
 
                             for (String nick : pending) {
-                                this.clientPlayerQuit(nick);
+                                this.remotePlayerQuit(nick);
                             }
 
                         } else {
@@ -1021,7 +1021,7 @@ public class Crupier implements Runnable {
 
     }
 
-    public synchronized void clientPlayerQuit(String nick) {
+    public synchronized void remotePlayerQuit(String nick) {
 
         Player jugador = nick2player.get(nick);
 
@@ -1029,17 +1029,24 @@ public class Crupier implements Runnable {
 
             jugador.setExit();
 
-            if (Game.getInstance().isPartida_local() && jugador != Game.getInstance().getLocalPlayer()) {
+            if (Game.getInstance().isPartida_local()) {
+
+                Game.getInstance().getParticipantes().get(nick).setExit();
 
                 try {
-
-                    Game.getInstance().getParticipantes().get(nick).setExit();
 
                     broadcastGAMECommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
+                if (Game.getInstance().getParticipantes().get(nick).isCpu()) {
+                    Game.getInstance().getSala_espera().borrarParticipante(nick);
+                }
+
+            } else {
+
+                Game.getInstance().getSala_espera().borrarParticipante(nick);
             }
 
             synchronized (this.getReceived_commands()) {
@@ -2559,7 +2566,7 @@ public class Crupier implements Runnable {
 
             for (String nick : pendientes) {
                 if (!nick2player.get(nick).isExit()) {
-                    this.clientPlayerQuit(nick);
+                    this.remotePlayerQuit(nick);
                 }
             }
         }
@@ -2770,7 +2777,7 @@ public class Crupier implements Runnable {
 
                                 timeout = true;
 
-                                this.clientPlayerQuit(jugador.getNickname());
+                                this.remotePlayerQuit(jugador.getNickname());
 
                             } else {
                                 start = System.currentTimeMillis();
@@ -3450,7 +3457,7 @@ public class Crupier implements Runnable {
                             if (!nick2player.isEmpty()) {
                                 for (String nick : pendientes) {
                                     if (!nick2player.get(nick).isExit()) {
-                                        this.clientPlayerQuit(nick);
+                                        this.remotePlayerQuit(nick);
                                     }
                                 }
                             } else {
@@ -4232,21 +4239,21 @@ public class Crupier implements Runnable {
         }
     }
 
-    private void exitSpectatorBots() {
+    private synchronized void updateSpectatorBots() {
 
         if (Game.getInstance().isPartida_local()) {
 
             for (Player jugador : Game.getInstance().getJugadores()) {
 
-                if (jugador != Game.getInstance().getLocalPlayer() && Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu() && jugador.isSpectator()) {
+                if (jugador != Game.getInstance().getLocalPlayer() && !jugador.isExit() && jugador.isSpectator() && Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
 
-                    this.clientPlayerQuit(jugador.getNickname());
+                    this.remotePlayerQuit(jugador.getNickname());
                 }
             }
         }
     }
 
-    private void updateExitPlayers() {
+    private synchronized void updateExitPlayers() {
 
         int exit = 0;
 
@@ -5118,7 +5125,7 @@ public class Crupier implements Runnable {
                             this.recibirRebuys(rebuy_players);
                         }
 
-                        exitSpectatorBots();
+                        updateSpectatorBots();
 
                         updateExitPlayers();
 

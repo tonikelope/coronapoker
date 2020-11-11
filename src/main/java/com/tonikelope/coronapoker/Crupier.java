@@ -934,8 +934,6 @@ public class Crupier implements Runnable {
 
                             if (partes[4].equals("0")) {
                                 jugador.setSpectator(null);
-                            } else if (partes[4].equals("*")) {
-                                jugador.setExit();
                             }
                         }
 
@@ -1033,18 +1031,13 @@ public class Crupier implements Runnable {
 
             if (Game.getInstance().isPartida_local() && jugador != Game.getInstance().getLocalPlayer()) {
 
-                if (!Game.getInstance().getParticipantes().get(nick).isCpu()) {
+                try {
 
-                    try {
+                    Game.getInstance().getParticipantes().get(nick).setExit();
 
-                        Game.getInstance().getParticipantes().get(nick).setExit();
-
-                        broadcastGAMECommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                } else {
-                    Game.getInstance().getSala_espera().borrarParticipante(nick);
+                    broadcastGAMECommandFromServer("EXIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick);
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
@@ -4239,6 +4232,20 @@ public class Crupier implements Runnable {
         }
     }
 
+    private void exitSpectatorBots() {
+
+        if (Game.getInstance().isPartida_local()) {
+
+            for (Player jugador : Game.getInstance().getJugadores()) {
+
+                if (jugador != Game.getInstance().getLocalPlayer() && Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu() && jugador.isSpectator()) {
+
+                    this.clientPlayerQuit(jugador.getNickname());
+                }
+            }
+        }
+    }
+
     private void updateExitPlayers() {
 
         int exit = 0;
@@ -5092,7 +5099,7 @@ public class Crupier implements Runnable {
                                         rebuy_players.remove(jugador.getNickname());
 
                                         try {
-                                            String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!Game.REBUY || res != 0) ? "#*" : "");
+                                            String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!Game.REBUY || res != 0) ? "#0" : "");
 
                                             this.broadcastGAMECommandFromServer(comando, null);
 
@@ -5101,7 +5108,7 @@ public class Crupier implements Runnable {
                                         }
 
                                         if (res != 0) {
-                                            clientPlayerQuit(jugador.getNickname());
+                                            jugador.setSpectator(null);
                                         }
 
                                     }
@@ -5110,6 +5117,8 @@ public class Crupier implements Runnable {
 
                             this.recibirRebuys(rebuy_players);
                         }
+
+                        exitSpectatorBots();
 
                         updateExitPlayers();
 

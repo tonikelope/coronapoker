@@ -423,7 +423,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public void cambiarBaraja() {
 
-        Card.actualizarImagenesPrecargadas(1f + Game.getZoom_level() * Game.getZOOM_STEP());
+        Card.updateCachedImages(1f + Game.getZoom_level() * Game.getZOOM_STEP(), true);
 
         Helpers.playWavResource("misc/uncover.wav");
 
@@ -455,14 +455,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public void vistaCompacta() {
 
         Helpers.playWavResource("misc/uncover.wav");
-
-        if (Game.SHOW_CLOCK) {
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    getTime_menu().doClick();
-                }
-            });
-        }
 
         RemotePlayer[] players = tapete.getRemotePlayers();
 
@@ -898,8 +890,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     }
 
     public void zoom(float factor) {
-
-        Card.actualizarImagenesPrecargadas(factor);
 
         for (ZoomableInterface zoomeable : zoomeables) {
             Helpers.threadRun(new Runnable() {
@@ -1838,6 +1828,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
 
+        Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
+
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
@@ -1870,6 +1862,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         if (Helpers.float1DSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) < 0) {
             ZOOM_LEVEL--;
             Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+            Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
@@ -1904,7 +1897,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL;
 
             Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
-
+            Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {

@@ -33,13 +33,14 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
     public final static String[] VALORES = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"};
     public final static int DEFAULT_CORNER = 20;
     private final static HashMap<String, String> UNICODE_TABLE = loadUnicodeTable();
-    private static volatile int width = -1;
-    private static volatile int height = -1;
-    private static volatile int corner = -1;
-    private static volatile ImageIcon imagen_trasera = null;
-    private static volatile ImageIcon imagen_trasera_b = null;
-    private static volatile ImageIcon imagen_joker = null;
+    private static volatile int CARD_WIDTH = -1;
+    private static volatile int CARD_HEIGHT = -1;
+    private static volatile int CARD_CORNER = -1;
+    private static volatile ImageIcon IMAGEN_TRASERA = null;
+    private static volatile ImageIcon IMAGEN_TRASERA_B = null;
+    private static volatile ImageIcon IMAGEN_JOKER = null;
     private static volatile List<String> CARTAS_SONIDO = null;
+    private static volatile float CURRENT_ZOOM = 0f;
 
     private volatile String valor = "";
     private volatile String palo = "";
@@ -52,16 +53,21 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         this.compactable = compactable;
     }
 
-    public static void actualizarImagenesPrecargadas(float zoom) {
-        width = Math.round(((float) DEFAULT_HEIGHT / ((float) ((Object[]) BARAJAS.get(Game.BARAJA))[0])) * zoom);
-        height = Math.round(DEFAULT_HEIGHT * zoom);
-        corner = Math.round(Card.DEFAULT_CORNER * zoom);
-        imagen_trasera = createCardImageIcon("/images/decks/" + Game.BARAJA + "/trasera.jpg");
-        imagen_trasera_b = createCardImageIcon("/images/decks/" + Game.BARAJA + "/trasera_b.jpg");
-        imagen_joker = createCardImageIcon("/images/decks/" + Game.BARAJA + "/joker.jpg");
+    public static void updateCachedImages(float zoom, boolean force) {
 
-        if (((Object[]) BARAJAS.get(Game.BARAJA))[2] != null) {
-            CARTAS_SONIDO = Arrays.asList(((String) ((Object[]) BARAJAS.get(Game.BARAJA))[2]).split(" *, *"));
+        if (force || CURRENT_ZOOM != zoom) {
+
+            CURRENT_ZOOM = zoom;
+            CARD_WIDTH = Math.round(((float) DEFAULT_HEIGHT / ((float) ((Object[]) BARAJAS.get(Game.BARAJA))[0])) * zoom);
+            CARD_HEIGHT = Math.round(DEFAULT_HEIGHT * zoom);
+            CARD_CORNER = Math.round(Card.DEFAULT_CORNER * zoom);
+            IMAGEN_TRASERA = createCardImageIcon("/images/decks/" + Game.BARAJA + "/trasera.jpg");
+            IMAGEN_TRASERA_B = createCardImageIcon("/images/decks/" + Game.BARAJA + "/trasera_b.jpg");
+            IMAGEN_JOKER = createCardImageIcon("/images/decks/" + Game.BARAJA + "/joker.jpg");
+
+            if (((Object[]) BARAJAS.get(Game.BARAJA))[2] != null) {
+                CARTAS_SONIDO = Arrays.asList(((String) ((Object[]) BARAJAS.get(Game.BARAJA))[2]).split(" *, *"));
+            }
         }
     }
 
@@ -88,7 +94,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         }
 
-        return new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(img.getScaledInstance(width, height, Image.SCALE_SMOOTH)).getImage(), corner));
+        return new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(img.getScaledInstance(CARD_WIDTH, CARD_HEIGHT, Image.SCALE_SMOOTH)).getImage(), CARD_CORNER));
 
     }
 
@@ -176,8 +182,8 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 3) : height));
-                card_image.setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 3) : height));
+                setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? CARD_WIDTH : CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
+                card_image.setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? CARD_WIDTH : CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
             }
         });
 
@@ -186,7 +192,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
             if (tapada) {
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
-                        card_image.setIcon(isDesenfocada() ? Card.imagen_trasera_b : Card.imagen_trasera);
+                        card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
                     }
                 });
 
@@ -203,7 +209,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    card_image.setIcon(Card.imagen_joker);
+                    card_image.setIcon(Card.IMAGEN_JOKER);
                 }
             });
         }
@@ -225,7 +231,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                card_image.setIcon(Card.imagen_trasera);
+                card_image.setIcon(Card.IMAGEN_TRASERA);
 
             }
         });
@@ -240,7 +246,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                card_image.setIcon(Card.imagen_joker);
+                card_image.setIcon(Card.IMAGEN_JOKER);
 
             }
         });
@@ -292,7 +298,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                card_image.setIcon(Card.imagen_joker);
+                card_image.setIcon(Card.IMAGEN_JOKER);
 
             }
         });
@@ -307,7 +313,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                card_image.setIcon(isDesenfocada() ? Card.imagen_trasera_b : Card.imagen_trasera);
+                card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
 
             }
         });
@@ -389,7 +395,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    card_image.setIcon(isDesenfocada() ? Card.imagen_trasera_b : Card.imagen_trasera);
+                    card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
 
                 }
             });
@@ -405,7 +411,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
-                        card_image.setIcon(Card.imagen_trasera_b);
+                        card_image.setIcon(Card.IMAGEN_TRASERA_B);
 
                     }
                 });
@@ -426,25 +432,21 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
     @Override
     public void zoom(float factor) {
-        imageZoom();
-    }
-
-    private void imageZoom() {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 3) : height));
-                card_image.setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? Math.round(width / 2) : width, (Game.VISTA_COMPACTA && compactable) ? Math.round(height / 3) : height));
+                setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? CARD_WIDTH : CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
+                card_image.setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? CARD_WIDTH : CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
 
                 if (isCargada()) {
 
                     if (isTapada()) {
 
                         if (isDesenfocada()) {
-                            card_image.setIcon(Card.imagen_trasera_b);
+                            card_image.setIcon(Card.IMAGEN_TRASERA_B);
                         } else {
-                            card_image.setIcon(Card.imagen_trasera);
+                            card_image.setIcon(Card.IMAGEN_TRASERA);
                         }
 
                     } else {
@@ -457,12 +459,11 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
                     }
                 } else {
-                    card_image.setIcon(Card.imagen_joker);
+                    card_image.setIcon(Card.IMAGEN_JOKER);
                 }
 
             }
         });
-
     }
 
     public String getValor() {

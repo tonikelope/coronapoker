@@ -957,6 +957,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             this.setPosition(BIG_BLIND);
         } else if (pos == crupier.getSmall_pos()) {
             this.setPosition(SMALL_BLIND);
+        } else {
+            this.setPosition(-1);
         }
 
         if (pos == crupier.getUtg_pos()) {
@@ -1210,6 +1212,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 break;
             default:
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        player_blind.setVisible(false);
+                    }
+                });
                 setBet(0.0f);
 
                 break;

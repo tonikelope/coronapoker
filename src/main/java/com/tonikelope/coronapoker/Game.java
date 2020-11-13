@@ -187,39 +187,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 }
 
-                double playerBottom = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
-
-                double tapeteBottom = tapete.getLocationOnScreen().getY() + tapete.getHeight();
-
-                t = 0;
-
-                while (t < AUTO_ZOOM_TIMEOUT && playerBottom > tapeteBottom) {
-
-                    double playerHeight = getLocalPlayer().getHeight();
-
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-                            zoom_menu_out.setEnabled(true);
-                            zoom_menu_out.doClick();
-                            zoom_menu_out.setEnabled(false);
-                        }
-                    });
-
-                    t = 0;
-
-                    while (t < AUTO_ZOOM_TIMEOUT && playerHeight == getLocalPlayer().getHeight()) {
-
-                        Helpers.pausar(GUI_ZOOM_WAIT);
-                        t += GUI_ZOOM_WAIT;
-                    }
-
-                    if (playerHeight != getLocalPlayer().getHeight()) {
-                        playerBottom = getLocalPlayer().getLocationOnScreen().getY() + getLocalPlayer().getHeight();
-                        tapeteBottom = tapete.getLocationOnScreen().getY() + tapete.getHeight();
-                    }
-
-                }
+                tapete.autoZoom();
 
                 Helpers.GUIRun(new Runnable() {
                     @Override

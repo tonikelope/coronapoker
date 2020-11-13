@@ -454,7 +454,7 @@ public class Init extends javax.swing.JFrame {
             Game.BARAJA = Game.BARAJA_DEFAULT;
         }
 
-        Card.actualizarImagenesPrecargadas(1f + Game.getZoom_level() * Game.getZOOM_STEP());
+        Card.updateCachedImages(1f + Game.getZoom_level() * Game.getZOOM_STEP(), true);
 
         Helpers.playWavResource("misc/init.wav");
 

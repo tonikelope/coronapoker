@@ -2175,7 +2175,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         if (server && this.getVideo_chat_link() == null) {
             Helpers.openBrowserURL("https://duo.google.com");
-            Helpers.openBrowserURL("https://meet.google.com");
         }
 
         QRChat chat_dialog = new QRChat(this, true, this.getVideo_chat_link(), server);

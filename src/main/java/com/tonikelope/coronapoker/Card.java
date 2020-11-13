@@ -182,8 +182,8 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? CARD_WIDTH : CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
-                card_image.setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? CARD_WIDTH : CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
+                setPreferredSize(new Dimension(CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
+                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
             }
         });
 
@@ -436,8 +436,8 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? CARD_WIDTH : CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
-                card_image.setPreferredSize(new Dimension((Game.VISTA_COMPACTA && compactable) ? CARD_WIDTH : CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
+                setPreferredSize(new Dimension(CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
+                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
 
                 if (isCargada()) {
 

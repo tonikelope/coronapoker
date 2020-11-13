@@ -5,6 +5,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import static com.tonikelope.coronapoker.Game.AUTO_ZOOM_TIMEOUT;
+import static com.tonikelope.coronapoker.Game.GUI_ZOOM_WAIT;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.TexturePaint;
@@ -14,6 +16,7 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
+import javax.swing.JPanel;
 
 /**
  *
@@ -128,6 +131,51 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                 }
             });
         }
+    }
+
+    public void autoZoom() {
+
+        for (Player jugador : getPlayers()) {
+
+            double tapeteBottom = getLocationOnScreen().getY() + getHeight();
+            double tapeteRight = getLocationOnScreen().getX() + getWidth();
+            double playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
+            double playerRight = ((JPanel) jugador).getLocationOnScreen().getX() + ((JPanel) jugador).getWidth();
+
+            int t = 0;
+
+            while (t < AUTO_ZOOM_TIMEOUT && (playerBottom > tapeteBottom || playerRight > tapeteRight)) {
+
+                double playerHeight = ((JPanel) jugador).getHeight();
+                double playerWidth = ((JPanel) jugador).getWidth();
+
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        Game.getInstance().getZoom_menu_out().setEnabled(true);
+                        Game.getInstance().getZoom_menu_out().doClick();
+                        Game.getInstance().getZoom_menu_out().setEnabled(false);
+                    }
+                });
+
+                t = 0;
+
+                while (t < AUTO_ZOOM_TIMEOUT && (playerHeight == ((JPanel) jugador).getHeight() || playerWidth == ((JPanel) jugador).getWidth())) {
+
+                    Helpers.pausar(GUI_ZOOM_WAIT);
+                    t += GUI_ZOOM_WAIT;
+                }
+
+                if (playerHeight != ((JPanel) jugador).getHeight() && playerWidth != ((JPanel) jugador).getWidth()) {
+                    tapeteBottom = getLocationOnScreen().getY() + getHeight();
+                    tapeteRight = getLocationOnScreen().getX() + getWidth();
+                    playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
+                    playerRight = ((JPanel) jugador).getLocationOnScreen().getX() + ((JPanel) jugador).getWidth();
+                }
+
+            }
+        }
+
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

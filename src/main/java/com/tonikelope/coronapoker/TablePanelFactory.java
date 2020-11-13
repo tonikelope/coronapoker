@@ -85,6 +85,9 @@ public class TablePanelFactory {
                         i++;
                     }
                 }
+
+                nuevo_panel.getLocalPlayer().getPlayingCard1().setCompactable(false);
+                nuevo_panel.getLocalPlayer().getPlayingCard2().setCompactable(false);
             }
 
             return nuevo_panel;

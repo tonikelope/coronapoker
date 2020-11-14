@@ -4242,13 +4242,13 @@ public class Crupier implements Runnable {
         }
     }
 
-    private synchronized void updateSpectatorBots() {
+    private synchronized void exitSpectatorBots() {
 
         if (Game.getInstance().isPartida_local()) {
 
             for (Player jugador : Game.getInstance().getJugadores()) {
 
-                if (jugador != Game.getInstance().getLocalPlayer() && !jugador.isExit() && jugador.isSpectator() && Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
+                if (jugador != Game.getInstance().getLocalPlayer() && Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu() && !jugador.isExit() && jugador.isSpectator() && Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
 
                     this.remotePlayerQuit(jugador.getNickname());
                 }
@@ -5134,7 +5134,7 @@ public class Crupier implements Runnable {
 
                         this.rebuy_time = false;
 
-                        updateSpectatorBots();
+                        exitSpectatorBots();
 
                         updateExitPlayers();
 

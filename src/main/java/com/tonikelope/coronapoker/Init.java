@@ -23,14 +23,11 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.NoSuchAlgorithmException;
+import java.util.Random;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.UIManager;
@@ -55,6 +52,10 @@ public class Init extends javax.swing.JFrame {
 
         Init tthis = this;
 
+        Helpers.PRNG_GENERATOR = new Random();
+
+        Helpers.SPRNG_GENERATOR = new SecureRandom();
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
@@ -62,14 +63,6 @@ public class Init extends javax.swing.JFrame {
                 setTitle(Init.WINDOW_TITLE);
 
                 sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")));
-
-                Helpers.PRNG_GENERATOR = new Random(System.currentTimeMillis());
-
-                try {
-                    Helpers.SPRNG_GENERATOR = SecureRandom.getInstance("SHA1PRNG");
-                } catch (NoSuchAlgorithmException ex) {
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                }
 
                 UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
                 UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));

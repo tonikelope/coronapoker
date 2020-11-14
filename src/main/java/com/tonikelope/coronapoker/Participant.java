@@ -331,7 +331,7 @@ public class Participant implements Runnable {
 
                     while (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
 
-                        int ping = Helpers.PRNG_GENERATOR.nextInt();
+                        int ping = Helpers.SPRNG_GENERATOR.nextInt();
 
                         try {
 
@@ -371,7 +371,7 @@ public class Participant implements Runnable {
 
                             String command = getAsync_command_queue().peek();
 
-                            int id = Helpers.PRNG_GENERATOR.nextInt();
+                            int id = Helpers.SPRNG_GENERATOR.nextInt();
 
                             String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 

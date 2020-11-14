@@ -232,7 +232,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         random_label.setDoubleBuffered(true);
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Muy seguro", "Seguro", "Normal" }));
+        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Muy seguro", "Seguro" }));
         random_combobox.setDoubleBuffered(true);
         random_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {

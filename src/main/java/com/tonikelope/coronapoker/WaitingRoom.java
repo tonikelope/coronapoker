@@ -606,7 +606,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         if (!pendientes.isEmpty()) {
 
-            int id = Helpers.PRNG_GENERATOR.nextInt();
+            int id = Helpers.SPRNG_GENERATOR.nextInt();
 
             byte[] iv = new byte[16];
 
@@ -654,7 +654,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             if (!confirmation) {
 
-                int id = Helpers.PRNG_GENERATOR.nextInt();
+                int id = Helpers.SPRNG_GENERATOR.nextInt();
 
                 String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
@@ -802,7 +802,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                             if (server_avatar_base64.length() > 0) {
 
-                                int file_id = Helpers.PRNG_GENERATOR.nextInt();
+                                int file_id = Helpers.SPRNG_GENERATOR.nextInt();
 
                                 if (file_id < 0) {
                                     file_id *= -1;
@@ -855,7 +855,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                 while (!exit && !WaitingRoom.isPartida_empezada()) {
 
-                                    int ping = Helpers.PRNG_GENERATOR.nextInt();
+                                    int ping = Helpers.SPRNG_GENERATOR.nextInt();
 
                                     try {
 
@@ -1000,7 +1000,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                         File avatar = null;
 
-                                                        int file_id = Helpers.PRNG_GENERATOR.nextInt();
+                                                        int file_id = Helpers.SPRNG_GENERATOR.nextInt();
 
                                                         if (file_id < 0) {
                                                             file_id *= -1;
@@ -1032,7 +1032,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                             avatar = null;
 
                                                             if (user_parts.length == 2) {
-                                                                file_id = Helpers.PRNG_GENERATOR.nextInt();
+                                                                file_id = Helpers.SPRNG_GENERATOR.nextInt();
 
                                                                 if (file_id < 0) {
                                                                     file_id *= -1;
@@ -1361,7 +1361,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                     if (client_avatar_base64.length() > 0) {
 
-                                        int file_id = Helpers.PRNG_GENERATOR.nextInt();
+                                        int file_id = Helpers.SPRNG_GENERATOR.nextInt();
 
                                         if (file_id < 0) {
                                             file_id *= -1;

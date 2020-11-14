@@ -139,20 +139,6 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
 
-    //Segundos para doblar ciegas
-    private volatile int mano = 0;
-    private volatile float bote_total = 0f;
-    private volatile float apuestas = 0f;
-    private volatile float ciega_grande = Game.CIEGA_GRANDE;
-    private volatile float ciega_pequeña = Game.CIEGA_PEQUEÑA;
-    private volatile Integer[] permutacion_baraja;
-    private volatile float apuesta_actual = 0f;
-    private volatile float ultimo_raise = 0f;
-    private volatile int conta_raise = 0;
-    private volatile int conta_bet = 0;
-    private volatile float bote_sobrante = 0f;
-    private volatile String[] nicks_permutados;
-
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones_recuperadas = new ConcurrentLinkedQueue<>();
@@ -165,6 +151,18 @@ public class Crupier implements Runnable {
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
 
+    private volatile int mano = 0;
+    private volatile float bote_total = 0f;
+    private volatile float apuestas = 0f;
+    private volatile float ciega_grande = Game.CIEGA_GRANDE;
+    private volatile float ciega_pequeña = Game.CIEGA_PEQUEÑA;
+    private volatile Integer[] permutacion_baraja;
+    private volatile float apuesta_actual = 0f;
+    private volatile float ultimo_raise = 0f;
+    private volatile int conta_raise = 0;
+    private volatile int conta_bet = 0;
+    private volatile float bote_sobrante = 0f;
+    private volatile String[] nicks_permutados;
     private volatile int dealer_pos = -1;
     private volatile int small_pos = -1;
     private volatile int big_pos = -1;
@@ -189,6 +187,11 @@ public class Crupier implements Runnable {
     private volatile boolean playing_cinematic = false;
     private volatile String current_local_cinematic_b64 = null;
     private volatile String current_remote_cinematic_b64 = null;
+    private volatile boolean rebuy_time = false;
+
+    public boolean isRebuy_time() {
+        return rebuy_time;
+    }
 
     public Object getLock_nueva_mano() {
         return lock_nueva_mano;
@@ -4997,6 +5000,8 @@ public class Crupier implements Runnable {
 
                         if (!Game.getInstance().getLocalPlayer().isSpectator() && Helpers.float1DSecureCompare(Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getStack()) + Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
 
+                            this.rebuy_time = true;
+
                             if (Game.REBUY) {
 
                                 if (!Game.AUTO_REBUY) {
@@ -5123,6 +5128,8 @@ public class Crupier implements Runnable {
                             }
 
                             this.recibirRebuys(rebuy_players);
+
+                            this.rebuy_time = false;
                         }
 
                         updateSpectatorBots();

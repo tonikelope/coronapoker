@@ -43,7 +43,7 @@ import javax.swing.Timer;
  */
 public final class Game extends javax.swing.JFrame implements ZoomableInterface {
 
-    public static final boolean DEBUG_TO_FILE = true;
+    public static final boolean DEBUG_TO_FILE = false;
     public static final boolean TEST_MODE = false;
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;
@@ -1354,7 +1354,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
             public void actionPerformed(ActionEvent ae) {
 
-                if (!crupier.isFin_de_la_transmision() && !isTimba_pausada() && !isRECOVER()) {
+                if (!crupier.isFin_de_la_transmision() && !crupier.isRebuy_time() && !isTimba_pausada() && !isRECOVER()) {
                     conta_tiempo_juego++;
 
                     Helpers.GUIRun(new Runnable() {

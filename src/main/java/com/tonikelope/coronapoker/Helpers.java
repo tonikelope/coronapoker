@@ -131,7 +131,7 @@ public class Helpers {
 
     public static final String USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final float MASTER_VOLUME = 0.8f;
-    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.5f); //DEFAULT * CUSTOM
+    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.4f); //DEFAULT * CUSTOM
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME);
     public static final int RANDOMORG_TIMEOUT = 10000;
     public static final int PRNG = 3;
@@ -148,7 +148,6 @@ public class Helpers {
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Clip> WAVS_RESOURCES = new ConcurrentHashMap<>();
-    public static String LAST_MP3_LOOP_PAUSED = null;
     public static Font GUI_FONT = null;
     public static boolean MUTED = false;
     public static boolean MUTED_MP3 = false;
@@ -1117,11 +1116,16 @@ public class Helpers {
 
                 try (BufferedInputStream bis = new BufferedInputStream(sound_stream); Clip clip = AudioSystem.getClip();) {
 
-                    if (WAVS_RESOURCES.containsKey(sound)) {
-                        Helpers.WAVS_RESOURCES.remove(sound).stop();
-                    }
+                    Clip current_clip;
 
-                    Helpers.WAVS_RESOURCES.put(sound, clip);
+                    if ((current_clip = Helpers.WAVS_RESOURCES.putIfAbsent(sound, clip)) != clip) {
+
+                        if (current_clip != null) {
+                            current_clip.stop();
+                        }
+
+                        Helpers.WAVS_RESOURCES.put(sound, clip);
+                    }
 
                     clip.open(AudioSystem.getAudioInputStream(bis));
 
@@ -1136,18 +1140,22 @@ public class Helpers {
                         MUTED = false;
                     }
 
-                    clip.loop(Clip.LOOP_CONTINUOUSLY);
-
-                    Helpers.pausar(clip.getMicrosecondLength() / 1000);
-
                     if (WAVS_RESOURCES.containsKey(sound) && WAVS_RESOURCES.get(sound) == clip) {
+                        clip.loop(Clip.LOOP_CONTINUOUSLY);
 
-                        Helpers.WAVS_RESOURCES.remove(sound);
+                        Helpers.pausar(clip.getMicrosecondLength() / 1000);
+
+                        if (WAVS_RESOURCES.containsKey(sound) && WAVS_RESOURCES.get(sound) == clip) {
+
+                            Helpers.WAVS_RESOURCES.remove(sound);
+                        }
+
+                        clip.stop();
+                        return true;
+
+                    } else {
+                        return false;
                     }
-
-                    clip.stop();
-
-                    return true;
 
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
@@ -1175,9 +1183,24 @@ public class Helpers {
         return tot;
     }
 
+    public static boolean isLoopMp3Playing() {
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+
+            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+
+                return true;
+
+            }
+        }
+
+        return false;
+
+    }
+
     public static void playLoopMp3Resource(String sound) {
 
-        if (!Game.TEST_MODE && !MP3_LOOP.containsKey(sound)) {
+        if (!Game.TEST_MODE && !isLoopMp3Playing()) {
 
             Helpers.threadRun(new Runnable() {
 
@@ -1255,95 +1278,6 @@ public class Helpers {
         }
     }
 
-    public static void playMp3Resource(String sound) {
-
-        if (!Game.TEST_MODE) {
-
-            InputStream sound_stream;
-
-            if ((sound_stream = getSoundInputStream(sound)) != null) {
-
-                Helpers.threadRun(new Runnable() {
-
-                    @Override
-                    public void run() {
-
-                        final Object player_wait = new Object();
-
-                        try (BufferedInputStream bis = new BufferedInputStream(sound_stream)) {
-
-                            BasicPlayer player = new BasicPlayer();
-
-                            player.addBasicPlayerListener(new BasicPlayerListener() {
-
-                                @Override
-                                public void stateUpdated(BasicPlayerEvent bpe) {
-                                    synchronized (player_wait) {
-                                        player_wait.notifyAll();
-                                    }
-                                }
-
-                                @Override
-                                public void opened(Object o, Map map) {
-                                }
-
-                                @Override
-                                public void progress(int i, long l, byte[] bytes, Map map) {
-                                }
-
-                                @Override
-                                public void setController(BasicController bc) {
-                                }
-
-                            });
-
-                            player.open(bis);
-
-                            if (MP3_RESOURCES.containsKey(sound)) {
-                                MP3_RESOURCES.remove(sound).stop();
-                            }
-
-                            MP3_RESOURCES.put(sound, player);
-
-                            player.play();
-
-                            if (!Game.SONIDOS) {
-                                player.setGain(0f);
-                                MUTED = true;
-                            } else {
-                                player.setGain(getSoundVolume(sound));
-                                MUTED = false;
-                            }
-
-                            do {
-                                synchronized (player_wait) {
-
-                                    try {
-                                        player_wait.wait(1000);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            } while (player.getStatus() == BasicPlayer.PLAYING || player.getStatus() == BasicPlayer.PAUSED);
-
-                            if (MP3_RESOURCES.containsKey(sound) && MP3_RESOURCES.get(sound) == player) {
-                                MP3_RESOURCES.remove(sound).stop();
-                            }
-
-                        } catch (Exception ex) {
-                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
-                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-
-                    }
-                });
-
-            }
-
-        }
-
-    }
-
     public static void playWavResource(String sound) {
 
         Helpers.threadRun(new Runnable() {
@@ -1359,70 +1293,63 @@ public class Helpers {
 
     public static void stopWavResource(String sound) {
 
-        if (WAVS_RESOURCES.containsKey(sound)) {
-            WAVS_RESOURCES.remove(sound).stop();
+        Clip clip = WAVS_RESOURCES.remove(sound);
+
+        if (clip != null) {
+
+            clip.stop();
         }
+
     }
 
     public static void stopLoopMp3Resource(String sound) {
 
-        if (sound != null) {
-            if (MP3_LOOP.containsKey(sound)) {
-                try {
-                    MP3_LOOP.remove(sound).stop();
+        BasicPlayer player = MP3_LOOP.remove(sound);
 
-                    if (Helpers.LAST_MP3_LOOP_PAUSED != null && Helpers.LAST_MP3_LOOP_PAUSED.equals(sound)) {
-                        Helpers.LAST_MP3_LOOP_PAUSED = null;
-                    }
-                } catch (BasicPlayerException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            } else if (Helpers.LAST_MP3_LOOP_PAUSED != null && Helpers.LAST_MP3_LOOP_PAUSED.equals(sound)) {
-                Helpers.LAST_MP3_LOOP_PAUSED = null;
+        if (player != null) {
+            try {
+
+                player.stop();
+
+            } catch (BasicPlayerException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+
     }
 
     public static void pauseLoopMp3Resource(String sound) {
 
-        if (MP3_LOOP.containsKey(sound)) {
+        BasicPlayer player = MP3_LOOP.get(sound);
+
+        if (player != null) {
             try {
-                MP3_LOOP.get(sound).pause();
-                Helpers.LAST_MP3_LOOP_PAUSED = sound;
+                player.pause();
+
             } catch (BasicPlayerException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+
     }
 
     public static void resumeLoopMp3Resource(String sound) {
 
-        if (!Game.TEST_MODE) {
+        BasicPlayer player = MP3_LOOP.get(sound);
+
+        if (player != null) {
+
             try {
-                if (MP3_LOOP.containsKey(sound)) {
+                player.resume();
 
-                    MP3_LOOP.get(sound).resume();
-                    Helpers.LAST_MP3_LOOP_PAUSED = null;
-
-                } else {
-                    playLoopMp3Resource(sound);
-                }
             } catch (BasicPlayerException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
-        }
-    }
 
-    public static void resumeLastLoopMp3Resource() {
-
-        if (Helpers.LAST_MP3_LOOP_PAUSED != null && !Game.TEST_MODE) {
-            try {
-                MP3_LOOP.get(LAST_MP3_LOOP_PAUSED).resume();
-                Helpers.LAST_MP3_LOOP_PAUSED = null;
-            } catch (BasicPlayerException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-            }
+        } else {
+            playLoopMp3Resource(sound);
         }
+
     }
 
     public static void pauseCurrentLoopMp3Resource() {
@@ -1430,31 +1357,30 @@ public class Helpers {
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
             if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+
                 try {
                     entry.getValue().pause();
-                    Helpers.LAST_MP3_LOOP_PAUSED = entry.getKey();
                 } catch (BasicPlayerException ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
-                break;
             }
         }
     }
 
     public static void stopCurrentLoopMp3Resource() {
 
-        String current = null;
+        String sound = null;
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
             if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
-                current = entry.getKey();
+                sound = entry.getKey();
             }
         }
 
-        if (current != null) {
-            Helpers.stopLoopMp3Resource(current);
+        if (sound != null) {
+            Helpers.stopLoopMp3Resource(sound);
         }
     }
 

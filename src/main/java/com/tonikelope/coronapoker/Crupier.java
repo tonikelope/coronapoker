@@ -4998,7 +4998,9 @@ public class Crupier implements Runnable {
                             }
                         }
 
-                        if (!Game.getInstance().getLocalPlayer().isSpectator() && Helpers.float1DSecureCompare(Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getStack()) + Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
+                        this.rebuy_time = !rebuy_players.isEmpty();
+
+                        if (Game.getInstance().getLocalPlayer().isActivo() && Helpers.float1DSecureCompare(Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getStack()) + Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
 
                             this.rebuy_time = true;
 
@@ -5128,9 +5130,9 @@ public class Crupier implements Runnable {
                             }
 
                             this.recibirRebuys(rebuy_players);
-
-                            this.rebuy_time = false;
                         }
+
+                        this.rebuy_time = false;
 
                         updateSpectatorBots();
 

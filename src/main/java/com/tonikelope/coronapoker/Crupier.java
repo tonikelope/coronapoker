@@ -2497,7 +2497,7 @@ public class Crupier implements Runnable {
             }
         }
 
-        int id = Helpers.PRNG_GENERATOR.nextInt();
+        int id = Helpers.SPRNG_GENERATOR.nextInt();
 
         boolean timeout = false;
 
@@ -2601,7 +2601,7 @@ public class Crupier implements Runnable {
 
         pendientes.add(Game.getInstance().getSala_espera().getServer_nick());
 
-        int id = Helpers.PRNG_GENERATOR.nextInt();
+        int id = Helpers.SPRNG_GENERATOR.nextInt();
 
         String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
@@ -3393,7 +3393,7 @@ public class Crupier implements Runnable {
 
         if (!pendientes.isEmpty()) {
 
-            int id = Helpers.PRNG_GENERATOR.nextInt();
+            int id = Helpers.SPRNG_GENERATOR.nextInt();
 
             boolean timeout = false;
 

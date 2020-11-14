@@ -45,6 +45,7 @@ import java.security.InvalidKeyException;
 import java.security.KeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -134,24 +135,24 @@ public class Helpers {
     public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.4f); //DEFAULT * CUSTOM
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME);
     public static final int RANDOMORG_TIMEOUT = 10000;
-    public static final int PRNG = 3;
     public static final int SPRNG = 2;
     public static final int TRNG = 1;
-    public static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
-    public static int DECK_RANDOM_GENERATOR = SPRNG;
-    public static String RANDOM_ORG_APIKEY = "";
-    public static Random SPRNG_GENERATOR = null;
-    public static Random PRNG_GENERATOR = null;
-    public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
-    public static Properties PROPERTIES = loadPropertiesFile();
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Clip> WAVS_RESOURCES = new ConcurrentHashMap<>();
-    public static Font GUI_FONT = null;
-    public static boolean MUTED = false;
-    public static boolean MUTED_MP3 = false;
-    public static boolean RANDOMORG_ERROR_MSG = false;
+    public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
+
+    public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
+    public volatile static int DECK_RANDOM_GENERATOR = SPRNG;
+    public volatile static String RANDOM_ORG_APIKEY = "";
+    public volatile static Random PRNG_GENERATOR = null;
+    public volatile static SecureRandom SPRNG_GENERATOR = null;
+    public volatile static Properties PROPERTIES = loadPropertiesFile();
+    public volatile static Font GUI_FONT = null;
+    public volatile static boolean MUTED = false;
+    public volatile static boolean MUTED_MP3 = false;
+    public volatile static boolean RANDOMORG_ERROR_MSG = false;
 
     public static String encryptCommand(String command, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
 
@@ -765,24 +766,17 @@ public class Helpers {
                 return getIntegerPermutation(Helpers.SPRNG, count);
 
             case Helpers.SPRNG:
+
                 if (Helpers.SPRNG_GENERATOR != null) {
                     for (int i = 1; i <= count; i++) {
                         permutacion.add(i);
                     }
                     Collections.shuffle(permutacion, Helpers.SPRNG_GENERATOR);
                     return permutacion.toArray(new Integer[permutacion.size()]);
-                } else {
-                    //Fallback to PRNG
-                    return getIntegerPermutation(Helpers.PRNG, count);
                 }
+
             default:
-
-                for (int i = 1; i <= count; i++) {
-                    permutacion.add(i);
-                }
-
-                Collections.shuffle(permutacion, Helpers.PRNG_GENERATOR);
-                return permutacion.toArray(new Integer[permutacion.size()]);
+                return getIntegerPermutation(Helpers.SPRNG, count);
         }
 
     }

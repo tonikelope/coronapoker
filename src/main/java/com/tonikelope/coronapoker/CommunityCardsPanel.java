@@ -22,6 +22,14 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     public static final int SOUND_ICON_WIDTH = 30;
 
+    private volatile Color color_contadores = null;
+
+    private volatile boolean last_hand_clicking = false;
+
+    public void setLast_hand_clicking(boolean last_hand_clicking) {
+        this.last_hand_clicking = last_hand_clicking;
+    }
+
     public JProgressBar getBarra_tiempo() {
         return barra_tiempo;
     }
@@ -77,6 +85,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     public void cambiarColorContadores(Color color) {
 
+        this.color_contadores = color;
+
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
@@ -87,7 +97,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 bet_label.setForeground(color);
                 blinds_label.setForeground(color);
                 tiempo_partida.setForeground(color);
-                hand_label.setForeground(color);
+
+                if (!hand_label.isOpaque()) {
+                    hand_label.setForeground(color);
+                }
 
             }
         });
@@ -121,6 +134,43 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
+    }
+
+    public void last_hand_on() {
+
+        Game.getInstance().getCrupier().setLast_hand(true);
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                hand_label.setOpaque(true);
+                hand_label.setBackground(Color.YELLOW);
+                hand_label.setForeground(Color.BLACK);
+                hand_label.setToolTipText(Translator.translate("ÚLTIMA MANO"));
+
+            }
+        });
+
+        Helpers.playWavResource("misc/last_hand_on.wav");
+    }
+
+    public void last_hand_off() {
+
+        Game.getInstance().getCrupier().setLast_hand(false);
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                hand_label.setOpaque(false);
+                hand_label.setForeground(color_contadores);
+                hand_label.setToolTipText(null);
+
+            }
+        });
+
+        Helpers.playWavResource("misc/last_hand_off.wav");
     }
 
     /**
@@ -175,8 +225,14 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         hand_label.setForeground(new java.awt.Color(153, 204, 0));
         hand_label.setText("Mano:");
         hand_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
+        hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         hand_label.setDoubleBuffered(true);
         hand_label.setFocusable(false);
+        hand_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                hand_labelMouseClicked(evt);
+            }
+        });
 
         tiempo_partida.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         tiempo_partida.setForeground(new java.awt.Color(153, 204, 0));
@@ -301,6 +357,38 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         Game.getInstance().getSonidos_menu().doClick();
     }//GEN-LAST:event_sound_iconMouseClicked
+
+    private void hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hand_labelMouseClicked
+        // TODO add your handling code here:
+
+        if (Game.getInstance().isPartida_local() && !last_hand_clicking) {
+
+            last_hand_clicking = true;
+
+            if (Game.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿ÚLTIMA MANO?")) == 0) {
+
+                Helpers.threadRun(new Runnable() {
+
+                    public void run() {
+
+                        if (!Game.getInstance().getCrupier().isLast_hand()) {
+                            Game.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#1", null);
+                            last_hand_on();
+
+                        } else {
+                            Game.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#0", null);
+                            last_hand_off();
+                        }
+
+                        setLast_hand_clicking(false);
+                    }
+                });
+
+            } else {
+                last_hand_clicking = false;
+            }
+        }
+    }//GEN-LAST:event_hand_labelMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra_tiempo;

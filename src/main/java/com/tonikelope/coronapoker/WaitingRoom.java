@@ -967,9 +967,22 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                         Game.getInstance().getCrupier().remotePlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         break;
 
+                                                    case "LASTHAND":
+
+                                                        if (partes_comando[3].equals("0")) {
+                                                            Game.getInstance().getTapete().getCommunityCards().last_hand_off();
+                                                        } else {
+                                                            Game.getInstance().getTapete().getCommunityCards().last_hand_on();
+                                                        }
+
+                                                        break;
+
                                                     case "SERVEREXIT":
                                                         exit = true;
-                                                        Helpers.mostrarMensajeInformativo(Game.getInstance(), "EL SERVIDOR HA TERMINADO LA TIMBA");
+
+                                                        if (!Game.CINEMATICAS) {
+                                                            Helpers.mostrarMensajeInformativo(Game.getInstance(), "EL SERVIDOR HA TERMINADO LA TIMBA");
+                                                        }
                                                         break;
 
                                                     default:

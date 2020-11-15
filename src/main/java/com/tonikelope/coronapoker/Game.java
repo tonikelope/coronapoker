@@ -97,12 +97,12 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private final Object registro_lock = new Object();
     private final Object full_screen_lock = new Object();
     private final Object lock_pause = new Object();
+    private final Object lock_fin = new Object();
     private final ArrayList<Player> jugadores;
     private final Map<String, Participant> participantes;
     private final Crupier crupier;
     private final boolean partida_local;
     private final String nick_local;
-    private final HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
     private volatile ZoomableInterface[] zoomeables;
     private volatile long conta_tiempo_juego = 0L;
@@ -508,7 +508,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         boolean paused = false;
 
-        while (this.timba_pausada) {
+        while (this.timba_pausada || Game.getInstance().getCrupier().isFin_de_la_transmision()) {
 
             paused = true;
 
@@ -541,6 +541,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     }
 
     private void setupGlobalShortcuts() {
+
+        HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
         KeyStroke key_pause = KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.ALT_DOWN_MASK);
         actionMap.put(key_pause, new AbstractAction("PAUSE") {
@@ -1275,73 +1277,151 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return conta_tiempo_juego;
     }
 
-    public synchronized void finTransmision(boolean partida_terminada) {
+    public void finTransmision(boolean partida_terminada) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                exit_menu.setEnabled(false);
-                menu_bar.setVisible(false);
+        synchronized (lock_fin) {
+
+            getLocalPlayer().setExit();
+
+            getCrupier().setFin_de_la_transmision(true);
+
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    exit_menu.setEnabled(false);
+                    menu_bar.setVisible(false);
+                }
+            });
+
+            if (partida_terminada) {
+
+                getRegistro().print("\n*************** LA TIMBA HA TERMINADO ***************");
+
+                getRegistro().print(Translator.translate("FIN DE LA TIMBA -> ") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
+
             }
-        });
 
-        if (partida_terminada) {
+            synchronized (crupier.getLock_contabilidad()) {
 
-            getRegistro().print("\n*************** LA TIMBA HA TERMINADO ***************");
+                crupier.auditorCuentas();
 
-            getRegistro().print(Translator.translate("FIN DE LA TIMBA -> ") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
+                for (Map.Entry<String, Float[]> entry : crupier.getAuditor().entrySet()) {
 
-        }
+                    Float[] pasta = entry.getValue();
 
-        synchronized (crupier.getLock_contabilidad()) {
+                    String ganancia_msg = "";
 
-            crupier.auditorCuentas();
+                    float ganancia = Helpers.clean1DFloat(Helpers.clean1DFloat(pasta[0]) - Helpers.clean1DFloat(pasta[1]));
 
-            for (Map.Entry<String, Float[]> entry : crupier.getAuditor().entrySet()) {
+                    if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
+                        ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
+                    } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
+                        ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
+                    } else {
+                        ganancia_msg += Translator.translate("NI GANA NI PIERDE");
+                    }
 
-                Float[] pasta = entry.getValue();
+                    getRegistro().print(entry.getKey() + " " + ganancia_msg);
+                }
+            }
 
-                String ganancia_msg = "";
+            String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
 
-                float ganancia = Helpers.clean1DFloat(Helpers.clean1DFloat(pasta[0]) - Helpers.clean1DFloat(pasta[1]));
+            try {
+                Files.writeString(Paths.get(log_file), getRegistro().getText());
+            } catch (IOException ex1) {
+                Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
+            }
 
-                if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                    ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
-                } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                    ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
-                } else {
-                    ganancia_msg += Translator.translate("NI GANA NI PIERDE");
+            String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
+
+            try {
+                Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());
+            } catch (IOException ex1) {
+                Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
+            }
+
+            if (partida_terminada && Game.CINEMATICAS) {
+
+                HashMap<KeyStroke, Action> actionMap = new HashMap<>();
+
+                KeyStroke key_exit = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
+                actionMap.put(key_exit, new AbstractAction("EXIT") {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        System.exit(0);
+                    }
+                });
+
+                KeyStroke key_exit2 = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
+                actionMap.put(key_exit2, new AbstractAction("EXIT2") {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        System.exit(0);
+                    }
+                });
+
+                KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+
+                if (Game.key_event_dispatcher != null) {
+                    kfm.removeKeyEventDispatcher(Game.key_event_dispatcher);
                 }
 
-                getRegistro().print(entry.getKey() + " " + ganancia_msg);
+                Game.key_event_dispatcher = new KeyEventDispatcher() {
+
+                    @Override
+                    public boolean dispatchKeyEvent(KeyEvent e) {
+                        KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
+
+                        if (actionMap.containsKey(keyStroke)) {
+                            final Action a = actionMap.get(keyStroke);
+                            final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    a.actionPerformed(ae);
+                                }
+                            });
+
+                            return true;
+                        }
+
+                        return false;
+                    }
+                };
+
+                kfm.addKeyEventDispatcher(Game.key_event_dispatcher);
+
+                final ImageIcon icon;
+
+                if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/cinematics/misc/end.gif"))) {
+                    icon = new ImageIcon(Helpers.getCurrentJarPath() + "/mod/cinematics/misc/end.gif");
+                } else if (getClass().getResource("/cinematics/misc/end.gif") != null) {
+                    icon = new ImageIcon(getClass().getResource("/cinematics/misc/end.gif"));
+                } else {
+                    icon = null;
+                }
+
+                if (icon != null) {
+
+                    GifAnimation gif = new GifAnimation(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, icon);
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            gif.setLocationRelativeTo(gif.getParent());
+
+                            gif.setVisible(true);
+                        }
+                    });
+                }
+
+                Helpers.muteLoopMp3();
+
+                Helpers.playWavResourceAndWait("misc/end.wav");
             }
+
+            System.exit(0); //No hay otra
         }
-
-        getLocalPlayer().setExit();
-
-        getCrupier().setFin_de_la_transmision(true); //AQUí, y NO ANTES porque si el hilo del crupier termina antes la liamos
-
-        String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
-
-        try {
-            Files.writeString(Paths.get(log_file), getRegistro().getText());
-        } catch (IOException ex1) {
-            Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
-        }
-
-        String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
-
-        try {
-            Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());
-        } catch (IOException ex1) {
-            Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
-        }
-
-        if (Game.SONIDOS && Game.SONIDOS_CHORRA) {
-            Helpers.muteLoopMp3();
-            Helpers.playWavResourceAndWait("misc/end.wav");
-        }
-
-        System.exit(0); //No hay otra
     }
 
     public Timer getTiempo_juego() {

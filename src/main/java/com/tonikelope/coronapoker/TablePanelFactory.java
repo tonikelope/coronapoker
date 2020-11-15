@@ -5,6 +5,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Color;
+
 /**
  *
  * @author tonikelope
@@ -88,6 +90,23 @@ public class TablePanelFactory {
 
                 nuevo_panel.getLocalPlayer().getPlayingCard1().setCompactable(false);
                 nuevo_panel.getLocalPlayer().getPlayingCard2().setCompactable(false);
+
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (Game.getInstance().getCrupier().isLast_hand()) {
+
+                            nuevo_panel.getCommunityCards().getHand_label().setOpaque(true);
+                            nuevo_panel.getCommunityCards().getHand_label().setBackground(Color.RED);
+                            nuevo_panel.getCommunityCards().getHand_label().setForeground(Color.white);
+                            nuevo_panel.getCommunityCards().getHand_label().setToolTipText(Translator.translate("ÚLTIMA MANO"));
+                        }
+
+                        nuevo_panel.getCommunityCards().getPot_label().setText(Translator.translate("Bote: ") + "-----");
+                        nuevo_panel.getCommunityCards().getHand_label().setText(Translator.translate("Mano: ") + String.valueOf(Game.getInstance().getCrupier().getMano()));
+                        nuevo_panel.getCommunityCards().getBlinds_label().setText(Translator.translate("Ciegas: ") + Helpers.float2String(Game.getInstance().getCrupier().getCiega_pequeña()) + " / " + Helpers.float2String(Game.getInstance().getCrupier().getCiega_grande()) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" + (Game.getInstance().getCrupier().getCiegas_double() > 0 ? " (" + String.valueOf(Game.getInstance().getCrupier().getCiegas_double()) + ")" : "") : ""));
+                    }
+                });
             }
 
             return nuevo_panel;

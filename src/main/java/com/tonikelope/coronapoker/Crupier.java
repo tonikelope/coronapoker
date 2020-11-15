@@ -147,6 +147,7 @@ public class Crupier implements Runnable {
     private final Object lock_contabilidad = new Object();
     private final Object lock_cinematics = new Object();
     private final Object lock_mostrar = new Object();
+    private final Object lock_last_hand = new Object();
     private final Object lock_nueva_mano = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
@@ -188,6 +189,20 @@ public class Crupier implements Runnable {
     private volatile String current_local_cinematic_b64 = null;
     private volatile String current_remote_cinematic_b64 = null;
     private volatile boolean rebuy_time = false;
+    private volatile boolean last_hand = false;
+
+    public boolean isLast_hand() {
+
+        synchronized (lock_last_hand) {
+            return last_hand;
+        }
+    }
+
+    public synchronized void setLast_hand(boolean last_hand) {
+        synchronized (lock_last_hand) {
+            this.last_hand = last_hand;
+        }
+    }
 
     public boolean isRebuy_time() {
         return rebuy_time;
@@ -585,23 +600,27 @@ public class Crupier implements Runnable {
 
             if (Game.CINEMATICAS) {
 
-                ImageIcon icon = null;
+                final ImageIcon icon;
 
                 if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/cinematics/allin/" + filename))) {
-
                     icon = new ImageIcon(Helpers.getCurrentJarPath() + "/mod/cinematics/allin/" + filename);
-
                 } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
                     icon = new ImageIcon(getClass().getResource("/cinematics/allin/" + filename));
+                } else {
+                    icon = null;
                 }
 
                 if (icon != null) {
 
                     GifAnimation gif = new GifAnimation(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), false, icon);
 
-                    gif.setLocationRelativeTo(gif.getParent());
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            gif.setLocationRelativeTo(gif.getParent());
 
-                    gif.setVisible(true);
+                            gif.setVisible(true);
+                        }
+                    });
 
                     Helpers.threadRun(new Runnable() {
 
@@ -1077,6 +1096,10 @@ public class Crupier implements Runnable {
 
     public int getCiegas_double() {
         return ciegas_double;
+    }
+
+    public int getMano() {
+        return mano;
     }
 
     private void actualizarContadoresTapete() {
@@ -4983,46 +5006,85 @@ public class Crupier implements Runnable {
 
                         Game.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
 
-                        ArrayList<String> rebuy_players = new ArrayList<>();
+                        if (!this.isLast_hand()) {
 
-                        for (Player jugador : Game.getInstance().getJugadores()) {
+                            ArrayList<String> rebuy_players = new ArrayList<>();
 
-                            if (jugador != Game.getInstance().getLocalPlayer() && jugador.isActivo() && Helpers.float1DSecureCompare(0f, Helpers.clean1DFloat(jugador.getStack()) + Helpers.clean1DFloat(jugador.getPagar())) == 0) {
+                            for (Player jugador : Game.getInstance().getJugadores()) {
+
+                                if (jugador != Game.getInstance().getLocalPlayer() && jugador.isActivo() && Helpers.float1DSecureCompare(0f, Helpers.clean1DFloat(jugador.getStack()) + Helpers.clean1DFloat(jugador.getPagar())) == 0) {
+
+                                    if (Game.REBUY) {
+                                        rebuy_players.add(jugador.getNickname());
+                                    } else {
+                                        jugador.setSpectator(null);
+                                    }
+
+                                }
+                            }
+
+                            this.rebuy_time = !rebuy_players.isEmpty();
+
+                            if (Game.getInstance().getLocalPlayer().isActivo() && Helpers.float1DSecureCompare(Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getStack()) + Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
+
+                                this.rebuy_time = true;
 
                                 if (Game.REBUY) {
-                                    rebuy_players.add(jugador.getNickname());
-                                } else {
-                                    jugador.setSpectator(null);
-                                }
 
-                            }
-                        }
+                                    if (!Game.AUTO_REBUY) {
 
-                        this.rebuy_time = !rebuy_players.isEmpty();
+                                        GameOverDialog dialog = new GameOverDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true);
 
-                        if (Game.getInstance().getLocalPlayer().isActivo() && Helpers.float1DSecureCompare(Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getStack()) + Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
+                                        Game.getInstance().setGame_over_dialog(true);
 
-                            this.rebuy_time = true;
+                                        Helpers.GUIRunAndWait(new Runnable() {
+                                            public void run() {
+                                                dialog.setLocationRelativeTo(dialog.getParent());
 
-                            if (Game.REBUY) {
+                                                dialog.setVisible(true);
+                                            }
+                                        });
 
-                                if (!Game.AUTO_REBUY) {
+                                        Game.getInstance().setGame_over_dialog(false);
 
-                                    GameOverDialog dialog = new GameOverDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true);
+                                        if (dialog.isContinua()) {
 
-                                    Game.getInstance().setGame_over_dialog(true);
+                                            try {
 
-                                    Helpers.GUIRunAndWait(new Runnable() {
-                                        public void run() {
-                                            dialog.setLocationRelativeTo(dialog.getParent());
+                                                rebuy_players.remove(Game.getInstance().getLocalPlayer().getNickname());
 
-                                            dialog.setVisible(true);
+                                                String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"));
+
+                                                if (Game.getInstance().isPartida_local()) {
+                                                    this.broadcastGAMECommandFromServer(comando, null);
+                                                } else {
+                                                    this.sendGAMECommandToServer(comando);
+                                                }
+                                            } catch (UnsupportedEncodingException ex) {
+                                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                            }
+                                        } else {
+                                            try {
+
+                                                rebuy_players.remove(Game.getInstance().getLocalPlayer().getNickname());
+
+                                                String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#0";
+
+                                                if (Game.getInstance().isPartida_local()) {
+                                                    this.broadcastGAMECommandFromServer(comando, null);
+                                                } else {
+                                                    this.sendGAMECommandToServer(comando);
+                                                }
+                                            } catch (UnsupportedEncodingException ex) {
+                                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                            }
+
+                                            Game.getInstance().getLocalPlayer().setSpectator(null);
+
+                                            Game.getInstance().getRegistro().print(Game.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
                                         }
-                                    });
 
-                                    Game.getInstance().setGame_over_dialog(false);
-
-                                    if (dialog.isContinua()) {
+                                    } else {
 
                                         try {
 
@@ -5038,105 +5100,72 @@ public class Crupier implements Runnable {
                                         } catch (UnsupportedEncodingException ex) {
                                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                         }
-                                    } else {
-                                        try {
-
-                                            rebuy_players.remove(Game.getInstance().getLocalPlayer().getNickname());
-
-                                            String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#0";
-
-                                            if (Game.getInstance().isPartida_local()) {
-                                                this.broadcastGAMECommandFromServer(comando, null);
-                                            } else {
-                                                this.sendGAMECommandToServer(comando);
-                                            }
-                                        } catch (UnsupportedEncodingException ex) {
-                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
-
-                                        Game.getInstance().getLocalPlayer().setSpectator(null);
-
-                                        Game.getInstance().getRegistro().print(Game.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
                                     }
 
                                 } else {
 
-                                    try {
+                                    GameOverDialog dialog = new GameOverDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, true);
 
-                                        rebuy_players.remove(Game.getInstance().getLocalPlayer().getNickname());
+                                    Game.getInstance().setGame_over_dialog(true);
 
-                                        String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"));
-
-                                        if (Game.getInstance().isPartida_local()) {
-                                            this.broadcastGAMECommandFromServer(comando, null);
-                                        } else {
-                                            this.sendGAMECommandToServer(comando);
+                                    Helpers.GUIRunAndWait(new Runnable() {
+                                        public void run() {
+                                            dialog.setLocationRelativeTo(dialog.getParent());
+                                            dialog.setVisible(true);
                                         }
-                                    } catch (UnsupportedEncodingException ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    });
+
+                                    Game.getInstance().setGame_over_dialog(false);
+
+                                    Game.getInstance().getLocalPlayer().setSpectator(null);
+
+                                    Game.getInstance().getRegistro().print(Game.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
+                                }
+
+                            }
+
+                            if (!rebuy_players.isEmpty()) {
+
+                                //Enviamos los REBUYS de los bots
+                                if (Game.getInstance().isPartida_local()) {
+
+                                    for (Player jugador : Game.getInstance().getJugadores()) {
+
+                                        if (rebuy_players.contains(jugador.getNickname()) && Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
+
+                                            int res = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname());
+
+                                            rebuy_players.remove(jugador.getNickname());
+
+                                            try {
+                                                String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!Game.REBUY || res != 0) ? "#0" : "");
+
+                                                this.broadcastGAMECommandFromServer(comando, null);
+
+                                            } catch (UnsupportedEncodingException ex) {
+                                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                            }
+
+                                            if (res != 0) {
+                                                jugador.setSpectator(null);
+                                            }
+
+                                        }
                                     }
                                 }
 
-                            } else {
-
-                                GameOverDialog dialog = new GameOverDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, true);
-
-                                Game.getInstance().setGame_over_dialog(true);
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-                                        dialog.setLocationRelativeTo(dialog.getParent());
-                                        dialog.setVisible(true);
-                                    }
-                                });
-
-                                Game.getInstance().setGame_over_dialog(false);
-
-                                Game.getInstance().getLocalPlayer().setSpectator(null);
-
-                                Game.getInstance().getRegistro().print(Game.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
+                                this.recibirRebuys(rebuy_players);
                             }
 
+                            this.rebuy_time = false;
+
+                            exitSpectatorBots();
+
+                            updateExitPlayers();
+
+                        } else {
+                            fin_de_la_transmision = true;
                         }
-
-                        if (!rebuy_players.isEmpty()) {
-
-                            //Enviamos los REBUYS de los bots
-                            if (Game.getInstance().isPartida_local()) {
-
-                                for (Player jugador : Game.getInstance().getJugadores()) {
-
-                                    if (rebuy_players.contains(jugador.getNickname()) && Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
-
-                                        int res = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname());
-
-                                        rebuy_players.remove(jugador.getNickname());
-
-                                        try {
-                                            String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!Game.REBUY || res != 0) ? "#0" : "");
-
-                                            this.broadcastGAMECommandFromServer(comando, null);
-
-                                        } catch (UnsupportedEncodingException ex) {
-                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
-
-                                        if (res != 0) {
-                                            jugador.setSpectator(null);
-                                        }
-
-                                    }
-                                }
-                            }
-
-                            this.recibirRebuys(rebuy_players);
-                        }
-
-                        this.rebuy_time = false;
-
-                        exitSpectatorBots();
-
-                        updateExitPlayers();
 
                     } else {
 
@@ -5149,6 +5178,9 @@ public class Crupier implements Runnable {
                         Game.getInstance().getLocalPlayer().desactivar_boton_mostrar();
 
                         Game.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
+
+                        fin_de_la_transmision = this.isLast_hand();
+
                     }
                 }
 
@@ -5176,7 +5208,7 @@ public class Crupier implements Runnable {
 
         }
 
-        if (!fin_de_la_transmision && !Game.getInstance().isPartida_local()) {
+        if (!Game.getInstance().isPartida_local() && !fin_de_la_transmision) {
             sendGAMECommandToServer("EXIT", false);
         }
 

@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿PAUSAR AHORA MISMO?", "PAUSE NOW?"},
             {"¿ÚLTIMA MANO?", "LAST HAND?"},
             {"ÚLTIMA MANO", "LAST HAND"},
             {"VIDEOLLAMADA", "VIDEOCALL"},

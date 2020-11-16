@@ -194,6 +194,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                     player_action.setBackground(null);
                     player_action.setEnabled(false);
+
+                    if (!Game.getInstance().isPartida_local()) {
+                        Game.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(false);
+                    }
                 }
             });
         }
@@ -211,6 +215,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setEnabled(true);
                 player_stack.setEnabled(true);
                 player_action.setText(" ");
+                Game.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
             }
         });
     }
@@ -597,12 +602,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.translateComponents(botonera, false);
 
                     Helpers.translateComponents(player_action, false);
-
-                    if (auto_pause) {
-                        Game.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
-                    }
                 }
             });
+
+            if (auto_pause) {
+                Game.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+            }
 
             if (Game.TEST_MODE) {
 

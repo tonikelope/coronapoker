@@ -416,21 +416,42 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void pause_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pause_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (!Game.getInstance().isTimba_pausada() && !Game.getInstance().isPartida_local()) {
-            Game.getInstance().getLocalPlayer().setPause_counter(Game.getInstance().getLocalPlayer().getPause_counter() - 1);
-            pause_button.setText(Translator.translate("PAUSAR") + " (" + Game.getInstance().getLocalPlayer().getPause_counter() + ")");
-        }
+        if (Game.getInstance().isPartida_local() || Game.getInstance().getLocalPlayer().isTurno()) {
 
-        pause_button.setEnabled(false);
+            pause_button.setBackground(new Color(255, 102, 0));
+            pause_button.setForeground(Color.WHITE);
+            Game.getInstance().getLocalPlayer().setAuto_pause(false);
 
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
-
-                Game.getInstance().pauseTimba(Game.getInstance().isPartida_local() ? null : Game.getInstance().getLocalPlayer().getNickname());
-
+            if (!Game.getInstance().isTimba_pausada() && !Game.getInstance().isPartida_local()) {
+                Game.getInstance().getLocalPlayer().setPause_counter(Game.getInstance().getLocalPlayer().getPause_counter() - 1);
+                pause_button.setText(Translator.translate("PAUSAR") + " (" + Game.getInstance().getLocalPlayer().getPause_counter() + ")");
             }
-        });
+
+            pause_button.setEnabled(false);
+
+            Helpers.threadRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    Game.getInstance().pauseTimba(Game.getInstance().isPartida_local() ? null : Game.getInstance().getLocalPlayer().getNickname());
+
+                }
+            });
+
+        } else {
+
+            if (!Game.getInstance().getLocalPlayer().isAuto_pause()) {
+                pause_button.setBackground(Color.WHITE);
+                pause_button.setForeground(new Color(255, 102, 0));
+                Game.getInstance().getLocalPlayer().setAuto_pause(true);
+                Helpers.playWavResource("misc/auto_button_on.wav");
+            } else {
+                pause_button.setBackground(new Color(255, 102, 0));
+                pause_button.setForeground(Color.WHITE);
+                Game.getInstance().getLocalPlayer().setAuto_pause(false);
+                Helpers.playWavResource("misc/auto_button_off.wav");
+            }
+        }
 
     }//GEN-LAST:event_pause_buttonActionPerformed
 

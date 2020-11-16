@@ -490,7 +490,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     if (timba_pausada) {
 
                         if (isPartida_local() || getNick_local().equals(user)) {
-                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setText("REANUDAR");
+                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("CONTINUAR"));
                             Game.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
 
                         } else {
@@ -503,7 +503,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     } else {
 
                         if (isPartida_local()) {
-                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setText("PAUSAR");
+                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR"));
                         } else {
                             Game.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + getLocalPlayer().getPause_counter() + ")");
                         }

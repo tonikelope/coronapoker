@@ -90,6 +90,7 @@ public class TablePanelFactory {
 
                 nuevo_panel.getLocalPlayer().getPlayingCard1().setCompactable(false);
                 nuevo_panel.getLocalPlayer().getPlayingCard2().setCompactable(false);
+                nuevo_panel.getLocalPlayer().setPause_counter(panel.getLocalPlayer().getPause_counter());
 
                 Helpers.GUIRun(new Runnable() {
                     @Override
@@ -102,6 +103,7 @@ public class TablePanelFactory {
                             nuevo_panel.getCommunityCards().getHand_label().setToolTipText(Translator.translate("ÚLTIMA MANO"));
                         }
 
+                        nuevo_panel.getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + nuevo_panel.getLocalPlayer().getPause_counter() + ")");
                         nuevo_panel.getCommunityCards().getPot_label().setText(Translator.translate("Bote: ") + "-----");
                         nuevo_panel.getCommunityCards().getHand_label().setText(Translator.translate("Mano: ") + String.valueOf(Game.getInstance().getCrupier().getMano()));
                         nuevo_panel.getCommunityCards().getBlinds_label().setText(Translator.translate("Ciegas: ") + Helpers.float2String(Game.getInstance().getCrupier().getCiega_pequeña()) + " / " + Helpers.float2String(Game.getInstance().getCrupier().getCiega_grande()) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" + (Game.getInstance().getCrupier().getCiegas_double() > 0 ? " (" + String.valueOf(Game.getInstance().getCrupier().getCiegas_double()) + ")" : "") : ""));

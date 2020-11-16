@@ -1822,7 +1822,6 @@ public class Helpers {
 
         public static JMenu BARAJAS_MENU = new JMenu("Barajas");
         public static JMenu TAPETES_MENU = new JMenu("Tapetes");
-        public static JMenuItem PAUSA_MENU;
         public static JMenuItem EXIT_MENU;
         public static JCheckBoxMenuItem FULLSCREEN_MENU;
         public static JCheckBoxMenuItem SONIDOS_MENU;
@@ -1931,13 +1930,6 @@ public class Helpers {
                     }
                 };
 
-                Action pauseAction = new AbstractAction("Pausar timba") {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        Game.getInstance().getPausa_menu().doClick();
-                    }
-                };
-
                 Action zoominAction = new AbstractAction("Aumentar zoom") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -2040,13 +2032,6 @@ public class Helpers {
                 popup.add(registroAction);
                 popup.add(jugadasAction);
                 popup.addSeparator();
-
-                if (Game.getInstance().isPartida_local()) {
-                    PAUSA_MENU = new JMenuItem(pauseAction);
-                    popup.add(PAUSA_MENU);
-                    popup.addSeparator();
-                }
-
                 FULLSCREEN_MENU = new JCheckBoxMenuItem(fullscreenAction);
                 FULLSCREEN_MENU.setSelected(Game.getInstance().isFull_screen());
                 popup.add(FULLSCREEN_MENU);

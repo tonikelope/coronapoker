@@ -11,6 +11,7 @@ import java.awt.Image;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
 
@@ -196,6 +197,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         flop2 = new com.tonikelope.coronapoker.Card();
         turn = new com.tonikelope.coronapoker.Card();
         flop1 = new com.tonikelope.coronapoker.Card();
+        pause_button = new javax.swing.JButton();
 
         setFocusable(false);
         setOpaque(false);
@@ -268,7 +270,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         );
         panel_barraLayout.setVerticalGroup(
             panel_barraLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 12, Short.MAX_VALUE)
         );
 
         cards_panel.setFocusable(false);
@@ -311,6 +313,19 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addGap(0, 0, 0))
         );
 
+        pause_button.setBackground(new java.awt.Color(255, 102, 0));
+        pause_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        pause_button.setForeground(new java.awt.Color(255, 255, 255));
+        pause_button.setText("PAUSAR");
+        pause_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        pause_button.setDoubleBuffered(true);
+        pause_button.setFocusable(false);
+        pause_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                pause_buttonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -323,6 +338,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addComponent(bet_label))
             .addGroup(layout.createSequentialGroup()
                 .addComponent(blinds_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(pause_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(tiempo_partida)
                 .addGap(18, 18, 18)
@@ -345,7 +362,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(hand_label)
                         .addComponent(tiempo_partida))
-                    .addComponent(blinds_label))
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(blinds_label)
+                        .addComponent(pause_button)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(panel_barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
@@ -390,6 +409,31 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         }
     }//GEN-LAST:event_hand_labelMouseClicked
 
+    public JButton getPause_button() {
+        return pause_button;
+    }
+
+    private void pause_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pause_buttonActionPerformed
+        // TODO add your handling code here:
+
+        if (!Game.getInstance().isTimba_pausada() && !Game.getInstance().isPartida_local()) {
+            Game.getInstance().getLocalPlayer().setPause_counter(Game.getInstance().getLocalPlayer().getPause_counter() - 1);
+            pause_button.setText(Translator.translate("PAUSAR") + " (" + Game.getInstance().getLocalPlayer().getPause_counter() + ")");
+        }
+
+        pause_button.setEnabled(false);
+
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+
+                Game.getInstance().pauseTimba(Game.getInstance().isPartida_local() ? null : Game.getInstance().getLocalPlayer().getNickname());
+
+            }
+        });
+
+    }//GEN-LAST:event_pause_buttonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra_tiempo;
     private javax.swing.JLabel bet_label;
@@ -400,6 +444,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private com.tonikelope.coronapoker.Card flop3;
     private javax.swing.JLabel hand_label;
     private javax.swing.JPanel panel_barra;
+    private javax.swing.JButton pause_button;
     private javax.swing.JLabel pot_label;
     private com.tonikelope.coronapoker.Card river;
     private javax.swing.JLabel sound_icon;

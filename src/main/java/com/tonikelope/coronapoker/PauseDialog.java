@@ -29,8 +29,6 @@ public class PauseDialog extends javax.swing.JDialog {
             public void run() {
                 initComponents();
 
-                resume_button.setVisible(Game.getInstance().isPartida_local());
-
                 ActionListener listener = new ActionListener() {
 
                     @Override
@@ -52,20 +50,6 @@ public class PauseDialog extends javax.swing.JDialog {
         });
     }
 
-    public void resuming() {
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                resume_button.setEnabled(false);
-                resume_button.setText(Translator.translate("REANUDANDO TIMBA..."));
-
-            }
-        });
-
-    }
-
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -76,7 +60,6 @@ public class PauseDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         jPanel1 = new javax.swing.JPanel();
-        resume_button = new javax.swing.JButton();
         pausa_label = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -98,16 +81,6 @@ public class PauseDialog extends javax.swing.JDialog {
 
         jPanel1.setBackground(new java.awt.Color(255, 102, 0));
 
-        resume_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        resume_button.setText("REANUDAR TIMBA");
-        resume_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        resume_button.setDoubleBuffered(true);
-        resume_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                resume_buttonActionPerformed(evt);
-            }
-        });
-
         pausa_label.setFont(new java.awt.Font("Dialog", 1, 48)); // NOI18N
         pausa_label.setForeground(new java.awt.Color(255, 255, 255));
         pausa_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -120,9 +93,7 @@ public class PauseDialog extends javax.swing.JDialog {
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(pausa_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(resume_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(pausa_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -130,8 +101,6 @@ public class PauseDialog extends javax.swing.JDialog {
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(pausa_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(resume_button)
                 .addContainerGap())
         );
 
@@ -149,19 +118,10 @@ public class PauseDialog extends javax.swing.JDialog {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void resume_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_resume_buttonActionPerformed
-        // TODO add your handling code here:
-        this.resume_button.setEnabled(false);
-        this.resume_button.setText(Translator.translate("REANUDANDO TIMBA..."));
-        Game.getInstance().getPausa_menu().doClick();
-    }//GEN-LAST:event_resume_buttonActionPerformed
-
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
         this.timer.start();
-        this.resume_button.setText(Translator.translate("REANUDAR TIMBA"));
-        this.resume_button.setEnabled(true);
-        Game.getInstance().getPausa_menu().setEnabled(true);
+
     }//GEN-LAST:event_formComponentShown
 
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
@@ -177,6 +137,5 @@ public class PauseDialog extends javax.swing.JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel jPanel1;
     private javax.swing.JLabel pausa_label;
-    private javax.swing.JButton resume_button;
     // End of variables declaration//GEN-END:variables
 }

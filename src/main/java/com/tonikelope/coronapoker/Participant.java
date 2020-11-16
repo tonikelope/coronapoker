@@ -476,6 +476,20 @@ public class Participant implements Runnable {
                                         case "CINEMATICEND":
                                             Game.getInstance().getCrupier().remoteCinematicEnd(nick);
                                             break;
+                                        case "PAUSE":
+                                            
+                                            synchronized (Game.getInstance().getLock_pause()) {
+                                                if (!Game.getInstance().isTimba_pausada() || nick.equals(Game.getInstance().getNick_pause())) {
+
+                                                    Game.getInstance().pauseTimba(nick);
+
+                                                    if (!Game.getInstance().isTimba_pausada()) {
+                                                        Game.getInstance().getRegistro().print("PAUSE (" + nick + ")");
+                                                    }
+                                                }
+                                            }
+
+                                            break;
                                         case "SHOWMYCARDS":
                                             Game.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
                                             break;

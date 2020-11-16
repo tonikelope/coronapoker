@@ -64,7 +64,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final String BARAJA_DEFAULT = "coronapoker";
     public static final String DEFAULT_LANGUAGE = "es";
     public static final int PEPILLO_COUNTER_MAX = 5;
-    public static final int PAUSE_COUNTER_MAX = 3;
+    public static final int PAUSE_COUNTER_MAX = 10;
     public static final int AUTO_ZOOM_TIMEOUT = 2000;
     public static final int GUI_ZOOM_WAIT = 250;
 

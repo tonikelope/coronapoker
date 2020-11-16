@@ -416,19 +416,18 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void pause_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pause_buttonActionPerformed
         // TODO add your handling code here:
 
-        boolean pause_now = false;
+        int pause_now = -2;
 
         if (Game.getInstance().isPartida_local() && !Game.getInstance().isTimba_pausada() && !Game.getInstance().getLocalPlayer().isTurno() && !Game.getInstance().getLocalPlayer().isAuto_pause()) {
 
-            pause_now = (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿PAUSAR AHORA MISMO?")) == 0);
+            pause_now = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿PAUSAR AHORA MISMO?"));
 
         }
 
-        if (Game.getInstance().getLocalPlayer().isTurno() || (Game.getInstance().isPartida_local() && (Game.getInstance().isTimba_pausada() || pause_now))) {
+        if (!Game.getInstance().getLocalPlayer().isAuto_pause() && ((Game.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (Game.getInstance().isPartida_local() && (Game.getInstance().isTimba_pausada() || pause_now == 0)))) {
 
             pause_button.setBackground(new Color(255, 102, 0));
             pause_button.setForeground(Color.WHITE);
-            Game.getInstance().getLocalPlayer().setAuto_pause(false);
 
             if (!Game.getInstance().isTimba_pausada() && !Game.getInstance().isPartida_local()) {
                 Game.getInstance().getLocalPlayer().setPause_counter(Game.getInstance().getLocalPlayer().getPause_counter() - 1);

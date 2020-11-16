@@ -606,6 +606,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             });
 
             if (auto_pause) {
+                Game.getInstance().getLocalPlayer().setAuto_pause(false);
                 Game.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
             }
 

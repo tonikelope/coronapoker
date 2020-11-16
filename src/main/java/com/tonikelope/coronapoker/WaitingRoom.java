@@ -1490,6 +1490,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
+
                 chat.append("[" + nick + Translator.translate("] dice: ") + msg + "\n");
 
                 if (!chat.isFocusOwner()) {
@@ -2114,6 +2115,10 @@ public class WaitingRoom extends javax.swing.JFrame {
         conectados.revalidate();
 
         conectados.repaint();
+
+        chat.revalidate();
+
+        chat.repaint();
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 

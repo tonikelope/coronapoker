@@ -483,7 +483,7 @@ public class Participant implements Runnable {
 
                                                     Game.getInstance().pauseTimba(nick);
 
-                                                    if (!Game.getInstance().isTimba_pausada()) {
+                                                    if (Game.getInstance().isTimba_pausada()) {
                                                         Game.getInstance().getRegistro().print("PAUSE (" + nick + ")");
                                                     }
                                                 }

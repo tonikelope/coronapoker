@@ -70,6 +70,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile float slider_divisor = 10f;
     private volatile int parguela_counter = Game.PEPILLO_COUNTER_MAX;
     private volatile int pause_counter = Game.PAUSE_COUNTER_MAX;
+    private volatile boolean auto_pause = false;
+
+    public boolean isAuto_pause() {
+        return auto_pause;
+    }
+
+    public void setAuto_pause(boolean auto_pause) {
+        this.auto_pause = auto_pause;
+    }
 
     public int getPause_counter() {
         return pause_counter;
@@ -588,6 +597,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.translateComponents(botonera, false);
 
                     Helpers.translateComponents(player_action, false);
+
+                    if (auto_pause) {
+                        Game.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+                    }
                 }
             });
 

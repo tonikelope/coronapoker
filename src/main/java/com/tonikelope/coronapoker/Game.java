@@ -64,6 +64,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final String BARAJA_DEFAULT = "coronapoker";
     public static final String DEFAULT_LANGUAGE = "es";
     public static final int PEPILLO_COUNTER_MAX = 5;
+    public static final int PAUSE_COUNTER_MAX = 3;
     public static final int AUTO_ZOOM_TIMEOUT = 2000;
     public static final int GUI_ZOOM_WAIT = 250;
 
@@ -108,6 +109,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private volatile long conta_tiempo_juego = 0L;
     private volatile boolean full_screen = false;
     private volatile boolean timba_pausada = false;
+    private volatile String nick_pause = null;
     private volatile PauseDialog pausa_dialog = null;
     private volatile boolean game_over_dialog = false;
     private volatile JFrame full_screen_frame = null;
@@ -116,6 +118,14 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private volatile GameLogDialog registro_dialog = null;
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
+
+    public String getNick_pause() {
+        return nick_pause;
+    }
+
+    public Object getLock_pause() {
+        return lock_pause;
+    }
 
     public void autoZoomFullScreen() {
 
@@ -445,58 +455,71 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         return timba_pausada;
     }
 
-    public void pauseTimba() {
-
-        if (this.isPartida_local()) {
-
-            getCrupier().broadcastGAMECommandFromServer("PAUSE", null);
-        }
-
-        this.timba_pausada = !this.timba_pausada;
-
-        if (this.timba_pausada) {
-            Helpers.playWavResource("misc/pause.wav");
-        }
+    public void pauseTimba(String user) {
 
         synchronized (lock_pause) {
-            this.lock_pause.notifyAll();
-        }
 
-        if (this.pausa_dialog == null) {
-            this.pausa_dialog = new PauseDialog(this.getFull_screen_frame() != null ? this.getFull_screen_frame() : this, false);
-        }
+            if (isPartida_local()) {
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                if (timba_pausada) {
+                getCrupier().broadcastGAMECommandFromServer("PAUSE", user);
 
-                    pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
+            } else if (getNick_local().equals(user)) {
 
-                    pausa_dialog.setVisible(true);
+                getCrupier().sendGAMECommandToServer("PAUSE");
 
-                } else {
-
-                    pausa_dialog.setVisible(false);
-                    pausa_dialog.dispose();
-                    pausa_dialog = null;
-                }
-
-                if (isPartida_local()) {
-                    Helpers.TapetePopupMenu.PAUSA_MENU.setText(timba_pausada ? "Reanudar timba" : "Pausar timba");
-
-                    Helpers.TapetePopupMenu.PAUSA_MENU.setEnabled(true);
-
-                    Helpers.translateComponents(Helpers.TapetePopupMenu.popup, false);
-
-                    pausa_menu.setText(timba_pausada ? "Reanudar timba (ALT+P)" : "Pausar timba (ALT+P)");
-
-                    Helpers.translateComponents(pausa_menu, false);
-
-                    pausa_menu.setEnabled(true);
-                }
             }
-        });
+
+            this.timba_pausada = !this.timba_pausada;
+
+            if (this.timba_pausada) {
+                this.nick_pause = user != null ? user : this.getNick_local();
+                Helpers.playWavResource("misc/pause.wav");
+            } else {
+                this.nick_pause = null;
+            }
+
+            this.lock_pause.notifyAll();
+
+            if (this.pausa_dialog == null) {
+                this.pausa_dialog = new PauseDialog(this.getFull_screen_frame() != null ? this.getFull_screen_frame() : this, false);
+            }
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    if (timba_pausada) {
+
+                        if (isPartida_local() || getNick_local().equals(user)) {
+                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setText("REANUDAR");
+                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
+
+                        } else {
+                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(false);
+                        }
+
+                        pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
+                        pausa_dialog.setVisible(true);
+
+                    } else {
+
+                        if (isPartida_local()) {
+                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setText("PAUSAR");
+                        } else {
+                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + getLocalPlayer().getPause_counter() + ")");
+                        }
+
+                        Game.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled((isPartida_local() || getLocalPlayer().getPause_counter() > 0));
+
+                        pausa_dialog.setVisible(false);
+                        pausa_dialog.dispose();
+                        pausa_dialog = null;
+
+                    }
+
+                }
+            });
+
+        }
 
     }
 
@@ -548,7 +571,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         actionMap.put(key_pause, new AbstractAction("PAUSE") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                pausa_menuActionPerformed(e);
+                Game.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
             }
         });
 
@@ -763,10 +786,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         };
 
         kfm.addKeyEventDispatcher(Game.key_event_dispatcher);
-    }
-
-    public JMenuItem getPausa_menu() {
-        return pausa_menu;
     }
 
     private WaitingRoom sala_espera;
@@ -1206,6 +1225,12 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         break;
                 }
 
+                if (!isPartida_local()) {
+                    tapete.getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + getLocalPlayer().getPause_counter() + ")");
+                } else {
+                    tapete.getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR"));
+                }
+
                 full_screen_menu.setEnabled(true);
 
                 updateSoundIcon();
@@ -1213,8 +1238,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 tapete.getCommunityCards().getBarra_tiempo().setMinimum(0);
 
                 tapete.getCommunityCards().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
-
-                pausa_menu.setVisible(partida_local);
 
                 server_separator_menu.setVisible(partida_local);
 
@@ -1486,8 +1509,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         chat_menu = new javax.swing.JMenuItem();
         registro_menu = new javax.swing.JMenuItem();
         jugadas_menu = new javax.swing.JMenuItem();
-        jSeparator5 = new javax.swing.JPopupMenu.Separator();
-        pausa_menu = new javax.swing.JMenuItem();
         server_separator_menu = new javax.swing.JPopupMenu.Separator();
         full_screen_menu = new javax.swing.JMenuItem();
         jSeparator2 = new javax.swing.JPopupMenu.Separator();
@@ -1564,16 +1585,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
         file_menu.add(jugadas_menu);
-        file_menu.add(jSeparator5);
-
-        pausa_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        pausa_menu.setText("Pausar timba (ALT+P)");
-        pausa_menu.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                pausa_menuActionPerformed(evt);
-            }
-        });
-        file_menu.add(pausa_menu);
         file_menu.add(server_separator_menu);
 
         full_screen_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
@@ -2140,35 +2151,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     }//GEN-LAST:event_auto_rebuy_menuActionPerformed
 
-    private void pausa_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pausa_menuActionPerformed
-        // TODO add your handling code here:
-
-        if (this.isPartida_local() && !isRECOVER() && !getCrupier().isSincronizando_mano() && !this.isGame_over_dialog()) {
-
-            this.pausa_menu.setText("Pausando timba...");
-
-            this.pausa_menu.setEnabled(false);
-
-            Helpers.TapetePopupMenu.PAUSA_MENU.setText("Pausando timba...");
-
-            Helpers.TapetePopupMenu.PAUSA_MENU.setEnabled(false);
-
-            if (this.timba_pausada) {
-                this.pausa_dialog.resuming();
-            }
-
-            Helpers.threadRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    pauseTimba();
-                }
-            });
-
-        }
-
-    }//GEN-LAST:event_pausa_menuActionPerformed
-
     private void compact_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_compact_menuActionPerformed
         // TODO add your handling code here:
         Game.VISTA_COMPACTA = this.compact_menu.isSelected();
@@ -2361,7 +2343,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private javax.swing.JPopupMenu.Separator jSeparator1;
     private javax.swing.JPopupMenu.Separator jSeparator2;
     private javax.swing.JPopupMenu.Separator jSeparator4;
-    private javax.swing.JPopupMenu.Separator jSeparator5;
     private javax.swing.JPopupMenu.Separator jSeparator6;
     private javax.swing.JPopupMenu.Separator jSeparator7;
     private javax.swing.JPopupMenu.Separator jSeparator8;
@@ -2375,7 +2356,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private javax.swing.JRadioButtonMenuItem menu_tapete_verde;
     private javax.swing.JMenu menu_tapetes;
     private javax.swing.JMenu opciones_menu;
-    private javax.swing.JMenuItem pausa_menu;
     private javax.swing.JMenuItem registro_menu;
     private javax.swing.JPopupMenu.Separator server_separator_menu;
     private javax.swing.JCheckBoxMenuItem sonidos_chorra_menu;

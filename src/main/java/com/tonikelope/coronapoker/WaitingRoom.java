@@ -952,7 +952,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                         break;
 
                                                     case "PAUSE":
-                                                        Game.getInstance().pauseTimba();
+                                                        Game.getInstance().pauseTimba(null);
                                                         break;
 
                                                     case "CINEMATICEND":

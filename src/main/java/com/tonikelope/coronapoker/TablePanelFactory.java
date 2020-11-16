@@ -91,6 +91,7 @@ public class TablePanelFactory {
                 nuevo_panel.getLocalPlayer().getPlayingCard1().setCompactable(false);
                 nuevo_panel.getLocalPlayer().getPlayingCard2().setCompactable(false);
                 nuevo_panel.getLocalPlayer().setPause_counter(panel.getLocalPlayer().getPause_counter());
+                nuevo_panel.getLocalPlayer().setAuto_pause(panel.getLocalPlayer().isAuto_pause());
 
                 Helpers.GUIRun(new Runnable() {
                     @Override
@@ -102,6 +103,9 @@ public class TablePanelFactory {
                             nuevo_panel.getCommunityCards().getHand_label().setForeground(Color.BLACK);
                             nuevo_panel.getCommunityCards().getHand_label().setToolTipText(Translator.translate("ÚLTIMA MANO"));
                         }
+
+                        nuevo_panel.getCommunityCards().getPause_button().setForeground(panel.getCommunityCards().getPause_button().getForeground());
+                        nuevo_panel.getCommunityCards().getPause_button().setBackground(panel.getCommunityCards().getPause_button().getBackground());
 
                         if (!Game.getInstance().isPartida_local()) {
 

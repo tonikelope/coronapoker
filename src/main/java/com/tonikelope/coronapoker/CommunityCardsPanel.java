@@ -424,17 +424,17 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         }
 
-        if (!Game.getInstance().getLocalPlayer().isAuto_pause() && ((Game.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (Game.getInstance().isPartida_local() && (Game.getInstance().isTimba_pausada() || pause_now == 0 || Game.getInstance().getLocalPlayer().isSpectator())))) {
+        if (pause_now < 1 && !Game.getInstance().getLocalPlayer().isAuto_pause() && ((Game.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (Game.getInstance().isPartida_local() && (Game.getInstance().isTimba_pausada() || pause_now == 0 || Game.getInstance().getLocalPlayer().isSpectator())))) {
 
-            pause_button.setBackground(new Color(255, 102, 0));
-            pause_button.setForeground(Color.WHITE);
+            Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(new Color(255, 102, 0));
+            Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(Color.WHITE);
 
             if (!Game.getInstance().isTimba_pausada() && !Game.getInstance().isPartida_local()) {
                 Game.getInstance().getLocalPlayer().setPause_counter(Game.getInstance().getLocalPlayer().getPause_counter() - 1);
-                pause_button.setText(Translator.translate("PAUSAR") + " (" + Game.getInstance().getLocalPlayer().getPause_counter() + ")");
+                Game.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + Game.getInstance().getLocalPlayer().getPause_counter() + ")");
             }
 
-            pause_button.setEnabled(false);
+            Game.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(false);
 
             Helpers.threadRun(new Runnable() {
                 @Override
@@ -448,13 +448,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         } else if (!Game.getInstance().getLocalPlayer().isSpectator()) {
 
             if (!Game.getInstance().getLocalPlayer().isAuto_pause()) {
-                pause_button.setBackground(Color.WHITE);
-                pause_button.setForeground(new Color(255, 102, 0));
+                Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(Color.WHITE);
+                Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(new Color(255, 102, 0));
                 Game.getInstance().getLocalPlayer().setAuto_pause(true);
                 Helpers.playWavResource("misc/auto_button_on.wav");
             } else {
-                pause_button.setBackground(new Color(255, 102, 0));
-                pause_button.setForeground(Color.WHITE);
+                Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(new Color(255, 102, 0));
+                Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(Color.WHITE);
                 Game.getInstance().getLocalPlayer().setAuto_pause(false);
                 Helpers.playWavResource("misc/auto_button_off.wav");
             }

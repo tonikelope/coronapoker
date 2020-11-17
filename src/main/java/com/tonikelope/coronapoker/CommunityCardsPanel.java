@@ -338,7 +338,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addComponent(bet_label))
             .addGroup(layout.createSequentialGroup()
                 .addComponent(blinds_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGap(18, 18, 18)
                 .addComponent(pause_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(tiempo_partida)
@@ -418,13 +418,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         int pause_now = -2;
 
-        if (Game.getInstance().isPartida_local() && !Game.getInstance().isTimba_pausada() && !Game.getInstance().getLocalPlayer().isTurno() && !Game.getInstance().getLocalPlayer().isAuto_pause()) {
+        if (Game.getInstance().isPartida_local() && !Game.getInstance().isTimba_pausada() && !Game.getInstance().getLocalPlayer().isTurno() && !Game.getInstance().getLocalPlayer().isAuto_pause() && !Game.getInstance().getLocalPlayer().isSpectator()) {
 
             pause_now = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿PAUSAR AHORA MISMO?"));
 
         }
 
-        if (!Game.getInstance().getLocalPlayer().isAuto_pause() && ((Game.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (Game.getInstance().isPartida_local() && (Game.getInstance().isTimba_pausada() || pause_now == 0)))) {
+        if (!Game.getInstance().getLocalPlayer().isAuto_pause() && ((Game.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (Game.getInstance().isPartida_local() && (Game.getInstance().isTimba_pausada() || pause_now == 0 || Game.getInstance().getLocalPlayer().isSpectator())))) {
 
             pause_button.setBackground(new Color(255, 102, 0));
             pause_button.setForeground(Color.WHITE);

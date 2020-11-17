@@ -29,7 +29,7 @@
           </Group>
           <Group type="102" attributes="0">
               <Component id="blinds_label" min="-2" max="-2" attributes="0"/>
-              <EmptySpace type="unrelated" max="-2" attributes="0"/>
+              <EmptySpace type="separate" max="-2" attributes="0"/>
               <Component id="pause_button" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="32767" attributes="0"/>
               <Component id="tiempo_partida" min="-2" max="-2" attributes="0"/>

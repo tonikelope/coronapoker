@@ -618,7 +618,7 @@ public class Helpers {
             time += String.format("%02d", days) + "D ";
         }
 
-        time += String.format("%d", hours) + ":" + String.format("%02d", minutes) + ":" + String.format("%02d", uptime);
+        time += String.format("%02d", hours) + ":" + String.format("%02d", minutes) + ":" + String.format("%02d", uptime);
 
         return time;
     }

@@ -5,8 +5,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.Color;
-
 /**
  *
  * @author tonikelope
@@ -96,14 +94,6 @@ public class TablePanelFactory {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        if (Game.getInstance().getCrupier().isLast_hand()) {
-
-                            nuevo_panel.getCommunityCards().getHand_label().setOpaque(true);
-                            nuevo_panel.getCommunityCards().getHand_label().setBackground(Color.YELLOW);
-                            nuevo_panel.getCommunityCards().getHand_label().setForeground(Color.BLACK);
-                            nuevo_panel.getCommunityCards().getHand_label().setToolTipText(Translator.translate("ÚLTIMA MANO"));
-                        }
-
                         nuevo_panel.getCommunityCards().getPause_button().setForeground(panel.getCommunityCards().getPause_button().getForeground());
                         nuevo_panel.getCommunityCards().getPause_button().setBackground(panel.getCommunityCards().getPause_button().getBackground());
 

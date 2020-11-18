@@ -427,13 +427,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         int pause_now = -2;
 
-        if (Game.getInstance().isPartida_local() && !Game.getInstance().isTimba_pausada() && !Game.getInstance().getLocalPlayer().isTurno() && !Game.getInstance().getLocalPlayer().isAuto_pause() && !Game.getInstance().getLocalPlayer().isSpectator()) {
+        if (!(Game.getInstance().getCrupier().isLast_hand() && Game.getInstance().getCrupier().isShow_time()) && Game.getInstance().isPartida_local() && !Game.getInstance().isTimba_pausada() && !Game.getInstance().getLocalPlayer().isTurno() && !Game.getInstance().getLocalPlayer().isAuto_pause() && !Game.getInstance().getLocalPlayer().isSpectator()) {
 
             pause_now = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿PAUSAR AHORA MISMO?"));
 
         }
 
-        if (pause_now < 1 && !Game.getInstance().getLocalPlayer().isAuto_pause() && ((Game.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (Game.getInstance().isPartida_local() && (Game.getInstance().isTimba_pausada() || pause_now == 0 || Game.getInstance().getLocalPlayer().isSpectator())))) {
+        if (pause_now < 1 && !Game.getInstance().getLocalPlayer().isAuto_pause() && ((Game.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (Game.getInstance().isPartida_local() && ((Game.getInstance().getCrupier().isLast_hand() && Game.getInstance().getCrupier().isShow_time()) || Game.getInstance().isTimba_pausada() || pause_now == 0 || Game.getInstance().getLocalPlayer().isSpectator())))) {
 
             Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(new Color(255, 102, 0));
             Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(Color.WHITE);

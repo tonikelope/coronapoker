@@ -133,28 +133,29 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
         }
     }
 
-    public void autoZoom() {
+    public boolean autoZoom() {
 
         for (Player jugador : getPlayers()) {
+
+            int t;
 
             double tapeteBottom = getLocationOnScreen().getY() + getHeight();
             double tapeteRight = getLocationOnScreen().getX() + getWidth();
             double playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
             double playerRight = ((JPanel) jugador).getLocationOnScreen().getX() + ((JPanel) jugador).getWidth();
 
-            int t = 0;
-
-            while (t < AUTO_ZOOM_TIMEOUT && (playerBottom > tapeteBottom || playerRight > tapeteRight)) {
+            if (playerBottom > tapeteBottom || playerRight > tapeteRight) {
 
                 double playerHeight = ((JPanel) jugador).getHeight();
                 double playerWidth = ((JPanel) jugador).getWidth();
 
+                //RESET ZOOM
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        Game.getInstance().getZoom_menu_out().setEnabled(true);
-                        Game.getInstance().getZoom_menu_out().doClick();
-                        Game.getInstance().getZoom_menu_out().setEnabled(false);
+                        Game.getInstance().getZoom_menu_reset().setEnabled(true);
+                        Game.getInstance().getZoom_menu_reset().doClick();
+                        Game.getInstance().getZoom_menu_reset().setEnabled(false);
                     }
                 });
 
@@ -171,10 +172,51 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                     tapeteRight = getLocationOnScreen().getX() + getWidth();
                     playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
                     playerRight = ((JPanel) jugador).getLocationOnScreen().getX() + ((JPanel) jugador).getWidth();
+
+                    t = 0;
+
+                    while (t < AUTO_ZOOM_TIMEOUT && (playerBottom > tapeteBottom || playerRight > tapeteRight)) {
+
+                        playerHeight = ((JPanel) jugador).getHeight();
+                        playerWidth = ((JPanel) jugador).getWidth();
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                Game.getInstance().getZoom_menu_out().setEnabled(true);
+                                Game.getInstance().getZoom_menu_out().doClick();
+                                Game.getInstance().getZoom_menu_out().setEnabled(false);
+                            }
+                        });
+
+                        t = 0;
+
+                        while (t < AUTO_ZOOM_TIMEOUT && (playerHeight == ((JPanel) jugador).getHeight() || playerWidth == ((JPanel) jugador).getWidth())) {
+
+                            Helpers.pausar(GUI_ZOOM_WAIT);
+                            t += GUI_ZOOM_WAIT;
+                        }
+
+                        if (playerHeight != ((JPanel) jugador).getHeight() && playerWidth != ((JPanel) jugador).getWidth()) {
+                            tapeteBottom = getLocationOnScreen().getY() + getHeight();
+                            tapeteRight = getLocationOnScreen().getX() + getWidth();
+                            playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
+                            playerRight = ((JPanel) jugador).getLocationOnScreen().getX() + ((JPanel) jugador).getWidth();
+                        } else {
+                            return false;
+                        }
+
+                    }
+
+                } else {
+                    return false;
                 }
 
             }
+
         }
+
+        return true;
 
     }
 

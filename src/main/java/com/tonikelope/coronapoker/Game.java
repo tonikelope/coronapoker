@@ -197,7 +197,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 }
 
-                tapete.autoZoom();
+                if (!tapete.autoZoom()) {
+                    Logger.getLogger(Game.class.getName()).log(Level.SEVERE, "AUTOZOOM TIMEOUT ERROR!");
+                }
 
                 Helpers.GUIRun(new Runnable() {
                     @Override

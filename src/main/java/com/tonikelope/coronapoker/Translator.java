@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"LA TIMBA HA TERMINADO", "THE GAME IS OVER"},
             {"ESTA ES LA ÚLTIMA MANO", "THIS IS THE LAST HAND"},
             {"¿PAUSAR AHORA MISMO?", "PAUSE NOW?"},
             {"¿ÚLTIMA MANO?", "LAST HAND?"},

@@ -1306,8 +1306,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         synchronized (lock_fin) {
 
-            getLocalPlayer().setExit();
-
             getCrupier().setFin_de_la_transmision(true);
 
             Helpers.GUIRun(new Runnable() {
@@ -1364,6 +1362,12 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             } catch (IOException ex1) {
                 Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
             }
+
+            BalanceDialog balance = new BalanceDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true);
+
+            balance.setLocationRelativeTo(balance.getParent());
+
+            balance.setVisible(true);
 
             if (partida_terminada && Game.CINEMATICAS) {
 
@@ -1835,6 +1839,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         public void run() {
                             //Hay que avisar a los clientes de que la timba ha terminado
                             crupier.broadcastGAMECommandFromServer("SERVEREXIT", null, false);
+
+                            getLocalPlayer().setExit();
+
                             finTransmision(true);
                         }
                     });
@@ -1845,6 +1852,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
+
+                        getLocalPlayer().setExit();
 
                         finTransmision(true);
                     }
@@ -1861,6 +1870,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         if (!getSala_espera().isReconnecting()) {
                             crupier.sendGAMECommandToServer("EXIT", false);
                         }
+
+                        getLocalPlayer().setExit();
 
                         finTransmision(false);
                     }

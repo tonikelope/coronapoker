@@ -97,6 +97,10 @@ public class WaitingRoom extends javax.swing.JFrame {
     private volatile int pong;
     private volatile String video_chat_link = null;
 
+    public File getLocal_avatar() {
+        return local_avatar;
+    }
+
     public static boolean isPartida_empezando() {
         return partida_empezando;
     }

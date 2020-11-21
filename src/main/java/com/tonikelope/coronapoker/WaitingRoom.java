@@ -73,6 +73,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     public static final int EC_KEY_LENGTH = 256;
     private static volatile boolean partida_empezada = false;
     private static volatile boolean partida_empezando = false;
+    private static volatile String password = null;
     private static volatile boolean exit = false;
     private static volatile WaitingRoom THIS = null;
 
@@ -96,6 +97,10 @@ public class WaitingRoom extends javax.swing.JFrame {
     private volatile boolean reconnecting = false;
     private volatile int pong;
     private volatile String video_chat_link = null;
+
+    public static String getPassword() {
+        return password;
+    }
 
     public File getLocal_avatar() {
         return local_avatar;
@@ -187,7 +192,8 @@ public class WaitingRoom extends javax.swing.JFrame {
     /**
      * Creates new form SalaEspera
      */
-    public WaitingRoom(Init ventana_ini, boolean local, String nick, String servidor_ip_port, File avatar) {
+    public WaitingRoom(Init ventana_ini, boolean local, String nick, String servidor_ip_port, File avatar, String pass) {
+        password = pass;
         partida_empezada = false;
         partida_empezando = false;
         exit = false;
@@ -203,6 +209,13 @@ public class WaitingRoom extends javax.swing.JFrame {
                 initComponents();
 
                 setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
+
+                if (password != null) {
+                    pass_icon.setVisible(true);
+                    pass_icon.setToolTipText(password);
+                } else {
+                    pass_icon.setVisible(false);
+                }
 
                 sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
@@ -437,7 +450,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         //Le mandamos nuestro nick al server autenticado con la clave HMAC antigua
                         Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Enviando datos de reconexión...");
 
-                        local_client_socket.getOutputStream().write((Helpers.encryptCommand(b64_nick + "#" + AboutDialog.VERSION + "#*#" + b64_hmac_nick, local_client_aes_key, local_client_hmac_key) + "\n").getBytes("UTF-8"));
+                        local_client_socket.getOutputStream().write((Helpers.encryptCommand(b64_nick + "#" + AboutDialog.VERSION + "#*#*#" + b64_hmac_nick, local_client_aes_key, local_client_hmac_key) + "\n").getBytes("UTF-8"));
 
                         local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
 
@@ -762,8 +775,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                         }
                     }
 
-                    //Le mandamos nuestro nick + VERSION + AVATAR al server
-                    writeCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : ""), local_client_aes_key, local_client_hmac_key));
+                    //Le mandamos nuestro nick + VERSION + AVATAR + password al server
+                    writeCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : "#*") + (password != null ? "#" + Base64.encodeBase64String(password.getBytes("UTF-8")) : "#*"), local_client_aes_key, local_client_hmac_key));
 
                     local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
 
@@ -788,7 +801,19 @@ public class WaitingRoom extends javax.swing.JFrame {
                         exit = true;
                         Helpers.mostrarMensajeError(tthis, "El nick elegido ya lo está usando otro usuario.");
 
+                    } else if (partes[0].equals("BADPASSWORD")) {
+                        exit = true;
+                        Helpers.mostrarMensajeError(tthis, Translator.translate("PASSWORD INCORRECTA"));
                     } else if (partes[0].equals("NICKOK")) {
+
+                        if ("0".equals(partes[1])) {
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+
+                                    pass_icon.setVisible(false);
+                                }
+                            });
+                        }
 
                         //Leemos el nick del server
                         recibido = readCommandFromServer();
@@ -1311,7 +1336,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                             File client_avatar = null;
 
-                            if (partes.length == 4) {
+                            if (partes.length == 5) {
 
                                 Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Un supuesto cliente quiere reconectar...");
 
@@ -1325,7 +1350,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                     byte[] old_hmac = old_sha256_HMAC.doFinal(client_nick.getBytes("UTF-8"));
 
-                                    if (MessageDigest.isEqual(old_hmac, Base64.decodeBase64(partes[3]))) {
+                                    if (MessageDigest.isEqual(old_hmac, Base64.decodeBase64(partes[4]))) {
 
                                         Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El HMAC del cliente es auténtico");
 
@@ -1369,14 +1394,16 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
                             } else if (participantes.containsKey(client_nick)) {
                                 writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
+                            } else if (password != null && ("*".equals(partes[3]) || !password.equals(new String(Base64.decodeBase64(partes[3]), "UTF-8")))) {
+                                writeCommandFromServer(Helpers.encryptCommand("BADPASSWORD", aes_key, hmac_key), client_socket);
                             } else {
 
                                 //Procesamos su avatar
-                                String client_avatar_base64 = partes.length > 2 ? partes[2] : "";
+                                String client_avatar_base64 = partes[2];
 
                                 try {
 
-                                    if (client_avatar_base64.length() > 0) {
+                                    if (!"*".equals(client_avatar_base64)) {
 
                                         int file_id = Helpers.SPRNG_GENERATOR.nextInt();
 
@@ -1399,8 +1426,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                     Helpers.playWavResource("misc/new_user.wav");
                                 }
 
-                                //Mandamos al cliente su ID
-                                writeCommandFromServer(Helpers.encryptCommand("NICKOK", aes_key, hmac_key), client_socket);
+                                writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1"), aes_key, hmac_key), client_socket);
 
                                 byte[] avatar_bytes = null;
 
@@ -1688,6 +1714,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         sound_icon = new javax.swing.JLabel();
         new_bot_button = new javax.swing.JButton();
         video_chat_button = new javax.swing.JButton();
+        pass_icon = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -1809,6 +1836,9 @@ public class WaitingRoom extends javax.swing.JFrame {
             }
         });
 
+        pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
+        pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -1824,14 +1854,19 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                            .addComponent(status1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(new_bot_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(logo)
-                            .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                            .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(logo)
+                                .addGap(0, 8, Short.MAX_VALUE))
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(pass_icon)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)
-                            .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                            .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 232, Short.MAX_VALUE)
+                            .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, 232, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(avatar_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1854,7 +1889,9 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addGap(18, 18, 18)
                         .addComponent(video_chat_button)
                         .addGap(18, 18, 18)
-                        .addComponent(status1)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(status1)
+                            .addComponent(pass_icon))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                             .addComponent(status)
@@ -2238,6 +2275,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     private javax.swing.JTextField mensaje;
     private javax.swing.JButton new_bot_button;
     private javax.swing.JScrollPane panel_conectados;
+    private javax.swing.JLabel pass_icon;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel status;
     private javax.swing.JLabel status1;

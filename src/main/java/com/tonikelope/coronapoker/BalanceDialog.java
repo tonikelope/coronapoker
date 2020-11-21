@@ -32,6 +32,8 @@ public class BalanceDialog extends javax.swing.JDialog {
 
                 initComponents();
 
+                jScrollPane1.getVerticalScrollBar().setUnitIncrement(20);
+
                 synchronized (Game.getInstance().getCrupier().getLock_contabilidad()) {
 
                     for (Map.Entry<String, Float[]> entry : Game.getInstance().getCrupier().getAuditor().entrySet()) {
@@ -54,31 +56,33 @@ public class BalanceDialog extends javax.swing.JDialog {
                             ganancia_msg += Translator.translate("NI GANA NI PIERDE");
                         }
 
+                        label.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+
                         label.setText(entry.getKey() + " " + ganancia_msg);
 
                         label.setFont(label.getFont().deriveFont(Font.BOLD, Math.round(label.getFont().getSize() * 1.5f)));
 
-                        Participant p = Game.getInstance().getParticipantes().get(entry.getValue());
+                        if (entry.getKey().equals(Game.getInstance().getLocalPlayer().getNickname())) {
+                            label.setBackground(Color.WHITE);
+                            label.setOpaque(true);
+                        }
+
+                        Participant p = Game.getInstance().getParticipantes().get(entry.getKey());
 
                         if (p != null) {
                             if (p.getAvatar() != null) {
-                                label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
                                 label.setIcon(new ImageIcon(new ImageIcon(p.getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
                             } else if (Game.getInstance().isPartida_local() && p.isCpu()) {
-                                label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
                                 label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
                             } else {
-                                label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
                                 label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
                             }
 
                         } else {
 
                             if (Game.getInstance().getSala_espera().getAvatar() != null) {
-                                label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
                                 label.setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
                             } else {
-                                label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
                                 label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
                             }
 
@@ -87,6 +91,8 @@ public class BalanceDialog extends javax.swing.JDialog {
                         jugadores.add(label);
                     }
                 }
+
+                setPreferredSize(new Dimension(getWidth(), Math.round(0.6f * getParent().getHeight())));
 
                 Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
 
@@ -108,27 +114,34 @@ public class BalanceDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         title = new javax.swing.JLabel();
+        jScrollPane1 = new javax.swing.JScrollPane();
         jugadores = new javax.swing.JPanel();
         ok_button = new javax.swing.JButton();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setFocusable(false);
         setUndecorated(true);
 
-        title.setBackground(new java.awt.Color(255, 255, 255));
+        title.setBackground(new java.awt.Color(102, 102, 102));
         title.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        title.setForeground(new java.awt.Color(255, 255, 255));
         title.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         title.setText("LA TIMBA HA TERMINADO");
-        title.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        title.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         title.setOpaque(true);
 
-        jugadores.setBackground(new java.awt.Color(255, 255, 255));
-        jugadores.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        jugadores.setLayout(new javax.swing.BoxLayout(jugadores, javax.swing.BoxLayout.Y_AXIS));
+        jScrollPane1.setBorder(null);
 
+        jugadores.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        jugadores.setLayout(new java.awt.GridLayout(0, 1));
+        jScrollPane1.setViewportView(jugadores);
+
+        ok_button.setBackground(new java.awt.Color(153, 255, 153));
         ok_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         ok_button.setText("OK");
-        ok_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        ok_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         ok_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        ok_button.setFocusable(false);
         ok_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 ok_buttonActionPerformed(evt);
@@ -139,8 +152,8 @@ public class BalanceDialog extends javax.swing.JDialog {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, 369, Short.MAX_VALUE)
-            .addComponent(jugadores, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, 411, Short.MAX_VALUE)
+            .addComponent(jScrollPane1)
             .addComponent(ok_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
@@ -148,7 +161,7 @@ public class BalanceDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addComponent(title)
                 .addGap(0, 0, 0)
-                .addComponent(jugadores, javax.swing.GroupLayout.DEFAULT_SIZE, 216, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 249, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
                 .addComponent(ok_button)
                 .addGap(0, 0, 0))
@@ -162,49 +175,8 @@ public class BalanceDialog extends javax.swing.JDialog {
         dispose();
     }//GEN-LAST:event_ok_buttonActionPerformed
 
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(BalanceDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(BalanceDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(BalanceDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(BalanceDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-
-        /* Create and display the dialog */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                BalanceDialog dialog = new BalanceDialog(new javax.swing.JFrame(), true);
-                dialog.addWindowListener(new java.awt.event.WindowAdapter() {
-                    @Override
-                    public void windowClosing(java.awt.event.WindowEvent e) {
-                        System.exit(0);
-                    }
-                });
-                dialog.setVisible(true);
-            }
-        });
-    }
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JPanel jugadores;
     private javax.swing.JButton ok_button;
     private javax.swing.JLabel title;

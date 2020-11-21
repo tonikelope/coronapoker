@@ -46,15 +46,22 @@
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="status" max="32767" attributes="0"/>
                           </Group>
-                          <Component id="status1" alignment="1" max="32767" attributes="0"/>
                           <Component id="new_bot_button" alignment="1" max="32767" attributes="0"/>
-                          <Component id="logo" min="-2" max="-2" attributes="0"/>
                           <Component id="video_chat_button" max="32767" attributes="0"/>
+                          <Group type="102" attributes="0">
+                              <Component id="logo" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace min="0" pref="8" max="32767" attributes="0"/>
+                          </Group>
+                          <Group type="102" alignment="0" attributes="0">
+                              <Component id="pass_icon" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace max="-2" attributes="0"/>
+                              <Component id="status1" max="32767" attributes="0"/>
+                          </Group>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="panel_conectados" pref="212" max="32767" attributes="0"/>
-                          <Component id="kick_user" max="32767" attributes="0"/>
+                          <Component id="panel_conectados" pref="232" max="32767" attributes="0"/>
+                          <Component id="kick_user" pref="232" max="32767" attributes="0"/>
                       </Group>
                   </Group>
                   <Group type="102" alignment="1" attributes="0">
@@ -84,7 +91,10 @@
                       <EmptySpace type="separate" max="-2" attributes="0"/>
                       <Component id="video_chat_button" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
-                      <Component id="status1" min="-2" max="-2" attributes="0"/>
+                      <Group type="103" groupAlignment="1" attributes="0">
+                          <Component id="status1" min="-2" max="-2" attributes="0"/>
+                          <Component id="pass_icon" min="-2" max="-2" attributes="0"/>
+                      </Group>
                       <EmptySpace type="unrelated" max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="1" attributes="0">
                           <Component id="status" min="-2" max="-2" attributes="0"/>
@@ -303,6 +313,16 @@
       <Events>
         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="video_chat_buttonActionPerformed"/>
       </Events>
+    </Component>
+    <Component class="javax.swing.JLabel" name="pass_icon">
+      <Properties>
+        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+          <Image iconType="3" name="/images/lock.png"/>
+        </Property>
+        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+          <Color id="Cursor de Mano"/>
+        </Property>
+      </Properties>
     </Component>
   </SubComponents>
 </Form>

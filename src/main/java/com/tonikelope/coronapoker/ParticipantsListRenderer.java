@@ -27,6 +27,7 @@ public class ParticipantsListRenderer extends JLabel implements ListCellRenderer
 
         if (value instanceof JLabel) {
             this.setText(((JLabel) value).getText());
+            this.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
             this.setIcon(((JLabel) value).getIcon());
             this.setFont(list.getFont());
 

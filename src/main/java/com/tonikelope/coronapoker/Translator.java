@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"PASSWORD INCORRECTA", "BAD PASSWORD"},
             {"LA TIMBA HA TERMINADO", "THE GAME IS OVER"},
             {"ESTA ES LA ÚLTIMA MANO", "THIS IS THE LAST HAND"},
             {"¿PAUSAR AHORA MISMO?", "PAUSE NOW?"},

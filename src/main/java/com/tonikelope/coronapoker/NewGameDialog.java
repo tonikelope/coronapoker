@@ -47,6 +47,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     public final static int DEFAULT_AVATAR_WIDTH = 50;
     public final static int AVATAR_MAX_FILESIZE = 256; //KB
     public final static int MAX_NICK_LENGTH = 20;
+    public final static int MAX_PASS_LENGTH = 30;
     public final static int MAX_PORT_LENGTH = 5;
 
     private volatile boolean dialog_ok = false;
@@ -74,6 +75,15 @@ public class NewGameDialog extends javax.swing.JDialog {
                     @Override
                     public void keyTyped(KeyEvent e) {
                         if (nick.getText().length() >= MAX_NICK_LENGTH && nick.getSelectedText() == null) {
+                            e.consume();
+                        }
+                    }
+                });
+
+                pass_text.addKeyListener(new KeyAdapter() {
+                    @Override
+                    public void keyTyped(KeyEvent e) {
+                        if (pass_text.getPassword().length >= MAX_NICK_LENGTH && pass_text.getSelectedText() == null) {
                             e.consume();
                         }
                     }

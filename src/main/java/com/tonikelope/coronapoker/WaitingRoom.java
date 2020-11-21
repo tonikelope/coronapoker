@@ -1263,113 +1263,124 @@ public class WaitingRoom extends javax.swing.JFrame {
         Helpers.threadRun(new Runnable() {
             public void run() {
 
-                String recibido = "";
+                while (!exit) {
 
-                String[] partes = null;
+                    String recibido = "";
 
-                try {
-                    String[] direccion = server_ip_port.trim().split(":");
+                    String[] partes = null;
 
-                    server_socket = new ServerSocket(Integer.valueOf(direccion[1]));
+                    try {
+                        String[] direccion = server_ip_port.trim().split(":");
 
-                    while (!server_socket.isClosed()) {
+                        server_socket = new ServerSocket(Integer.valueOf(direccion[1]));
 
-                        Socket client_socket = server_socket.accept();
+                        while (!server_socket.isClosed()) {
 
-                        //Leemos los bytes "mágicos"
-                        byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
+                            Socket client_socket = server_socket.accept();
 
-                        client_socket.getInputStream().read(magic);
+                            //Leemos los bytes "mágicos"
+                            byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
 
-                        if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
+                            client_socket.getInputStream().read(magic);
 
-                            /* INICIO INTERCAMBIO DE CLAVES */
-                            DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
+                            if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
 
-                            int length = dIn.readInt();
+                                /* INICIO INTERCAMBIO DE CLAVES */
+                                DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
 
-                            byte[] clientPubKeyEnc = new byte[length];
+                                int length = dIn.readInt();
 
-                            dIn.readFully(clientPubKeyEnc, 0, clientPubKeyEnc.length);
+                                byte[] clientPubKeyEnc = new byte[length];
 
-                            KeyFactory serverKeyFac = KeyFactory.getInstance("EC");
+                                dIn.readFully(clientPubKeyEnc, 0, clientPubKeyEnc.length);
 
-                            X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(clientPubKeyEnc);
+                                KeyFactory serverKeyFac = KeyFactory.getInstance("EC");
 
-                            PublicKey clientPubKey = serverKeyFac.generatePublic(x509KeySpec);
+                                X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(clientPubKeyEnc);
 
-                            KeyPairGenerator serverKpairGen = KeyPairGenerator.getInstance("EC");
+                                PublicKey clientPubKey = serverKeyFac.generatePublic(x509KeySpec);
 
-                            serverKpairGen.initialize(EC_KEY_LENGTH);
+                                KeyPairGenerator serverKpairGen = KeyPairGenerator.getInstance("EC");
 
-                            KeyPair serverKpair = serverKpairGen.generateKeyPair();
+                                serverKpairGen.initialize(EC_KEY_LENGTH);
 
-                            KeyAgreement serverKeyAgree = KeyAgreement.getInstance("ECDH");
+                                KeyPair serverKpair = serverKpairGen.generateKeyPair();
 
-                            serverKeyAgree.init(serverKpair.getPrivate());
+                                KeyAgreement serverKeyAgree = KeyAgreement.getInstance("ECDH");
 
-                            byte[] serverPubKeyEnc = serverKpair.getPublic().getEncoded();
+                                serverKeyAgree.init(serverKpair.getPrivate());
 
-                            DataOutputStream dOut = new DataOutputStream(client_socket.getOutputStream());
+                                byte[] serverPubKeyEnc = serverKpair.getPublic().getEncoded();
 
-                            dOut.writeInt(serverPubKeyEnc.length);
+                                DataOutputStream dOut = new DataOutputStream(client_socket.getOutputStream());
 
-                            dOut.write(serverPubKeyEnc);
+                                dOut.writeInt(serverPubKeyEnc.length);
 
-                            serverKeyAgree.doPhase(clientPubKey, true);
+                                dOut.write(serverPubKeyEnc);
 
-                            byte[] serverSharedSecret = serverKeyAgree.generateSecret();
+                                serverKeyAgree.doPhase(clientPubKey, true);
 
-                            byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(serverSharedSecret);
+                                byte[] serverSharedSecret = serverKeyAgree.generateSecret();
 
-                            SecretKeySpec aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
+                                byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(serverSharedSecret);
 
-                            SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
+                                SecretKeySpec aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
 
-                            /* FIN INTERCAMBIO DE CLAVES */
-                            //Leemos el nick del usuario
-                            recibido = readCommandFromClient(client_socket, aes_key, hmac_key);
+                                SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
 
-                            partes = recibido.split("#");
+                                /* FIN INTERCAMBIO DE CLAVES */
+                                //Leemos el nick del usuario
+                                recibido = readCommandFromClient(client_socket, aes_key, hmac_key);
 
-                            String client_nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
+                                partes = recibido.split("#");
 
-                            File client_avatar = null;
+                                String client_nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
 
-                            if (partes.length == 5) {
+                                File client_avatar = null;
 
-                                Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Un supuesto cliente quiere reconectar...");
+                                if (partes.length == 5) {
 
-                                if (participantes.containsKey(client_nick)) {
+                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Un supuesto cliente quiere reconectar...");
 
-                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El cliente existe");
+                                    if (participantes.containsKey(client_nick)) {
 
-                                    Mac old_sha256_HMAC = Mac.getInstance("HmacSHA256");
+                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El cliente existe");
 
-                                    old_sha256_HMAC.init(participantes.get(client_nick).getHmac_key());
+                                        Mac old_sha256_HMAC = Mac.getInstance("HmacSHA256");
 
-                                    byte[] old_hmac = old_sha256_HMAC.doFinal(client_nick.getBytes("UTF-8"));
+                                        old_sha256_HMAC.init(participantes.get(client_nick).getHmac_key());
 
-                                    if (MessageDigest.isEqual(old_hmac, Base64.decodeBase64(partes[4]))) {
+                                        byte[] old_hmac = old_sha256_HMAC.doFinal(client_nick.getBytes("UTF-8"));
 
-                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El HMAC del cliente es auténtico");
+                                        if (MessageDigest.isEqual(old_hmac, Base64.decodeBase64(partes[4]))) {
 
-                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Reseteando el socket del cliente...");
+                                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El HMAC del cliente es auténtico");
 
-                                        //Es un usuario intentado reconectar
-                                        participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key);
+                                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Reseteando el socket del cliente...");
 
-                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
+                                            //Es un usuario intentado reconectar
+                                            participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key);
 
-                                        //Mandamos el chat
-                                        client_socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
+                                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
 
-                                        Helpers.playWavResource("misc/yahoo.wav");
+                                            //Mandamos el chat
+                                            client_socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
 
-                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
+                                            Helpers.playWavResource("misc/yahoo.wav");
+
+                                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
+
+                                        } else {
+                                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR");
+
+                                            try {
+                                                client_socket.close();
+                                            } catch (Exception ex) {
+                                            }
+                                        }
 
                                     } else {
-                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR");
+                                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El usuario " + client_nick + " HA FALLADO AL RECONECTAR su socket.");
 
                                         try {
                                             client_socket.close();
@@ -1377,141 +1388,134 @@ public class WaitingRoom extends javax.swing.JFrame {
                                         }
                                     }
 
+                                } else if (WaitingRoom.isPartida_empezando() || WaitingRoom.isPartida_empezada()) {
+                                    writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
+                                } else if (!partes[1].equals(AboutDialog.VERSION)) {
+                                    writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
+                                } else if (participantes.size() == MAX_PARTICIPANTES) {
+                                    writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
+                                } else if (participantes.containsKey(client_nick)) {
+                                    writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
+                                } else if (password != null && ("*".equals(partes[3]) || !password.equals(new String(Base64.decodeBase64(partes[3]), "UTF-8")))) {
+                                    writeCommandFromServer(Helpers.encryptCommand("BADPASSWORD", aes_key, hmac_key), client_socket);
                                 } else {
-                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "El usuario " + client_nick + " HA FALLADO AL RECONECTAR su socket.");
+
+                                    //Procesamos su avatar
+                                    String client_avatar_base64 = partes[2];
 
                                     try {
-                                        client_socket.close();
+
+                                        if (!"*".equals(client_avatar_base64)) {
+
+                                            int file_id = Helpers.SPRNG_GENERATOR.nextInt();
+
+                                            if (file_id < 0) {
+                                                file_id *= -1;
+                                            }
+                                            client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + client_nick + "_avatar" + String.valueOf(file_id));
+
+                                            FileOutputStream os = new FileOutputStream(client_avatar);
+
+                                            os.write(Base64.decodeBase64(client_avatar_base64));
+
+                                            os.close();
+                                        }
                                     } catch (Exception ex) {
+                                        client_avatar = null;
                                     }
+
+                                    if (!WaitingRoom.isPartida_empezada()) {
+                                        Helpers.playWavResource("misc/new_user.wav");
+                                    }
+
+                                    writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1"), aes_key, hmac_key), client_socket);
+
+                                    byte[] avatar_bytes = null;
+
+                                    if (local_avatar != null && local_avatar.length() > 0) {
+
+                                        try (FileInputStream is = new FileInputStream(local_avatar)) {
+                                            avatar_bytes = is.readAllBytes();
+                                        }
+                                    }
+
+                                    //Mandamos nuestro nick + avatar
+                                    writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : ""), aes_key, hmac_key), client_socket);
+
+                                    //Mandamos el contenido del chat
+                                    writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
+
+                                    //Mandamos el link del videochat
+                                    writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String((getVideo_chat_link() != null ? getVideo_chat_link() : "---").getBytes("UTF-8")), aes_key, hmac_key), client_socket);
+
+                                    //Añadimos al participante
+                                    nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false);
+
+                                    //Mandamos la lista de participantes actuales al nuevo participante
+                                    if (participantes.size() > 2) {
+                                        enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
+                                    }
+
+                                    //Mandamos el nuevo participante al resto de participantes
+                                    String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
+
+                                    if (client_avatar != null) {
+
+                                        byte[] avatar_b;
+
+                                        try (FileInputStream is = new FileInputStream(client_avatar)) {
+                                            avatar_b = is.readAllBytes();
+                                        }
+
+                                        comando += "#" + Base64.encodeBase64String(avatar_b);
+                                    }
+
+                                    broadcastGAMECommandFromServer(comando, participantes.get(client_nick));
+
+                                    Helpers.GUIRun(new Runnable() {
+                                        public void run() {
+                                            empezar_timba.setEnabled(true);
+                                            kick_user.setEnabled(true);
+                                            new_bot_button.setEnabled(participantes.size() < WaitingRoom.MAX_PARTICIPANTES);
+                                        }
+                                    });
                                 }
 
-                            } else if (WaitingRoom.isPartida_empezando() || WaitingRoom.isPartida_empezada()) {
-                                writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
-                            } else if (!partes[1].equals(AboutDialog.VERSION)) {
-                                writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
-                            } else if (participantes.size() == MAX_PARTICIPANTES) {
-                                writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
-                            } else if (participantes.containsKey(client_nick)) {
-                                writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
-                            } else if (password != null && ("*".equals(partes[3]) || !password.equals(new String(Base64.decodeBase64(partes[3]), "UTF-8")))) {
-                                writeCommandFromServer(Helpers.encryptCommand("BADPASSWORD", aes_key, hmac_key), client_socket);
                             } else {
 
-                                //Procesamos su avatar
-                                String client_avatar_base64 = partes[2];
-
                                 try {
-
-                                    if (!"*".equals(client_avatar_base64)) {
-
-                                        int file_id = Helpers.SPRNG_GENERATOR.nextInt();
-
-                                        if (file_id < 0) {
-                                            file_id *= -1;
-                                        }
-                                        client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + client_nick + "_avatar" + String.valueOf(file_id));
-
-                                        FileOutputStream os = new FileOutputStream(client_avatar);
-
-                                        os.write(Base64.decodeBase64(client_avatar_base64));
-
-                                        os.close();
-                                    }
-                                } catch (Exception ex) {
-                                    client_avatar = null;
+                                    client_socket.close();
+                                } catch (Exception e) {
                                 }
-
-                                if (!WaitingRoom.isPartida_empezada()) {
-                                    Helpers.playWavResource("misc/new_user.wav");
-                                }
-
-                                writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1"), aes_key, hmac_key), client_socket);
-
-                                byte[] avatar_bytes = null;
-
-                                if (local_avatar != null && local_avatar.length() > 0) {
-
-                                    try (FileInputStream is = new FileInputStream(local_avatar)) {
-                                        avatar_bytes = is.readAllBytes();
-                                    }
-                                }
-
-                                //Mandamos nuestro nick + avatar
-                                writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : ""), aes_key, hmac_key), client_socket);
-
-                                //Mandamos el contenido del chat
-                                writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
-
-                                //Mandamos el link del videochat
-                                writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String((getVideo_chat_link() != null ? getVideo_chat_link() : "---").getBytes("UTF-8")), aes_key, hmac_key), client_socket);
-
-                                //Añadimos al participante
-                                nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false);
-
-                                //Mandamos la lista de participantes actuales al nuevo participante
-                                if (participantes.size() > 2) {
-                                    enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
-                                }
-
-                                //Mandamos el nuevo participante al resto de participantes
-                                String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
-
-                                if (client_avatar != null) {
-
-                                    byte[] avatar_b;
-
-                                    try (FileInputStream is = new FileInputStream(client_avatar)) {
-                                        avatar_b = is.readAllBytes();
-                                    }
-
-                                    comando += "#" + Base64.encodeBase64String(avatar_b);
-                                }
-
-                                broadcastGAMECommandFromServer(comando, participantes.get(client_nick));
-
-                                Helpers.GUIRun(new Runnable() {
-                                    public void run() {
-                                        empezar_timba.setEnabled(true);
-                                        kick_user.setEnabled(true);
-                                        new_bot_button.setEnabled(participantes.size() < WaitingRoom.MAX_PARTICIPANTES);
-                                    }
-                                });
                             }
 
-                        } else {
-
-                            try {
-                                client_socket.close();
-                            } catch (Exception e) {
-                            }
                         }
 
+                    } catch (IOException ex) {
+
+                        if (server_socket == null) {
+
+                            exit = true;
+
+                            Helpers.mostrarMensajeError(tthis, "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
+                        }
+
+                    } catch (Exception ex) {
+                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
-                } catch (IOException ex) {
-                    //Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                    if (exit) {
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
 
-                    if (server_socket == null) {
+                                ventana_inicio.setVisible(true);
 
-                        Helpers.mostrarMensajeError(tthis, "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
+                                dispose();
+
+                            }
+                        });
                     }
-                } catch (Exception ex) {
-                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-                    Helpers.mostrarMensajeError(tthis, "ERROR INESPERADO");
-                    System.exit(1);
                 }
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-
-                        ventana_inicio.setVisible(true);
-
-                        dispose();
-
-                    }
-                });
-
             }
         });
     }

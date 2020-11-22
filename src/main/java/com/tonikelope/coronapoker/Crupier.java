@@ -2677,48 +2677,49 @@ public class Crupier implements Runnable {
 
         boolean timeout = false;
 
-        while (!pending.isEmpty() && !timeout) {
+        ArrayList<Object[]> rejected = new ArrayList<>();
 
-            ArrayList<Object[]> rejected = new ArrayList<>();
+        while (!pending.isEmpty() && !timeout) {
 
             Object[] confirmation;
 
-            while (!WaitingRoom.getInstance().getReceived_confirmations().isEmpty()) {
+            synchronized (WaitingRoom.getInstance().getReceived_confirmations()) {
 
-                confirmation = WaitingRoom.getInstance().getReceived_confirmations().poll();
+                while (!WaitingRoom.getInstance().getReceived_confirmations().isEmpty()) {
 
-                if ((int) confirmation[1] == id + 1) {
+                    confirmation = WaitingRoom.getInstance().getReceived_confirmations().poll();
 
-                    pending.remove(confirmation[0]);
+                    if (confirmation != null && confirmation[0] != null && confirmation[1] != null && (int) confirmation[1] == id + 1) {
 
-                    if (nick2player.containsKey(confirmation[0])) {
+                        pending.remove((String) confirmation[0]);
 
-                        nick2player.get(confirmation[0]).setTimeout(false);
+                        if (nick2player.containsKey(confirmation[0])) {
 
+                            nick2player.get(confirmation[0]).setTimeout(false);
+
+                        }
+
+                    } else if (confirmation != null && confirmation[0] != null && confirmation[1] != null) {
+                        rejected.add(confirmation);
                     }
-
-                } else {
-                    rejected.add(confirmation);
                 }
-            }
 
-            if (!rejected.isEmpty()) {
-                WaitingRoom.getInstance().getReceived_confirmations().addAll(rejected);
-                rejected.clear();
-            }
+                if (!rejected.isEmpty()) {
+                    WaitingRoom.getInstance().getReceived_confirmations().addAll(rejected);
+                    rejected.clear();
+                }
 
-            if (System.currentTimeMillis() - start_time > Game.CONFIRMATION_TIMEOUT) {
-                timeout = true;
-            } else if (!pending.isEmpty()) {
+                if (System.currentTimeMillis() - start_time > Game.CONFIRMATION_TIMEOUT) {
+                    timeout = true;
+                } else if (!pending.isEmpty()) {
 
-                synchronized (WaitingRoom.getInstance().getReceived_confirmations()) {
                     try {
                         WaitingRoom.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                }
 
+                }
             }
 
         }

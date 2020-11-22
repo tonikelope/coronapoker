@@ -225,7 +225,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         });
 
         server_port_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        server_port_textfield.setText("72345");
         server_port_textfield.setDoubleBuffered(true);
 
         server_ip_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N

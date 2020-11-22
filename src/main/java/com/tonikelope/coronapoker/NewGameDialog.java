@@ -83,7 +83,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 pass_text.addKeyListener(new KeyAdapter() {
                     @Override
                     public void keyTyped(KeyEvent e) {
-                        if (pass_text.getPassword().length >= MAX_NICK_LENGTH && pass_text.getSelectedText() == null) {
+                        if (pass_text.getPassword().length >= MAX_PASS_LENGTH && pass_text.getSelectedText() == null) {
                             e.consume();
                         }
                     }

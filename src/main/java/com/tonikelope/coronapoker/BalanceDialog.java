@@ -111,9 +111,11 @@ public class BalanceDialog extends javax.swing.JDialog {
                         jugadores.add((JLabel) o[1]);
                     }
 
+                    pack();
+
                 }
 
-                setPreferredSize(new Dimension(Math.max(getWidth(), width), Math.round(0.6f * getParent().getHeight())));
+                setPreferredSize(new Dimension(jugadores.getWidth(), Math.round(0.6f * getParent().getHeight())));
 
                 Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
 

@@ -9,6 +9,9 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Image;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Map;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
@@ -34,6 +37,10 @@ public class BalanceDialog extends javax.swing.JDialog {
 
                 jScrollPane1.getVerticalScrollBar().setUnitIncrement(20);
 
+                int width = 0;
+
+                ArrayList<Object[]> ranking = new ArrayList<>();
+
                 synchronized (Game.getInstance().getCrupier().getLock_contabilidad()) {
 
                     for (Map.Entry<String, Float[]> entry : Game.getInstance().getCrupier().getAuditor().entrySet()) {
@@ -51,7 +58,7 @@ public class BalanceDialog extends javax.swing.JDialog {
                             label.setForeground(Color.RED);
                         } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
                             ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
-                            label.setForeground(new Color(0, 190, 0));
+                            label.setForeground(new Color(0, 150, 0));
                         } else {
                             ganancia_msg += Translator.translate("NI GANA NI PIERDE");
                         }
@@ -88,11 +95,25 @@ public class BalanceDialog extends javax.swing.JDialog {
 
                         }
 
-                        jugadores.add(label);
+                        ranking.add(new Object[]{ganancia, label});
+
+                        if (label.getWidth() > width) {
+                            width = label.getWidth();
+                        }
                     }
+
+                    Collections.sort(ranking, new RankingComparator());
+
+                    Collections.reverse(ranking);
+
+                    for (Object[] o : ranking) {
+
+                        jugadores.add((JLabel) o[1]);
+                    }
+
                 }
 
-                setPreferredSize(new Dimension(getWidth(), Math.round(0.6f * getParent().getHeight())));
+                setPreferredSize(new Dimension(Math.max(getWidth(), width), Math.round(0.6f * getParent().getHeight())));
 
                 Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
 
@@ -102,6 +123,15 @@ public class BalanceDialog extends javax.swing.JDialog {
 
             }
         });
+    }
+
+    static class RankingComparator implements Comparator<Object[]> {
+
+        @Override
+        public int compare(Object[] t, Object[] t1) {
+
+            return Float.compare((float) t[0], (float) t1[0]);
+        }
     }
 
     /**
@@ -136,7 +166,7 @@ public class BalanceDialog extends javax.swing.JDialog {
         jugadores.setLayout(new java.awt.GridLayout(0, 1));
         jScrollPane1.setViewportView(jugadores);
 
-        ok_button.setBackground(new java.awt.Color(0, 190, 0));
+        ok_button.setBackground(new java.awt.Color(0, 150, 0));
         ok_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         ok_button.setForeground(new java.awt.Color(255, 255, 255));
         ok_button.setText("OK");

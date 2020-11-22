@@ -265,53 +265,46 @@ public class Participant implements Runnable {
 
         boolean timeout = false;
 
-        while (!exit && !pending.isEmpty() && !timeout) {
+        ArrayList<Object[]> rejected = new ArrayList<>();
 
-            ArrayList<Object[]> rejected = new ArrayList<>();
+        while (!exit && !pending.isEmpty() && !timeout) {
 
             Object[] confirmation;
 
-            while (!exit && !WaitingRoom.getInstance().getReceived_confirmations().isEmpty()) {
+            synchronized (WaitingRoom.getInstance().getReceived_confirmations()) {
 
-                confirmation = WaitingRoom.getInstance().getReceived_confirmations().poll();
+                while (!exit && !WaitingRoom.getInstance().getReceived_confirmations().isEmpty()) {
 
-                if (confirmation != null) {
-                    try {
+                    confirmation = WaitingRoom.getInstance().getReceived_confirmations().poll();
+
+                    if (confirmation != null && confirmation[0] != null && confirmation[1] != null) {
 
                         if ((int) confirmation[1] == id + 1) {
-
-                            pending.remove(confirmation[0]);
-
+                            pending.remove((String) confirmation[0]);
                         } else {
-
                             rejected.add(confirmation);
-
                         }
-
-                    } catch (Exception ex) {
                     }
                 }
-            }
 
-            if (!exit) {
+                if (!exit) {
 
-                if (!rejected.isEmpty()) {
-                    WaitingRoom.getInstance().getReceived_confirmations().addAll(rejected);
-                    rejected.clear();
-                }
+                    if (!rejected.isEmpty()) {
+                        WaitingRoom.getInstance().getReceived_confirmations().addAll(rejected);
+                        rejected.clear();
+                    }
 
-                if (System.currentTimeMillis() - start_time > Game.CONFIRMATION_TIMEOUT) {
-                    timeout = true;
-                } else if (!pending.isEmpty()) {
+                    if (System.currentTimeMillis() - start_time > Game.CONFIRMATION_TIMEOUT) {
+                        timeout = true;
+                    } else if (!pending.isEmpty()) {
 
-                    synchronized (WaitingRoom.getInstance().getReceived_confirmations()) {
                         try {
                             WaitingRoom.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
                             Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    }
 
+                    }
                 }
             }
 

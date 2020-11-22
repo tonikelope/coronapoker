@@ -51,7 +51,7 @@ public class BalanceDialog extends javax.swing.JDialog {
                             label.setForeground(Color.RED);
                         } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
                             ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
-                            label.setForeground(new Color(51, 153, 0));
+                            label.setForeground(new Color(0, 190, 0));
                         } else {
                             ganancia_msg += Translator.translate("NI GANA NI PIERDE");
                         }
@@ -136,8 +136,9 @@ public class BalanceDialog extends javax.swing.JDialog {
         jugadores.setLayout(new java.awt.GridLayout(0, 1));
         jScrollPane1.setViewportView(jugadores);
 
-        ok_button.setBackground(new java.awt.Color(153, 255, 153));
+        ok_button.setBackground(new java.awt.Color(0, 190, 0));
         ok_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        ok_button.setForeground(new java.awt.Color(255, 255, 255));
         ok_button.setText("OK");
         ok_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         ok_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));

@@ -67,6 +67,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -99,6 +101,9 @@ import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 import javax.swing.undo.UndoManager;
 import javax.xml.bind.DatatypeConverter;
 import javax.xml.parsers.DocumentBuilder;
@@ -153,6 +158,50 @@ public class Helpers {
     public volatile static boolean MUTED = false;
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
+
+    public static class maxLenghtFilter extends DocumentFilter {
+
+        private int max_lenght;
+        private JTextField textfield;
+
+        public maxLenghtFilter(JTextField field, int max_lenght) {
+            super();
+
+            this.textfield = field;
+            this.max_lenght = max_lenght;
+        }
+
+        @Override
+        public void replace(DocumentFilter.FilterBypass fb, int offs, int length, String str, AttributeSet a) throws BadLocationException {
+
+            if ((max_lenght == -1 || (textfield.getSelectedText() == null && (fb.getDocument().getLength() + str.length()) <= max_lenght) || (textfield.getSelectedText() != null && str.length() <= max_lenght))) {
+                super.replace(fb, offs, length, str, a);
+            }
+        }
+    }
+
+    public static class numericFilter extends DocumentFilter {
+
+        private int max_lenght;
+        private Pattern regEx = Pattern.compile("[0-9]+");
+        private JTextField textfield;
+
+        public numericFilter(JTextField field, int max_lenght) {
+            super();
+            this.textfield = field;
+            this.max_lenght = max_lenght;
+        }
+
+        @Override
+        public void replace(DocumentFilter.FilterBypass fb, int offs, int length, String str, AttributeSet a) throws BadLocationException {
+
+            Matcher matcher = regEx.matcher(str);
+
+            if ((max_lenght == -1 || (textfield.getSelectedText() == null && (fb.getDocument().getLength() + str.length()) <= max_lenght) || (textfield.getSelectedText() != null && str.length() <= max_lenght)) && matcher.matches()) {
+                super.replace(fb, offs, length, str, a);
+            }
+        }
+    }
 
     public static String encryptCommand(String command, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
 

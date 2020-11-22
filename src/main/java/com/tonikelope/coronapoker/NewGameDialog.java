@@ -19,8 +19,6 @@ package com.tonikelope.coronapoker;
 import com.tonikelope.coronapoker.Helpers.JTextFieldRegularPopupMenu;
 import java.awt.Dimension;
 import java.awt.Image;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,8 +31,11 @@ import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JSpinner.DefaultEditor;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.text.AbstractDocument;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -73,39 +74,42 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 password.setEnabled(false);
 
-                nick.addKeyListener(new KeyAdapter() {
-                    @Override
-                    public void keyTyped(KeyEvent e) {
-                        if (nick.getText().length() >= MAX_NICK_LENGTH && nick.getSelectedText() == null) {
-                            e.consume();
-                        }
-                    }
-                });
+                class VamosButtonListener implements DocumentListener {
 
-                pass_text.addKeyListener(new KeyAdapter() {
-                    @Override
-                    public void keyTyped(KeyEvent e) {
-                        if (pass_text.getPassword().length >= MAX_PASS_LENGTH && pass_text.getSelectedText() == null) {
-                            e.consume();
-                        }
+                    public void changedUpdate(DocumentEvent e) {
+                        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+                        password.setEnabled(pass_text.getPassword().length > 0);
                     }
-                });
 
-                server_port_textfield.addKeyListener(new KeyAdapter() {
-                    @Override
-                    public void keyTyped(KeyEvent e) {
-                        if (e.getKeyChar() < '0' || e.getKeyChar() > '9' || (server_port_textfield.getText().length() >= MAX_PORT_LENGTH && server_port_textfield.getSelectedText() == null)) {
-                            e.consume();
-                        }
+                    public void insertUpdate(DocumentEvent e) {
+                        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+                        password.setEnabled(pass_text.getPassword().length > 0);
                     }
-                });
+
+                    public void removeUpdate(DocumentEvent e) {
+                        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+                        password.setEnabled(pass_text.getPassword().length > 0);
+                    }
+                }
 
                 partida_local = loc;
 
                 JTextFieldRegularPopupMenu.addTo(server_ip_textfield);
+                server_ip_textfield.getDocument().addDocumentListener(new VamosButtonListener());
+
                 JTextFieldRegularPopupMenu.addTo(server_port_textfield);
+                server_port_textfield.getDocument().addDocumentListener(new VamosButtonListener());
+                ((AbstractDocument) server_port_textfield.getDocument()).setDocumentFilter(new Helpers.numericFilter(server_port_textfield, MAX_PORT_LENGTH));
+
                 JTextFieldRegularPopupMenu.addTo(randomorg_apikey);
+
                 JTextFieldRegularPopupMenu.addTo(nick);
+                nick.getDocument().addDocumentListener(new VamosButtonListener());
+                ((AbstractDocument) nick.getDocument()).setDocumentFilter(new Helpers.maxLenghtFilter(nick, MAX_NICK_LENGTH));
+
+                JTextFieldRegularPopupMenu.addTo(pass_text);
+                pass_text.getDocument().addDocumentListener(new VamosButtonListener());
+                ((AbstractDocument) pass_text.getDocument()).setDocumentFilter(new Helpers.maxLenghtFilter(pass_text, MAX_PASS_LENGTH));
 
                 String elnick = Helpers.PROPERTIES.getProperty("nick", "");
 
@@ -223,21 +227,11 @@ public class NewGameDialog extends javax.swing.JDialog {
         server_port_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_port_textfield.setText("72345");
         server_port_textfield.setDoubleBuffered(true);
-        server_port_textfield.addKeyListener(new java.awt.event.KeyAdapter() {
-            public void keyReleased(java.awt.event.KeyEvent evt) {
-                server_port_textfieldKeyReleased(evt);
-            }
-        });
 
         server_ip_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_ip_textfield.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
         server_ip_textfield.setText("localhost");
         server_ip_textfield.setDoubleBuffered(true);
-        server_ip_textfield.addKeyListener(new java.awt.event.KeyAdapter() {
-            public void keyReleased(java.awt.event.KeyEvent evt) {
-                server_ip_textfieldKeyReleased(evt);
-            }
-        });
 
         jLabel2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel2.setText(":");
@@ -406,11 +400,6 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         nick.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         nick.setDoubleBuffered(true);
-        nick.addKeyListener(new java.awt.event.KeyAdapter() {
-            public void keyReleased(java.awt.event.KeyEvent evt) {
-                nickKeyReleased(evt);
-            }
-        });
 
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         jLabel1.setText("Nick:");
@@ -430,11 +419,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         password.setDoubleBuffered(true);
 
         pass_text.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        pass_text.addKeyListener(new java.awt.event.KeyAdapter() {
-            public void keyReleased(java.awt.event.KeyEvent evt) {
-                pass_textKeyReleased(evt);
-            }
-        });
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -706,26 +690,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
-
-    private void pass_textKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_pass_textKeyReleased
-        // TODO add your handling code here:
-        password.setEnabled(pass_text.getPassword().length > 0);
-    }//GEN-LAST:event_pass_textKeyReleased
-
-    private void nickKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_nickKeyReleased
-        // TODO add your handling code here:
-        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
-    }//GEN-LAST:event_nickKeyReleased
-
-    private void server_ip_textfieldKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_server_ip_textfieldKeyReleased
-        // TODO add your handling code here:
-        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
-    }//GEN-LAST:event_server_ip_textfieldKeyReleased
-
-    private void server_port_textfieldKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_server_port_textfieldKeyReleased
-        // TODO add your handling code here:
-        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
-    }//GEN-LAST:event_server_port_textfieldKeyReleased
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;

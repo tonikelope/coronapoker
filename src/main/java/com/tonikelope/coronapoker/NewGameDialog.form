@@ -94,6 +94,9 @@
         <Property name="text" type="java.lang.String" value="72345"/>
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
+      <Events>
+        <EventHandler event="keyReleased" listener="java.awt.event.KeyListener" parameters="java.awt.event.KeyEvent" handler="server_port_textfieldKeyReleased"/>
+      </Events>
     </Component>
     <Component class="javax.swing.JTextField" name="server_ip_textfield">
       <Properties>
@@ -104,6 +107,9 @@
         <Property name="text" type="java.lang.String" value="localhost"/>
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
+      <Events>
+        <EventHandler event="keyReleased" listener="java.awt.event.KeyListener" parameters="java.awt.event.KeyEvent" handler="server_ip_textfieldKeyReleased"/>
+      </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="jLabel2">
       <Properties>
@@ -448,6 +454,9 @@
             </Property>
             <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
+          <Events>
+            <EventHandler event="keyReleased" listener="java.awt.event.KeyListener" parameters="java.awt.event.KeyEvent" handler="nickKeyReleased"/>
+          </Events>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel1">
           <Properties>

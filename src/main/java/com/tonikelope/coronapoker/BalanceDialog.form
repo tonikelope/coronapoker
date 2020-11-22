@@ -3,7 +3,6 @@
 <Form version="1.3" maxVersion="1.9" type="org.netbeans.modules.form.forminfo.JDialogFormInfo">
   <Properties>
     <Property name="defaultCloseOperation" type="int" value="2"/>
-    <Property name="focusable" type="boolean" value="false"/>
     <Property name="undecorated" type="boolean" value="true"/>
   </Properties>
   <SyntheticProperties>
@@ -62,6 +61,8 @@
             <EmptyBorder bottom="10" left="10" right="10" top="10"/>
           </Border>
         </Property>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
+        <Property name="focusable" type="boolean" value="false"/>
         <Property name="opaque" type="boolean" value="true"/>
       </Properties>
     </Component>
@@ -81,6 +82,7 @@
                 <EmptyBorder bottom="5" left="5" right="5" top="5"/>
               </Border>
             </Property>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
 
           <Layout class="org.netbeans.modules.form.compat2.layouts.DesignGridLayout">
@@ -110,7 +112,7 @@
         <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
           <Color id="Cursor de Mano"/>
         </Property>
-        <Property name="focusable" type="boolean" value="false"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
       <Events>
         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="ok_buttonActionPerformed"/>

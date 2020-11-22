@@ -151,7 +151,6 @@ public class BalanceDialog extends javax.swing.JDialog {
         ok_button = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-        setFocusable(false);
         setUndecorated(true);
 
         title.setBackground(new java.awt.Color(102, 102, 102));
@@ -160,11 +159,14 @@ public class BalanceDialog extends javax.swing.JDialog {
         title.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         title.setText("LA TIMBA HA TERMINADO");
         title.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        title.setDoubleBuffered(true);
+        title.setFocusable(false);
         title.setOpaque(true);
 
         jScrollPane1.setBorder(null);
 
         jugadores.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        jugadores.setFocusable(false);
         jugadores.setLayout(new java.awt.GridLayout(0, 1));
         jScrollPane1.setViewportView(jugadores);
 
@@ -174,7 +176,7 @@ public class BalanceDialog extends javax.swing.JDialog {
         ok_button.setText("OK");
         ok_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         ok_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        ok_button.setFocusable(false);
+        ok_button.setDoubleBuffered(true);
         ok_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 ok_buttonActionPerformed(evt);

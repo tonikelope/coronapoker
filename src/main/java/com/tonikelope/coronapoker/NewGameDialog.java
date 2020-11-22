@@ -223,11 +223,21 @@ public class NewGameDialog extends javax.swing.JDialog {
         server_port_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_port_textfield.setText("72345");
         server_port_textfield.setDoubleBuffered(true);
+        server_port_textfield.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                server_port_textfieldKeyReleased(evt);
+            }
+        });
 
         server_ip_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_ip_textfield.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
         server_ip_textfield.setText("localhost");
         server_ip_textfield.setDoubleBuffered(true);
+        server_ip_textfield.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                server_ip_textfieldKeyReleased(evt);
+            }
+        });
 
         jLabel2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel2.setText(":");
@@ -396,6 +406,11 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         nick.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         nick.setDoubleBuffered(true);
+        nick.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                nickKeyReleased(evt);
+            }
+        });
 
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         jLabel1.setText("Nick:");
@@ -694,10 +709,23 @@ public class NewGameDialog extends javax.swing.JDialog {
 
     private void pass_textKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_pass_textKeyReleased
         // TODO add your handling code here:
-
         password.setEnabled(pass_text.getPassword().length > 0);
-
     }//GEN-LAST:event_pass_textKeyReleased
+
+    private void nickKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_nickKeyReleased
+        // TODO add your handling code here:
+        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+    }//GEN-LAST:event_nickKeyReleased
+
+    private void server_ip_textfieldKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_server_ip_textfieldKeyReleased
+        // TODO add your handling code here:
+        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+    }//GEN-LAST:event_server_ip_textfieldKeyReleased
+
+    private void server_port_textfieldKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_server_port_textfieldKeyReleased
+        // TODO add your handling code here:
+        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+    }//GEN-LAST:event_server_port_textfieldKeyReleased
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;

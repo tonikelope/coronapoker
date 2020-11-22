@@ -71,6 +71,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 initComponents();
 
+                password.setEnabled(false);
+
                 nick.addKeyListener(new KeyAdapter() {
                     @Override
                     public void keyTyped(KeyEvent e) {
@@ -413,6 +415,11 @@ public class NewGameDialog extends javax.swing.JDialog {
         password.setDoubleBuffered(true);
 
         pass_text.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        pass_text.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                pass_textKeyReleased(evt);
+            }
+        });
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -684,6 +691,13 @@ public class NewGameDialog extends javax.swing.JDialog {
         ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
+
+    private void pass_textKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_pass_textKeyReleased
+        // TODO add your handling code here:
+
+        password.setEnabled(pass_text.getPassword().length > 0);
+
+    }//GEN-LAST:event_pass_textKeyReleased
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;

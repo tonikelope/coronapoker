@@ -98,6 +98,10 @@ public class WaitingRoom extends javax.swing.JFrame {
     private volatile int pong;
     private volatile String video_chat_link = null;
 
+    public Map<String, Participant> getParticipantes() {
+        return participantes;
+    }
+
     public static String getPassword() {
         return password;
     }
@@ -1127,7 +1131,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                             try {
                                                                 //Inicializamos partida
-                                                                new Game(participantes, tthis, local_nick, false);
+                                                                new Game(tthis, local_nick, false);
 
                                                             } catch (ClassCastException ex) {
                                                                 ok = false;
@@ -2061,7 +2065,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                             try {
                                 //Inicializamos partida
-                                new Game(participantes, tthis, local_nick, true);
+                                new Game(tthis, local_nick, true);
 
                             } catch (ClassCastException ex) {
                                 ok = false;

@@ -23,6 +23,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.AbstractAction;
@@ -100,7 +101,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private final Object lock_pause = new Object();
     private final Object lock_fin = new Object();
     private final ArrayList<Player> jugadores;
-    private final Map<String, Participant> participantes;
+    private final ConcurrentHashMap<String, String> nick2avatar = new ConcurrentHashMap<>();
     private final Crupier crupier;
     private final boolean partida_local;
     private final String nick_local;
@@ -218,6 +219,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 });
             }
         });
+    }
+
+    public ConcurrentHashMap<String, String> getNick2avatar() {
+        return nick2avatar;
     }
 
     public JCheckBoxMenuItem getMenu_cinematicas() {
@@ -805,7 +810,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     }
 
     public Map<String, Participant> getParticipantes() {
-        return participantes;
+        return this.sala_espera.getParticipantes();
     }
 
     public static float getZOOM_STEP() {
@@ -1122,19 +1127,17 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     /**
      * Creates new form CoronaMainView
      */
-    public Game(Map<String, Participant> parts, WaitingRoom salaespera, String nicklocal, boolean partidalocal) {
+    public Game(WaitingRoom salaespera, String nicklocal, boolean partidalocal) {
 
         THIS = this;
 
-        participantes = parts;
-
-        tapete = TablePanelFactory.getPanel(participantes.size());
-
-        sala_espera = salaespera;
+        sala_espera = salaespera; //Esto aquí arriba para que no pete getParticipantes()
 
         nick_local = nicklocal;
 
         partida_local = partidalocal;
+
+        tapete = TablePanelFactory.getPanel(getParticipantes().size());
 
         Player[] players = tapete.getPlayers();
 
@@ -1144,8 +1147,28 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         jugadores = new ArrayList<>();
 
-        for (int j = 0; j < participantes.size(); j++) {
+        for (int j = 0; j < getParticipantes().size(); j++) {
             jugadores.add(players[j]);
+        }
+
+        for (Map.Entry<String, Participant> entry : getParticipantes().entrySet()) {
+
+            Participant p = entry.getValue();
+
+            if (p != null) {
+
+                if (p.getAvatar() != null) {
+                    nick2avatar.put(entry.getKey(), p.getAvatar().getAbsolutePath());
+                } else if (partidalocal && p.isCpu()) {
+                    nick2avatar.put(entry.getKey(), "*");
+                } else {
+                    nick2avatar.put(entry.getKey(), "");
+                }
+
+            } else {
+
+                nick2avatar.put(entry.getKey(), sala_espera.getLocal_avatar() != null ? sala_espera.getLocal_avatar().getAbsolutePath() : "");
+            }
         }
 
         crupier = new Crupier();

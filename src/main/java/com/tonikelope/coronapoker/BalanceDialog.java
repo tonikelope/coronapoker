@@ -37,8 +37,6 @@ public class BalanceDialog extends javax.swing.JDialog {
 
                 jScrollPane1.getVerticalScrollBar().setUnitIncrement(20);
 
-                int width = 0;
-
                 ArrayList<Object[]> ranking = new ArrayList<>();
 
                 synchronized (Game.getInstance().getCrupier().getLock_contabilidad()) {
@@ -74,32 +72,22 @@ public class BalanceDialog extends javax.swing.JDialog {
                             label.setOpaque(true);
                         }
 
-                        Participant p = Game.getInstance().getParticipantes().get(entry.getKey());
+                        String avatar_path = Game.getInstance().getNick2avatar().get(entry.getKey());
 
-                        if (p != null) {
-                            if (p.getAvatar() != null) {
-                                label.setIcon(new ImageIcon(new ImageIcon(p.getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                            } else if (Game.getInstance().isPartida_local() && p.isCpu()) {
-                                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                            } else {
-                                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                            }
+                        if (!"".equals(avatar_path) && !"*".equals(avatar_path)) {
+
+                            label.setIcon(new ImageIcon(new ImageIcon(avatar_path).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+
+                        } else if ("*".equals(avatar_path)) {
+
+                            label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
 
                         } else {
 
-                            if (Game.getInstance().getSala_espera().getAvatar() != null) {
-                                label.setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                            } else {
-                                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                            }
-
+                            label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
                         }
 
                         ranking.add(new Object[]{ganancia, label});
-
-                        if (label.getWidth() > width) {
-                            width = label.getWidth();
-                        }
                     }
 
                     Collections.sort(ranking, new RankingComparator());
@@ -164,6 +152,8 @@ public class BalanceDialog extends javax.swing.JDialog {
         title.setOpaque(true);
 
         jScrollPane1.setBorder(null);
+        jScrollPane1.setDoubleBuffered(true);
+        jScrollPane1.setFocusable(false);
 
         jugadores.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         jugadores.setFocusable(false);

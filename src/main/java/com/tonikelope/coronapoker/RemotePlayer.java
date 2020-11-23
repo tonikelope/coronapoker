@@ -1319,29 +1319,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.pausar(Game.GUI_ZOOM_WAIT);
                 }
 
-                Participant p = Game.getInstance().getParticipantes().get(nickname);
-                if (p != null) {
-                    if (p.getAvatar() != null) {
-                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-                        getAvatar().setIcon(new ImageIcon(new ImageIcon(p.getAvatar().getAbsolutePath()).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-                    } else if (Game.getInstance().isPartida_local() && p.isCpu()) {
-                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-                        getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-                    } else {
-                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-                        getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-                    }
+                String avatar_path = Game.getInstance().getNick2avatar().get(nickname);
+
+                getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
+
+                if (!"".equals(avatar_path) && !"*".equals(avatar_path)) {
+
+                    getAvatar().setIcon(new ImageIcon(new ImageIcon(avatar_path).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
+
+                } else if ("*".equals(avatar_path)) {
+
+                    getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
 
                 } else {
 
-                    if (Game.getInstance().getSala_espera().getAvatar() != null) {
-                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-                        getAvatar().setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-                    } else {
-                        getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-                        getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-                    }
-
+                    getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
                 }
 
                 getAvatar().setVisible(true);

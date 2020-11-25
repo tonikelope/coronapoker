@@ -458,19 +458,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             if (!Game.getInstance().getLocalPlayer().isAuto_pause()) {
 
+                Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(Color.WHITE);
+                Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(new Color(255, 102, 0));
+                Game.getInstance().getLocalPlayer().setAuto_pause(true);
+                Helpers.playWavResource("misc/auto_button_on.wav");
+
                 if (!Game.getInstance().getLocalPlayer().isAuto_pause_warning()) {
                     Game.getInstance().getLocalPlayer().setAuto_pause_warning(true);
                     Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO"));
                 }
 
-                if (Game.getInstance().getLocalPlayer().isTurno()) {
-                    pause_buttonActionPerformed(evt);
-                } else {
-                    Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(Color.WHITE);
-                    Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(new Color(255, 102, 0));
-                    Game.getInstance().getLocalPlayer().setAuto_pause(true);
-                    Helpers.playWavResource("misc/auto_button_on.wav");
-                }
             } else {
                 Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(new Color(255, 102, 0));
                 Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(Color.WHITE);

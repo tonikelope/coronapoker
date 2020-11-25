@@ -1392,16 +1392,16 @@ public class WaitingRoom extends javax.swing.JFrame {
                                         }
                                     }
 
-                                } else if (WaitingRoom.isPartida_empezando() || WaitingRoom.isPartida_empezada()) {
-                                    writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
                                 } else if (!partes[1].equals(AboutDialog.VERSION)) {
                                     writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
+                                } else if (password != null && ("*".equals(partes[3]) || !password.equals(new String(Base64.decodeBase64(partes[3]), "UTF-8")))) {
+                                    writeCommandFromServer(Helpers.encryptCommand("BADPASSWORD", aes_key, hmac_key), client_socket);
+                                } else if (WaitingRoom.isPartida_empezando() || WaitingRoom.isPartida_empezada()) {
+                                    writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
                                 } else if (participantes.size() == MAX_PARTICIPANTES) {
                                     writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
                                 } else if (participantes.containsKey(client_nick)) {
                                     writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
-                                } else if (password != null && ("*".equals(partes[3]) || !password.equals(new String(Base64.decodeBase64(partes[3]), "UTF-8")))) {
-                                    writeCommandFromServer(Helpers.encryptCommand("BADPASSWORD", aes_key, hmac_key), client_socket);
                                 } else {
 
                                     //Procesamos su avatar
@@ -1694,6 +1694,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 conectados.repaint();
 
+                pack();
+
             }
         });
 
@@ -1866,15 +1868,15 @@ public class WaitingRoom extends javax.swing.JFrame {
                             .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addGroup(layout.createSequentialGroup()
                                 .addComponent(logo)
-                                .addGap(0, 8, Short.MAX_VALUE))
+                                .addGap(0, 0, Short.MAX_VALUE))
                             .addGroup(layout.createSequentialGroup()
                                 .addComponent(pass_icon)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 232, Short.MAX_VALUE)
-                            .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, 232, Short.MAX_VALUE)))
+                            .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)
+                            .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(avatar_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1907,7 +1909,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addGap(18, 18, 18)
                         .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(12, 12, 12)
-                .addComponent(jScrollPane1)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 127, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)

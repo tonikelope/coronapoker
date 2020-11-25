@@ -50,7 +50,7 @@
                           <Component id="video_chat_button" max="32767" attributes="0"/>
                           <Group type="102" attributes="0">
                               <Component id="logo" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace min="0" pref="8" max="32767" attributes="0"/>
+                              <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                           </Group>
                           <Group type="102" alignment="0" attributes="0">
                               <Component id="pass_icon" min="-2" max="-2" attributes="0"/>
@@ -60,8 +60,8 @@
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="panel_conectados" pref="232" max="32767" attributes="0"/>
-                          <Component id="kick_user" pref="232" max="32767" attributes="0"/>
+                          <Component id="panel_conectados" pref="212" max="32767" attributes="0"/>
+                          <Component id="kick_user" pref="212" max="32767" attributes="0"/>
                       </Group>
                   </Group>
                   <Group type="102" alignment="1" attributes="0">
@@ -105,7 +105,7 @@
                   </Group>
               </Group>
               <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
-              <Component id="jScrollPane1" max="32767" attributes="0"/>
+              <Component id="jScrollPane1" pref="127" max="32767" attributes="0"/>
               <EmptySpace type="unrelated" max="-2" attributes="0"/>
               <Group type="103" groupAlignment="0" max="-2" attributes="0">
                   <Component id="avatar_label" max="32767" attributes="0"/>

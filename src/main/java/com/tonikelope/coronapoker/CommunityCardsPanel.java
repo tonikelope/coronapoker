@@ -457,6 +457,12 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         } else if (!Game.getInstance().getLocalPlayer().isSpectator()) {
 
             if (!Game.getInstance().getLocalPlayer().isAuto_pause()) {
+
+                if (Game.getInstance().isPartida_local() || !Game.getInstance().getLocalPlayer().isAuto_pause_warning()) {
+                    Game.getInstance().getLocalPlayer().setAuto_pause_warning(true);
+                    Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO"));
+                }
+
                 Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(Color.WHITE);
                 Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(new Color(255, 102, 0));
                 Game.getInstance().getLocalPlayer().setAuto_pause(true);

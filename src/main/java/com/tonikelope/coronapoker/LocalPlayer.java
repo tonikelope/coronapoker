@@ -71,6 +71,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile int parguela_counter = Game.PEPILLO_COUNTER_MAX;
     private volatile int pause_counter = Game.PAUSE_COUNTER_MAX;
     private volatile boolean auto_pause = false;
+    private volatile boolean auto_pause_warning = false;
+
+    public boolean isAuto_pause_warning() {
+        return auto_pause_warning;
+    }
+
+    public void setAuto_pause_warning(boolean auto_pause_warning) {
+        this.auto_pause_warning = auto_pause_warning;
+    }
 
     public boolean isAuto_pause() {
         return auto_pause;

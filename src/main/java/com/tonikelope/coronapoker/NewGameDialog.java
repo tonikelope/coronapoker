@@ -399,6 +399,11 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         nick.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         nick.setDoubleBuffered(true);
+        nick.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                nickActionPerformed(evt);
+            }
+        });
 
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         jLabel1.setText("Nick:");
@@ -418,6 +423,11 @@ public class NewGameDialog extends javax.swing.JDialog {
         password.setDoubleBuffered(true);
 
         pass_text.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        pass_text.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                pass_textActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -689,6 +699,16 @@ public class NewGameDialog extends javax.swing.JDialog {
         ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
+
+    private void nickActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nickActionPerformed
+        // TODO add your handling code here:
+        vamosActionPerformed(evt);
+    }//GEN-LAST:event_nickActionPerformed
+
+    private void pass_textActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pass_textActionPerformed
+        // TODO add your handling code here:
+        vamosActionPerformed(evt);
+    }//GEN-LAST:event_pass_textActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;

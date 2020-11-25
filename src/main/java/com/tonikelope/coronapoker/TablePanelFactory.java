@@ -90,6 +90,7 @@ public class TablePanelFactory {
                 nuevo_panel.getLocalPlayer().getPlayingCard2().setCompactable(false);
                 nuevo_panel.getLocalPlayer().setPause_counter(panel.getLocalPlayer().getPause_counter());
                 nuevo_panel.getLocalPlayer().setAuto_pause(panel.getLocalPlayer().isAuto_pause());
+                nuevo_panel.getLocalPlayer().setAuto_pause_warning(panel.getLocalPlayer().isAuto_pause_warning());
 
                 Helpers.GUIRun(new Runnable() {
                     @Override

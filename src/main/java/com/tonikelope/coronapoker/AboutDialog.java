@@ -16,7 +16,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "FINAL-5.69";
+    public static final String VERSION = "FINAL-5.70";
     public final static String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
     private String last_mp3_loop = null;
@@ -236,7 +236,7 @@ public class AboutDialog extends javax.swing.JDialog {
         last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
 
         if (last_mp3_loop != null) {
-            Helpers.pauseLoopMp3Resource(last_mp3_loop);
+            Helpers.muteLoopMp3Resource(last_mp3_loop);
         }
 
         Helpers.playLoopMp3Resource("misc/about_music.mp3");
@@ -247,7 +247,7 @@ public class AboutDialog extends javax.swing.JDialog {
         Helpers.stopCurrentLoopMp3Resource();
 
         if (last_mp3_loop != null) {
-            Helpers.resumeLoopMp3Resource(last_mp3_loop);
+            Helpers.unmuteLoopMp3Resource(last_mp3_loop);
         }
     }//GEN-LAST:event_formWindowClosed
 

@@ -2111,9 +2111,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         Helpers.savePropertiesFile();
 
         if (this.ascensor_menu.isSelected()) {
-            Helpers.resumeLoopMp3Resource("misc/background_music.mp3");
+            Helpers.unmuteLoopMp3Resource("misc/background_music.mp3");
         } else {
-            Helpers.pauseLoopMp3Resource("misc/background_music.mp3");
+            Helpers.muteLoopMp3Resource("misc/background_music.mp3");
         }
 
         Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setSelected(Game.MUSICA_AMBIENTAL);

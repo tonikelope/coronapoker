@@ -1243,7 +1243,7 @@ public class Helpers {
 
     public static void playLoopMp3Resource(String sound) {
 
-        if (!Game.TEST_MODE && !isLoopMp3Playing()) {
+        if (!Game.TEST_MODE) {
 
             Helpers.threadRun(new Runnable() {
 
@@ -1368,6 +1368,36 @@ public class Helpers {
         if (player != null) {
             try {
                 player.pause();
+
+            } catch (BasicPlayerException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+    }
+
+    public static void muteLoopMp3Resource(String sound) {
+
+        BasicPlayer player = MP3_LOOP.get(sound);
+
+        if (player != null) {
+            try {
+                player.setGain(0f);
+
+            } catch (BasicPlayerException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+    }
+
+    public static void unmuteLoopMp3Resource(String sound) {
+
+        BasicPlayer player = MP3_LOOP.get(sound);
+
+        if (player != null) {
+            try {
+                player.setGain(getSoundVolume(sound));
 
             } catch (BasicPlayerException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);

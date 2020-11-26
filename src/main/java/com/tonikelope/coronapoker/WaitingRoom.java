@@ -1694,8 +1694,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 conectados.repaint();
 
-                pack();
-
             }
         });
 
@@ -1712,19 +1710,21 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         jScrollPane1 = new javax.swing.JScrollPane();
         chat = new javax.swing.JTextArea();
-        logo = new javax.swing.JLabel();
         mensaje = new javax.swing.JTextField();
-        status = new javax.swing.JLabel();
-        panel_conectados = new javax.swing.JScrollPane();
-        conectados = new javax.swing.JList<>();
-        empezar_timba = new javax.swing.JButton();
-        kick_user = new javax.swing.JButton();
         avatar_label = new javax.swing.JLabel();
+        jPanel1 = new javax.swing.JPanel();
+        pass_icon = new javax.swing.JLabel();
+        new_bot_button = new javax.swing.JButton();
+        logo = new javax.swing.JLabel();
+        status = new javax.swing.JLabel();
         status1 = new javax.swing.JLabel();
         sound_icon = new javax.swing.JLabel();
-        new_bot_button = new javax.swing.JButton();
         video_chat_button = new javax.swing.JButton();
-        pass_icon = new javax.swing.JLabel();
+        jPanel2 = new javax.swing.JPanel();
+        panel_conectados = new javax.swing.JScrollPane();
+        conectados = new javax.swing.JList<>();
+        kick_user = new javax.swing.JButton();
+        empezar_timba = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -1751,6 +1751,31 @@ public class WaitingRoom extends javax.swing.JFrame {
         chat.setDoubleBuffered(true);
         jScrollPane1.setViewportView(chat);
 
+        mensaje.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        mensaje.setDoubleBuffered(true);
+        mensaje.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mensajeActionPerformed(evt);
+            }
+        });
+
+        avatar_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        avatar_label.setText("Toni");
+        avatar_label.setDoubleBuffered(true);
+
+        pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
+        pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
+        new_bot_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        new_bot_button.setText("Añadir bot");
+        new_bot_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        new_bot_button.setDoubleBuffered(true);
+        new_bot_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                new_bot_buttonActionPerformed(evt);
+            }
+        });
+
         logo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_15.png"))); // NOI18N
         logo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         logo.setDoubleBuffered(true);
@@ -1760,53 +1785,11 @@ public class WaitingRoom extends javax.swing.JFrame {
             }
         });
 
-        mensaje.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        mensaje.setDoubleBuffered(true);
-        mensaje.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mensajeActionPerformed(evt);
-            }
-        });
-
         status.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         status.setForeground(new java.awt.Color(51, 153, 0));
         status.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
         status.setText("Estado");
         status.setDoubleBuffered(true);
-
-        panel_conectados.setDoubleBuffered(true);
-
-        conectados.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        conectados.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
-        conectados.setToolTipText("Participantes conectados");
-        conectados.setCellRenderer(new com.tonikelope.coronapoker.ParticipantsListRenderer());
-        conectados.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        conectados.setDoubleBuffered(true);
-        panel_conectados.setViewportView(conectados);
-
-        empezar_timba.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        empezar_timba.setText("EMPEZAR YA");
-        empezar_timba.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        empezar_timba.setDoubleBuffered(true);
-        empezar_timba.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                empezar_timbaActionPerformed(evt);
-            }
-        });
-
-        kick_user.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        kick_user.setText("Expulsar jugador");
-        kick_user.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        kick_user.setDoubleBuffered(true);
-        kick_user.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                kick_userActionPerformed(evt);
-            }
-        });
-
-        avatar_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        avatar_label.setText("Toni");
-        avatar_label.setDoubleBuffered(true);
 
         status1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         status1.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
@@ -1824,16 +1807,6 @@ public class WaitingRoom extends javax.swing.JFrame {
             }
         });
 
-        new_bot_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        new_bot_button.setText("Añadir bot");
-        new_bot_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        new_bot_button.setDoubleBuffered(true);
-        new_bot_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                new_bot_buttonActionPerformed(evt);
-            }
-        });
-
         video_chat_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         video_chat_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/duo.png"))); // NOI18N
         video_chat_button.setText("VIDEOLLAMADA");
@@ -1846,8 +1819,104 @@ public class WaitingRoom extends javax.swing.JFrame {
             }
         });
 
-        pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
-        pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        panel_conectados.setDoubleBuffered(true);
+
+        conectados.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        conectados.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        conectados.setToolTipText("Participantes conectados");
+        conectados.setCellRenderer(new com.tonikelope.coronapoker.ParticipantsListRenderer());
+        conectados.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        conectados.setDoubleBuffered(true);
+        panel_conectados.setViewportView(conectados);
+
+        kick_user.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        kick_user.setText("Expulsar jugador");
+        kick_user.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        kick_user.setDoubleBuffered(true);
+        kick_user.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                kick_userActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
+        jPanel2.setLayout(jPanel2Layout);
+        jPanel2Layout.setHorizontalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)
+                    .addComponent(panel_conectados, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)))
+        );
+        jPanel2Layout.setVerticalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 367, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(kick_user))
+        );
+
+        empezar_timba.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        empezar_timba.setText("EMPEZAR YA");
+        empezar_timba.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        empezar_timba.setDoubleBuffered(true);
+        empezar_timba.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                empezar_timbaActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(pass_icon)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(new_bot_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addComponent(empezar_timba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(logo)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(new_bot_button)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(video_chat_button)
+                        .addGap(18, 18, 18)
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(status1)
+                            .addComponent(pass_icon))
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addGroup(jPanel1Layout.createSequentialGroup()
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(status)
+                                .addGap(3, 3, 3))))
+                    .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0))
+        );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -1857,59 +1926,20 @@ public class WaitingRoom extends javax.swing.JFrame {
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jScrollPane1)
-                    .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(empezar_timba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                            .addComponent(new_bot_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(logo)
-                                .addGap(0, 0, Short.MAX_VALUE))
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(pass_icon)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)
-                            .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(avatar_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(mensaje)))
+                        .addComponent(mensaje))
+                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(panel_conectados)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(kick_user))
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(logo)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(new_bot_button)
-                        .addGap(18, 18, 18)
-                        .addComponent(video_chat_button)
-                        .addGap(18, 18, 18)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(status1)
-                            .addComponent(pass_icon))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(status)
-                            .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGap(18, 18, 18)
-                        .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addGap(12, 12, 12)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 127, Short.MAX_VALUE)
+                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 160, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2279,6 +2309,8 @@ public class WaitingRoom extends javax.swing.JFrame {
     private javax.swing.JTextArea chat;
     private javax.swing.JList<String> conectados;
     private javax.swing.JButton empezar_timba;
+    private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JButton kick_user;
     private javax.swing.JLabel logo;

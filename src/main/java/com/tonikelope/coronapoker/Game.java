@@ -468,11 +468,11 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
             if (isPartida_local()) {
 
-                getCrupier().broadcastGAMECommandFromServer("PAUSE", user);
+                getCrupier().broadcastGAMECommandFromServer("PAUSE#" + (this.timba_pausada ? "0" : "1"), user);
 
             } else if (getNick_local().equals(user)) {
 
-                getCrupier().sendGAMECommandToServer("PAUSE");
+                getCrupier().sendGAMECommandToServer("PAUSE#" + (this.timba_pausada ? "0" : "1"));
 
             }
 
@@ -1386,11 +1386,14 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
             }
 
-            BalanceDialog balance = new BalanceDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true);
+            if (partida_terminada) {
 
-            balance.setLocationRelativeTo(balance.getParent());
+                BalanceDialog balance = new BalanceDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true);
 
-            balance.setVisible(true);
+                balance.setLocationRelativeTo(balance.getParent());
+
+                balance.setVisible(true);
+            }
 
             if (partida_terminada && Game.CINEMATICAS) {
 

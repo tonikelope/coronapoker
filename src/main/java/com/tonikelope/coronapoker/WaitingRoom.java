@@ -138,15 +138,35 @@ public class WaitingRoom extends javax.swing.JFrame {
     }
 
     public SecretKeySpec getLocal_client_hmac_key() {
-        synchronized (getLocalClientSocketLock()) {
-            return local_client_hmac_key;
+
+        while (this.reconnecting) {
+            synchronized (getLocalClientSocketLock()) {
+                try {
+                    getLocalClientSocketLock().wait(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         }
+
+        return local_client_hmac_key;
+
     }
 
     public SecretKeySpec getLocal_client_aes_key() {
-        synchronized (getLocalClientSocketLock()) {
-            return local_client_aes_key;
+
+        while (this.reconnecting) {
+            synchronized (getLocalClientSocketLock()) {
+                try {
+                    getLocalClientSocketLock().wait(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         }
+
+        return local_client_aes_key;
+
     }
 
     public static boolean isExit() {
@@ -985,7 +1005,15 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                         break;
 
                                                     case "PAUSE":
-                                                        Game.getInstance().pauseTimba(null);
+                                                        Helpers.threadRun(new Runnable() {
+                                                            public void run() {
+                                                                synchronized (Game.getInstance().getLock_pause()) {
+                                                                    if (("0".equals(partes_comando[3]) && Game.getInstance().isTimba_pausada()) || ("1".equals(partes_comando[3]) && !Game.getInstance().isTimba_pausada())) {
+                                                                        Game.getInstance().pauseTimba(null);
+                                                                    }
+                                                                }
+                                                            }
+                                                        });
                                                         break;
 
                                                     case "CINEMATICEND":
@@ -1364,11 +1392,6 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                             //Es un usuario intentado reconectar
                                             participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key);
-
-                                            Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
-
-                                            //Mandamos el chat
-                                            client_socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
 
                                             Helpers.playWavResource("misc/yahoo.wav");
 
@@ -1906,10 +1929,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                             .addComponent(pass_icon))
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addGroup(jPanel1Layout.createSequentialGroup()
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                                 .addComponent(status)
                                 .addGap(3, 3, 3))))
                     .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -1939,7 +1962,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                 .addContainerGap()
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 160, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 151, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)

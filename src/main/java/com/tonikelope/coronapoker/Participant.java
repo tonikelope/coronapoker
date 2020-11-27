@@ -250,6 +250,11 @@ public class Participant implements Runnable {
             try {
                 this.input_stream = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
 
+                Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
+
+                //Mandamos el chat
+                socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(WaitingRoom.getInstance().getChat().getText().getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
+
             } catch (IOException ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -470,17 +475,21 @@ public class Participant implements Runnable {
                                             Game.getInstance().getCrupier().remoteCinematicEnd(nick);
                                             break;
                                         case "PAUSE":
-                                            
-                                            synchronized (Game.getInstance().getLock_pause()) {
-                                                if (!Game.getInstance().isTimba_pausada() || nick.equals(Game.getInstance().getNick_pause())) {
 
-                                                    Game.getInstance().pauseTimba(nick);
+                                            Helpers.threadRun(new Runnable() {
+                                                public void run() {
+                                                    synchronized (Game.getInstance().getLock_pause()) {
 
-                                                    if (Game.getInstance().isTimba_pausada()) {
-                                                        Game.getInstance().getRegistro().print("PAUSE (" + nick + ")");
+                                                        if (("0".equals(partes_comando[3]) && Game.getInstance().isTimba_pausada()) && nick.equals(Game.getInstance().getNick_pause()) || ("1".equals(partes_comando[3]) && !Game.getInstance().isTimba_pausada())) {
+                                                            Game.getInstance().pauseTimba(nick);
+
+                                                            if (Game.getInstance().isTimba_pausada()) {
+                                                                Game.getInstance().getRegistro().print("PAUSE (" + nick + ")");
+                                                            }
+                                                        }
                                                     }
                                                 }
-                                            }
+                                            });
 
                                             break;
                                         case "SHOWMYCARDS":

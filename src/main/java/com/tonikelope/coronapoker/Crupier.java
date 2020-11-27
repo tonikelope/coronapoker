@@ -2631,8 +2631,11 @@ public class Crupier implements Runnable {
         do {
 
             try {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "Enviando comando " + command);
 
                 Game.getInstance().getSala_espera().writeCommandToServer(Helpers.encryptCommand(full_command, Game.getInstance().getSala_espera().getLocal_client_aes_key(), Game.getInstance().getSala_espera().getLocal_client_hmac_key()));
+
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "Esperando confirmacion del servidor...");
 
                 if (confirmation) {
                     this.waitSyncConfirmations(id, pendientes);

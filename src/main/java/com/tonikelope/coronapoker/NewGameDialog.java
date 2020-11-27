@@ -313,7 +313,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         ciegas_label.setDoubleBuffered(true);
 
         ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "0.10 / 0.20", "0.20 / 0.40", "0.50 / 1", "1 / 2", "2 / 4", "5 / 10", "10 / 20", "20 / 40", "50 / 100", "100 / 200", "200 / 400", "500 / 1000", "1000 / 2000", "2000 / 4000", "5000 / 10000", "10000 / 20000", "20000 / 40000", "50000 / 100000", "100000 / 200000", "200000 / 400000", "500000 / 1000000" }));
+        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "0.10 / 0.20", "0.20 / 0.40", "0.30 / 0.60", "0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000" }));
         ciegas_combobox.setDoubleBuffered(true);
         ciegas_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -694,7 +694,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         float ciega_grande = Float.valueOf(valores[1].trim());
 
-        buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 3))));
+        buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4))));
 
         ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 

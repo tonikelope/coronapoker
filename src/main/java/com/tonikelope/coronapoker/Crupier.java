@@ -135,7 +135,7 @@ public class Crupier implements Runnable {
     public static final String RECOVER_SEATS_FILE = Init.REC_DIR + "/coronapoker_seats";
     public static final String RECOVER_BALANCE_FILE = Init.REC_DIR + "/coronapoker_balance";
     public static final String RECOVER_ACTIONS_FILE = Init.REC_DIR + "/coronapoker_actions";
-    public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.5f, 1.0f}};
+    public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
 
@@ -1875,28 +1875,24 @@ public class Crupier implements Runnable {
 
     private void doblarCiegas() {
 
-        int i = 0;
+        int i, j;
 
-        for (float[] f : CIEGAS) {
+        for (i = 0, j = 0; (this.ciega_pequeña / (float) (Math.pow(10, j)) != CIEGAS[i][0]); i = (i + 1) % CIEGAS.length) {
 
-            if (f[0] == this.ciega_pequeña) {
-                break;
+            if (i + 1 == CIEGAS.length) {
+                j++;
             }
-
-            i++;
         }
+
+        i = (i + 1) % CIEGAS.length;
 
         this.ciegas_double++;
 
-        i++;
+        double mul = Math.pow(10, (int) (this.ciegas_double / CIEGAS.length));
 
-        int exp = (int) (i / CIEGAS.length);
+        this.ciega_pequeña = CIEGAS[i % CIEGAS.length][0] * (float) mul;
 
-        double mul = Math.pow(10, exp);
-
-        this.ciega_pequeña = Helpers.clean1DFloat(CIEGAS[i % CIEGAS.length][0] * (float) mul);
-
-        this.ciega_grande = Helpers.clean1DFloat(CIEGAS[i % CIEGAS.length][1] * (float) mul);
+        this.ciega_grande = CIEGAS[i % CIEGAS.length][1] * (float) mul;
 
         Helpers.playWavResource("misc/double_blinds.wav");
 

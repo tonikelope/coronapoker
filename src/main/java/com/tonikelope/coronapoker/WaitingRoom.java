@@ -71,6 +71,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     public static final int PING_PONG_TIMEOUT = 15000;
     public static final int MAX_PING_PONG_ERROR = 3;
     public static final int EC_KEY_LENGTH = 256;
+    public static final int GEN_PASS_LENGTH = 10;
     private static volatile boolean partida_empezada = false;
     private static volatile boolean partida_empezando = false;
     private static volatile String password = null;
@@ -234,9 +235,14 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
 
-                if (password != null) {
+                if (server) {
                     pass_icon.setVisible(true);
-                    pass_icon.setToolTipText(password);
+
+                    if (password != null) {
+                        pass_icon.setToolTipText(password);
+                    } else {
+                        pass_icon.setEnabled(false);
+                    }
                 } else {
                     pass_icon.setVisible(false);
                 }
@@ -273,6 +279,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                     status.setText("Esperando jugadores...");
 
                     participantes.put(local_nick, null);
+
+                    tot_conectados.setText(participantes.size() + "/" + WaitingRoom.MAX_PARTICIPANTES);
 
                     ParticipantsListRenderer label = new ParticipantsListRenderer();
 
@@ -1640,6 +1648,8 @@ public class WaitingRoom extends javax.swing.JFrame {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
+                    tot_conectados.setText(participantes.size() + "/" + WaitingRoom.MAX_PARTICIPANTES);
+
                     DefaultListModel model = (DefaultListModel) conectados.getModel();
 
                     ParticipantsListRenderer rem_element = null;
@@ -1699,6 +1709,8 @@ public class WaitingRoom extends javax.swing.JFrame {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
+                tot_conectados.setText(participantes.size() + "/" + WaitingRoom.MAX_PARTICIPANTES);
+
                 ParticipantsListRenderer label = new ParticipantsListRenderer();
 
                 label.setText(nick);
@@ -1748,6 +1760,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         conectados = new javax.swing.JList<>();
         kick_user = new javax.swing.JButton();
         empezar_timba = new javax.swing.JButton();
+        tot_conectados = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -1788,6 +1801,11 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
         pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        pass_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                pass_iconMouseClicked(evt);
+            }
+        });
 
         new_bot_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         new_bot_button.setText("Añadir bot");
@@ -1842,7 +1860,12 @@ public class WaitingRoom extends javax.swing.JFrame {
             }
         });
 
+        jPanel2.setFocusable(false);
+        jPanel2.setOpaque(false);
+
         panel_conectados.setDoubleBuffered(true);
+        panel_conectados.setFocusable(false);
+        panel_conectados.setOpaque(false);
 
         conectados.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         conectados.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
@@ -1850,6 +1873,8 @@ public class WaitingRoom extends javax.swing.JFrame {
         conectados.setCellRenderer(new com.tonikelope.coronapoker.ParticipantsListRenderer());
         conectados.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         conectados.setDoubleBuffered(true);
+        conectados.setFocusable(false);
+        conectados.setOpaque(false);
         panel_conectados.setViewportView(conectados);
 
         kick_user.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
@@ -1891,6 +1916,10 @@ public class WaitingRoom extends javax.swing.JFrame {
             }
         });
 
+        tot_conectados.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        tot_conectados.setForeground(new java.awt.Color(0, 102, 255));
+        tot_conectados.setText("0/10");
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
@@ -1907,7 +1936,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(new_bot_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(tot_conectados, javax.swing.GroupLayout.Alignment.TRAILING))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addComponent(empezar_timba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1919,6 +1949,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addComponent(logo)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(tot_conectados)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(new_bot_button)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -1927,12 +1959,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                             .addComponent(status1)
                             .addComponent(pass_icon))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addGroup(jPanel1Layout.createSequentialGroup()
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                                 .addComponent(status)
                                 .addGap(3, 3, 3))))
                     .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -1962,7 +1992,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                 .addContainerGap()
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 151, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 103, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1996,6 +2026,12 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             if (!expulsado.equals(local_nick)) {
 
+                //Cambiamos la contraseña por una aleatoria
+                if (password != null) {
+                    password = Helpers.genRandomString(password.length());
+
+                }
+
                 kick_user.setEnabled(false);
 
                 Helpers.threadRun(new Runnable() {
@@ -2021,8 +2057,18 @@ public class WaitingRoom extends javax.swing.JFrame {
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
                                 kick_user.setEnabled(participantes.size() > 1);
+
+                                if (password != null) {
+                                    pass_icon.setToolTipText(password);
+
+                                }
                             }
                         });
+
+                        if (password != null) {
+                            Helpers.copyTextToClipboard(password);
+                            Helpers.mostrarMensajeInformativo(THIS, Translator.translate("NUEVA PASSWORD COPIADA EN EL PORTAPAPELES"));
+                        }
                     }
                 });
             }
@@ -2327,6 +2373,23 @@ public class WaitingRoom extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_video_chat_buttonActionPerformed
 
+    private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_pass_iconMouseClicked
+        // TODO add your handling code here:
+
+        if (server) {
+            if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("¿GENERAR CONTRASEÑA NUEVA?")) == 0) {
+                password = Helpers.genRandomString(GEN_PASS_LENGTH);
+                pass_icon.setToolTipText(password);
+            }
+
+            if (password != null) {
+                pass_icon.setEnabled(true);
+                Helpers.copyTextToClipboard(password);
+                Helpers.mostrarMensajeInformativo(this, Translator.translate("PASSWORD COPIADA EN EL PORTAPAPELES"));
+            }
+        }
+    }//GEN-LAST:event_pass_iconMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
     private javax.swing.JTextArea chat;
@@ -2344,6 +2407,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel status;
     private javax.swing.JLabel status1;
+    private javax.swing.JLabel tot_conectados;
     private javax.swing.JButton video_chat_button;
     // End of variables declaration//GEN-END:variables
 }

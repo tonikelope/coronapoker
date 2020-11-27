@@ -161,7 +161,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                         }
                     });
 
-                    Helpers.pausar(GUI_ZOOM_WAIT * 3);
+                    Helpers.pausar(GUI_ZOOM_WAIT * 4);
 
                     t = 0;
 

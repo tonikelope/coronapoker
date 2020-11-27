@@ -18,7 +18,10 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.RenderingHints;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -61,6 +64,7 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -145,7 +149,7 @@ public class Helpers {
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
-    public static final ConcurrentHashMap<String, Clip> WAVS_RESOURCES = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
 
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
@@ -345,6 +349,14 @@ public class Helpers {
         if (!f.exists()) {
             f.mkdir();
         }
+    }
+
+    public static void copyTextToClipboard(String text) {
+
+        StringSelection stringSelection = new StringSelection(text);
+        Clipboard clpbrd = Toolkit.getDefaultToolkit().getSystemClipboard();
+        clpbrd.setContents(stringSelection, null);
+
     }
 
     public static String genRandomString(int length) {
@@ -1159,15 +1171,17 @@ public class Helpers {
 
                 try (BufferedInputStream bis = new BufferedInputStream(sound_stream); Clip clip = AudioSystem.getClip();) {
 
-                    Clip current_clip;
+                    if (WAVS_RESOURCES.containsKey(sound)) {
 
-                    if ((current_clip = Helpers.WAVS_RESOURCES.putIfAbsent(sound, clip)) != clip) {
+                        WAVS_RESOURCES.get(sound).add(clip);
 
-                        if (current_clip != null) {
-                            current_clip.stop();
-                        }
+                    } else {
 
-                        Helpers.WAVS_RESOURCES.put(sound, clip);
+                        ConcurrentLinkedQueue<Clip> list = new ConcurrentLinkedQueue<>();
+
+                        WAVS_RESOURCES.put(sound, list);
+
+                        list.add(clip);
                     }
 
                     clip.open(AudioSystem.getAudioInputStream(bis));
@@ -1183,22 +1197,15 @@ public class Helpers {
                         MUTED = false;
                     }
 
-                    if (WAVS_RESOURCES.containsKey(sound) && WAVS_RESOURCES.get(sound) == clip) {
-                        clip.loop(Clip.LOOP_CONTINUOUSLY);
+                    clip.loop(Clip.LOOP_CONTINUOUSLY);
 
-                        Helpers.pausar(clip.getMicrosecondLength() / 1000);
+                    Helpers.pausar(clip.getMicrosecondLength() / 1000);
 
-                        if (WAVS_RESOURCES.containsKey(sound) && WAVS_RESOURCES.get(sound) == clip) {
+                    clip.stop();
 
-                            Helpers.WAVS_RESOURCES.remove(sound);
-                        }
+                    WAVS_RESOURCES.get(sound).remove(clip);
 
-                        clip.stop();
-                        return true;
-
-                    } else {
-                        return false;
-                    }
+                    return true;
 
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
@@ -1336,13 +1343,13 @@ public class Helpers {
 
     public static void stopWavResource(String sound) {
 
-        Clip clip = WAVS_RESOURCES.remove(sound);
+        if (WAVS_RESOURCES.containsKey(sound)) {
+            ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
 
-        if (clip != null) {
-
-            clip.stop();
+            for (Clip c : list) {
+                c.stop();
+            }
         }
-
     }
 
     public static void stopLoopMp3Resource(String sound) {
@@ -1474,10 +1481,15 @@ public class Helpers {
                 }
             }
 
-            for (Map.Entry<String, Clip> entry : Helpers.WAVS_RESOURCES.entrySet()) {
+            for (Map.Entry<String, ConcurrentLinkedQueue<Clip>> entry : Helpers.WAVS_RESOURCES.entrySet()) {
 
-                FloatControl gainControl = (FloatControl) entry.getValue().getControl(FloatControl.Type.MASTER_GAIN);
-                gainControl.setValue(gainControl.getMinimum());
+                ConcurrentLinkedQueue<Clip> list = entry.getValue();
+
+                for (Clip c : list) {
+
+                    FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
+                    gainControl.setValue(gainControl.getMinimum());
+                }
             }
         }
     }
@@ -1536,13 +1548,16 @@ public class Helpers {
                 }
             }
 
-            for (Map.Entry<String, Clip> entry : Helpers.WAVS_RESOURCES.entrySet()) {
+            for (Map.Entry<String, ConcurrentLinkedQueue<Clip>> entry : Helpers.WAVS_RESOURCES.entrySet()) {
 
-                FloatControl gainControl = (FloatControl) entry.getValue().getControl(FloatControl.Type.MASTER_GAIN);
+                ConcurrentLinkedQueue<Clip> list = entry.getValue();
 
-                float dB = (float) Math.log10(getSoundVolume(entry.getKey())) * 20.0f;
-                gainControl.setValue(dB);
+                for (Clip c : list) {
 
+                    FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
+                    float dB = (float) Math.log10(getSoundVolume(entry.getKey())) * 20.0f;
+                    gainControl.setValue(dB);
+                }
             }
 
         }
@@ -1563,11 +1578,15 @@ public class Helpers {
 
     public static void stopAllWavResources() {
 
-        Iterator<Map.Entry<String, Clip>> iterator = WAVS_RESOURCES.entrySet().iterator();
+        Iterator<Map.Entry<String, ConcurrentLinkedQueue<Clip>>> iterator = WAVS_RESOURCES.entrySet().iterator();
 
         while (iterator.hasNext()) {
 
-            iterator.next().getValue().stop();
+            ConcurrentLinkedQueue<Clip> list = iterator.next().getValue();
+
+            for (Clip c : list) {
+                c.stop();
+            }
 
             iterator.remove();
 

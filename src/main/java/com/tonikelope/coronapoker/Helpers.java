@@ -148,6 +148,7 @@ public class Helpers {
     public static final int TRNG = 1;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
+    public static final ConcurrentLinkedQueue<BasicPlayer> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
@@ -159,7 +160,7 @@ public class Helpers {
     public volatile static SecureRandom SPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = loadPropertiesFile();
     public volatile static Font GUI_FONT = null;
-    public volatile static boolean MUTED = false;
+    public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
 
@@ -1190,11 +1191,9 @@ public class Helpers {
 
                     if (!Game.SONIDOS) {
                         gainControl.setValue(gainControl.getMinimum());
-                        MUTED = true;
                     } else {
                         float dB = (float) Math.log10(getSoundVolume(sound)) * 20.0f;
                         gainControl.setValue(dB);
-                        MUTED = false;
                     }
 
                     clip.loop(Clip.LOOP_CONTINUOUSLY);
@@ -1259,6 +1258,8 @@ public class Helpers {
 
                     final Object player_wait = new Object();
 
+                    Float last_gain = null;
+
                     do {
 
                         try (BufferedInputStream bis = new BufferedInputStream(getSoundInputStream(sound))) {
@@ -1298,11 +1299,11 @@ public class Helpers {
 
                             if (!Game.SONIDOS) {
                                 player.setGain(0f);
-                                MUTED = true;
                             } else {
-                                player.setGain(getSoundVolume(sound));
-                                MUTED = false;
+                                player.setGain(last_gain == null ? getSoundVolume(sound) : last_gain);
                             }
+
+                            last_gain = player.getGainValue();
 
                             do {
                                 synchronized (player_wait) {
@@ -1352,7 +1353,7 @@ public class Helpers {
         }
     }
 
-    public static void stopLoopMp3Resource(String sound) {
+    public static void stopLoopMp3(String sound) {
 
         BasicPlayer player = MP3_LOOP.remove(sound);
 
@@ -1368,7 +1369,7 @@ public class Helpers {
 
     }
 
-    public static void pauseLoopMp3Resource(String sound) {
+    public static void pauseLoopMp3(String sound) {
 
         BasicPlayer player = MP3_LOOP.get(sound);
 
@@ -1383,12 +1384,13 @@ public class Helpers {
 
     }
 
-    public static void muteLoopMp3Resource(String sound) {
+    public static void muteLoopMp3(String sound) {
 
         BasicPlayer player = MP3_LOOP.get(sound);
 
         if (player != null) {
             try {
+                MP3_LOOP_MUTED.add(player);
                 player.setGain(0f);
 
             } catch (BasicPlayerException ex) {
@@ -1398,13 +1400,17 @@ public class Helpers {
 
     }
 
-    public static void unmuteLoopMp3Resource(String sound) {
+    public static void unmuteLoopMp3(String sound) {
 
         BasicPlayer player = MP3_LOOP.get(sound);
 
         if (player != null) {
             try {
-                player.setGain(getSoundVolume(sound));
+                MP3_LOOP_MUTED.remove(player);
+
+                if (!MUTED_ALL) {
+                    player.setGain(getSoundVolume(sound));
+                }
 
             } catch (BasicPlayerException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -1460,107 +1466,84 @@ public class Helpers {
         }
 
         if (sound != null) {
-            Helpers.stopLoopMp3Resource(sound);
+            Helpers.stopLoopMp3(sound);
         }
     }
 
     public static void muteAll() {
 
-        if (!MUTED) {
+        MUTED_ALL = true;
 
-            MUTED = true;
+        muteAllLoopMp3();
 
-            if (!MUTED_MP3) {
-                for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+        muteAllWav();
 
-                    try {
-                        entry.getValue().setGain(0f);
-                    } catch (BasicPlayerException ex) {
-                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
-            }
+    }
 
-            for (Map.Entry<String, ConcurrentLinkedQueue<Clip>> entry : Helpers.WAVS_RESOURCES.entrySet()) {
+    public static void muteAllWav() {
+        for (Map.Entry<String, ConcurrentLinkedQueue<Clip>> entry : Helpers.WAVS_RESOURCES.entrySet()) {
 
-                ConcurrentLinkedQueue<Clip> list = entry.getValue();
+            ConcurrentLinkedQueue<Clip> list = entry.getValue();
 
-                for (Clip c : list) {
+            for (Clip c : list) {
 
-                    FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
-                    gainControl.setValue(gainControl.getMinimum());
-                }
+                FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
+                gainControl.setValue(gainControl.getMinimum());
             }
         }
     }
 
-    public static void muteLoopMp3() {
+    public static void muteAllLoopMp3() {
 
-        if (!MUTED_MP3) {
+        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            MUTED_MP3 = true;
+            try {
 
-            for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+                entry.getValue().setGain(0f);
+            } catch (BasicPlayerException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
 
-                try {
-                    entry.getValue().setGain(0f);
-                } catch (BasicPlayerException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+    }
+
+    public static void unmuteAllLoopMp3() {
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+
+            try {
+
+                if (!MP3_LOOP_MUTED.contains(entry.getValue())) {
+                    entry.getValue().setGain(getSoundVolume(entry.getKey()));
                 }
+
+            } catch (BasicPlayerException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
 
-    public static void unmuteLoopMp3() {
+    public static void unmuteAllWav() {
+        for (Map.Entry<String, ConcurrentLinkedQueue<Clip>> entry : Helpers.WAVS_RESOURCES.entrySet()) {
 
-        if (MUTED_MP3) {
+            ConcurrentLinkedQueue<Clip> list = entry.getValue();
 
-            MUTED_MP3 = false;
+            for (Clip c : list) {
 
-            if (!MUTED) {
-
-                for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
-
-                    try {
-                        entry.getValue().setGain(getSoundVolume(entry.getKey()));
-                    } catch (BasicPlayerException ex) {
-                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
+                FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
+                float dB = (float) Math.log10(getSoundVolume(entry.getKey())) * 20.0f;
+                gainControl.setValue(dB);
             }
         }
     }
 
     public static void unMuteAll() {
 
-        if (MUTED) {
+        MUTED_ALL = false;
 
-            MUTED = false;
+        unmuteAllLoopMp3();
 
-            if (!MUTED_MP3) {
-                for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
-
-                    try {
-                        entry.getValue().setGain(getSoundVolume(entry.getKey()));
-                    } catch (BasicPlayerException ex) {
-                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
-            }
-
-            for (Map.Entry<String, ConcurrentLinkedQueue<Clip>> entry : Helpers.WAVS_RESOURCES.entrySet()) {
-
-                ConcurrentLinkedQueue<Clip> list = entry.getValue();
-
-                for (Clip c : list) {
-
-                    FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
-                    float dB = (float) Math.log10(getSoundVolume(entry.getKey())) * 20.0f;
-                    gainControl.setValue(dB);
-                }
-            }
-
-        }
+        unmuteAllWav();
 
     }
 

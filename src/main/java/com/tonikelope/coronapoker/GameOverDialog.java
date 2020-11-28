@@ -173,7 +173,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                 last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
 
                 if (last_mp3_loop != null) {
-                    Helpers.pauseLoopMp3Resource(last_mp3_loop);
+                    Helpers.muteLoopMp3(last_mp3_loop);
                 }
 
                 if (!direct_gameover) {
@@ -248,7 +248,7 @@ public class GameOverDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
 
         if (last_mp3_loop != null) {
-            Helpers.resumeLoopMp3Resource(last_mp3_loop);
+            Helpers.unmuteLoopMp3(last_mp3_loop);
         }
     }//GEN-LAST:event_formWindowClosed
 

@@ -2027,7 +2027,7 @@ public class WaitingRoom extends javax.swing.JFrame {
             if (!expulsado.equals(local_nick)) {
 
                 //Cambiamos la contraseña por una aleatoria
-                if (password != null) {
+                if (password != null && !participantes.get(expulsado).isCpu()) {
                     password = Helpers.genRandomString(password.length());
 
                 }
@@ -2065,7 +2065,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                             }
                         });
 
-                        if (password != null) {
+                        if (password != null && !participantes.get(expulsado).isCpu()) {
                             Helpers.copyTextToClipboard(password);
                             Helpers.mostrarMensajeInformativo(THIS, Translator.translate("NUEVA PASSWORD COPIADA EN EL PORTAPAPELES"));
                         }

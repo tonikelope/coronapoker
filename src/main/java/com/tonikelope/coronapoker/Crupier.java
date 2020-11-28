@@ -781,18 +781,18 @@ public class Crupier implements Runnable {
             if (badbeat) {
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        Helpers.muteLoopMp3();
+                        Helpers.muteAllLoopMp3();
                         Helpers.playWavResourceAndWait("misc/badbeat.wav");
-                        Helpers.unmuteLoopMp3();
+                        Helpers.unmuteAllLoopMp3();
                     }
                 });
             } else if (jugada_ganadora >= Hand.POKER) {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        Helpers.muteLoopMp3();
+                        Helpers.muteAllLoopMp3();
                         Helpers.playWavResourceAndWait("misc/youarelucky.wav");
-                        Helpers.unmuteLoopMp3();
+                        Helpers.unmuteAllLoopMp3();
                     }
                 });
 
@@ -809,9 +809,9 @@ public class Crupier implements Runnable {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        Helpers.muteLoopMp3();
+                        Helpers.muteAllLoopMp3();
                         Helpers.playWavResourceAndWait("misc/youarelucky.wav");
-                        Helpers.unmuteLoopMp3();
+                        Helpers.unmuteAllLoopMp3();
                     }
                 });
 
@@ -839,9 +839,9 @@ public class Crupier implements Runnable {
             if (badbeat) {
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        Helpers.muteLoopMp3();
+                        Helpers.muteAllLoopMp3();
                         Helpers.playWavResourceAndWait("misc/badbeat.wav");
-                        Helpers.unmuteLoopMp3();
+                        Helpers.unmuteAllLoopMp3();
                     }
                 });
             } else if (jugada >= Hand.FULL) {

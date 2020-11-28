@@ -1470,7 +1470,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     });
                 }
 
-                Helpers.muteLoopMp3();
+                Helpers.muteAllLoopMp3();
 
                 Helpers.playWavResourceAndWait("misc/end.wav");
             }
@@ -1489,7 +1489,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
             public void actionPerformed(ActionEvent ae) {
 
-                if (!crupier.isFin_de_la_transmision() && !crupier.isRebuy_time() && !isTimba_pausada() && !isRECOVER()) {
+                if (!crupier.isFin_de_la_transmision() && !crupier.isShow_time() && !crupier.isRebuy_time() && !isTimba_pausada() && !isRECOVER()) {
                     conta_tiempo_juego++;
 
                     Helpers.GUIRun(new Runnable() {
@@ -1517,7 +1517,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         Helpers.playWavResource("misc/startplay.wav");
 
         if (!Game.MUSICA_AMBIENTAL) {
-            Helpers.pauseLoopMp3Resource("misc/background_music.mp3");
+            Helpers.muteLoopMp3("misc/background_music.mp3");
         }
 
         registro_dialog = new GameLogDialog(this, false);
@@ -2114,9 +2114,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         Helpers.savePropertiesFile();
 
         if (this.ascensor_menu.isSelected()) {
-            Helpers.unmuteLoopMp3Resource("misc/background_music.mp3");
+            Helpers.unmuteLoopMp3("misc/background_music.mp3");
         } else {
-            Helpers.muteLoopMp3Resource("misc/background_music.mp3");
+            Helpers.muteLoopMp3("misc/background_music.mp3");
         }
 
         Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setSelected(Game.MUSICA_AMBIENTAL);

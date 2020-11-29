@@ -65,7 +65,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final String BARAJA_DEFAULT = "coronapoker";
     public static final String DEFAULT_LANGUAGE = "es";
     public static final int PEPILLO_COUNTER_MAX = 5;
-    public static final int PAUSE_COUNTER_MAX = 5;
+    public static final int PAUSE_COUNTER_MAX = 3;
     public static final int AUTO_ZOOM_TIMEOUT = 2000;
     public static final int GUI_ZOOM_WAIT = 250;
 
@@ -662,7 +662,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
 
-        KeyStroke key_fold = KeyStroke.getKeyStroke(KeyEvent.VK_F1, 0);
+        KeyStroke key_fold = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
         actionMap.put(key_fold, new AbstractAction("FOLD-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -672,7 +672,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
 
-        KeyStroke key_check = KeyStroke.getKeyStroke(KeyEvent.VK_F2, 0);
+        KeyStroke key_check = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
         actionMap.put(key_check, new AbstractAction("CHECK-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -682,7 +682,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
 
-        KeyStroke key_bet = KeyStroke.getKeyStroke(KeyEvent.VK_F3, 0);
+        KeyStroke key_bet = KeyStroke.getKeyStroke(KeyEvent.VK_F6, 0);
         actionMap.put(key_bet, new AbstractAction("BET-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {

@@ -278,6 +278,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     status.setText("Esperando jugadores...");
 
+                    blinds.setText(Game.BUYIN + " " + (!Game.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(Game.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(Game.CIEGA_GRANDE) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" : ""));
+
                     participantes.put(local_nick, null);
 
                     tot_conectados.setText(participantes.size() + "/" + WaitingRoom.MAX_PARTICIPANTES);
@@ -846,6 +848,15 @@ public class WaitingRoom extends javax.swing.JFrame {
                                 }
                             });
                         }
+
+                        String blinds_msg = new String(Base64.decodeBase64(partes[2]), "UTF-8");
+
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+
+                                blinds.setText(blinds_msg);
+                            }
+                        });
 
                         //Leemos el nick del server
                         recibido = readCommandFromServer();
@@ -1463,7 +1474,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                         Helpers.playWavResource("misc/new_user.wav");
                                     }
 
-                                    writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1"), aes_key, hmac_key), client_socket);
+                                    writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1") + "#" + Base64.encodeBase64String((Game.BUYIN + " " + (!Game.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(Game.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(Game.CIEGA_GRANDE) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" : "")).getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 
                                     byte[] avatar_bytes = null;
 
@@ -1761,6 +1772,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         kick_user = new javax.swing.JButton();
         empezar_timba = new javax.swing.JButton();
         tot_conectados = new javax.swing.JLabel();
+        blinds = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -1900,8 +1912,8 @@ public class WaitingRoom extends javax.swing.JFrame {
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 367, Short.MAX_VALUE)
+                .addGap(0, 0, Short.MAX_VALUE)
+                .addComponent(panel_conectados, javax.swing.GroupLayout.PREFERRED_SIZE, 381, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(kick_user))
         );
@@ -1916,9 +1928,12 @@ public class WaitingRoom extends javax.swing.JFrame {
             }
         });
 
-        tot_conectados.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        tot_conectados.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         tot_conectados.setForeground(new java.awt.Color(0, 102, 255));
         tot_conectados.setText("0/10");
+
+        blinds.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        blinds.setText("0.10 / 0.20 @ 60'");
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -1936,8 +1951,9 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(new_bot_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(tot_conectados, javax.swing.GroupLayout.Alignment.TRAILING))
+                    .addComponent(blinds, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(tot_conectados, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addComponent(empezar_timba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1952,10 +1968,12 @@ public class WaitingRoom extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(tot_conectados)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(blinds)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(new_bot_button)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(video_chat_button)
-                        .addGap(18, 18, 18)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                             .addComponent(status1)
                             .addComponent(pass_icon))
@@ -1964,7 +1982,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                             .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
                                 .addComponent(status)
-                                .addGap(3, 3, 3))))
+                                .addGap(0, 0, 0))))
                     .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -1992,7 +2010,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                 .addContainerGap()
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 133, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 158, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2392,6 +2410,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
+    private javax.swing.JLabel blinds;
     private javax.swing.JTextArea chat;
     private javax.swing.JList<String> conectados;
     private javax.swing.JButton empezar_timba;

@@ -29,18 +29,6 @@ public class PauseDialog extends javax.swing.JDialog {
             public void run() {
                 initComponents();
 
-                ActionListener listener = new ActionListener() {
-
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-
-                        pausa_label.setVisible(!pausa_label.isVisible());
-
-                    }
-                };
-
-                timer = new Timer(500, listener);
-
                 Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
 
                 Helpers.translateComponents(tthis, false);
@@ -48,6 +36,18 @@ public class PauseDialog extends javax.swing.JDialog {
                 pack();
             }
         });
+
+        ActionListener listener = new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+
+                pausa_label.setVisible(!pausa_label.isVisible());
+
+            }
+        };
+
+        timer = new Timer(1000, listener);
     }
 
     /**

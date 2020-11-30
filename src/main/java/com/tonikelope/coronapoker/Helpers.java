@@ -148,7 +148,7 @@ public class Helpers {
     public static final int TRNG = 1;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
-    public static final ConcurrentLinkedQueue<BasicPlayer> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
+    public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
@@ -1258,13 +1258,11 @@ public class Helpers {
 
                     final Object player_wait = new Object();
 
-                    Float last_gain = null;
+                    final BasicPlayer player = new BasicPlayer();
 
                     do {
 
                         try (BufferedInputStream bis = new BufferedInputStream(getSoundInputStream(sound))) {
-
-                            BasicPlayer player = new BasicPlayer();
 
                             player.addBasicPlayerListener(new BasicPlayerListener() {
 
@@ -1297,13 +1295,11 @@ public class Helpers {
                                 player.play();
                             }
 
-                            if (!Game.SONIDOS) {
+                            if (!Game.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
                                 player.setGain(0f);
                             } else {
-                                player.setGain(last_gain == null ? getSoundVolume(sound) : last_gain);
+                                player.setGain(getSoundVolume(sound));
                             }
-
-                            last_gain = player.getGainValue();
 
                             do {
                                 synchronized (player_wait) {
@@ -1362,6 +1358,8 @@ public class Helpers {
 
                 player.stop();
 
+                MP3_LOOP_MUTED.remove(sound);
+
             } catch (BasicPlayerException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -1390,7 +1388,7 @@ public class Helpers {
 
         if (player != null) {
             try {
-                MP3_LOOP_MUTED.add(player);
+                MP3_LOOP_MUTED.add(sound);
                 player.setGain(0f);
 
             } catch (BasicPlayerException ex) {
@@ -1406,7 +1404,7 @@ public class Helpers {
 
         if (player != null) {
             try {
-                MP3_LOOP_MUTED.remove(player);
+                MP3_LOOP_MUTED.remove(sound);
 
                 if (!MUTED_ALL) {
                     player.setGain(getSoundVolume(sound));
@@ -1513,7 +1511,7 @@ public class Helpers {
 
             try {
 
-                if (!MP3_LOOP_MUTED.contains(entry.getValue())) {
+                if (!MP3_LOOP_MUTED.contains(entry.getKey())) {
                     entry.getValue().setGain(getSoundVolume(entry.getKey()));
                 }
 

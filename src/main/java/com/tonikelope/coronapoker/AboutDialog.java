@@ -16,7 +16,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "FINAL-5.76";
+    public static final String VERSION = "FINAL-5.77";
     public final static String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
     private String last_mp3_loop = null;
@@ -235,7 +235,7 @@ public class AboutDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
 
-        if (Game.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(Helpers.MP3_LOOP.get(last_mp3_loop))) {
+        if (Game.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
             Helpers.muteLoopMp3(last_mp3_loop);
         } else {
             last_mp3_loop = null;

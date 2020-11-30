@@ -72,6 +72,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile int pause_counter = Game.PAUSE_COUNTER_MAX;
     private volatile boolean auto_pause = false;
     private volatile boolean auto_pause_warning = false;
+    private volatile Timer hurryup_timer = null;
 
     public boolean isAuto_pause_warning() {
         return auto_pause_warning;
@@ -673,6 +674,27 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     counter--;
 
                                     Game.getInstance().getBarra_tiempo().setValue(counter);
+
+                                    if (counter == 15) {
+                                        ActionListener listener = new ActionListener() {
+
+                                            @Override
+                                            public void actionPerformed(ActionEvent ae) {
+
+                                                if (player_action.getBackground() == Color.WHITE) {
+                                                    player_action.setBackground(Color.BLACK);
+                                                    player_action.setForeground(Color.WHITE);
+                                                } else {
+                                                    player_action.setBackground(Color.WHITE);
+                                                    player_action.setForeground(Color.BLACK);
+                                                }
+                                            }
+                                        };
+
+                                        hurryup_timer = new Timer(1000, listener);
+
+                                        hurryup_timer.start();
+                                    }
 
                                     if (counter == 10) {
                                         Helpers.playWavResource("misc/hurryup.wav");
@@ -1649,7 +1671,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (auto_action != null) {
                     auto_action.stop();
+                }
 
+                if (hurryup_timer != null) {
+                    hurryup_timer.stop();
                 }
 
                 Helpers.threadRun(new Runnable() {
@@ -1698,7 +1723,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (auto_action != null) {
                         auto_action.stop();
+                    }
 
+                    if (hurryup_timer != null) {
+                        hurryup_timer.stop();
                     }
 
                     Helpers.threadRun(new Runnable() {
@@ -1777,6 +1805,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             auto_action.stop();
                         }
 
+                        if (hurryup_timer != null) {
+                            hurryup_timer.stop();
+                        }
+
                         crupier.setPlaying_cinematic(true);
 
                         Helpers.threadRun(new Runnable() {
@@ -1851,7 +1883,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (auto_action != null) {
                         auto_action.stop();
+                    }
 
+                    if (hurryup_timer != null) {
+                        hurryup_timer.stop();
                     }
 
                     Helpers.threadRun(new Runnable() {
@@ -1898,6 +1933,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (auto_action != null) {
                         auto_action.stop();
+                    }
+
+                    if (hurryup_timer != null) {
+                        hurryup_timer.stop();
                     }
 
                     Helpers.threadRun(new Runnable() {

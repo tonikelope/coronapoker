@@ -278,7 +278,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     status.setText("Esperando jugadores...");
 
-                    blinds.setText(Game.BUYIN + " " + (!Game.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(Game.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(Game.CIEGA_GRANDE) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" : ""));
+                    blinds.setText(Game.BUYIN + " " + (!Game.REBUY ? "(NO-REBUY) | " : "| ") + Helpers.float2String(Game.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(Game.CIEGA_GRANDE) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" : ""));
 
                     participantes.put(local_nick, null);
 

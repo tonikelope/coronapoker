@@ -1329,6 +1329,14 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         synchronized (lock_fin) {
 
+            if (this.getLocalPlayer().getAuto_action() != null) {
+                this.getLocalPlayer().getAuto_action().stop();
+            }
+
+            if (this.getLocalPlayer().getHurryup_timer() != null) {
+                this.getLocalPlayer().getHurryup_timer().stop();
+            }
+
             getCrupier().setFin_de_la_transmision(true);
 
             Helpers.GUIRun(new Runnable() {

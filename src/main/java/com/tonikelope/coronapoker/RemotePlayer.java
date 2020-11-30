@@ -243,7 +243,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                                     Game.getInstance().getBarra_tiempo().setValue(counter);
 
-                                    if (counter == 10) {
+                                    if (counter == 10 && Helpers.float1DSecureCompare(0f, call_required) < 0) {
                                         Helpers.playWavResource("misc/hurryup.wav");
                                     }
 

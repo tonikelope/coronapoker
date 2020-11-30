@@ -74,6 +74,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean auto_pause_warning = false;
     private volatile Timer hurryup_timer = null;
 
+    public Timer getAuto_action() {
+        return auto_action;
+    }
+
+    public Timer getHurryup_timer() {
+        return hurryup_timer;
+    }
+
     public boolean isAuto_pause_warning() {
         return auto_pause_warning;
     }
@@ -675,28 +683,36 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                     Game.getInstance().getBarra_tiempo().setValue(counter);
 
-                                    if (counter == 15) {
+                                    if (counter == Math.round(Game.TIEMPO_PENSAR * 0.50f) && Helpers.float1DSecureCompare(0f, call_required) < 0 && (hurryup_timer == null || !hurryup_timer.isRunning())) {
                                         ActionListener listener = new ActionListener() {
 
                                             @Override
                                             public void actionPerformed(ActionEvent ae) {
 
-                                                if (player_action.getBackground() == Color.WHITE) {
-                                                    player_action.setBackground(Color.BLACK);
-                                                    player_action.setForeground(Color.WHITE);
-                                                } else {
-                                                    player_action.setBackground(Color.WHITE);
-                                                    player_action.setForeground(Color.BLACK);
+                                                if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && hurryup_timer.isRunning() && t == crupier.getTurno()) {
+                                                    if (player_action.getBackground() == Color.WHITE) {
+                                                        setBorder(javax.swing.BorderFactory.createLineBorder(Color.GRAY, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                                                        player_action.setBackground(Color.GRAY);
+                                                        player_action.setForeground(Color.WHITE);
+                                                    } else {
+                                                        setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                                                        player_action.setBackground(Color.WHITE);
+                                                        player_action.setForeground(Color.BLACK);
+                                                    }
                                                 }
                                             }
                                         };
+
+                                        if (hurryup_timer != null) {
+                                            hurryup_timer.stop();
+                                        }
 
                                         hurryup_timer = new Timer(1000, listener);
 
                                         hurryup_timer.start();
                                     }
 
-                                    if (counter == 10) {
+                                    if (counter == 10 && Helpers.float1DSecureCompare(0f, call_required) < 0) {
                                         Helpers.playWavResource("misc/hurryup.wav");
                                     }
 

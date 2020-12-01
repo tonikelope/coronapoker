@@ -389,7 +389,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hand_labelMouseClicked
         // TODO add your handling code here:
 
-        if (Game.getInstance().isPartida_local()) {
+        if (Game.getInstance().isPartida_local() && Game.getInstance().getTapete().getCommunityCards().getHand_label().isEnabled()) {
 
             Game.getInstance().getTapete().getCommunityCards().getHand_label().setEnabled(false);
 

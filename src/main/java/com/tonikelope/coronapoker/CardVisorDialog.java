@@ -44,7 +44,7 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
                 setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
-                setSize(Math.min(Math.round(0.5f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight()));
+                setSize(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight()));
 
                 valores.put("A", 1);
                 valores.put("J", 11);
@@ -74,7 +74,7 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
                 setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
-                setSize(Math.min(Math.round(0.5f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight()));
+                setSize(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight()));
 
                 valores.put("A", 1);
                 valores.put("J", 11);

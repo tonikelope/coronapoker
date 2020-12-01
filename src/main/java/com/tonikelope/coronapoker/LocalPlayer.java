@@ -2025,24 +2025,47 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_buyinMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_buyinMouseClicked
         // TODO add your handling code here:
 
-        if (Game.REBUY && Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "¿RECOMPRAR EN LA PRÓXIMA MANO?") == 0) {
+        if (player_buyin.isEnabled()) {
 
-            if (!crupier.getRebuy_now().contains(nickname) && !crupier.isRebuy_time() && Helpers.float1DSecureCompare(stack + (this.getDecision() != Player.FOLD ? bote : 0f) + pagar, (float) Game.BUYIN) < 0) {
+            player_buyin.setEnabled(false);
 
-                this.player_buyin.setBackground(Color.WHITE);
+            if (crupier.getRebuy_now().contains(nickname)) {
+
+                this.player_buyin.setBackground(Helpers.float1DSecureCompare((float) Game.BUYIN, buyin) == 0 ? new Color(204, 204, 204) : Color.cyan);
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
                         crupier.rebuyNow(nickname);
+                        player_buyin.setEnabled(true);
+                        Helpers.playWavResource("misc/auto_button_off.wav");
                     }
                 });
 
-            } else if (crupier.getRebuy_now().contains(nickname)) {
-                Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "YA TIENES UNA SOLICITUD DE RECOMPRA ACTIVADA");
-            } else if (Helpers.float1DSecureCompare(stack + (this.getDecision() != Player.FOLD ? bote : 0f) + pagar, (float) Game.BUYIN) >= 0) {
-                Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "PARA RECOMPRAR DEBES TENER MENOS STACK QUE EL BUYIN DE LA TIMBA");
+            } else if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "¿RECOMPRAR EN LA PRÓXIMA MANO?") == 0) {
+
+                if (!Game.REBUY) {
+                    Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "NO SE PUEDE RECOMPRAR EN ESTA TIMBA");
+                    player_buyin.setEnabled(true);
+                } else if (crupier.getRebuy_now().contains(nickname)) {
+                    Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "YA TIENES UNA SOLICITUD DE RECOMPRA ACTIVA");
+                    player_buyin.setEnabled(true);
+                } else if (Helpers.float1DSecureCompare(stack + (this.getDecision() != Player.FOLD ? bote : 0f) + pagar, (float) Game.BUYIN) >= 0) {
+                    Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("PARA RECOMPRAR DEBES TENER MENOS DE ") + Game.BUYIN);
+                    player_buyin.setEnabled(true);
+                } else {
+                    this.player_buyin.setBackground(Color.YELLOW);
+
+                    Helpers.threadRun(new Runnable() {
+                        public void run() {
+                            crupier.rebuyNow(nickname);
+                            player_buyin.setEnabled(true);
+                            Helpers.playWavResource("misc/auto_button_on.wav");
+                        }
+                    });
+                }
+
             } else {
-                Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "NO PUEDES RECOMPRAR EN ESTE MOMENTO");
+                player_buyin.setEnabled(true);
             }
 
         }

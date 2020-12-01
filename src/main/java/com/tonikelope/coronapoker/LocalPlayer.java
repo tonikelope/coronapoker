@@ -686,7 +686,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     if (counter == 10) {
                                         Helpers.playWavResource("misc/hurryup.wav");
 
-                                        if (hurryup_timer == null || !hurryup_timer.isRunning()) {
+                                        if ((hurryup_timer == null || !hurryup_timer.isRunning()) && Helpers.float1DSecureCompare(0f, call_required) < 0) {
                                             ActionListener listener = new ActionListener() {
 
                                                 @Override

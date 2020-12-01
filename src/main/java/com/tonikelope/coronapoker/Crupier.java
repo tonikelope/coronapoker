@@ -246,22 +246,22 @@ public class Crupier implements Runnable {
 
         synchronized (lock_rebuynow) {
             if (!rebuy_now.contains(nick)) {
-
                 this.rebuy_now.add(nick);
+            } else {
+                this.rebuy_now.remove(nick);
+            }
 
-                if (Game.getInstance().isPartida_local()) {
+            if (Game.getInstance().isPartida_local()) {
 
-                    try {
-                        this.broadcastGAMECommandFromServer("REBUYNOW#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick.equals(Game.getInstance().getLocalPlayer().getNickname()) ? null : nick);
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
-                } else if (nick.equals(Game.getInstance().getLocalPlayer().getNickname())) {
-
-                    this.sendGAMECommandToServer("REBUYNOW");
+                try {
+                    this.broadcastGAMECommandFromServer("REBUYNOW#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick.equals(Game.getInstance().getLocalPlayer().getNickname()) ? null : nick);
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
+            } else if (nick.equals(Game.getInstance().getLocalPlayer().getNickname())) {
+
+                this.sendGAMECommandToServer("REBUYNOW");
             }
         }
     }

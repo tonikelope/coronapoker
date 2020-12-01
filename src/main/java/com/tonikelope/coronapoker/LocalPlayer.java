@@ -2025,7 +2025,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_buyinMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_buyinMouseClicked
         // TODO add your handling code here:
 
-        if (player_buyin.isEnabled()) {
+        if (player_buyin.isEnabled() && isActivo()) {
 
             player_buyin.setEnabled(false);
 

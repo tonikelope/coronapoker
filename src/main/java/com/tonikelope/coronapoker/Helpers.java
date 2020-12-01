@@ -1496,7 +1496,6 @@ public class Helpers {
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
             try {
-
                 entry.getValue().setGain(0f);
             } catch (BasicPlayerException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -1511,7 +1510,7 @@ public class Helpers {
 
             try {
 
-                if (!MP3_LOOP_MUTED.contains(entry.getKey())) {
+                if (!MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
                     entry.getValue().setGain(getSoundVolume(entry.getKey()));
                 }
 

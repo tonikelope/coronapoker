@@ -1063,7 +1063,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void reComprar(int cantidad) {
 
-        this.stack = cantidad;
+        this.stack += cantidad;
         this.buyin += cantidad;
 
         Game.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(Game.BUYIN) + ")");
@@ -1111,7 +1111,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         pagar = 0f;
 
-        if (Helpers.float1DSecureCompare(getStack(), 0f) == 0) {
+        if (Helpers.float1DSecureCompare(getStack(), 0f) == 0 || crupier.getRebuy_now().contains(nickname)) {
             reComprar(Game.BUYIN);
         }
 

@@ -496,7 +496,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void reComprar(int cantidad) {
 
-        this.stack = cantidad;
+        this.stack += cantidad;
         this.buyin += cantidad;
         Game.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(Game.BUYIN) + ")");
         Helpers.playWavResource("misc/cash_register.wav");
@@ -683,37 +683,37 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                     Game.getInstance().getBarra_tiempo().setValue(counter);
 
-                                    if (counter == Math.round(Game.TIEMPO_PENSAR * 0.50f) && Helpers.float1DSecureCompare(0f, call_required) < 0 && (hurryup_timer == null || !hurryup_timer.isRunning())) {
-                                        ActionListener listener = new ActionListener() {
+                                    if (counter == 10) {
+                                        Helpers.playWavResource("misc/hurryup.wav");
 
-                                            @Override
-                                            public void actionPerformed(ActionEvent ae) {
+                                        if (hurryup_timer == null || !hurryup_timer.isRunning()) {
+                                            ActionListener listener = new ActionListener() {
 
-                                                if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && hurryup_timer.isRunning() && t == crupier.getTurno()) {
-                                                    if (player_action.getBackground() == Color.WHITE) {
-                                                        setBorder(javax.swing.BorderFactory.createLineBorder(Color.GRAY, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
-                                                        player_action.setBackground(Color.GRAY);
-                                                        player_action.setForeground(Color.WHITE);
-                                                    } else {
-                                                        setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
-                                                        player_action.setBackground(Color.WHITE);
-                                                        player_action.setForeground(Color.BLACK);
+                                                @Override
+                                                public void actionPerformed(ActionEvent ae) {
+
+                                                    if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && hurryup_timer.isRunning() && t == crupier.getTurno()) {
+                                                        if (player_action.getBackground() == Color.WHITE) {
+                                                            setBorder(javax.swing.BorderFactory.createLineBorder(Color.GRAY, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                                                            player_action.setBackground(Color.GRAY);
+                                                            player_action.setForeground(Color.WHITE);
+                                                        } else {
+                                                            setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                                                            player_action.setBackground(Color.WHITE);
+                                                            player_action.setForeground(Color.BLACK);
+                                                        }
                                                     }
                                                 }
+                                            };
+
+                                            if (hurryup_timer != null) {
+                                                hurryup_timer.stop();
                                             }
-                                        };
 
-                                        if (hurryup_timer != null) {
-                                            hurryup_timer.stop();
+                                            hurryup_timer = new Timer(1000, listener);
+
+                                            hurryup_timer.start();
                                         }
-
-                                        hurryup_timer = new Timer(1000, listener);
-
-                                        hurryup_timer.start();
-                                    }
-
-                                    if (counter == 10 && Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                                        Helpers.playWavResource("misc/hurryup.wav");
                                     }
 
                                     if (counter == 0 || crupier.getJugadoresActivos() < 2) {
@@ -1074,7 +1074,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         pagar = 0f;
 
-        if (Helpers.float1DSecureCompare(getStack(), 0f) == 0) {
+        if (Helpers.float1DSecureCompare(getStack(), 0f) == 0 || crupier.getRebuy_now().contains(nickname)) {
             reComprar(Game.BUYIN);
         }
 
@@ -1393,18 +1393,32 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setForeground(new java.awt.Color(255, 255, 255));
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_stack.setText("10000.0");
+        player_stack.setToolTipText("CLICK PARA RECOMPRAR");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setFocusable(false);
         player_stack.setOpaque(true);
+        player_stack.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                player_stackMouseClicked(evt);
+            }
+        });
 
         player_buyin.setBackground(new java.awt.Color(204, 204, 204));
         player_buyin.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         player_buyin.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_buyin.setText("10");
+        player_buyin.setToolTipText("CLICK PARA RECOMPRAR");
         player_buyin.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_buyin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_buyin.setDoubleBuffered(true);
         player_buyin.setFocusable(false);
         player_buyin.setOpaque(true);
+        player_buyin.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                player_buyinMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout avatar_panelLayout = new javax.swing.GroupLayout(avatar_panel);
         avatar_panel.setLayout(avatar_panelLayout);
@@ -2007,6 +2021,37 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             identicon.setVisible(true);
         }
     }//GEN-LAST:event_player_nameMouseClicked
+
+    private void player_buyinMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_buyinMouseClicked
+        // TODO add your handling code here:
+
+        if (Game.REBUY && Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "¿RECOMPRAR EN LA PRÓXIMA MANO?") == 0) {
+
+            if (!crupier.getRebuy_now().contains(nickname) && !crupier.isRebuy_time() && Helpers.float1DSecureCompare(stack + (this.getDecision() != Player.FOLD ? bote : 0f) + pagar, (float) Game.BUYIN) < 0) {
+
+                this.player_buyin.setBackground(Color.WHITE);
+
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
+                        crupier.rebuyNow(nickname);
+                    }
+                });
+
+            } else if (crupier.getRebuy_now().contains(nickname)) {
+                Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "YA TIENES UNA SOLICITUD DE RECOMPRA ACTIVADA");
+            } else if (Helpers.float1DSecureCompare(stack + (this.getDecision() != Player.FOLD ? bote : 0f) + pagar, (float) Game.BUYIN) >= 0) {
+                Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "PARA RECOMPRAR DEBES TENER MENOS STACK QUE EL BUYIN DE LA TIMBA");
+            } else {
+                Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "NO PUEDES RECOMPRAR EN ESTE MOMENTO");
+            }
+
+        }
+    }//GEN-LAST:event_player_buyinMouseClicked
+
+    private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
+        // TODO add your handling code here:
+        player_buyinMouseClicked(evt);
+    }//GEN-LAST:event_player_stackMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;

@@ -142,6 +142,7 @@ public class Crupier implements Runnable {
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones_recuperadas = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<String> rebuy_now = new ConcurrentLinkedQueue<>();
     private final HashMap<String, Float[]> auditor = new HashMap<>();
     private final Object lock_apuestas = new Object();
     private final Object lock_contabilidad = new Object();
@@ -149,6 +150,7 @@ public class Crupier implements Runnable {
     private final Object lock_mostrar = new Object();
     private final Object lock_last_hand = new Object();
     private final Object lock_nueva_mano = new Object();
+    private final Object lock_rebuynow = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
 
@@ -190,6 +192,10 @@ public class Crupier implements Runnable {
     private volatile String current_remote_cinematic_b64 = null;
     private volatile boolean rebuy_time = false;
     private volatile boolean last_hand = false;
+
+    public ConcurrentLinkedQueue<String> getRebuy_now() {
+        return rebuy_now;
+    }
 
     public boolean isLast_hand() {
 
@@ -234,6 +240,30 @@ public class Crupier implements Runnable {
 
     public boolean isPlaying_cinematic() {
         return playing_cinematic;
+    }
+
+    public void rebuyNow(String nick) {
+
+        synchronized (lock_rebuynow) {
+            if (!rebuy_now.contains(nick)) {
+
+                this.rebuy_now.add(nick);
+
+                if (Game.getInstance().isPartida_local()) {
+
+                    try {
+                        this.broadcastGAMECommandFromServer("REBUYNOW#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick.equals(Game.getInstance().getLocalPlayer().getNickname()) ? null : nick);
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                } else if (nick.equals(Game.getInstance().getLocalPlayer().getNickname())) {
+
+                    this.sendGAMECommandToServer("REBUYNOW");
+                }
+
+            }
+        }
     }
 
     public static void loadMODCinematics() {
@@ -2041,6 +2071,8 @@ public class Crupier implements Runnable {
 
             i++;
         }
+
+        this.rebuy_now.clear();
 
         Integer[] permutacion_recuperada = null;
 

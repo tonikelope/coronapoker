@@ -1043,6 +1043,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                         Game.getInstance().getCrupier().showPlayerCards(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), partes_comando[4], partes_comando[5]);
                                                         break;
 
+                                                    case "REBUYNOW":
+                                                        Game.getInstance().getCrupier().rebuyNow(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                        break;
+
                                                     case "EXIT":
                                                         Game.getInstance().getCrupier().remotePlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         break;

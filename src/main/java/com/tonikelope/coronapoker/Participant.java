@@ -492,6 +492,10 @@ public class Participant implements Runnable {
                                             });
 
                                             break;
+
+                                        case "REBUYNOW":
+                                            Game.getInstance().getCrupier().rebuyNow(nick);
+                                            break;
                                         case "SHOWMYCARDS":
                                             Game.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
                                             break;

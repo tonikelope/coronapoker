@@ -172,8 +172,10 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                 last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
 
-                if (last_mp3_loop != null) {
+                if (Game.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
                     Helpers.muteLoopMp3(last_mp3_loop);
+                } else {
+                    last_mp3_loop = null;
                 }
 
                 if (!direct_gameover) {

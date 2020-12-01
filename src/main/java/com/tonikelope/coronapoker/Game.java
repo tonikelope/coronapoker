@@ -570,6 +570,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         Game.RECOVER = RECOVER;
     }
 
+    public JMenuItem getShortcuts_menu() {
+        return shortcuts_menu;
+    }
+
     private void setupGlobalShortcuts() {
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
@@ -672,17 +676,22 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
 
-        KeyStroke key_check = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
+        KeyStroke key_check = KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0);
         actionMap.put(key_check, new AbstractAction("CHECK-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
-                    getLocalPlayer().getPlayer_check().doClick();
+                    if (Game.getInstance().getLocalPlayer().isBoton_mostrar()) {
+                        getLocalPlayer().getPlayer_allin().doClick();
+
+                    } else {
+                        getLocalPlayer().getPlayer_check().doClick();
+                    }
                 }
             }
         });
 
-        KeyStroke key_bet = KeyStroke.getKeyStroke(KeyEvent.VK_F6, 0);
+        KeyStroke key_bet = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
         actionMap.put(key_bet, new AbstractAction("BET-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -692,21 +701,11 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
 
-        KeyStroke key_allin = KeyStroke.getKeyStroke(KeyEvent.VK_F4, 0);
+        KeyStroke key_allin = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.SHIFT_DOWN_MASK);
         actionMap.put(key_allin, new AbstractAction("ALLIN-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano() && !Game.getInstance().getLocalPlayer().isBoton_mostrar()) {
-                    getLocalPlayer().getPlayer_allin().doClick();
-                }
-            }
-        });
-
-        KeyStroke key_show = KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0);
-        actionMap.put(key_show, new AbstractAction("SHOW-BUTTON") {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (!getCrupier().isSincronizando_mano() && Game.getInstance().getLocalPlayer().isBoton_mostrar()) {
                     getLocalPlayer().getPlayer_allin().doClick();
                 }
             }
@@ -1581,6 +1580,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         jSeparator4 = new javax.swing.JPopupMenu.Separator();
         auto_rebuy_menu = new javax.swing.JCheckBoxMenuItem();
         help_menu = new javax.swing.JMenu();
+        shortcuts_menu = new javax.swing.JMenuItem();
         acerca_menu = new javax.swing.JMenuItem();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -1842,6 +1842,15 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         help_menu.setText("Ayuda");
         help_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+
+        shortcuts_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        shortcuts_menu.setText("ATAJOS");
+        shortcuts_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                shortcuts_menuActionPerformed(evt);
+            }
+        });
+        help_menu.add(shortcuts_menu);
 
         acerca_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         acerca_menu.setText("Acerca de");
@@ -2373,6 +2382,12 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(Game.CINEMATICAS);
     }//GEN-LAST:event_menu_cinematicasActionPerformed
 
+    private void shortcuts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_shortcuts_menuActionPerformed
+        // TODO add your handling code here:
+        Helpers.mostrarMensajeInformativo(this.getFull_screen_frame() != null ? this.getFull_screen_frame() : this, Translator.translate("PASAR/IR -> [ESPACIO]\n\nAPOSTAR -> [ENTER] (FLECHA ARRIBA/ABAJO PARA SUBIR/BAJAR APUESTA)\n\nALL IN -> [MAYUS + ENTER]\n\nNO IR -> [ESC]\n\nMOSTRAR CARTAS -> [ESPACIO]"));
+
+    }//GEN-LAST:event_shortcuts_menuActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
@@ -2405,6 +2420,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private javax.swing.JMenu opciones_menu;
     private javax.swing.JMenuItem registro_menu;
     private javax.swing.JPopupMenu.Separator server_separator_menu;
+    private javax.swing.JMenuItem shortcuts_menu;
     private javax.swing.JCheckBoxMenuItem sonidos_chorra_menu;
     private javax.swing.JCheckBoxMenuItem sonidos_menu;
     private javax.swing.JCheckBoxMenuItem time_menu;

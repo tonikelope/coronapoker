@@ -171,9 +171,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 if (parguela) {
-                    player_allin_button.setText(Translator.translate("MOSTRAR [F5]") + " (" + parguela_counter + ")");
+                    player_allin_button.setText(Translator.translate("MOSTRAR") + " (" + parguela_counter + ")");
                 } else {
-                    player_allin_button.setText(Translator.translate("MOSTRAR [F5]"));
+                    player_allin_button.setText(Translator.translate("MOSTRAR"));
 
                 }
                 player_allin_button.setForeground(Color.WHITE);
@@ -543,11 +543,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_bet_button.setText(" ");
 
-                    player_allin_button.setText("ALL IN [F4]");
+                    player_allin_button.setText("ALL IN");
 
                     player_allin_button.setEnabled(true);
 
-                    player_fold_button.setText("NO IR [ESC]");
+                    player_fold_button.setText("NO IR");
 
                     player_fold_button.setEnabled(true);
 
@@ -569,9 +569,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_check_button.setEnabled(true);
 
                         if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
-                            player_check_button.setText("PASAR [ENT]");
+                            player_check_button.setText("PASAR");
                         } else {
-                            player_check_button.setText(Translator.translate("IR") + " (+" + Helpers.float2String(call_required) + ") [ENT]");
+                            player_check_button.setText(Translator.translate("IR") + " (+" + Helpers.float2String(call_required) + ")");
                         }
 
                     }
@@ -587,12 +587,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         if (Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) == 0) {
                             player_bet_button.setEnabled(true);
-                            player_bet_button.setText("APOSTAR [F6]");
+                            player_bet_button.setText("APOSTAR");
                             slider_min = crupier.getCiega_grande();
 
                         } else {
                             player_bet_button.setEnabled(true);
-                            player_bet_button.setText((crupier.getConta_raise() > 0 ? "RE" : "") + "SUBIR [F6]");
+                            player_bet_button.setText((crupier.getConta_raise() > 0 ? "RE" : "") + "SUBIR");
                             slider_min = min_raise;
                         }
 
@@ -972,10 +972,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
-                    player_check_button.setText(Translator.translate("(AUTO) PASAR [ENT]"));
+                    player_check_button.setText(Translator.translate("(AUTO) PASAR"));
                     player_check_button.setEnabled(true);
 
-                    player_fold_button.setText(Translator.translate("(AUTO) NO IR [ESC]"));
+                    player_fold_button.setText(Translator.translate("(AUTO) NO IR"));
                     player_fold_button.setEnabled(true);
 
                     if (pre_pulsado != Player.NODEC) {
@@ -1530,7 +1530,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_allin_button.setBackground(new java.awt.Color(0, 0, 0));
         player_allin_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         player_allin_button.setForeground(new java.awt.Color(255, 255, 255));
-        player_allin_button.setText("ALL IN [F4]");
+        player_allin_button.setText("ALL IN");
         player_allin_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_allin_button.setDoubleBuffered(true);
         player_allin_button.setFocusable(false);
@@ -1553,7 +1553,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_fold_button.setBackground(new java.awt.Color(255, 0, 0));
         player_fold_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         player_fold_button.setForeground(new java.awt.Color(255, 255, 255));
-        player_fold_button.setText("NO IR [ESC]");
+        player_fold_button.setText("NO IR");
         player_fold_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_fold_button.setDoubleBuffered(true);
         player_fold_button.setFocusable(false);
@@ -1572,7 +1572,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         bet_slider_text.setFocusable(false);
 
         player_check_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
-        player_check_button.setText("PASAR [ENT]");
+        player_check_button.setText("PASAR");
         player_check_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_check_button.setDoubleBuffered(true);
         player_check_button.setFocusable(false);
@@ -1584,7 +1584,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         player_bet_button.setBackground(java.awt.Color.orange);
         player_bet_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
-        player_bet_button.setText("APOSTAR [F6]");
+        player_bet_button.setText("APOSTAR");
         player_bet_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_bet_button.setDoubleBuffered(true);
         player_bet_button.setFocusable(false);

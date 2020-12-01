@@ -1952,6 +1952,13 @@ public class Helpers {
 
                 popup = new JPopupMenu();
 
+                Action shortcutsAction = new AbstractAction("ATAJOS") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getShortcuts_menu().doClick();
+                    }
+                };
+
                 Action exitAction = new AbstractAction("Salir") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -2134,6 +2141,7 @@ public class Helpers {
                 SONIDOS_MUSICA_MENU.setEnabled(Game.SONIDOS);
                 popup.add(SONIDOS_MUSICA_MENU);
                 popup.addSeparator();
+                popup.add(shortcutsAction);
                 CONFIRM_MENU = new JCheckBoxMenuItem(confirmAction);
                 CONFIRM_MENU.setSelected(Game.CONFIRM_ACTIONS);
                 popup.add(CONFIRM_MENU);

@@ -32,7 +32,7 @@ public interface Player {
     public static final int SMALL_BLIND = 12;
     public static final int BIG_BLIND = 13;
 
-    public static final int BORDER = 8;
+    public static final int BORDER = 10;
 
     public int getResponseTime();
 

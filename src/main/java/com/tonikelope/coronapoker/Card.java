@@ -265,6 +265,19 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         return null;
     }
 
+    public static String collection2ShortString(List<Card> cartas) {
+
+        if (cartas != null && !cartas.isEmpty()) {
+            String cadena = " ";
+
+            cadena = cartas.stream().map((carta) -> carta.toShortString() + "#").reduce(cadena, String::concat);
+
+            return cadena;
+        }
+
+        return null;
+    }
+
     public static void sortAceLowCollection(List<Card> cartas) {
 
         Collections.sort(cartas, new Card.AceLowSortingComparator());
@@ -374,7 +387,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         if (!"".equals(this.valor) && this.tapada) {
 
             if (sound) {
-                Helpers.playWavResource("misc/uncover.wav");
+                Helpers.playWavResource("misc/uncover.wav", false);
             }
 
             Helpers.GUIRun(new Runnable() {

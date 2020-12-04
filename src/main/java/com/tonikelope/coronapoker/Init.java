@@ -25,9 +25,15 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Random;
 import java.security.SecureRandom;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.UIManager;
@@ -40,10 +46,12 @@ public class Init extends javax.swing.JFrame {
 
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
+    public static volatile Connection SQLITE = null;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String REC_DIR = CORONA_DIR + "/Recover";
+    public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
 
     /**
      * Creates new form Inicio
@@ -51,10 +59,6 @@ public class Init extends javax.swing.JFrame {
     public Init() {
 
         Init tthis = this;
-
-        Helpers.PRNG_GENERATOR = new Random();
-
-        Helpers.SPRNG_GENERATOR = new SecureRandom();
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
@@ -82,6 +86,7 @@ public class Init extends javax.swing.JFrame {
                 pack();
             }
         });
+
     }
 
     public void translateGlobalLabels() {
@@ -398,6 +403,10 @@ public class Init extends javax.swing.JFrame {
         //</editor-fold>
 
         //</editor-fold>
+        Helpers.PRNG_GENERATOR = new Random();
+
+        Helpers.SPRNG_GENERATOR = new SecureRandom();
+
         Helpers.createIfNoExistsCoronaDirs();
 
         if (Game.DEBUG_TO_FILE) {
@@ -452,6 +461,82 @@ public class Init extends javax.swing.JFrame {
         Helpers.playWavResource("misc/init.wav");
 
         Helpers.playLoopMp3Resource("misc/background_music.mp3");
+
+        try {
+            Class.forName("org.sqlite.JDBC");
+
+            // create a database connection
+            SQLITE = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE);
+
+            Statement statement = SQLITE.createStatement();
+
+            statement.setQueryTimeout(30);  // set timeout to 30 sec.
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, balance TEXT, last_deck TEXT)");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, FOREIGN KEY(id_game) REFERENCES game(id))");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, response_time INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+            /* ResultSet rs = statement.executeQuery("select * from game");
+            while (rs.next()) {
+                // read the result set
+                System.out.println("id_game = " + rs.getInt("id"));
+                System.out.println("players = " + rs.getString("players"));
+                System.out.println("balance = " + rs.getString("balance"));
+                System.out.println("last_deck = " + rs.getString("last_deck"));
+            }
+
+            System.out.println("\n\n\n");
+
+            rs = statement.executeQuery("select * from hand");
+            while (rs.next()) {
+                // read the result set
+                System.out.println("id_game = " + rs.getInt("id_game"));
+                System.out.println("counter = " + rs.getInt("counter"));
+                System.out.println("SB VAL = " + rs.getFloat("sbval"));
+                System.out.println("DEALER = " + rs.getString("dealer"));
+                System.out.println("SB = " + rs.getString("sb"));
+                System.out.println("BB = " + rs.getString("bb"));
+                System.out.println("start = " + rs.getLong("start"));
+                System.out.println("end = " + rs.getLong("end"));
+                System.out.println("COMUN_CARDS = " + rs.getString("com_cards"));
+                System.out.println("preflop_players = " + rs.getString("preflop_players"));
+                System.out.println("flop_players = " + rs.getString("flop_players"));
+                System.out.println("turn_players = " + rs.getString("turn_players"));
+                System.out.println("river_players = " + rs.getString("river_players"));
+            }
+
+            System.out.println("\n\n\n");
+
+            rs = statement.executeQuery("select * from action");
+            while (rs.next()) {
+                // read the result set
+                System.out.println("id_action = " + rs.getInt("id"));
+                System.out.println("id_hand = " + rs.getInt("id_hand"));
+                System.out.println("player = " + rs.getString("player"));
+                System.out.println("counter = " + rs.getInt("counter"));
+                System.out.println("round = " + rs.getInt("round"));
+                System.out.println("action = " + rs.getInt("action"));
+                System.out.println("bet = " + rs.getFloat("bet"));
+                System.out.println("response_time = " + rs.getInt("response_time"));
+            }
+
+            rs = statement.executeQuery("select * from showdown");
+            while (rs.next()) {
+                // read the result set
+                System.out.println("id_hand = " + rs.getInt("id_hand"));
+                System.out.println("player = " + rs.getString("player"));
+                System.out.println("hole_cards = " + rs.getString("hole_cards"));
+                System.out.println("hand_cards = " + rs.getString("hand_cards"));
+                System.out.println("hand_Val = " + rs.getInt("hand_val"));
+                System.out.println("winner = " + rs.getBoolean("winner"));
+            }*/
+        } catch (SQLException | ClassNotFoundException ex) {
+            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+        }
 
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {

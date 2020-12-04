@@ -1164,58 +1164,59 @@ public class Helpers {
 
     public static boolean playWavResourceAndWait(String sound) {
 
+        return playWavResourceAndWait(sound, true);
+
+    }
+
+    public static boolean playWavResourceAndWait(String sound, boolean force_close) {
         if (!Game.TEST_MODE) {
-
             InputStream sound_stream;
-
             if ((sound_stream = getSoundInputStream(sound)) != null) {
-
-                try (BufferedInputStream bis = new BufferedInputStream(sound_stream); Clip clip = AudioSystem.getClip();) {
-
+                try (final BufferedInputStream bis = new BufferedInputStream(sound_stream); final Clip clip = AudioSystem.getClip()) {
                     if (WAVS_RESOURCES.containsKey(sound)) {
 
-                        WAVS_RESOURCES.get(sound).add(clip);
+                        if (force_close) {
+
+                            for (Clip c : WAVS_RESOURCES.get(sound)) {
+                                c.stop();
+                            }
+
+                            WAVS_RESOURCES.get(sound).clear();
+
+                            WAVS_RESOURCES.get(sound).add(clip);
+
+                        } else {
+                            WAVS_RESOURCES.get(sound).add(clip);
+                        }
 
                     } else {
-
                         ConcurrentLinkedQueue<Clip> list = new ConcurrentLinkedQueue<>();
-
                         WAVS_RESOURCES.put(sound, list);
-
                         list.add(clip);
                     }
-
                     clip.open(AudioSystem.getAudioInputStream(bis));
-
                     FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-
                     if (!Game.SONIDOS) {
                         gainControl.setValue(gainControl.getMinimum());
                     } else {
                         float dB = (float) Math.log10(getSoundVolume(sound)) * 20.0f;
                         gainControl.setValue(dB);
                     }
-
                     clip.loop(Clip.LOOP_CONTINUOUSLY);
-
                     Helpers.pausar(clip.getMicrosecondLength() / 1000);
 
-                    clip.stop();
-
-                    WAVS_RESOURCES.get(sound).remove(clip);
-
+                    if (WAVS_RESOURCES.containsKey(sound) && WAVS_RESOURCES.get(sound).contains(clip)) {
+                        clip.stop();
+                        WAVS_RESOURCES.get(sound).remove(clip);
+                    }
                     return true;
-
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-
         }
-
         return false;
-
     }
 
     public static synchronized int getTotalLoopMp3Playing() {
@@ -1327,15 +1328,17 @@ public class Helpers {
 
     public static void playWavResource(String sound) {
 
+        playWavResource(sound, true);
+
+    }
+
+    public static void playWavResource(String sound, boolean force_close) {
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
-
-                Helpers.playWavResourceAndWait(sound);
-
+                Helpers.playWavResourceAndWait(sound, force_close);
             }
         });
-
     }
 
     public static void stopWavResource(String sound) {

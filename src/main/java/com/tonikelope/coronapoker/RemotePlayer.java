@@ -54,6 +54,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile float call_required;
     private volatile boolean turno = false;
     private volatile Bot bot = null;
+    private volatile int response_counter;
+
+    public int getResponseTime() {
+
+        return Game.TIEMPO_PENSAR - response_counter;
+    }
 
     public int getPos() {
         return pos;
@@ -229,25 +235,25 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
-                        ActionListener listener = new ActionListener() {
+                        response_counter = Game.TIEMPO_PENSAR;
 
-                            int counter = Game.TIEMPO_PENSAR;
+                        ActionListener listener = new ActionListener() {
 
                             long t = crupier.getTurno();
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && !WaitingRoom.isExit() && counter > 0 && t == crupier.getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
+                                if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && !WaitingRoom.isExit() && response_counter > 0 && t == crupier.getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
 
-                                    counter--;
+                                    response_counter--;
 
-                                    Game.getInstance().getBarra_tiempo().setValue(counter);
+                                    Game.getInstance().getBarra_tiempo().setValue(response_counter);
 
-                                    if (counter == 10 && Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                                    if (response_counter == 10 && Helpers.float1DSecureCompare(0f, call_required) < 0) {
                                         Helpers.playWavResource("misc/hurryup.wav");
                                     }
 
-                                    if (counter == 0) {
+                                    if (response_counter == 0) {
 
                                         Helpers.threadRun(new Runnable() {
                                             public void run() {

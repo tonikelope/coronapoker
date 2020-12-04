@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>FINAL-5.84</version>
+    <version>FINAL-5.86</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -76,6 +76,11 @@
             <groupId>com.google.zxing</groupId>
             <artifactId>javase</artifactId>
             <version>3.4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.7.2</version>
         </dependency>
     </dependencies>
     <properties>

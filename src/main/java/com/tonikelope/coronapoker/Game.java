@@ -44,7 +44,7 @@ import javax.swing.Timer;
  */
 public final class Game extends javax.swing.JFrame implements ZoomableInterface {
 
-    public static final boolean DEBUG_TO_FILE = true;
+    public static final boolean DEBUG_TO_FILE = false;
     public static final boolean TEST_MODE = false;
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;
@@ -410,7 +410,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Card.updateCachedImages(1f + Game.getZoom_level() * Game.getZOOM_STEP(), true);
 
-        Helpers.playWavResource("misc/uncover.wav");
+        Helpers.playWavResource("misc/uncover.wav", false);
 
         Player[] players = tapete.getPlayers();
 
@@ -439,7 +439,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public void vistaCompacta() {
 
-        Helpers.playWavResource("misc/uncover.wav");
+        Helpers.playWavResource("misc/uncover.wav", false);
 
         RemotePlayer[] players = tapete.getRemotePlayers();
 
@@ -572,6 +572,22 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public JMenuItem getShortcuts_menu() {
         return shortcuts_menu;
+    }
+
+    public JMenu getFile_menu() {
+        return file_menu;
+    }
+
+    public JMenu getHelp_menu() {
+        return help_menu;
+    }
+
+    public JMenu getOpciones_menu() {
+        return opciones_menu;
+    }
+
+    public JMenu getZoom_menu() {
+        return zoom_menu;
     }
 
     private void setupGlobalShortcuts() {
@@ -773,7 +789,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 JFrame frame = Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance();
 
-                if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && frame.isActive()) {
+                if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()))) {
                     final Action a = actionMap.get(keyStroke);
                     final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
 

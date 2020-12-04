@@ -73,6 +73,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean auto_pause = false;
     private volatile boolean auto_pause_warning = false;
     private volatile Timer hurryup_timer = null;
+    private volatile int response_counter = 0;
+
+    public int getResponseTime() {
+
+        return Game.TIEMPO_PENSAR - response_counter;
+    }
 
     public Timer getAuto_action() {
         return auto_action;
@@ -669,21 +675,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
-                        ActionListener listener = new ActionListener() {
+                        response_counter = Game.TIEMPO_PENSAR;
 
-                            int counter = Game.TIEMPO_PENSAR;
+                        ActionListener listener = new ActionListener() {
 
                             long t = crupier.getTurno();
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && counter > 0 && auto_action.isRunning() && t == crupier.getTurno()) {
+                                if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == crupier.getTurno()) {
 
-                                    counter--;
+                                    response_counter--;
 
-                                    Game.getInstance().getBarra_tiempo().setValue(counter);
+                                    Game.getInstance().getBarra_tiempo().setValue(response_counter);
 
-                                    if (counter == 10) {
+                                    if (response_counter == 10) {
                                         Helpers.playWavResource("misc/hurryup.wav");
 
                                         if ((hurryup_timer == null || !hurryup_timer.isRunning()) && Helpers.float1DSecureCompare(0f, call_required) < 0) {
@@ -716,12 +722,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         }
                                     }
 
-                                    if (counter == 0 || crupier.getJugadoresActivos() < 2) {
+                                    if (response_counter == 0 || crupier.getJugadoresActivos() < 2) {
 
                                         Helpers.threadRun(new Runnable() {
                                             public void run() {
 
-                                                if (counter == 0) {
+                                                if (response_counter == 0) {
                                                     Helpers.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
                                                 }
 
@@ -783,7 +789,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         if (pre_pulsado == Player.FOLD) {
 
-                            player_fold_button.doClick();
+                            if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                                player_fold_button.doClick();
+                            } else {
+                                player_check_button.doClick();
+                            }
 
                         } else if (pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (crupier.getFase() == Crupier.PREFLOP && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), crupier.getCiega_grande()) == 0))) {
 
@@ -972,10 +982,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
-                    player_check_button.setText(Translator.translate("(AUTO) PASAR"));
+                    player_check_button.setText(Translator.translate("AUTO PASAR +CG"));
                     player_check_button.setEnabled(true);
 
-                    player_fold_button.setText(Translator.translate("(AUTO) NO IR"));
+                    player_fold_button.setText(Translator.translate("AUTO NO IR"));
                     player_fold_button.setEnabled(true);
 
                     if (pre_pulsado != Player.NODEC) {

@@ -255,11 +255,11 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
     public static String collection2String(List<Card> cartas) {
 
         if (cartas != null && !cartas.isEmpty()) {
-            String cadena = " ";
+            String cadena = "";
 
             cadena = cartas.stream().map((carta) -> carta + " ").reduce(cadena, String::concat);
 
-            return cadena;
+            return cadena.substring(0, cadena.length() - 1);
         }
 
         return null;
@@ -268,11 +268,11 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
     public static String collection2ShortString(List<Card> cartas) {
 
         if (cartas != null && !cartas.isEmpty()) {
-            String cadena = " ";
+            String cadena = "";
 
             cadena = cartas.stream().map((carta) -> carta.toShortString() + "#").reduce(cadena, String::concat);
 
-            return cadena;
+            return cadena.substring(0, cadena.length() - 1);
         }
 
         return null;

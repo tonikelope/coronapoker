@@ -364,7 +364,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void setStack(float stack) {
-        this.stack = Helpers.clean1DFloat(stack);
+        this.stack = Helpers.floatClean1D(stack);
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -475,10 +475,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         float old_bet = this.bet;
 
-        this.bet = Helpers.clean1DFloat(new_bet);
+        this.bet = Helpers.floatClean1D(new_bet);
 
         if (Helpers.float1DSecureCompare(old_bet, this.bet) < 0) {
-            this.bote += Helpers.clean1DFloat(this.bet - old_bet);
+            this.bote += Helpers.floatClean1D(this.bet - old_bet);
         }
 
         crupier.getBote().addPlayer(this);
@@ -524,7 +524,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (this.getDecision() == Player.NODEC) {
             Helpers.playWavResource("misc/yourturn.wav");
 
-            call_required = Helpers.clean1DFloat(crupier.getApuesta_actual() - bet);
+            call_required = Helpers.floatClean1D(crupier.getApuesta_actual() - bet);
 
             min_raise = Helpers.float1DSecureCompare(0f, crupier.getUltimo_raise()) < 0 ? crupier.getUltimo_raise() : crupier.getCiega_grande();
 
@@ -587,7 +587,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         //Actualizamos el slider y el botón de apuestas
                         float slider_min;
-                        float slider_max = Helpers.clean1DFloat(stack - call_required);
+                        float slider_max = Helpers.floatClean1D(stack - call_required);
                         //slider_divisor = Helpers.clean1DFloat(1f/crupier.getCiega_pequeña());
                         slider_divisor = 1 / crupier.getCiega_pequeña();
 
@@ -1963,7 +1963,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (!Game.CONFIRM_ACTIONS || this.action_button_armed.get(player_bet_button) || click_recuperacion) {
 
-                    float bet_slider_val = Helpers.clean1DFloat(Float.valueOf(bet_slider_text.getText()));
+                    float bet_slider_val = Helpers.floatClean1D(Float.valueOf(bet_slider_text.getText()));
 
                     Helpers.playWavResource("misc/bet.wav");
 

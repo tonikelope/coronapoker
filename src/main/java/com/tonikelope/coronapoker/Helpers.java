@@ -49,6 +49,9 @@ import java.security.KeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -100,11 +103,13 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DocumentFilter;
@@ -559,6 +564,11 @@ public class Helpers {
 
             do {
                 try {
+
+                    if (component instanceof JTable) {
+                        ((JTable) component).getTableHeader().setFont(new_font);
+                    }
+
                     component.setFont(new_font);
                     error = false;
                 } catch (Exception ex) {
@@ -687,7 +697,7 @@ public class Helpers {
 
     public static String float2String(float cantidad) {
 
-        cantidad = Helpers.clean1DFloat(cantidad);
+        cantidad = Helpers.floatClean1D(cantidad);
 
         DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
         otherSymbols.setDecimalSeparator('.');
@@ -1746,17 +1756,55 @@ public class Helpers {
         }
     }
 
+//Thanks to -> https://stackoverflow.com/a/35658165
+    public static void resultSetToTableModel(ResultSet rs, JTable table) throws SQLException {
+        //Create new table model
+        DefaultTableModel tableModel = new DefaultTableModel();
+
+        //Retrieve meta data from ResultSet
+        ResultSetMetaData metaData = rs.getMetaData();
+
+        //Get number of columns from meta data
+        int columnCount = metaData.getColumnCount();
+
+        //Get all column names from meta data and add columns to table model
+        for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+            tableModel.addColumn(metaData.getColumnLabel(columnIndex));
+        }
+
+        //Create array of Objects with size of column count from meta data
+        Object[] row = new Object[columnCount];
+
+        //Scroll through result set
+        while (rs.next()) {
+            //Get object from column with specific index of result set to array of objects
+            for (int i = 0; i < columnCount; i++) {
+                row[i] = rs.getObject(i + 1);
+            }
+            //Now add row to table model with that array of objects as an argument
+            tableModel.addRow(row);
+        }
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                //Now add that table model to your table and you are done :D
+                table.setModel(tableModel);
+
+            }
+        });
+    }
+
     public static String getSystemInfo() {
         return System.getProperty("os.name") + " " + System.getProperty("os.version") + " " + System.getProperty("os.arch") + " / " + System.getProperty("java.vm.name") + " " + System.getProperty("java.version");
     }
 
-    public static float clean1DFloat(float val) {
+    public static float floatClean1D(float val) {
         return Math.round(val * 10f) / 10f;
     }
 
     public static int float1DSecureCompare(float val1, float val2) {
 
-        return Float.compare(clean1DFloat(val1), clean1DFloat(val2));
+        return Float.compare(floatClean1D(val1), floatClean1D(val2));
     }
 
     public static HashMap<Object, Object> reverseHashMap(HashMap<Object, Object> map) {

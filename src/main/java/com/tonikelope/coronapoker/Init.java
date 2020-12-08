@@ -120,6 +120,7 @@ public class Init extends javax.swing.JFrame {
         jLabel2 = new javax.swing.JLabel();
         jLabel6 = new javax.swing.JLabel();
         language_combobox = new javax.swing.JComboBox<>();
+        jButton1 = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("CoronaPoker");
@@ -219,6 +220,15 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
+        jButton1.setText("Estadísticas");
+        jButton1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        jButton1.setDoubleBuffered(true);
+        jButton1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton1ActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout corona_init_panelLayout = new javax.swing.GroupLayout(corona_init_panel);
         corona_init_panel.setLayout(corona_init_panelLayout);
         corona_init_panelLayout.setHorizontalGroup(
@@ -228,12 +238,15 @@ public class Init extends javax.swing.JFrame {
                 .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(corona_init_panelLayout.createSequentialGroup()
                         .addComponent(krusty)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(pegi_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, Short.MAX_VALUE)
-                        .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(18, 18, 18)
+                        .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(corona_init_panelLayout.createSequentialGroup()
+                                .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(corona_init_panelLayout.createSequentialGroup()
                         .addComponent(jLabel1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -254,10 +267,15 @@ public class Init extends javax.swing.JFrame {
                     .addComponent(jLabel1))
                 .addGap(18, 18, Short.MAX_VALUE)
                 .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(pegi_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(krusty, javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                        .addComponent(pegi_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGroup(corona_init_panelLayout.createSequentialGroup()
+                            .addComponent(jButton1)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
                 .addContainerGap())
         );
 
@@ -380,6 +398,15 @@ public class Init extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_language_comboboxActionPerformed
 
+    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+        // TODO add your handling code here:
+        Stats dialog = new Stats(this, true);
+
+        dialog.setLocationRelativeTo(this);
+
+        dialog.setVisible(true);
+    }//GEN-LAST:event_jButton1ActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -472,68 +499,16 @@ public class Init extends javax.swing.JFrame {
 
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, balance TEXT, last_deck TEXT)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT)");
 
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, FOREIGN KEY(id_game) REFERENCES game(id))");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, FOREIGN KEY(id_game) REFERENCES game(id))");
 
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, response_time INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
 
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, pay REAL, FOREIGN KEY(id_hand) REFERENCES hand(id))");
 
-            /* ResultSet rs = statement.executeQuery("select * from game");
-            while (rs.next()) {
-                // read the result set
-                System.out.println("id_game = " + rs.getInt("id"));
-                System.out.println("players = " + rs.getString("players"));
-                System.out.println("balance = " + rs.getString("balance"));
-                System.out.println("last_deck = " + rs.getString("last_deck"));
-            }
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
 
-            System.out.println("\n\n\n");
-
-            rs = statement.executeQuery("select * from hand");
-            while (rs.next()) {
-                // read the result set
-                System.out.println("id_game = " + rs.getInt("id_game"));
-                System.out.println("counter = " + rs.getInt("counter"));
-                System.out.println("SB VAL = " + rs.getFloat("sbval"));
-                System.out.println("DEALER = " + rs.getString("dealer"));
-                System.out.println("SB = " + rs.getString("sb"));
-                System.out.println("BB = " + rs.getString("bb"));
-                System.out.println("start = " + rs.getLong("start"));
-                System.out.println("end = " + rs.getLong("end"));
-                System.out.println("COMUN_CARDS = " + rs.getString("com_cards"));
-                System.out.println("preflop_players = " + rs.getString("preflop_players"));
-                System.out.println("flop_players = " + rs.getString("flop_players"));
-                System.out.println("turn_players = " + rs.getString("turn_players"));
-                System.out.println("river_players = " + rs.getString("river_players"));
-            }
-
-            System.out.println("\n\n\n");
-
-            rs = statement.executeQuery("select * from action");
-            while (rs.next()) {
-                // read the result set
-                System.out.println("id_action = " + rs.getInt("id"));
-                System.out.println("id_hand = " + rs.getInt("id_hand"));
-                System.out.println("player = " + rs.getString("player"));
-                System.out.println("counter = " + rs.getInt("counter"));
-                System.out.println("round = " + rs.getInt("round"));
-                System.out.println("action = " + rs.getInt("action"));
-                System.out.println("bet = " + rs.getFloat("bet"));
-                System.out.println("response_time = " + rs.getInt("response_time"));
-            }
-
-            rs = statement.executeQuery("select * from showdown");
-            while (rs.next()) {
-                // read the result set
-                System.out.println("id_hand = " + rs.getInt("id_hand"));
-                System.out.println("player = " + rs.getString("player"));
-                System.out.println("hole_cards = " + rs.getString("hole_cards"));
-                System.out.println("hand_cards = " + rs.getString("hand_cards"));
-                System.out.println("hand_Val = " + rs.getInt("hand_val"));
-                System.out.println("winner = " + rs.getBoolean("winner"));
-            }*/
         } catch (SQLException | ClassNotFoundException ex) {
             Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -550,6 +525,7 @@ public class Init extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel corona_init_panel;
     private javax.swing.JButton create_button;
+    private javax.swing.JButton jButton1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;

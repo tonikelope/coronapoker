@@ -43,10 +43,10 @@ public class Stats extends javax.swing.JDialog {
 
         Stats tthis = this;
 
-        sqlstats.put("GANANCIAS/PÉRDIDAS", this::balance);
-        sqlstats.put("TIEMPO MEDIO DE RESPUESTA", this::tiempoMedioRespuesta);
-        sqlstats.put("MANOS JUGADAS/GANADAS", this::manosJugadas);
-        sqlstats.put("TOP-10 JUGADAS MOSTRADAS", this::mejoresJugadas);
+        sqlstats.put(Translator.translate("GANANCIAS/PÉRDIDAS"), this::balance);
+        sqlstats.put(Translator.translate("TIEMPO MEDIO DE RESPUESTA"), this::tiempoMedioRespuesta);
+        sqlstats.put(Translator.translate("MANOS JUGADAS/GANADAS"), this::manosJugadas);
+        sqlstats.put(Translator.translate("TOP-10 JUGADAS MOSTRADAS"), this::mejoresJugadas);
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
@@ -56,12 +56,12 @@ public class Stats extends javax.swing.JDialog {
                 showdown_panel.setVisible(false);
                 table_panel.setVisible(false);
                 hand_data_panel.setVisible(false);
+                hand_combo.addItem(Translator.translate("TODAS LAS MANOS"));
                 hand_combo.setVisible(false);
+                game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
                 game_combo.setSelectedIndex(0);
                 game_data_panel.setVisible(false);
 
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
-                Helpers.translateComponents(tthis, false);
                 res_table.setRowHeight(res_table.getRowHeight() + 20);
                 showdown_table.setRowHeight(showdown_table.getRowHeight() + 20);
 
@@ -71,26 +71,34 @@ public class Stats extends javax.swing.JDialog {
                     stats_combo.addItem(entry.getKey());
                 }
 
-                stats_combo.setSelectedIndex(-1);
+                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+                Helpers.translateComponents(tthis, false);
+                setTitle(Translator.translate(getTitle()));
+
+                loadGames();
+
+                init = false;
+
+                stats_combo.setSelectedIndex(0);
+
+                pack();
 
             }
         });
 
-        loadGames();
-
-        init = false;
     }
 
     private void mejoresJugadas() {
 
+        if (hand_combo.getSelectedIndex() != 0) {
+            hand_combo.setSelectedIndex(-1);
+        }
         ResultSet rs;
-
-        hand_combo.setVisible(false);
 
         if (game_combo.getSelectedIndex() > 0) {
 
             try {
-                String sql = "select player as PLAYER, hole_cards as HOLE_CARDS, hand_cards as HAND_CARDS, hand_val as HAND_VAL, game.start as GAME, hand.counter as MANO, showdown.winner as WIN, round(showdown.pay,1) as PAY from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and game.id=? order by hand_val DESC,game.start DESC;";
+                String sql = "select player as PLAYER, hole_cards as HOLE_CARDS, hand_cards as HAND_CARDS, hand_val as HAND_VALUE, game.start as GAME, hand.counter as HAND, showdown.winner as WIN, round(showdown.pay,1) as PAY from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and hand_val>=1 and game.id=? order by hand_val DESC,game.start DESC;";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -107,8 +115,9 @@ public class Stats extends javax.swing.JDialog {
             }
 
         } else {
+
             try {
-                String sql = "select player as PLAYER, hole_cards as HOLE_CARDS, hand_cards as HAND_CARDS, hand_val as HAND_VAL, game.start as GAME, hand.counter as MANO, showdown.winner as WIN, round(showdown.pay,1) as PAY from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game order by hand_val DESC,game.start DESC;";
+                String sql = "select player as PLAYER, hole_cards as HOLE_CARDS, hand_cards as HAND_CARDS, hand_val as HAND_VALUE, game.start as GAME, hand.counter as HAND, showdown.winner as WIN, round(showdown.pay,1) as PAY from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and hand_val>=1 order by hand_val DESC,game.start DESC;";
                 Statement statement = SQLITE.createStatement();
 
                 statement.setQueryTimeout(30);
@@ -143,15 +152,15 @@ public class Stats extends javax.swing.JDialog {
                     row[i] = rs.getObject(i + 1);
 
                     if (tableModel.getColumnName(i).equals("GAME")) {
-
                         Timestamp ts = new Timestamp((long) row[i]);
                         Date date = new Date(ts.getTime());
-
                         row[i] = date.toString();
-                    } else if (tableModel.getColumnName(i).equals("HAND_VAL")) {
-                        row[i] = Hand.NOMBRES_JUGADAS[(int) row[i] - 1];
+                    } else if (tableModel.getColumnName(i).endsWith("_CARDS")) {
+                        row[i] = ((String) row[i]).replaceAll("#", " | ");
+                    } else if (tableModel.getColumnName(i).equals("HAND_VALUE")) {
+                        row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "";
                     } else if (tableModel.getColumnName(i).equals("WIN")) {
-                        row[i] = (int) row[i] == 1 ? "SÍ" : "NO";
+                        row[i] = (int) row[i] == 1 ? Translator.translate("SÍ") : "NO";
                     }
                 }
 
@@ -174,6 +183,9 @@ public class Stats extends javax.swing.JDialog {
     }
 
     private void manosJugadas() {
+        if (hand_combo.getSelectedIndex() != 0) {
+            hand_combo.setSelectedIndex(-1);
+        }
 
         ResultSet rs;
 
@@ -316,8 +328,8 @@ public class Stats extends javax.swing.JDialog {
         DefaultTableModel tableModel = new DefaultTableModel();
 
         tableModel.addColumn("PLAYER");
-        tableModel.addColumn("MANOS JUGADAS");
-        tableModel.addColumn("MANOS GANADORAS");
+        tableModel.addColumn("PLAYED HANDS");
+        tableModel.addColumn("WINNER HANDS");
 
         Object[] row = new Object[3];
 
@@ -344,8 +356,12 @@ public class Stats extends javax.swing.JDialog {
 
     private void balance() {
 
-        hand_combo.setVisible(true);
         try {
+            if (!hand_combo.isVisible() && game_combo.getSelectedIndex() > 0) {
+
+                hand_combo.setVisible(true);
+                hand_combo.setSelectedIndex(0);
+            }
             ResultSet rs;
 
             if (hand_combo.getSelectedIndex() > 0) {
@@ -438,7 +454,7 @@ public class Stats extends javax.swing.JDialog {
 
             game_blinds_double_val.setText(rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + " min" : "NO");
 
-            game_rebuy_val.setText(rs.getBoolean("rebuy") ? "SÍ" : "NO");
+            game_rebuy_val.setText(rs.getBoolean("rebuy") ? Translator.translate("SÍ") : "NO");
 
         } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
@@ -542,7 +558,7 @@ public class Stats extends javax.swing.JDialog {
 
         try {
             ResultSet rs;
-            String sql = "SELECT player AS PLAYER, winner as WIN, hole_cards as HOLE_CARDS, hand_cards as HAND_CARDS, hand_val AS HAND_VAL, ROUND(pay,1) as PROFIT FROM showdown WHERE id_hand=?";
+            String sql = "SELECT player AS PLAYER, winner as WIN, hole_cards as HOLE_CARDS, hand_cards as HAND_CARDS, hand_val AS HAND_VALUE, ROUND(pay,1) as PROFIT FROM showdown WHERE id_hand=?";
 
             PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -563,6 +579,7 @@ public class Stats extends javax.swing.JDialog {
     private void showdownData(ResultSet rs) {
 
         try {
+
             DefaultTableModel tableModel = new DefaultTableModel();
 
             ResultSetMetaData metaData = rs.getMetaData();
@@ -581,11 +598,11 @@ public class Stats extends javax.swing.JDialog {
                     row[i] = rs.getObject(i + 1);
 
                     if (i == 1) {
-                        row[i] = (int) row[i] == 1 ? "SÍ" : "NO";
+                        row[i] = (int) row[i] == 1 ? Translator.translate("SÍ") : "NO";
                     } else if ((i == 3 || i == 2) && row[i] != null) {
                         row[i] = ((String) row[i]).replaceAll("#", " | ");
                     } else if (i == 4) {
-                        row[i] = Hand.NOMBRES_JUGADAS[(int) row[i] - 1];
+                        row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "";
                     }
                 }
 
@@ -602,6 +619,7 @@ public class Stats extends javax.swing.JDialog {
 
                 }
             });
+
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -609,13 +627,19 @@ public class Stats extends javax.swing.JDialog {
 
     private void tiempoMedioRespuesta() {
 
-        hand_combo.setVisible(true);
         try {
+
+            if (!hand_combo.isVisible() && game_combo.getSelectedIndex() > 0) {
+
+                hand_combo.setVisible(true);
+                hand_combo.setSelectedIndex(0);
+            }
+
             ResultSet rs;
 
             if (hand_combo.getSelectedIndex() > 0) {
 
-                String sql = "SELECT player as PLAYER, ROUND(AVG(response_time),1) as AVG_TIME from action WHERE id_hand=? GROUP BY PLAYER order by AVG_TIME DESC";
+                String sql = "SELECT player as PLAYER, ROUND(AVG(response_time),1) as AVERAGE_TIME from action WHERE id_hand=? GROUP BY PLAYER order by AVERAGE_TIME DESC";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -627,7 +651,7 @@ public class Stats extends javax.swing.JDialog {
 
             } else if (game_combo.getSelectedIndex() > 0) {
 
-                String sql = "SELECT player as PLAYER, ROUND(AVG(response_time),1) as AVG_TIME from action,hand WHERE action.id_hand=hand.id AND hand.id_game=? GROUP BY PLAYER order by AVG_TIME DESC";
+                String sql = "SELECT player as PLAYER, ROUND(AVG(response_time),1) as AVERAGE_TIME from action,hand WHERE action.id_hand=hand.id AND hand.id_game=? GROUP BY PLAYER order by AVERAGE_TIME DESC";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -638,7 +662,7 @@ public class Stats extends javax.swing.JDialog {
                 rs = statement.executeQuery();
 
             } else {
-                String sql = "SELECT player as PLAYER, ROUND(AVG(response_time),1) as AVG_TIME from action GROUP BY PLAYER order by AVG_TIME DESC";
+                String sql = "SELECT player as PLAYER, ROUND(AVG(response_time),1) as AVERAGE_TIME from action GROUP BY PLAYER order by AVERAGE_TIME DESC";
 
                 Statement statement = SQLITE.createStatement();
 
@@ -716,24 +740,17 @@ public class Stats extends javax.swing.JDialog {
             while (rs.next()) {
                 // read the result set
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
+                try {
+                    Timestamp ts = new Timestamp(rs.getLong("start"));
+                    Date date = new Date(ts.getTime());
+                    game_combo.addItem(date.toString());
+                    HashMap<String, Object> map = new HashMap<>();
+                    map.put("id", rs.getInt("id"));
+                    game.put(date.toString(), map);
+                } catch (SQLException ex) {
+                    Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                }
 
-                        try {
-                            Timestamp ts = new Timestamp(rs.getLong("start"));
-                            Date date = new Date(ts.getTime());
-                            game_combo.addItem(date.toString());
-
-                            HashMap<String, Object> map = new HashMap<>();
-
-                            map.put("id", rs.getInt("id"));
-                            game.put(date.toString(), map);
-                        } catch (SQLException ex) {
-                            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-
-                    }
-                });
             }
 
         } catch (SQLException ex) {
@@ -812,7 +829,6 @@ public class Stats extends javax.swing.JDialog {
         title.setFocusable(false);
 
         game_combo.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        game_combo.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "TODAS LAS TIMBAS" }));
         game_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 game_comboItemStateChanged(evt);
@@ -831,7 +847,7 @@ public class Stats extends javax.swing.JDialog {
         game_playtime_label.setText("Tiempo de juego:");
 
         game_players_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        game_players_label.setText("Participantes:");
+        game_players_label.setText("Jugadores:");
 
         game_buyin_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         game_buyin_label.setText("Compra:");
@@ -961,7 +977,6 @@ public class Stats extends javax.swing.JDialog {
         );
 
         hand_combo.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        hand_combo.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "TODAS LAS MANOS" }));
         hand_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 hand_comboItemStateChanged(evt);
@@ -1214,14 +1229,13 @@ public class Stats extends javax.swing.JDialog {
             if (game.get((String) game_combo.getSelectedItem()) != null) {
                 loadGameData((int) game.get((String) game_combo.getSelectedItem()).get("id"));
                 game_data_panel.setVisible(true);
-
-                hand_combo.setVisible(true);
                 hand_combo.removeAllItems();
-                hand_combo.addItem("TODAS LAS MANOS");
+                hand_combo.addItem(Translator.translate("TODAS LAS MANOS"));
                 loadHands((int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                hand_combo.setVisible(true);
             } else {
                 game_data_panel.setVisible(false);
-                hand_combo.setVisible(false);
+                hand_combo.setSelectedIndex(-1);
             }
 
             if (stats_combo.getSelectedIndex() >= 0) {
@@ -1235,6 +1249,7 @@ public class Stats extends javax.swing.JDialog {
         } else {
 
             hand_combo.setVisible(false);
+            hand_data_panel.setVisible(false);
             game_data_panel.setVisible(false);
         }
 
@@ -1268,6 +1283,7 @@ public class Stats extends javax.swing.JDialog {
             pack();
 
         } else {
+            hand_combo.setVisible(false);
             hand_data_panel.setVisible(false);
         }
 

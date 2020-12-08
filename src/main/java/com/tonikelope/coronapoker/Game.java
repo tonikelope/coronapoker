@@ -20,6 +20,8 @@ import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -1367,6 +1369,18 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 getRegistro().print(Translator.translate("FIN DE LA TIMBA -> ") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
 
+                PreparedStatement statement;
+
+                try {
+                    statement = Init.SQLITE.prepareStatement("UPDATE game SET end=? WHERE id=?");
+                    statement.setQueryTimeout(30);
+                    statement.setLong(1, System.currentTimeMillis());
+                    statement.setLong(2, crupier.getSqlite_game_id());
+                    statement.executeUpdate();
+                } catch (SQLException ex) {
+                    Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
             }
 
             synchronized (crupier.getLock_contabilidad()) {
@@ -1379,7 +1393,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     String ganancia_msg = "";
 
-                    float ganancia = Helpers.clean1DFloat(Helpers.clean1DFloat(pasta[0]) - Helpers.clean1DFloat(pasta[1]));
+                    float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(pasta[0]) - Helpers.floatClean1D(pasta[1]));
 
                     if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
                         ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);

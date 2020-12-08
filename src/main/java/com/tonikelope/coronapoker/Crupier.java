@@ -195,8 +195,8 @@ public class Crupier implements Runnable {
     private volatile String current_remote_cinematic_b64 = null;
     private volatile boolean rebuy_time = false;
     private volatile boolean last_hand = false;
-    private volatile int sqlite_game_id;
-    private volatile int sqlite_hand_id;
+    private volatile int sqlite_game_id = -1;
+    private volatile int sqlite_hand_id = -1;
 
     public ConcurrentLinkedQueue<String> getRebuy_now() {
         return rebuy_now;
@@ -935,7 +935,7 @@ public class Crupier implements Runnable {
 
             Game.getInstance().getRegistro().print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: " + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum) + " / INDIVISIBLE: " + Helpers.float2String(this.bote_sobrante));
 
-            if (Helpers.float1DSecureCompare(Helpers.clean1DFloat(stack_sum) + Helpers.clean1DFloat(this.bote_sobrante), buyin_sum) != 0) {
+            if (Helpers.float1DSecureCompare(Helpers.floatClean1D(stack_sum) + Helpers.floatClean1D(this.bote_sobrante), buyin_sum) != 0) {
                 Game.getInstance().getRegistro().print("¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN");
             }
         }
@@ -1719,7 +1719,7 @@ public class Crupier implements Runnable {
 
                             String ganancia_msg = "";
 
-                            float ganancia = Helpers.clean1DFloat(Helpers.clean1DFloat(Float.parseFloat(partes[1])) - Helpers.clean1DFloat(Float.parseFloat(partes[2])));
+                            float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(Float.parseFloat(partes[1])) - Helpers.floatClean1D(Float.parseFloat(partes[2])));
 
                             if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
                                 ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
@@ -2170,6 +2170,8 @@ public class Crupier implements Runnable {
 
         } else {
 
+            sqlNewHand();
+
             borrarAcciones();
 
             if (Game.getInstance().isPartida_local()) {
@@ -2291,8 +2293,6 @@ public class Crupier implements Runnable {
                 }
             });
 
-            sqlNewHand();
-
             return true;
 
         } else {
@@ -2340,7 +2340,7 @@ public class Crupier implements Runnable {
 
             statement.setInt(5, current_player.getDecision());
 
-            statement.setFloat(6, current_player.getBet());
+            statement.setFloat(6, Helpers.floatClean1D(current_player.getBet()));
 
             statement.setInt(7, current_player.getResponseTime());
 
@@ -2379,7 +2379,7 @@ public class Crupier implements Runnable {
 
     private void sqlNewShowdown(Player jugador, Hand jugada, boolean win) {
 
-        String sql = "INSERT INTO showdown(id_hand, player, hole_cards, hand_cards, hand_val, winner) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO showdown(id_hand, player, hole_cards, hand_cards, hand_val, winner, pay) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try {
             PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
@@ -2396,6 +2396,8 @@ public class Crupier implements Runnable {
 
             statement.setBoolean(6, win);
 
+            statement.setFloat(7, Helpers.floatClean1D(Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() - jugador.getBote() : (-1 * jugador.getBote())));
+
             statement.executeUpdate();
 
         } catch (SQLException ex) {
@@ -2404,22 +2406,48 @@ public class Crupier implements Runnable {
 
     }
 
-    private void sqlUpdateCurrentHandEnd() {
+    private void sqlUpdateHandEnd(float bote_tot) {
 
         PreparedStatement statement;
         try {
-            statement = Init.SQLITE.prepareStatement("UPDATE hand SET end=? WHERE id=?");
+            statement = Init.SQLITE.prepareStatement("UPDATE hand SET end=?, pot=? WHERE id=?");
             statement.setQueryTimeout(30);
             statement.setLong(1, System.currentTimeMillis());
-            statement.setInt(2, this.sqlite_hand_id);
+            statement.setFloat(2, Helpers.floatClean1D(bote_tot));
+            statement.setInt(3, this.sqlite_hand_id);
             statement.executeUpdate();
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+        for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
+
+            Player jugador = nick2player.get(entry.getKey());
+
+            if (jugador != null) {
+
+                this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f), jugador.getBuyin());
+
+            } else {
+
+                Float[] pasta = entry.getValue();
+                this.sqlNewHandBalance(jugador.getNickname(), pasta[0], Math.round(pasta[1]));
+
+            }
+        }
+
+        try {
+            statement = Init.SQLITE.prepareStatement("UPDATE game SET play_time=? WHERE id=?");
+            statement.setQueryTimeout(30);
+            statement.setLong(1, Game.getInstance().getConta_tiempo_juego());
+            statement.setInt(2, this.sqlite_game_id);
+            statement.executeUpdate();
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
-    private void sqlUpdateCurrentHandPlayers(ArrayList<Player> resistencia) {
+    private void sqlUpdateHandPlayers(ArrayList<Player> resistencia) {
 
         String jugadores = "";
 
@@ -2464,34 +2492,26 @@ public class Crupier implements Runnable {
 
     }
 
-    private void sqlUpdateGameBalance(String balance) {
+    public int getSqlite_game_id() {
+        return sqlite_game_id;
+    }
+
+    public int getSqlite_hand_id() {
+        return sqlite_hand_id;
+    }
+
+    private void sqlNewHandBalance(String nick, float stack, int buyin) {
 
         PreparedStatement statement;
         try {
-            statement = Init.SQLITE.prepareStatement("UPDATE game SET balance=?, play_time=?, last_deck=? WHERE id=?");
+            statement = Init.SQLITE.prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin) VALUES (?,?,?,?)");
             statement.setQueryTimeout(30);
-            statement.setString(1, balance);
-            statement.setLong(2, Game.getInstance().getConta_tiempo_juego());
-
-            String per = null;
-
-            if (permutacion_baraja != null) {
-                per = "";
-
-                for (int p : permutacion_baraja) {
-
-                    per += String.valueOf(p) + "|";
-                }
-
-                per = Base64.encodeBase64String(per.substring(0, per.length() - 1).getBytes("UTF-8"));
-            }
-
-            statement.setString(3, per);
-            statement.setInt(4, this.sqlite_game_id);
+            statement.setInt(1, this.sqlite_hand_id);
+            statement.setString(2, nick);
+            statement.setFloat(3, Helpers.floatClean1D(stack));
+            statement.setInt(4, buyin);
             statement.executeUpdate();
         } catch (SQLException ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -2518,7 +2538,7 @@ public class Crupier implements Runnable {
 
             statement.setInt(3, Game.BUYIN);
 
-            statement.setFloat(4, Game.CIEGA_PEQUEÑA);
+            statement.setFloat(4, Helpers.floatClean1D(Game.CIEGA_PEQUEÑA));
 
             statement.setInt(5, Game.CIEGAS_TIME);
 
@@ -2539,7 +2559,7 @@ public class Crupier implements Runnable {
     private void sqlNewHand() {
         try {
 
-            String sql = "INSERT INTO hand(id_game, counter, sbval, dealer, sb, bb, start) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO hand(id_game, counter, sbval, blinds_double, dealer, sb, bb, start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
             PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
 
@@ -2549,15 +2569,17 @@ public class Crupier implements Runnable {
 
             statement.setInt(2, this.conta_mano);
 
-            statement.setFloat(3, this.ciega_pequeña);
+            statement.setFloat(3, Helpers.floatClean1D(this.ciega_pequeña));
 
-            statement.setString(4, Game.getInstance().getJugadores().get(this.dealer_pos).getNickname());
+            statement.setInt(4, this.ciegas_double);
 
-            statement.setString(5, Game.getInstance().getJugadores().get(this.small_pos).getNickname());
+            statement.setString(5, Game.getInstance().getJugadores().get(this.dealer_pos).getNickname());
 
-            statement.setString(6, Game.getInstance().getJugadores().get(this.big_pos).getNickname());
+            statement.setString(6, Game.getInstance().getJugadores().get(this.small_pos).getNickname());
 
-            statement.setLong(7, System.currentTimeMillis());
+            statement.setString(7, Game.getInstance().getJugadores().get(this.big_pos).getNickname());
+
+            statement.setLong(8, System.currentTimeMillis());
 
             statement.executeUpdate();
 
@@ -3191,7 +3213,7 @@ public class Crupier implements Runnable {
 
         this.fase = fase;
 
-        sqlUpdateCurrentHandPlayers(resisten);
+        sqlUpdateHandPlayers(resisten);
 
         if (fase > PREFLOP) {
 
@@ -3971,8 +3993,6 @@ public class Crupier implements Runnable {
             // SERVER_NICK + BUYIN + REBUY + TIEMPO_JUEGO + CONTA_MANO + CIEGA_PEQUEÑA + CIEGA_GRANDE + TIEMPO_CIEGAS + CIEGAS_DOBLADAS + DEALER
             String datos = Base64.encodeBase64String(WaitingRoom.getInstance().getServer_nick().getBytes("UTF-8")) + "#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.REBUY) + "#" + String.valueOf(Game.getInstance().getConta_tiempo_juego()) + "#" + String.valueOf(this.conta_mano) + "#" + Helpers.float2String(this.getCiega_pequeña()) + "#" + Helpers.float2String(this.getCiega_grande()) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(ciegas_double) + "#" + Base64.encodeBase64String(Game.getInstance().getJugadores().get(this.dealer_pos).getNickname().getBytes("UTF-8")) + "#";
 
-            String auditor_data = "";
-
             if (!auditor.isEmpty()) {
                 for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
 
@@ -3980,13 +4000,13 @@ public class Crupier implements Runnable {
 
                     if (jugador != null) {
 
-                        auditor_data += Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "|" + Helpers.float2String(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : jugador.getBote())) + "|" + String.valueOf(jugador.getBuyin()) + "@";
+                        datos += Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "|" + Helpers.float2String(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : jugador.getBote())) + "|" + String.valueOf(jugador.getBuyin()) + "@";
 
                     } else {
 
                         Float[] pasta = entry.getValue();
 
-                        auditor_data += Base64.encodeBase64String(entry.getKey().getBytes("UTF-8")) + "|" + Helpers.float2String(pasta[0]) + "|" + Helpers.float2String(pasta[1]) + "@";
+                        datos += Base64.encodeBase64String(entry.getKey().getBytes("UTF-8")) + "|" + Helpers.float2String(pasta[0]) + "|" + Helpers.float2String(pasta[1]) + "@";
 
                     }
                 }
@@ -3994,21 +4014,17 @@ public class Crupier implements Runnable {
             } else {
 
                 for (Player jugador : Game.getInstance().getJugadores()) {
-                    auditor_data += Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "|" + Helpers.float2String(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : jugador.getBote())) + "|" + String.valueOf(jugador.getBuyin()) + "@";
+                    datos += Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "|" + Helpers.float2String(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : jugador.getBote())) + "|" + String.valueOf(jugador.getBuyin()) + "@";
 
                 }
 
             }
-
-            datos += auditor_data;
 
             try {
                 Files.writeString(Paths.get(RECOVER_BALANCE_FILE), datos.substring(0, datos.length() - 1));
             } catch (IOException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
-
-            this.sqlUpdateGameBalance(auditor_data);
 
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -4071,6 +4087,24 @@ public class Crupier implements Runnable {
         return null;
     }
 
+    private void sqlUpdateGameLastDeck(String deck) {
+
+        try {
+            String sql = "UPDATE game SET last_deck=? WHERE id=?";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setString(1, deck);
+            statement.setInt(2, this.sqlite_game_id);
+            statement.executeUpdate();
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
     private void preservarPermutacion(Integer[] permutation, String filename) {
 
         try {
@@ -4082,6 +4116,7 @@ public class Crupier implements Runnable {
             }
 
             Files.writeString(Paths.get(filename), Base64.encodeBase64String(per.substring(0, per.length() - 1).getBytes("UTF-8")));
+            sqlUpdateGameLastDeck(Base64.encodeBase64String(per.substring(0, per.length() - 1).getBytes("UTF-8")));
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
@@ -4589,7 +4624,7 @@ public class Crupier implements Runnable {
             if (jugador.isExit()) {
                 this.auditor.put(jugador.getNickname(), new Float[]{jugador.getStack() + jugador.getPagar(), (float) jugador.getBuyin()});
 
-                float ganancia = Helpers.clean1DFloat(Helpers.clean1DFloat(jugador.getStack()) + Helpers.clean1DFloat(jugador.getPagar())) - Helpers.clean1DFloat(jugador.getBuyin());
+                float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(jugador.getStack()) + Helpers.floatClean1D(jugador.getPagar())) - Helpers.floatClean1D(jugador.getBuyin());
 
                 String ganancia_msg = "";
 
@@ -4994,6 +5029,8 @@ public class Crupier implements Runnable {
 
                         badbeat = false;
 
+                        float sql_bote_total = this.bote_total;
+
                         if (resisten.size() == 1) {
 
                             //Todos se han tirado menos uno GANA SIN MOSTRAR
@@ -5296,6 +5333,8 @@ public class Crupier implements Runnable {
 
                         }
 
+                        sqlUpdateHandEnd(sql_bote_total);
+
                         if (Helpers.float1DSecureCompare(0f, this.bote_total) < 0) {
                             this.bote_sobrante += this.bote_total;
                             this.bote_total = 0f;
@@ -5304,10 +5343,7 @@ public class Crupier implements Runnable {
                         for (Player jugador : Game.getInstance().getJugadores()) {
                             jugador.resetBote();
                         }
-
                     }
-
-                    sqlUpdateCurrentHandEnd();
 
                     if (!Game.TEST_MODE) {
 
@@ -5330,7 +5366,7 @@ public class Crupier implements Runnable {
 
                             for (Player jugador : Game.getInstance().getJugadores()) {
 
-                                if (jugador != Game.getInstance().getLocalPlayer() && jugador.isActivo() && Helpers.float1DSecureCompare(0f, Helpers.clean1DFloat(jugador.getStack()) + Helpers.clean1DFloat(jugador.getPagar())) == 0) {
+                                if (jugador != Game.getInstance().getLocalPlayer() && jugador.isActivo() && Helpers.float1DSecureCompare(0f, Helpers.floatClean1D(jugador.getStack()) + Helpers.floatClean1D(jugador.getPagar())) == 0) {
 
                                     if (Game.REBUY) {
                                         rebuy_players.add(jugador.getNickname());
@@ -5343,7 +5379,7 @@ public class Crupier implements Runnable {
 
                             this.rebuy_time = !rebuy_players.isEmpty();
 
-                            if (Game.getInstance().getLocalPlayer().isActivo() && Helpers.float1DSecureCompare(Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getStack()) + Helpers.clean1DFloat(Game.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
+                            if (Game.getInstance().getLocalPlayer().isActivo() && Helpers.float1DSecureCompare(Helpers.floatClean1D(Game.getInstance().getLocalPlayer().getStack()) + Helpers.floatClean1D(Game.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
 
                                 this.rebuy_time = true;
 

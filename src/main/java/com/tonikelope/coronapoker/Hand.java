@@ -43,6 +43,22 @@ public class Hand {
     public static final int ESCALERA_COLOR = 9;
     public static final int ESCALERA_COLOR_REAL = 10;
 
+    public static int getHandValue(String name) {
+
+        int i = 0;
+
+        for (String s : NOMBRES_JUGADAS) {
+
+            if (s.equals(name)) {
+                return i;
+            }
+
+            i++;
+        }
+
+        return -1;
+    }
+
     private static ArrayList<Card> getCartasAltas(ArrayList<Card> c, int total) {
 
         ArrayList<Card> cartas = new ArrayList<>(c);

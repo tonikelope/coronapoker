@@ -2379,7 +2379,7 @@ public class Crupier implements Runnable {
 
     private void sqlNewShowdown(Player jugador, Hand jugada, boolean win) {
 
-        String sql = "INSERT INTO showdown(id_hand, player, hole_cards, hand_cards, hand_val, winner, pay) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO showdown(id_hand, player, hole_cards, hand_cards, hand_val, winner, pay, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try {
             PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
@@ -2396,7 +2396,9 @@ public class Crupier implements Runnable {
 
             statement.setBoolean(6, win);
 
-            statement.setFloat(7, Helpers.floatClean1D(Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() - jugador.getBote() : (-1 * jugador.getBote())));
+            statement.setFloat(7, Helpers.floatClean1D(jugador.getPagar()));
+
+            statement.setFloat(8, Helpers.floatClean1D(Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() - jugador.getBote() : 0f));
 
             statement.executeUpdate();
 

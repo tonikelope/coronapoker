@@ -130,17 +130,6 @@
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="0" attributes="0">
                                   <Group type="103" groupAlignment="1" max="-2" attributes="0">
-                                      <Component id="game_end_label" alignment="0" max="32767" attributes="0"/>
-                                      <Component id="game_start_label" alignment="0" pref="146" max="32767" attributes="0"/>
-                                  </Group>
-                                  <EmptySpace max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="0" attributes="0">
-                                      <Component id="game_start_val" max="32767" attributes="0"/>
-                                      <Component id="game_end_val" max="32767" attributes="0"/>
-                                  </Group>
-                              </Group>
-                              <Group type="102" alignment="0" attributes="0">
-                                  <Group type="103" groupAlignment="1" max="-2" attributes="0">
                                       <Component id="game_blinds_label" alignment="0" max="32767" attributes="0"/>
                                       <Component id="game_buyin_label" alignment="0" pref="146" max="32767" attributes="0"/>
                                   </Group>
@@ -163,15 +152,15 @@
                               </Group>
                               <Group type="102" alignment="0" attributes="0">
                                   <Group type="103" groupAlignment="1" max="-2" attributes="0">
-                                      <Component id="game_hands_label" alignment="0" max="32767" attributes="0"/>
+                                      <Component id="game_playtime_label" alignment="0" max="32767" attributes="0"/>
                                       <Component id="game_players_label" alignment="0" max="32767" attributes="0"/>
-                                      <Component id="game_playtime_label" alignment="0" pref="146" max="32767" attributes="0"/>
+                                      <Component id="game_hand_label" alignment="0" pref="146" max="32767" attributes="0"/>
                                   </Group>
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Group type="103" groupAlignment="0" attributes="0">
-                                      <Component id="game_playtime_val" pref="885" max="32767" attributes="0"/>
+                                      <Component id="game_hand_val" pref="885" max="32767" attributes="0"/>
                                       <Component id="game_players_val" max="32767" attributes="0"/>
-                                      <Component id="game_hands_val" alignment="0" max="32767" attributes="0"/>
+                                      <Component id="game_playtime_val" alignment="0" max="32767" attributes="0"/>
                                   </Group>
                               </Group>
                           </Group>
@@ -184,23 +173,13 @@
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="3" attributes="0">
-                              <Component id="game_start_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                              <Component id="game_start_val" alignment="3" min="-2" max="-2" attributes="0"/>
-                          </Group>
-                          <EmptySpace max="-2" attributes="0"/>
-                          <Group type="103" groupAlignment="3" attributes="0">
-                              <Component id="game_end_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                              <Component id="game_end_val" alignment="3" min="-2" max="-2" attributes="0"/>
-                          </Group>
-                          <EmptySpace max="-2" attributes="0"/>
-                          <Group type="103" groupAlignment="3" attributes="0">
-                              <Component id="game_hands_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                              <Component id="game_hands_val" alignment="3" min="-2" max="-2" attributes="0"/>
-                          </Group>
-                          <EmptySpace max="-2" attributes="0"/>
-                          <Group type="103" groupAlignment="3" attributes="0">
-                              <Component id="game_playtime_label" alignment="3" min="-2" pref="15" max="-2" attributes="0"/>
+                              <Component id="game_playtime_label" alignment="3" min="-2" max="-2" attributes="0"/>
                               <Component id="game_playtime_val" alignment="3" min="-2" max="-2" attributes="0"/>
+                          </Group>
+                          <EmptySpace max="-2" attributes="0"/>
+                          <Group type="103" groupAlignment="3" attributes="0">
+                              <Component id="game_hand_label" alignment="3" min="-2" pref="15" max="-2" attributes="0"/>
+                              <Component id="game_hand_val" alignment="3" min="-2" max="-2" attributes="0"/>
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="3" attributes="0">
@@ -233,28 +212,12 @@
                 </DimensionLayout>
               </Layout>
               <SubComponents>
-                <Component class="javax.swing.JLabel" name="game_start_label">
+                <Component class="javax.swing.JLabel" name="game_hand_label">
                   <Properties>
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                       <Font name="Dialog" size="14" style="1"/>
                     </Property>
-                    <Property name="text" type="java.lang.String" value="Inicio:"/>
-                  </Properties>
-                </Component>
-                <Component class="javax.swing.JLabel" name="game_end_label">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="14" style="1"/>
-                    </Property>
-                    <Property name="text" type="java.lang.String" value="Fin:"/>
-                  </Properties>
-                </Component>
-                <Component class="javax.swing.JLabel" name="game_playtime_label">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="14" style="1"/>
-                    </Property>
-                    <Property name="text" type="java.lang.String" value="Tiempo de juego:"/>
+                    <Property name="text" type="java.lang.String" value="Manos:"/>
                   </Properties>
                 </Component>
                 <Component class="javax.swing.JLabel" name="game_players_label">
@@ -297,23 +260,7 @@
                     <Property name="text" type="java.lang.String" value="Recomprar:"/>
                   </Properties>
                 </Component>
-                <Component class="javax.swing.JLabel" name="game_start_val">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="14" style="0"/>
-                    </Property>
-                    <Property name="text" type="java.lang.String" value=" "/>
-                  </Properties>
-                </Component>
-                <Component class="javax.swing.JLabel" name="game_end_val">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="14" style="0"/>
-                    </Property>
-                    <Property name="text" type="java.lang.String" value=" "/>
-                  </Properties>
-                </Component>
-                <Component class="javax.swing.JLabel" name="game_playtime_val">
+                <Component class="javax.swing.JLabel" name="game_hand_val">
                   <Properties>
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                       <Font name="Dialog" size="14" style="0"/>
@@ -361,15 +308,15 @@
                     <Property name="text" type="java.lang.String" value=" "/>
                   </Properties>
                 </Component>
-                <Component class="javax.swing.JLabel" name="game_hands_label">
+                <Component class="javax.swing.JLabel" name="game_playtime_label">
                   <Properties>
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                       <Font name="Dialog" size="14" style="1"/>
                     </Property>
-                    <Property name="text" type="java.lang.String" value="Manos:"/>
+                    <Property name="text" type="java.lang.String" value="Duraci&#xf3;n:"/>
                   </Properties>
                 </Component>
-                <Component class="javax.swing.JLabel" name="game_hands_val">
+                <Component class="javax.swing.JLabel" name="game_playtime_val">
                   <Properties>
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                       <Font name="Dialog" size="14" style="0"/>
@@ -410,7 +357,7 @@
                               <Group type="102" attributes="0">
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Component id="hand_blinds_label" alignment="0" min="-2" pref="146" max="-2" attributes="0"/>
-                                      <Component id="hand_dealer_label" alignment="0" min="-2" max="-2" attributes="0"/>
+                                      <Component id="hand_time_label" alignment="0" min="-2" max="-2" attributes="0"/>
                                       <Component id="hand_cp_label" alignment="0" min="-2" max="-2" attributes="0"/>
                                       <Component id="hand_cg_label" alignment="0" min="-2" max="-2" attributes="0"/>
                                       <Component id="hand_comcards_label" alignment="0" min="-2" max="-2" attributes="0"/>
@@ -423,7 +370,7 @@
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Component id="hand_blinds_val" max="32767" attributes="0"/>
-                                      <Component id="hand_dealer_val" max="32767" attributes="0"/>
+                                      <Component id="hand_time_val" max="32767" attributes="0"/>
                                       <Component id="hand_cp_val" alignment="0" max="32767" attributes="0"/>
                                       <Component id="hand_cg_val" alignment="0" max="32767" attributes="0"/>
                                       <Component id="hand_comcards_val" alignment="0" max="32767" attributes="0"/>
@@ -449,8 +396,8 @@
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="3" attributes="0">
-                              <Component id="hand_dealer_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                              <Component id="hand_dealer_val" alignment="3" min="-2" max="-2" attributes="0"/>
+                              <Component id="hand_time_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                              <Component id="hand_time_val" alignment="3" min="-2" max="-2" attributes="0"/>
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="3" attributes="0">
@@ -519,12 +466,12 @@
                     <Property name="text" type="java.lang.String" value=" "/>
                   </Properties>
                 </Component>
-                <Component class="javax.swing.JLabel" name="hand_dealer_label">
+                <Component class="javax.swing.JLabel" name="hand_time_label">
                   <Properties>
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                       <Font name="Dialog" size="14" style="1"/>
                     </Property>
-                    <Property name="text" type="java.lang.String" value="Dealer:"/>
+                    <Property name="text" type="java.lang.String" value="Duraci&#xf3;n:"/>
                   </Properties>
                 </Component>
                 <Component class="javax.swing.JLabel" name="hand_cp_label">
@@ -591,7 +538,7 @@
                     <Property name="text" type="java.lang.String" value="BOTE:"/>
                   </Properties>
                 </Component>
-                <Component class="javax.swing.JLabel" name="hand_dealer_val">
+                <Component class="javax.swing.JLabel" name="hand_time_val">
                   <Properties>
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                       <Font name="Dialog" size="14" style="0"/>

@@ -110,6 +110,7 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DocumentFilter;
@@ -1756,6 +1757,25 @@ public class Helpers {
         }
     }
 
+    public static int getTableColumnIndex(JTable table, String column_name) {
+
+        for (int i = 0; i < table.getModel().getColumnCount(); i++) {
+            if (table.getModel().getColumnName(i).equals(column_name)) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    public static void disableSortAllColumns(JTable table, TableRowSorter sorter) {
+
+        for (int i = 0; i < table.getModel().getColumnCount(); i++) {
+            sorter.setSortable(i, false);
+        }
+
+    }
+
 //Thanks to -> https://stackoverflow.com/a/35658165
     public static void resultSetToTableModel(ResultSet rs, JTable table) throws SQLException {
         //Create new table model
@@ -1769,7 +1789,7 @@ public class Helpers {
 
         //Get all column names from meta data and add columns to table model
         for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-            tableModel.addColumn(metaData.getColumnLabel(columnIndex));
+            tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
         }
 
         //Create array of Objects with size of column count from meta data

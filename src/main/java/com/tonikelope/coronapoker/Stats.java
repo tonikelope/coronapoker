@@ -492,12 +492,7 @@ public class Stats extends javax.swing.JDialog {
 
             ResultSet rs = statement.executeQuery();
 
-            Timestamp ts = new Timestamp(rs.getLong("end"));
-            DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-            Date date = new Date(ts.getTime());
-
-            game_end_val.setText(timeZoneFormat.format(date));
-            game_playtime_val.setText(String.valueOf(Helpers.seconds2FullTime(rs.getInt("play_time"))));
+            game_playtime_val.setText(Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) + " (" + Helpers.seconds2FullTime(rs.getInt("play_time")) + ")");
 
             String[] jugadores = rs.getString("players").split("#");
 
@@ -512,7 +507,7 @@ public class Stats extends javax.swing.JDialog {
 
             game_buyin_val.setText(String.valueOf(rs.getInt("buyin")));
 
-            game_hands_val.setText(String.valueOf(rs.getInt("tot_hands")));
+            game_hand_val.setText(String.valueOf(rs.getInt("tot_hands")));
 
             game_blinds_val.setText(String.valueOf(rs.getFloat("sb")) + " / " + String.valueOf(rs.getFloat("sb") * 2));
 
@@ -600,7 +595,7 @@ public class Stats extends javax.swing.JDialog {
 
             hand_blinds_val.setText(String.valueOf(rs.getFloat("sbval")) + " / " + String.valueOf(rs.getFloat("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")");
 
-            hand_dealer_val.setText(rs.getString("dealer"));
+            hand_time_val.setText(Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)));
             hand_cp_val.setText(rs.getString("sb"));
             hand_cg_val.setText(rs.getString("bb"));
 
@@ -841,29 +836,25 @@ public class Stats extends javax.swing.JDialog {
         jPanel2 = new javax.swing.JPanel();
         game_combo = new javax.swing.JComboBox<>();
         game_data_panel = new javax.swing.JPanel();
-        game_start_label = new javax.swing.JLabel();
-        game_end_label = new javax.swing.JLabel();
-        game_playtime_label = new javax.swing.JLabel();
+        game_hand_label = new javax.swing.JLabel();
         game_players_label = new javax.swing.JLabel();
         game_buyin_label = new javax.swing.JLabel();
         game_blinds_label = new javax.swing.JLabel();
         game_blinds_double_label = new javax.swing.JLabel();
         game_rebuy_label = new javax.swing.JLabel();
-        game_start_val = new javax.swing.JLabel();
-        game_end_val = new javax.swing.JLabel();
-        game_playtime_val = new javax.swing.JLabel();
+        game_hand_val = new javax.swing.JLabel();
         game_players_val = new javax.swing.JLabel();
         game_buyin_val = new javax.swing.JLabel();
         game_blinds_val = new javax.swing.JLabel();
         game_blinds_double_val = new javax.swing.JLabel();
         game_rebuy_val = new javax.swing.JLabel();
-        game_hands_label = new javax.swing.JLabel();
-        game_hands_val = new javax.swing.JLabel();
+        game_playtime_label = new javax.swing.JLabel();
+        game_playtime_val = new javax.swing.JLabel();
         hand_combo = new javax.swing.JComboBox<>();
         hand_data_panel = new javax.swing.JPanel();
         hand_blinds_label = new javax.swing.JLabel();
         hand_blinds_val = new javax.swing.JLabel();
-        hand_dealer_label = new javax.swing.JLabel();
+        hand_time_label = new javax.swing.JLabel();
         hand_cp_label = new javax.swing.JLabel();
         hand_cg_label = new javax.swing.JLabel();
         hand_comcards_label = new javax.swing.JLabel();
@@ -872,7 +863,7 @@ public class Stats extends javax.swing.JDialog {
         hand_turn_players_label = new javax.swing.JLabel();
         hand_river_players_label = new javax.swing.JLabel();
         hand_bote_label = new javax.swing.JLabel();
-        hand_dealer_val = new javax.swing.JLabel();
+        hand_time_val = new javax.swing.JLabel();
         hand_cp_val = new javax.swing.JLabel();
         hand_cg_val = new javax.swing.JLabel();
         hand_comcards_val = new javax.swing.JLabel();
@@ -905,14 +896,8 @@ public class Stats extends javax.swing.JDialog {
 
         game_data_panel.setOpaque(false);
 
-        game_start_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        game_start_label.setText("Inicio:");
-
-        game_end_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        game_end_label.setText("Fin:");
-
-        game_playtime_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        game_playtime_label.setText("Tiempo de juego:");
+        game_hand_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_hand_label.setText("Manos:");
 
         game_players_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         game_players_label.setText("Jugadores:");
@@ -929,14 +914,8 @@ public class Stats extends javax.swing.JDialog {
         game_rebuy_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         game_rebuy_label.setText("Recomprar:");
 
-        game_start_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        game_start_val.setText(" ");
-
-        game_end_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        game_end_val.setText(" ");
-
-        game_playtime_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        game_playtime_val.setText(" ");
+        game_hand_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        game_hand_val.setText(" ");
 
         game_players_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         game_players_val.setText(" ");
@@ -953,11 +932,11 @@ public class Stats extends javax.swing.JDialog {
         game_rebuy_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         game_rebuy_val.setText(" ");
 
-        game_hands_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        game_hands_label.setText("Manos:");
+        game_playtime_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_playtime_label.setText("Duración:");
 
-        game_hands_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        game_hands_val.setText(" ");
+        game_playtime_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        game_playtime_val.setText(" ");
 
         javax.swing.GroupLayout game_data_panelLayout = new javax.swing.GroupLayout(game_data_panel);
         game_data_panel.setLayout(game_data_panelLayout);
@@ -966,14 +945,6 @@ public class Stats extends javax.swing.JDialog {
             .addGroup(game_data_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(game_data_panelLayout.createSequentialGroup()
-                        .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                            .addComponent(game_end_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_start_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 146, Short.MAX_VALUE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(game_start_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_end_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(game_data_panelLayout.createSequentialGroup()
                         .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                             .addComponent(game_blinds_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -992,14 +963,14 @@ public class Stats extends javax.swing.JDialog {
                             .addComponent(game_rebuy_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(game_data_panelLayout.createSequentialGroup()
                         .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                            .addComponent(game_hands_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(game_playtime_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(game_players_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_playtime_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 146, Short.MAX_VALUE))
+                            .addComponent(game_hand_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 146, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(game_playtime_val, javax.swing.GroupLayout.DEFAULT_SIZE, 885, Short.MAX_VALUE)
+                            .addComponent(game_hand_val, javax.swing.GroupLayout.DEFAULT_SIZE, 885, Short.MAX_VALUE)
                             .addComponent(game_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_hands_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                            .addComponent(game_playtime_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
                 .addContainerGap())
         );
         game_data_panelLayout.setVerticalGroup(
@@ -1007,20 +978,12 @@ public class Stats extends javax.swing.JDialog {
             .addGroup(game_data_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_start_label)
-                    .addComponent(game_start_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_end_label)
-                    .addComponent(game_end_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_hands_label)
-                    .addComponent(game_hands_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_playtime_label, javax.swing.GroupLayout.PREFERRED_SIZE, 15, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(game_playtime_label)
                     .addComponent(game_playtime_val))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(game_hand_label, javax.swing.GroupLayout.PREFERRED_SIZE, 15, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(game_hand_val))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(game_players_label)
@@ -1060,8 +1023,8 @@ public class Stats extends javax.swing.JDialog {
         hand_blinds_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         hand_blinds_val.setText(" ");
 
-        hand_dealer_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        hand_dealer_label.setText("Dealer:");
+        hand_time_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_time_label.setText("Duración:");
 
         hand_cp_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         hand_cp_label.setText("Ciega pequeña:");
@@ -1087,8 +1050,8 @@ public class Stats extends javax.swing.JDialog {
         hand_bote_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         hand_bote_label.setText("BOTE:");
 
-        hand_dealer_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        hand_dealer_val.setText(" ");
+        hand_time_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_time_val.setText(" ");
 
         hand_cp_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         hand_cp_val.setText(" ");
@@ -1139,7 +1102,7 @@ public class Stats extends javax.swing.JDialog {
                     .addGroup(hand_data_panelLayout.createSequentialGroup()
                         .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(hand_blinds_label, javax.swing.GroupLayout.PREFERRED_SIZE, 146, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(hand_dealer_label)
+                            .addComponent(hand_time_label)
                             .addComponent(hand_cp_label)
                             .addComponent(hand_cg_label)
                             .addComponent(hand_comcards_label)
@@ -1151,7 +1114,7 @@ public class Stats extends javax.swing.JDialog {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(hand_blinds_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(hand_dealer_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(hand_time_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(hand_cp_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(hand_cg_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(hand_comcards_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1171,8 +1134,8 @@ public class Stats extends javax.swing.JDialog {
                     .addComponent(hand_blinds_val))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_dealer_label)
-                    .addComponent(hand_dealer_val))
+                    .addComponent(hand_time_label)
+                    .addComponent(hand_time_val))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(hand_cp_label)
@@ -1367,18 +1330,14 @@ public class Stats extends javax.swing.JDialog {
     private javax.swing.JLabel game_buyin_val;
     private javax.swing.JComboBox<String> game_combo;
     private javax.swing.JPanel game_data_panel;
-    private javax.swing.JLabel game_end_label;
-    private javax.swing.JLabel game_end_val;
-    private javax.swing.JLabel game_hands_label;
-    private javax.swing.JLabel game_hands_val;
+    private javax.swing.JLabel game_hand_label;
+    private javax.swing.JLabel game_hand_val;
     private javax.swing.JLabel game_players_label;
     private javax.swing.JLabel game_players_val;
     private javax.swing.JLabel game_playtime_label;
     private javax.swing.JLabel game_playtime_val;
     private javax.swing.JLabel game_rebuy_label;
     private javax.swing.JLabel game_rebuy_val;
-    private javax.swing.JLabel game_start_label;
-    private javax.swing.JLabel game_start_val;
     private javax.swing.JLabel hand_blinds_label;
     private javax.swing.JLabel hand_blinds_val;
     private javax.swing.JLabel hand_bote_label;
@@ -1391,14 +1350,14 @@ public class Stats extends javax.swing.JDialog {
     private javax.swing.JLabel hand_cp_label;
     private javax.swing.JLabel hand_cp_val;
     private javax.swing.JPanel hand_data_panel;
-    private javax.swing.JLabel hand_dealer_label;
-    private javax.swing.JLabel hand_dealer_val;
     private javax.swing.JLabel hand_flop_players_label;
     private javax.swing.JLabel hand_flop_players_val;
     private javax.swing.JLabel hand_preflop_players_label;
     private javax.swing.JLabel hand_preflop_players_val;
     private javax.swing.JLabel hand_river_players_label;
     private javax.swing.JLabel hand_river_players_val;
+    private javax.swing.JLabel hand_time_label;
+    private javax.swing.JLabel hand_time_val;
     private javax.swing.JLabel hand_turn_players_label;
     private javax.swing.JLabel hand_turn_players_val;
     private javax.swing.JPanel jPanel2;

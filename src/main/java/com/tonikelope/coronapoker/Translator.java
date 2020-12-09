@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Duración:", "Duration:"},
             {"EFICIENCIA", "PERFORMANCE"},
             {"BENEFICIO", "PROFIT"},
             {"JUGADOR", "PLAYER"},

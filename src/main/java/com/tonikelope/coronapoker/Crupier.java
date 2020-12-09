@@ -2431,7 +2431,7 @@ public class Crupier implements Runnable {
             } else {
 
                 Float[] pasta = entry.getValue();
-                this.sqlNewHandBalance(jugador.getNickname(), pasta[0], Math.round(pasta[1]));
+                this.sqlNewHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
 
             }
         }

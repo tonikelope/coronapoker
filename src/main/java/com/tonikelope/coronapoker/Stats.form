@@ -67,17 +67,16 @@
           <Layout>
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" attributes="0">
-                      <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="game_combo" alignment="0" max="32767" attributes="0"/>
-                          <Component id="hand_combo" alignment="0" max="32767" attributes="0"/>
-                          <Component id="stats_combo" alignment="0" max="32767" attributes="0"/>
-                          <Component id="table_panel" alignment="0" pref="1061" max="32767" attributes="0"/>
-                          <Component id="game_data_panel" alignment="0" max="32767" attributes="0"/>
-                          <Component id="hand_data_panel" alignment="0" max="32767" attributes="0"/>
-                      </Group>
-                      <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                  <Component id="game_combo" alignment="0" max="32767" attributes="0"/>
+                  <Component id="hand_combo" alignment="0" max="32767" attributes="0"/>
+                  <Component id="stats_combo" alignment="0" max="32767" attributes="0"/>
+                  <Component id="table_panel" alignment="0" max="32767" attributes="0"/>
+                  <Component id="game_data_panel" alignment="0" max="32767" attributes="0"/>
+                  <Component id="hand_data_panel" alignment="0" max="32767" attributes="0"/>
+                  <Group type="102" alignment="0" attributes="0">
+                      <EmptySpace max="-2" attributes="0"/>
+                      <Component id="res_table_warning" max="32767" attributes="0"/>
+                      <EmptySpace max="-2" attributes="0"/>
                   </Group>
               </Group>
             </DimensionLayout>
@@ -95,7 +94,10 @@
                       <EmptySpace type="unrelated" max="-2" attributes="0"/>
                       <Component id="stats_combo" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                      <Component id="table_panel" pref="214" max="32767" attributes="0"/>
+                      <Component id="table_panel" max="32767" attributes="0"/>
+                      <EmptySpace max="-2" attributes="0"/>
+                      <Component id="res_table_warning" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace max="-2" attributes="0"/>
                   </Group>
               </Group>
             </DimensionLayout>
@@ -676,6 +678,14 @@
                 </Component>
               </SubComponents>
             </Container>
+            <Component class="javax.swing.JLabel" name="res_table_warning">
+              <Properties>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                  <Font name="Dialog" size="12" style="2"/>
+                </Property>
+                <Property name="text" type="java.lang.String" value="Nota:"/>
+              </Properties>
+            </Component>
           </SubComponents>
         </Container>
       </SubComponents>

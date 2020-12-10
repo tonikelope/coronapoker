@@ -220,6 +220,7 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
+        jButton1.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         jButton1.setText("ESTADÍSTICAS");
         jButton1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         jButton1.setDoubleBuffered(true);

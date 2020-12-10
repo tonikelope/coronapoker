@@ -1216,7 +1216,7 @@ public class Crupier implements Runnable {
                         Game.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
                     }
 
-                    sqlUpdateShowdown(jugador, jugada);
+                    sqlUpdateShowdownHand(jugador, jugada);
                 }
 
                 setTiempo_pausa(Game.TEST_MODE ? Game.PAUSA_ENTRE_MANOS_TEST : Game.PAUSA_ENTRE_MANOS);
@@ -1278,7 +1278,7 @@ public class Crupier implements Runnable {
                     Game.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
                 }
 
-                sqlUpdateShowdown(jugador, jugada);
+                sqlUpdateShowdownHand(jugador, jugada);
 
                 setTiempo_pausa(Game.TEST_MODE ? Game.PAUSA_ENTRE_MANOS_TEST : Game.PAUSA_ENTRE_MANOS);
             }
@@ -2171,8 +2171,6 @@ public class Crupier implements Runnable {
 
         } else {
 
-            sqlNewHand();
-
             borrarAcciones();
 
             if (Game.getInstance().isPartida_local()) {
@@ -2183,6 +2181,8 @@ public class Crupier implements Runnable {
                 preservarDatosClavePartida();
             }
         }
+
+        sqlNewHand();
 
         if (getJugadoresActivos() > 1 && !saltar_mano_recover) {
 
@@ -2353,7 +2353,7 @@ public class Crupier implements Runnable {
 
     }
 
-    private void sqlUpdateShowdown(Player jugador, Hand jugada) {
+    private void sqlUpdateShowdownHand(Player jugador, Hand jugada) {
 
         String sql = "UPDATE showdown SET hole_cards=?, hand_cards=?, hand_val=? WHERE id_hand=? AND player=?";
 
@@ -2369,6 +2369,29 @@ public class Crupier implements Runnable {
             statement.setInt(4, this.sqlite_hand_id);
 
             statement.setString(5, jugador.getNickname());
+
+            statement.executeUpdate();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    private void sqlUpdateShowdownPay(Player jugador) {
+
+        String sql = "UPDATE showdown SET pay=?, profit=? WHERE id_hand=? AND player=?";
+
+        try {
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setFloat(1, Helpers.floatClean1D(jugador.getPagar()));
+
+            statement.setFloat(2, Helpers.floatClean1D(Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() - jugador.getBote() : 0f));
+
+            statement.setInt(3, this.sqlite_hand_id);
+
+            statement.setString(4, jugador.getNickname());
 
             statement.executeUpdate();
 
@@ -5241,11 +5264,9 @@ public class Crupier implements Runnable {
                                     Game.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE PRINCIPAL (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
                                 }
 
+                                this.showdown(jugadas, ganadores);
+
                                 Pot current = this.bote.getSidePot();
-
-                                HashMap<Player, Hand> ganadores_principal = new HashMap<>(ganadores);
-
-                                HashMap<Player, Hand> jugadas_principal = new HashMap<>(jugadas);
 
                                 int conta_bote_secundario = 1;
 
@@ -5264,6 +5285,8 @@ public class Crupier implements Runnable {
                                         current.getPlayers().get(0).setBoteSecundario("(+" + String.valueOf(conta_bote_secundario) + ")");
 
                                         Game.getInstance().getRegistro().print(current.getPlayers().get(0).getNickname() + Translator.translate(" RECUPERA BOTE (SOBRANTE) SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(pagar) + ")");
+
+                                        this.sqlUpdateShowdownPay(current.getPlayers().get(0));
 
                                     } else {
 
@@ -5295,6 +5318,7 @@ public class Crupier implements Runnable {
 
                                             Game.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(cartas_repartidas_jugador) + Translator.translate(") GANA BOTE SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
 
+                                            this.sqlUpdateShowdownPay(ganador);
                                         }
 
                                         for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
@@ -5317,8 +5341,6 @@ public class Crupier implements Runnable {
                                     conta_bote_secundario++;
 
                                 }
-
-                                this.showdown(jugadas_principal, ganadores_principal);
 
                                 Game.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
                                 Game.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);

@@ -37,6 +37,7 @@ public class Stats extends javax.swing.JDialog {
     private final HashMap<String, HashMap<String, Object>> hand = new HashMap<>();
     private final LinkedHashMap<String, SQLStats> sqlstats = new LinkedHashMap<>();
     private volatile boolean init = false;
+    private volatile String last_mp3_loop = null;
 
     /**
      * Creates new form Stats
@@ -478,7 +479,7 @@ public class Stats extends javax.swing.JDialog {
     private void loadGameData(int id) {
 
         try {
-            String sql = "SELECT *, (SELECT COUNT(*) from hand where id_game=?) as tot_hands FROM game WHERE id=?";
+            String sql = "SELECT *, (SELECT COUNT(*) from hand where id_game=? AND end IS NOT NULL) as tot_hands FROM game WHERE id=?";
 
             PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -615,7 +616,7 @@ public class Stats extends javax.swing.JDialog {
 
         try {
             ResultSet rs;
-            String sql = "SELECT player AS JUGADOR, winner as GANA, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val AS JUGADA, ROUND(pay,1) as PAGAR, ROUND(profit,1) as BENEFICIO FROM showdown WHERE id_hand=?";
+            String sql = "SELECT player AS JUGADOR, winner as GANA, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val AS JUGADA, ROUND(pay,1) as PAGAR, ROUND(profit,1) as BENEFICIO FROM showdown WHERE id_hand=? order by GANA DESC,PAGAR DESC";
 
             PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -668,6 +669,29 @@ public class Stats extends javax.swing.JDialog {
             }
 
             showdown_table.setModel(tableModel);
+
+            TableRowSorter tableRowSorter = new TableRowSorter(showdown_table.getModel());
+
+            Helpers.disableSortAllColumns(res_table, tableRowSorter);
+
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table, Translator.translate("JUGADOR")), true);
+
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table, Translator.translate("GANA")), true);
+
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table, Translator.translate("PAGAR")), true);
+
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table, Translator.translate("PAGAR")), (Comparator<Double>) (o2, o1) -> o1.compareTo(o2));
+
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table, Translator.translate("BENEFICIO")), true);
+
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table, Translator.translate("BENEFICIO")), (Comparator<Double>) (o2, o1) -> o1.compareTo(o2));
+
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table, Translator.translate("JUGADA")), true);
+
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table, Translator.translate("JUGADA")), (Comparator<String>) (o2, o1) -> Integer.compare(Hand.getHandValue(o1), Hand.getHandValue(o2)));
+
+            showdown_table.setRowSorter(tableRowSorter);
+
             showdown_panel.setVisible(true);
 
         } catch (SQLException ex) {
@@ -747,7 +771,7 @@ public class Stats extends javax.swing.JDialog {
 
         try {
 
-            String sql = "SELECT * FROM hand WHERE id_game=? ORDER BY id DESC";
+            String sql = "SELECT * FROM hand WHERE id_game=? AND end IS NOT NULL ORDER BY id DESC";
 
             PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -875,6 +899,14 @@ public class Stats extends javax.swing.JDialog {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("ESTADÍSTICAS");
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosed(java.awt.event.WindowEvent evt) {
+                formWindowClosed(evt);
+            }
+            public void windowOpened(java.awt.event.WindowEvent evt) {
+                formWindowOpened(evt);
+            }
+        });
 
         title.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         title.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -1321,6 +1353,29 @@ public class Stats extends javax.swing.JDialog {
         }
 
     }//GEN-LAST:event_hand_comboItemStateChanged
+
+    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
+        // TODO add your handling code here:
+
+        last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
+
+        if (Game.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
+            Helpers.muteLoopMp3(last_mp3_loop);
+        } else {
+            last_mp3_loop = null;
+        }
+
+        Helpers.playLoopMp3Resource("misc/stats_music.mp3");
+    }//GEN-LAST:event_formWindowOpened
+
+    private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
+        // TODO add your handling code here:
+        Helpers.stopCurrentLoopMp3Resource();
+
+        if (last_mp3_loop != null) {
+            Helpers.unmuteLoopMp3(last_mp3_loop);
+        }
+    }//GEN-LAST:event_formWindowClosed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel game_blinds_double_label;

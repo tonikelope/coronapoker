@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Nota: se muestran las 100 mejores jugadas ganadoras", "Warning: TOP-100 winner hands are shown"},
             {"Duración:", "Duration:"},
             {"EFICIENCIA", "PERFORMANCE"},
             {"BENEFICIO", "PROFIT"},

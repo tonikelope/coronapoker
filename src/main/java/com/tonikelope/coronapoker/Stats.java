@@ -58,6 +58,7 @@ public class Stats extends javax.swing.JDialog {
                 initComponents();
                 scroll_stats_panel.getVerticalScrollBar().setUnitIncrement(16);
                 scroll_stats_panel.getHorizontalScrollBar().setUnitIncrement(16);
+                res_table_warning.setVisible(false);
                 showdown_panel.setVisible(false);
                 table_panel.setVisible(false);
                 hand_data_panel.setVisible(false);
@@ -102,7 +103,7 @@ public class Stats extends javax.swing.JDialog {
         if (game_combo.getSelectedIndex() > 0) {
 
             try {
-                String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and hand_val>=1 and showdown.winner=1 and game.id=? order by hand_val DESC,BENEFICIO DESC;";
+                String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 and game.id=? order by hand_val DESC,BENEFICIO DESC;";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -113,6 +114,7 @@ public class Stats extends javax.swing.JDialog {
                 rs = statement.executeQuery();
 
                 mejoresJugadas(rs);
+                res_table_warning.setVisible(false);
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
@@ -121,13 +123,15 @@ public class Stats extends javax.swing.JDialog {
         } else {
 
             try {
-                String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, game.start as TIMBA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 and hand_val>=1 order by hand_val DESC,BENEFICIO DESC;";
+                String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, game.start as TIMBA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,BENEFICIO DESC; LIMIT 100";
                 Statement statement = SQLITE.createStatement();
 
                 statement.setQueryTimeout(30);
 
                 rs = statement.executeQuery(sql);
                 mejoresJugadas(rs);
+                res_table_warning.setText(Translator.translate("Nota: se muestran las 100 mejores jugadas ganadoras"));
+                res_table_warning.setVisible(true);
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -204,8 +208,6 @@ public class Stats extends javax.swing.JDialog {
             res_table.setRowSorter(tableRowSorter);
 
             table_panel.setVisible(true);
-
-            pack();
 
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
@@ -397,8 +399,6 @@ public class Stats extends javax.swing.JDialog {
         res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table, Translator.translate("EFICIENCIA")));
         table_panel.setVisible(true);
 
-        pack();
-
     }
 
     private void balance() {
@@ -468,8 +468,6 @@ public class Stats extends javax.swing.JDialog {
             res_table.setRowSorter(tableRowSorter);
 
             table_panel.setVisible(true);
-
-            pack();
 
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
@@ -672,8 +670,6 @@ public class Stats extends javax.swing.JDialog {
             showdown_table.setModel(tableModel);
             showdown_panel.setVisible(true);
 
-            pack();
-
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -740,8 +736,6 @@ public class Stats extends javax.swing.JDialog {
             res_table.setRowSorter(tableRowSorter);
 
             table_panel.setVisible(true);
-
-            pack();
 
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
@@ -877,6 +871,7 @@ public class Stats extends javax.swing.JDialog {
         stats_combo = new javax.swing.JComboBox<>();
         table_panel = new javax.swing.JScrollPane();
         res_table = new javax.swing.JTable();
+        res_table_warning = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("ESTADÍSTICAS");
@@ -1194,20 +1189,23 @@ public class Stats extends javax.swing.JDialog {
         ));
         table_panel.setViewportView(res_table);
 
+        res_table_warning.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
+        res_table_warning.setText("Nota:");
+
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(hand_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(stats_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(table_panel)
+            .addComponent(game_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(hand_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(jPanel2Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(hand_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(stats_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(table_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 1061, Short.MAX_VALUE)
-                    .addComponent(game_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(hand_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(0, 0, 0))
+                .addContainerGap()
+                .addComponent(res_table_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1223,7 +1221,10 @@ public class Stats extends javax.swing.JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(stats_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(table_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 214, Short.MAX_VALUE))
+                .addComponent(table_panel)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(res_table_warning)
+                .addContainerGap())
         );
 
         scroll_stats_panel.setViewportView(jPanel2);
@@ -1270,12 +1271,11 @@ public class Stats extends javax.swing.JDialog {
             }
 
             if (stats_combo.getSelectedIndex() >= 0) {
-
+                res_table_warning.setVisible(false);
+                res_table.setRowSorter(null);
                 sqlstats.get((String) stats_combo.getSelectedItem()).call();
 
             }
-
-            pack();
 
         } else {
 
@@ -1290,8 +1290,10 @@ public class Stats extends javax.swing.JDialog {
         // TODO add your handling code here:
 
         if (!init && stats_combo.getSelectedIndex() != -1) {
+            res_table_warning.setVisible(false);
             res_table.setRowSorter(null);
             sqlstats.get((String) stats_combo.getSelectedItem()).call();
+
         }
     }//GEN-LAST:event_stats_comboItemStateChanged
 
@@ -1308,11 +1310,10 @@ public class Stats extends javax.swing.JDialog {
             }
 
             if (stats_combo.getSelectedIndex() >= 0) {
-
+                res_table_warning.setVisible(false);
+                res_table.setRowSorter(null);
                 sqlstats.get((String) stats_combo.getSelectedItem()).call();
             }
-
-            pack();
 
         } else {
             hand_combo.setVisible(false);
@@ -1362,6 +1363,7 @@ public class Stats extends javax.swing.JDialog {
     private javax.swing.JLabel hand_turn_players_val;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JTable res_table;
+    private javax.swing.JLabel res_table_warning;
     private javax.swing.JScrollPane scroll_stats_panel;
     private javax.swing.JScrollPane showdown_panel;
     private javax.swing.JTable showdown_table;

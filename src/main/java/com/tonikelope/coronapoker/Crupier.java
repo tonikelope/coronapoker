@@ -38,6 +38,7 @@ public class Crupier implements Runnable {
                 {"rounders.gif", 4500L},
                 {"hulk.gif", 1100L},
                 {"nicolas_cage.gif", 1000L},
+                {"nicolas_cage2.gif", 2050L},
                 {"training_day.gif", 2000L},
                 {"wallstreet.gif", 1500L},
                 {"casinoroyale.gif", 4500L}
@@ -5240,9 +5241,11 @@ public class Crupier implements Runnable {
                                     Game.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE PRINCIPAL (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
                                 }
 
-                                this.showdown(jugadas, ganadores);
-
                                 Pot current = this.bote.getSidePot();
+
+                                HashMap<Player, Hand> ganadores_principal = new HashMap<>(ganadores);
+
+                                HashMap<Player, Hand> jugadas_principal = new HashMap<>(jugadas);
 
                                 int conta_bote_secundario = 1;
 
@@ -5314,6 +5317,8 @@ public class Crupier implements Runnable {
                                     conta_bote_secundario++;
 
                                 }
+
+                                this.showdown(jugadas_principal, ganadores_principal);
 
                                 Game.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
                                 Game.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);

@@ -725,7 +725,7 @@ public class Stats extends javax.swing.JDialog {
 
             } else if (game_combo.getSelectedIndex() > 0) {
 
-                String sql = "SELECT player as JUGADOR, ROUND(AVG(response_time),1) as TIME from action,hand WHERE action.id_hand=hand.id AND hand.id_game=? GROUP BY JUGADOR order by TIME DESC";
+                String sql = "SELECT player as JUGADOR, ROUND(AVG(response_time),1) as TIEMPO from action,hand WHERE action.id_hand=hand.id AND hand.id_game=? GROUP BY JUGADOR order by TIEMPO DESC";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -736,7 +736,7 @@ public class Stats extends javax.swing.JDialog {
                 rs = statement.executeQuery();
 
             } else {
-                String sql = "SELECT player as JUGADOR, ROUND(AVG(response_time),1) as TIME from action GROUP BY JUGADOR order by TIME DESC";
+                String sql = "SELECT player as JUGADOR, ROUND(AVG(response_time),1) as TIEMPO from action GROUP BY JUGADOR order by TIEMPO DESC";
 
                 Statement statement = SQLITE.createStatement();
 
@@ -753,9 +753,9 @@ public class Stats extends javax.swing.JDialog {
 
             tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("JUGADOR")), true);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("TIME")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("TIEMPO")), true);
 
-            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("TIME")), (Comparator<Double>) (o2, o1) -> o1.compareTo(o2));
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("TIEMPO")), (Comparator<Double>) (o2, o1) -> o1.compareTo(o2));
 
             res_table.setRowSorter(tableRowSorter);
 

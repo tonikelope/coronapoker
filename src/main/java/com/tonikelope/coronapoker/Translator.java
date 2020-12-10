@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"La canción que suena en el visor de estadísticas es el tema principal de la mítica película EL GOLPE", "The song that sounds in the statistics viewer is the main theme of the epic film THE STING"},
             {"Nota: se muestran las 100 mejores jugadas ganadoras", "Warning: TOP-100 winner hands are shown"},
             {"Duración:", "Duration:"},
             {"EFICIENCIA", "PERFORMANCE"},

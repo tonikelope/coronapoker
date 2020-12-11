@@ -1533,7 +1533,7 @@ public class Stats extends javax.swing.JDialog {
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
-        Helpers.stopCurrentLoopMp3Resource();
+        Helpers.stopLoopMp3("misc/stats_music.mp3");
 
         if (last_mp3_loop != null) {
             Helpers.unmuteLoopMp3(last_mp3_loop);

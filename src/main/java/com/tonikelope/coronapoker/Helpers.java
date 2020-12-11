@@ -1467,7 +1467,7 @@ public class Helpers {
         }
     }
 
-    public static void stopCurrentLoopMp3Resource() {
+    public static void stopAllCurrentLoopMp3Resource() {
 
         Iterator<Map.Entry<String, BasicPlayer>> iterator = MP3_LOOP.entrySet().iterator();
 

@@ -22,10 +22,16 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"APUESTAS/SUBIDAS EN EL PREFLOP", "PREFLOP BETS/RAISES"},
+            {"APUESTAS/SUBIDAS EN EL FLOP", "FLOP BETS/RAISES"},
+            {"APUESTAS/SUBIDAS EN EL TURN", "TURN BETS/RAISES"},
+            {"APUESTAS/SUBIDAS EN EL RIVER", "RIVER BETS/RAISES"},
+            {"MANOS_APUESTA_SUBE", "BET_RAISE_HANDS"},
             {"La canción que suena en el visor de estadísticas es el tema principal de la mítica película EL GOLPE", "The song that sounds in the statistics viewer is the main theme of the epic film THE STING"},
-            {"Nota: se muestran las 100 mejores jugadas ganadoras", "Warning: TOP-100 winner hands are shown"},
+            {"Nota: se muestran las 1000 mejores jugadas ganadoras", "Warning: TOP-100 winner hands are shown"},
             {"Duración:", "Duration:"},
             {"EFICIENCIA", "PERFORMANCE"},
+            {"MANOS", "HANDS"},
             {"BENEFICIO", "PROFIT"},
             {"JUGADOR", "PLAYER"},
             {"CARTAS_RECIBIDAS", "HOLE_CARDS"},
@@ -40,7 +46,7 @@ public class Translator {
             {"SÍ", "YES"},
             {"Estadísticas", "Stats"},
             {"ESTADÍSTICAS", "STATS"},
-            {"ESTADÍSTICAS (beta)", "STATS (beta)"},
+            {"Lo que no son cuentas, son cuentos", "Stats"},
             {"TODAS LAS TIMBAS", "ALL GAMES"},
             {"TODAS LAS MANOS", "ALL HANDS"},
             {"GANANCIAS/PÉRDIDAS", "PROFIT/LOSS"},

@@ -148,9 +148,8 @@ public class Helpers {
     public static final String USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final float MASTER_VOLUME = 0.8f;
     public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.4f); //DEFAULT * CUSTOM
-    public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.8f);
     public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/stats_music.mp3", 0.8f);
-    public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, ABOUT_VOLUME, STATS_VOLUME);
+    public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME);
     public static final int RANDOMORG_TIMEOUT = 10000;
     public static final int SPRNG = 2;
     public static final int TRNG = 1;

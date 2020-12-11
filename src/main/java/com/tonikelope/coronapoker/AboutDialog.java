@@ -16,7 +16,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "FINAL-6.1";
+    public static final String VERSION = "FINAL-6.2";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
     private volatile String last_mp3_loop = null;
@@ -255,7 +255,7 @@ public class AboutDialog extends javax.swing.JDialog {
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
-        Helpers.stopCurrentLoopMp3Resource();
+        Helpers.stopLoopMp3("misc/about_music.mp3");
 
         if (last_mp3_loop != null) {
             Helpers.unmuteLoopMp3(last_mp3_loop);

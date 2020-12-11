@@ -51,12 +51,12 @@ public class Stats extends javax.swing.JDialog {
 
         sqlstats.put(Translator.translate("GANANCIAS/PÉRDIDAS"), this::balance);
         sqlstats.put(Translator.translate("TIEMPO MEDIO DE RESPUESTA (SEGUNDOS)"), this::tiempoMedioRespuesta);
-        sqlstats.put(Translator.translate("MANOS JUGADAS/GANADAS"), this::manosJugadas);
         sqlstats.put(Translator.translate("JUGADAS GANADORAS"), this::mejoresJugadas);
-        sqlstats.put(Translator.translate("APUESTAS/SUBIDAS EN EL PREFLOP"), this::subidasPreflop);
-        sqlstats.put(Translator.translate("APUESTAS/SUBIDAS EN EL FLOP"), this::subidasFlop);
-        sqlstats.put(Translator.translate("APUESTAS/SUBIDAS EN EL TURN"), this::subidasTurn);
-        sqlstats.put(Translator.translate("APUESTAS/SUBIDAS EN EL RIVER"), this::subidasRiver);
+        sqlstats.put(Translator.translate("% MANOS JUGADAS/GANADAS"), this::manosJugadas);
+        sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL PREFLOP"), this::subidasPreflop);
+        sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL FLOP"), this::subidasFlop);
+        sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL TURN"), this::subidasTurn);
+        sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL RIVER"), this::subidasRiver);
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {

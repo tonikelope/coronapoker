@@ -2329,7 +2329,7 @@ public class Crupier implements Runnable {
 
         try {
 
-            String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, response_time) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, conta_raise, response_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
             PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
 
@@ -2347,7 +2347,9 @@ public class Crupier implements Runnable {
 
             statement.setFloat(6, Helpers.floatClean1D(current_player.getBet()));
 
-            statement.setInt(7, current_player.getResponseTime());
+            statement.setInt(7, this.getConta_raise());
+
+            statement.setInt(8, current_player.getResponseTime());
 
             statement.executeUpdate();
 

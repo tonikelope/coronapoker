@@ -215,7 +215,7 @@
           <Font name="Dialog" size="10" style="2"/>
         </Property>
         <Property name="horizontalAlignment" type="int" value="0"/>
-        <Property name="text" type="java.lang.String" value="La canci&#xf3;n que suena en el visor de estad&#xed;sticas es el tema principal de la m&#xed;tica pel&#xed;cula EL GOLPE"/>
+        <Property name="text" type="java.lang.String" value="La canci&#xf3;n que suena en el visor de estad&#xed;sticas es el tema principal de la m&#xed;tica pel&#xed;cula EL GOLPE."/>
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>

@@ -585,6 +585,10 @@ public class Stats extends javax.swing.JDialog {
 
                 rs = statement.executeQuery();
 
+                res_table_warning.setText(Translator.translate("Nota: lo que se muestra es el balance general después de terminar la mano actual."));
+
+                res_table_warning.setVisible(true);
+
             } else if (game_combo.getSelectedIndex() > 0) {
 
                 String sql = "SELECT player as JUGADOR, ROUND(stack,1) AS STACK, buyin AS BUYIN, ROUND(stack-buyin,1) AS BENEFICIO FROM balance,hand WHERE balance.id_hand=hand.id AND hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY JUGADOR ORDER BY BENEFICIO DESC";

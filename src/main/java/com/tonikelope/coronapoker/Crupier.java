@@ -2414,7 +2414,7 @@ public class Crupier implements Runnable {
 
             statement.setFloat(1, Helpers.floatClean1D(jugador.getPagar()));
 
-            statement.setFloat(2, Helpers.floatClean1D(Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() - jugador.getBote() : 0f));
+            statement.setFloat(2, Helpers.floatClean1D(jugador.getPagar() - jugador.getBote()));
 
             statement.setInt(3, this.sqlite_id_hand);
 
@@ -2449,7 +2449,7 @@ public class Crupier implements Runnable {
 
             statement.setFloat(7, Helpers.floatClean1D(jugador.getPagar()));
 
-            statement.setFloat(8, Helpers.floatClean1D(Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() - jugador.getBote() : 0f));
+            statement.setFloat(8, Helpers.floatClean1D(jugador.getPagar() - jugador.getBote()));
 
             statement.executeUpdate();
 

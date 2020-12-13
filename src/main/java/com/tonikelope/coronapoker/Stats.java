@@ -838,7 +838,21 @@ public class Stats extends javax.swing.JDialog {
             hand_cg_val.setText(rs.getString("bb"));
 
             if (rs.getString("com_cards") != null) {
-                hand_comcards_val.setText(Card.shortString2UNICODEString(rs.getString("com_cards")));
+
+                ArrayList<Card> cartas = new ArrayList<>();
+
+                for (String c : ((String) rs.getString("com_cards")).split("#")) {
+
+                    String[] partes = c.split("_");
+
+                    Card carta = new Card();
+
+                    carta.cargarCarta(partes[0], partes[1]);
+
+                    cartas.add(carta);
+                }
+
+                hand_comcards_val.setText(Card.collection2String(cartas));
             }
 
             hand_bote_val.setText(String.valueOf(Helpers.floatClean1D(rs.getFloat("pot"))));

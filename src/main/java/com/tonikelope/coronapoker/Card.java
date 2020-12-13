@@ -278,6 +278,24 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         return null;
     }
 
+    public static String shortString2UNICODEString(String cards) {
+
+        if (cards != null) {
+            String cadena = "";
+
+            for (String card : cards.split("#")) {
+
+                String[] parts = card.split("_");
+
+                cadena += parts[0] + Card.UNICODE_TABLE.get(parts[1]) + " ";
+            }
+
+            return cadena.substring(0, cadena.length() - 1);
+        }
+
+        return null;
+    }
+
     public static void sortAceLowCollection(List<Card> cartas) {
 
         Collections.sort(cartas, new Card.AceLowSortingComparator());

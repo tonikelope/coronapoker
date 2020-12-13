@@ -6,6 +6,7 @@
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.Init.SQLITE;
+import java.awt.Font;
 import java.io.UnsupportedEncodingException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -83,7 +84,11 @@ public class Stats extends javax.swing.JDialog {
                     stats_combo.addItem(entry.getKey());
                 }
 
+                Font original_dialog_font = res_table.getFont();
                 Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+                res_table.setFont(original_dialog_font);
+                showdown_table.setFont(original_dialog_font);
+                hand_comcards_val.setFont(original_dialog_font);
                 Helpers.translateComponents(tthis, false);
                 setTitle(Translator.translate(getTitle()));
 
@@ -130,7 +135,7 @@ public class Stats extends javax.swing.JDialog {
         } else {
 
             try {
-                String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, game.start as TIMBA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,BENEFICIO DESC; LIMIT 1000";
+                String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, (game.server || '|' || game.start) as TIMBA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,BENEFICIO DESC; LIMIT 1000";
                 Statement statement = SQLITE.createStatement();
 
                 statement.setQueryTimeout(30);
@@ -167,12 +172,14 @@ public class Stats extends javax.swing.JDialog {
                     row[i] = rs.getObject(i + 1);
 
                     if (tableModel.getColumnName(i).equals(Translator.translate("TIMBA"))) {
-                        Timestamp ts = new Timestamp((long) row[i]);
+                        String timestamp = rs.getString("TIMBA").replaceAll("^.+\\|([0-9]+)$", "$1");
+                        String server = rs.getString("TIMBA").replaceAll("^(.+)\\|[0-9]+$", "$1");
+                        Timestamp ts = new Timestamp(Long.parseLong(timestamp));
                         DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
                         Date date = new Date(ts.getTime());
-                        row[i] = timeZoneFormat.format(date);
+                        row[i] = server + " @ " + timeZoneFormat.format(date);
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_RECIBIDAS")) || tableModel.getColumnName(i).equals(Translator.translate("CARTAS_JUGADA"))) {
-                        row[i] = row[i] != null ? ((String) row[i]).replaceAll("#", " | ") : "";
+                        row[i] = row[i] != null ? Card.shortString2UNICODEString((String) row[i]) : "";
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("JUGADA"))) {
                         row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "";
                     }
@@ -187,23 +194,23 @@ public class Stats extends javax.swing.JDialog {
 
             Helpers.disableSortAllColumns(res_table, tableRowSorter);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("JUGADOR")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("MANO")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANO")), true);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("BENEFICIO")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BENEFICIO")), true);
 
-            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("BENEFICIO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BENEFICIO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("JUGADA")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADA")), true);
 
-            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.getHandValue(o1), Hand.getHandValue(o2)));
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.getHandValue(o1), Hand.getHandValue(o2)));
 
-            if (Helpers.getTableColumnIndex(res_table, Translator.translate("TIMBA")) != -1) {
+            if (Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIMBA")) != -1) {
 
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("TIMBA")), true);
+                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIMBA")), true);
 
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("TIMBA")), (Comparator<String>) (o1, o2) -> {
+                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIMBA")), (Comparator<String>) (o1, o2) -> {
                     try {
                         return Long.compare(new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o1).getTime()).getTime(), new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o2).getTime()).getTime());
                     } catch (ParseException ex) {
@@ -369,7 +376,7 @@ public class Stats extends javax.swing.JDialog {
         tableModel.addColumn(Translator.translate("JUGADOR"));
         tableModel.addColumn(Translator.translate("MANOS_JUGADAS"));
         tableModel.addColumn(Translator.translate("MANOS_GANADORAS"));
-        tableModel.addColumn(Translator.translate("EFICIENCIA"));
+        tableModel.addColumn(Translator.translate("EFICACIA"));
 
         Object[] row = new Object[4];
 
@@ -388,23 +395,23 @@ public class Stats extends javax.swing.JDialog {
 
         Helpers.disableSortAllColumns(res_table, tableRowSorter);
 
-        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("JUGADOR")), true);
+        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
 
-        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("MANOS_JUGADAS")), true);
+        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS_JUGADAS")), true);
 
-        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("MANOS_JUGADAS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS_JUGADAS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
 
-        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("MANOS_GANADORAS")), true);
+        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS_GANADORAS")), true);
 
-        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("MANOS_GANADORAS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS_GANADORAS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
 
-        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("EFICIENCIA")), true);
+        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFICACIA")), true);
 
-        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("EFICIENCIA")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFICACIA")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
 
         res_table.setRowSorter(tableRowSorter);
-        res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table, Translator.translate("EFICIENCIA")));
-        res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table, Translator.translate("EFICIENCIA")));
+        res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFICACIA")));
+        res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFICACIA")));
         table_panel.setVisible(true);
 
     }
@@ -528,15 +535,15 @@ public class Stats extends javax.swing.JDialog {
 
         Helpers.disableSortAllColumns(res_table, tableRowSorter);
 
-        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("JUGADOR")), true);
+        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
 
-        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("MANOS")), true);
+        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS")), true);
 
-        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("MANOS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
 
         res_table.setRowSorter(tableRowSorter);
-        res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table, Translator.translate("MANOS")));
-        res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table, Translator.translate("MANOS")));
+        res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS")));
+        res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS")));
         table_panel.setVisible(true);
 
     }
@@ -577,7 +584,7 @@ public class Stats extends javax.swing.JDialog {
 
             if (hand_combo.getSelectedIndex() > 0) {
 
-                String sql = "SELECT player as JUGADOR, ROUND(stack, 1) as STACK, buyin as BUYIN, ROUND(stack-buyin,1) as BENEFICIO FROM balance WHERE id_hand=? GROUP BY JUGADOR ORDER BY BENEFICIO DESC";
+                String sql = "SELECT player as JUGADOR, ROUND(stack, 1) as STACK, buyin as BUYIN, ROUND(stack-buyin,1) as BENEFICIO, ROUND(((stack-buyin)/(buyin))*100,0) as ROI FROM balance WHERE id_hand=? GROUP BY JUGADOR ORDER BY ROI DESC";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -593,7 +600,7 @@ public class Stats extends javax.swing.JDialog {
 
             } else if (game_combo.getSelectedIndex() > 0) {
 
-                String sql = "SELECT player as JUGADOR, ROUND(stack,1) AS STACK, buyin AS BUYIN, ROUND(stack-buyin,1) AS BENEFICIO FROM balance,hand WHERE balance.id_hand=hand.id AND hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY JUGADOR ORDER BY BENEFICIO DESC";
+                String sql = "SELECT player as JUGADOR, ROUND(stack,1) AS STACK, buyin AS BUYIN, ROUND(stack-buyin,1) AS BENEFICIO, ROUND(((stack-buyin)/(buyin))*100,0) as ROI FROM balance,hand WHERE balance.id_hand=hand.id AND hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY JUGADOR ORDER BY ROI DESC";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -606,7 +613,7 @@ public class Stats extends javax.swing.JDialog {
                 rs = statement.executeQuery();
 
             } else {
-                String sql = "SELECT player AS JUGADOR, ROUND(SUM(stack),1) AS STACK, SUM(buyin) AS BUYIN, ROUND(SUM(stack-buyin),1) AS BENEFICIO from balance WHERE id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY JUGADOR ORDER BY BENEFICIO DESC";
+                String sql = "SELECT player AS JUGADOR, ROUND(SUM(stack),1) AS STACK, SUM(buyin) AS BUYIN, ROUND(SUM(stack-buyin),1) AS BENEFICIO, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as ROI from balance WHERE id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY JUGADOR ORDER BY ROI DESC";
 
                 Statement statement = SQLITE.createStatement();
 
@@ -615,23 +622,52 @@ public class Stats extends javax.swing.JDialog {
                 rs = statement.executeQuery(sql);
             }
 
-            Helpers.resultSetToTableModel(rs, res_table);
+            DefaultTableModel tableModel = new DefaultTableModel();
+
+            ResultSetMetaData metaData = rs.getMetaData();
+
+            int columnCount = metaData.getColumnCount();
+
+            for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
+            }
+
+            Object[] row = new Object[columnCount];
+
+            while (rs.next()) {
+
+                for (int i = 0; i < columnCount; i++) {
+                    row[i] = rs.getObject(i + 1);
+
+                    if (tableModel.getColumnName(i).equals(Translator.translate("ROI"))) {
+                        row[i] = String.valueOf(rs.getFloat("ROI")) + "%";
+                    }
+                }
+
+                tableModel.addRow(row);
+            }
+
+            res_table.setModel(tableModel);
 
             TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
 
             Helpers.disableSortAllColumns(res_table, tableRowSorter);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("JUGADOR")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("BUYIN")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BUYIN")), true);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("STACK")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("STACK")), true);
 
-            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("STACK")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("STACK")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("BENEFICIO")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BENEFICIO")), true);
 
-            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("BENEFICIO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BENEFICIO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ROI")), true);
+
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ROI")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
 
             res_table.setRowSorter(tableRowSorter);
 
@@ -766,7 +802,7 @@ public class Stats extends javax.swing.JDialog {
             hand_cg_val.setText(rs.getString("bb"));
 
             if (rs.getString("com_cards") != null) {
-                hand_comcards_val.setText(rs.getString("com_cards").replaceAll("#", " | "));
+                hand_comcards_val.setText(Card.shortString2UNICODEString(rs.getString("com_cards")));
             }
 
             hand_bote_val.setText(String.valueOf(Helpers.floatClean1D(rs.getFloat("pot"))));
@@ -825,7 +861,7 @@ public class Stats extends javax.swing.JDialog {
                     if (tableModel.getColumnName(i).equals(Translator.translate("GANA"))) {
                         row[i] = (int) row[i] == 1 ? Translator.translate("SÍ") : "NO";
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_RECIBIDAS")) || tableModel.getColumnName(i).equals(Translator.translate("CARTAS_JUGADA"))) {
-                        row[i] = row[i] != null ? ((String) row[i]).replaceAll("#", " | ") : "";
+                        row[i] = row[i] != null ? Card.shortString2UNICODEString((String) row[i]) : "";
 
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("JUGADA"))) {
                         row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "";
@@ -841,21 +877,21 @@ public class Stats extends javax.swing.JDialog {
 
             Helpers.disableSortAllColumns(res_table, tableRowSorter);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table, Translator.translate("JUGADOR")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("JUGADOR")), true);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table, Translator.translate("GANA")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("GANA")), true);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table, Translator.translate("PAGAR")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("PAGAR")), true);
 
-            tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table, Translator.translate("PAGAR")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("PAGAR")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table, Translator.translate("BENEFICIO")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("BENEFICIO")), true);
 
-            tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table, Translator.translate("BENEFICIO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("BENEFICIO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table, Translator.translate("JUGADA")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("JUGADA")), true);
 
-            tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table, Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.getHandValue(o1), Hand.getHandValue(o2)));
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.getHandValue(o1), Hand.getHandValue(o2)));
 
             showdown_table.setRowSorter(tableRowSorter);
 
@@ -918,11 +954,11 @@ public class Stats extends javax.swing.JDialog {
 
             Helpers.disableSortAllColumns(res_table, tableRowSorter);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("JUGADOR")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
 
-            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table, Translator.translate("TIEMPO")), true);
+            tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIEMPO")), true);
 
-            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table, Translator.translate("TIEMPO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+            tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIEMPO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
 
             res_table.setRowSorter(tableRowSorter);
 
@@ -1084,6 +1120,7 @@ public class Stats extends javax.swing.JDialog {
         scroll_stats_panel.setBorder(null);
 
         game_combo.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_combo.setMaximumRowCount(10);
         game_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 game_comboItemStateChanged(evt);
@@ -1204,6 +1241,7 @@ public class Stats extends javax.swing.JDialog {
         );
 
         hand_combo.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_combo.setMaximumRowCount(10);
         hand_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 hand_comboItemStateChanged(evt);
@@ -1370,6 +1408,7 @@ public class Stats extends javax.swing.JDialog {
         );
 
         stats_combo.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        stats_combo.setMaximumRowCount(10);
         stats_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 stats_comboItemStateChanged(evt);

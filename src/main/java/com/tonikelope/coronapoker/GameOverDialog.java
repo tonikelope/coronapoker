@@ -73,6 +73,7 @@ public class GameOverDialog extends javax.swing.JDialog {
         game_over = new javax.swing.JLabel();
         numbers = new javax.swing.JLabel();
         continue_button = new javax.swing.JButton();
+        exit_now_button = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setUndecorated(true);
@@ -111,6 +112,17 @@ public class GameOverDialog extends javax.swing.JDialog {
             }
         });
 
+        exit_now_button.setBackground(new java.awt.Color(255, 0, 0));
+        exit_now_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        exit_now_button.setForeground(new java.awt.Color(255, 255, 255));
+        exit_now_button.setText("SALIR");
+        exit_now_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        exit_now_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exit_now_buttonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
@@ -124,14 +136,20 @@ public class GameOverDialog extends javax.swing.JDialog {
                 .addComponent(continue_button)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(game_over, javax.swing.GroupLayout.DEFAULT_SIZE, 776, Short.MAX_VALUE)
+                .addGap(50, 50, 50)
+                .addComponent(game_over, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(50, 50, 50))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(exit_now_button)
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(50, 50, 50)
+                .addContainerGap()
+                .addComponent(exit_now_button)
+                .addGap(18, 18, 18)
                 .addComponent(game_over)
                 .addGap(18, 18, 18)
                 .addComponent(numbers, javax.swing.GroupLayout.PREFERRED_SIZE, 163, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -205,43 +223,49 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                     Helpers.playWavResourceAndWait("misc/gameover.wav");
 
-                    if (!continua) {
+                    if (timer.isRunning() && !continua) {
 
                         timer.stop();
 
                         Helpers.GUIRun(new Runnable() {
                             @Override
                             public void run() {
-                                setVisible(false);
+                                exit_now_button.setVisible(false);
                                 continue_button.setVisible(false);
-                                game_over.setVisible(false);
-                                numbers.setIcon(new ImageIcon(getClass().getResource("/images/gameover/game_over.png")));
+                                numbers.setVisible(false);
                                 pack();
-                                setLocationRelativeTo(getParent());
-                                setVisible(true);
                             }
                         });
 
-                        if (Helpers.mostrarMensajeInformativoSINO(null, "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
+                        if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
 
                             continua = true;
+
                             Helpers.playWavResourceAndWait("misc/rebuy.wav");
 
                         } else {
 
                             Helpers.playWavResourceAndWait("misc/norebuy.wav");
                         }
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                dispose();
+                            }
+                        });
                     }
                 } else {
                     Helpers.playWavResourceAndWait("misc/norebuy.wav");
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            dispose();
+                        }
+                    });
                 }
 
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-                        dispose();
-                    }
-                });
             }
         });
     }//GEN-LAST:event_formWindowOpened
@@ -267,8 +291,46 @@ public class GameOverDialog extends javax.swing.JDialog {
         Helpers.playWavResource("misc/rebuy.wav");
     }//GEN-LAST:event_continue_buttonActionPerformed
 
+    private void exit_now_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_now_buttonActionPerformed
+        // TODO add your handling code here:
+        this.timer.stop();
+        exit_now_button.setVisible(false);
+        continue_button.setVisible(false);
+        numbers.setVisible(false);
+        pack();
+
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+
+                Helpers.stopWavResource("misc/gameover.wav");
+
+                if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
+
+                    continua = true;
+
+                    Helpers.playWavResourceAndWait("misc/rebuy.wav");
+
+                } else {
+
+                    Helpers.playWavResourceAndWait("misc/norebuy.wav");
+                }
+
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        dispose();
+                    }
+                });
+
+            }
+        });
+
+    }//GEN-LAST:event_exit_now_buttonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton continue_button;
+    private javax.swing.JButton exit_now_button;
     private javax.swing.JLabel game_over;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JLabel numbers;

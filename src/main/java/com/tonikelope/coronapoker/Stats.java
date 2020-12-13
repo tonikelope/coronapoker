@@ -17,6 +17,7 @@ import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -178,8 +179,43 @@ public class Stats extends javax.swing.JDialog {
                         DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
                         Date date = new Date(ts.getTime());
                         row[i] = server + " @ " + timeZoneFormat.format(date);
-                    } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_RECIBIDAS")) || tableModel.getColumnName(i).equals(Translator.translate("CARTAS_JUGADA"))) {
-                        row[i] = row[i] != null ? Card.shortString2UNICODEString((String) row[i]) : "";
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_RECIBIDAS"))) {
+                        ArrayList<Card> cartas = new ArrayList<>();
+                        if (row[i] != null) {
+                            for (String c : ((String) row[i]).split("#")) {
+
+                                String[] partes = c.split("_");
+
+                                Card carta = new Card();
+
+                                carta.cargarCarta(partes[0], partes[1]);
+
+                                cartas.add(carta);
+                            }
+
+                            Card.sortCollection(cartas);
+                        }
+
+                        row[i] = row[i] != null ? Card.collection2String(cartas) : "";
+
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_JUGADA"))) {
+
+                        ArrayList<Card> cartas = new ArrayList<>();
+                        if (row[i] != null) {
+                            for (String c : ((String) row[i]).split("#")) {
+
+                                String[] partes = c.split("_");
+
+                                Card carta = new Card();
+
+                                carta.cargarCarta(partes[0], partes[1]);
+
+                                cartas.add(carta);
+                            }
+
+                        }
+
+                        row[i] = row[i] != null ? Card.collection2String(cartas) : "";
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("JUGADA"))) {
                         row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "";
                     }
@@ -860,9 +896,45 @@ public class Stats extends javax.swing.JDialog {
 
                     if (tableModel.getColumnName(i).equals(Translator.translate("GANA"))) {
                         row[i] = (int) row[i] == 1 ? Translator.translate("SÍ") : "NO";
-                    } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_RECIBIDAS")) || tableModel.getColumnName(i).equals(Translator.translate("CARTAS_JUGADA"))) {
-                        row[i] = row[i] != null ? Card.shortString2UNICODEString((String) row[i]) : "";
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_RECIBIDAS"))) {
 
+                        ArrayList<Card> cartas = new ArrayList<>();
+
+                        if (row[i] != null) {
+                            for (String c : ((String) row[i]).split("#")) {
+
+                                String[] partes = c.split("_");
+
+                                Card carta = new Card();
+
+                                carta.cargarCarta(partes[0], partes[1]);
+
+                                cartas.add(carta);
+                            }
+
+                            Card.sortCollection(cartas);
+                        }
+
+                        row[i] = row[i] != null ? Card.collection2String(cartas) : "";
+
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_JUGADA"))) {
+
+                        ArrayList<Card> cartas = new ArrayList<>();
+
+                        if (row[i] != null) {
+                            for (String c : ((String) row[i]).split("#")) {
+
+                                String[] partes = c.split("_");
+
+                                Card carta = new Card();
+
+                                carta.cargarCarta(partes[0], partes[1]);
+
+                                cartas.add(carta);
+                            }
+                        }
+
+                        row[i] = row[i] != null ? Card.collection2String(cartas) : "";
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("JUGADA"))) {
                         row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "";
                     }
@@ -1118,9 +1190,11 @@ public class Stats extends javax.swing.JDialog {
         title.setFocusable(false);
 
         scroll_stats_panel.setBorder(null);
+        scroll_stats_panel.setDoubleBuffered(true);
 
-        game_combo.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_combo.setMaximumRowCount(10);
+        game_combo.setDoubleBuffered(true);
         game_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 game_comboItemStateChanged(evt);
@@ -1129,47 +1203,61 @@ public class Stats extends javax.swing.JDialog {
 
         game_data_panel.setOpaque(false);
 
-        game_hand_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_hand_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_hand_label.setText("Manos:");
+        game_hand_label.setDoubleBuffered(true);
 
-        game_players_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_players_label.setText("Jugadores:");
+        game_players_label.setDoubleBuffered(true);
 
-        game_buyin_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_buyin_label.setText("Compra:");
+        game_buyin_label.setDoubleBuffered(true);
 
-        game_blinds_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_blinds_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_blinds_label.setText("Ciegas:");
+        game_blinds_label.setDoubleBuffered(true);
 
-        game_blinds_double_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_blinds_double_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_blinds_double_label.setText("Doblar ciegas:");
+        game_blinds_double_label.setDoubleBuffered(true);
 
-        game_rebuy_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_rebuy_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_rebuy_label.setText("Recomprar:");
+        game_rebuy_label.setDoubleBuffered(true);
 
-        game_hand_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        game_hand_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_hand_val.setText(" ");
+        game_hand_val.setDoubleBuffered(true);
 
-        game_players_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        game_players_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_players_val.setText(" ");
+        game_players_val.setDoubleBuffered(true);
 
-        game_buyin_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        game_buyin_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_buyin_val.setText(" ");
+        game_buyin_val.setDoubleBuffered(true);
 
-        game_blinds_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        game_blinds_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_blinds_val.setText(" ");
+        game_blinds_val.setDoubleBuffered(true);
 
-        game_blinds_double_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        game_blinds_double_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_blinds_double_val.setText(" ");
+        game_blinds_double_val.setDoubleBuffered(true);
 
-        game_rebuy_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        game_rebuy_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_rebuy_val.setText(" ");
+        game_rebuy_val.setDoubleBuffered(true);
 
-        game_playtime_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        game_playtime_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_playtime_label.setText("Duración:");
+        game_playtime_label.setDoubleBuffered(true);
 
-        game_playtime_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        game_playtime_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_playtime_val.setText(" ");
+        game_playtime_val.setDoubleBuffered(true);
 
         javax.swing.GroupLayout game_data_panelLayout = new javax.swing.GroupLayout(game_data_panel);
         game_data_panel.setLayout(game_data_panelLayout);
@@ -1240,8 +1328,9 @@ public class Stats extends javax.swing.JDialog {
                 .addContainerGap())
         );
 
-        hand_combo.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_combo.setMaximumRowCount(10);
+        hand_combo.setDoubleBuffered(true);
         hand_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 hand_comboItemStateChanged(evt);
@@ -1250,68 +1339,90 @@ public class Stats extends javax.swing.JDialog {
 
         hand_data_panel.setOpaque(false);
 
-        hand_blinds_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_blinds_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_blinds_label.setText("Ciegas:");
+        hand_blinds_label.setDoubleBuffered(true);
         hand_blinds_label.setPreferredSize(new java.awt.Dimension(45, 17));
 
-        hand_blinds_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_blinds_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_blinds_val.setText(" ");
+        hand_blinds_val.setDoubleBuffered(true);
 
-        hand_time_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_time_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_time_label.setText("Duración:");
+        hand_time_label.setDoubleBuffered(true);
 
-        hand_cp_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_cp_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_cp_label.setText("Ciega pequeña:");
+        hand_cp_label.setDoubleBuffered(true);
 
-        hand_cg_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_cg_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_cg_label.setText("Ciega grande:");
+        hand_cg_label.setDoubleBuffered(true);
 
-        hand_comcards_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_comcards_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_comcards_label.setText("Cartas comunitarias:");
+        hand_comcards_label.setDoubleBuffered(true);
 
-        hand_preflop_players_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_preflop_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_preflop_players_label.setText("Jugadores PREFLOP:");
+        hand_preflop_players_label.setDoubleBuffered(true);
 
-        hand_flop_players_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_flop_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_flop_players_label.setText("Jugadores FLOP:");
+        hand_flop_players_label.setDoubleBuffered(true);
 
-        hand_turn_players_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_turn_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_turn_players_label.setText("Jugadores TURN:");
+        hand_turn_players_label.setDoubleBuffered(true);
 
-        hand_river_players_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_river_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_river_players_label.setText("Jugadores RIVER:");
+        hand_river_players_label.setDoubleBuffered(true);
 
-        hand_bote_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        hand_bote_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_bote_label.setText("BOTE:");
+        hand_bote_label.setDoubleBuffered(true);
 
-        hand_time_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_time_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_time_val.setText(" ");
+        hand_time_val.setDoubleBuffered(true);
 
-        hand_cp_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_cp_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_cp_val.setText(" ");
+        hand_cp_val.setDoubleBuffered(true);
 
-        hand_cg_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_cg_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_cg_val.setText(" ");
+        hand_cg_val.setDoubleBuffered(true);
 
-        hand_comcards_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_comcards_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_comcards_val.setText(" ");
+        hand_comcards_val.setDoubleBuffered(true);
 
-        hand_preflop_players_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_preflop_players_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_preflop_players_val.setText(" ");
+        hand_preflop_players_val.setDoubleBuffered(true);
 
-        hand_flop_players_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_flop_players_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_flop_players_val.setText(" ");
+        hand_flop_players_val.setDoubleBuffered(true);
 
-        hand_turn_players_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_turn_players_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_turn_players_val.setText(" ");
+        hand_turn_players_val.setDoubleBuffered(true);
 
-        hand_river_players_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_river_players_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_river_players_val.setText(" ");
+        hand_river_players_val.setDoubleBuffered(true);
 
-        hand_bote_val.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        hand_bote_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_bote_val.setText(" ");
+        hand_bote_val.setDoubleBuffered(true);
 
-        showdown_table.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        showdown_panel.setDoubleBuffered(true);
+
+        showdown_table.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         showdown_table.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null},
@@ -1407,15 +1518,18 @@ public class Stats extends javax.swing.JDialog {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        stats_combo.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        stats_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         stats_combo.setMaximumRowCount(10);
+        stats_combo.setDoubleBuffered(true);
         stats_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 stats_comboItemStateChanged(evt);
             }
         });
 
-        res_table.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        table_panel.setDoubleBuffered(true);
+
+        res_table.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         res_table.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null},
@@ -1429,8 +1543,9 @@ public class Stats extends javax.swing.JDialog {
         ));
         table_panel.setViewportView(res_table);
 
-        res_table_warning.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
+        res_table_warning.setFont(new java.awt.Font("Dialog", 2, 14)); // NOI18N
         res_table_warning.setText("Nota:");
+        res_table_warning.setDoubleBuffered(true);
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);

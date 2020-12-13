@@ -110,6 +110,7 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableModel;
 import javax.swing.table.TableRowSorter;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
@@ -148,7 +149,7 @@ public class Helpers {
     public static final String USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final float MASTER_VOLUME = 0.8f;
     public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.4f); //DEFAULT * CUSTOM
-    public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/stats_music.mp3", 0.8f);
+    public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/stats_music.mp3", 0.7f);
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME);
     public static final int RANDOMORG_TIMEOUT = 10000;
     public static final int SPRNG = 2;
@@ -1769,10 +1770,10 @@ public class Helpers {
         }
     }
 
-    public static int getTableColumnIndex(JTable table, String column_name) {
+    public static int getTableColumnIndex(TableModel model, String column_name) {
 
-        for (int i = 0; i < table.getModel().getColumnCount(); i++) {
-            if (table.getModel().getColumnName(i).equals(column_name)) {
+        for (int i = 0; i < model.getColumnCount(); i++) {
+            if (model.getColumnName(i).equals(column_name)) {
                 return i;
             }
         }

@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"EFICACIA", "EFFEECTIVENESS"},
             {"Nota: se muestran el balance de la timba al TERMINAR la mano actual.", "Note: what is shown is the overall balance after finishing the current hand."},
             {"% APUESTAS/SUBIDAS EN EL PREFLOP", "% PREFLOP BETS/RAISES"},
             {"% APUESTAS/SUBIDAS EN EL FLOP", "% FLOP BETS/RAISES"},

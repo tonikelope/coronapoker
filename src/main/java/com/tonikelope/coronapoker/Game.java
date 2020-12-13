@@ -897,7 +897,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                tapete.getCommunityCards().getHand_label().setText(Translator.translate("Mano: ") + String.valueOf(mano));
+                tapete.getCommunityCards().getHand_label().setText("#" + String.valueOf(mano));
             }
         });
     }
@@ -1059,7 +1059,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                tapete.getCommunityCards().getBlinds_label().setText(Translator.translate("Ciegas: ") + Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
+                tapete.getCommunityCards().getBlinds_label().setText(Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
             }
         });
 

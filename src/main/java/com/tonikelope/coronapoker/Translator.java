@@ -165,6 +165,7 @@ public class Translator {
             {"PANTALLA COMPLETA", "FULL SCREEN"},
             {"Salir (ALT+F4)", "Exit (ALT+F4)"},
             {"Salir", "Exit"},
+            {"SALIR", "EXIT"},
             {"Aumentar (CTRL++)", "Increase (CTRL++)"},
             {"Reducir (CTRL+-)", "Reduce (CTRL--)"},
             {"Aumentar zoom", "Increase zoom"},

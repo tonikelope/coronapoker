@@ -72,8 +72,10 @@ public class Stats extends javax.swing.JDialog {
                 game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
                 game_combo.setSelectedIndex(0);
                 game_data_panel.setVisible(false);
+                res_table.setDefaultEditor(Object.class, null);
                 res_table.setRowHeight(res_table.getRowHeight() + 20);
                 showdown_table.setRowHeight(showdown_table.getRowHeight() + 20);
+                showdown_table.setDefaultEditor(Object.class, null);
 
                 for (Map.Entry<String, SQLStats> entry : sqlstats.entrySet()) {
 

@@ -248,7 +248,7 @@ public class Stats extends javax.swing.JDialog {
 
                 tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIMBA")), (Comparator<String>) (o1, o2) -> {
                     try {
-                        return Long.compare(new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o1).getTime()).getTime(), new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o2).getTime()).getTime());
+                        return Long.compare(new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o1.split(" @ ")[1]).getTime()).getTime(), new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o2.split(" @ ")[1]).getTime()).getTime());
                     } catch (ParseException ex) {
                         Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
                     }

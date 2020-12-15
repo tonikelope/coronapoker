@@ -54,7 +54,7 @@ public class Stats extends javax.swing.JDialog {
         sqlstats.put(Translator.translate("GANANCIAS/PÉRDIDAS"), this::balance);
         sqlstats.put(Translator.translate("TIEMPO MEDIO DE RESPUESTA (SEGUNDOS)"), this::tiempoMedioRespuesta);
         sqlstats.put(Translator.translate("JUGADAS GANADORAS"), this::mejoresJugadas);
-        sqlstats.put(Translator.translate("% MANOS JUGADAS/GANADAS"), this::manosJugadas);
+        sqlstats.put(Translator.translate("RENDIMIENTO DE LOS JUGADORES"), this::rendimiento);
         sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL PREFLOP"), this::subidasPreflop);
         sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL FLOP"), this::subidasFlop);
         sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL TURN"), this::subidasTurn);
@@ -264,80 +264,33 @@ public class Stats extends javax.swing.JDialog {
         }
     }
 
-    private void manosJugadas() {
+    private void rendimiento() {
         if (hand_combo.getSelectedIndex() != 0) {
             hand_combo.setSelectedIndex(-1);
         }
 
-        ResultSet rs;
+        ResultSet rs = null;
 
         hand_combo.setVisible(false);
-
-        HashMap<String, Integer[]> manos = new HashMap<>();
 
         if (game_combo.getSelectedIndex() > 0) {
 
             try {
 
-                String sql = "select player, count(distinct id_hand) as jugadas from action,hand where action.id_hand=hand.id and action.round=1 and action.action>=2 and hand.id_game=? group by player";
+                String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_JUGADAS, ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_GANADAS, CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS PRECISION, roi||'%' AS ROI, case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as EFECTIVIDAD from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and hand.id_game=? and action>=2 and round=1 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown,hand left join (select player,count(distinct id_hand) as GANADAS from showdown,hand where showdown.id_hand=hand.id and hand.id_game=? and winner=1 group by player) as tc on showdown.player=tc.player where showdown.id_hand=hand.id and hand.id_game=? group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and hand.id_game=? group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by EFECTIVIDAD DESC";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                statement.setInt(2, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                statement.setInt(3, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                statement.setInt(4, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                statement.setInt(5, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                statement.setInt(6, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
 
                 rs = statement.executeQuery();
-
-                while (rs.next()) {
-                    manos.put(rs.getString("player"), new Integer[]{rs.getInt("jugadas"), 0, 0});
-                }
-
-                sql = "select player, count(distinct id_hand) as jugadas from hand,showdown where showdown.id_hand=hand.id and hand.id_game=? and showdown.winner=1 group by player";
-
-                statement = SQLITE.prepareStatement(sql);
-
-                statement.setQueryTimeout(30);
-
-                statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-
-                rs = statement.executeQuery();
-
-                while (rs.next()) {
-                    Integer[] jugadas;
-                    if (manos.containsKey(rs.getString("player"))) {
-
-                        jugadas = manos.get(rs.getString("player"));
-                        jugadas[1] = rs.getInt("jugadas");
-                    } else {
-                        jugadas = new Integer[]{0, rs.getInt("jugadas"), 0};
-                    }
-
-                    manos.put(rs.getString("player"), jugadas);
-                }
-
-                sql = "select player, count(distinct id_hand) as jugadas from action,hand where action.id_hand=hand.id and hand.id_game=? group by player";
-
-                statement = SQLITE.prepareStatement(sql);
-
-                statement.setQueryTimeout(30);
-
-                statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-
-                rs = statement.executeQuery();
-
-                while (rs.next()) {
-                    Integer[] jugadas;
-                    if (manos.containsKey(rs.getString("player"))) {
-
-                        jugadas = manos.get(rs.getString("player"));
-                        jugadas[2] = rs.getInt("jugadas");
-                    } else {
-                        jugadas = new Integer[]{0, 0, rs.getInt("jugadas")};
-                    }
-
-                    manos.put(rs.getString("player"), jugadas);
-                }
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
@@ -346,7 +299,7 @@ public class Stats extends javax.swing.JDialog {
         } else {
             try {
 
-                String sql = "select player, count(distinct id_hand) as jugadas from action,hand where action.id_hand=hand.id and action.round=1 and action.action>=2 group by player";
+                String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_JUGADAS, ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_GANADAS, CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS PRECISION, roi||'%' AS ROI, case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as EFECTIVIDAD from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where action>=2 and round=1 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown left join (select player,count(distinct id_hand) as GANADAS from showdown where winner=1 group by player) as tc on showdown.player=tc.player group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by EFECTIVIDAD DESC";
 
                 Statement statement = SQLITE.createStatement();
 
@@ -354,78 +307,17 @@ public class Stats extends javax.swing.JDialog {
 
                 rs = statement.executeQuery(sql);
 
-                while (rs.next()) {
-                    manos.put(rs.getString("player"), new Integer[]{rs.getInt("jugadas"), 0, 0});
-                }
-
-                sql = "select player, count(distinct id_hand) as jugadas from hand,showdown where showdown.id_hand=hand.id and showdown.winner=1 group by player";
-
-                statement = SQLITE.createStatement();
-
-                statement.setQueryTimeout(30);
-
-                rs = statement.executeQuery(sql);
-
-                while (rs.next()) {
-                    Integer[] jugadas;
-                    if (manos.containsKey(rs.getString("player"))) {
-
-                        jugadas = manos.get(rs.getString("player"));
-                        jugadas[1] = rs.getInt("jugadas");
-                    } else {
-                        jugadas = new Integer[]{0, rs.getInt("jugadas"), 0};
-                    }
-
-                    manos.put(rs.getString("player"), jugadas);
-                }
-
-                sql = "select player, count(distinct id_hand) as jugadas from action,hand where action.id_hand=hand.id group by player";
-
-                statement = SQLITE.createStatement();
-
-                statement.setQueryTimeout(30);
-
-                rs = statement.executeQuery(sql);
-
-                while (rs.next()) {
-                    Integer[] jugadas;
-
-                    if (manos.containsKey(rs.getString("player"))) {
-
-                        jugadas = manos.get(rs.getString("player"));
-                        jugadas[2] = rs.getInt("jugadas");
-                    } else {
-                        jugadas = new Integer[]{0, 0, rs.getInt("jugadas")};
-                    }
-
-                    manos.put(rs.getString("player"), jugadas);
-                }
-
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         }
 
-        DefaultTableModel tableModel = new DefaultTableModel();
-
-        tableModel.addColumn(Translator.translate("JUGADOR"));
-        tableModel.addColumn(Translator.translate("MANOS_JUGADAS"));
-        tableModel.addColumn(Translator.translate("MANOS_GANADORAS"));
-        tableModel.addColumn(Translator.translate("EFICACIA"));
-
-        Object[] row = new Object[4];
-
-        for (Map.Entry<String, Integer[]> entry : manos.entrySet()) {
-
-            row[0] = entry.getKey();
-            row[1] = Helpers.float2String(((float) entry.getValue()[0] / (float) entry.getValue()[2]) * 100) + "%";
-            row[2] = Helpers.float2String(((float) entry.getValue()[1] / (float) entry.getValue()[2]) * 100) + "%";
-            row[3] = (float) entry.getValue()[0] > 0f ? Helpers.float2String(((float) entry.getValue()[1] / (float) entry.getValue()[0]) * 100) + "%" : "0%";
-            tableModel.addRow(row);
+        try {
+            Helpers.resultSetToTableModel(rs, res_table);
+        } catch (SQLException ex) {
+            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
         }
-
-        res_table.setModel(tableModel);
 
         TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
 
@@ -433,22 +325,33 @@ public class Stats extends javax.swing.JDialog {
 
         tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
 
+        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFECTIVIDAD")), true);
+
+        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFECTIVIDAD")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+
         tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS_JUGADAS")), true);
 
         tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS_JUGADAS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
 
-        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS_GANADORAS")), true);
+        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS_GANADAS")), true);
 
-        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS_GANADORAS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS_GANADAS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
 
-        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFICACIA")), true);
+        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("PRECISION")), true);
 
-        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFICACIA")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("PRECISION")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+
+        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ROI")), true);
+
+        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ROI")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
 
         res_table.setRowSorter(tableRowSorter);
-        res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFICACIA")));
-        res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFICACIA")));
+
         table_panel.setVisible(true);
+
+        res_table_warning.setText(Translator.translate("Nota: EFECTIVIDAD = (ROI / MANOS_JUGADAS) si ROI >=0, si no, EFECTIVIDAD = (ROI x MANOS_JUGADAS) (la EFECTIVIDAD mínima es -1)"));
+
+        res_table_warning.setVisible(true);
 
     }
 
@@ -457,52 +360,29 @@ public class Stats extends javax.swing.JDialog {
             hand_combo.setSelectedIndex(-1);
         }
 
-        ResultSet rs;
+        ResultSet rs = null;
 
         hand_combo.setVisible(false);
-
-        HashMap<String, Integer[]> manos = new HashMap<>();
 
         if (game_combo.getSelectedIndex() > 0) {
 
             try {
 
-                String sql = "select player, count(distinct id_hand) as jugadas from action,hand where action.id_hand=hand.id and action.round=" + String.valueOf(ronda) + " and action.action>=3 and hand.id_game=? group by player";
+                String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and round=? and hand.id_game=? and action>=3 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and hand.id_game=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by MANOS DESC";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
-                statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                statement.setInt(1, ronda);
+
+                statement.setInt(2, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+
+                statement.setInt(3, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+
+                statement.setInt(4, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
 
                 rs = statement.executeQuery();
-
-                while (rs.next()) {
-                    manos.put(rs.getString("player"), new Integer[]{rs.getInt("jugadas"), 0});
-                }
-
-                sql = "select player, count(distinct id_hand) as jugadas from action,hand where action.id_hand=hand.id and hand.id_game=? group by player";
-
-                statement = SQLITE.prepareStatement(sql);
-
-                statement.setQueryTimeout(30);
-
-                statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-
-                rs = statement.executeQuery();
-
-                while (rs.next()) {
-                    Integer[] jugadas;
-                    if (manos.containsKey(rs.getString("player"))) {
-
-                        jugadas = manos.get(rs.getString("player"));
-                        jugadas[1] = rs.getInt("jugadas");
-                    } else {
-                        jugadas = new Integer[]{0, rs.getInt("jugadas")};
-                    }
-
-                    manos.put(rs.getString("player"), jugadas);
-                }
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
@@ -511,61 +391,26 @@ public class Stats extends javax.swing.JDialog {
         } else {
             try {
 
-                String sql = "select player, count(distinct id_hand) as jugadas from action,hand where action.id_hand=hand.id and action.round=" + String.valueOf(ronda) + " and action.action>=3 group by player";
+                String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where round=? and action>=3 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by MANOS DESC";
 
-                Statement statement = SQLITE.createStatement();
-
-                statement.setQueryTimeout(30);
-
-                rs = statement.executeQuery(sql);
-
-                while (rs.next()) {
-                    manos.put(rs.getString("player"), new Integer[]{rs.getInt("jugadas"), 0, 0});
-                }
-
-                sql = "select player, count(distinct id_hand) as jugadas from action,hand where action.id_hand=hand.id group by player";
-
-                statement = SQLITE.createStatement();
+                PreparedStatement statement = SQLITE.prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
-                rs = statement.executeQuery(sql);
+                statement.setInt(1, ronda);
 
-                while (rs.next()) {
-                    Integer[] jugadas;
-
-                    if (manos.containsKey(rs.getString("player"))) {
-
-                        jugadas = manos.get(rs.getString("player"));
-                        jugadas[1] = rs.getInt("jugadas");
-                    } else {
-                        jugadas = new Integer[]{0, rs.getInt("jugadas")};
-                    }
-
-                    manos.put(rs.getString("player"), jugadas);
-                }
+                rs = statement.executeQuery();
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         }
-
-        DefaultTableModel tableModel = new DefaultTableModel();
-
-        tableModel.addColumn(Translator.translate("JUGADOR"));
-        tableModel.addColumn(Translator.translate("MANOS"));
-
-        Object[] row = new Object[4];
-
-        for (Map.Entry<String, Integer[]> entry : manos.entrySet()) {
-
-            row[0] = entry.getKey();
-            row[1] = Helpers.float2String(((float) entry.getValue()[0] / (float) entry.getValue()[1]) * 100) + "%";
-            tableModel.addRow(row);
+        try {
+            Helpers.resultSetToTableModel(rs, res_table);
+        } catch (SQLException ex) {
+            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
         }
-
-        res_table.setModel(tableModel);
 
         TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
 

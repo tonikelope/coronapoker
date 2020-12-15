@@ -2841,6 +2841,7 @@ public class Crupier implements Runnable {
 
         } while (j != pivote);
 
+        //Repartirmos la segunda carta a todos los jugadores
         do {
 
             Player jugador = Game.getInstance().getJugadores().get(j);
@@ -2855,6 +2856,20 @@ public class Crupier implements Runnable {
             j = (j + 1) % Game.getInstance().getJugadores().size();
 
         } while (j != pivote);
+
+        for (Player jugador : Game.getInstance().getJugadores()) {
+
+            if (jugador.getPlayingCard1().getValorNumerico() < jugador.getPlayingCard2().getValorNumerico()) {
+                //Ordenamos las cartas antes de enviarlas para mayor comodidad
+
+                String valor1 = jugador.getPlayingCard1().getValor();
+                String palo1 = jugador.getPlayingCard1().getPalo();
+
+                jugador.getPlayingCard1().preCargarCarta(jugador.getPlayingCard2().getValor(), jugador.getPlayingCard2().getPalo());
+                jugador.getPlayingCard2().preCargarCarta(valor1, palo1);
+            }
+
+        }
 
         for (Card carta : Game.getInstance().getCartas_comunes()) {
 

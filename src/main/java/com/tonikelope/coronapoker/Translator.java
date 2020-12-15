@@ -22,7 +22,10 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
-            {"EFICACIA", "EFFEECTIVENESS"},
+            {"PAGAR", "PAY"},
+            {"Nota: EFECTIVIDAD = (ROI / MANOS_JUGADAS) si ROI >=0, si no, EFECTIVIDAD = (ROI x MANOS_JUGADAS) (la EFECTIVIDAD mínima es -1)", "Note: EFFECTIVENESS = (ROI / HANDS_PLAYED) if ROI >=0, otherwise EFFECTIVENESS = (ROI x HANDS_PLAYED) (minimum EFFECTIVENESS is -1)"},
+            {"RENDIMIENTO DE LOS JUGADORES", "PLAYERS PERFORMANCE"},
+            {"EFECTIVIDAD", "EFFECTIVENESS"},
             {"Nota: se muestran el balance de la timba al TERMINAR la mano actual.", "Note: what is shown is the overall balance after finishing the current hand."},
             {"% APUESTAS/SUBIDAS EN EL PREFLOP", "% PREFLOP BETS/RAISES"},
             {"% APUESTAS/SUBIDAS EN EL FLOP", "% FLOP BETS/RAISES"},
@@ -41,7 +44,7 @@ public class Translator {
             {"GANA", "WIN"},
             {"JUGADA", "HAND_VALUE"},
             {"MANOS_JUGADAS", "PLAYED_HANDS"},
-            {"MANOS_GANADORAS", "WINNER_HANDS"},
+            {"MANOS_GANADAS", "WINNER_HANDS"},
             {"TIEMPO", "TIME"},
             {"TIMBA", "GAME"},
             {"PAGADO", "PAY"},

@@ -216,20 +216,30 @@ public class Helpers {
         }
     }
 
-    public static String encryptCommand(String command, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
+    public static String encryptString(String cadena, SecretKeySpec aes_key, SecretKeySpec hmac_key) {
+
+        byte[] iv = new byte[16];
+
+        Helpers.SPRNG_GENERATOR.nextBytes(iv);
+
+        return encryptString(cadena, aes_key, iv, hmac_key);
+
+    }
+
+    public static String encryptString(String cadena, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
 
         try {
             Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
             cifrado.init(Cipher.ENCRYPT_MODE, aes_key, new IvParameterSpec(iv));
 
-            byte[] cmsg = cifrado.doFinal(command.trim().getBytes("UTF-8"));
+            byte[] cmsg = cifrado.doFinal(cadena.getBytes("UTF-8"));
 
             Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
 
             sha256_HMAC.init(hmac_key);
 
-            byte[] full_command = new byte[32 + iv.length + cmsg.length];
+            byte[] full_msg = new byte[32 + iv.length + cmsg.length];
 
             byte[] iv_cmsg = new byte[iv.length + cmsg.length];
 
@@ -246,58 +256,47 @@ public class Helpers {
             byte[] hmac = sha256_HMAC.doFinal(iv_cmsg);
 
             for (i = 0; i < hmac.length; i++) {
-                full_command[i] = hmac[i];
+                full_msg[i] = hmac[i];
             }
 
             for (i = 0; i < iv_cmsg.length; i++) {
-                full_command[i + hmac.length] = iv_cmsg[i];
+                full_msg[i + hmac.length] = iv_cmsg[i];
             }
 
-            return ("*" + Base64.encodeBase64String(full_command));
+            return Base64.encodeBase64String(full_msg);
 
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | UnsupportedEncodingException | IllegalBlockSizeException | BadPaddingException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
         return null;
-
     }
 
-    public static String encryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) {
-
-        byte[] iv = new byte[16];
-
-        Helpers.SPRNG_GENERATOR.nextBytes(iv);
-
-        return encryptCommand(command, aes_key, iv, hmac_key);
-
-    }
-
-    public static String decryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
+    public static String decryptString(String cadena, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
 
         try {
 
             Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
-            byte[] full_command = Base64.decodeBase64(command.trim().substring(1));
+            byte[] full_msg = Base64.decodeBase64(cadena);
 
             byte[] hmac = new byte[32];
 
             byte[] iv = new byte[cifrado.getBlockSize()];
 
-            byte[] cmsg = new byte[full_command.length - hmac.length - iv.length];
+            byte[] cmsg = new byte[full_msg.length - hmac.length - iv.length];
 
             int i;
 
             for (i = 0; i < hmac.length; i++) {
-                hmac[i] = full_command[i];
+                hmac[i] = full_msg[i];
             }
 
             for (i = 0; i < iv.length; i++) {
-                iv[i] = full_command[i + hmac.length];
+                iv[i] = full_msg[i + hmac.length];
             }
 
             for (i = 0; i < cmsg.length; i++) {
-                cmsg[i] = full_command[i + hmac.length + iv.length];
+                cmsg[i] = full_msg[i + hmac.length + iv.length];
             }
 
             byte[] iv_cmsg = new byte[iv.length + cmsg.length];
@@ -331,6 +330,28 @@ public class Helpers {
         }
 
         return null;
+
+    }
+
+    public static String encryptCommand(String command, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
+
+        return ("*" + Helpers.encryptString(command, aes_key, iv, hmac_key));
+
+    }
+
+    public static String encryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) {
+
+        byte[] iv = new byte[16];
+
+        Helpers.SPRNG_GENERATOR.nextBytes(iv);
+
+        return encryptCommand(command, aes_key, iv, hmac_key);
+
+    }
+
+    public static String decryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
+
+        return command.charAt(0) == '*' ? Helpers.decryptString(command.trim().substring(1), aes_key, hmac_key) : command;
     }
 
     public static void createIfNoExistsCoronaDirs() {
@@ -1037,11 +1058,11 @@ public class Helpers {
 
     public static ConcurrentHashMap<String, Object> loadMOD() {
 
-        if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod"))) {
+        if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod"))) {
             ConcurrentHashMap<String, Object> mod = new ConcurrentHashMap<>();
 
             try {
-                File file = new File(Helpers.getCurrentJarPath() + "/mod/mod.xml");
+                File file = new File(Helpers.getCurrentJarParentPath() + "/mod/mod.xml");
                 DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
                 DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
                 Document document = (Document) documentBuilder.parse(file);
@@ -1126,13 +1147,25 @@ public class Helpers {
         return null;
     }
 
-    public static String getCurrentJarPath() {
+    public static String getCurrentJarParentPath() {
         try {
             CodeSource codeSource = Init.class.getProtectionDomain().getCodeSource();
 
             File jarFile = new File(codeSource.getLocation().toURI().getPath());
 
-            return jarFile.getParentFile().getPath();
+            return jarFile.getParentFile().getAbsolutePath();
+
+        } catch (URISyntaxException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    public static String getCurrentJarPath() {
+        try {
+
+            return new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
 
         } catch (URISyntaxException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -1145,18 +1178,18 @@ public class Helpers {
 
         if (Init.MOD != null) {
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/sounds/" + sound))) {
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/" + sound))) {
 
                 try {
-                    return new FileInputStream(Helpers.getCurrentJarPath() + "/mod/sounds/" + sound);
+                    return new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/sounds/" + sound);
                 } catch (FileNotFoundException ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
-            } else if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/cinematics/" + sound))) {
+            } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/" + sound))) {
 
                 try {
-                    return new FileInputStream(Helpers.getCurrentJarPath() + "/mod/cinematics/" + sound);
+                    return new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/cinematics/" + sound);
                 } catch (FileNotFoundException ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                 }

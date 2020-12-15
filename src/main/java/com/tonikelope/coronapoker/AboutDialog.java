@@ -16,7 +16,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "FINAL-6.11";
+    public static final String VERSION = "FINAL-6.12";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
     private volatile String last_mp3_loop = null;
@@ -37,8 +37,8 @@ public class AboutDialog extends javax.swing.JDialog {
                 if (Init.MOD != null) {
                     mod_label.setText(Init.MOD.get("name") + " " + Init.MOD.get("version"));
 
-                    if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/mod.png"))) {
-                        Image logo = new ImageIcon(Helpers.getCurrentJarPath() + "/mod/mod.png").getImage();
+                    if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/mod.png"))) {
+                        Image logo = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/mod.png").getImage();
 
                         if (logo.getHeight(null) > MAX_MOD_LOGO_HEIGHT || logo.getWidth(null) > MAX_MOD_LOGO_HEIGHT) {
 

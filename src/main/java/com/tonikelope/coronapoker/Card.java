@@ -83,11 +83,11 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         if (baraja_mod) {
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/decks/" + path.replace("/images/decks/", "")))) {
-                img = new ImageIcon(Helpers.getCurrentJarPath() + "/mod/decks/" + path.replace("/images/decks/", "")).getImage();
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + path.replace("/images/decks/", "")))) {
+                img = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + path.replace("/images/decks/", "")).getImage();
             } else {
                 img = new ImageIcon(Card.class.getResource(path.replace(Game.BARAJA, "coronapoker"))).getImage();
-                Logger.getLogger(Card.class.getName()).log(Level.WARNING, "No existe {0}", Helpers.getCurrentJarPath() + "/mod/decks/" + path.replace("/images/decks/", ""));
+                Logger.getLogger(Card.class.getName()).log(Level.WARNING, "No existe {0}", Helpers.getCurrentJarParentPath() + "/mod/decks/" + path.replace("/images/decks/", ""));
             }
         } else {
             img = new ImageIcon(Card.class.getResource(path)).getImage();
@@ -339,15 +339,20 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         this.valor = valor.toUpperCase().trim();
         this.palo = palo.toUpperCase().trim();
-        this.cargada = true;
-        this.tapada = true;
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
+        if (!this.cargada) {
+            this.cargada = true;
+            this.tapada = true;
 
-            }
-        });
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
+
+                }
+            });
+        } else {
+            this.refreshCard();
+        }
 
     }
 

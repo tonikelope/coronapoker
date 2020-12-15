@@ -1486,8 +1486,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 final ImageIcon icon;
 
-                if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/cinematics/misc/end.gif"))) {
-                    icon = new ImageIcon(Helpers.getCurrentJarPath() + "/mod/cinematics/misc/end.gif");
+                if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif"))) {
+                    icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif");
                 } else if (getClass().getResource("/cinematics/misc/end.gif") != null) {
                     icon = new ImageIcon(getClass().getResource("/cinematics/misc/end.gif"));
                 } else {

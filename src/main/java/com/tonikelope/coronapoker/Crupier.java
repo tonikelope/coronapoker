@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.KeyException;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -310,8 +311,8 @@ public class Crupier implements Runnable {
 
         if (Init.MOD != null) {
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/sounds/allin/"))) {
-                File[] archivos = new File(Helpers.getCurrentJarPath() + "/mod/sounds/allin/").listFiles(File::isFile);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/allin/"))) {
+                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/allin/").listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
 
@@ -338,8 +339,8 @@ public class Crupier implements Runnable {
                 Crupier.ALLIN_SOUNDS_MOD = Crupier.ALLIN_SOUNDS;
             }
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/sounds/fold/"))) {
-                File[] archivos = new File(Helpers.getCurrentJarPath() + "/mod/sounds/fold/").listFiles(File::isFile);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/fold/"))) {
+                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/fold/").listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
 
@@ -365,8 +366,8 @@ public class Crupier implements Runnable {
                 Crupier.FOLD_SOUNDS_MOD = Crupier.FOLD_SOUNDS;
             }
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/sounds/showdown/"))) {
-                File[] archivos = new File(Helpers.getCurrentJarPath() + "/mod/sounds/showdown/").listFiles(File::isFile);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/showdown/"))) {
+                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/showdown/").listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
 
@@ -393,8 +394,8 @@ public class Crupier implements Runnable {
                 Crupier.SHOWDOWN_SOUNDS_MOD = Crupier.SHOWDOWN_SOUNDS;
             }
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/sounds/loser/"))) {
-                File[] archivos = new File(Helpers.getCurrentJarPath() + "/mod/sounds/loser/").listFiles(File::isFile);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/loser/"))) {
+                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/loser/").listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
 
@@ -421,8 +422,8 @@ public class Crupier implements Runnable {
                 Crupier.LOSER_SOUNDS_MOD = Crupier.LOSER_SOUNDS;
             }
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/sounds/winner/"))) {
-                File[] archivos = new File(Helpers.getCurrentJarPath() + "/mod/sounds/winner/").listFiles(File::isFile);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/winner/"))) {
+                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/winner/").listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
 
@@ -638,8 +639,8 @@ public class Crupier implements Runnable {
 
                 final ImageIcon icon;
 
-                if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/cinematics/allin/" + filename))) {
-                    icon = new ImageIcon(Helpers.getCurrentJarPath() + "/mod/cinematics/allin/" + filename);
+                if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
+                    icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename);
                 } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
                     icon = new ImageIcon(getClass().getResource("/cinematics/allin/" + filename));
                 } else {
@@ -1185,10 +1186,7 @@ public class Crupier implements Runnable {
 
                 if (jugador != Game.getInstance().getLocalPlayer()) {
 
-                    Helpers.playWavResource("misc/uncover.wav", false);
-
-                    jugador.getPlayingCard1().destapar(false);
-                    jugador.getPlayingCard2().destapar(false);
+                    jugador.destaparCartas(true);
 
                     ArrayList<Card> cartas = new ArrayList<>();
 
@@ -1249,10 +1247,7 @@ public class Crupier implements Runnable {
                 jugador.getPlayingCard1().cargarCarta(carta1_partes[0], carta1_partes[1]);
                 jugador.getPlayingCard2().cargarCarta(carta2_partes[0], carta2_partes[1]);
 
-                Helpers.playWavResource("misc/uncover.wav", false);
-
-                jugador.getPlayingCard1().destapar(false);
-                jugador.getPlayingCard2().destapar(false);
+                jugador.destaparCartas(true);
 
                 ArrayList<Card> cartas = new ArrayList<>();
 
@@ -2817,6 +2812,10 @@ public class Crupier implements Runnable {
 
             }
         });
+
+        LocalPlayer local = Game.getInstance().getLocalPlayer();
+
+        local.ordenarCartas();
     }
 
     private void preCargarCartas() {
@@ -2856,20 +2855,6 @@ public class Crupier implements Runnable {
             j = (j + 1) % Game.getInstance().getJugadores().size();
 
         } while (j != pivote);
-
-        for (Player jugador : Game.getInstance().getJugadores()) {
-
-            if (jugador.getPlayingCard1().getValorNumerico() < jugador.getPlayingCard2().getValorNumerico()) {
-                //Ordenamos las cartas antes de enviarlas para mayor comodidad
-
-                String valor1 = jugador.getPlayingCard1().getValor();
-                String palo1 = jugador.getPlayingCard1().getPalo();
-
-                jugador.getPlayingCard1().preCargarCarta(jugador.getPlayingCard2().getValor(), jugador.getPlayingCard2().getPalo());
-                jugador.getPlayingCard2().preCargarCarta(valor1, palo1);
-            }
-
-        }
 
         for (Card carta : Game.getInstance().getCartas_comunes()) {
 
@@ -4185,8 +4170,8 @@ public class Crupier implements Runnable {
                 per += String.valueOf(p) + "|";
             }
 
-            Files.writeString(Paths.get(filename), Base64.encodeBase64String(per.substring(0, per.length() - 1).getBytes("UTF-8")));
-            sqlUpdateGameLastDeck(Base64.encodeBase64String(per.substring(0, per.length() - 1).getBytes("UTF-8")));
+            Files.writeString(Paths.get(filename), Helpers.encryptString(per.substring(0, per.length() - 1), K.K1, K.K2));
+            sqlUpdateGameLastDeck(Helpers.encryptString(per.substring(0, per.length() - 1), K.K1, K.K2));
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
@@ -4199,7 +4184,7 @@ public class Crupier implements Runnable {
         if (Files.exists(Paths.get(filename))) {
 
             try {
-                String datos = new String(Base64.decodeBase64(Files.readString(Paths.get(filename))), "UTF-8");
+                String datos = Helpers.decryptString(Files.readString(Paths.get(filename)), K.K1, K.K2);
 
                 String[] partes = datos.split("\\|");
 
@@ -4215,6 +4200,8 @@ public class Crupier implements Runnable {
                 return permutacion;
 
             } catch (IOException ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (KeyException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
 
@@ -4641,8 +4628,8 @@ public class Crupier implements Runnable {
                     for (Player jugador : resisten) {
 
                         if (jugador != Game.getInstance().getLocalPlayer() && !jugador.isExit()) {
-                            jugador.getPlayingCard1().destapar(false);
-                            jugador.getPlayingCard2().destapar(false);
+
+                            jugador.destaparCartas(false);
                         }
                     }
                 }
@@ -4661,8 +4648,8 @@ public class Crupier implements Runnable {
                     for (Player jugador : resisten) {
 
                         if (jugador != Game.getInstance().getLocalPlayer() && !jugador.isExit()) {
-                            jugador.getPlayingCard1().destapar(false);
-                            jugador.getPlayingCard2().destapar(false);
+
+                            jugador.destaparCartas(false);
                         }
                     }
                 }
@@ -4846,9 +4833,7 @@ public class Crupier implements Runnable {
 
                     if (ganadores.containsKey(jugador_actual)) {
 
-                        jugador_actual.getPlayingCard1().destapar(false);
-
-                        jugador_actual.getPlayingCard2().destapar(false);
+                        jugador_actual.destaparCartas(false);
 
                         Hand jugada = ganadores.get(jugador_actual);
 
@@ -4912,9 +4897,7 @@ public class Crupier implements Runnable {
 
                     if (ganadores.containsKey(jugador_actual)) {
 
-                        jugador_actual.getPlayingCard1().destapar(false);
-
-                        jugador_actual.getPlayingCard2().destapar(false);
+                        jugador_actual.destaparCartas(false);
 
                         Hand jugada = ganadores.get(jugador_actual);
 
@@ -4941,9 +4924,7 @@ public class Crupier implements Runnable {
 
                         cartas.add(jugador_actual.getPlayingCard2());
 
-                        jugador_actual.getPlayingCard1().destapar(false);
-
-                        jugador_actual.getPlayingCard2().destapar(false);
+                        jugador_actual.destaparCartas(false);
 
                         Hand jugada = perdedores.get(jugador_actual);
 

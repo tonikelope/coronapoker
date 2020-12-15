@@ -133,3 +133,4 @@ $RECYCLE.BIN/
 
 #MegaBasterd DB
 *.db
+/src/main/java/com/tonikelope/coronapoker/K.java

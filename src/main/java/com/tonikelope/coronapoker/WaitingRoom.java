@@ -2396,7 +2396,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_pass_iconMouseClicked
         // TODO add your handling code here:
 
-        if (server) {
+        if (server && !WaitingRoom.isPartida_empezada()) {
             if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("¿GENERAR CONTRASEÑA NUEVA?")) == 0) {
                 password = Helpers.genRandomString(GEN_PASS_LENGTH);
                 pass_icon.setToolTipText(password);

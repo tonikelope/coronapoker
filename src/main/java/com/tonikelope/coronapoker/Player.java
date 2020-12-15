@@ -34,6 +34,10 @@ public interface Player {
 
     public static final int BORDER = 10;
 
+    public void ordenarCartas();
+
+    public void destaparCartas(boolean sound);
+
     public int getResponseTime();
 
     public boolean isActivo();

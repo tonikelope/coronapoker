@@ -473,9 +473,9 @@ public class Init extends javax.swing.JFrame {
             Crupier.loadMODCinematics();
 
             //Actualizamos la fuente
-            if (Init.MOD.containsKey("font") && Files.exists(Paths.get(Helpers.getCurrentJarPath() + "/mod/fonts/" + Init.MOD.get("font")))) {
+            if (Init.MOD.containsKey("font") && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")))) {
 
-                Helpers.GUI_FONT = Helpers.createAndRegisterFont(new FileInputStream(Helpers.getCurrentJarPath() + "/mod/fonts/" + Init.MOD.get("font")));
+                Helpers.GUI_FONT = Helpers.createAndRegisterFont(new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")));
             }
 
         }

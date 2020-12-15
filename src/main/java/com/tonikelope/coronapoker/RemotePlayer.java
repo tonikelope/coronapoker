@@ -1358,4 +1358,38 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.pagar = pagar;
     }
 
+    @Override
+    public void destaparCartas(boolean sound) {
+
+        if (getPlayingCard1().isCargada() && getPlayingCard1().isTapada()) {
+
+            ordenarCartas();
+
+            if (sound) {
+                Helpers.playWavResource("misc/uncover.wav", false);
+            }
+
+            getPlayingCard1().destapar(false);
+
+            getPlayingCard2().destapar(false);
+        }
+    }
+
+    @Override
+    public void ordenarCartas() {
+        if (getPlayingCard1().getValorNumerico() != -1 && getPlayingCard1().getValorNumerico() < getPlayingCard2().getValorNumerico()) {
+
+            //Ordenamos las cartas para mayor comodidad
+            String valor1 = getPlayingCard1().getValor();
+            String palo1 = getPlayingCard1().getPalo();
+
+            if (getPlayingCard1().isCargada()) {
+                getPlayingCard1().cargarCarta(getPlayingCard2().getValor(), getPlayingCard2().getPalo());
+                getPlayingCard2().cargarCarta(valor1, palo1);
+            } else {
+                getPlayingCard1().preCargarCarta(getPlayingCard2().getValor(), getPlayingCard2().getPalo());
+                getPlayingCard2().preCargarCarta(valor1, palo1);
+            }
+        }
+    }
 }

@@ -437,7 +437,7 @@ public class Init extends javax.swing.JFrame {
 
         Helpers.createIfNoExistsCoronaDirs();
 
-        if (Game.DEBUG_TO_FILE) {
+        if (!Game.DEV_MODE) {
 
             PrintStream fileOut = new PrintStream(new FileOutputStream(DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
             System.setOut(fileOut);

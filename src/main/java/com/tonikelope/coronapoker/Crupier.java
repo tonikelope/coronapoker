@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.ImageIcon;
 import org.apache.commons.codec.binary.Base64;
 
@@ -155,6 +156,7 @@ public class Crupier implements Runnable {
     private final Object lock_last_hand = new Object();
     private final Object lock_nueva_mano = new Object();
     private final Object lock_rebuynow = new Object();
+    private final Object permutation_key_lock = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
 
@@ -199,6 +201,16 @@ public class Crupier implements Runnable {
     private volatile boolean last_hand = false;
     private volatile int sqlite_id_game = -1;
     private volatile int sqlite_id_hand = -1;
+    private volatile String permutation_key = null;
+    private volatile boolean permutation_key_saved = false;
+
+    public void setPermutation_key(String permutation_key) {
+        this.permutation_key = permutation_key;
+    }
+
+    public Object getPermutation_key_lock() {
+        return permutation_key_lock;
+    }
 
     public ConcurrentLinkedQueue<String> getRebuy_now() {
         return rebuy_now;
@@ -2293,6 +2305,10 @@ public class Crupier implements Runnable {
                 }
             });
 
+            if (!Game.getInstance().isPartida_local()) {
+                this.preservarClavePermutacion();
+            }
+
             return true;
 
         } else {
@@ -4170,8 +4186,25 @@ public class Crupier implements Runnable {
                 per += String.valueOf(p) + "|";
             }
 
-            Files.writeString(Paths.get(filename), Helpers.encryptString(per.substring(0, per.length() - 1), K.K1, K.K2));
-            sqlUpdateGameLastDeck(Helpers.encryptString(per.substring(0, per.length() - 1), K.K1, K.K2));
+            if (checkIfThereAreHumanPlayers()) {
+
+                int i = this.dealer_pos;
+
+                Participant participante = Game.getInstance().getParticipantes().get(Game.getInstance().getJugadores().get(i).getNickname());
+
+                while (Game.getInstance().getJugadores().get(i) == Game.getInstance().getLocalPlayer() || participante.isCpu()) {
+                    i = (i + 1) % Game.getInstance().getJugadores().size();
+                    participante = Game.getInstance().getParticipantes().get(Game.getInstance().getJugadores().get(i).getNickname());
+                }
+
+                Files.writeString(Paths.get(filename), Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getAes_key(), null));
+                sqlUpdateGameLastDeck(Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getAes_key(), null));
+
+            } else {
+                Files.writeString(Paths.get(filename), per.substring(0, per.length() - 1));
+                sqlUpdateGameLastDeck(per.substring(0, per.length() - 1));
+
+            }
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
@@ -4179,12 +4212,74 @@ public class Crupier implements Runnable {
         }
     }
 
+    private boolean checkIfThereAreHumanPlayers() {
+
+        boolean humanos = false;
+
+        for (Map.Entry<String, Participant> entry : Game.getInstance().getParticipantes().entrySet()) {
+
+            if (entry.getValue() != null && !entry.getValue().isCpu()) {
+                return true;
+            }
+        }
+
+        return humanos;
+    }
+
+    private void preservarClavePermutacion() {
+
+        if (!this.permutation_key_saved) {
+            this.permutation_key_saved = true;
+
+            try {
+
+                Files.writeString(Paths.get(Crupier.RECOVER_DECK_FILE + "_" + Game.getInstance().getLocalPlayer().getNickname()), Base64.encodeBase64String(Game.getInstance().getSala_espera().getLocal_client_aes_key().getEncoded()));
+            } catch (IOException ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+    }
+
     private Integer[] recuperarPermutacion(String filename) {
 
         if (Files.exists(Paths.get(filename))) {
 
             try {
-                String datos = Helpers.decryptString(Files.readString(Paths.get(filename)), K.K1, K.K2);
+                String datos;
+                if (checkIfThereAreHumanPlayers()) {
+                    String[] perm_parts = Files.readString(Paths.get(filename)).split("#");
+
+                    ArrayList<String> pendientes = new ArrayList<>();
+
+                    pendientes.add(new String(Base64.decodeBase64(perm_parts[0])));
+
+                    int id = Helpers.SPRNG_GENERATOR.nextInt();
+
+                    String full_command = "GAME#" + String.valueOf(id) + "#" + "PERMUTATIONKEY";
+
+                    Participant p = Game.getInstance().getParticipantes().get(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
+
+                    p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
+
+                    this.waitSyncConfirmations(id, pendientes);
+
+                    while (this.permutation_key == null) {
+                        synchronized (this.permutation_key_lock) {
+
+                            try {
+                                permutation_key_lock.wait(1000);
+
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    }
+
+                    datos = Helpers.decryptString(perm_parts[1], new SecretKeySpec(Base64.decodeBase64(permutation_key), "AES"), null);
+                } else {
+                    datos = Files.readString(Paths.get(filename));
+                }
 
                 String[] partes = datos.split("\\|");
 
@@ -4197,11 +4292,11 @@ public class Crupier implements Runnable {
                     i++;
                 }
 
+                permutation_key = null;
+
                 return permutacion;
 
-            } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (KeyException ex) {
+            } catch (IOException | KeyException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
 

@@ -22,6 +22,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"CUIDADO: EL SERVIDOR INTENTA HACER TRAMPAS CON UNA VERSIÓN MODIFICADA DEL JUEGO", "BEWARE: THE SERVER TRIES TO CHEAT WITH A MODIFIED VERSION OF THE GAME"},
+            {"EL EJECUTABLE DE TU COPIA DEL JUEGO NO COINCIDE CON EL DEL SERVIDOR\\n\\n(Cuando esto pasa suele ser porque alguna de las partes intenta hacer trampas con una versión hackeada del juego).", "THE BINARY OF YOUR COPY OF THE GAME DOES NOT MATCH WITH THAT OF THE SERVER (When this happens it is usually because one of the parties tries to cheat with a hacked version of the game)."},
             {"PAGAR", "PAY"},
             {"Nota: EFECTIVIDAD = (ROI / MANOS_JUGADAS) si ROI >=0, si no, EFECTIVIDAD = (ROI x MANOS_JUGADAS) (la EFECTIVIDAD mínima es -1)", "Note: EFFECTIVENESS = (ROI / HANDS_PLAYED) if ROI >=0, otherwise EFFECTIVENESS = (ROI x HANDS_PLAYED) (minimum EFFECTIVENESS is -1)"},
             {"RENDIMIENTO DE LOS JUGADORES", "PLAYERS PERFORMANCE"},

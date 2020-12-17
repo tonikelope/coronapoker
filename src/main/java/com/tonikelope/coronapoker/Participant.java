@@ -474,6 +474,18 @@ public class Participant implements Runnable {
                                         case "CINEMATICEND":
                                             Game.getInstance().getCrupier().remoteCinematicEnd(nick);
                                             break;
+
+                                        case "PERMUTATIONKEY":
+                                            Helpers.threadRun(new Runnable() {
+                                                public void run() {
+                                                    synchronized (Game.getInstance().getCrupier().getPermutation_key_lock()) {
+
+                                                        Game.getInstance().getCrupier().setPermutation_key(partes_comando[3]);
+                                                        Game.getInstance().getCrupier().getPermutation_key_lock().notifyAll();
+                                                    }
+                                                }
+                                            });
+                                            break;
                                         case "PAUSE":
 
                                             Helpers.threadRun(new Runnable() {

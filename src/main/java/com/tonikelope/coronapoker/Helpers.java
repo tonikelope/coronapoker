@@ -52,6 +52,7 @@ import java.security.SecureRandom;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -60,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -72,6 +74,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -172,6 +176,22 @@ public class Helpers {
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
 
+    //Thanks -> https://stackoverflow.com/a/3778768
+    public static boolean isDebug() {
+
+        return java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().contains("jdwp");
+    }
+
+    public static void SQLITEVAC() {
+
+        try {
+            Statement statement = Init.SQLITE.createStatement();
+            statement.execute("VACUUM");
+        } catch (SQLException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
     public static class maxLenghtFilter extends DocumentFilter {
 
         private int max_lenght;
@@ -216,6 +236,48 @@ public class Helpers {
         }
     }
 
+    public static String currentJarHMAC(byte[] hmac_key) {
+
+        try {
+
+            if ((Helpers.isDebug() || !new File(Helpers.class.getProtectionDomain().getCodeSource().getLocation().toURI()).isFile()) && !Game.DEV_MODE) {
+                System.exit(1);
+            }
+
+            if (new File(Helpers.class.getProtectionDomain().getCodeSource().getLocation().toURI()).isFile()) {
+
+                Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+
+                sha256_HMAC.init(new SecretKeySpec(hmac_key, "HmacSHA256"));
+
+                JarFile jarFile = new JarFile(new File(Helpers.class.getProtectionDomain().getCodeSource().getLocation().toURI()));
+
+                Enumeration allEntries = jarFile.entries();
+
+                while (allEntries.hasMoreElements()) {
+
+                    JarEntry entry = (JarEntry) allEntries.nextElement();
+
+                    String name = entry.getName();
+
+                    if (name.startsWith("com/tonikelope/coronapoker/") && name.endsWith(".class")) {
+                        try (InputStream is = Helpers.class.getResourceAsStream("/" + name)) {
+                            sha256_HMAC.update(is.readAllBytes());
+                        }
+                    }
+                }
+
+                return Base64.encodeBase64String(sha256_HMAC.doFinal());
+            }
+
+        } catch (IOException | NoSuchAlgorithmException | InvalidKeyException | URISyntaxException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return "*";
+
+    }
+
     public static String encryptString(String cadena, SecretKeySpec aes_key, SecretKeySpec hmac_key) {
 
         byte[] iv = new byte[16];
@@ -235,11 +297,7 @@ public class Helpers {
 
             byte[] cmsg = cifrado.doFinal(cadena.getBytes("UTF-8"));
 
-            Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
-
-            sha256_HMAC.init(hmac_key);
-
-            byte[] full_msg = new byte[32 + iv.length + cmsg.length];
+            byte[] full_msg;
 
             byte[] iv_cmsg = new byte[iv.length + cmsg.length];
 
@@ -253,14 +311,25 @@ public class Helpers {
                 iv_cmsg[i + iv.length] = cmsg[i];
             }
 
-            byte[] hmac = sha256_HMAC.doFinal(iv_cmsg);
+            if (hmac_key != null) {
 
-            for (i = 0; i < hmac.length; i++) {
-                full_msg[i] = hmac[i];
-            }
+                full_msg = new byte[32 + iv.length + cmsg.length];
 
-            for (i = 0; i < iv_cmsg.length; i++) {
-                full_msg[i + hmac.length] = iv_cmsg[i];
+                Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+
+                sha256_HMAC.init(hmac_key);
+
+                byte[] hmac = sha256_HMAC.doFinal(iv_cmsg);
+
+                for (i = 0; i < hmac.length; i++) {
+                    full_msg[i] = hmac[i];
+                }
+
+                for (i = 0; i < iv_cmsg.length; i++) {
+                    full_msg[i + hmac.length] = iv_cmsg[i];
+                }
+            } else {
+                full_msg = iv_cmsg;
             }
 
             return Base64.encodeBase64String(full_msg);
@@ -283,40 +352,57 @@ public class Helpers {
 
             byte[] iv = new byte[cifrado.getBlockSize()];
 
-            byte[] cmsg = new byte[full_msg.length - hmac.length - iv.length];
+            byte[] cmsg;
 
             int i;
 
-            for (i = 0; i < hmac.length; i++) {
-                hmac[i] = full_msg[i];
-            }
+            if (hmac_key != null) {
 
-            for (i = 0; i < iv.length; i++) {
-                iv[i] = full_msg[i + hmac.length];
-            }
+                cmsg = new byte[full_msg.length - hmac.length - iv.length];
 
-            for (i = 0; i < cmsg.length; i++) {
-                cmsg[i] = full_msg[i + hmac.length + iv.length];
-            }
+                for (i = 0; i < hmac.length; i++) {
+                    hmac[i] = full_msg[i];
+                }
 
-            byte[] iv_cmsg = new byte[iv.length + cmsg.length];
+                for (i = 0; i < iv.length; i++) {
+                    iv[i] = full_msg[i + hmac.length];
+                }
 
-            for (i = 0; i < iv.length; i++) {
-                iv_cmsg[i] = iv[i];
-            }
+                for (i = 0; i < cmsg.length; i++) {
+                    cmsg[i] = full_msg[i + hmac.length + iv.length];
+                }
 
-            for (i = 0; i < cmsg.length; i++) {
-                iv_cmsg[i + iv.length] = cmsg[i];
-            }
+                byte[] iv_cmsg = new byte[iv.length + cmsg.length];
 
-            Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+                for (i = 0; i < iv.length; i++) {
+                    iv_cmsg[i] = iv[i];
+                }
 
-            sha256_HMAC.init(hmac_key);
+                for (i = 0; i < cmsg.length; i++) {
+                    iv_cmsg[i + iv.length] = cmsg[i];
+                }
 
-            byte[] current_hmac = sha256_HMAC.doFinal(iv_cmsg);
+                Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
 
-            if (!MessageDigest.isEqual(hmac, current_hmac)) {
-                throw new KeyException("BAD HMAC or BAD KEY");
+                sha256_HMAC.init(hmac_key);
+
+                byte[] current_hmac = sha256_HMAC.doFinal(iv_cmsg);
+
+                if (!MessageDigest.isEqual(hmac, current_hmac)) {
+                    throw new KeyException("BAD HMAC or BAD KEY");
+                }
+            } else {
+
+                cmsg = new byte[full_msg.length - iv.length];
+
+                for (i = 0; i < iv.length; i++) {
+                    iv[i] = full_msg[i];
+                }
+
+                for (i = 0; i < cmsg.length; i++) {
+                    cmsg[i] = full_msg[i + iv.length];
+                }
+
             }
 
             cifrado.init(Cipher.DECRYPT_MODE, aes_key, new IvParameterSpec(iv));

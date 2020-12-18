@@ -333,7 +333,7 @@ public class Participant implements Runnable {
 
                         try {
 
-                            writeCommandFromServer("PING#" + String.valueOf(ping));
+                            writeCommandFromServer("PING#" + String.valueOf(ping) + "#" + (Helpers.isDebug() ? "1" : "0"));
 
                             if (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
                                 synchronized (keep_alive_lock) {

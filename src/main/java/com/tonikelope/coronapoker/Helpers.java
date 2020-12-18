@@ -240,10 +240,6 @@ public class Helpers {
 
         try {
 
-            if ((Helpers.isDebug() || !new File(Helpers.class.getProtectionDomain().getCodeSource().getLocation().toURI()).isFile()) && !Game.DEV_MODE) {
-                System.exit(1);
-            }
-
             if (new File(Helpers.class.getProtectionDomain().getCodeSource().getLocation().toURI()).isFile()) {
 
                 Mac sha256_HMAC = Mac.getInstance("HmacSHA256");

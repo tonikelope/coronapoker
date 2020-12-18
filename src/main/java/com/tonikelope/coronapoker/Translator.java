@@ -22,8 +22,9 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¡¡TEN CUIDADO!! EL SERVIDOR ESTÁ EJECUTANDO EL JUEGO EN UN DEBUGGER.\n\nESTO LE PERMITE HACER TRAMPAS Y VER LAS CARTAS QUE SE REPARTEN.\n\n(NO DEBERÍAS JUGAR EN ESTE SERVIDOR)", "BE CAREFUL! THE SERVER IS RUNNING THE GAME IN A DEBUGGER.\n\nTHIS ALLOWS HER/HIM TO CHEAT AND SEE THE CARDS BEING DEALT.\n\n(YOU SHOULD NOT PLAY ON THIS SERVER)"},
             {"CUIDADO: EL SERVIDOR INTENTA HACER TRAMPAS CON UNA VERSIÓN MODIFICADA DEL JUEGO", "BEWARE: THE SERVER TRIES TO CHEAT WITH A MODIFIED VERSION OF THE GAME"},
-            {"EL EJECUTABLE DE TU COPIA DEL JUEGO NO COINCIDE CON EL DEL SERVIDOR\\n\\n(Cuando esto pasa suele ser porque alguna de las partes intenta hacer trampas con una versión hackeada del juego).", "THE BINARY OF YOUR COPY OF THE GAME DOES NOT MATCH WITH THAT OF THE SERVER (When this happens it is usually because one of the parties tries to cheat with a hacked version of the game)."},
+            {"EL EJECUTABLE DE TU COPIA DEL JUEGO NO COINCIDE CON EL DEL SERVIDOR\\n\\n(Cuando esto pasa es porque alguna de las partes intenta hacer trampas con una versión hackeada del juego).", "THE BINARY OF YOUR COPY OF THE GAME DOES NOT MATCH WITH THAT OF THE SERVER (When this happens it is because one of the parties tries to cheat with a hacked version of the game)."},
             {"PAGAR", "PAY"},
             {"Nota: EFECTIVIDAD = (ROI / MANOS_JUGADAS) si ROI >=0, si no, EFECTIVIDAD = (ROI x MANOS_JUGADAS) (la EFECTIVIDAD mínima es -1)", "Note: EFFECTIVENESS = (ROI / HANDS_PLAYED) if ROI >=0, otherwise EFFECTIVENESS = (ROI x HANDS_PLAYED) (minimum EFFECTIVENESS is -1)"},
             {"RENDIMIENTO DE LOS JUGADORES", "PLAYERS PERFORMANCE"},

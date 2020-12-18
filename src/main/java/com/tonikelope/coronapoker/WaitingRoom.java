@@ -827,7 +827,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         Helpers.mostrarMensajeError(tthis, Translator.translate("Versión de CoronaPoker incorrecta") + "(" + partes[1] + ")");
                     } else if (partes[0].equals("BADJARHMAC")) {
                         exit = true;
-                        Helpers.mostrarMensajeError(tthis, Translator.translate("EL EJECUTABLE DE TU COPIA DEL JUEGO NO COINCIDE CON EL DEL SERVIDOR\n\n(Cuando esto pasa suele ser porque alguna de las partes intenta hacer trampas con una versión hackeada del juego)."));
+                        Helpers.mostrarMensajeError(tthis, Translator.translate("EL EJECUTABLE DE TU COPIA DEL JUEGO NO COINCIDE CON EL DEL SERVIDOR\n\n(Cuando esto pasa es porque alguna de las partes intenta hacer trampas con una versión hackeada del juego)."));
                     } else if (partes[0].equals("YOUARELATE")) {
                         exit = true;
                         Helpers.mostrarMensajeError(tthis, "Llegas TARDE. La partida ya ha empezado.");
@@ -985,6 +985,12 @@ public class WaitingRoom extends javax.swing.JFrame {
                                         } else if (partes_comando[0].equals("PING")) {
 
                                             writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+
+                                            if (Integer.parseInt(partes_comando[2]) == 1) {
+
+                                                Helpers.mostrarMensajeInformativo(tthis, "¡¡TEN CUIDADO!! EL SERVIDOR ESTÁ EJECUTANDO EL JUEGO EN UN DEBUGGER.\n\nESTO LE PERMITE HACER TRAMPAS Y VER LAS CARTAS QUE SE REPARTEN.\n\n(NO DEBERÍAS JUGAR EN ESTE SERVIDOR)");
+
+                                            }
 
                                         } else if (partes_comando[0].equals("CHAT")) {
 

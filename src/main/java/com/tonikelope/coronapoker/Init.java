@@ -430,7 +430,6 @@ public class Init extends javax.swing.JFrame {
         //</editor-fold>
         //</editor-fold>
 
-        //</editor-fold>
         Helpers.PRNG_GENERATOR = new Random();
 
         Helpers.SPRNG_GENERATOR = new SecureRandom();
@@ -494,7 +493,7 @@ public class Init extends javax.swing.JFrame {
             Class.forName("org.sqlite.JDBC");
 
             // create a database connection
-            SQLITE = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE);
+            SQLITE = DriverManager.getConnection("jdbc:sqlite:" + (!Game.DEV_MODE ? SQL_FILE : (SQL_FILE + Helpers.genRandomString(5) + ".db")));
 
             Statement statement = SQLITE.createStatement();
 

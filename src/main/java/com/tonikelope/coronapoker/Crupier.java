@@ -2305,10 +2305,6 @@ public class Crupier implements Runnable {
                 }
             });
 
-            if (!Game.getInstance().isPartida_local()) {
-                this.preservarClavePermutacion();
-            }
-
             return true;
 
         } else {
@@ -4197,8 +4193,8 @@ public class Crupier implements Runnable {
                     participante = Game.getInstance().getParticipantes().get(Game.getInstance().getJugadores().get(i).getNickname());
                 }
 
-                Files.writeString(Paths.get(filename), Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getAes_key(), null));
-                sqlUpdateGameLastDeck(Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getAes_key(), null));
+                Files.writeString(Paths.get(filename), Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getPermutation_key(), null));
+                sqlUpdateGameLastDeck(Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getPermutation_key(), null));
 
             } else {
                 Files.writeString(Paths.get(filename), per.substring(0, per.length() - 1));
@@ -4224,21 +4220,6 @@ public class Crupier implements Runnable {
         }
 
         return humanos;
-    }
-
-    private void preservarClavePermutacion() {
-
-        if (!this.permutation_key_saved) {
-            this.permutation_key_saved = true;
-
-            try {
-
-                Files.writeString(Paths.get(Crupier.RECOVER_DECK_FILE + "_" + Game.getInstance().getLocalPlayer().getNickname()), Base64.encodeBase64String(Game.getInstance().getSala_espera().getLocal_client_aes_key().getEncoded()));
-            } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-
     }
 
     private Integer[] recuperarPermutacion(String filename) {
@@ -5130,6 +5111,14 @@ public class Crupier implements Runnable {
             });
 
             Game.getInstance().autoZoomFullScreen();
+        }
+
+        if (Game.getInstance().getSala_espera().isUnsecure_server()) {
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+                    Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "¡¡TEN CUIDADO!! ES MUY PROBABLE QUE EL SERVIDOR ESTÉ INTENTANDO HACER TRAMPAS.");
+                }
+            });
         }
 
         while (!fin_de_la_transmision) {

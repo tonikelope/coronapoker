@@ -56,6 +56,7 @@ public class Participant implements Runnable {
     private volatile Boolean resetting_socket = false;
     private volatile SecretKeySpec aes_key = null;
     private volatile SecretKeySpec hmac_key = null;
+    private volatile SecretKeySpec permutation_key = null;
     private volatile int new_hand_ready = 0;
 
     public Participant(WaitingRoom espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
@@ -66,6 +67,11 @@ public class Participant implements Runnable {
         this.cpu = cpu;
         this.aes_key = aes_k;
         this.hmac_key = hmac_k;
+        this.permutation_key = aes_k;
+    }
+
+    public SecretKeySpec getPermutation_key() {
+        return permutation_key;
     }
 
     public int getNew_hand_ready() {
@@ -333,7 +339,7 @@ public class Participant implements Runnable {
 
                         try {
 
-                            writeCommandFromServer("PING#" + String.valueOf(ping) + "#" + (Helpers.isDebug() ? "1" : "0"));
+                            writeCommandFromServer("PING#" + String.valueOf(ping));
 
                             if (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
                                 synchronized (keep_alive_lock) {

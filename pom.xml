@@ -85,7 +85,7 @@
         <dependency>
             <groupId>com.tonikelope.coronahmac</groupId>
             <artifactId>coronahmac</artifactId>
-            <version>1.2.0</version>
+            <version>1.1.3</version>
         </dependency>
     </dependencies>
     <properties>

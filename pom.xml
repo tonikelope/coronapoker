@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>FINAL-6.16</version>
+    <version>FINAL-6.17</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -81,6 +81,11 @@
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
             <version>3.7.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.tonikelope.coronahmac</groupId>
+            <artifactId>coronahmac</artifactId>
+            <version>1.2.0</version>
         </dependency>
     </dependencies>
     <properties>

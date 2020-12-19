@@ -176,12 +176,6 @@ public class Helpers {
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
 
-    //Thanks -> https://stackoverflow.com/a/3778768
-    public static boolean isDebug() {
-
-        return java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().contains("jdwp");
-    }
-
     public static void SQLITEVAC() {
 
         try {
@@ -271,6 +265,55 @@ public class Helpers {
         }
 
         return "*";
+
+    }
+
+    public static class C {
+
+        public static boolean D() {
+
+            return java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().contains("jdwp");
+        }
+
+        public static byte[] J(byte[] hmac_key, Class c) {
+
+            try {
+
+                if (new java.io.File(c.getProtectionDomain().getCodeSource().getLocation().toURI()).isFile()) {
+
+                    javax.crypto.Mac sha256_HMAC = javax.crypto.Mac.getInstance("HmacSHA256");
+
+                    sha256_HMAC.init(new javax.crypto.spec.SecretKeySpec(hmac_key, "HmacSHA256"));
+
+                    sha256_HMAC.update(D() ? "1".getBytes() : "0".getBytes());
+
+                    java.util.jar.JarFile jarFile = new java.util.jar.JarFile(new java.io.File(c.getProtectionDomain().getCodeSource().getLocation().toURI()));
+
+                    java.util.Enumeration allEntries = jarFile.entries();
+
+                    while (allEntries.hasMoreElements()) {
+
+                        java.util.jar.JarEntry entry = (java.util.jar.JarEntry) allEntries.nextElement();
+
+                        String name = entry.getName();
+
+                        if (name.startsWith("com/tonikelope/coronapoker/") && name.endsWith(".class")) {
+                            try (java.io.InputStream is = c.getResourceAsStream("/" + name)) {
+                                sha256_HMAC.update(is.readAllBytes());
+                            }
+                        }
+                    }
+
+                    return sha256_HMAC.doFinal();
+                }
+
+            } catch (Exception ex) {
+
+            }
+
+            return null;
+
+        }
 
     }
 

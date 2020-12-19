@@ -575,7 +575,7 @@ public class Stats extends javax.swing.JDialog {
 
             ResultSet rs = statement.executeQuery();
 
-            game_playtime_val.setText(Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) + " (" + Helpers.seconds2FullTime(rs.getInt("play_time")) + ")");
+            game_playtime_val.setText((rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getInt("play_time")) + ")");
 
             String[] jugadores = rs.getString("players").split("#");
 

@@ -22,6 +22,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Intercambio de claves...", "Keys exchange..."},
+            {"Chequeo de integridad...", "Integrity check..."},
             {"PROBABLEMENTE HACIENDO TRAMPAS", "PROBABLY CHEATING"},
             {"¡¡TEN CUIDADO!! ES MUY PROBABLE QUE EL SERVIDOR ESTÉ INTENTANDO HACER TRAMPAS.", "BE CAREFUL! IT IS VERY LIKELY THAT THE SERVER IS TRYING TO CHEAT."},
             {"ESTE SERVIDOR NO ES SEGURO", "UNSECURE SERVER"},

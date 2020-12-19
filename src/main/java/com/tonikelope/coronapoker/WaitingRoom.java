@@ -775,6 +775,13 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     local_client_socket.getOutputStream().write(magic);
 
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            status.setText(Translator.translate("Intercambio de claves..."));
+
+                        }
+                    });
+
                     /* INICIO INTERCAMBIO CLAVES */
                     KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
 
@@ -826,6 +833,13 @@ public class WaitingRoom extends javax.swing.JFrame {
                             avatar_bytes = is.readAllBytes();
                         }
                     }
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            status.setText(Translator.translate("Chequeo de integridad..."));
+
+                        }
+                    });
 
                     String jar_hmac = M.JF(local_client_hmac_key.getEncoded());
 

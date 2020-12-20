@@ -16,10 +16,11 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronahmac.M;
 import java.awt.Image;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -52,6 +53,7 @@ public class Init extends javax.swing.JFrame {
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String REC_DIR = CORONA_DIR + "/Recover";
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
+    public static String J0;
 
     /**
      * Creates new form Inicio
@@ -411,7 +413,19 @@ public class Init extends javax.swing.JFrame {
     /**
      * @param args the command line arguments
      */
-    public static void main(String args[]) throws IOException {
+    public static void main(String args[]) {
+        Helpers.threadRun(new Runnable() {
+
+            public void run() {
+
+                try {
+                    Init.J0 = M.J0();
+                } catch (Exception ex) {
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            }
+        });
         /* Set the Nimbus look and feel */
         //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
         /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
@@ -438,9 +452,12 @@ public class Init extends javax.swing.JFrame {
 
         if (!Game.DEV_MODE) {
 
-            PrintStream fileOut = new PrintStream(new FileOutputStream(DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
-            System.setOut(fileOut);
-            System.setErr(fileOut);
+            try (PrintStream fileOut = new PrintStream(new FileOutputStream(DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"))) {
+                System.setOut(fileOut);
+                System.setErr(fileOut);
+            } catch (FileNotFoundException ex) {
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
 
         Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
@@ -474,7 +491,11 @@ public class Init extends javax.swing.JFrame {
             //Actualizamos la fuente
             if (Init.MOD.containsKey("font") && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")))) {
 
-                Helpers.GUI_FONT = Helpers.createAndRegisterFont(new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")));
+                try {
+                    Helpers.GUI_FONT = Helpers.createAndRegisterFont(new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")));
+                } catch (FileNotFoundException ex) {
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
 
         }

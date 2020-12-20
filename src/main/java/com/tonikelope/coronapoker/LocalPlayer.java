@@ -211,8 +211,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_pot.setBackground(null);
                     player_pot.setEnabled(false);
                     utg_textfield.setVisible(false);
-                    playingCard1.descargarCarta();
-                    playingCard2.descargarCarta();
+                    playingCard1.liberarCarta();
+                    playingCard2.liberarCarta();
                     player_stack.setBackground(null);
                     player_stack.setEnabled(false);
                     player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
@@ -313,8 +313,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 public void run() {
                     setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
 
-                    playingCard1.descargarCarta();
-                    playingCard2.descargarCarta();
+                    playingCard1.liberarCarta();
+                    playingCard2.liberarCarta();
                     player_action.setBackground(new Color(255, 102, 0));
                     player_action.setForeground(Color.WHITE);
                     player_action.setText(Translator.translate("ABANDONAS LA TIMBA"));
@@ -2354,7 +2354,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void destaparCartas(boolean sound) {
 
-        if (getPlayingCard1().isCargada() && getPlayingCard1().isTapada()) {
+        if (getPlayingCard1().isIniciada() && getPlayingCard1().isTapada()) {
 
             ordenarCartas();
 
@@ -2370,19 +2370,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void ordenarCartas() {
-        if (getPlayingCard1().getValorNumerico() != -1 && getPlayingCard1().getValorNumerico() < getPlayingCard2().getValorNumerico()) {
+        if (getPlayingCard1().isIniciada() && getPlayingCard2().isIniciada() && getPlayingCard1().getValorNumerico() < getPlayingCard2().getValorNumerico()) {
 
             //Ordenamos las cartas para mayor comodidad
-            String valor1 = getPlayingCard1().getValor();
-            String palo1 = getPlayingCard1().getPalo();
+            String valor1 = this.playingCard1.getValor();
+            String palo1 = this.playingCard1.getPalo();
+            boolean desenfocada1 = this.playingCard1.isDesenfocada();
 
-            if (getPlayingCard1().isCargada()) {
-                getPlayingCard1().cargarCarta(getPlayingCard2().getValor(), getPlayingCard2().getPalo());
-                getPlayingCard2().cargarCarta(valor1, palo1);
-            } else {
-                getPlayingCard1().preCargarCarta(getPlayingCard2().getValor(), getPlayingCard2().getPalo());
-                getPlayingCard2().preCargarCarta(valor1, palo1);
-            }
+            this.playingCard1.actualizarValorPaloEnfoque(this.playingCard2.getValor(), this.playingCard2.getPalo(), this.playingCard2.isDesenfocada());
+            this.playingCard2.actualizarValorPaloEnfoque(valor1, palo1, desenfocada1);
         }
     }
 

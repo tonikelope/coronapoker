@@ -44,7 +44,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
     private volatile String valor = "";
     private volatile String palo = "";
-    private volatile boolean cargada = false;
+    private volatile boolean iniciada = false;
     private volatile boolean tapada = true;
     private volatile boolean desenfocada = false;
     private volatile boolean compactable = true;
@@ -187,7 +187,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
             }
         });
 
-        if (cargada) {
+        if (iniciada) {
 
             if (tapada) {
                 Helpers.GUIRun(new Runnable() {
@@ -223,9 +223,9 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
     }
 
-    public void cargarCarta() {
+    public void iniciarCarta() {
 
-        this.cargada = true;
+        this.iniciada = true;
         this.tapada = true;
         this.desenfocada = false;
 
@@ -237,8 +237,8 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         });
     }
 
-    public void descargarCarta() {
-        this.cargada = false;
+    public void liberarCarta() {
+        this.iniciada = false;
         this.tapada = false;
         this.desenfocada = false;
         this.valor = "";
@@ -319,11 +319,11 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         return this.valor + "_" + this.palo;
     }
 
-    public void preCargarCarta(String valor, String palo) {
+    public void iniciarConValorPalo(String valor, String palo) {
 
         this.valor = valor.toUpperCase().trim();
         this.palo = palo.toUpperCase().trim();
-        this.cargada = false;
+        this.iniciada = false;
         this.tapada = true;
         this.desenfocada = false;
 
@@ -335,13 +335,13 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         });
     }
 
-    public void cargarCarta(String valor, String palo) {
+    public void actualizarValorPalo(String valor, String palo) {
 
         this.valor = valor.toUpperCase().trim();
         this.palo = palo.toUpperCase().trim();
 
-        if (!this.cargada) {
-            this.cargada = true;
+        if (!this.iniciada) {
+            this.iniciada = true;
             this.tapada = true;
 
             Helpers.GUIRun(new Runnable() {
@@ -356,12 +356,34 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
     }
 
-    public void cargarCarta(int value) {
-        cargarCarta(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
+    public void actualizarValorPaloEnfoque(String valor, String palo, boolean desenfocada) {
+
+        this.valor = valor.toUpperCase().trim();
+        this.palo = palo.toUpperCase().trim();
+        this.desenfocada = desenfocada;
+
+        if (!this.iniciada) {
+            this.iniciada = true;
+            this.tapada = true;
+
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
+
+                }
+            });
+        } else {
+            this.refreshCard();
+        }
+
     }
 
-    public void preCargarCarta(int value) {
-        preCargarCarta(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
+    public void actualizarConValorNumerico(int value) {
+        actualizarValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
+    }
+
+    public void iniciarConValorNumerico(int value) {
+        iniciarConValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
     }
 
     public int getValorNumerico() {
@@ -396,8 +418,8 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         return valor_num;
     }
 
-    public boolean isCargada() {
-        return cargada;
+    public boolean isIniciada() {
+        return iniciada;
     }
 
     public void destapar() {
@@ -413,14 +435,9 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
                 Helpers.playWavResource("misc/uncover.wav", false);
             }
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    card_image.setIcon(createCardImageIcon("/images/decks/" + Game.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
-
-                }
-            });
-
             this.tapada = false;
+
+            this.refreshCard();
 
         }
     }
@@ -429,39 +446,30 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         if (!this.tapada) {
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
-
-                }
-            });
-
             this.tapada = true;
+
+            this.refreshCard();
         }
     }
 
     public void desenfocar() {
 
-        if (!this.desenfocada && this.isCargada()) {
-            if (this.isTapada()) {
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        card_image.setIcon(Card.IMAGEN_TRASERA_B);
-
-                    }
-                });
-
-            } else if (!"".equals(this.valor)) {
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        card_image.setIcon(createCardImageIcon("/images/decks/" + Game.BARAJA + "/" + valor + "_" + palo + "_b.jpg"));
-
-                    }
-                });
-            }
+        if (!this.desenfocada && this.isIniciada()) {
 
             this.desenfocada = true;
+
+            this.refreshCard();
+        }
+
+    }
+
+    public void enfocar() {
+
+        if (this.desenfocada && this.isIniciada()) {
+
+            this.desenfocada = true;
+
+            this.refreshCard();
         }
 
     }
@@ -475,7 +483,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
                 setPreferredSize(new Dimension(CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
                 card_image.setPreferredSize(new Dimension(CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 3) : CARD_HEIGHT));
 
-                if (isCargada()) {
+                if (isIniciada()) {
 
                     if (isTapada()) {
 
@@ -571,7 +579,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         if (evt.getButton() == MouseEvent.BUTTON1 && (!isDesenfocada() || !isTapada())) {
             CardVisorDialog visor;
 
-            if (isCargada()) {
+            if (isIniciada()) {
 
                 if (!isTapada()) {
 

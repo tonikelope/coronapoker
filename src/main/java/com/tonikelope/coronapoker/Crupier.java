@@ -1256,8 +1256,8 @@ public class Crupier implements Runnable {
                 String[] carta1_partes = carta1.split("_");
                 String[] carta2_partes = carta2.split("_");
 
-                jugador.getPlayingCard1().cargarCarta(carta1_partes[0], carta1_partes[1]);
-                jugador.getPlayingCard2().cargarCarta(carta2_partes[0], carta2_partes[1]);
+                jugador.getPlayingCard1().actualizarValorPalo(carta1_partes[0], carta1_partes[1]);
+                jugador.getPlayingCard2().actualizarValorPalo(carta2_partes[0], carta2_partes[1]);
 
                 jugador.destaparCartas(true);
 
@@ -2027,14 +2027,14 @@ public class Crupier implements Runnable {
         for (Player jugador : Game.getInstance().getJugadores()) {
 
             if (jugador.isActivo()) {
-                jugador.getPlayingCard1().descargarCarta();
-                jugador.getPlayingCard2().descargarCarta();
+                jugador.getPlayingCard1().liberarCarta();
+                jugador.getPlayingCard2().liberarCarta();
             }
 
         }
 
         for (Card carta : Game.getInstance().getCartas_comunes()) {
-            carta.descargarCarta();
+            carta.liberarCarta();
         }
 
         this.conta_mano++;
@@ -2669,15 +2669,15 @@ public class Crupier implements Runnable {
         if (!Game.ANIMACION_REPARTIR) {
 
             for (Card carta : Game.getInstance().getCartas_comunes()) {
-                carta.cargarCarta();
+                carta.iniciarCarta();
             }
 
             for (Player jugador : Game.getInstance().getJugadores()) {
 
                 if (jugador.isActivo()) {
 
-                    jugador.getPlayingCard1().cargarCarta();
-                    jugador.getPlayingCard2().cargarCarta();
+                    jugador.getPlayingCard1().iniciarCarta();
+                    jugador.getPlayingCard2().iniciarCarta();
                 }
             }
         }
@@ -2698,20 +2698,20 @@ public class Crupier implements Runnable {
 
                     if (Game.getInstance().isPartida_local()) {
 
-                        jugador.getPlayingCard1().cargarCarta();
+                        jugador.getPlayingCard1().iniciarCarta();
 
                     } else {
 
                         String[] carta = cartas_locales_recibidas.get(0).split("_");
 
-                        jugador.getPlayingCard1().cargarCarta(carta[0], carta[1]);
+                        jugador.getPlayingCard1().actualizarValorPalo(carta[0], carta[1]);
                     }
 
                     jugador.getPlayingCard1().destapar(false);
 
                 } else {
 
-                    jugador.getPlayingCard1().cargarCarta();
+                    jugador.getPlayingCard1().iniciarCarta();
 
                 }
             } else if (jugador.isActivo() && jugador == Game.getInstance().getLocalPlayer()) {
@@ -2720,13 +2720,13 @@ public class Crupier implements Runnable {
 
                 if (Game.getInstance().isPartida_local()) {
 
-                    jugador.getPlayingCard1().cargarCarta();
+                    jugador.getPlayingCard1().iniciarCarta();
 
                 } else {
 
                     String[] carta = cartas_locales_recibidas.get(0).split("_");
 
-                    jugador.getPlayingCard1().cargarCarta(carta[0], carta[1]);
+                    jugador.getPlayingCard1().actualizarValorPalo(carta[0], carta[1]);
                 }
 
                 jugador.getPlayingCard1().destapar(false);
@@ -2753,13 +2753,13 @@ public class Crupier implements Runnable {
 
                     if (Game.getInstance().isPartida_local()) {
 
-                        jugador.getPlayingCard2().cargarCarta();
+                        jugador.getPlayingCard2().iniciarCarta();
 
                     } else {
 
                         String[] carta = cartas_locales_recibidas.get(1).split("_");
 
-                        jugador.getPlayingCard2().cargarCarta(carta[0], carta[1]);
+                        jugador.getPlayingCard2().actualizarValorPalo(carta[0], carta[1]);
 
                     }
 
@@ -2767,7 +2767,7 @@ public class Crupier implements Runnable {
 
                 } else {
 
-                    jugador.getPlayingCard2().cargarCarta();
+                    jugador.getPlayingCard2().iniciarCarta();
                 }
             } else if (jugador.isActivo() && jugador == Game.getInstance().getLocalPlayer()) {
 
@@ -2775,13 +2775,13 @@ public class Crupier implements Runnable {
 
                 if (Game.getInstance().isPartida_local()) {
 
-                    jugador.getPlayingCard2().cargarCarta();
+                    jugador.getPlayingCard2().iniciarCarta();
 
                 } else {
 
                     String[] carta = cartas_locales_recibidas.get(1).split("_");
 
-                    jugador.getPlayingCard2().cargarCarta(carta[0], carta[1]);
+                    jugador.getPlayingCard2().actualizarValorPalo(carta[0], carta[1]);
                 }
 
                 jugador.getPlayingCard2().destapar(false);
@@ -2809,7 +2809,7 @@ public class Crupier implements Runnable {
 
             if (Game.ANIMACION_REPARTIR) {
                 Helpers.playWavResource("misc/deal.wav", false);
-                carta.cargarCarta();
+                carta.iniciarCarta();
             }
 
             Helpers.pausar(pausa);
@@ -2843,7 +2843,7 @@ public class Crupier implements Runnable {
 
             if (jugador.isActivo()) {
 
-                jugador.getPlayingCard1().preCargarCarta(permutacion_baraja[p]);
+                jugador.getPlayingCard1().iniciarConValorNumerico(permutacion_baraja[p]);
 
                 p++;
             }
@@ -2859,7 +2859,7 @@ public class Crupier implements Runnable {
 
             if (jugador.isActivo()) {
 
-                jugador.getPlayingCard2().preCargarCarta(permutacion_baraja[p]);
+                jugador.getPlayingCard2().iniciarConValorNumerico(permutacion_baraja[p]);
 
                 p++;
             }
@@ -2875,7 +2875,7 @@ public class Crupier implements Runnable {
                 p++;
             }
 
-            carta.preCargarCarta(permutacion_baraja[p]);
+            carta.iniciarConValorNumerico(permutacion_baraja[p]);
 
             p++;
         }
@@ -3328,7 +3328,7 @@ public class Crupier implements Runnable {
 
                             partes = cartas[i].split("_");
 
-                            Game.getInstance().getCartas_comunes()[i].cargarCarta(partes[0], partes[1]);
+                            Game.getInstance().getCartas_comunes()[i].actualizarValorPalo(partes[0], partes[1]);
                         }
 
                         break;
@@ -3337,7 +3337,7 @@ public class Crupier implements Runnable {
 
                         partes = carta.split("_");
 
-                        Game.getInstance().getCartas_comunes()[3].cargarCarta(partes[0], partes[1]);
+                        Game.getInstance().getCartas_comunes()[3].actualizarValorPalo(partes[0], partes[1]);
 
                         break;
                     case RIVER:
@@ -3345,7 +3345,7 @@ public class Crupier implements Runnable {
 
                         partes = carta.split("_");
 
-                        Game.getInstance().getCartas_comunes()[4].cargarCarta(partes[0], partes[1]);
+                        Game.getInstance().getCartas_comunes()[4].actualizarValorPalo(partes[0], partes[1]);
                         break;
                     default:
                         break;
@@ -4628,9 +4628,9 @@ public class Crupier implements Runnable {
 
                                 String[] carta2 = suscartas[1].split("_");
 
-                                jugador.getPlayingCard1().cargarCarta(carta1[0], carta1[1]);
+                                jugador.getPlayingCard1().actualizarValorPalo(carta1[0], carta1[1]);
 
-                                jugador.getPlayingCard2().cargarCarta(carta2[0], carta2[1]);
+                                jugador.getPlayingCard2().actualizarValorPalo(carta2[0], carta2[1]);
 
                             }
 
@@ -5686,7 +5686,7 @@ public class Crupier implements Runnable {
                 }
 
                 for (Card carta : Game.getInstance().getCartas_comunes()) {
-                    carta.cargarCarta();
+                    carta.iniciarCarta();
                 }
 
                 Game.getInstance().getTiempo_juego().stop();

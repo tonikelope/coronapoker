@@ -188,7 +188,7 @@ public class Stats extends javax.swing.JDialog {
 
                                 Card carta = new Card();
 
-                                carta.cargarCarta(partes[0], partes[1]);
+                                carta.actualizarValorPalo(partes[0], partes[1]);
 
                                 cartas.add(carta);
                             }
@@ -208,7 +208,7 @@ public class Stats extends javax.swing.JDialog {
 
                                 Card carta = new Card();
 
-                                carta.cargarCarta(partes[0], partes[1]);
+                                carta.actualizarValorPalo(partes[0], partes[1]);
 
                                 cartas.add(carta);
                             }
@@ -692,7 +692,7 @@ public class Stats extends javax.swing.JDialog {
 
                     Card carta = new Card();
 
-                    carta.cargarCarta(partes[0], partes[1]);
+                    carta.actualizarValorPalo(partes[0], partes[1]);
 
                     cartas.add(carta);
                 }
@@ -766,7 +766,7 @@ public class Stats extends javax.swing.JDialog {
 
                                 Card carta = new Card();
 
-                                carta.cargarCarta(partes[0], partes[1]);
+                                carta.actualizarValorPalo(partes[0], partes[1]);
 
                                 cartas.add(carta);
                             }
@@ -787,7 +787,7 @@ public class Stats extends javax.swing.JDialog {
 
                                 Card carta = new Card();
 
-                                carta.cargarCarta(partes[0], partes[1]);
+                                carta.actualizarValorPalo(partes[0], partes[1]);
 
                                 cartas.add(carta);
                             }

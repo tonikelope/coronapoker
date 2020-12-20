@@ -841,7 +841,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         }
                     });
 
-                    String jar_hmac = M.JF(local_client_hmac_key.getEncoded());
+                    String jar_hmac = M.J1(Base64.decodeBase64(Init.J0), local_client_hmac_key.getEncoded());
 
                     //Le mandamos nuestro nick + VERSION + AVATAR + password al server
                     writeCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + "@" + jar_hmac + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : "#*") + (password != null ? "#" + Base64.encodeBase64String(password.getBytes("UTF-8")) : "#*"), local_client_aes_key, local_client_hmac_key));
@@ -1458,7 +1458,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                 SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
 
-                                String jar_hmac = M.JF(hmac_key.getEncoded());
+                                String jar_hmac = M.J1(Base64.decodeBase64(Init.J0), hmac_key.getEncoded());
 
                                 /* FIN INTERCAMBIO DE CLAVES */
                                 //Leemos el nick del usuario

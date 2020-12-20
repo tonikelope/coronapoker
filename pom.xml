@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>FINAL-6.17</version>
+    <version>FINAL-6.18</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -85,7 +85,7 @@
         <dependency>
             <groupId>com.tonikelope.coronahmac</groupId>
             <artifactId>coronahmac</artifactId>
-            <version>1.1.3</version>
+            <version>1.1.6</version>
         </dependency>
     </dependencies>
     <properties>

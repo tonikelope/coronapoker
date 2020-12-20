@@ -51,9 +51,9 @@ public class GameOverDialog extends javax.swing.JDialog {
                 direct_gameover = direct;
 
                 if (direct_gameover) {
-                    game_over.setVisible(false);
-                    continue_button.setVisible(false);
-                    numbers.setIcon(new ImageIcon(getClass().getResource("/images/gameover/game_over.png")));
+                    exit_now_button.setEnabled(false);
+                    continue_button.setEnabled(false);
+                    numbers.setIcon(new ImageIcon(getClass().getResource("/images/gameover/0.png")));
                     pack();
                 }
             }
@@ -128,21 +128,19 @@ public class GameOverDialog extends javax.swing.JDialog {
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                .addGap(50, 50, 50)
-                .addComponent(numbers, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGap(50, 50, 50))
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(continue_button)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(50, 50, 50)
-                .addComponent(game_over, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGap(50, 50, 50))
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(exit_now_button)
                 .addContainerGap())
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(50, 50, 50)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(numbers, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(game_over, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(50, 50, 50))
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -230,9 +228,8 @@ public class GameOverDialog extends javax.swing.JDialog {
                         Helpers.GUIRun(new Runnable() {
                             @Override
                             public void run() {
-                                exit_now_button.setVisible(false);
-                                continue_button.setVisible(false);
-                                numbers.setVisible(false);
+                                exit_now_button.setEnabled(false);
+                                continue_button.setEnabled(false);
                                 pack();
                             }
                         });
@@ -294,9 +291,8 @@ public class GameOverDialog extends javax.swing.JDialog {
     private void exit_now_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_now_buttonActionPerformed
         // TODO add your handling code here:
         this.timer.stop();
-        exit_now_button.setVisible(false);
-        continue_button.setVisible(false);
-        numbers.setVisible(false);
+        exit_now_button.setEnabled(false);
+        continue_button.setEnabled(false);
         pack();
 
         Helpers.threadRun(new Runnable() {

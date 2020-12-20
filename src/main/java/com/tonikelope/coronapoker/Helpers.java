@@ -176,6 +176,14 @@ public class Helpers {
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
 
+    public static byte[] byteArrayConcat(byte[] a, byte[] b) {
+        int lenA = a.length;
+        int lenB = b.length;
+        byte[] c = Arrays.copyOf(a, lenA + lenB);
+        System.arraycopy(b, 0, c, lenA, lenB);
+        return c;
+    }
+
     public static void SQLITEVAC() {
 
         try {

@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>FINAL-6.25</version>
+    <version>FINAL-6.27</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -21,7 +21,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>com.tonikelope.coronapoker.Init</mainClass>
+                            <mainClass>com.tonikelope.coronahmac.M</mainClass>
                         </manifest>
                         <manifestEntries>
                             <SplashScreen-Image>images/corona_poker_splash.png</SplashScreen-Image>
@@ -85,7 +85,7 @@
         <dependency>
             <groupId>com.tonikelope.coronahmac</groupId>
             <artifactId>coronahmac</artifactId>
-            <version>1.1.9</version>
+            <version>1.1.14</version>
         </dependency>
     </dependencies>
     <properties>

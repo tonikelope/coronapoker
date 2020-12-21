@@ -16,7 +16,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import com.tonikelope.coronahmac.M;
 import java.awt.Image;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -414,18 +413,6 @@ public class Init extends javax.swing.JFrame {
      * @param args the command line arguments
      */
     public static void main(String args[]) {
-        Helpers.threadRun(new Runnable() {
-
-            public void run() {
-
-                try {
-                    Init.J0 = M.J0();
-                } catch (Exception ex) {
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                }
-
-            }
-        });
         /* Set the Nimbus look and feel */
         //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
         /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.

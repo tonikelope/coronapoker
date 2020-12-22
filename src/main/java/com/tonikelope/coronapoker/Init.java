@@ -47,12 +47,12 @@ public class Init extends javax.swing.JFrame {
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile Connection SQLITE = null;
+    public static volatile boolean INIT = false;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String REC_DIR = CORONA_DIR + "/Recover";
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
-    public static String J0;
 
     /**
      * Creates new form Inicio
@@ -413,123 +413,130 @@ public class Init extends javax.swing.JFrame {
      * @param args the command line arguments
      */
     public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
+
+        if (!INIT) {
+
+            INIT = true;
+
+            /* Set the Nimbus look and feel */
+            //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
+            /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
          * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
+             */
+            try {
+                for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
+                    if ("Nimbus".equals(info.getName())) {
+                        javax.swing.UIManager.setLookAndFeel(info.getClassName());
+                        break;
+                    }
                 }
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
+                java.util.logging.Logger.getLogger(Init.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
             }
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(Init.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-        //</editor-fold>
+            //</editor-fold>
+            //</editor-fold>
 
-        Helpers.PRNG_GENERATOR = new Random();
+            Helpers.PRNG_GENERATOR = new Random();
 
-        Helpers.SPRNG_GENERATOR = new SecureRandom();
+            Helpers.SPRNG_GENERATOR = new SecureRandom();
 
-        Helpers.createIfNoExistsCoronaDirs();
+            Helpers.createIfNoExistsCoronaDirs();
 
-        if (!Game.DEV_MODE) {
+            if (!Game.DEV_MODE) {
 
-            try (PrintStream fileOut = new PrintStream(new FileOutputStream(DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"))) {
-                System.setOut(fileOut);
-                System.setErr(fileOut);
-            } catch (FileNotFoundException ex) {
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-
-        Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
-
-        Init.MOD = Helpers.loadMOD();
-
-        if (Init.MOD != null) {
-
-            WINDOW_TITLE += " @ " + MOD.get("name") + " " + MOD.get("version");
-
-            //Cargamos las barajas del MOD
-            for (Map.Entry<String, HashMap> entry : ((HashMap<String, HashMap>) Init.MOD.get("decks")).entrySet()) {
-
-                HashMap<String, Object> baraja = entry.getValue();
-
-                Card.BARAJAS.put((String) baraja.get("name"), new Object[]{baraja.get("aspect"), true, baraja.containsKey("sound") ? baraja.get("sound") : null});
-            }
-
-            if (Init.MOD.containsKey("fusion_sounds")) {
-                Crupier.FUSION_MOD_SOUNDS = (boolean) Init.MOD.get("fusion_sounds");
-            }
-
-            if (Init.MOD.containsKey("fusion_cinematics")) {
-                Crupier.FUSION_MOD_CINEMATICS = (boolean) Init.MOD.get("fusion_cinematics");
-            }
-
-            Crupier.loadMODSounds();
-
-            Crupier.loadMODCinematics();
-
-            //Actualizamos la fuente
-            if (Init.MOD.containsKey("font") && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")))) {
-
-                try {
-                    Helpers.GUI_FONT = Helpers.createAndRegisterFont(new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")));
+                try (PrintStream fileOut = new PrintStream(new FileOutputStream(DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"))) {
+                    System.setOut(fileOut);
+                    System.setErr(fileOut);
                 } catch (FileNotFoundException ex) {
                     Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 
-        }
+            Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
 
-        if (!Card.BARAJAS.containsKey(Game.BARAJA)) {
-            Game.BARAJA = Game.BARAJA_DEFAULT;
-        }
+            Init.MOD = Helpers.loadMOD();
 
-        Card.updateCachedImages(1f + Game.getZoom_level() * Game.getZOOM_STEP(), true);
+            if (Init.MOD != null) {
 
-        Helpers.playWavResource("misc/init.wav");
+                WINDOW_TITLE += " @ " + MOD.get("name") + " " + MOD.get("version");
 
-        Helpers.playLoopMp3Resource("misc/background_music.mp3");
+                //Cargamos las barajas del MOD
+                for (Map.Entry<String, HashMap> entry : ((HashMap<String, HashMap>) Init.MOD.get("decks")).entrySet()) {
 
-        try {
-            Class.forName("org.sqlite.JDBC");
+                    HashMap<String, Object> baraja = entry.getValue();
 
-            // create a database connection
-            SQLITE = DriverManager.getConnection("jdbc:sqlite:" + (!Game.DEV_MODE ? SQL_FILE : (SQL_FILE + Helpers.genRandomString(5) + ".db")));
+                    Card.BARAJAS.put((String) baraja.get("name"), new Object[]{baraja.get("aspect"), true, baraja.containsKey("sound") ? baraja.get("sound") : null});
+                }
 
-            Statement statement = SQLITE.createStatement();
+                if (Init.MOD.containsKey("fusion_sounds")) {
+                    Crupier.FUSION_MOD_SOUNDS = (boolean) Init.MOD.get("fusion_sounds");
+                }
 
-            statement.setQueryTimeout(30);  // set timeout to 30 sec.
+                if (Init.MOD.containsKey("fusion_cinematics")) {
+                    Crupier.FUSION_MOD_CINEMATICS = (boolean) Init.MOD.get("fusion_cinematics");
+                }
 
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT)");
+                Crupier.loadMODSounds();
 
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, FOREIGN KEY(id_game) REFERENCES game(id))");
+                Crupier.loadMODCinematics();
 
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, conta_raise INTEGER, response_time INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+                //Actualizamos la fuente
+                if (Init.MOD.containsKey("font") && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")))) {
 
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, pay REAL, profit REAL, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+                    try {
+                        Helpers.GUI_FONT = Helpers.createAndRegisterFont(new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")));
+                    } catch (FileNotFoundException ex) {
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
 
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
-
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS showcards(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, parguela INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
-
-        } catch (SQLException | ClassNotFoundException ex) {
-            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                Init ventana = new Init();
-                Helpers.centrarJFrame(ventana, 0);
-                ventana.setVisible(true);
             }
-        });
+
+            if (!Card.BARAJAS.containsKey(Game.BARAJA)) {
+                Game.BARAJA = Game.BARAJA_DEFAULT;
+            }
+
+            Card.updateCachedImages(1f + Game.getZoom_level() * Game.getZOOM_STEP(), true);
+
+            Helpers.playWavResource("misc/init.wav");
+
+            Helpers.playLoopMp3Resource("misc/background_music.mp3");
+
+            try {
+                Class.forName("org.sqlite.JDBC");
+
+                // create a database connection
+                SQLITE = DriverManager.getConnection("jdbc:sqlite:" + (!Game.DEV_MODE ? SQL_FILE : (SQL_FILE + Helpers.genRandomString(5) + ".db")));
+
+                Statement statement = SQLITE.createStatement();
+
+                statement.setQueryTimeout(30);  // set timeout to 30 sec.
+
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT)");
+
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, FOREIGN KEY(id_game) REFERENCES game(id))");
+
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, conta_raise INTEGER, response_time INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, pay REAL, profit REAL, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS showcards(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, parguela INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+            } catch (SQLException | ClassNotFoundException ex) {
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            java.awt.EventQueue.invokeLater(new Runnable() {
+                public void run() {
+                    Init ventana = new Init();
+                    Helpers.centrarJFrame(ventana, 0);
+                    ventana.setVisible(true);
+                }
+            });
+
+        }
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

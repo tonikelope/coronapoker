@@ -192,7 +192,7 @@
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="3" attributes="0">
-                              <Component id="game_hand_label" alignment="3" min="-2" pref="15" max="-2" attributes="0"/>
+                              <Component id="game_hand_label" alignment="3" min="-2" max="-2" attributes="0"/>
                               <Component id="game_hand_val" alignment="3" min="-2" max="-2" attributes="0"/>
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>
@@ -202,7 +202,7 @@
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="3" attributes="0">
-                              <Component id="game_buyin_label" alignment="3" min="-2" pref="15" max="-2" attributes="0"/>
+                              <Component id="game_buyin_label" alignment="3" min="-2" max="-2" attributes="0"/>
                               <Component id="game_buyin_val" alignment="3" min="-2" max="-2" attributes="0"/>
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>
@@ -212,7 +212,7 @@
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="3" attributes="0">
-                              <Component id="game_blinds_double_label" alignment="3" min="-2" pref="15" max="-2" attributes="0"/>
+                              <Component id="game_blinds_double_label" alignment="3" min="-2" max="-2" attributes="0"/>
                               <Component id="game_blinds_double_val" alignment="3" min="-2" max="-2" attributes="0"/>
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>

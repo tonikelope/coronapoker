@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>FINAL-6.32</version>
+    <version>FINAL-6.33</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -24,7 +24,7 @@
                             <mainClass>com.tonikelope.coronahmac.M</mainClass>
                         </manifest>
                         <manifestEntries>
-                            <SplashScreen-Image>images/corona_poker_splash.png</SplashScreen-Image>
+                            <SplashScreen-Image>images/splash.gif</SplashScreen-Image>
                         </manifestEntries>
                     </archive>
                     <descriptorRefs>

@@ -25,6 +25,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     private volatile Color color_contadores = null;
 
+    public JLabel getLast_hand_label() {
+        return last_hand_label;
+    }
+
     public JProgressBar getBarra_tiempo() {
         return barra_tiempo;
     }
@@ -133,18 +137,19 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     }
 
     public void last_hand_on() {
-
         Game.getInstance().getCrupier().setLast_hand(true);
+
+        CommunityCardsPanel tthis = Game.getInstance().getTapete().getCommunityCards();
 
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
 
-                hand_label.setOpaque(true);
-                hand_label.setBackground(Color.YELLOW);
-                hand_label.setForeground(Color.BLACK);
-                hand_label.setToolTipText(Translator.translate("ÚLTIMA MANO"));
-                last_hand_label.setVisible(true);
+                tthis.getHand_label().setOpaque(true);
+                tthis.getHand_label().setBackground(Color.YELLOW);
+                tthis.getHand_label().setForeground(Color.BLACK);
+                tthis.getHand_label().setToolTipText(Translator.translate("ÚLTIMA MANO"));
+                tthis.getLast_hand_label().setVisible(true);
 
             }
         });
@@ -156,14 +161,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         Game.getInstance().getCrupier().setLast_hand(false);
 
+        CommunityCardsPanel tthis = Game.getInstance().getTapete().getCommunityCards();
+
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
 
-                hand_label.setOpaque(false);
-                hand_label.setForeground(color_contadores);
-                hand_label.setToolTipText(null);
-                last_hand_label.setVisible(false);
+                tthis.getHand_label().setOpaque(false);
+                tthis.getHand_label().setForeground(color_contadores);
+                tthis.getHand_label().setToolTipText(null);
+                tthis.getLast_hand_label().setVisible(false);
 
             }
         });
@@ -389,9 +396,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hand_labelMouseClicked
         // TODO add your handling code here:
 
-        if (Game.getInstance().isPartida_local() && Game.getInstance().getTapete().getCommunityCards().getHand_label().isEnabled()) {
+        CommunityCardsPanel tthis = Game.getInstance().getTapete().getCommunityCards();
 
-            Game.getInstance().getTapete().getCommunityCards().getHand_label().setEnabled(false);
+        if (Game.getInstance().isPartida_local() && tthis.getHand_label().isEnabled()) {
+
+            tthis.getHand_label().setEnabled(false);
 
             if (Game.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿ÚLTIMA MANO?")) == 0) {
 
@@ -408,12 +417,12 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                             last_hand_off();
                         }
 
-                        Game.getInstance().getTapete().getCommunityCards().getHand_label().setEnabled(true);
+                        tthis.getHand_label().setEnabled(true);
                     }
                 });
 
             } else {
-                Game.getInstance().getTapete().getCommunityCards().getHand_label().setEnabled(true);
+                tthis.getHand_label().setEnabled(true);
             }
         }
     }//GEN-LAST:event_hand_labelMouseClicked
@@ -425,6 +434,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void pause_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pause_buttonActionPerformed
         // TODO add your handling code here:
 
+        CommunityCardsPanel tthis = Game.getInstance().getTapete().getCommunityCards();
+
         int pause_now = -2;
 
         if (!(Game.getInstance().getCrupier().isLast_hand() && Game.getInstance().getCrupier().isShow_time()) && Game.getInstance().isPartida_local() && !Game.getInstance().isTimba_pausada() && !Game.getInstance().getLocalPlayer().isTurno() && !Game.getInstance().getLocalPlayer().isAuto_pause() && !Game.getInstance().getLocalPlayer().isSpectator()) {
@@ -435,15 +446,15 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (pause_now < 1 && !Game.getInstance().getLocalPlayer().isAuto_pause() && ((Game.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (Game.getInstance().isPartida_local() && ((Game.getInstance().getCrupier().isLast_hand() && Game.getInstance().getCrupier().isShow_time()) || Game.getInstance().isTimba_pausada() || pause_now == 0 || Game.getInstance().getLocalPlayer().isSpectator())))) {
 
-            Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(new Color(255, 102, 0));
-            Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(Color.WHITE);
+            tthis.getPause_button().setBackground(new Color(255, 102, 0));
+            tthis.getPause_button().setForeground(Color.WHITE);
 
             if (!Game.getInstance().isTimba_pausada() && !Game.getInstance().isPartida_local()) {
                 Game.getInstance().getLocalPlayer().setPause_counter(Game.getInstance().getLocalPlayer().getPause_counter() - 1);
-                Game.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + Game.getInstance().getLocalPlayer().getPause_counter() + ")");
+                tthis.getPause_button().setText(Translator.translate("PAUSAR") + " (" + Game.getInstance().getLocalPlayer().getPause_counter() + ")");
             }
 
-            Game.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(false);
+            tthis.getPause_button().setEnabled(false);
 
             Helpers.threadRun(new Runnable() {
                 @Override
@@ -458,8 +469,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             if (!Game.getInstance().getLocalPlayer().isAuto_pause()) {
 
-                Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(Color.WHITE);
-                Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(new Color(255, 102, 0));
+                tthis.getPause_button().setBackground(Color.WHITE);
+                tthis.getPause_button().setForeground(new Color(255, 102, 0));
                 Game.getInstance().getLocalPlayer().setAuto_pause(true);
                 Helpers.playWavResource("misc/auto_button_on.wav");
 
@@ -469,8 +480,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 }
 
             } else {
-                Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(new Color(255, 102, 0));
-                Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(Color.WHITE);
+                tthis.getPause_button().setBackground(new Color(255, 102, 0));
+                tthis.getPause_button().setForeground(Color.WHITE);
                 Game.getInstance().getLocalPlayer().setAuto_pause(false);
                 Helpers.playWavResource("misc/auto_button_off.wav");
             }

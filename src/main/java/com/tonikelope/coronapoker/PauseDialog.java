@@ -5,6 +5,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Color;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import javax.swing.Timer;
@@ -28,6 +29,10 @@ public class PauseDialog extends javax.swing.JDialog {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+
+                setBackground(new Color(0, 0, 0, 0));
+
+                pausa_label.setBackground(new Color(0, 0, 0, 0));
 
                 Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
 
@@ -63,19 +68,23 @@ public class PauseDialog extends javax.swing.JDialog {
         pausa_label = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         setUndecorated(true);
         setResizable(false);
-        addComponentListener(new java.awt.event.ComponentAdapter() {
-            public void componentHidden(java.awt.event.ComponentEvent evt) {
-                formComponentHidden(evt);
-            }
-            public void componentShown(java.awt.event.ComponentEvent evt) {
-                formComponentShown(evt);
+        addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                formMouseClicked(evt);
             }
         });
         addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosed(java.awt.event.WindowEvent evt) {
+                formWindowClosed(evt);
+            }
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
+            }
+            public void windowOpened(java.awt.event.WindowEvent evt) {
+                formWindowOpened(evt);
             }
         });
 
@@ -118,21 +127,25 @@ public class PauseDialog extends javax.swing.JDialog {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
-        // TODO add your handling code here:
-        this.timer.start();
-
-    }//GEN-LAST:event_formComponentShown
-
-    private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
-        // TODO add your handling code here:
-        this.timer.stop();
-    }//GEN-LAST:event_formComponentHidden
-
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
         Game.getInstance().getExit_menu().doClick();
     }//GEN-LAST:event_formWindowClosing
+
+    private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
+        // TODO add your handling code here:
+        this.timer.stop();
+    }//GEN-LAST:event_formWindowClosed
+
+    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
+        // TODO add your handling code here:
+        this.timer.start();
+    }//GEN-LAST:event_formWindowOpened
+
+    private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
+        // TODO add your handling code here:
+        Game.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+    }//GEN-LAST:event_formMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel jPanel1;

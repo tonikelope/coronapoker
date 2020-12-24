@@ -459,7 +459,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-
                     Game.getInstance().pauseTimba(Game.getInstance().isPartida_local() ? null : Game.getInstance().getLocalPlayer().getNickname());
 
                 }

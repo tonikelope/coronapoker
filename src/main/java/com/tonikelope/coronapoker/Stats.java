@@ -63,6 +63,7 @@ public class Stats extends javax.swing.JDialog {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+                setSize(Math.round(0.8f * parent.getWidth()), Math.round(0.8f * parent.getHeight()));
                 scroll_stats_panel.getVerticalScrollBar().setUnitIncrement(16);
                 scroll_stats_panel.getHorizontalScrollBar().setUnitIncrement(16);
                 res_table_warning.setVisible(false);
@@ -98,8 +99,6 @@ public class Stats extends javax.swing.JDialog {
                 init = false;
 
                 stats_combo.setSelectedIndex(0);
-
-                pack();
 
             }
         });

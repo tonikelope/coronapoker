@@ -367,7 +367,7 @@ public class Stats extends javax.swing.JDialog {
 
             try {
 
-                String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and round=? and hand.id_game=? and action>=3 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and hand.id_game=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by MANOS DESC";
+                String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and round=? and hand.id_game=? and action>=3 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and action>=2 and round=? and hand.id_game=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by MANOS DESC";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
@@ -379,7 +379,9 @@ public class Stats extends javax.swing.JDialog {
 
                 statement.setInt(3, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
 
-                statement.setInt(4, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                statement.setInt(4, ronda);
+
+                statement.setInt(5, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
 
                 rs = statement.executeQuery();
 
@@ -390,13 +392,15 @@ public class Stats extends javax.swing.JDialog {
         } else {
             try {
 
-                String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where round=? and action>=3 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by MANOS DESC";
+                String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where round=? and action>=3 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action WHERE action>=2 and round=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by MANOS DESC";
 
                 PreparedStatement statement = SQLITE.prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, ronda);
+
+                statement.setInt(2, ronda);
 
                 rs = statement.executeQuery();
 
@@ -425,6 +429,10 @@ public class Stats extends javax.swing.JDialog {
         res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS")));
         res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS")));
         table_panel.setVisible(true);
+
+        res_table_warning.setText(Translator.translate("Nota: lo que se muestra es el porcentaje de manos subidas en relación a las manos jugadas."));
+
+        res_table_warning.setVisible(true);
 
     }
 

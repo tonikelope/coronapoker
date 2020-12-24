@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Nota: lo que se muestra es el porcentaje de manos subidas en relación a las manos jugadas.", "Note: what is shown is the percentage of hands raised in relation to the hands played."},
             {"Intercambio de claves...", "Keys exchange..."},
             {"Chequeo de integridad...", "Integrity check..."},
             {"PROBABLEMENTE HACIENDO TRAMPAS", "PROBABLY CHEATING"},

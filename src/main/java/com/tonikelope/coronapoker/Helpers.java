@@ -61,7 +61,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -74,8 +73,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -236,93 +233,6 @@ public class Helpers {
                 super.replace(fb, offs, length, str, a);
             }
         }
-    }
-
-    public static String currentJarHMAC(byte[] hmac_key) {
-
-        try {
-
-            if (new File(Helpers.class.getProtectionDomain().getCodeSource().getLocation().toURI()).isFile()) {
-
-                Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
-
-                sha256_HMAC.init(new SecretKeySpec(hmac_key, "HmacSHA256"));
-
-                JarFile jarFile = new JarFile(new File(Helpers.class.getProtectionDomain().getCodeSource().getLocation().toURI()));
-
-                Enumeration allEntries = jarFile.entries();
-
-                while (allEntries.hasMoreElements()) {
-
-                    JarEntry entry = (JarEntry) allEntries.nextElement();
-
-                    String name = entry.getName();
-
-                    if (name.startsWith("com/tonikelope/coronapoker/") && name.endsWith(".class")) {
-                        try (InputStream is = Helpers.class.getResourceAsStream("/" + name)) {
-                            sha256_HMAC.update(is.readAllBytes());
-                        }
-                    }
-                }
-
-                return Base64.encodeBase64String(sha256_HMAC.doFinal());
-            }
-
-        } catch (IOException | NoSuchAlgorithmException | InvalidKeyException | URISyntaxException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        return "*";
-
-    }
-
-    public static class C {
-
-        public static boolean D() {
-
-            return java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().contains("jdwp");
-        }
-
-        public static byte[] J(byte[] hmac_key, Class c) {
-
-            try {
-
-                if (new java.io.File(c.getProtectionDomain().getCodeSource().getLocation().toURI()).isFile()) {
-
-                    javax.crypto.Mac sha256_HMAC = javax.crypto.Mac.getInstance("HmacSHA256");
-
-                    sha256_HMAC.init(new javax.crypto.spec.SecretKeySpec(hmac_key, "HmacSHA256"));
-
-                    sha256_HMAC.update(D() ? "1".getBytes() : "0".getBytes());
-
-                    java.util.jar.JarFile jarFile = new java.util.jar.JarFile(new java.io.File(c.getProtectionDomain().getCodeSource().getLocation().toURI()));
-
-                    java.util.Enumeration allEntries = jarFile.entries();
-
-                    while (allEntries.hasMoreElements()) {
-
-                        java.util.jar.JarEntry entry = (java.util.jar.JarEntry) allEntries.nextElement();
-
-                        String name = entry.getName();
-
-                        if (name.startsWith("com/tonikelope/coronapoker/") && name.endsWith(".class")) {
-                            try (java.io.InputStream is = c.getResourceAsStream("/" + name)) {
-                                sha256_HMAC.update(is.readAllBytes());
-                            }
-                        }
-                    }
-
-                    return sha256_HMAC.doFinal();
-                }
-
-            } catch (Exception ex) {
-
-            }
-
-            return null;
-
-        }
-
     }
 
     public static String encryptString(String cadena, SecretKeySpec aes_key, SecretKeySpec hmac_key) {

@@ -56,6 +56,37 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
         });
     }
 
+    public void hideALL() {
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                for (Player p : players) {
+                    ((JPanel) p).setVisible(false);
+                }
+
+                getCommunityCards().setVisible(false);
+            }
+        });
+
+    }
+
+    public void showALL() {
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                for (Player p : players) {
+                    ((JPanel) p).setVisible(true);
+                }
+
+                getCommunityCards().setVisible(true);
+            }
+        });
+
+    }
+
     public void refresh() {
 
         tp = null;

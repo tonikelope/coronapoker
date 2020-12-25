@@ -179,7 +179,7 @@ public class GameOverDialog extends javax.swing.JDialog {
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
-        Game.getInstance().hideALL();
+        Game.getInstance().getTapete().hideALL();
 
         requestFocusInWindow();
 
@@ -271,7 +271,7 @@ public class GameOverDialog extends javax.swing.JDialog {
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
 
-        Game.getInstance().showALL();
+        Game.getInstance().getTapete().showALL();
 
         if (last_mp3_loop != null) {
             Helpers.unmuteLoopMp3(last_mp3_loop);

@@ -35,7 +35,6 @@ import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
-import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.KeyStroke;
@@ -122,37 +121,6 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private volatile GameLogDialog registro_dialog = null;
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
-
-    public void hideALL() {
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                for (Player p : getJugadores()) {
-                    ((JPanel) p).setVisible(false);
-                }
-
-                tapete.getCommunityCards().setVisible(false);
-            }
-        });
-
-    }
-
-    public void showALL() {
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                for (Player p : getJugadores()) {
-                    ((JPanel) p).setVisible(true);
-                }
-
-                tapete.getCommunityCards().setVisible(true);
-            }
-        });
-
-    }
 
     public String getNick_pause() {
         return nick_pause;
@@ -1376,7 +1344,14 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public void finTransmision(boolean partida_terminada) {
 
-        Game.getInstance().hideALL();
+        Game.getInstance().getTapete().hideALL();
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                pausa_dialog.setVisible(false);
+            }
+        });
 
         synchronized (lock_fin) {
 

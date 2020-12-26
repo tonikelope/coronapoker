@@ -506,7 +506,7 @@ public class Init extends javax.swing.JFrame {
                 Class.forName("org.sqlite.JDBC");
 
                 // create a database connection
-                SQLITE = DriverManager.getConnection("jdbc:sqlite:" + (!Game.DEV_MODE ? SQL_FILE : (SQL_FILE + Helpers.genRandomString(5) + ".db")));
+                SQLITE = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE);
 
                 Statement statement = SQLITE.createStatement();
 

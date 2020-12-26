@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyException;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -136,10 +137,7 @@ public class Crupier implements Runnable {
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; //2 players
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
-    public static final String RECOVER_DECK_FILE = Init.REC_DIR + "/coronapoker_deck";
-    public static final String RECOVER_SEATS_FILE = Init.REC_DIR + "/coronapoker_seats";
-    public static final String RECOVER_BALANCE_FILE = Init.REC_DIR + "/coronapoker_balance";
-    public static final String RECOVER_ACTIONS_FILE = Init.REC_DIR + "/coronapoker_actions";
+    public static final String PERMUTATION_KEY_FILE = Init.REC_DIR + "/PERMUTATION_KEY";
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
@@ -1570,80 +1568,6 @@ public class Crupier implements Runnable {
 
     }
 
-    private void recibirDatosRecover() {
-
-        boolean ok;
-
-        long start_time = System.currentTimeMillis();
-
-        do {
-
-            ok = false;
-
-            synchronized (this.getReceived_commands()) {
-
-                ArrayList<String> rejected = new ArrayList<>();
-
-                while (!ok && !this.getReceived_commands().isEmpty()) {
-
-                    String comando = this.received_commands.poll();
-
-                    String[] partes = comando.split("#");
-
-                    if (partes[2].equals("RECOVERDATA")) {
-
-                        try {
-                            ok = true;
-
-                            Files.writeString(Paths.get(Crupier.RECOVER_BALANCE_FILE + "_" + Game.getInstance().getNick_local()), new String(Base64.decodeBase64(partes[3]), "UTF-8"));
-
-                            if (partes.length > 4) {
-                                Files.writeString(Paths.get(Crupier.RECOVER_ACTIONS_FILE + "_" + Game.getInstance().getNick_local()), new String(Base64.decodeBase64(partes[4]), "UTF-8"));
-                            }
-                        } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (IOException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    } else {
-                        rejected.add(comando);
-                    }
-
-                }
-
-                if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
-                    rejected.clear();
-                }
-
-            }
-
-            if (!ok) {
-
-                if (Game.getInstance().checkPause()) {
-                    start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > Game.CLIENT_RECEPTION_TIMEOUT) {
-
-                    this.sendGAMECommandToServer("PING");
-
-                    start_time = System.currentTimeMillis();
-                } else {
-
-                    synchronized (this.getReceived_commands()) {
-
-                        try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    }
-                }
-            }
-
-        } while (!ok);
-
-    }
-
     public int getJugadoresActivos() {
 
         int t = 0;
@@ -1661,177 +1585,157 @@ public class Crupier implements Runnable {
 
         boolean saltar_primera_mano = false;
 
-        // SERVER_NICK + BUYIN + REBUY + TIEMPO_JUEGO + CONTA_MANO + CIEGA_PEQUEÑA + CIEGA_GRANDE + TIEMPO_CIEGAS + CIEGAS_DOBLADAS + DEALER
-        try {
-            String datos = Files.readString(Paths.get(Crupier.RECOVER_BALANCE_FILE + (Game.getInstance().isPartida_local() ? "" : "_" + Game.getInstance().getNick_local())));
+        HashMap<String, Object> map = sqlRecoverGameBalance();
 
-            String[] partes = datos.split("#");
+        this.sqlite_id_hand = (int) map.get("hand_id");
+        Game.BUYIN = (int) map.get("buyin");
+        Game.REBUY = (boolean) map.get("rebuy");
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
 
-            Game.BUYIN = Integer.parseInt(partes[1]);
+                Game.getInstance().getAuto_rebuy_menu().setEnabled(Game.REBUY);
+                Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(Game.REBUY);
 
-            Game.REBUY = Boolean.parseBoolean(partes[2]);
+            }
+        });
+        Game.getInstance().setConta_tiempo_juego((long) map.get("play_time"));
+        this.conta_mano = (int) map.get("conta_mano");
+        this.ciega_pequeña = (float) map.get("sbval");
+        this.ciega_grande = (float) map.get("bbval");
+        Game.CIEGAS_TIME = (int) map.get("blinds_time");
+        this.ciegas_double = (int) map.get("blinds_double");
+        String dealer = (String) map.get("dealer");
+        ;
+        String[] auditor_partes = ((String) map.get("balance")).split("@");
+        ArrayList<String> nicks_recuperados = new ArrayList<>();
+        for (String player_data : auditor_partes) {
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
+            String[] partes = player_data.split("\\|");
 
-                    Game.getInstance().getAuto_rebuy_menu().setEnabled(Game.REBUY);
-                    Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(Game.REBUY);
+            try {
+                String name = new String(Base64.decodeBase64(partes[0]), "UTF-8");
 
-                }
-            });
+                nicks_recuperados.add(name);
 
-            Game.getInstance().setConta_tiempo_juego(Long.parseLong(partes[3]));
+                Player jugador = nick2player.get(name);
 
-            this.conta_mano = Integer.parseInt(partes[4]);
+                if (jugador != null) {
 
-            this.ciega_pequeña = Float.parseFloat(partes[5]);
+                    jugador.setStack(Float.parseFloat(partes[1]));
 
-            this.ciega_grande = Float.parseFloat(partes[6]);
+                    jugador.setBuyin(Integer.parseInt(partes[2]));
 
-            Game.CIEGAS_TIME = Integer.parseInt(partes[7]);
+                    jugador.setBet(0f);
 
-            this.ciegas_double = Integer.parseInt(partes[8]);
+                    if (Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
+                        jugador.setSpectator(null);
+                    } else if (nick2player.get(dealer) == null) {
+                        dealer = jugador.getNickname();
+                    }
+                    this.auditor.put(name, new Float[]{Float.parseFloat(partes[1]), Float.parseFloat(partes[2])});
+                } else {
+                    this.auditor.put(name, new Float[]{Float.parseFloat(partes[1]), Float.parseFloat(partes[2])});
 
-            String dealer = new String(Base64.decodeBase64(partes[9]), "UTF-8");
+                    if (this.sqlIsPlayerInHandPreflop(name, this.sqlite_id_hand) && Helpers.float1DSecureCompare(0f, Float.parseFloat(partes[1])) < 0) {
 
-            String[] auditor_partes = partes[10].split("@");
+                        String ganancia_msg = "";
 
-            ArrayList<String> nicks_recuperados = new ArrayList<>();
+                        float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(Float.parseFloat(partes[1])) - Helpers.floatClean1D(Float.parseFloat(partes[2])));
 
-            for (String player_data : auditor_partes) {
-
-                partes = player_data.split("\\|");
-
-                try {
-                    String name = new String(Base64.decodeBase64(partes[0]), "UTF-8");
-
-                    nicks_recuperados.add(name);
-
-                    Player jugador = nick2player.get(name);
-
-                    if (jugador != null) {
-
-                        jugador.setStack(Float.parseFloat(partes[1]));
-
-                        jugador.setBuyin(Integer.parseInt(partes[2]));
-
-                        jugador.setBet(0f);
-
-                        if (Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
-                            jugador.setSpectator(null);
-                        } else if (nick2player.get(dealer) == null) {
-                            dealer = jugador.getNickname();
+                        if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
+                            ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
+                        } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
+                            ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
+                        } else {
+                            ganancia_msg += Translator.translate("NI GANA NI PIERDE");
                         }
-                        this.auditor.put(name, new Float[]{Float.parseFloat(partes[1]), Float.parseFloat(partes[2])});
-                    } else {
-                        this.auditor.put(name, new Float[]{Float.parseFloat(partes[1]), Float.parseFloat(partes[2])});
 
-                        if (Helpers.float1DSecureCompare(0f, Float.parseFloat(partes[1])) < 0) {
+                        Game.getInstance().getRegistro().print(name + " " + Translator.translate("ABANDONA LA TIMBA") + " -> " + ganancia_msg);
 
-                            String ganancia_msg = "";
+                        saltar_primera_mano = true;
 
-                            float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(Float.parseFloat(partes[1])) - Helpers.floatClean1D(Float.parseFloat(partes[2])));
-
-                            if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                                ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
-                            } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                                ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
-                            } else {
-                                ganancia_msg += Translator.translate("NI GANA NI PIERDE");
+                        Helpers.threadRun(new Runnable() {
+                            public void run() {
+                                Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "NO SE PUEDE RECUPERAR LA MANO EN CURSO PORQUE FALTAN JUGADORES DE LA MANO ANTERIOR");
                             }
-
-                            Game.getInstance().getRegistro().print(name + " " + Translator.translate("ABANDONA LA TIMBA") + " -> " + ganancia_msg);
-
-                            saltar_primera_mano = true;
-                        }
-                    }
-
-                } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-
-            for (Player jugador : Game.getInstance().getJugadores()) {
-
-                if (!nicks_recuperados.contains(jugador.getNickname())) {
-
-                    jugador.setSpectator(Translator.translate("CALENTANDO"));
-
-                    this.auditor.put(jugador.getNickname(), new Float[]{jugador.getStack(), (float) jugador.getBuyin()});
-
-                    Game.getInstance().getRegistro().print(jugador.getNickname() + Translator.translate(" se UNE a la TIMBA."));
-                }
-            }
-
-            if (Game.getInstance().getJugadores().size() - this.getTotalSpectators() == 1) {
-
-                for (Player jugador : Game.getInstance().getJugadores()) {
-
-                    if (jugador.isSpectator() && Helpers.float1DSecureCompare(0f, jugador.getStack()) < 0) {
-
-                        jugador.unsetSpectator();
+                        });
                     }
                 }
+
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
-
-            this.dealer_pos = 0;
-
-            while (this.dealer_pos < Game.getInstance().getJugadores().size()) {
-
-                if (Game.getInstance().getJugadores().get(this.dealer_pos).getNickname().equals(dealer)) {
-                    break;
-                }
-
-                this.dealer_pos++;
-            }
-
-            if (getJugadoresActivos() == 2) {
-
-                this.small_pos = this.dealer_pos;
-
-                this.utg_pos = this.dealer_pos;
-
-                this.big_pos = (this.dealer_pos + 1) % Game.getInstance().getJugadores().size();
-
-                while (!Game.getInstance().getJugadores().get(this.big_pos).isActivo()) {
-
-                    this.big_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
-                }
-
-            } else {
-
-                this.small_pos = (this.dealer_pos + 1) % Game.getInstance().getJugadores().size();
-
-                while (!Game.getInstance().getJugadores().get(this.small_pos).isActivo()) {
-
-                    this.small_pos = (this.small_pos + 1) % Game.getInstance().getJugadores().size();
-                }
-
-                this.big_pos = (this.small_pos + 1) % Game.getInstance().getJugadores().size();
-
-                while (!Game.getInstance().getJugadores().get(this.big_pos).isActivo()) {
-
-                    this.big_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
-                }
-
-                this.utg_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
-
-                while (!Game.getInstance().getJugadores().get(this.utg_pos).isActivo()) {
-                    this.utg_pos = (this.utg_pos + 1) % Game.getInstance().getJugadores().size();
-                }
-            }
-
-            for (Player jugador : Game.getInstance().getJugadores()) {
-                jugador.refreshPos();
-            }
-
-            actualizarContadoresTapete();
-        } catch (UnsupportedEncodingException ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
+        for (Player jugador : Game.getInstance().getJugadores()) {
+
+            if (!nicks_recuperados.contains(jugador.getNickname())) {
+
+                jugador.setSpectator(Translator.translate("CALENTANDO"));
+
+                this.auditor.put(jugador.getNickname(), new Float[]{jugador.getStack(), (float) jugador.getBuyin()});
+
+                Game.getInstance().getRegistro().print(jugador.getNickname() + Translator.translate(" se UNE a la TIMBA."));
+            }
+        }
+        if (Game.getInstance().getJugadores().size() - this.getTotalSpectators() == 1) {
+
+            for (Player jugador : Game.getInstance().getJugadores()) {
+
+                if (jugador.isSpectator() && Helpers.float1DSecureCompare(0f, jugador.getStack()) < 0) {
+
+                    jugador.unsetSpectator();
+                }
+            }
+        }
+        this.dealer_pos = 0;
+        while (this.dealer_pos < Game.getInstance().getJugadores().size()) {
+
+            if (Game.getInstance().getJugadores().get(this.dealer_pos).getNickname().equals(dealer)) {
+                break;
+            }
+
+            this.dealer_pos++;
+        }
+        if (getJugadoresActivos() == 2) {
+
+            this.small_pos = this.dealer_pos;
+
+            this.utg_pos = this.dealer_pos;
+
+            this.big_pos = (this.dealer_pos + 1) % Game.getInstance().getJugadores().size();
+
+            while (!Game.getInstance().getJugadores().get(this.big_pos).isActivo()) {
+
+                this.big_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
+            }
+
+        } else {
+
+            this.small_pos = (this.dealer_pos + 1) % Game.getInstance().getJugadores().size();
+
+            while (!Game.getInstance().getJugadores().get(this.small_pos).isActivo()) {
+
+                this.small_pos = (this.small_pos + 1) % Game.getInstance().getJugadores().size();
+            }
+
+            this.big_pos = (this.small_pos + 1) % Game.getInstance().getJugadores().size();
+
+            while (!Game.getInstance().getJugadores().get(this.big_pos).isActivo()) {
+
+                this.big_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
+            }
+
+            this.utg_pos = (this.big_pos + 1) % Game.getInstance().getJugadores().size();
+
+            while (!Game.getInstance().getJugadores().get(this.utg_pos).isActivo()) {
+                this.utg_pos = (this.utg_pos + 1) % Game.getInstance().getJugadores().size();
+            }
+        }
+        for (Player jugador : Game.getInstance().getJugadores()) {
+            jugador.refreshPos();
+        }
+        actualizarContadoresTapete();
 
         return saltar_primera_mano;
 
@@ -2039,6 +1943,15 @@ public class Crupier implements Runnable {
 
         this.conta_mano++;
 
+        if (Game.MANOS == conta_mano && Game.getInstance().isPartida_local()) {
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    Game.getInstance().getTapete().getCommunityCards().hand_label_click();
+                }
+            });
+        }
+
         Bot.BOT_COMMUNITY_CARDS.makeEmpty();
 
         Game.getInstance().getRegistro().print("\n*************** " + Translator.translate("MANO") + " (" + String.valueOf(this.conta_mano) + ") ***************");
@@ -2104,26 +2017,6 @@ public class Crupier implements Runnable {
 
             Game.getInstance().getRegistro().print("RECUPERANDO TIMBA...");
 
-            if (Game.getInstance().isPartida_local()) {
-
-                try {
-
-                    String data = Base64.encodeBase64String(Files.readString(Paths.get(Crupier.RECOVER_BALANCE_FILE)).getBytes("UTF-8"));
-
-                    if (Files.exists(Paths.get(Crupier.RECOVER_ACTIONS_FILE))) {
-                        data += "#" + Base64.encodeBase64String(Files.readString(Paths.get(Crupier.RECOVER_ACTIONS_FILE)).getBytes("UTF-8"));
-                    }
-
-                    this.broadcastGAMECommandFromServer("RECOVERDATA#" + data, null);
-                } catch (IOException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                }
-
-            } else {
-
-                recibirDatosRecover();
-            }
-
             recover_dialog = new RecoverDialog(Game.getInstance(), true);
 
             Helpers.GUIRun(new Runnable() {
@@ -2142,7 +2035,7 @@ public class Crupier implements Runnable {
                 Game.getInstance().getRegistro().print("\n*************** " + Translator.translate("MANO RECUPERADA") + " (" + String.valueOf(this.conta_mano) + ") ***************");
 
                 if (Game.getInstance().isPartida_local()) {
-                    permutacion_recuperada = this.recuperarPermutacion(Crupier.RECOVER_DECK_FILE);
+                    permutacion_recuperada = this.recuperarPermutacion();
                 }
 
                 recuperarAccionesLocales();
@@ -2180,22 +2073,13 @@ public class Crupier implements Runnable {
 
             Game.setRECOVER(false);
 
-        } else {
-
-            borrarAcciones();
-
-            if (Game.getInstance().isPartida_local()) {
-                Helpers.deleteFile(Crupier.RECOVER_DECK_FILE);
-            }
-
-            if (Game.getInstance().isPartida_local()) {
-                preservarDatosClavePartida();
-            }
         }
 
-        sqlNewHand();
-
         if (getJugadoresActivos() > 1 && !saltar_mano_recover) {
+
+            if (permutacion_recuperada == null) {
+                sqlNewHand();
+            }
 
             this.apuestas = Game.getInstance().getJugadores().get(this.big_pos).getBet() + Game.getInstance().getJugadores().get(this.small_pos).getBet();
 
@@ -2266,7 +2150,7 @@ public class Crupier implements Runnable {
                     permutacion_baraja = permutacion_recuperada;
                 } else {
                     permutacion_baraja = Helpers.getIntegerPermutation(Helpers.DECK_RANDOM_GENERATOR, 52);
-                    preservarPermutacion(permutacion_baraja, RECOVER_DECK_FILE);
+                    preservarPermutacion(permutacion_baraja);
                 }
 
                 preCargarCartas();
@@ -2309,6 +2193,7 @@ public class Crupier implements Runnable {
 
         } else {
 
+            //Si la mano no se ja podido recuperar le devolvemos la pasta a las ciegas
             for (Player jugador : Game.getInstance().getJugadores()) {
 
                 if (jugador.isActivo()) {
@@ -2316,20 +2201,21 @@ public class Crupier implements Runnable {
                 }
 
             }
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    Game.getInstance().getBarra_tiempo().setIndeterminate(false);
+                    Game.getInstance().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
+                    Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+                    Game.getInstance().getExit_menu().setEnabled(true);
+                    Helpers.TapetePopupMenu.EXIT_MENU.setEnabled(true);
+                }
+            });
+
+            return false;
+
         }
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                Game.getInstance().getBarra_tiempo().setIndeterminate(false);
-                Game.getInstance().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
-                Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
-                Game.getInstance().getExit_menu().setEnabled(true);
-                Helpers.TapetePopupMenu.EXIT_MENU.setEnabled(true);
-            }
-        });
-
-        return false;
     }
 
     private void sqlNewAction(Player current_player) {
@@ -2486,12 +2372,12 @@ public class Crupier implements Runnable {
 
             if (jugador != null) {
 
-                this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f), jugador.getBuyin());
+                this.sqlUpdateHandBalance(jugador.getNickname(), jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f), jugador.getBuyin());
 
             } else {
 
                 Float[] pasta = entry.getValue();
-                this.sqlNewHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
+                this.sqlUpdateHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
 
             }
         }
@@ -2576,6 +2462,22 @@ public class Crupier implements Runnable {
         }
     }
 
+    private void sqlUpdateHandBalance(String nick, float stack, int buyin) {
+
+        PreparedStatement statement;
+        try {
+            statement = Init.SQLITE.prepareStatement("UPDATE balance SET stack=?, buyin=? WHERE id_hand=? and player=?");
+            statement.setQueryTimeout(30);
+            statement.setFloat(1, Helpers.floatClean1D(stack));
+            statement.setInt(2, buyin);
+            statement.setInt(3, this.sqlite_id_hand);
+            statement.setString(4, nick);
+            statement.executeUpdate();
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
     private void sqlNewGame() {
 
         try {
@@ -2618,6 +2520,31 @@ public class Crupier implements Runnable {
 
     }
 
+    private boolean sqlIsPlayerInHandPreflop(String nick, int hand_id) {
+
+        try {
+            String sql = "select preflop_players from hand where id=?";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, hand_id);
+
+            ResultSet rs = statement.executeQuery();
+
+            if (rs.next()) {
+
+                return rs.getString("preflop_players").contains(Base64.encodeBase64String(nick.getBytes("UTF-8")));
+            }
+
+        } catch (SQLException | UnsupportedEncodingException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return false;
+    }
+
     private void sqlNewHand() {
         try {
 
@@ -2649,6 +2576,33 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        if (this.conta_mano == 1) {
+
+            for (Player jugador : Game.getInstance().getJugadores()) {
+
+                this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + jugador.getBet(), jugador.getBuyin());
+
+            }
+
+        } else {
+
+            for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
+
+                Player jugador = nick2player.get(entry.getKey());
+
+                if (jugador != null) {
+
+                    this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + jugador.getBet(), jugador.getBuyin());
+
+                } else {
+
+                    Float[] pasta = entry.getValue();
+                    this.sqlNewHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
+
+                }
+            }
         }
     }
 
@@ -3666,10 +3620,6 @@ public class Crupier implements Runnable {
                     }
                 }
 
-                if (current_player.getDecision() != Player.NODEC && Game.getInstance().isPartida_local()) {
-                    preservarAcciones();
-                }
-
                 actualizarContadoresTapete();
 
                 this.conta_accion++;
@@ -4021,134 +3971,35 @@ public class Crupier implements Runnable {
         }
     }
 
-    private void preservarAcciones() {
-
-        String actions = "";
-
-        for (String accion : this.acciones) {
-
-            actions += accion + "@";
-        }
-
-        if (!"".equals(actions)) {
-
-            try {
-                Files.writeString(Paths.get(RECOVER_ACTIONS_FILE), actions.substring(0, actions.length() - 1));
-            } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-    }
-
-    private void borrarAcciones() {
-
-        acciones.clear();
-
-        try {
-            Files.deleteIfExists(Paths.get(RECOVER_ACTIONS_FILE + (Game.getInstance().isPartida_local() ? "" : "_" + Game.getInstance().getNick_local())));
-        } catch (IOException ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-    }
-
-    private void preservarDatosClavePartida() {
-
-        try {
-
-            //¡EL ORDEN ES IMPORTANTE!
-            // SERVER_NICK + BUYIN + REBUY + TIEMPO_JUEGO + CONTA_MANO + CIEGA_PEQUEÑA + CIEGA_GRANDE + TIEMPO_CIEGAS + CIEGAS_DOBLADAS + DEALER
-            String datos = Base64.encodeBase64String(WaitingRoom.getInstance().getServer_nick().getBytes("UTF-8")) + "#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.REBUY) + "#" + String.valueOf(Game.getInstance().getConta_tiempo_juego()) + "#" + String.valueOf(this.conta_mano) + "#" + Helpers.float2String(this.getCiega_pequeña()) + "#" + Helpers.float2String(this.getCiega_grande()) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(ciegas_double) + "#" + Base64.encodeBase64String(Game.getInstance().getJugadores().get(this.dealer_pos).getNickname().getBytes("UTF-8")) + "#";
-
-            if (!auditor.isEmpty()) {
-                for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
-
-                    Player jugador = nick2player.get(entry.getKey());
-
-                    if (jugador != null) {
-
-                        datos += Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "|" + Helpers.float2String(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : jugador.getBote())) + "|" + String.valueOf(jugador.getBuyin()) + "@";
-
-                    } else {
-
-                        Float[] pasta = entry.getValue();
-
-                        datos += Base64.encodeBase64String(entry.getKey().getBytes("UTF-8")) + "|" + Helpers.float2String(pasta[0]) + "|" + Helpers.float2String(pasta[1]) + "@";
-
-                    }
-                }
-
-            } else {
-
-                for (Player jugador : Game.getInstance().getJugadores()) {
-                    datos += Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "|" + Helpers.float2String(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : jugador.getBote())) + "|" + String.valueOf(jugador.getBuyin()) + "@";
-
-                }
-
-            }
-
-            try {
-                Files.writeString(Paths.get(RECOVER_BALANCE_FILE), datos.substring(0, datos.length() - 1));
-            } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-        } catch (UnsupportedEncodingException ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-
-    private void preservarSorteoSitios(String[] nicks) {
-
-        try {
-            String sitios = "";
-
-            for (String nick : nicks) {
-
-                sitios += Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#";
-
-            }
-
-            Files.writeString(Paths.get(Crupier.RECOVER_SEATS_FILE), sitios.substring(0, sitios.length() - 1));
-        } catch (IOException ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-    }
-
     private String[] recuperarSorteoSitios(String[] nicks_actuales) {
 
-        if (Files.exists(Paths.get(Crupier.RECOVER_SEATS_FILE))) {
+        try {
 
-            try {
+            ArrayList<String> actuales = new ArrayList<>();
 
-                ArrayList<String> actuales = new ArrayList<>();
+            Collections.addAll(actuales, nicks_actuales);
 
-                Collections.addAll(actuales, nicks_actuales);
+            String[] sitiosb64 = this.sqlRecoverGameSeats().split("#");
 
-                String[] sitiosb64 = Files.readString(Paths.get(Crupier.RECOVER_SEATS_FILE)).split("#");
+            ArrayList<String> permutados = new ArrayList<>();
 
-                ArrayList<String> permutados = new ArrayList<>();
+            for (String b64 : sitiosb64) {
 
-                for (String b64 : sitiosb64) {
+                String nick = new String(Base64.decodeBase64(b64), "UTF-8");
 
-                    String nick = new String(Base64.decodeBase64(b64), "UTF-8");
-
-                    if (actuales.contains(nick)) {
-                        permutados.add(nick);
-                        actuales.remove(nick);
-                    }
+                if (actuales.contains(nick)) {
+                    permutados.add(nick);
+                    actuales.remove(nick);
                 }
-
-                //Los nicks actuales nuevos los sentamos al final
-                permutados.addAll(actuales);
-
-                return permutados.toArray(new String[permutados.size()]);
-
-            } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
 
+            //Los nicks actuales nuevos los sentamos al final
+            permutados.addAll(actuales);
+
+            return permutados.toArray(new String[permutados.size()]);
+
+        } catch (IOException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         return null;
@@ -4172,7 +4023,145 @@ public class Crupier implements Runnable {
 
     }
 
-    private void preservarPermutacion(Integer[] permutation, String filename) {
+    private String sqlRecoverGameLastDeck() {
+
+        try {
+            String sql = "SELECT last_deck from game WHERE id=?";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, Game.RECOVER_ID);
+
+            ResultSet rs = statement.executeQuery();
+
+            return rs.getString("last_deck");
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    private String sqlRecoverGameSeats() {
+
+        try {
+            String sql = "SELECT players from game WHERE id=?";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, Game.RECOVER_ID);
+
+            ResultSet rs = statement.executeQuery();
+
+            return rs.getString("players");
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    private String sqlRecoverHandActions() {
+
+        try {
+            String sql = "select action.player as player, action.action as action, round(action.bet,2) as bet from action,hand where action.id_hand=hand.id and hand.id_game=? and hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) order by action.counter";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, Game.RECOVER_ID);
+
+            statement.setInt(2, Game.RECOVER_ID);
+
+            ResultSet rs = statement.executeQuery();
+
+            String actions = "";
+
+            while (rs.next()) {
+
+                actions += Base64.encodeBase64String(rs.getString("player").getBytes("UTF-8")) + "#" + String.valueOf(rs.getInt("action")) + "#" + String.valueOf(rs.getFloat("bet")) + "@";
+            }
+            return actions;
+
+        } catch (SQLException | UnsupportedEncodingException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    private HashMap<String, Object> sqlRecoverGameBalance() {
+
+        HashMap<String, Object> map = new HashMap<>();
+
+        try {
+
+            String sql = "select hand.id as hand_id, server, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, hand.blinds_double as blinds_double, hand.dealer as dealer from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, Game.RECOVER_ID);
+
+            statement.setInt(2, Game.RECOVER_ID);
+
+            statement.setInt(3, Game.RECOVER_ID);
+
+            ResultSet rs = statement.executeQuery();
+
+            rs.next();
+
+            map.put("hand_id", rs.getInt("hand_id"));
+            map.put("server", rs.getString("server"));
+            map.put("buyin", rs.getInt("buyin"));
+            map.put("rebuy", rs.getBoolean("rebuy"));
+            map.put("play_time", rs.getLong("play_time"));
+            map.put("conta_mano", rs.getInt("conta_mano"));
+            map.put("sbval", rs.getFloat("sbval"));
+            map.put("bbval", rs.getFloat("bbval"));
+            map.put("blinds_time", rs.getInt("blinds_time"));
+            map.put("blinds_double", rs.getInt("blinds_double"));
+            map.put("dealer", rs.getString("dealer"));
+
+            sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
+
+            statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, Game.RECOVER_ID);
+
+            statement.setInt(2, Game.RECOVER_ID);
+
+            rs = statement.executeQuery();
+
+            ArrayList<String> balance = new ArrayList<>();
+
+            while (rs.next()) {
+
+                balance.add(Base64.encodeBase64String(rs.getString("PLAYER").getBytes("UTF-8")) + "|" + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN"));
+            }
+
+            map.put("balance", String.join("@", balance));
+
+            return map;
+
+        } catch (SQLException | UnsupportedEncodingException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    private void preservarPermutacion(Integer[] permutation) {
 
         try {
             String per = "";
@@ -4193,11 +4182,10 @@ public class Crupier implements Runnable {
                     participante = Game.getInstance().getParticipantes().get(Game.getInstance().getJugadores().get(i).getNickname());
                 }
 
-                Files.writeString(Paths.get(filename), Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getPermutation_key(), null));
                 sqlUpdateGameLastDeck(Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getPermutation_key(), null));
 
             } else {
-                Files.writeString(Paths.get(filename), per.substring(0, per.length() - 1));
+
                 sqlUpdateGameLastDeck(per.substring(0, per.length() - 1));
 
             }
@@ -4222,65 +4210,61 @@ public class Crupier implements Runnable {
         return humanos;
     }
 
-    private Integer[] recuperarPermutacion(String filename) {
+    private Integer[] recuperarPermutacion() {
 
-        if (Files.exists(Paths.get(filename))) {
+        try {
+            String datos;
+            if (checkIfThereAreHumanPlayers()) {
+                String[] perm_parts = this.sqlRecoverGameLastDeck().split("#");
 
-            try {
-                String datos;
-                if (checkIfThereAreHumanPlayers()) {
-                    String[] perm_parts = Files.readString(Paths.get(filename)).split("#");
+                ArrayList<String> pendientes = new ArrayList<>();
 
-                    ArrayList<String> pendientes = new ArrayList<>();
+                pendientes.add(new String(Base64.decodeBase64(perm_parts[0])));
 
-                    pendientes.add(new String(Base64.decodeBase64(perm_parts[0])));
+                int id = Helpers.SPRNG_GENERATOR.nextInt();
 
-                    int id = Helpers.SPRNG_GENERATOR.nextInt();
+                String full_command = "GAME#" + String.valueOf(id) + "#" + "PERMUTATIONKEY";
 
-                    String full_command = "GAME#" + String.valueOf(id) + "#" + "PERMUTATIONKEY";
+                Participant p = Game.getInstance().getParticipantes().get(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
 
-                    Participant p = Game.getInstance().getParticipantes().get(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
+                p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
 
-                    p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
+                this.waitSyncConfirmations(id, pendientes);
 
-                    this.waitSyncConfirmations(id, pendientes);
+                while (this.permutation_key == null) {
+                    synchronized (this.permutation_key_lock) {
 
-                    while (this.permutation_key == null) {
-                        synchronized (this.permutation_key_lock) {
+                        try {
+                            permutation_key_lock.wait(1000);
 
-                            try {
-                                permutation_key_lock.wait(1000);
-
-                            } catch (InterruptedException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                            }
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
                     }
-
-                    datos = Helpers.decryptString(perm_parts[1], new SecretKeySpec(Base64.decodeBase64(permutation_key), "AES"), null);
-                } else {
-                    datos = Files.readString(Paths.get(filename));
                 }
 
-                String[] partes = datos.split("\\|");
-
-                Integer[] permutacion = new Integer[partes.length];
-
-                int i = 0;
-
-                for (String p : partes) {
-                    permutacion[i] = Integer.parseInt(p);
-                    i++;
-                }
-
-                permutation_key = null;
-
-                return permutacion;
-
-            } catch (IOException | KeyException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                datos = Helpers.decryptString(perm_parts[1], new SecretKeySpec(Base64.decodeBase64(permutation_key), "AES"), null);
+            } else {
+                datos = this.sqlRecoverGameLastDeck();
             }
 
+            String[] partes = datos.split("\\|");
+
+            Integer[] permutacion = new Integer[partes.length];
+
+            int i = 0;
+
+            for (String p : partes) {
+                permutacion[i] = Integer.parseInt(p);
+                i++;
+            }
+
+            permutation_key = null;
+
+            return permutacion;
+
+        } catch (IOException | KeyException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         return null;
@@ -4360,29 +4344,32 @@ public class Crupier implements Runnable {
 
     private void recuperarAccionesLocales() {
 
-        if (Files.exists(Paths.get(Crupier.RECOVER_ACTIONS_FILE + (Game.getInstance().isPartida_local() ? "" : "_" + Game.getInstance().getNick_local())))) {
+        try {
+            String datos = sqlRecoverHandActions();
 
-            try {
-                String datos = Files.readString(Paths.get(Crupier.RECOVER_ACTIONS_FILE + (Game.getInstance().isPartida_local() ? "" : "_" + Game.getInstance().getNick_local())));
+            if (datos != null) {
 
                 String[] rec = datos.split("@");
 
                 for (String r : rec) {
 
-                    String[] parts = r.split("#");
+                    if (!"".equals(r)) {
 
-                    String nick = new String(Base64.decodeBase64(parts[0]), "UTF-8");
+                        String[] parts = r.split("#");
 
-                    if (Game.getInstance().getLocalPlayer().getNickname().equals(nick) || (Game.getInstance().isPartida_local() && Game.getInstance().getParticipantes().get(nick).isCpu())) {
-                        acciones_recuperadas.add(r);
+                        String nick = new String(Base64.decodeBase64(parts[0]), "UTF-8");
+
+                        if (Game.getInstance().getLocalPlayer().getNickname().equals(nick) || (Game.getInstance().isPartida_local() && Game.getInstance().getParticipantes().get(nick).isCpu())) {
+                            acciones_recuperadas.add(r);
+                        }
                     }
                 }
-
-            } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
 
+        } catch (IOException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
+
     }
 
     private String[] sortearSitios() {
@@ -4415,8 +4402,6 @@ public class Crupier implements Runnable {
                     permutados[i++] = nicks[p - 1];
                 }
             }
-
-            preservarSorteoSitios(permutados);
 
             //Comunicamos a todos los participantes el sorteo
             String command = "SEATS#" + String.valueOf(permutados.length);
@@ -5049,7 +5034,7 @@ public class Crupier implements Runnable {
 
         if (Game.getInstance().isPartida_local()) {
 
-            broadcastGAMECommandFromServer("INIT#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.CIEGA_PEQUEÑA) + "#" + String.valueOf(Game.CIEGA_GRANDE) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(Game.isRECOVER()) + "#" + String.valueOf(Game.REBUY), null);
+            broadcastGAMECommandFromServer("INIT#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.CIEGA_PEQUEÑA) + "#" + String.valueOf(Game.CIEGA_GRANDE) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(Game.isRECOVER()) + "#" + String.valueOf(Game.REBUY) + "#" + String.valueOf(Game.MANOS), null);
 
         }
 
@@ -5065,7 +5050,11 @@ public class Crupier implements Runnable {
 
         sentarParticipantes();
 
-        sqlNewGame();
+        if (!Game.RECOVER) {
+            sqlNewGame();
+        } else {
+            this.sqlite_id_game = Game.RECOVER_ID;
+        }
 
         //ESTE MAPA HAY QUE CARGARLO UNA VEZ TENEMOS A LOS JUGADORES EN SUS SITIOS
         for (Player jugador : Game.getInstance().getJugadores()) {

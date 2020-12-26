@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronahmac.M;
+import static com.tonikelope.coronapoker.Init.SQLITE;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.io.BufferedReader;
@@ -43,6 +44,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -915,9 +919,9 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                         server_nick = new String(Base64.decodeBase64(partes[0]), "UTF-8").trim();
 
-                        //Guardamos nuestra clave AES de sesión en disco para en caso de PETE
+                        //Guardamos nuestra clave AES de sesión en disco para en caso de que la partida se corte el servidor pueda recuperarla
                         try {
-                            Files.writeString(Paths.get(Crupier.RECOVER_DECK_FILE + "_" + server_nick), Base64.encodeBase64String(local_client_aes_key.getEncoded()));
+                            Files.writeString(Paths.get(Crupier.PERMUTATION_KEY_FILE + "_" + server_nick), Base64.encodeBase64String(local_client_aes_key.getEncoded()));
                         } catch (IOException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -1104,7 +1108,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                         Helpers.threadRun(new Runnable() {
                                                             public void run() {
                                                                 try {
-                                                                    Game.getInstance().getCrupier().sendGAMECommandToServer("PERMUTATIONKEY#" + Files.readString(Paths.get(Crupier.RECOVER_DECK_FILE + "_" + server_nick)));
+                                                                    Game.getInstance().getCrupier().sendGAMECommandToServer("PERMUTATIONKEY#" + Files.readString(Paths.get(Crupier.PERMUTATION_KEY_FILE + "_" + server_nick)));
                                                                 } catch (IOException ex) {
                                                                     Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                                                                 }
@@ -1240,17 +1244,19 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                             }
                                                         });
 
-                                                        Game.BUYIN = Integer.valueOf(partes_comando[3]);
+                                                        Game.BUYIN = Integer.parseInt(partes_comando[3]);
 
                                                         Game.CIEGA_PEQUEÑA = Float.parseFloat(partes_comando[4]);
 
                                                         Game.CIEGA_GRANDE = Float.parseFloat(partes_comando[5]);
 
-                                                        Game.CIEGAS_TIME = Integer.valueOf(partes_comando[6]);
+                                                        Game.CIEGAS_TIME = Integer.parseInt(partes_comando[6]);
 
                                                         Game.RECOVER = Boolean.parseBoolean(partes_comando[7]);
 
                                                         Game.REBUY = Boolean.parseBoolean(partes_comando[8]);
+
+                                                        Game.MANOS = Integer.parseInt(partes_comando[9]);
 
                                                         boolean ok;
 
@@ -2198,28 +2204,48 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             boolean faltan_jugadores = false;
 
-            if (Game.RECOVER && Files.exists(Paths.get(Crupier.RECOVER_BALANCE_FILE))) {
+            if (Game.RECOVER) {
 
                 try {
-                    String datos = Files.readString(Paths.get(Crupier.RECOVER_BALANCE_FILE));
-                    String[] partes = datos.split("#");
-                    String[] auditor_partes = partes[10].split("@");
 
-                    for (String player_data : auditor_partes) {
+                    String sql = "SELECT preflop_players as PLAYERS FROM hand WHERE hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand where hand.id_game=?)";
 
-                        partes = player_data.split("\\|");
+                    PreparedStatement statement = SQLITE.prepareStatement(sql);
 
-                        String nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
+                    statement.setQueryTimeout(30);
 
-                        if (!participantes.containsKey(nick)) {
-                            faltan_jugadores = true;
-                            break;
+                    statement.setInt(1, Game.RECOVER_ID);
+
+                    statement.setInt(2, Game.RECOVER_ID);
+
+                    ResultSet rs = statement.executeQuery();
+
+                    rs.next();
+
+                    System.out.println(Game.RECOVER_ID);
+
+                    try {
+                        String datos = rs.getString("PLAYERS");
+                        String[] partes = datos.split("#");
+
+                        for (String player_data : partes) {
+
+                            partes = player_data.split("\\|");
+
+                            String nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
+
+                            if (!participantes.containsKey(nick)) {
+                                faltan_jugadores = true;
+                                break;
+                            }
                         }
-                    }
 
-                } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (IOException ex) {
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (IOException ex) {
+                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                } catch (SQLException ex) {
                     Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }

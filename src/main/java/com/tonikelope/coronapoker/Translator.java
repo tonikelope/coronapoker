@@ -22,6 +22,9 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"NO SE PUEDE RECUPERAR LA MANO EN CURSO PORQUE FALTAN JUGADORES DE LA MANO ANTERIOR", "THE CURRENT HAND CANNOT BE RECOVERED BECAUSE PLAYERS FROM THE PREVIOUS HAND ARE MISSING"},
+            {"Manos:", "Hands:"},
+            {"CONTINUAR TIMBA", "RESUME GAME"},
             {"Nota: lo que se muestra es el porcentaje de manos subidas en relación a las manos jugadas.", "Note: what is shown is the percentage of hands raised in relation to the hands played."},
             {"Intercambio de claves...", "Keys exchange..."},
             {"Chequeo de integridad...", "Integrity check..."},

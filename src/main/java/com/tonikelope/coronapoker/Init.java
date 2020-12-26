@@ -19,8 +19,6 @@ package com.tonikelope.coronapoker;
 import java.awt.Image;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Random;
@@ -44,6 +42,7 @@ import javax.swing.UIManager;
  */
 public class Init extends javax.swing.JFrame {
 
+    public static final boolean DEV_MODE = false;
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile Connection SQLITE = null;
@@ -439,18 +438,6 @@ public class Init extends javax.swing.JFrame {
             Helpers.PRNG_GENERATOR = new Random();
 
             Helpers.SPRNG_GENERATOR = new SecureRandom();
-
-            Helpers.createIfNoExistsCoronaDirs();
-
-            if (!Game.DEV_MODE) {
-
-                try (PrintStream fileOut = new PrintStream(new FileOutputStream(DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"))) {
-                    System.setOut(fileOut);
-                    System.setErr(fileOut);
-                } catch (FileNotFoundException ex) {
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
 
             Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
 

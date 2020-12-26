@@ -76,6 +76,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static volatile int BUYIN = 10;
     public static volatile int CIEGAS_TIME = 60;
     public static volatile boolean REBUY = true;
+    public static volatile int MANOS = -1;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
@@ -91,6 +92,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es");
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static volatile boolean RECOVER = false;
+    public static volatile int RECOVER_ID = -1;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
     private static volatile Game THIS = null;
 
@@ -897,7 +899,13 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                tapete.getCommunityCards().getHand_label().setText("#" + String.valueOf(mano));
+                tapete.getCommunityCards().getHand_label().setText("#" + String.valueOf(mano) + (Game.MANOS != -1 ? "/" + String.valueOf(Game.MANOS) : ""));
+
+                if (Game.MANOS != -1 && crupier.getMano() > Game.MANOS) {
+                    tapete.getCommunityCards().getHand_label().setBackground(Color.red);
+                    tapete.getCommunityCards().getHand_label().setForeground(Color.WHITE);
+                    tapete.getCommunityCards().getHand_label().setOpaque(true);
+                }
             }
         });
     }
@@ -1346,12 +1354,14 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Game.getInstance().getTapete().hideALL();
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                pausa_dialog.setVisible(false);
-            }
-        });
+        if (pausa_dialog != null) {
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    pausa_dialog.setVisible(false);
+                }
+            });
+        }
 
         synchronized (lock_fin) {
 

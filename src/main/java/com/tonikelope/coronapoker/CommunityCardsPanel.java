@@ -172,10 +172,20 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 tthis.getHand_label().setToolTipText(null);
                 tthis.getLast_hand_label().setVisible(false);
 
+                if (Game.MANOS != -1 && Game.getInstance().getCrupier().getMano() > Game.MANOS) {
+                    tthis.getHand_label().setBackground(Color.red);
+                    tthis.getHand_label().setForeground(Color.WHITE);
+                    tthis.getHand_label().setOpaque(true);
+                }
+
             }
         });
 
         Helpers.playWavResource("misc/last_hand_off.wav");
+    }
+
+    public void hand_label_click() {
+        hand_labelMouseClicked(null);
     }
 
     /**
@@ -351,11 +361,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addComponent(bet_label))
             .addGroup(layout.createSequentialGroup()
                 .addComponent(blinds_label)
-                .addGap(18, 18, 18)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(pause_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(tiempo_partida)
-                .addGap(18, 18, 18)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(hand_label))
             .addComponent(panel_barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(cards_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -402,7 +412,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             tthis.getHand_label().setEnabled(false);
 
-            if (Game.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿ÚLTIMA MANO?")) == 0) {
+            if (Game.MANOS == Game.getInstance().getCrupier().getMano() || Game.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿ÚLTIMA MANO?")) == 0) {
 
                 Helpers.threadRun(new Runnable() {
 

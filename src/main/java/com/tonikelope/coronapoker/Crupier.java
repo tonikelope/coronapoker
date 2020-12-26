@@ -4036,6 +4036,8 @@ public class Crupier implements Runnable {
 
             ResultSet rs = statement.executeQuery();
 
+            rs.next();
+
             return rs.getString("last_deck");
 
         } catch (SQLException ex) {
@@ -4057,6 +4059,8 @@ public class Crupier implements Runnable {
             statement.setInt(1, Game.RECOVER_ID);
 
             ResultSet rs = statement.executeQuery();
+
+            rs.next();
 
             return rs.getString("players");
 

@@ -1178,7 +1178,10 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                         Helpers.threadRun(new Runnable() {
                                                             public void run() {
-                                                                Game.getInstance().getCrupier().sendGAMECommandToServer("PERMUTATIONKEY#" + sqlReadPermutationkey(partes_comando[3]));
+
+                                                                String key = sqlReadPermutationkey(partes_comando[3]);
+
+                                                                Game.getInstance().getCrupier().sendGAMECommandToServer("PERMUTATIONKEY#" + key != null ? key : "*");
                                                             }
                                                         });
                                                         break;

@@ -203,7 +203,12 @@ public class Participant implements Runnable {
                 }
             } catch (SocketException ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+
                 ok = false;
+
+                if (!resetting_socket) {
+                    Helpers.pausar(1000);
+                }
             }
 
         } while (!ok);

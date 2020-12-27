@@ -2035,6 +2035,32 @@ public class Crupier implements Runnable {
 
                 if (Game.getInstance().isPartida_local()) {
                     permutacion_recuperada = this.recuperarPermutacion();
+
+                    if (permutacion_recuperada == null) {
+
+                        Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "ERROR FATAL: NO SE HA PODIDO RECUPERAR LA CLAVE DE LA PERMUTACIÓN");
+
+                        if (Game.getInstance().getJugadores().size() > 1) {
+
+                            //Hay que avisar a los clientes de que la timba ha terminado
+                            broadcastGAMECommandFromServer("SERVEREXIT", null, false);
+
+                            Game.getInstance().getLocalPlayer().setExit();
+
+                            Game.getInstance().finTransmision(true);
+
+                        } else {
+
+                            Helpers.threadRun(new Runnable() {
+                                public void run() {
+
+                                    Game.getInstance().getLocalPlayer().setExit();
+
+                                    Game.getInstance().finTransmision(true);
+                                }
+                            });
+                        }
+                    }
                 }
 
                 recuperarAccionesLocales();
@@ -4321,6 +4347,10 @@ public class Crupier implements Runnable {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
                     }
+                }
+
+                if ("*".equals(this.permutation_key)) {
+                    return null;
                 }
 
                 datos = Helpers.decryptString(perm_parts[2], new SecretKeySpec(Base64.decodeBase64(permutation_key), "AES"), null);

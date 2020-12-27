@@ -21,9 +21,12 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 import java.net.SocketException;
 import java.security.KeyException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -57,9 +60,11 @@ public class Participant implements Runnable {
     private volatile SecretKeySpec aes_key = null;
     private volatile SecretKeySpec hmac_key = null;
     private volatile SecretKeySpec permutation_key = null;
+    private volatile String permutation_key_hash = null;
     private volatile int new_hand_ready = 0;
 
     public Participant(WaitingRoom espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
+
         this.nick = nick;
         this.setSocket(socket);
         this.sala_espera = espera;
@@ -67,7 +72,25 @@ public class Participant implements Runnable {
         this.cpu = cpu;
         this.aes_key = aes_k;
         this.hmac_key = hmac_k;
-        this.permutation_key = aes_k;
+
+        if (this.aes_key != null) {
+            try {
+                MessageDigest md = MessageDigest.getInstance("MD5");
+                md.update(this.nick.getBytes("UTF-8"));
+                md.update(this.sala_espera.getServer_nick().getBytes("UTF-8"));
+                md.update(this.aes_key.getEncoded());
+                md.update(this.hmac_key.getEncoded());
+                this.permutation_key = new SecretKeySpec(md.digest(), "AES");
+                md = MessageDigest.getInstance("MD5");
+                this.permutation_key_hash = Helpers.toHexString(md.digest(this.permutation_key.getEncoded()));
+            } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
+                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    public String getPermutation_key_hash() {
+        return permutation_key_hash;
     }
 
     public SecretKeySpec getPermutation_key() {
@@ -199,15 +222,7 @@ public class Participant implements Runnable {
             }
         }
 
-        String recibido = this.input_stream.readLine();
-
-        if (recibido != null && recibido.startsWith("*")) {
-            recibido = Helpers.decryptCommand(recibido.trim(), this.getAes_key(), this.getHmac_key());
-        } else if (recibido != null) {
-            recibido = recibido.trim();
-        }
-
-        return recibido;
+        return Helpers.decryptCommand(this.input_stream.readLine(), this.getAes_key(), this.getHmac_key());
     }
 
     public void socketClose() throws IOException {

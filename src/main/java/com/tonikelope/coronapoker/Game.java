@@ -91,7 +91,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es");
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static volatile boolean RECOVER = false;
-    public static volatile int RECOVER_ID = -1;
+    public static volatile String RECOVER_ID = null;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
     private static volatile Game THIS = null;
 

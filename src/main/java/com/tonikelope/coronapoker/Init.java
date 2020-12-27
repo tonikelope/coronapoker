@@ -50,7 +50,6 @@ public class Init extends javax.swing.JFrame {
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
-    public static final String REC_DIR = CORONA_DIR + "/Recover";
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
 
     /**
@@ -510,6 +509,10 @@ public class Init extends javax.swing.JFrame {
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
 
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS showcards(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, parguela INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
+
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS recover(id INTEGER PRIMARY KEY, id_recover TEXT, id_game INTEGER, FOREIGN KEY(id_game) REFERENCES game(id))");
 
             } catch (SQLException | ClassNotFoundException ex) {
                 Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);

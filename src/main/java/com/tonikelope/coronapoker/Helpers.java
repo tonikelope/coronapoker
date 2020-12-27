@@ -5,7 +5,6 @@ import static com.tonikelope.coronapoker.Helpers.SPRNG;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
-import static com.tonikelope.coronapoker.Init.REC_DIR;
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Component;
@@ -247,89 +246,19 @@ public class Helpers {
 
     public static String encryptString(String cadena, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
 
-        try {
-            Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        if (cadena != null) {
+            try {
+                Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
-            cifrado.init(Cipher.ENCRYPT_MODE, aes_key, new IvParameterSpec(iv));
+                cifrado.init(Cipher.ENCRYPT_MODE, aes_key, new IvParameterSpec(iv));
 
-            byte[] cmsg = cifrado.doFinal(cadena.getBytes("UTF-8"));
+                byte[] cmsg = cifrado.doFinal(cadena.getBytes("UTF-8"));
 
-            byte[] full_msg;
-
-            byte[] iv_cmsg = new byte[iv.length + cmsg.length];
-
-            int i;
-
-            for (i = 0; i < iv.length; i++) {
-                iv_cmsg[i] = iv[i];
-            }
-
-            for (i = 0; i < cmsg.length; i++) {
-                iv_cmsg[i + iv.length] = cmsg[i];
-            }
-
-            if (hmac_key != null) {
-
-                full_msg = new byte[32 + iv.length + cmsg.length];
-
-                Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
-
-                sha256_HMAC.init(hmac_key);
-
-                byte[] hmac = sha256_HMAC.doFinal(iv_cmsg);
-
-                for (i = 0; i < hmac.length; i++) {
-                    full_msg[i] = hmac[i];
-                }
-
-                for (i = 0; i < iv_cmsg.length; i++) {
-                    full_msg[i + hmac.length] = iv_cmsg[i];
-                }
-            } else {
-                full_msg = iv_cmsg;
-            }
-
-            return Base64.encodeBase64String(full_msg);
-
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | UnsupportedEncodingException | IllegalBlockSizeException | BadPaddingException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        return null;
-    }
-
-    public static String decryptString(String cadena, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
-
-        try {
-
-            Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
-
-            byte[] full_msg = Base64.decodeBase64(cadena);
-
-            byte[] hmac = new byte[32];
-
-            byte[] iv = new byte[cifrado.getBlockSize()];
-
-            byte[] cmsg;
-
-            int i;
-
-            if (hmac_key != null) {
-
-                cmsg = new byte[full_msg.length - hmac.length - iv.length];
-
-                for (i = 0; i < hmac.length; i++) {
-                    hmac[i] = full_msg[i];
-                }
-
-                for (i = 0; i < iv.length; i++) {
-                    iv[i] = full_msg[i + hmac.length];
-                }
-
-                for (i = 0; i < cmsg.length; i++) {
-                    cmsg[i] = full_msg[i + hmac.length + iv.length];
-                }
+                byte[] full_msg;
 
                 byte[] iv_cmsg = new byte[iv.length + cmsg.length];
+
+                int i;
 
                 for (i = 0; i < iv.length; i++) {
                     iv_cmsg[i] = iv[i];
@@ -339,37 +268,111 @@ public class Helpers {
                     iv_cmsg[i + iv.length] = cmsg[i];
                 }
 
-                Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+                if (hmac_key != null) {
 
-                sha256_HMAC.init(hmac_key);
+                    full_msg = new byte[32 + iv.length + cmsg.length];
 
-                byte[] current_hmac = sha256_HMAC.doFinal(iv_cmsg);
+                    Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
 
-                if (!MessageDigest.isEqual(hmac, current_hmac)) {
-                    throw new KeyException("BAD HMAC or BAD KEY");
+                    sha256_HMAC.init(hmac_key);
+
+                    byte[] hmac = sha256_HMAC.doFinal(iv_cmsg);
+
+                    for (i = 0; i < hmac.length; i++) {
+                        full_msg[i] = hmac[i];
+                    }
+
+                    for (i = 0; i < iv_cmsg.length; i++) {
+                        full_msg[i + hmac.length] = iv_cmsg[i];
+                    }
+                } else {
+                    full_msg = iv_cmsg;
                 }
-            } else {
 
-                cmsg = new byte[full_msg.length - iv.length];
+                return Base64.encodeBase64String(full_msg);
 
-                for (i = 0; i < iv.length; i++) {
-                    iv[i] = full_msg[i];
-                }
-
-                for (i = 0; i < cmsg.length; i++) {
-                    cmsg[i] = full_msg[i + iv.length];
-                }
-
+            } catch (UnsupportedEncodingException | IllegalStateException | InvalidAlgorithmParameterException | InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
+        }
+        return null;
+    }
 
-            cifrado.init(Cipher.DECRYPT_MODE, aes_key, new IvParameterSpec(iv));
+    public static String decryptString(String cadena, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
 
-            byte[] msg = cifrado.doFinal(cmsg);
+        if (cadena != null) {
+            try {
 
-            return new String(msg, "UTF-8");
+                Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | UnsupportedEncodingException | IllegalBlockSizeException | BadPaddingException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                byte[] full_msg = Base64.decodeBase64(cadena);
+
+                byte[] hmac = new byte[32];
+
+                byte[] iv = new byte[cifrado.getBlockSize()];
+
+                byte[] cmsg;
+
+                int i;
+
+                if (hmac_key != null) {
+
+                    cmsg = new byte[full_msg.length - hmac.length - iv.length];
+
+                    for (i = 0; i < hmac.length; i++) {
+                        hmac[i] = full_msg[i];
+                    }
+
+                    for (i = 0; i < iv.length; i++) {
+                        iv[i] = full_msg[i + hmac.length];
+                    }
+
+                    for (i = 0; i < cmsg.length; i++) {
+                        cmsg[i] = full_msg[i + hmac.length + iv.length];
+                    }
+
+                    byte[] iv_cmsg = new byte[iv.length + cmsg.length];
+
+                    for (i = 0; i < iv.length; i++) {
+                        iv_cmsg[i] = iv[i];
+                    }
+
+                    for (i = 0; i < cmsg.length; i++) {
+                        iv_cmsg[i + iv.length] = cmsg[i];
+                    }
+
+                    Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+
+                    sha256_HMAC.init(hmac_key);
+
+                    byte[] current_hmac = sha256_HMAC.doFinal(iv_cmsg);
+
+                    if (!MessageDigest.isEqual(hmac, current_hmac)) {
+                        throw new KeyException("BAD HMAC or BAD KEY");
+                    }
+                } else {
+
+                    cmsg = new byte[full_msg.length - iv.length];
+
+                    for (i = 0; i < iv.length; i++) {
+                        iv[i] = full_msg[i];
+                    }
+
+                    for (i = 0; i < cmsg.length; i++) {
+                        cmsg[i] = full_msg[i + iv.length];
+                    }
+
+                }
+
+                cifrado.init(Cipher.DECRYPT_MODE, aes_key, new IvParameterSpec(iv));
+
+                byte[] msg = cifrado.doFinal(cmsg);
+
+                return new String(msg, "UTF-8");
+
+            } catch (UnsupportedEncodingException | IllegalStateException | InvalidAlgorithmParameterException | KeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
 
         return null;
@@ -394,7 +397,7 @@ public class Helpers {
 
     public static String decryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
 
-        return command.charAt(0) == '*' ? Helpers.decryptString(command.trim().substring(1), aes_key, hmac_key) : command;
+        return (command != null && command.charAt(0) == '*') ? Helpers.decryptString(command.trim().substring(1), aes_key, hmac_key) : command;
     }
 
     public static void createIfNoExistsCoronaDirs() {
@@ -412,12 +415,6 @@ public class Helpers {
         }
 
         f = new File(DEBUG_DIR);
-
-        if (!f.exists()) {
-            f.mkdir();
-        }
-
-        f = new File(REC_DIR);
 
         if (!f.exists()) {
             f.mkdir();

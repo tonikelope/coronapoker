@@ -21,6 +21,7 @@ import static com.tonikelope.coronapoker.Init.SQLITE;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.io.File;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -227,6 +228,30 @@ public class NewGameDialog extends javax.swing.JDialog {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    private String sqlGetRecoverIdFromGameId(int id_game) {
+
+        try {
+            String sql = "SELECT id_recover from recover where id_game=?";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, id_game);
+
+            ResultSet rs = statement.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("id_recover");
+            }
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
     }
 
     /**
@@ -617,7 +642,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             Game.setRECOVER(this.recover_checkbox.isSelected());
 
             if (Game.RECOVER) {
-                Game.RECOVER_ID = (int) game.get((String) game_combo.getSelectedItem()).get("id");
+                Game.RECOVER_ID = sqlGetRecoverIdFromGameId((int) game.get((String) game_combo.getSelectedItem()).get("id"));
             }
 
             if (this.manos_checkbox.isSelected()) {

@@ -137,7 +137,6 @@ public class Crupier implements Runnable {
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; //2 players
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
-    public static final String PERMUTATION_KEY_FILE = Init.REC_DIR + "/PERMUTATION_KEY";
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
@@ -2077,7 +2076,7 @@ public class Crupier implements Runnable {
 
         if (getJugadoresActivos() > 1 && !saltar_mano_recover) {
 
-            if (permutacion_recuperada == null) {
+            if (this.sqlite_id_hand == -1) {
                 sqlNewHand();
             }
 
@@ -2250,6 +2249,37 @@ public class Crupier implements Runnable {
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    private boolean sqlCheckRecoverAction(Player current_player) {
+
+        try {
+
+            String sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=? and action=? and bet=?";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, this.sqlite_id_hand);
+
+            statement.setString(2, current_player.getNickname());
+
+            statement.setInt(3, this.conta_accion);
+
+            statement.setInt(4, current_player.getDecision());
+
+            statement.setFloat(5, Helpers.floatClean1D(current_player.getBet()));
+
+            ResultSet rs = statement.executeQuery();
+
+            return rs.next();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return false;
     }
 
     private void sqlNewShowcards(String jugador, boolean parguela) {
@@ -2512,12 +2542,48 @@ public class Crupier implements Runnable {
 
             sqlite_id_game = statement.getGeneratedKeys().getInt(1);
 
+            sql = "INSERT INTO recover(id_recover, id_game) VALUES (?, ?)";
+
+            statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setString(1, Game.RECOVER_ID);
+
+            statement.setInt(2, sqlite_id_game);
+
+            statement.executeUpdate();
+
         } catch (SQLException ex) {
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    public static int sqlGetGameIdFromRecoverId() {
+
+        try {
+            String sql = "SELECT id_game from recover where id_recover=?";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setString(1, Game.RECOVER_ID);
+
+            ResultSet rs = statement.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt("id_game");
+            }
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return -1;
     }
 
     private boolean sqlIsPlayerInHandPreflop(String nick, int hand_id) {
@@ -3630,7 +3696,17 @@ public class Crupier implements Runnable {
                     conta_pos %= Game.getInstance().getJugadores().size();
                 }
 
-                this.sqlNewAction(current_player);
+                if (!this.sincronizando_mano) {
+                    this.sqlNewAction(current_player);
+                } else if (!this.sqlCheckRecoverAction(current_player)) {
+                    Helpers.threadRun(new Runnable() {
+                        public void run() {
+
+                            Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), current_player.getNickname() + " " + Translator.translate("¡¡TEN CUIDADO!! EL JUGADOR NO HIZO ESO LA OTRA VEZ. (ESTÁ HACIENDO TRAMPAS)."));
+
+                        }
+                    });
+                }
 
                 while (isPlaying_cinematic()) {
 
@@ -4032,7 +4108,7 @@ public class Crupier implements Runnable {
 
             statement.setQueryTimeout(30);
 
-            statement.setInt(1, Game.RECOVER_ID);
+            statement.setInt(1, this.sqlite_id_game);
 
             ResultSet rs = statement.executeQuery();
 
@@ -4056,7 +4132,7 @@ public class Crupier implements Runnable {
 
             statement.setQueryTimeout(30);
 
-            statement.setInt(1, Game.RECOVER_ID);
+            statement.setInt(1, this.sqlite_id_game);
 
             ResultSet rs = statement.executeQuery();
 
@@ -4080,9 +4156,9 @@ public class Crupier implements Runnable {
 
             statement.setQueryTimeout(30);
 
-            statement.setInt(1, Game.RECOVER_ID);
+            statement.setInt(1, this.sqlite_id_game);
 
-            statement.setInt(2, Game.RECOVER_ID);
+            statement.setInt(2, this.sqlite_id_game);
 
             ResultSet rs = statement.executeQuery();
 
@@ -4113,11 +4189,11 @@ public class Crupier implements Runnable {
 
             statement.setQueryTimeout(30);
 
-            statement.setInt(1, Game.RECOVER_ID);
+            statement.setInt(1, this.sqlite_id_game);
 
-            statement.setInt(2, Game.RECOVER_ID);
+            statement.setInt(2, this.sqlite_id_game);
 
-            statement.setInt(3, Game.RECOVER_ID);
+            statement.setInt(3, this.sqlite_id_game);
 
             ResultSet rs = statement.executeQuery();
 
@@ -4141,9 +4217,9 @@ public class Crupier implements Runnable {
 
             statement.setQueryTimeout(30);
 
-            statement.setInt(1, Game.RECOVER_ID);
+            statement.setInt(1, this.sqlite_id_game);
 
-            statement.setInt(2, Game.RECOVER_ID);
+            statement.setInt(2, this.sqlite_id_game);
 
             rs = statement.executeQuery();
 
@@ -4186,7 +4262,7 @@ public class Crupier implements Runnable {
                     participante = Game.getInstance().getParticipantes().get(Game.getInstance().getJugadores().get(i).getNickname());
                 }
 
-                sqlUpdateGameLastDeck(Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getPermutation_key(), null));
+                sqlUpdateGameLastDeck(Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + participante.getPermutation_key_hash() + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getPermutation_key(), null));
 
             } else {
 
@@ -4227,9 +4303,9 @@ public class Crupier implements Runnable {
 
                 int id = Helpers.SPRNG_GENERATOR.nextInt();
 
-                String full_command = "GAME#" + String.valueOf(id) + "#" + "PERMUTATIONKEY";
-
                 Participant p = Game.getInstance().getParticipantes().get(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
+
+                String full_command = "GAME#" + String.valueOf(id) + "#PERMUTATIONKEY#" + perm_parts[1];
 
                 p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
 
@@ -4247,7 +4323,7 @@ public class Crupier implements Runnable {
                     }
                 }
 
-                datos = Helpers.decryptString(perm_parts[1], new SecretKeySpec(Base64.decodeBase64(permutation_key), "AES"), null);
+                datos = Helpers.decryptString(perm_parts[2], new SecretKeySpec(Base64.decodeBase64(permutation_key), "AES"), null);
             } else {
                 datos = this.sqlRecoverGameLastDeck();
             }
@@ -5038,8 +5114,20 @@ public class Crupier implements Runnable {
 
         if (Game.getInstance().isPartida_local()) {
 
-            broadcastGAMECommandFromServer("INIT#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.CIEGA_PEQUEÑA) + "#" + String.valueOf(Game.CIEGA_GRANDE) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(Game.isRECOVER()) + "#" + String.valueOf(Game.REBUY) + "#" + String.valueOf(Game.MANOS), null);
+            if (!Game.RECOVER) {
+                byte[] random = new byte[16];
 
+                Helpers.SPRNG_GENERATOR.nextBytes(random);
+
+                Game.RECOVER_ID = Base64.encodeBase64String(random);
+            }
+
+            broadcastGAMECommandFromServer("INIT#" + String.valueOf(Game.BUYIN) + "#" + String.valueOf(Game.CIEGA_PEQUEÑA) + "#" + String.valueOf(Game.CIEGA_GRANDE) + "#" + String.valueOf(Game.CIEGAS_TIME) + "#" + String.valueOf(Game.isRECOVER()) + "@" + Game.RECOVER_ID + "#" + String.valueOf(Game.REBUY) + "#" + String.valueOf(Game.MANOS), null);
+
+        }
+
+        if (Game.RECOVER) {
+            this.sqlite_id_game = Crupier.sqlGetGameIdFromRecoverId();
         }
 
         Helpers.GUIRun(new Runnable() {
@@ -5056,8 +5144,6 @@ public class Crupier implements Runnable {
 
         if (!Game.RECOVER) {
             sqlNewGame();
-        } else {
-            this.sqlite_id_game = Game.RECOVER_ID;
         }
 
         //ESTE MAPA HAY QUE CARGARLO UNA VEZ TENEMOS A LOS JUGADORES EN SUS SITIOS
@@ -5649,6 +5735,11 @@ public class Crupier implements Runnable {
                             updateExitPlayers();
 
                         } else {
+
+                            if (!Game.getInstance().isPartida_local()) {
+                                Game.getInstance().getSala_espera().sqlRemovePermutationkey();
+                            }
+
                             fin_de_la_transmision = true;
                         }
 

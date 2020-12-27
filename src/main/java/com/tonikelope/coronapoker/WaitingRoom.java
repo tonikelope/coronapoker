@@ -33,8 +33,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.InvalidKeyException;
 import java.security.KeyException;
 import java.security.KeyFactory;
@@ -95,6 +93,8 @@ public class WaitingRoom extends javax.swing.JFrame {
     private volatile ServerSocket server_socket = null;
     private volatile SecretKeySpec local_client_aes_key = null;
     private volatile SecretKeySpec local_client_hmac_key = null;
+    private volatile SecretKeySpec local_client_permutation_key = null;
+    private volatile String local_client_permutation_key_hash = null;
     private volatile Socket local_client_socket = null;
     private volatile BufferedReader local_client_buffer_read_is = null;
     private volatile String server_ip_port;
@@ -104,6 +104,14 @@ public class WaitingRoom extends javax.swing.JFrame {
     private volatile boolean unsecure_server = false;
     private volatile int pong;
     private volatile String video_chat_link = null;
+
+    public SecretKeySpec getLocal_client_permutation_key() {
+        return local_client_permutation_key;
+    }
+
+    public String getLocal_client_permutation_key_hash() {
+        return local_client_permutation_key_hash;
+    }
 
     public Map<String, Participant> getParticipantes() {
         return participantes;
@@ -357,6 +365,73 @@ public class WaitingRoom extends javax.swing.JFrame {
         }
     }
 
+    private void sqlSavePermutationkey() {
+
+        try {
+
+            String sql = "INSERT INTO permutationkey(hash, key) VALUES (?, ?)";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setString(1, this.local_client_permutation_key_hash);
+
+            statement.setString(2, Base64.encodeBase64String(this.local_client_permutation_key.getEncoded()));
+
+            statement.executeUpdate();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    private String sqlReadPermutationkey(String hash) {
+
+        try {
+
+            String sql = "SELECT key FROM permutationkey WHERE hash=?";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setString(1, hash);
+
+            ResultSet rs = statement.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("key");
+            }
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+
+    }
+
+    public void sqlRemovePermutationkey() {
+
+        try {
+
+            String sql = "DELETE FROM permutationkey WHERE hash=?";
+
+            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setString(1, this.local_client_permutation_key_hash);
+
+            statement.executeUpdate();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
     public void writeCommandToServer(String command) throws IOException {
 
         while (this.reconnecting) {
@@ -382,15 +457,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-        String recibido = in.readLine();
-
-        if (recibido != null && recibido.startsWith("*")) {
-            recibido = Helpers.decryptCommand(recibido.trim(), key, hmac_key);
-        } else if (recibido != null) {
-            recibido = recibido.trim();
-        }
-
-        return recibido;
+        return Helpers.decryptCommand(in.readLine(), key, hmac_key);
     }
 
     public String readCommandFromServer() throws KeyException, IOException {
@@ -405,15 +472,7 @@ public class WaitingRoom extends javax.swing.JFrame {
             }
         }
 
-        String recibido = this.local_client_buffer_read_is.readLine();
-
-        if (recibido != null && recibido.startsWith("*")) {
-            recibido = Helpers.decryptCommand(recibido.trim(), this.getLocal_client_aes_key(), this.getLocal_client_hmac_key());
-        } else if (recibido != null) {
-            recibido = recibido.trim();
-        }
-
-        return recibido;
+        return Helpers.decryptCommand(this.local_client_buffer_read_is.readLine(), this.getLocal_client_aes_key(), this.getLocal_client_hmac_key());
     }
 
     //Función AUTO-RECONNECT
@@ -919,9 +978,21 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                         server_nick = new String(Base64.decodeBase64(partes[0]), "UTF-8").trim();
 
-                        //Guardamos nuestra clave AES de sesión en disco para en caso de que la partida se corte el servidor pueda recuperarla
+                        //Generamos y guardamos nuestra clave de permutacion para en caso de que la partida se corte el servidor pueda recuperarla
                         try {
-                            Files.writeString(Paths.get(Crupier.PERMUTATION_KEY_FILE + "_" + server_nick), Base64.encodeBase64String(local_client_aes_key.getEncoded()));
+
+                            MessageDigest md = MessageDigest.getInstance("MD5");
+                            md.update(local_nick.getBytes("UTF-8"));
+                            md.update(server_nick.getBytes("UTF-8"));
+                            md.update(local_client_aes_key.getEncoded());
+                            md.update(local_client_hmac_key.getEncoded());
+                            local_client_permutation_key = new SecretKeySpec(md.digest(), "AES");
+
+                            md = MessageDigest.getInstance("MD5");
+                            local_client_permutation_key_hash = Helpers.toHexString(md.digest(local_client_permutation_key.getEncoded()));
+
+                            sqlSavePermutationkey();
+
                         } catch (IOException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -1107,11 +1178,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                         Helpers.threadRun(new Runnable() {
                                                             public void run() {
-                                                                try {
-                                                                    Game.getInstance().getCrupier().sendGAMECommandToServer("PERMUTATIONKEY#" + Files.readString(Paths.get(Crupier.PERMUTATION_KEY_FILE + "_" + server_nick)));
-                                                                } catch (IOException ex) {
-                                                                    Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-                                                                }
+                                                                Game.getInstance().getCrupier().sendGAMECommandToServer("PERMUTATIONKEY#" + sqlReadPermutationkey(partes_comando[3]));
                                                             }
                                                         });
                                                         break;
@@ -1252,7 +1319,9 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                                         Game.CIEGAS_TIME = Integer.parseInt(partes_comando[6]);
 
-                                                        Game.RECOVER = Boolean.parseBoolean(partes_comando[7]);
+                                                        Game.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
+
+                                                        Game.RECOVER_ID = partes_comando[7].split("@")[1];
 
                                                         Game.REBUY = Boolean.parseBoolean(partes_comando[8]);
 
@@ -2214,15 +2283,13 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     statement.setQueryTimeout(30);
 
-                    statement.setInt(1, Game.RECOVER_ID);
+                    statement.setInt(1, Crupier.sqlGetGameIdFromRecoverId());
 
-                    statement.setInt(2, Game.RECOVER_ID);
+                    statement.setInt(2, Crupier.sqlGetGameIdFromRecoverId());
 
                     ResultSet rs = statement.executeQuery();
 
                     rs.next();
-
-                    System.out.println(Game.RECOVER_ID);
 
                     try {
                         String datos = rs.getString("PLAYERS");

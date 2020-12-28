@@ -2249,7 +2249,7 @@ public class Crupier implements Runnable {
 
             String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, conta_raise, response_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -2273,17 +2273,21 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
 
     private boolean sqlCheckRecoverAction(Player current_player) {
 
+        boolean ret = false;
+
         try {
 
             String sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=? and action=? and bet=?";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -2299,13 +2303,15 @@ public class Crupier implements Runnable {
 
             ResultSet rs = statement.executeQuery();
 
-            return rs.next();
+            ret = rs.next();
 
         } catch (SQLException ex) {
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
-        return false;
+        return ret;
     }
 
     private void sqlNewShowcards(String jugador, boolean parguela) {
@@ -2313,7 +2319,7 @@ public class Crupier implements Runnable {
         String sql = "INSERT INTO showcards(id_hand, player, parguela) VALUES(?,?,?)";
 
         try {
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setInt(1, this.sqlite_id_hand);
 
@@ -2325,6 +2331,8 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -2334,7 +2342,7 @@ public class Crupier implements Runnable {
         String sql = "UPDATE showdown SET hole_cards=?, hand_cards=?, hand_val=? WHERE id_hand=? AND player=?";
 
         try {
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setString(1, jugador.getPlayingCard1().isTapada() ? null : jugador.getPlayingCard1().toShortString() + "#" + jugador.getPlayingCard2().toShortString());
 
@@ -2350,6 +2358,8 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -2359,7 +2369,7 @@ public class Crupier implements Runnable {
         String sql = "UPDATE showdown SET pay=?, profit=? WHERE id_hand=? AND player=?";
 
         try {
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setFloat(1, Helpers.floatClean1D(jugador.getPagar()));
 
@@ -2373,6 +2383,8 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -2382,7 +2394,7 @@ public class Crupier implements Runnable {
         String sql = "INSERT INTO showdown(id_hand, player, hole_cards, hand_cards, hand_val, winner, pay, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try {
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setInt(1, this.sqlite_id_hand);
 
@@ -2404,6 +2416,8 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -2412,14 +2426,17 @@ public class Crupier implements Runnable {
 
         PreparedStatement statement;
         try {
-            statement = Init.SQLITE.prepareStatement("UPDATE hand SET end=?, pot=? WHERE id=?");
+            statement = Helpers.getSQLITE().prepareStatement("UPDATE hand SET end=?, pot=? WHERE id=?");
             statement.setQueryTimeout(30);
             statement.setLong(1, System.currentTimeMillis());
             statement.setFloat(2, Helpers.floatClean1D(bote_tot));
             statement.setInt(3, this.sqlite_id_hand);
             statement.executeUpdate();
+
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
         for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
@@ -2439,13 +2456,16 @@ public class Crupier implements Runnable {
         }
 
         try {
-            statement = Init.SQLITE.prepareStatement("UPDATE game SET play_time=? WHERE id=?");
+            statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET play_time=? WHERE id=?");
             statement.setQueryTimeout(30);
             statement.setLong(1, Game.getInstance().getConta_tiempo_juego());
             statement.setInt(2, this.sqlite_id_game);
             statement.executeUpdate();
+
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
     }
 
@@ -2482,14 +2502,17 @@ public class Crupier implements Runnable {
 
         PreparedStatement statement;
         try {
-            statement = Init.SQLITE.prepareStatement(sql);
+            statement = Helpers.getSQLITE().prepareStatement(sql);
             statement.setQueryTimeout(30);
             statement.setString(1, jugadores.substring(1));
             statement.setString(2, cards);
             statement.setInt(3, this.sqlite_id_hand);
             statement.executeUpdate();
+
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -2506,15 +2529,18 @@ public class Crupier implements Runnable {
 
         PreparedStatement statement;
         try {
-            statement = Init.SQLITE.prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin) VALUES (?,?,?,?)");
+            statement = Helpers.getSQLITE().prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin) VALUES (?,?,?,?)");
             statement.setQueryTimeout(30);
             statement.setInt(1, this.sqlite_id_hand);
             statement.setString(2, nick);
             statement.setFloat(3, Helpers.floatClean1D(stack));
             statement.setInt(4, buyin);
             statement.executeUpdate();
+
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
     }
 
@@ -2522,15 +2548,18 @@ public class Crupier implements Runnable {
 
         PreparedStatement statement;
         try {
-            statement = Init.SQLITE.prepareStatement("UPDATE balance SET stack=?, buyin=? WHERE id_hand=? and player=?");
+            statement = Helpers.getSQLITE().prepareStatement("UPDATE balance SET stack=?, buyin=? WHERE id_hand=? and player=?");
             statement.setQueryTimeout(30);
             statement.setFloat(1, Helpers.floatClean1D(stack));
             statement.setInt(2, buyin);
             statement.setInt(3, this.sqlite_id_hand);
             statement.setString(4, nick);
             statement.executeUpdate();
+
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
     }
 
@@ -2540,7 +2569,7 @@ public class Crupier implements Runnable {
 
             String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -2570,7 +2599,7 @@ public class Crupier implements Runnable {
 
             sql = "INSERT INTO recover(id_recover, id_game) VALUES (?, ?)";
 
-            statement = Init.SQLITE.prepareStatement(sql);
+            statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -2584,16 +2613,19 @@ public class Crupier implements Runnable {
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
 
     public static int sqlGetGameIdFromRecoverId() {
 
+        int ret = -1;
         try {
             String sql = "SELECT id_game from recover where id_recover=?";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -2602,22 +2634,26 @@ public class Crupier implements Runnable {
             ResultSet rs = statement.executeQuery();
 
             if (rs.next()) {
-                return rs.getInt("id_game");
+                ret = rs.getInt("id_game");
             }
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
-        return -1;
+        return ret;
     }
 
     private boolean sqlIsPlayerInHandPreflop(String nick, int hand_id) {
 
+        boolean ret = false;
+
         try {
             String sql = "select preflop_players from hand where id=?";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -2627,14 +2663,16 @@ public class Crupier implements Runnable {
 
             if (rs.next()) {
 
-                return rs.getString("preflop_players").contains(Base64.encodeBase64String(nick.getBytes("UTF-8")));
+                ret = rs.getString("preflop_players").contains(Base64.encodeBase64String(nick.getBytes("UTF-8")));
             }
 
         } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
-        return false;
+        return ret;
     }
 
     private void sqlNewHand() {
@@ -2642,7 +2680,7 @@ public class Crupier implements Runnable {
 
             String sql = "INSERT INTO hand(id_game, counter, sbval, blinds_double, dealer, sb, bb, start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -2668,6 +2706,8 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
         if (this.conta_mano == 1) {
@@ -4112,25 +4152,30 @@ public class Crupier implements Runnable {
         try {
             String sql = "UPDATE game SET last_deck=? WHERE id=?";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
             statement.setString(1, deck);
             statement.setInt(2, this.sqlite_id_game);
             statement.executeUpdate();
+
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
 
     private String sqlRecoverGameLastDeck() {
 
+        String ret = null;
+
         try {
             String sql = "SELECT last_deck from game WHERE id=?";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -4140,21 +4185,25 @@ public class Crupier implements Runnable {
 
             rs.next();
 
-            return rs.getString("last_deck");
+            ret = rs.getString("last_deck");
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
-        return null;
+        return ret;
     }
 
     private String sqlRecoverGameSeats() {
 
+        String ret = null;
+
         try {
             String sql = "SELECT players from game WHERE id=?";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -4164,21 +4213,25 @@ public class Crupier implements Runnable {
 
             rs.next();
 
-            return rs.getString("players");
+            ret = rs.getString("players");
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
-        return null;
+        return ret;
     }
 
     private String sqlRecoverHandActions() {
 
+        String ret = null;
+
         try {
             String sql = "select action.player as player, action.action as action, round(action.bet,2) as bet from action,hand where action.id_hand=hand.id and hand.id_game=? and hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) order by action.counter";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -4194,24 +4247,26 @@ public class Crupier implements Runnable {
 
                 actions += Base64.encodeBase64String(rs.getString("player").getBytes("UTF-8")) + "#" + String.valueOf(rs.getInt("action")) + "#" + String.valueOf(rs.getFloat("bet")) + "@";
             }
-            return actions;
+            ret = actions;
 
         } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
-        return null;
+        return ret;
     }
 
     private HashMap<String, Object> sqlRecoverGameBalance() {
 
-        HashMap<String, Object> map = new HashMap<>();
+        HashMap<String, Object> map = null;
 
         try {
 
             String sql = "select hand.id as hand_id, server, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, hand.blinds_double as blinds_double, hand.dealer as dealer from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -4225,6 +4280,7 @@ public class Crupier implements Runnable {
 
             rs.next();
 
+            map = new HashMap<>();
             map.put("hand_id", rs.getInt("hand_id"));
             map.put("server", rs.getString("server"));
             map.put("buyin", rs.getInt("buyin"));
@@ -4239,7 +4295,7 @@ public class Crupier implements Runnable {
 
             sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
 
-            statement = Init.SQLITE.prepareStatement(sql);
+            statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -4258,13 +4314,13 @@ public class Crupier implements Runnable {
 
             map.put("balance", String.join("@", balance));
 
-            return map;
-
         } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
-        return null;
+        return map;
     }
 
     private void preservarPermutacion(Integer[] permutation) {

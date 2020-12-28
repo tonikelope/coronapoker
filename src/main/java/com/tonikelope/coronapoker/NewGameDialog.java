@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.Helpers.JTextFieldRegularPopupMenu;
-import static com.tonikelope.coronapoker.Init.SQLITE;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.io.File;
@@ -198,7 +197,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             String sql = "SELECT id,start,server FROM game ORDER BY start DESC";
 
-            Statement statement = SQLITE.createStatement();
+            Statement statement = Helpers.getSQLITE().createStatement();
 
             statement.setQueryTimeout(30);
 
@@ -216,6 +215,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                     map.put("id", rs.getInt("id"));
                     game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
                     game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
+
                 } catch (SQLException ex) {
                     Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -226,16 +226,20 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
 
     private String sqlGetRecoverIdFromGameId(int id_game) {
 
+        String ret = null;
+
         try {
             String sql = "SELECT id_recover from recover where id_game=?";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -244,14 +248,16 @@ public class NewGameDialog extends javax.swing.JDialog {
             ResultSet rs = statement.executeQuery();
 
             if (rs.next()) {
-                return rs.getString("id_recover");
+                ret = rs.getString("id_recover");
             }
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
-        return null;
+        return ret;
     }
 
     /**

@@ -1390,7 +1390,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 PreparedStatement statement;
 
                 try {
-                    statement = Init.SQLITE.prepareStatement("UPDATE game SET end=? WHERE id=?");
+                    statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?");
                     statement.setQueryTimeout(30);
                     statement.setLong(1, System.currentTimeMillis());
                     statement.setLong(2, crupier.getSqlite_game_id());
@@ -1531,6 +1531,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
 
             Helpers.SQLITEVAC();
+
+            Helpers.forceCloseSQLITE();
 
             System.exit(0); //No hay otra
         }

@@ -82,7 +82,7 @@ public class Participant implements Runnable {
                 md.update(this.hmac_key.getEncoded());
                 this.permutation_key = new SecretKeySpec(md.digest(), "AES");
                 md = MessageDigest.getInstance("MD5");
-                this.permutation_key_hash = Helpers.toHexString(md.digest(this.permutation_key.getEncoded()));
+                this.permutation_key_hash = Base64.encodeBase64String(md.digest(this.permutation_key.getEncoded()));
             } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
             }

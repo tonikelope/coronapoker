@@ -5,7 +5,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import static com.tonikelope.coronapoker.Init.SQLITE;
 import java.awt.Font;
 import java.io.UnsupportedEncodingException;
 import java.sql.PreparedStatement;
@@ -117,7 +116,7 @@ public class Stats extends javax.swing.JDialog {
             try {
                 String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 and game.id=? order by hand_val DESC,BENEFICIO DESC;";
 
-                PreparedStatement statement = SQLITE.prepareStatement(sql);
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
@@ -126,26 +125,34 @@ public class Stats extends javax.swing.JDialog {
                 rs = statement.executeQuery();
 
                 mejoresJugadas(rs);
+
                 res_table_warning.setVisible(false);
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                Helpers.closeSQLITE();
             }
 
         } else {
 
             try {
                 String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, (game.server || '|' || game.start) as TIMBA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,BENEFICIO DESC; LIMIT 1000";
-                Statement statement = SQLITE.createStatement();
+                Statement statement = Helpers.getSQLITE().createStatement();
 
                 statement.setQueryTimeout(30);
 
                 rs = statement.executeQuery(sql);
+
                 mejoresJugadas(rs);
+
                 res_table_warning.setText(Translator.translate("Nota: se muestran las 1000 mejores jugadas ganadoras"));
                 res_table_warning.setVisible(true);
+
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                Helpers.closeSQLITE();
             }
         }
 
@@ -278,7 +285,7 @@ public class Stats extends javax.swing.JDialog {
 
                 String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_JUGADAS, ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_GANADAS, CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS PRECISION, roi||'%' AS ROI, case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as EFECTIVIDAD from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and hand.id_game=? and action>=2 and round=1 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown,hand left join (select player,count(distinct id_hand) as GANADAS from showdown,hand where showdown.id_hand=hand.id and hand.id_game=? and winner=1 group by player) as tc on showdown.player=tc.player where showdown.id_hand=hand.id and hand.id_game=? group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and hand.id_game=? group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by EFECTIVIDAD DESC";
 
-                PreparedStatement statement = SQLITE.prepareStatement(sql);
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
@@ -293,6 +300,8 @@ public class Stats extends javax.swing.JDialog {
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                Helpers.closeSQLITE();
             }
 
         } else {
@@ -300,7 +309,7 @@ public class Stats extends javax.swing.JDialog {
 
                 String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_JUGADAS, ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_GANADAS, CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS PRECISION, roi||'%' AS ROI, case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as EFECTIVIDAD from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where action>=2 and round=1 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown left join (select player,count(distinct id_hand) as GANADAS from showdown where winner=1 group by player) as tc on showdown.player=tc.player group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by EFECTIVIDAD DESC";
 
-                Statement statement = SQLITE.createStatement();
+                Statement statement = Helpers.getSQLITE().createStatement();
 
                 statement.setQueryTimeout(30);
 
@@ -308,6 +317,8 @@ public class Stats extends javax.swing.JDialog {
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                Helpers.closeSQLITE();
             }
 
         }
@@ -369,7 +380,7 @@ public class Stats extends javax.swing.JDialog {
 
                 String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and round=? and hand.id_game=? and action>=3 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and action>=2 and round=? and hand.id_game=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by MANOS DESC";
 
-                PreparedStatement statement = SQLITE.prepareStatement(sql);
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
@@ -387,6 +398,8 @@ public class Stats extends javax.swing.JDialog {
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                Helpers.closeSQLITE();
             }
 
         } else {
@@ -394,7 +407,7 @@ public class Stats extends javax.swing.JDialog {
 
                 String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where round=? and action>=3 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action WHERE action>=2 and round=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by MANOS DESC";
 
-                PreparedStatement statement = SQLITE.prepareStatement(sql);
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
@@ -406,6 +419,8 @@ public class Stats extends javax.swing.JDialog {
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                Helpers.closeSQLITE();
             }
 
         }
@@ -474,7 +489,7 @@ public class Stats extends javax.swing.JDialog {
 
                 String sql = "SELECT player as JUGADOR, ROUND(stack, 1) as STACK, buyin as BUYIN, ROUND(stack-buyin,1) as BENEFICIO, ROUND(((stack-buyin)/(buyin))*100,0) as ROI FROM balance WHERE id_hand=? GROUP BY JUGADOR ORDER BY ROI DESC";
 
-                PreparedStatement statement = SQLITE.prepareStatement(sql);
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
@@ -490,7 +505,7 @@ public class Stats extends javax.swing.JDialog {
 
                 String sql = "SELECT player as JUGADOR, ROUND(stack,1) AS STACK, buyin AS BUYIN, ROUND(stack-buyin,1) AS BENEFICIO, ROUND(((stack-buyin)/(buyin))*100,0) as ROI FROM balance,hand WHERE balance.id_hand=hand.id AND hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY JUGADOR ORDER BY ROI DESC";
 
-                PreparedStatement statement = SQLITE.prepareStatement(sql);
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
@@ -503,11 +518,12 @@ public class Stats extends javax.swing.JDialog {
             } else {
                 String sql = "SELECT player AS JUGADOR, ROUND(SUM(stack),1) AS STACK, SUM(buyin) AS BUYIN, ROUND(SUM(stack-buyin),1) AS BENEFICIO, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as ROI from balance WHERE id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY JUGADOR ORDER BY ROI DESC";
 
-                Statement statement = SQLITE.createStatement();
+                Statement statement = Helpers.getSQLITE().createStatement();
 
                 statement.setQueryTimeout(30);
 
                 rs = statement.executeQuery(sql);
+
             }
 
             DefaultTableModel tableModel = new DefaultTableModel();
@@ -563,6 +579,8 @@ public class Stats extends javax.swing.JDialog {
 
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -572,7 +590,7 @@ public class Stats extends javax.swing.JDialog {
         try {
             String sql = "SELECT *, (SELECT COUNT(*) from hand where id_game=? AND end IS NOT NULL) as tot_hands FROM game WHERE id=?";
 
-            PreparedStatement statement = SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -607,6 +625,8 @@ public class Stats extends javax.swing.JDialog {
 
         } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -616,7 +636,7 @@ public class Stats extends javax.swing.JDialog {
         try {
             String sql = "SELECT * FROM hand WHERE id_game=? AND id=?";
 
-            PreparedStatement statement = SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -713,6 +733,8 @@ public class Stats extends javax.swing.JDialog {
 
         } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -723,7 +745,7 @@ public class Stats extends javax.swing.JDialog {
             ResultSet rs;
             String sql = "SELECT player AS JUGADOR, winner as GANA, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val AS JUGADA, ROUND(pay,1) as PAGAR, ROUND(profit,1) as BENEFICIO FROM showdown WHERE id_hand=? order by GANA DESC,PAGAR DESC";
 
-            PreparedStatement statement = SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -735,6 +757,8 @@ public class Stats extends javax.swing.JDialog {
 
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -856,7 +880,7 @@ public class Stats extends javax.swing.JDialog {
 
                 String sql = "SELECT player as JUGADOR, ROUND(AVG(response_time),1) as TIEMPO from action WHERE id_hand=? GROUP BY JUGADOR order by TIEMPO DESC";
 
-                PreparedStatement statement = SQLITE.prepareStatement(sql);
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
@@ -868,7 +892,7 @@ public class Stats extends javax.swing.JDialog {
 
                 String sql = "SELECT player as JUGADOR, ROUND(AVG(response_time),1) as TIEMPO from action,hand WHERE action.id_hand=hand.id AND hand.id_game=? GROUP BY JUGADOR order by TIEMPO DESC";
 
-                PreparedStatement statement = SQLITE.prepareStatement(sql);
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
                 statement.setQueryTimeout(30);
 
@@ -879,7 +903,7 @@ public class Stats extends javax.swing.JDialog {
             } else {
                 String sql = "SELECT player as JUGADOR, ROUND(AVG(response_time),1) as TIEMPO from action GROUP BY JUGADOR order by TIEMPO DESC";
 
-                Statement statement = SQLITE.createStatement();
+                Statement statement = Helpers.getSQLITE().createStatement();
 
                 statement.setQueryTimeout(30);
 
@@ -904,6 +928,8 @@ public class Stats extends javax.swing.JDialog {
 
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -914,7 +940,7 @@ public class Stats extends javax.swing.JDialog {
 
             String sql = "SELECT * FROM hand WHERE id_game=? AND end IS NOT NULL ORDER BY id DESC";
 
-            PreparedStatement statement = SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -941,6 +967,8 @@ public class Stats extends javax.swing.JDialog {
 
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
@@ -951,7 +979,7 @@ public class Stats extends javax.swing.JDialog {
 
             String sql = "SELECT id,start,server FROM game ORDER BY start DESC";
 
-            Statement statement = SQLITE.createStatement();
+            Statement statement = Helpers.getSQLITE().createStatement();
 
             statement.setQueryTimeout(30);
 
@@ -977,6 +1005,8 @@ public class Stats extends javax.swing.JDialog {
 
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }

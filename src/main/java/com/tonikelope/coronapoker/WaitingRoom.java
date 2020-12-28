@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronahmac.M;
-import static com.tonikelope.coronapoker.Init.SQLITE;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.io.BufferedReader;
@@ -371,7 +370,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             String sql = "INSERT INTO permutationkey(hash, key) VALUES (?, ?)";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -383,17 +382,21 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         } catch (SQLException ex) {
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
     }
 
     private String sqlReadPermutationkey(String hash) {
 
+        String ret = null;
+
         try {
 
             String sql = "SELECT key FROM permutationkey WHERE hash=?";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -402,14 +405,16 @@ public class WaitingRoom extends javax.swing.JFrame {
             ResultSet rs = statement.executeQuery();
 
             if (rs.next()) {
-                return rs.getString("key");
+                ret = rs.getString("key");
             }
 
         } catch (SQLException ex) {
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
-        return null;
+        return ret;
 
     }
 
@@ -419,7 +424,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             String sql = "DELETE FROM permutationkey WHERE hash=?";
 
-            PreparedStatement statement = Init.SQLITE.prepareStatement(sql);
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
@@ -429,6 +434,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         } catch (SQLException ex) {
             Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
     }
 
@@ -989,7 +996,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                             local_client_permutation_key = new SecretKeySpec(md.digest(), "AES");
 
                             md = MessageDigest.getInstance("MD5");
-                            local_client_permutation_key_hash = Helpers.toHexString(md.digest(local_client_permutation_key.getEncoded()));
+                            local_client_permutation_key_hash = Base64.encodeBase64String(md.digest(local_client_permutation_key.getEncoded()));
 
                             sqlSavePermutationkey();
 
@@ -2282,7 +2289,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     String sql = "SELECT preflop_players as PLAYERS FROM hand WHERE hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand where hand.id_game=?)";
 
-                    PreparedStatement statement = SQLITE.prepareStatement(sql);
+                    PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
                     statement.setQueryTimeout(30);
 
@@ -2294,29 +2301,25 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     rs.next();
 
-                    try {
-                        String datos = rs.getString("PLAYERS");
-                        String[] partes = datos.split("#");
+                    String datos = rs.getString("PLAYERS");
+                    String[] partes = datos.split("#");
 
-                        for (String player_data : partes) {
+                    for (String player_data : partes) {
 
-                            partes = player_data.split("\\|");
+                        partes = player_data.split("\\|");
 
-                            String nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
+                        String nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
 
-                            if (!participantes.containsKey(nick)) {
-                                faltan_jugadores = true;
-                                break;
-                            }
+                        if (!participantes.containsKey(nick)) {
+                            faltan_jugadores = true;
+                            break;
                         }
-
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-                    } catch (IOException ex) {
-                        Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                } catch (SQLException ex) {
+
+                } catch (SQLException | UnsupportedEncodingException ex) {
                     Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+                } finally {
+                    Helpers.closeSQLITE();
                 }
             }
 

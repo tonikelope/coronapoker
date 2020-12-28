@@ -48,15 +48,15 @@ public class Identicon extends javax.swing.JDialog {
 
                     ImageIcon icon = new ImageIcon(generateIdenticon(hash, SIZE, SIZE));
 
-                    setSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
-
-                    setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
-
-                    icon_panel.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
+                    icon_label.setIcon(icon);
 
                     icon_label.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
 
-                    icon_label.setIcon(icon);
+                    icon_panel.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
+
+                    setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
+
+                    pack();
                 }
             });
         } catch (NoSuchAlgorithmException ex) {

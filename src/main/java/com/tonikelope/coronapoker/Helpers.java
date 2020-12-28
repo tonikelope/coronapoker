@@ -4,7 +4,10 @@ import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Helpers.SPRNG;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
+import static com.tonikelope.coronapoker.Init.DEV_MODE;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
+import static com.tonikelope.coronapoker.Init.SQLITE;
+import static com.tonikelope.coronapoker.Init.SQL_FILE;
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Component;
@@ -48,6 +51,8 @@ import java.security.KeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -172,6 +177,83 @@ public class Helpers {
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
 
+    public static Connection getSQLITE() {
+
+        if (SQLITE != null) {
+
+            return SQLITE;
+
+        } else {
+
+            try {
+
+                SQLITE = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE);
+
+                return SQLITE;
+
+            } catch (SQLException ex) {
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            return null;
+        }
+    }
+
+    public static void closeSQLITE() {
+
+        if (DEV_MODE && SQLITE != null) {
+            try {
+                SQLITE.close();
+                SQLITE = null;
+            } catch (SQLException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    public static void forceCloseSQLITE() {
+
+        if (SQLITE != null) {
+            try {
+                SQLITE.close();
+                SQLITE = null;
+            } catch (SQLException ex) {
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    public static void initSQLITE() {
+        try {
+            Class.forName("org.sqlite.JDBC");
+
+            Statement statement = getSQLITE().createStatement();
+
+            statement.setQueryTimeout(30);  // set timeout to 30 sec.
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT)");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, FOREIGN KEY(id_game) REFERENCES game(id))");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, conta_raise INTEGER, response_time INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, pay REAL, profit REAL, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS showcards(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, parguela INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS recover(id INTEGER PRIMARY KEY, id_recover TEXT, id_game INTEGER, FOREIGN KEY(id_game) REFERENCES game(id))");
+
+        } catch (SQLException | ClassNotFoundException ex) {
+            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
+        }
+    }
+
     public static byte[] byteArrayConcat(byte[] a, byte[] b) {
         int lenA = a.length;
         int lenB = b.length;
@@ -183,10 +265,13 @@ public class Helpers {
     public static void SQLITEVAC() {
 
         try {
-            Statement statement = Init.SQLITE.createStatement();
+            Statement statement = Helpers.getSQLITE().createStatement();
             statement.execute("VACUUM");
+
         } catch (SQLException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
     }
 

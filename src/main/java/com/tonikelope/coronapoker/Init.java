@@ -24,9 +24,6 @@ import java.nio.file.Paths;
 import java.util.Random;
 import java.security.SecureRandom;
 import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -434,6 +431,8 @@ public class Init extends javax.swing.JFrame {
             //</editor-fold>
             //</editor-fold>
 
+            Helpers.initSQLITE();
+
             Helpers.PRNG_GENERATOR = new Random();
 
             Helpers.SPRNG_GENERATOR = new SecureRandom();
@@ -488,37 +487,8 @@ public class Init extends javax.swing.JFrame {
 
             Helpers.playLoopMp3Resource("misc/background_music.mp3");
 
-            try {
-                Class.forName("org.sqlite.JDBC");
-
-                // create a database connection
-                SQLITE = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE);
-
-                Statement statement = SQLITE.createStatement();
-
-                statement.setQueryTimeout(30);  // set timeout to 30 sec.
-
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT)");
-
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, FOREIGN KEY(id_game) REFERENCES game(id))");
-
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, conta_raise INTEGER, response_time INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
-
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, pay REAL, profit REAL, FOREIGN KEY(id_hand) REFERENCES hand(id))");
-
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
-
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS showcards(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, parguela INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id))");
-
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
-
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS recover(id INTEGER PRIMARY KEY, id_recover TEXT, id_game INTEGER, FOREIGN KEY(id_game) REFERENCES game(id))");
-
-            } catch (SQLException | ClassNotFoundException ex) {
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
             java.awt.EventQueue.invokeLater(new Runnable() {
+                @Override
                 public void run() {
                     Init ventana = new Init();
                     Helpers.centrarJFrame(ventana, 0);

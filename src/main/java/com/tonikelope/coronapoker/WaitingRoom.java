@@ -2285,6 +2285,8 @@ public class WaitingRoom extends javax.swing.JFrame {
 
             if (Game.RECOVER) {
 
+                int game_id = Crupier.sqlGetGameIdFromRecoverId();
+
                 try {
 
                     String sql = "SELECT preflop_players as PLAYERS FROM hand WHERE hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand where hand.id_game=?)";
@@ -2293,9 +2295,9 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     statement.setQueryTimeout(30);
 
-                    statement.setInt(1, Crupier.sqlGetGameIdFromRecoverId());
+                    statement.setInt(1, game_id);
 
-                    statement.setInt(2, Crupier.sqlGetGameIdFromRecoverId());
+                    statement.setInt(2, game_id);
 
                     ResultSet rs = statement.executeQuery();
 

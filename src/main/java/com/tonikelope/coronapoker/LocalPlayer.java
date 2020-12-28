@@ -2313,6 +2313,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void resetBote() {
+        this.bet = 0f;
         this.bote = 0f;
     }
 

@@ -199,7 +199,6 @@ public class Crupier implements Runnable {
     private volatile int sqlite_id_game = -1;
     private volatile int sqlite_id_hand = -1;
     private volatile String permutation_key = null;
-    private volatile boolean permutation_key_saved = false;
 
     public void setPermutation_key(String permutation_key) {
         this.permutation_key = permutation_key;
@@ -1874,6 +1873,10 @@ public class Crupier implements Runnable {
                 }
             }
         });
+
+        this.sqlite_id_hand = -1;
+
+        this.conta_accion = 0;
 
         //SINCRONIZACIÓN DE LA MANO
         //Esperamos a recibir el comando de confirmación de que están listos para una nueva mano
@@ -3754,24 +3757,26 @@ public class Crupier implements Runnable {
 
                 actualizarContadoresTapete();
 
-                this.conta_accion++;
-
                 conta_pos++;
 
                 if (conta_pos >= Game.getInstance().getJugadores().size()) {
                     conta_pos %= Game.getInstance().getJugadores().size();
                 }
 
-                if (!this.sincronizando_mano) {
-                    this.sqlNewAction(current_player);
-                } else if (!this.sqlCheckRecoverAction(current_player)) {
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
+                if (current_player.isActivo()) {
+                    this.conta_accion++;
 
-                            Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), current_player.getNickname() + " " + Translator.translate("¡¡TEN CUIDADO!! EL JUGADOR NO HIZO ESO LA OTRA VEZ. (ESTÁ HACIENDO TRAMPAS)."));
+                    if (!this.sincronizando_mano) {
+                        this.sqlNewAction(current_player);
+                    } else if (!this.sqlCheckRecoverAction(current_player)) {
+                        Helpers.threadRun(new Runnable() {
+                            public void run() {
 
-                        }
-                    });
+                                Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), current_player.getNickname() + " " + Translator.translate("¡¡TEN CUIDADO!! EL JUGADOR NO HIZO ESO LA OTRA VEZ. (ESTÁ HACIENDO TRAMPAS)."));
+
+                            }
+                        });
+                    }
                 }
 
                 while (isPlaying_cinematic()) {

@@ -2,5 +2,5 @@
 <p align="center"><a href="https://adoptopenjdk.net/" target="_blank">JAVA</a> 11 or above is required.</p>
 
 ```
-mvn install:install-file -Dfile=coronaHMAC_1.1.22.jar -DgroupId=com.tonikelope.coronahmac -DartifactId=coronahmac -Dversion=1.1.22 -Dpackaging=jar
+mvn install:install-file -Dfile=coronaHMAC_x.x.x.jar -DgroupId=com.tonikelope.coronahmac -DartifactId=coronahmac -Dversion=x.x.x -Dpackaging=jar
 ```

@@ -2288,7 +2288,7 @@ public class Crupier implements Runnable {
 
         try {
 
-            String sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=? and action=? and bet=?";
+            String sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=? and action=?" + (current_player.getDecision() >= Player.BET ? " and bet=?" : "");
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -2302,7 +2302,9 @@ public class Crupier implements Runnable {
 
             statement.setInt(4, current_player.getDecision());
 
-            statement.setFloat(5, Helpers.floatClean1D(current_player.getBet()));
+            if (current_player.getDecision() >= Player.BET) {
+                statement.setFloat(5, Helpers.floatClean1D(current_player.getBet()));
+            }
 
             ResultSet rs = statement.executeQuery();
 
@@ -3497,7 +3499,7 @@ public class Crupier implements Runnable {
                         current_player.esTuTurno();
 
                         //SOMOS NOSOTROS (jugador local)
-                        if (!this.acciones_recuperadas.isEmpty() && (accion_recuperada = siguienteAccionRecuperada(current_player.getNickname())) != null) {
+                        if (this.isSincronizando_mano() && (accion_recuperada = siguienteAccionRecuperada(current_player.getNickname())) != null) {
 
                             LocalPlayer localplayer = (LocalPlayer) current_player;
 
@@ -3593,7 +3595,7 @@ public class Crupier implements Runnable {
 
                         } else {
 
-                            if (this.acciones_recuperadas.isEmpty() || (action = siguienteAccionRecuperada(current_player.getNickname())) == null) {
+                            if (!this.isSincronizando_mano() || (action = siguienteAccionRecuperada(current_player.getNickname())) == null) {
 
                                 float call_required = getApuesta_actual() - current_player.getBet();
 
@@ -3769,13 +3771,7 @@ public class Crupier implements Runnable {
                     if (!this.sincronizando_mano) {
                         this.sqlNewAction(current_player);
                     } else if (!this.sqlCheckRecoverAction(current_player)) {
-                        Helpers.threadRun(new Runnable() {
-                            public void run() {
-
-                                Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), current_player.getNickname() + " " + Translator.translate("¡¡TEN CUIDADO!! EL JUGADOR NO HIZO ESO LA OTRA VEZ. (ESTÁ HACIENDO TRAMPAS)."));
-
-                            }
-                        });
+                        Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, current_player.getNickname() + " BAD RECOVER ACTION!");
                     }
                 }
 
@@ -4234,15 +4230,13 @@ public class Crupier implements Runnable {
         String ret = null;
 
         try {
-            String sql = "select action.player as player, action.action as action, round(action.bet,2) as bet from action,hand where action.id_hand=hand.id and hand.id_game=? and hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) order by action.counter";
+            String sql = "select player, action, round(bet,2) as bet from action where action.id_hand=?";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
             statement.setQueryTimeout(30);
 
-            statement.setInt(1, this.sqlite_id_game);
-
-            statement.setInt(2, this.sqlite_id_game);
+            statement.setInt(1, this.sqlite_id_hand);
 
             ResultSet rs = statement.executeQuery();
 
@@ -4338,7 +4332,7 @@ public class Crupier implements Runnable {
                 per += String.valueOf(p) + "|";
             }
 
-            if (checkIfThereAreHumanPlayers()) {
+            if (areClientHumanActivePlayers()) {
 
                 int i = this.dealer_pos;
 
@@ -4363,13 +4357,13 @@ public class Crupier implements Runnable {
         }
     }
 
-    private boolean checkIfThereAreHumanPlayers() {
+    private boolean areClientHumanActivePlayers() {
 
         boolean humanos = false;
 
         for (Map.Entry<String, Participant> entry : Game.getInstance().getParticipantes().entrySet()) {
 
-            if (entry.getValue() != null && !entry.getValue().isCpu()) {
+            if (entry.getValue() != null && !entry.getValue().isCpu() && nick2player.get(entry.getKey()).isActivo()) {
                 return true;
             }
         }
@@ -4381,7 +4375,7 @@ public class Crupier implements Runnable {
 
         try {
             String datos;
-            if (checkIfThereAreHumanPlayers()) {
+            if (areClientHumanActivePlayers()) {
                 String[] perm_parts = this.sqlRecoverGameLastDeck().split("#");
 
                 ArrayList<String> pendientes = new ArrayList<>();
@@ -4443,6 +4437,8 @@ public class Crupier implements Runnable {
 
     private Object[] siguienteAccionRecuperada(String nick) {
 
+        Object[] res = null;
+
         while (!this.acciones_recuperadas.isEmpty()) {
             try {
                 String accion = this.acciones_recuperadas.poll();
@@ -4453,37 +4449,17 @@ public class Crupier implements Runnable {
 
                 if (name.equals(nick)) {
 
-                    Object[] res = new Object[2];
+                    res = new Object[2];
 
                     res[0] = Integer.parseInt(accion_partes[1]);
 
                     if ((int) res[0] == Player.BET) {
-                        res[1] = Float.parseFloat(accion_partes[2]);
+                        res[1] = Helpers.floatClean1D(Float.parseFloat(accion_partes[2]));
                     } else {
                         res[1] = 0f;
                     }
 
-                    if (this.acciones_recuperadas.isEmpty()) {
-                        if (recover_dialog != null) {
-
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-                                    recover_dialog.setVisible(false);
-                                    recover_dialog.dispose();
-                                    recover_dialog = null;
-                                    Game.getInstance().getFull_screen_menu().setEnabled(true);
-                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                                }
-                            });
-                        }
-
-                        this.setSincronizando_mano(false);
-
-                        Game.getInstance().getRegistro().print("TIMBA RECUPERADA");
-                        Helpers.playWavResource("misc/cash_register.wav");
-                    }
-
-                    return res;
+                    break;
                 }
 
             } catch (UnsupportedEncodingException ex) {
@@ -4491,25 +4467,28 @@ public class Crupier implements Runnable {
             }
         }
 
-        if (recover_dialog != null) {
+        if (this.acciones_recuperadas.isEmpty()) {
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    recover_dialog.setVisible(false);
-                    recover_dialog.dispose();
-                    recover_dialog = null;
-                    Game.getInstance().getFull_screen_menu().setEnabled(true);
-                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                }
-            });
+            if (recover_dialog != null) {
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+                        recover_dialog.setVisible(false);
+                        recover_dialog.dispose();
+                        recover_dialog = null;
+                        Game.getInstance().getFull_screen_menu().setEnabled(true);
+                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                    }
+                });
+            }
+
+            this.setSincronizando_mano(false);
+
+            Game.getInstance().getRegistro().print("TIMBA RECUPERADA");
+            Helpers.playWavResource("misc/cash_register.wav");
         }
 
-        this.setSincronizando_mano(false);
-
-        Game.getInstance().getRegistro().print("TIMBA RECUPERADA");
-        Helpers.playWavResource("misc/cash_register.wav");
-
-        return null;
+        return res;
 
     }
 

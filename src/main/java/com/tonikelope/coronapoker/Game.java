@@ -46,7 +46,6 @@ import javax.swing.Timer;
  */
 public final class Game extends javax.swing.JFrame implements ZoomableInterface {
 
-    public static final boolean TEST_MODE = false;
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;
     public static final float MIN_BIG_BLIND = 0.20f;
@@ -69,6 +68,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final int PAUSE_COUNTER_MAX = 3;
     public static final int AUTO_ZOOM_TIMEOUT = 2000;
     public static final int GUI_ZOOM_WAIT = 250;
+    public static final boolean TEST_MODE = false;
 
     public static volatile float CIEGA_PEQUEÑA = 0.10f;
     public static volatile float CIEGA_GRANDE = 0.20f;

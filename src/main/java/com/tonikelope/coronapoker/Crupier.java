@@ -1652,12 +1652,6 @@ public class Crupier implements Runnable {
                         Game.getInstance().getRegistro().print(name + " " + Translator.translate("ABANDONA LA TIMBA") + " -> " + ganancia_msg);
 
                         saltar_primera_mano = true;
-
-                        Helpers.threadRun(new Runnable() {
-                            public void run() {
-                                Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "NO SE PUEDE RECUPERAR LA MANO EN CURSO PORQUE FALTAN JUGADORES DE LA MANO ANTERIOR");
-                            }
-                        });
                     }
                 }
 
@@ -1665,6 +1659,7 @@ public class Crupier implements Runnable {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+
         for (Player jugador : Game.getInstance().getJugadores()) {
 
             if (!nicks_recuperados.contains(jugador.getNickname())) {
@@ -2030,7 +2025,15 @@ public class Crupier implements Runnable {
                 }
             });
 
-            saltar_mano_recover = recuperarDatosClavePartida();
+            if ((saltar_mano_recover = recuperarDatosClavePartida())) {
+
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
+                        Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "NO SE PUEDE RECUPERAR LA MANO EN CURSO PORQUE FALTAN JUGADORES DE LA MANO ANTERIOR");
+                    }
+                });
+
+            }
 
             if (getJugadoresActivos() > 1 && !saltar_mano_recover) {
 

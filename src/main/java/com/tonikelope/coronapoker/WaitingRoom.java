@@ -2281,7 +2281,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         if (participantes.size() >= 2 && !WaitingRoom.isPartida_empezada() && !WaitingRoom.isPartida_empezando()) {
 
-            boolean faltan_jugadores = false;
+            String missing_players = "";
 
             if (Game.RECOVER) {
 
@@ -2313,8 +2313,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                         String nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
 
                         if (!participantes.containsKey(nick)) {
-                            faltan_jugadores = true;
-                            break;
+                            missing_players += nick + "\n\n";
                         }
                     }
 
@@ -2325,7 +2324,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                 }
             }
 
-            boolean vamos = (!faltan_jugadores || Helpers.mostrarMensajeInformativoSINO(this, "Hay jugadores de la timba anterior que no se han vuelto a conectar.\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n¿EMPEZAMOS YA?") == 0);
+            boolean vamos = ("".equals(missing_players) || Helpers.mostrarMensajeInformativoSINO(this, missing_players + Translator.translate("Hay jugadores de la timba anterior que no se han vuelto a conectar.\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n¿EMPEZAMOS YA?")) == 0);
 
             if (vamos) {
 

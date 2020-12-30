@@ -12,7 +12,6 @@ import java.awt.Graphics2D;
 import java.awt.TexturePaint;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -123,7 +122,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
                 ok = true;
 
-            } catch (IOException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
             }
 

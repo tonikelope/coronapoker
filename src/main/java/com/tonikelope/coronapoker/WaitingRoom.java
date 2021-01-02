@@ -315,7 +315,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                     status.setText("Esperando jugadores...");
 
-                    blinds.setText(Game.BUYIN + " " + (!Game.REBUY ? "(NO-REBUY) | " : "| ") + Helpers.float2String(Game.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(Game.CIEGA_GRANDE) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" : ""));
+                    blinds.setText(Game.BUYIN + " " + (!Game.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(Game.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(Game.CIEGA_GRANDE) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" : "") + (Game.MANOS != -1 ? " | " + String.valueOf(Game.MANOS) : ""));
 
                     participantes.put(local_nick, null);
 
@@ -1646,7 +1646,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                                     String jar_hmac = M.J1(Base64.decodeBase64(client_jar_hmac), hmac_key.getEncoded());
 
-                                    writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1") + "#" + jar_hmac + "#" + Base64.encodeBase64String((Game.BUYIN + " " + (!Game.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(Game.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(Game.CIEGA_GRANDE) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" : "")).getBytes("UTF-8")), aes_key, hmac_key), client_socket);
+                                    writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1") + "#" + jar_hmac + "#" + Base64.encodeBase64String(blinds.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 
                                     byte[] avatar_bytes = null;
 

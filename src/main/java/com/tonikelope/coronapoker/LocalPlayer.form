@@ -385,7 +385,6 @@
                       <Component id="player_allin_button" alignment="1" max="32767" attributes="0"/>
                       <Component id="player_check_button" alignment="1" max="32767" attributes="0"/>
                       <Component id="bet_slider" alignment="0" pref="0" max="32767" attributes="0"/>
-                      <Component id="bet_slider_text" alignment="0" max="32767" attributes="0"/>
                       <Component id="player_fold_button" alignment="1" max="32767" attributes="0"/>
                   </Group>
               </Group>
@@ -396,9 +395,7 @@
               <Group type="102" attributes="0">
                   <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                   <Component id="player_check_button" max="32767" attributes="0"/>
-                  <EmptySpace max="-2" attributes="0"/>
-                  <Component id="bet_slider_text" max="32767" attributes="0"/>
-                  <EmptySpace max="-2" attributes="0"/>
+                  <EmptySpace max="32767" attributes="0"/>
                   <Component id="bet_slider" max="32767" attributes="0"/>
                   <EmptySpace max="-2" attributes="0"/>
                   <Component id="player_bet_button" max="32767" attributes="0"/>
@@ -470,23 +467,6 @@
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_fold_buttonActionPerformed"/>
           </Events>
-        </Component>
-        <Component class="javax.swing.JTextField" name="bet_slider_text">
-          <Properties>
-            <Property name="editable" type="boolean" value="false"/>
-            <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-              <Color blue="0" green="c8" id="orange" palette="1" red="ff" type="palette"/>
-            </Property>
-            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="20" style="1"/>
-            </Property>
-            <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-              <Color blue="0" green="0" red="0" type="rgb"/>
-            </Property>
-            <Property name="horizontalAlignment" type="int" value="4"/>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
         </Component>
         <Component class="javax.swing.JButton" name="player_check_button">
           <Properties>

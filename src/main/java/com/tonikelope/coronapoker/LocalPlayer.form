@@ -378,16 +378,11 @@
       <Layout>
         <DimensionLayout dim="0">
           <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" attributes="0">
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Group type="103" groupAlignment="0" attributes="0">
-                      <Component id="player_bet_button" alignment="1" max="32767" attributes="0"/>
-                      <Component id="player_allin_button" alignment="1" max="32767" attributes="0"/>
-                      <Component id="player_check_button" alignment="1" max="32767" attributes="0"/>
-                      <Component id="bet_slider" alignment="0" pref="0" max="32767" attributes="0"/>
-                      <Component id="player_fold_button" alignment="1" max="32767" attributes="0"/>
-                  </Group>
-              </Group>
+              <Component id="player_bet_button" alignment="1" max="32767" attributes="0"/>
+              <Component id="player_allin_button" alignment="1" max="32767" attributes="0"/>
+              <Component id="player_check_button" alignment="1" max="32767" attributes="0"/>
+              <Component id="player_fold_button" alignment="1" max="32767" attributes="0"/>
+              <Component id="bet_spinner" alignment="1" max="32767" attributes="0"/>
           </Group>
         </DimensionLayout>
         <DimensionLayout dim="1">
@@ -396,7 +391,7 @@
                   <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                   <Component id="player_check_button" max="32767" attributes="0"/>
                   <EmptySpace max="32767" attributes="0"/>
-                  <Component id="bet_slider" max="32767" attributes="0"/>
+                  <Component id="bet_spinner" min="-2" max="-2" attributes="0"/>
                   <EmptySpace max="-2" attributes="0"/>
                   <Component id="player_bet_button" max="32767" attributes="0"/>
                   <EmptySpace max="32767" attributes="0"/>
@@ -429,21 +424,6 @@
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_allin_buttonActionPerformed"/>
-          </Events>
-        </Component>
-        <Component class="javax.swing.JSlider" name="bet_slider">
-          <Properties>
-            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="20" style="1"/>
-            </Property>
-            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-              <Color id="Cursor de Mano"/>
-            </Property>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
-          <Events>
-            <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="bet_sliderStateChanged"/>
           </Events>
         </Component>
         <Component class="javax.swing.JButton" name="player_fold_button">
@@ -502,6 +482,20 @@
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_bet_buttonActionPerformed"/>
           </Events>
+        </Component>
+        <Component class="javax.swing.JSpinner" name="bet_spinner">
+          <Properties>
+            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+              <Font name="Dialog" size="22" style="1"/>
+            </Property>
+            <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+              <Border info="null"/>
+            </Property>
+            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+              <Color id="Cursor de Mano"/>
+            </Property>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
+          </Properties>
         </Component>
       </SubComponents>
     </Container>

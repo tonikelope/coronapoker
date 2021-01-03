@@ -38,6 +38,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -849,7 +851,9 @@ public class Helpers {
         cantidad = Helpers.floatClean1D(cantidad);
 
         DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
+
         otherSymbols.setDecimalSeparator('.');
+
         DecimalFormat df = new DecimalFormat("0.00", otherSymbols);
 
         return df.format(cantidad).replaceAll("\\.00$", "");
@@ -1997,7 +2001,8 @@ public class Helpers {
     }
 
     public static float floatClean1D(float val) {
-        return Math.round(val * 10f) / 10f;
+
+        return new BigDecimal(val).setScale(1, RoundingMode.HALF_UP).floatValue();
     }
 
     public static int float1DSecureCompare(float val1, float val2) {

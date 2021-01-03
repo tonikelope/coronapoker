@@ -5,6 +5,8 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.event.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -12,13 +14,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.BoundedRangeModel;
-import javax.swing.DefaultBoundedRangeModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JSlider;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.Timer;
 import javax.swing.border.LineBorder;
 
@@ -74,6 +75,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean auto_pause_warning = false;
     private volatile Timer hurryup_timer = null;
     private volatile int response_counter = 0;
+
+    public JSpinner getBet_spinner() {
+        return bet_spinner;
+    }
 
     public int getResponseTime() {
 
@@ -134,10 +139,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setApuesta_recuperada(Float apuesta_recuperada) {
         this.apuesta_recuperada = apuesta_recuperada;
-    }
-
-    public JSlider getBet_slider() {
-        return bet_slider;
     }
 
     public JButton getPlayer_allin_button() {
@@ -406,7 +407,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_check_button.setEnabled(false);
 
-                bet_slider.setEnabled(false);
+                bet_spinner.setValue(0);
+
+                bet_spinner.setEnabled(false);
 
                 player_bet_button.setEnabled(false);
 
@@ -515,7 +518,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             call_required = Helpers.floatClean1D(crupier.getApuesta_actual() - bet);
 
-            min_raise = Helpers.float1DSecureCompare(0f, crupier.getUltimo_raise()) < 0 ? crupier.getUltimo_raise() : crupier.getCiega_grande();
+            min_raise = Helpers.float1DSecureCompare(0f, crupier.getUltimo_raise()) < 0 ? crupier.getUltimo_raise() : Helpers.floatClean1D(crupier.getCiega_grande());
 
             desarmarBotonesAccion();
 
@@ -528,7 +531,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_check_button.setText(" ");
 
-                    bet_slider.setEnabled(false);
+                    bet_spinner.setValue(0);
+
+                    bet_spinner.setEnabled(false);
 
                     player_bet_button.setEnabled(false);
 
@@ -570,36 +575,62 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if (crupier.puedenApostar(Game.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0)
                             || (Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
 
-                        //Actualizamos el slider y el botón de apuestas
-                        float slider_min;
-                        float slider_max = Helpers.floatClean1D(stack - call_required);
-                        //slider_divisor = Helpers.clean1DFloat(1f/crupier.getCiega_pequeña());
-                        slider_divisor = 1 / crupier.getCiega_pequeña();
+                        //Actualizamos el spinner y el botón de apuestas
+                        BigDecimal spinner_min;
+                        BigDecimal spinner_max = new BigDecimal(stack - call_required).setScale(1, RoundingMode.HALF_UP);
 
                         if (Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) == 0) {
-                            slider_min = crupier.getCiega_grande();
+                            spinner_min = new BigDecimal(crupier.getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
                             player_bet_button.setEnabled(true);
-                            player_bet_button.setText(Translator.translate("APOSTAR") + " " + Helpers.float2String(slider_min));
+                            player_bet_button.setText(Translator.translate("APOSTAR"));
 
                         } else {
-                            slider_min = min_raise;
+                            spinner_min = new BigDecimal(min_raise).setScale(1, RoundingMode.HALF_UP);
                             player_bet_button.setEnabled(true);
-                            player_bet_button.setText(Translator.translate((crupier.getConta_raise() > 0 ? "RE" : "") + "SUBIR") + " " + Helpers.float2String(slider_min));
-
+                            player_bet_button.setText(Translator.translate((crupier.getConta_raise() > 0 ? "RE" : "") + "SUBIR"));
                         }
 
-                        if (slider_min < slider_max) {
-                            BoundedRangeModel bRangeModel = new DefaultBoundedRangeModel();
-                            bRangeModel.setMaximum(Math.round(slider_max * slider_divisor));
-                            bRangeModel.setMinimum(Math.round(slider_min * slider_divisor));
-                            bet_slider.setModel(bRangeModel);
-                            bet_slider.setMinorTickSpacing(1);
-                            bet_slider.setSnapToTicks(true);
-                            bet_slider.setEnabled(true);
+                        if (spinner_min.compareTo(spinner_max) < 0) {
+
+                            SpinnerNumberModel nummodel = new SpinnerNumberModel(spinner_min, spinner_min, spinner_max, new BigDecimal(Game.CIEGA_PEQUEÑA).setScale(1, RoundingMode.HALF_UP)) {
+                                public Object getNextValue() {
+                                    BigDecimal current = (BigDecimal) super.getValue();
+
+                                    current = current.add((BigDecimal) super.getStepSize());
+
+                                    if (current.compareTo((BigDecimal) super.getMaximum()) <= 0) {
+                                        return current;
+                                    } else {
+                                        return null;
+                                    }
+
+                                }
+
+                                public Object getPreviousValue() {
+                                    BigDecimal current = (BigDecimal) super.getValue();
+
+                                    current = current.subtract((BigDecimal) super.getStepSize());
+
+                                    if (((BigDecimal) super.getMinimum()).compareTo(current) <= 0) {
+                                        return current;
+                                    } else {
+                                        return null;
+                                    }
+
+                                }
+
+                            };
+                            bet_spinner.setModel(nummodel);
+                            bet_spinner.setEnabled(true);
+
+                            ((JSpinner.DefaultEditor) bet_spinner.getEditor()).getTextField().setEditable(false);
+                            ((JSpinner.DefaultEditor) bet_spinner.getEditor()).getTextField().setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
                         } else {
                             player_bet_button.setEnabled(false);
                             player_bet_button.setText("");
+                            bet_spinner.setValue(0);
+                            bet_spinner.setEnabled(false);
                         }
 
                     }
@@ -828,7 +859,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                bet_slider.setEnabled(false);
+                bet_spinner.setValue(0);
+
+                bet_spinner.setEnabled(false);
 
                 for (Map.Entry<JButton, Color[]> entry : action_button_colors.entrySet()) {
 
@@ -1084,7 +1117,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_bet_button.setEnabled(false);
 
-                bet_slider.setEnabled(false);
+                bet_spinner.setValue(0);
+
+                bet_spinner.setEnabled(false);
 
                 player_allin_button.setText(" ");
 
@@ -1316,10 +1351,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_blind = new javax.swing.JLabel();
         botonera = new javax.swing.JPanel();
         player_allin_button = new javax.swing.JButton();
-        bet_slider = new javax.swing.JSlider();
         player_fold_button = new javax.swing.JButton();
         player_check_button = new javax.swing.JButton();
         player_bet_button = new javax.swing.JButton();
+        bet_spinner = new javax.swing.JSpinner();
         player_action = new javax.swing.JLabel();
 
         setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.Game.ZOOM_LEVEL*com.tonikelope.coronapoker.Game.ZOOM_STEP))));
@@ -1526,16 +1561,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        bet_slider.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
-        bet_slider.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        bet_slider.setDoubleBuffered(true);
-        bet_slider.setFocusable(false);
-        bet_slider.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                bet_sliderStateChanged(evt);
-            }
-        });
-
         player_fold_button.setBackground(new java.awt.Color(255, 0, 0));
         player_fold_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         player_fold_button.setForeground(new java.awt.Color(255, 255, 255));
@@ -1572,18 +1597,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
+        bet_spinner.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        bet_spinner.setBorder(null);
+        bet_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        bet_spinner.setDoubleBuffered(true);
+
         javax.swing.GroupLayout botoneraLayout = new javax.swing.GroupLayout(botonera);
         botonera.setLayout(botoneraLayout);
         botoneraLayout.setHorizontalGroup(
             botoneraLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(botoneraLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(botoneraLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(player_bet_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(player_allin_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(player_check_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(bet_slider, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                    .addComponent(player_fold_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+            .addComponent(player_bet_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(player_allin_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(player_check_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(player_fold_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(bet_spinner, javax.swing.GroupLayout.Alignment.TRAILING)
         );
         botoneraLayout.setVerticalGroup(
             botoneraLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1591,7 +1618,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addGap(0, 0, 0)
                 .addComponent(player_check_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(bet_slider, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(bet_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(player_bet_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1920,7 +1947,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!Game.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_bet_button.isEnabled()) {
 
-            if (Helpers.float1DSecureCompare(stack, (bet_slider.getValue() / slider_divisor) + call_required) == 0) {
+            if (Helpers.float1DSecureCompare(stack, (((BigDecimal) bet_spinner.getValue()).floatValue()) + call_required) == 0) {
 
                 player_allin_buttonActionPerformed(null);
 
@@ -1928,7 +1955,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (!Game.CONFIRM_ACTIONS || this.action_button_armed.get(player_bet_button) || click_recuperacion) {
 
-                    float bet_slider_val = Helpers.floatClean1D(bet_slider.getValue() / slider_divisor);
+                    float bet_spinner_val = Helpers.floatClean1D(((BigDecimal) bet_spinner.getValue()).floatValue());
 
                     Helpers.playWavResource("misc/bet.wav");
 
@@ -1949,9 +1976,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             if (apuesta_recuperada == null) {
 
-                                setStack(stack - (bet_slider_val + call_required));
+                                setStack(stack - (bet_spinner_val + call_required));
 
-                                setBet(bet_slider_val + bet + call_required);
+                                setBet(bet_spinner_val + bet + call_required);
                             } else {
                                 setStack(stack - (apuesta_recuperada - bet));
 
@@ -1978,19 +2005,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
 
     }//GEN-LAST:event_player_bet_buttonActionPerformed
-
-    private void bet_sliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_bet_sliderStateChanged
-        // TODO add your handling code here:
-
-        if (Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) == 0) {
-            player_bet_button.setText(Translator.translate("APOSTAR") + " " + Helpers.float2String(bet_slider.getValue() / slider_divisor));
-
-        } else {
-            player_bet_button.setText(Translator.translate((crupier.getConta_raise() > 0 ? "RE" : "") + "SUBIR") + " " + Helpers.float2String(bet_slider.getValue() / slider_divisor));
-
-        }
-
-    }//GEN-LAST:event_bet_sliderStateChanged
 
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
@@ -2062,7 +2076,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;
     private javax.swing.JPanel avatar_panel;
-    private javax.swing.JSlider bet_slider;
+    private javax.swing.JSpinner bet_spinner;
     private javax.swing.JPanel botonera;
     private javax.swing.JPanel indicadores_arriba;
     private javax.swing.JPanel jPanel5;

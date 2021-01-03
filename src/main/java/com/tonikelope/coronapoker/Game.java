@@ -38,6 +38,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JProgressBar;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.KeyStroke;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.Timer;
 
 /**
@@ -735,8 +736,14 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
-                    if (getLocalPlayer().getBet_slider().isEnabled()) {
-                        getLocalPlayer().getBet_slider().setValue(getLocalPlayer().getBet_slider().getValue() - 1);
+                    if (getLocalPlayer().getBet_spinner().isEnabled()) {
+
+                        SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
+
+                        if (model.getPreviousValue() != null) {
+
+                            getLocalPlayer().getBet_spinner().setValue(model.getPreviousValue());
+                        }
                     }
                 }
             }
@@ -747,8 +754,11 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
-                    if (getLocalPlayer().getBet_slider().isEnabled()) {
-                        getLocalPlayer().getBet_slider().setValue(getLocalPlayer().getBet_slider().getValue() - 1);
+                    if (getLocalPlayer().getBet_spinner().isEnabled()) {
+                        SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
+                        if (model.getPreviousValue() != null) {
+                            getLocalPlayer().getBet_spinner().setValue(model.getPreviousValue());
+                        }
                     }
                 }
             }
@@ -759,8 +769,11 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
-                    if (getLocalPlayer().getBet_slider().isEnabled()) {
-                        getLocalPlayer().getBet_slider().setValue(getLocalPlayer().getBet_slider().getValue() + 1);
+                    if (getLocalPlayer().getBet_spinner().isEnabled()) {
+                        SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
+                        if (model.getNextValue() != null) {
+                            getLocalPlayer().getBet_spinner().setValue(model.getNextValue());
+                        }
                     }
                 }
             }
@@ -771,8 +784,11 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
-                    if (getLocalPlayer().getBet_slider().isEnabled()) {
-                        getLocalPlayer().getBet_slider().setValue(getLocalPlayer().getBet_slider().getValue() + 1);
+                    if (getLocalPlayer().getBet_spinner().isEnabled()) {
+                        SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
+                        if (model.getNextValue() != null) {
+                            getLocalPlayer().getBet_spinner().setValue(model.getNextValue());
+                        }
                     }
                 }
             }

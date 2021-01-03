@@ -62,13 +62,6 @@ public class Init extends javax.swing.JFrame {
 
                 setTitle(Init.WINDOW_TITLE);
 
-                sound_icon.setIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")));
-
-                UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
-                UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
-
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
-
                 if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
                     language_combobox.setSelectedIndex(0);
                 } else {
@@ -78,6 +71,8 @@ public class Init extends javax.swing.JFrame {
                 setExtendedState(JFrame.MAXIMIZED_BOTH);
 
                 sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+
+                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
 
                 pack();
             }
@@ -439,6 +434,10 @@ public class Init extends javax.swing.JFrame {
 
             Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
 
+            UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
+
+            UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
+
             Init.MOD = Helpers.loadMOD();
 
             if (Init.MOD != null) {
@@ -487,15 +486,16 @@ public class Init extends javax.swing.JFrame {
 
             Helpers.playLoopMp3Resource("misc/background_music.mp3");
 
-            java.awt.EventQueue.invokeLater(new Runnable() {
+            Init ventana = new Init();
+
+            Helpers.centrarJFrame(ventana, 0);
+
+            Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    Init ventana = new Init();
-                    Helpers.centrarJFrame(ventana, 0);
                     ventana.setVisible(true);
                 }
             });
-
         }
     }
 

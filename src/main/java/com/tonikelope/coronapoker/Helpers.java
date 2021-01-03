@@ -1004,28 +1004,35 @@ public class Helpers {
 
     //Thanks -> https://stackoverflow.com/a/19746437 (Pantalla 0 es la principal)
     public static void centrarJFrame(JFrame window, int screen) {
-        GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
-        GraphicsDevice[] allDevices = env.getScreenDevices();
-        int topLeftX, topLeftY, screenX, screenY, windowPosX, windowPosY;
 
-        if (screen < allDevices.length && screen > -1) {
-            topLeftX = allDevices[screen].getDefaultConfiguration().getBounds().x;
-            topLeftY = allDevices[screen].getDefaultConfiguration().getBounds().y;
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
 
-            screenX = allDevices[screen].getDefaultConfiguration().getBounds().width;
-            screenY = allDevices[screen].getDefaultConfiguration().getBounds().height;
-        } else {
-            topLeftX = allDevices[0].getDefaultConfiguration().getBounds().x;
-            topLeftY = allDevices[0].getDefaultConfiguration().getBounds().y;
+                GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
+                GraphicsDevice[] allDevices = env.getScreenDevices();
+                int topLeftX, topLeftY, screenX, screenY, windowPosX, windowPosY;
 
-            screenX = allDevices[0].getDefaultConfiguration().getBounds().width;
-            screenY = allDevices[0].getDefaultConfiguration().getBounds().height;
-        }
+                if (screen < allDevices.length && screen > -1) {
+                    topLeftX = allDevices[screen].getDefaultConfiguration().getBounds().x;
+                    topLeftY = allDevices[screen].getDefaultConfiguration().getBounds().y;
 
-        windowPosX = ((screenX - window.getWidth()) / 2) + topLeftX;
-        windowPosY = ((screenY - window.getHeight()) / 2) + topLeftY;
+                    screenX = allDevices[screen].getDefaultConfiguration().getBounds().width;
+                    screenY = allDevices[screen].getDefaultConfiguration().getBounds().height;
+                } else {
+                    topLeftX = allDevices[0].getDefaultConfiguration().getBounds().x;
+                    topLeftY = allDevices[0].getDefaultConfiguration().getBounds().y;
 
-        window.setLocation(windowPosX, windowPosY);
+                    screenX = allDevices[0].getDefaultConfiguration().getBounds().width;
+                    screenY = allDevices[0].getDefaultConfiguration().getBounds().height;
+                }
+
+                windowPosX = ((screenX - window.getWidth()) / 2) + topLeftX;
+                windowPosY = ((screenY - window.getHeight()) / 2) + topLeftY;
+
+                window.setLocation(windowPosX, windowPosY);
+            }
+        });
     }
 
     public static void mostrarMensajeInformativo(JFrame frame, String msg) {

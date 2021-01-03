@@ -407,7 +407,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_check_button.setEnabled(false);
 
-                bet_spinner.setValue(0);
+                bet_spinner.setValue(new BigDecimal(0));
 
                 bet_spinner.setEnabled(false);
 
@@ -531,7 +531,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_check_button.setText(" ");
 
-                    bet_spinner.setValue(0);
+                    bet_spinner.setValue(new BigDecimal(0));
 
                     bet_spinner.setEnabled(false);
 
@@ -629,7 +629,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         } else {
                             player_bet_button.setEnabled(false);
                             player_bet_button.setText("");
-                            bet_spinner.setValue(0);
+                            bet_spinner.setValue(new BigDecimal(0));
                             bet_spinner.setEnabled(false);
                         }
 
@@ -859,7 +859,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                bet_spinner.setValue(0);
+                bet_spinner.setValue(new BigDecimal(0));
 
                 bet_spinner.setEnabled(false);
 
@@ -1117,7 +1117,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_bet_button.setEnabled(false);
 
-                bet_spinner.setValue(0);
+                bet_spinner.setValue(new BigDecimal(0));
 
                 bet_spinner.setEnabled(false);
 
@@ -1598,6 +1598,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         bet_spinner.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        bet_spinner.setModel(new javax.swing.SpinnerNumberModel());
         bet_spinner.setBorder(null);
         bet_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         bet_spinner.setDoubleBuffered(true);

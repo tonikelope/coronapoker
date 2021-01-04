@@ -78,6 +78,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 initComponents();
 
+                game_combo.setEnabled(false);
+
                 password.setEnabled(false);
 
                 manos_spinner.setEnabled(false);
@@ -215,8 +217,6 @@ public class NewGameDialog extends javax.swing.JDialog {
                 }
 
             }
-
-            game_combo.setEnabled(false);
 
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
@@ -361,6 +361,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         doblar_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         doblar_checkbox.setText("Doblar ciegas (min):");
+        doblar_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         doblar_checkbox.setDoubleBuffered(true);
         doblar_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -381,6 +382,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         recover_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         recover_checkbox.setText("CONTINUAR TIMBA");
         recover_checkbox.setToolTipText("El MODO RECUPERACIÓN permite arrancar una timba que se interrumpió previamente");
+        recover_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recover_checkbox.setDoubleBuffered(true);
         recover_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -391,6 +393,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         rebuy_checkbox.setText("Permitir recomprar");
         rebuy_checkbox.setToolTipText("Si algún jugador se queda sin fichas");
+        rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_checkbox.setDoubleBuffered(true);
 
         ciegas_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
@@ -417,6 +420,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         manos_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         manos_checkbox.setText("Manos:");
+        manos_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         manos_checkbox.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 manos_checkboxItemStateChanged(evt);

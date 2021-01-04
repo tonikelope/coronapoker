@@ -177,12 +177,6 @@ public class NewGameDialog extends javax.swing.JDialog {
                     Helpers.setTranslatedTitle(tthis, "Unirme a timba");
                 }
 
-                loadGames();
-
-                if (game_combo.getModel().getSize() == 0) {
-                    recover_checkbox.setEnabled(false);
-                }
-
                 Helpers.translateComponents(tthis, false);
 
                 pack();
@@ -338,6 +332,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Muy seguro", "Seguro" }));
+        random_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_combobox.setDoubleBuffered(true);
         random_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -351,6 +346,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         buyin_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         buyin_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 5, null, 1));
+        buyin_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         buyin_spinner.setDoubleBuffered(true);
         buyin_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent evt) {
@@ -374,6 +370,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         doblar_ciegas_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         doblar_ciegas_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 5, null, 5));
+        doblar_ciegas_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         doblar_ciegas_spinner.setDoubleBuffered(true);
 
         jLabel3.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
@@ -402,6 +399,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "0.10 / 0.20", "0.20 / 0.40", "0.30 / 0.60", "0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000" }));
+        ciegas_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ciegas_combobox.setDoubleBuffered(true);
         ciegas_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -410,6 +408,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         });
 
         game_combo.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        game_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         game_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 game_comboItemStateChanged(evt);
@@ -426,6 +425,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         manos_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         manos_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 5, null, 5));
+        manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         javax.swing.GroupLayout config_partida_panelLayout = new javax.swing.GroupLayout(config_partida_panel);
         config_partida_panel.setLayout(config_partida_panelLayout);
@@ -760,29 +760,43 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         if (this.recover_checkbox.isSelected()) {
 
-            this.game_combo.setEnabled(true);
+            if (game_combo.getModel().getSize() == 0) {
+                loadGames();
+            }
 
-            this.buyin_spinner.setEnabled(false);
+            if (game_combo.getModel().getSize() > 0) {
 
-            this.buyin_label.setEnabled(false);
+                this.game_combo.setEnabled(true);
 
-            this.rebuy_checkbox.setEnabled(false);
+                this.buyin_spinner.setEnabled(false);
 
-            this.ciegas_label.setEnabled(false);
+                this.buyin_label.setEnabled(false);
 
-            this.ciegas_combobox.setEnabled(false);
+                this.rebuy_checkbox.setEnabled(false);
 
-            this.doblar_ciegas_spinner.setEnabled(false);
+                this.ciegas_label.setEnabled(false);
 
-            this.doblar_checkbox.setEnabled(false);
+                this.ciegas_combobox.setEnabled(false);
 
-            String[] parts = ((String) this.game_combo.getSelectedItem()).split(" @ ");
+                this.doblar_ciegas_spinner.setEnabled(false);
 
-            this.nick.setText(parts[0]);
+                this.doblar_checkbox.setEnabled(false);
 
-            this.nick.setEnabled(false);
+                String[] parts = ((String) this.game_combo.getSelectedItem()).split(" @ ");
 
-            Helpers.mostrarMensajeInformativo((JFrame) this.getParent(), "En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos.\nSi esto no es posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).");
+                this.nick.setText(parts[0]);
+
+                this.nick.setEnabled(false);
+
+                Helpers.mostrarMensajeInformativo((JFrame) this.getParent(), "En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos.\nSi esto no es posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).");
+
+            } else {
+
+                this.recover_checkbox.setSelected(false);
+                this.game_combo.setEnabled(false);
+                this.recover_checkbox.setEnabled(false);
+
+            }
 
         } else {
             this.game_combo.setEnabled(false);

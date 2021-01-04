@@ -2106,7 +2106,7 @@ public class WaitingRoom extends javax.swing.JFrame {
         tot_conectados.setText("0/10");
 
         blinds.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        blinds.setText("0.10 / 0.20 @ 60'");
+        blinds.setText(" ");
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);

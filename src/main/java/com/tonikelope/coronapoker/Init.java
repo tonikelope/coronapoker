@@ -25,6 +25,7 @@ import java.util.Random;
 import java.security.SecureRandom;
 import java.sql.Connection;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -205,6 +206,7 @@ public class Init extends javax.swing.JFrame {
         );
 
         language_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Español", "English" }));
+        language_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         language_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 language_comboboxActionPerformed(evt);
@@ -388,6 +390,8 @@ public class Init extends javax.swing.JFrame {
         } else {
             Game.SONIDOS_CHORRA = false;
         }
+
+        Locale.setDefault(Locale.Category.FORMAT, Locale.ENGLISH);
     }//GEN-LAST:event_language_comboboxActionPerformed
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed

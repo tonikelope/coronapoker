@@ -535,7 +535,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         setResizable(false);
 
-        superior_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        superior_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         superior_button.setText("Jugada superior");
         superior_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         superior_button.setDoubleBuffered(true);
@@ -545,7 +545,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             }
         });
 
-        inferior_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        inferior_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         inferior_button.setText("Jugada inferior");
         inferior_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         inferior_button.setDoubleBuffered(true);

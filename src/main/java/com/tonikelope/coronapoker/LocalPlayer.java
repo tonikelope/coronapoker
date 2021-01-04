@@ -1549,7 +1549,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         botonera.setOpaque(false);
 
         player_allin_button.setBackground(new java.awt.Color(0, 0, 0));
-        player_allin_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        player_allin_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_allin_button.setForeground(new java.awt.Color(255, 255, 255));
         player_allin_button.setText("ALL IN");
         player_allin_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1562,7 +1562,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         player_fold_button.setBackground(new java.awt.Color(255, 0, 0));
-        player_fold_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        player_fold_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_fold_button.setForeground(new java.awt.Color(255, 255, 255));
         player_fold_button.setText("NO IR");
         player_fold_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1574,7 +1574,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        player_check_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        player_check_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_check_button.setText("PASAR");
         player_check_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_check_button.setDoubleBuffered(true);
@@ -1586,7 +1586,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         player_bet_button.setBackground(java.awt.Color.orange);
-        player_bet_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        player_bet_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_bet_button.setText("APOSTAR");
         player_bet_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_bet_button.setDoubleBuffered(true);

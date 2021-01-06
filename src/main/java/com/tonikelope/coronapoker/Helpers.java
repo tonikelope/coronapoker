@@ -182,7 +182,7 @@ public class Helpers {
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
 
-    public static void disableScreensaver() {
+    public static void antiScreensaver() {
 
         try {
             Robot r = new Robot();

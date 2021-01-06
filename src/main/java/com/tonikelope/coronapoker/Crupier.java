@@ -2188,6 +2188,10 @@ public class Crupier implements Runnable {
 
                 enviarCartasJugadoresRemotos();
 
+                for (Player j : Game.getInstance().getJugadores()) {
+                    j.ordenarCartas();
+                }
+
             } else if (Game.getInstance().getLocalPlayer().isActivo()) {
 
                 //Leemos las cartas que nos han tocado del servidor
@@ -4769,7 +4773,6 @@ public class Crupier implements Runnable {
                                 jugador.getPlayingCard1().actualizarValorPalo(carta1[0], carta1[1]);
 
                                 jugador.getPlayingCard2().actualizarValorPalo(carta2[0], carta2[1]);
-
                             }
 
                         }

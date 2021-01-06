@@ -8,6 +8,7 @@ import static com.tonikelope.coronapoker.Init.DEV_MODE;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
 import static com.tonikelope.coronapoker.Init.SQLITE;
 import static com.tonikelope.coronapoker.Init.SQL_FILE;
+import java.awt.AWTException;
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Component;
@@ -20,6 +21,7 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.RenderingHints;
+import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
@@ -27,6 +29,7 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
@@ -178,6 +181,19 @@ public class Helpers {
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
+
+    public static void disableScreensaver() {
+
+        try {
+            Robot r = new Robot();
+            r.waitForIdle();
+            r.keyPress(KeyEvent.VK_CONTROL);
+            r.keyRelease(KeyEvent.VK_CONTROL);
+        } catch (AWTException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
 
     public static Connection getSQLITE() {
 

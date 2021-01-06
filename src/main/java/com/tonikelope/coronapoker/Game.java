@@ -25,6 +25,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -1560,6 +1561,12 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public void AJUGAR() {
 
+        Helpers.playWavResource("misc/startplay.wav");
+
+        if (!Game.MUSICA_AMBIENTAL) {
+            Helpers.muteLoopMp3("misc/background_music.mp3");
+        }
+
         ActionListener listener = new ActionListener() {
 
             public void actionPerformed(ActionEvent ae) {
@@ -1589,11 +1596,15 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         tiempo_juego.start();
 
-        Helpers.playWavResource("misc/startplay.wav");
+        java.util.Timer screensaver = new java.util.Timer();
 
-        if (!Game.MUSICA_AMBIENTAL) {
-            Helpers.muteLoopMp3("misc/background_music.mp3");
-        }
+        screensaver.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                Helpers.disableScreensaver();
+            }
+
+        }, 60000, 60000);
 
         registro_dialog = new GameLogDialog(this, false);
 

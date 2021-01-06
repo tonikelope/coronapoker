@@ -71,6 +71,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static final int AUTO_ZOOM_TIMEOUT = 2000;
     public static final int GUI_ZOOM_WAIT = 250;
     public static final boolean TEST_MODE = false;
+    public static final int ANTI_SCREENSAVER_DELAY = 55000; //Ms
 
     public static volatile float CIEGA_PEQUEÑA = 0.10f;
     public static volatile float CIEGA_GRANDE = 0.20f;
@@ -1601,10 +1602,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         screensaver.schedule(new TimerTask() {
             @Override
             public void run() {
-                Helpers.disableScreensaver();
+                Helpers.antiScreensaver();
             }
 
-        }, 60000, 60000);
+        }, ANTI_SCREENSAVER_DELAY, ANTI_SCREENSAVER_DELAY);
 
         registro_dialog = new GameLogDialog(this, false);
 

@@ -27,6 +27,7 @@ import java.sql.Connection;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -49,6 +50,7 @@ public class Init extends javax.swing.JFrame {
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
+    public static final int ANTI_SCREENSAVER_DELAY = 55000; //Ms
 
     /**
      * Creates new form Inicio
@@ -500,6 +502,16 @@ public class Init extends javax.swing.JFrame {
                     ventana.setVisible(true);
                 }
             });
+
+            java.util.Timer screensaver = new java.util.Timer();
+
+            screensaver.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    Helpers.antiScreensaver();
+                }
+
+            }, ANTI_SCREENSAVER_DELAY, ANTI_SCREENSAVER_DELAY);
         }
     }
 

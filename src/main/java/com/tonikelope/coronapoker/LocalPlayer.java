@@ -2344,8 +2344,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (getPlayingCard1().isIniciada() && getPlayingCard1().isTapada()) {
 
-            ordenarCartas();
-
             if (sound) {
                 Helpers.playWavResource("misc/uncover.wav", false);
             }

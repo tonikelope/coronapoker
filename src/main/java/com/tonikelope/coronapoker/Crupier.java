@@ -2189,7 +2189,9 @@ public class Crupier implements Runnable {
                 enviarCartasJugadoresRemotos();
 
                 for (Player j : Game.getInstance().getJugadores()) {
-                    j.ordenarCartas();
+                    if (j != Game.getInstance().getLocalPlayer()) {
+                        j.ordenarCartas();
+                    }
                 }
 
             } else if (Game.getInstance().getLocalPlayer().isActivo()) {
@@ -2923,9 +2925,7 @@ public class Crupier implements Runnable {
             }
         });
 
-        LocalPlayer local = Game.getInstance().getLocalPlayer();
-
-        local.ordenarCartas();
+        Game.getInstance().getLocalPlayer().ordenarCartas();
     }
 
     private void preCargarCartas() {

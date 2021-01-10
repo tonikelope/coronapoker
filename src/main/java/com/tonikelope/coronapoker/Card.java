@@ -323,16 +323,20 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         this.valor = valor.toUpperCase().trim();
         this.palo = palo.toUpperCase().trim();
+        this.iniciada = true;
+        this.tapada = true;
+        this.desenfocada = false;
+        this.refreshCard();
+    }
+
+    public void preIniciarConValorPalo(String valor, String palo) {
+
+        this.valor = valor.toUpperCase().trim();
+        this.palo = palo.toUpperCase().trim();
         this.iniciada = false;
         this.tapada = true;
         this.desenfocada = false;
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                card_image.setIcon(Card.IMAGEN_JOKER);
-
-            }
-        });
+        this.refreshCard();
     }
 
     public void actualizarValorPalo(String valor, String palo) {
@@ -356,6 +360,10 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
     public void iniciarConValorNumerico(int value) {
         iniciarConValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
+    }
+
+    public void preIniciarConValorNumerico(int value) {
+        preIniciarConValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
     }
 
     public int getValorNumerico() {

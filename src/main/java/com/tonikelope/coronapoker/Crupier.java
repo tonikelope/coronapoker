@@ -2941,7 +2941,7 @@ public class Crupier implements Runnable {
 
             if (jugador.isActivo()) {
 
-                jugador.getPlayingCard1().iniciarConValorNumerico(permutacion_baraja[p]);
+                jugador.getPlayingCard1().preIniciarConValorNumerico(permutacion_baraja[p]);
 
                 p++;
             }
@@ -2957,7 +2957,7 @@ public class Crupier implements Runnable {
 
             if (jugador.isActivo()) {
 
-                jugador.getPlayingCard2().iniciarConValorNumerico(permutacion_baraja[p]);
+                jugador.getPlayingCard2().preIniciarConValorNumerico(permutacion_baraja[p]);
 
                 p++;
             }
@@ -2973,7 +2973,7 @@ public class Crupier implements Runnable {
                 p++;
             }
 
-            carta.iniciarConValorNumerico(permutacion_baraja[p]);
+            carta.preIniciarConValorNumerico(permutacion_baraja[p]);
 
             p++;
         }

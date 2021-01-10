@@ -208,9 +208,24 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             }
         });
 
-        ArrayList<Card> pareja1 = new ArrayList<>();
+        int valor_pareja1 = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
 
-        int valor_pareja1 = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1);
+        int valor_pareja2 = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
+
+        while (valor_pareja2 == valor_pareja1) {
+            valor_pareja2 = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
+        }
+
+        if (valor_pareja2 > valor_pareja1) {
+
+            int aux = valor_pareja1;
+
+            valor_pareja1 = valor_pareja2;
+
+            valor_pareja2 = aux;
+        }
+
+        ArrayList<Card> pareja1 = new ArrayList<>();
 
         for (int i = 0; i < PALOS.length; i++) {
             Card carta = new Card();
@@ -229,12 +244,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         }
 
         ArrayList<Card> pareja2 = new ArrayList<>();
-
-        int valor_pareja2 = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1);
-
-        while (valor_pareja2 == valor_pareja1) {
-            valor_pareja1 = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1);
-        }
 
         for (int i = 0; i < PALOS.length; i++) {
             Card carta = new Card();

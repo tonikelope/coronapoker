@@ -339,21 +339,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         this.valor = valor.toUpperCase().trim();
         this.palo = palo.toUpperCase().trim();
-
-        if (!this.iniciada) {
-            this.iniciada = true;
-            this.tapada = true;
-
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
-
-                }
-            });
-        } else {
-            this.refreshCard();
-        }
-
+        this.refreshCard();
     }
 
     public void actualizarValorPaloEnfoque(String valor, String palo, boolean desenfocada) {
@@ -361,21 +347,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         this.valor = valor.toUpperCase().trim();
         this.palo = palo.toUpperCase().trim();
         this.desenfocada = desenfocada;
-
-        if (!this.iniciada) {
-            this.iniciada = true;
-            this.tapada = true;
-
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
-
-                }
-            });
-        } else {
-            this.refreshCard();
-        }
-
+        this.refreshCard();
     }
 
     public void actualizarConValorNumerico(int value) {

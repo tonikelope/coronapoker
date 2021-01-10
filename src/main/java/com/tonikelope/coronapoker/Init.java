@@ -17,6 +17,9 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Image;
+import java.awt.KeyEventDispatcher;
+import java.awt.KeyboardFocusManager;
+import java.awt.event.KeyEvent;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.nio.file.Files;
@@ -503,16 +506,44 @@ public class Init extends javax.swing.JFrame {
                 }
             });
 
-            java.util.Timer screensaver = new java.util.Timer();
+            antiScreensaver();
 
-            screensaver.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    Helpers.antiScreensaver();
-                }
-
-            }, ANTI_SCREENSAVER_DELAY, ANTI_SCREENSAVER_DELAY);
         }
+    }
+
+    private static void antiScreensaver() {
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(new KeyEventDispatcher() {
+
+            @Override
+            public boolean dispatchKeyEvent(KeyEvent ke) {
+
+                switch (ke.getID()) {
+                    case KeyEvent.KEY_PRESSED:
+                        if (ke.getKeyCode() == KeyEvent.VK_CONTROL) {
+                            Helpers.ctrlPressed = true;
+                        }
+                        break;
+
+                    case KeyEvent.KEY_RELEASED:
+                        if (ke.getKeyCode() == KeyEvent.VK_CONTROL) {
+                            Helpers.ctrlPressed = false;
+                        }
+                        break;
+                }
+                return false;
+
+            }
+        });
+
+        java.util.Timer screensaver = new java.util.Timer();
+
+        screensaver.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                Helpers.antiScreensaver();
+            }
+
+        }, ANTI_SCREENSAVER_DELAY, ANTI_SCREENSAVER_DELAY);
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

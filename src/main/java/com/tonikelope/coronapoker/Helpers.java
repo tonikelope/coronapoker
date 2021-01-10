@@ -181,18 +181,20 @@ public class Helpers {
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
+    public volatile static Boolean ctrlPressed = false;
 
     public static void antiScreensaver() {
 
-        try {
-            Robot r = new Robot();
-            r.waitForIdle();
-            r.keyPress(KeyEvent.VK_CONTROL);
-            r.keyRelease(KeyEvent.VK_CONTROL);
-        } catch (AWTException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        if (!Helpers.ctrlPressed) {
+            try {
+                Robot r = new Robot();
+                r.waitForIdle();
+                r.keyPress(KeyEvent.VK_CONTROL);
+                r.keyRelease(KeyEvent.VK_CONTROL);
+            } catch (AWTException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
-
     }
 
     public static Connection getSQLITE() {

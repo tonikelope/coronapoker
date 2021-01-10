@@ -2356,7 +2356,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void ordenarCartas() {
-        if (getPlayingCard1().isIniciada() && getPlayingCard2().isIniciada() && getPlayingCard1().getValorNumerico() < getPlayingCard2().getValorNumerico()) {
+        if (getPlayingCard1().getValorNumerico() != -1 && getPlayingCard2().getValorNumerico() != -1 && getPlayingCard1().getValorNumerico() < getPlayingCard2().getValorNumerico()) {
 
             //Ordenamos las cartas para mayor comodidad
             String valor1 = this.playingCard1.getValor();

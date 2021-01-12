@@ -304,7 +304,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(9180 / 2.598.960)");
+                probability.setText("(10200 / 2.598.960)");
 
             }
         });
@@ -573,8 +573,14 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         probability.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         probability.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         probability.setText("(4 de 2.598.960) ");
+        probability.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         probability.setDoubleBuffered(true);
         probability.setFocusable(false);
+        probability.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                probabilityMouseClicked(evt);
+            }
+        });
 
         cartas_panel.setFocusable(false);
         cartas_panel.setOpaque(false);
@@ -688,6 +694,11 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         });
 
     }//GEN-LAST:event_superior_buttonActionPerformed
+
+    private void probabilityMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_probabilityMouseClicked
+        // TODO add your handling code here:
+        Helpers.openBrowserURL("https://brilliant.org/wiki/math-of-poker/");
+    }//GEN-LAST:event_probabilityMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.Card card1;

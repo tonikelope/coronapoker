@@ -362,10 +362,6 @@ public class WaitingRoom extends javax.swing.JFrame {
         } else {
             cliente();
         }
-
-        Helpers.muteLoopMp3("misc/background_music.mp3");
-
-        Helpers.playLoopMp3Resource("misc/waiting_room.mp3");
     }
 
     private void sqlSavePermutationkey() {
@@ -1106,6 +1102,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                             }
                         });
 
+                        Helpers.muteLoopMp3("misc/background_music.mp3");
+
+                        Helpers.playLoopMp3Resource("misc/waiting_room.mp3");
+
                         //Nos quedamos en bucle esperando mensajes del server
                         do {
 
@@ -1476,6 +1476,10 @@ public class WaitingRoom extends javax.swing.JFrame {
     }
 
     private void servidor() {
+
+        Helpers.muteLoopMp3("misc/background_music.mp3");
+
+        Helpers.playLoopMp3Resource("misc/waiting_room.mp3");
 
         this.server_nick = this.local_nick;
 

@@ -362,6 +362,10 @@ public class WaitingRoom extends javax.swing.JFrame {
         } else {
             cliente();
         }
+
+        Helpers.muteLoopMp3("misc/background_music.mp3");
+
+        Helpers.playLoopMp3Resource("misc/waiting_room.mp3");
     }
 
     private void sqlSavePermutationkey() {
@@ -2440,6 +2444,10 @@ public class WaitingRoom extends javax.swing.JFrame {
                     }
                 }
             });
+
+            Helpers.stopLoopMp3("misc/waiting_room.mp3");
+
+            Helpers.unmuteLoopMp3("misc/background_music.mp3");
 
         } else {
             setVisible(false);

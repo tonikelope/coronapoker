@@ -1560,10 +1560,14 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public void AJUGAR() {
 
+        Helpers.stopLoopMp3("misc/waiting_room.mp3");
+
         Helpers.playWavResource("misc/startplay.wav");
 
         if (!Game.MUSICA_AMBIENTAL) {
             Helpers.muteLoopMp3("misc/background_music.mp3");
+        } else {
+            Helpers.unmuteLoopMp3("misc/background_music.mp3");
         }
 
         ActionListener listener = new ActionListener() {

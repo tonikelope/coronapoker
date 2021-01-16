@@ -513,7 +513,44 @@ public class Init extends javax.swing.JFrame {
 
             antiScreensaver();
 
+            TTSWatchdog();
+
         }
+    }
+
+    private static void TTSWatchdog() {
+
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+
+                while (true) {
+
+                    while (!Helpers.TTS_CHAT_QUEUE.isEmpty()) {
+
+                        Object[] tts = Helpers.TTS_CHAT_QUEUE.poll();
+
+                        if (Game.SONIDOS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+
+                            Helpers.TTS((String) tts[0] + " dice: " + (String) tts[1]);
+
+                        }
+
+                    }
+
+                    synchronized (Helpers.TTS_CHAT_QUEUE) {
+
+                        try {
+                            Helpers.TTS_CHAT_QUEUE.wait(1000);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+
+                }
+            }
+        });
+
     }
 
     private static void antiScreensaver() {

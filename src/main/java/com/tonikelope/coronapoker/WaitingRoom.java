@@ -1759,7 +1759,13 @@ public class WaitingRoom extends javax.swing.JFrame {
                 }
 
                 if (!isVisible()) {
-                    Helpers.playWavResource("misc/chat_alert.wav");
+
+                    Helpers.TTS_CHAT_QUEUE.add(new Object[]{nick, msg});
+
+                    synchronized (Helpers.TTS_CHAT_QUEUE) {
+                        Helpers.TTS_CHAT_QUEUE.notifyAll();
+                    }
+
                 }
             }
         });
@@ -2224,6 +2230,25 @@ public class WaitingRoom extends javax.swing.JFrame {
         this.enviarMensajeChat(local_nick, this.mensaje.getText());
 
         this.mensaje.setText("");
+
+        mensaje.setEnabled(false);
+
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+
+                Helpers.pausar(1000);
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+
+                        mensaje.setEnabled(true);
+                        mensaje.requestFocus();
+
+                    }
+                });
+
+            }
+        });
     }//GEN-LAST:event_mensajeActionPerformed
 
     private void kick_userActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_kick_userActionPerformed

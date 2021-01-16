@@ -103,6 +103,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     private volatile boolean unsecure_server = false;
     private volatile int pong;
     private volatile String video_chat_link = null;
+    private volatile String last_mp3_loop = null;
 
     public SecretKeySpec getLocal_client_permutation_key() {
         return local_client_permutation_key;
@@ -2449,6 +2450,8 @@ public class WaitingRoom extends javax.swing.JFrame {
                 }
             });
 
+            ventana_inicio.getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+
             Helpers.stopLoopMp3("misc/waiting_room.mp3");
 
             Helpers.unmuteLoopMp3("misc/background_music.mp3");
@@ -2481,7 +2484,11 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         } else {
 
-            Helpers.unMuteAll();
+            Helpers.MUTED_ALL = false;
+
+            Helpers.unmuteLoopMp3("misc/waiting_room.mp3");
+
+            Helpers.unmuteAllWav();
 
         }
     }//GEN-LAST:event_sound_iconMouseClicked

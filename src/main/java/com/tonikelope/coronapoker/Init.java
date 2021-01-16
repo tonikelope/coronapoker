@@ -36,6 +36,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.UIManager;
 
 /**
@@ -84,6 +85,10 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
+    }
+
+    public JLabel getSound_icon() {
+        return sound_icon;
     }
 
     public void translateGlobalLabels() {

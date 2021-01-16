@@ -2804,7 +2804,7 @@ public class Crupier implements Runnable {
 
                         String[] carta = cartas_locales_recibidas.get(0).split("_");
 
-                        jugador.getPlayingCard1().actualizarValorPalo(carta[0], carta[1]);
+                        jugador.getPlayingCard1().iniciarConValorPalo(carta[0], carta[1]);
                     }
 
                     jugador.getPlayingCard1().destapar(false);
@@ -2826,7 +2826,7 @@ public class Crupier implements Runnable {
 
                     String[] carta = cartas_locales_recibidas.get(0).split("_");
 
-                    jugador.getPlayingCard1().actualizarValorPalo(carta[0], carta[1]);
+                    jugador.getPlayingCard1().iniciarConValorPalo(carta[0], carta[1]);
                 }
 
                 jugador.getPlayingCard1().destapar(false);
@@ -2859,7 +2859,7 @@ public class Crupier implements Runnable {
 
                         String[] carta = cartas_locales_recibidas.get(1).split("_");
 
-                        jugador.getPlayingCard2().actualizarValorPalo(carta[0], carta[1]);
+                        jugador.getPlayingCard2().iniciarConValorPalo(carta[0], carta[1]);
 
                     }
 
@@ -2881,7 +2881,7 @@ public class Crupier implements Runnable {
 
                     String[] carta = cartas_locales_recibidas.get(1).split("_");
 
-                    jugador.getPlayingCard2().actualizarValorPalo(carta[0], carta[1]);
+                    jugador.getPlayingCard2().iniciarConValorPalo(carta[0], carta[1]);
                 }
 
                 jugador.getPlayingCard2().destapar(false);

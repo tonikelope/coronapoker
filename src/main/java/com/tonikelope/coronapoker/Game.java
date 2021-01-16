@@ -121,6 +121,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private volatile AboutDialog about_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
+    private volatile FastChatDialog fastchat_dialog = null;
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
 
@@ -667,6 +668,17 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             @Override
             public void actionPerformed(ActionEvent e) {
                 chat_menuActionPerformed(e);
+            }
+        });
+
+        KeyStroke key_fast_chat = KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0);
+        actionMap.put(key_fast_chat, new AbstractAction("FASTCHAT") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                fastchat_dialog.setLocationRelativeTo(getFull_screen_frame() != null ? getFull_screen_frame() : Game.getInstance());
+                fastchat_dialog.setVisible(true);
+
             }
         });
 
@@ -1562,11 +1574,13 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.stopLoopMp3("misc/waiting_room.mp3");
 
+        if (!Game.SONIDOS) {
+            Helpers.muteAll();
+        }
+
         Helpers.playWavResource("misc/startplay.wav");
 
-        if (!Game.MUSICA_AMBIENTAL) {
-            Helpers.muteLoopMp3("misc/background_music.mp3");
-        } else {
+        if (Game.MUSICA_AMBIENTAL) {
             Helpers.unmuteLoopMp3("misc/background_music.mp3");
         }
 
@@ -1602,6 +1616,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         registro_dialog = new GameLogDialog(this, false);
 
         getRegistro().print(Translator.translate("COMIENZA LA TIMBA -> ") + Helpers.getFechaHoraActual());
+
+        fastchat_dialog = new FastChatDialog(this, true);
 
         Helpers.threadRun(crupier);
     }

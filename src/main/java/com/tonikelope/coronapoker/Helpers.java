@@ -40,6 +40,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -158,9 +159,10 @@ public class Helpers {
 
     public static final String USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final float MASTER_VOLUME = 0.8f;
-    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.4f); //DEFAULT * CUSTOM
+    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.3f); //DEFAULT * CUSTOM
     public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/stats_music.mp3", 0.7f);
-    public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME);
+    public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/waiting_room.mp3", 0.8f);
+    public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME);
     public static final int RANDOMORG_TIMEOUT = 10000;
     public static final int SPRNG = 2;
     public static final int TRNG = 1;
@@ -170,6 +172,9 @@ public class Helpers {
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
+    public static final ConcurrentLinkedQueue<String> TTS_BLOCKED_USERS = new ConcurrentLinkedQueue<>();
+    public static final ConcurrentLinkedQueue<Object[]> TTS_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
+    public static final int MAX_TTS_LENGTH = 150;
 
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
     public volatile static int DECK_RANDOM_GENERATOR = SPRNG;
@@ -904,6 +909,68 @@ public class Helpers {
         return df.format(currentDate);
     }
 
+    public static void TTS(String mensaje) {
+
+        if (mensaje != null && !"".equals(mensaje)) {
+
+            String msj = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@ ,.:;!?¡¿]", "").replaceAll(" +", "+");
+
+            if (!"".equals(msj) && msj.length() <= Helpers.MAX_TTS_LENGTH) {
+
+                HttpURLConnection con = null;
+
+                try {
+
+                    //YA VEREMOS LO QUE DURA...
+                    URL url_api = new URL("http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=" + msj);
+
+                    con = (HttpURLConnection) url_api.openConnection();
+
+                    con.addRequestProperty("User-Agent", Helpers.USER_AGENT);
+
+                    con.setUseCaches(false);
+
+                    try (InputStream is = con.getInputStream(); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+
+                        byte[] buffer = new byte[16];
+
+                        int reads;
+
+                        while ((reads = is.read(buffer)) != -1) {
+
+                            byte_res.write(buffer, 0, reads);
+                        }
+
+                        String filename = Helpers.genRandomString(30);
+
+                        try (OutputStream outputStream = new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename)) {
+                            byte_res.writeTo(outputStream);
+                        }
+
+                        Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename);
+
+                        Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
+
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (IOException ex) {
+                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                } catch (IOException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                } finally {
+                    if (con != null) {
+                        con.disconnect();
+                    }
+                }
+
+            }
+
+        }
+
+    }
+
     public static String getMyPublicIP() {
 
         String public_ip = null;
@@ -1330,6 +1397,15 @@ public class Helpers {
 
     private static InputStream getSoundInputStream(String sound) {
 
+        if (Files.exists(Paths.get(sound))) {
+
+            try {
+                return new FileInputStream(sound);
+            } catch (FileNotFoundException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
         if (Init.MOD != null) {
 
             if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/" + sound))) {
@@ -1524,6 +1600,71 @@ public class Helpers {
             });
 
         }
+    }
+
+    public static void playMp3Resource(String sound) {
+
+        if (!Game.TEST_MODE) {
+
+            final Object player_wait = new Object();
+
+            final BasicPlayer player = new BasicPlayer();
+
+            try (BufferedInputStream bis = new BufferedInputStream(getSoundInputStream(sound))) {
+
+                player.addBasicPlayerListener(new BasicPlayerListener() {
+
+                    @Override
+                    public void stateUpdated(BasicPlayerEvent bpe) {
+                        synchronized (player_wait) {
+                            player_wait.notifyAll();
+                        }
+                    }
+
+                    @Override
+                    public void opened(Object o, Map map) {
+                    }
+
+                    @Override
+                    public void progress(int i, long l, byte[] bytes, Map map) {
+                    }
+
+                    @Override
+                    public void setController(BasicController bc) {
+                    }
+
+                });
+
+                player.open(bis);
+
+                if (player.getStatus() != BasicPlayer.PLAYING) {
+                    player.play();
+                }
+
+                if (!Game.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
+                    player.setGain(0f);
+                } else {
+                    player.setGain(getSoundVolume(sound));
+                }
+
+                do {
+                    synchronized (player_wait) {
+
+                        try {
+                            player_wait.wait(1000);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                } while (player.getStatus() == BasicPlayer.PLAYING || player.getStatus() == BasicPlayer.PAUSED);
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
+
     }
 
     public static void playWavResource(String sound) {

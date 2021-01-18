@@ -530,10 +530,19 @@ public class Init extends javax.swing.JFrame {
 
                         Object[] tts = Helpers.TTS_CHAT_QUEUE.poll();
 
-                        if (Game.SONIDOS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                        if (Game.SONIDOS && Game.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
-                            Helpers.TTS((String) tts[0] + " dice: " + (String) tts[1]);
+                            NickTTSDialog nick_dialog = new NickTTSDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), false, (String) tts[0]);
 
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    nick_dialog.setLocation(nick_dialog.getParent().getLocation());
+
+                                }
+                            });
+
+                            Helpers.TTS((String) tts[1], nick_dialog);
                         }
 
                     }

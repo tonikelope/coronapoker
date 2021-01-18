@@ -200,6 +200,10 @@ public class Crupier implements Runnable {
     private volatile int sqlite_id_hand = -1;
     private volatile String permutation_key = null;
 
+    public ConcurrentHashMap<String, Player> getNick2player() {
+        return nick2player;
+    }
+
     public void setPermutation_key(String permutation_key) {
         this.permutation_key = permutation_key;
     }

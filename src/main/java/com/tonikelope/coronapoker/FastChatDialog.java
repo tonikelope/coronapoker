@@ -5,8 +5,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.event.KeyEvent;
 
 /**
  *
@@ -27,9 +27,9 @@ public class FastChatDialog extends javax.swing.JDialog {
 
                 initComponents();
 
-                chat_box.setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.4f), chat_box.getHeight()));
+                chat_box.setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.5f), chat_box.getHeight()));
 
-                setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.4f), chat_box.getHeight()));
+                setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.5f), chat_box.getHeight()));
 
                 Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
 
@@ -99,53 +99,24 @@ public class FastChatDialog extends javax.swing.JDialog {
 
     private void chat_boxKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_chat_boxKeyPressed
         // TODO add your handling code here:
-        if (evt.getKeyCode() == KeyEvent.VK_F5) {
+
+        if (evt.getKeyCode() == 0) {
             setVisible(false);
-        }
+        } else {
 
-    }//GEN-LAST:event_chat_boxKeyPressed
+            if (chat_box.getText().length() <= Helpers.MAX_TTS_LENGTH) {
 
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
+                if (chat_box.getBackground() != Color.WHITE) {
+                    chat_box.setBackground(Color.WHITE);
+                }
+
+            } else {
+                if (chat_box.getBackground() != Color.YELLOW) {
+                    chat_box.setBackground(Color.YELLOW);
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(FastChatDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(FastChatDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(FastChatDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(FastChatDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-        //</editor-fold>
-
-        /* Create and display the dialog */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                FastChatDialog dialog = new FastChatDialog(new javax.swing.JFrame(), true);
-                dialog.addWindowListener(new java.awt.event.WindowAdapter() {
-                    @Override
-                    public void windowClosing(java.awt.event.WindowEvent e) {
-                        System.exit(0);
-                    }
-                });
-                dialog.setVisible(true);
-            }
-        });
-    }
+    }//GEN-LAST:event_chat_boxKeyPressed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextField chat_box;

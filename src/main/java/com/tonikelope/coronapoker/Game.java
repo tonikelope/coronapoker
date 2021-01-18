@@ -40,6 +40,7 @@ import javax.swing.JRadioButtonMenuItem;
 import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.Timer;
+import javazoom.jlgui.basicplayer.BasicPlayerException;
 
 /**
  *
@@ -79,6 +80,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static volatile int MANOS = -1;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
+    public static volatile boolean SONIDOS_TTS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_tts", "true"));
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
     public static volatile boolean AUTO_REBUY = false;
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
@@ -671,7 +673,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
 
-        KeyStroke key_fast_chat = KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0);
+        KeyStroke key_fast_chat = KeyStroke.getKeyStroke(0, 0);
         actionMap.put(key_fast_chat, new AbstractAction("FASTCHAT") {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -975,6 +977,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         });
     }
 
+    public JCheckBoxMenuItem getTts_menu() {
+        return tts_menu;
+    }
+
     public void setTapeteApuestas(float apuestas) {
 
         Helpers.GUIRun(new Runnable() {
@@ -1263,6 +1269,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 sonidos_chorra_menu.setEnabled(sonidos_menu.isSelected());
 
                 ascensor_menu.setEnabled(sonidos_menu.isSelected());
+
+                tts_menu.setSelected(Game.SONIDOS_TTS);
+
+                tts_menu.setEnabled(sonidos_menu.isSelected());
 
                 generarBarajasMenu();
 
@@ -1650,6 +1660,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         sonidos_menu = new javax.swing.JCheckBoxMenuItem();
         sonidos_chorra_menu = new javax.swing.JCheckBoxMenuItem();
         ascensor_menu = new javax.swing.JCheckBoxMenuItem();
+        tts_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator1 = new javax.swing.JPopupMenu.Separator();
         confirmar_menu = new javax.swing.JCheckBoxMenuItem();
         auto_action_menu = new javax.swing.JCheckBoxMenuItem();
@@ -1811,6 +1822,16 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
         opciones_menu.add(ascensor_menu);
+
+        tts_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        tts_menu.setSelected(true);
+        tts_menu.setText("TTS");
+        tts_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                tts_menuActionPerformed(evt);
+            }
+        });
+        opciones_menu.add(tts_menu);
         opciones_menu.add(jSeparator1);
 
         confirmar_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
@@ -2163,6 +2184,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         this.ascensor_menu.setEnabled(Game.SONIDOS);
 
+        this.tts_menu.setEnabled(Game.SONIDOS);
+
         if (!Game.SONIDOS) {
 
             Helpers.muteAll();
@@ -2177,6 +2200,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         Helpers.TapetePopupMenu.SONIDOS_COMENTARIOS_MENU.setEnabled(Game.SONIDOS);
 
         Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setEnabled(Game.SONIDOS);
+
+        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(Game.SONIDOS);
     }//GEN-LAST:event_sonidos_menuActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
@@ -2472,9 +2497,29 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     private void shortcuts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_shortcuts_menuActionPerformed
         // TODO add your handling code here:
-        Helpers.mostrarMensajeInformativo(this.getFull_screen_frame() != null ? this.getFull_screen_frame() : this, Translator.translate("PASAR/IR -> [ESPACIO]\n\nAPOSTAR -> [ENTER] (FLECHA ARRIBA/ABAJO PARA SUBIR/BAJAR APUESTA)\n\nALL IN -> [MAYUS + ENTER]\n\nNO IR -> [ESC]\n\nMOSTRAR CARTAS -> [ESPACIO]"));
+        Helpers.mostrarMensajeInformativo(this.getFull_screen_frame() != null ? this.getFull_screen_frame() : this, Translator.translate("PASAR/IR -> [ESPACIO]\n\nAPOSTAR -> [ENTER] (FLECHA ARRIBA/ABAJO PARA SUBIR/BAJAR APUESTA)\n\nALL IN -> [MAYUS + ENTER]\n\nNO IR -> [ESC]\n\nMOSTRAR CARTAS -> [ESPACIO]\n\nMENSAJE CHAT RÁPIDO -> [º]"));
 
     }//GEN-LAST:event_shortcuts_menuActionPerformed
+
+    private void tts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_tts_menuActionPerformed
+        // TODO add your handling code here:
+
+        Game.SONIDOS_TTS = this.tts_menu.isSelected();
+
+        Helpers.PROPERTIES.setProperty("sonidos_tts", this.tts_menu.isSelected() ? "true" : "false");
+
+        Helpers.savePropertiesFile();
+
+        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(Game.SONIDOS_TTS);
+
+        if (!Game.SONIDOS_TTS && Helpers.TTS_PLAYER != null) {
+            try {
+                Helpers.TTS_PLAYER.stop();
+            } catch (BasicPlayerException ex) {
+                Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }//GEN-LAST:event_tts_menuActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
@@ -2512,6 +2557,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private javax.swing.JCheckBoxMenuItem sonidos_chorra_menu;
     private javax.swing.JCheckBoxMenuItem sonidos_menu;
     private javax.swing.JCheckBoxMenuItem time_menu;
+    private javax.swing.JCheckBoxMenuItem tts_menu;
     private javax.swing.JMenu zoom_menu;
     private javax.swing.JMenuItem zoom_menu_in;
     private javax.swing.JMenuItem zoom_menu_out;

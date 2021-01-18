@@ -56,6 +56,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Bot bot = null;
     private volatile int response_counter;
 
+    public JLabel getPlayer_name() {
+        return player_name;
+    }
+
     public int getResponseTime() {
 
         return Game.TIEMPO_PENSAR - response_counter;

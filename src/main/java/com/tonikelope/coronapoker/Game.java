@@ -677,10 +677,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         actionMap.put(key_fast_chat, new AbstractAction("FASTCHAT") {
             @Override
             public void actionPerformed(ActionEvent e) {
-
-                fastchat_dialog.setLocationRelativeTo(getFull_screen_frame() != null ? getFull_screen_frame() : Game.getInstance());
-                fastchat_dialog.setVisible(true);
-
+                fastchat_dialog.showDialog(getFull_screen_frame() != null ? getFull_screen_frame() : Game.getInstance());
             }
         });
 

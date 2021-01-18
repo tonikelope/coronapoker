@@ -39,6 +39,24 @@ public class FastChatDialog extends javax.swing.JDialog {
 
     }
 
+    public void showDialog(java.awt.Frame parent) {
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+
+                chat_box.setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.5f), chat_box.getHeight()));
+
+                setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.5f), chat_box.getHeight()));
+
+                pack();
+
+                setLocationRelativeTo(parent);
+
+                setVisible(true);
+            }
+        });
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always

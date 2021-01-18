@@ -48,6 +48,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.CodeSource;
@@ -175,6 +176,7 @@ public class Helpers {
     public static final ConcurrentLinkedQueue<String> TTS_BLOCKED_USERS = new ConcurrentLinkedQueue<>();
     public static final ConcurrentLinkedQueue<Object[]> TTS_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
     public static final int MAX_TTS_LENGTH = 150;
+    public static final Object TTS_LOCK = new Object();
 
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
     public volatile static int DECK_RANDOM_GENERATOR = SPRNG;
@@ -187,6 +189,7 @@ public class Helpers {
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
     public volatile static Boolean ctrlPressed = false;
+    public volatile static BasicPlayer TTS_PLAYER = null;
 
     public static void antiScreensaver() {
 
@@ -909,66 +912,113 @@ public class Helpers {
         return df.format(currentDate);
     }
 
-    public static void TTS(String mensaje) {
+    public static void TTS(String mensaje, NickTTSDialog nick_dialog) {
 
-        if (mensaje != null && !"".equals(mensaje)) {
+        synchronized (TTS_LOCK) {
 
-            String msj = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@ ,.:;!?¡¿]", "").replaceAll(" +", "+");
+            if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE) && mensaje != null && !"".equals(mensaje)) {
 
-            if (!"".equals(msj) && msj.length() <= Helpers.MAX_TTS_LENGTH) {
+                String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿]", "").replaceAll(" +", " ");
 
-                HttpURLConnection con = null;
+                if (!"".equals(limpio) && limpio.length() <= Helpers.MAX_TTS_LENGTH) {
 
-                try {
+                    /* ¡¡OJO CON LO QUE SE DICE POR EL CHAT QUE ESTOS SON SERVICIOS EXTERNOS!! 
+                   
+                    https://responsivevoice.org/ <script src='https://code.responsivevoice.org/1.7.0/responsivevoice.js?source=wp-plugin&#038;key=uu8DEkxz&#038;ver=5.3.6'></script>
+                    https://texttospeech.responsivevoice.org/v1/text:synthesize?text="+URLEncoder.encode(msj)+"&lang=es&engine=g1&name=&pitch=0.5&rate=0.5&volume=1&key=uu8DEkxz&gender=female
+                    
+                    http://texttospeechrobot.com/ https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text="+URLEncoder.encode(msj)+"&voice=es-ES_EnriqueVoice&download=true&accept=audio%2Fmp3
 
-                    //YA VEREMOS LO QUE DURA...
-                    URL url_api = new URL("http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=" + msj);
+                    VEREMOS LO QUE DURAN...
+                     */
+                    String[] tts_services = new String[]{
+                        "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=__TTS__",
+                        "https://texttospeech.responsivevoice.org/v1/text:synthesize?text=__TTS__&lang=es&engine=g1&name=&pitch=0.5&rate=0.5&volume=1&key=uu8DEkxz&gender=female",
+                        "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=es-ES_EnriqueVoice&download=true&accept=audio%2Fmp3"
+                    };
 
-                    con = (HttpURLConnection) url_api.openConnection();
+                    boolean error;
 
-                    con.addRequestProperty("User-Agent", Helpers.USER_AGENT);
+                    int conta_service = 0;
 
-                    con.setUseCaches(false);
+                    do {
+                        error = false;
 
-                    try (InputStream is = con.getInputStream(); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+                        HttpURLConnection con = null;
 
-                        byte[] buffer = new byte[16];
+                        try {
 
-                        int reads;
+                            URL url_api = new URL(tts_services[conta_service].replace("__TTS__", URLEncoder.encode(limpio)));
 
-                        while ((reads = is.read(buffer)) != -1) {
+                            con = (HttpURLConnection) url_api.openConnection();
 
-                            byte_res.write(buffer, 0, reads);
+                            con.addRequestProperty("User-Agent", Helpers.USER_AGENT);
+
+                            con.setUseCaches(false);
+
+                            try (InputStream is = con.getInputStream(); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+
+                                byte[] buffer = new byte[16];
+
+                                int reads;
+
+                                while ((reads = is.read(buffer)) != -1) {
+
+                                    byte_res.write(buffer, 0, reads);
+                                }
+
+                                String filename = Helpers.genRandomString(30);
+
+                                try (OutputStream outputStream = new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename)) {
+                                    byte_res.writeTo(outputStream);
+                                }
+
+                                Helpers.GUIRun(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        Game.getInstance().getSonidos_menu().setEnabled(false);
+                                        nick_dialog.setVisible(true);
+                                    }
+                                });
+
+                                Helpers.muteAll();
+
+                                Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
+
+                                Helpers.TTS_PLAYER = null;
+
+                                Helpers.unMuteAll();
+
+                                Helpers.GUIRun(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        Game.getInstance().getSonidos_menu().setEnabled(true);
+                                        nick_dialog.setVisible(false);
+                                    }
+                                });
+
+                                Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
+
+                            }
+
+                        } catch (Exception ex) {
+                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                            error = true;
+                            conta_service++;
+                        } finally {
+                            if (con != null) {
+                                con.disconnect();
+                            }
                         }
 
-                        String filename = Helpers.genRandomString(30);
+                    } while (error && conta_service < tts_services.length);
 
-                        try (OutputStream outputStream = new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename)) {
-                            byte_res.writeTo(outputStream);
-                        }
-
-                        Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename);
-
-                        Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
-
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                    } catch (IOException ex) {
-                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
-                } catch (IOException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                } finally {
-                    if (con != null) {
-                        con.disconnect();
-                    }
                 }
 
             }
-
         }
-
     }
 
     public static String getMyPublicIP() {
@@ -1472,7 +1522,7 @@ public class Helpers {
                     }
                     clip.open(AudioSystem.getAudioInputStream(bis));
                     FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-                    if (!Game.SONIDOS) {
+                    if (!Game.SONIDOS || MUTED_ALL) {
                         gainControl.setValue(gainControl.getMinimum());
                     } else {
                         float dB = (float) Math.log10(getSoundVolume(sound)) * 20.0f;
@@ -1602,7 +1652,7 @@ public class Helpers {
         }
     }
 
-    public static void playMp3Resource(String sound) {
+    public static void playMp3Resource(String sound, boolean tts) {
 
         if (!Game.TEST_MODE) {
 
@@ -1637,11 +1687,17 @@ public class Helpers {
 
                 player.open(bis);
 
+                MP3_RESOURCES.put(sound, player);
+
+                if (tts) {
+                    TTS_PLAYER = player;
+                }
+
                 if (player.getStatus() != BasicPlayer.PLAYING) {
                     player.play();
                 }
 
-                if (!Game.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
+                if (!Game.SONIDOS) {
                     player.setGain(0f);
                 } else {
                     player.setGain(getSoundVolume(sound));
@@ -1827,6 +1883,8 @@ public class Helpers {
 
         MUTED_ALL = true;
 
+        muteAllMp3();
+
         muteAllLoopMp3();
 
         muteAllWav();
@@ -1859,6 +1917,19 @@ public class Helpers {
 
     }
 
+    public static void muteAllMp3() {
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
+
+            try {
+                entry.getValue().setGain(0f);
+            } catch (BasicPlayerException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+    }
+
     public static void unmuteAllLoopMp3() {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
@@ -1866,6 +1937,22 @@ public class Helpers {
             try {
 
                 if (!MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
+                    entry.getValue().setGain(getSoundVolume(entry.getKey()));
+                }
+
+            } catch (BasicPlayerException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    public static void unmuteAllMp3() {
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
+
+            try {
+
+                if (!MUTED_ALL) {
                     entry.getValue().setGain(getSoundVolume(entry.getKey()));
                 }
 
@@ -1892,6 +1979,8 @@ public class Helpers {
     public static void unMuteAll() {
 
         MUTED_ALL = false;
+
+        unmuteAllMp3();
 
         unmuteAllLoopMp3();
 
@@ -2318,6 +2407,7 @@ public class Helpers {
         public static JCheckBoxMenuItem SONIDOS_MENU;
         public static JCheckBoxMenuItem SONIDOS_COMENTARIOS_MENU;
         public static JCheckBoxMenuItem SONIDOS_MUSICA_MENU;
+        public static JCheckBoxMenuItem SONIDOS_TTS_MENU;
         public static JCheckBoxMenuItem RELOJ_MENU;
         public static JCheckBoxMenuItem AUTOREBUY_MENU;
         public static JCheckBoxMenuItem COMPACTA_MENU;
@@ -2397,6 +2487,13 @@ public class Helpers {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         Game.getInstance().getAscensor_menu().doClick();
+                    }
+                };
+
+                Action TTSAction = new AbstractAction("TTS") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getTts_menu().doClick();
                     }
                 };
 
@@ -2553,6 +2650,10 @@ public class Helpers {
                 SONIDOS_MUSICA_MENU.setSelected(Game.MUSICA_AMBIENTAL);
                 SONIDOS_MUSICA_MENU.setEnabled(Game.SONIDOS);
                 popup.add(SONIDOS_MUSICA_MENU);
+                SONIDOS_TTS_MENU = new JCheckBoxMenuItem(TTSAction);
+                SONIDOS_TTS_MENU.setSelected(Game.SONIDOS_TTS);
+                SONIDOS_TTS_MENU.setEnabled(Game.SONIDOS);
+                popup.add(SONIDOS_TTS_MENU);
                 popup.addSeparator();
                 popup.add(shortcutsAction);
                 CONFIRM_MENU = new JCheckBoxMenuItem(confirmAction);

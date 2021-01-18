@@ -918,7 +918,7 @@ public class Helpers {
 
             if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE) && mensaje != null && !"".equals(mensaje)) {
 
-                String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿]", "").replaceAll(" +", " ");
+                String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿<>]", "").replaceAll(" +", " ");
 
                 if (!"".equals(limpio) && limpio.length() <= Helpers.MAX_TTS_LENGTH) {
 
@@ -978,6 +978,7 @@ public class Helpers {
                                     public void run() {
 
                                         Game.getInstance().getSonidos_menu().setEnabled(false);
+
                                         nick_dialog.setVisible(true);
                                     }
                                 });

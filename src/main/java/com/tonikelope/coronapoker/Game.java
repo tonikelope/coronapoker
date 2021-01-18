@@ -673,7 +673,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
 
-        KeyStroke key_fast_chat = KeyStroke.getKeyStroke(0, 0);
+        KeyStroke key_fast_chat = KeyStroke.getKeyStroke('º');
         actionMap.put(key_fast_chat, new AbstractAction("FASTCHAT") {
             @Override
             public void actionPerformed(ActionEvent e) {

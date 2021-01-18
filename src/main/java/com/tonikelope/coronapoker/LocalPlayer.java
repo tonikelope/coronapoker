@@ -68,7 +68,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile float min_raise;
     private volatile int pre_pulsado = Player.NODEC;
     private volatile boolean muestra = false;
-    private volatile float slider_divisor = 10f;
     private volatile int parguela_counter = Game.PEPILLO_COUNTER_MAX;
     private volatile int pause_counter = Game.PAUSE_COUNTER_MAX;
     private volatile boolean auto_pause = false;

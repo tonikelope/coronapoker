@@ -28,7 +28,13 @@ public class NickTTSDialog extends javax.swing.JDialog {
 
                 nick_tts.setText(nick);
 
-                nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                if (Game.getInstance().getSala_espera().getAvatar() != null) {
+
+                    nick_tts.setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                } else {
+
+                    nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                }
 
                 Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
 
@@ -50,13 +56,18 @@ public class NickTTSDialog extends javax.swing.JDialog {
         nick_tts = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setFocusCycleRoot(false);
+        setFocusable(false);
+        setFocusableWindowState(false);
         setUndecorated(true);
 
-        nick_tts.setBackground(new java.awt.Color(0, 0, 0));
+        nick_tts.setBackground(new java.awt.Color(102, 102, 102));
         nick_tts.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
         nick_tts.setForeground(new java.awt.Color(255, 255, 255));
         nick_tts.setText("NICK");
         nick_tts.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        nick_tts.setDoubleBuffered(true);
+        nick_tts.setFocusable(false);
         nick_tts.setOpaque(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());

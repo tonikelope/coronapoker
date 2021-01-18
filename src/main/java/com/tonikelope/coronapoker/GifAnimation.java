@@ -73,7 +73,10 @@ public class GifAnimation extends javax.swing.JDialog {
         gif = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        setFocusCycleRoot(false);
+        setFocusTraversalPolicy(null);
         setFocusable(false);
+        setFocusableWindowState(false);
         setUndecorated(true);
         setResizable(false);
 

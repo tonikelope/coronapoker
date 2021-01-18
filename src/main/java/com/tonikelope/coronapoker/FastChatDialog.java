@@ -27,10 +27,6 @@ public class FastChatDialog extends javax.swing.JDialog {
 
                 initComponents();
 
-                chat_box.setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.5f), chat_box.getHeight()));
-
-                setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.5f), chat_box.getHeight()));
-
                 Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
 
                 pack();
@@ -44,9 +40,9 @@ public class FastChatDialog extends javax.swing.JDialog {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
-                chat_box.setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.5f), chat_box.getHeight()));
+                chat_box.setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.4f), chat_box.getHeight()));
 
-                setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.5f), chat_box.getHeight()));
+                setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.4f), chat_box.getHeight()));
 
                 pack();
 
@@ -103,24 +99,37 @@ public class FastChatDialog extends javax.swing.JDialog {
     private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_boxActionPerformed
         // TODO add your handling code here:
 
-        if (chat_box.getText().trim().length() > 0) {
+        String mensaje = chat_box.getText().trim();
 
-            Game.getInstance().getSala_espera().getChat().append("[" + Game.getInstance().getLocalPlayer().getNickname() + Translator.translate("] dice: ") + chat_box.getText().trim() + "\n");
+        if (mensaje.length() > 0) {
 
-            Game.getInstance().getSala_espera().enviarMensajeChat(Game.getInstance().getLocalPlayer().getNickname(), chat_box.getText().trim());
+            Game.getInstance().getSala_espera().getChat().append("[" + Game.getInstance().getLocalPlayer().getNickname() + Translator.translate("] dice: ") + mensaje + "\n");
+
+            Game.getInstance().getSala_espera().enviarMensajeChat(Game.getInstance().getLocalPlayer().getNickname(), mensaje);
 
             chat_box.setText("");
 
             setVisible(false);
+
+            if (Game.SONIDOS && Game.SONIDOS_TTS) {
+
+                Helpers.TTS_CHAT_QUEUE.add(new Object[]{Game.getInstance().getLocalPlayer().getNickname(), mensaje});
+
+                synchronized (Helpers.TTS_CHAT_QUEUE) {
+                    Helpers.TTS_CHAT_QUEUE.notifyAll();
+                }
+            }
         }
     }//GEN-LAST:event_chat_boxActionPerformed
 
     private void chat_boxKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_chat_boxKeyPressed
         // TODO add your handling code here:
 
-        if (evt.getKeyCode() == 0) {
+        if (evt.getKeyChar() == 'º') {
             setVisible(false);
         } else {
+
+            System.out.println(evt.getExtendedKeyCode());
 
             if (chat_box.getText().length() <= Helpers.MAX_TTS_LENGTH) {
 

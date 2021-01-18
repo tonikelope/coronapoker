@@ -543,6 +543,8 @@ public class Init extends javax.swing.JFrame {
                             });
 
                             Helpers.TTS((String) tts[1], nick_dialog);
+
+                            Helpers.pausar(1000);
                         }
 
                     }

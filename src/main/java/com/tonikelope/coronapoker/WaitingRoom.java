@@ -103,7 +103,15 @@ public class WaitingRoom extends javax.swing.JFrame {
     private volatile boolean unsecure_server = false;
     private volatile int pong;
     private volatile String video_chat_link = null;
-    private volatile String last_mp3_loop = null;
+    private volatile boolean chat_enabled = true;
+
+    public boolean isChat_enabled() {
+        return chat_enabled;
+    }
+
+    public void setChat_enabled(boolean chat_enabled) {
+        this.chat_enabled = chat_enabled;
+    }
 
     public SecretKeySpec getLocal_client_permutation_key() {
         return local_client_permutation_key;
@@ -293,7 +301,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
                 Helpers.JTextFieldRegularPopupMenu.addTo(chat);
 
-                Helpers.JTextFieldRegularPopupMenu.addTo(mensaje);
+                Helpers.JTextFieldRegularPopupMenu.addTo(chat_box);
 
                 if (avatar != null) {
                     avatar_label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
@@ -1943,7 +1951,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         jScrollPane1 = new javax.swing.JScrollPane();
         chat = new javax.swing.JTextArea();
-        mensaje = new javax.swing.JTextField();
+        chat_box = new javax.swing.JTextField();
         avatar_label = new javax.swing.JLabel();
         jPanel1 = new javax.swing.JPanel();
         pass_icon = new javax.swing.JLabel();
@@ -1987,11 +1995,11 @@ public class WaitingRoom extends javax.swing.JFrame {
         chat.setDoubleBuffered(true);
         jScrollPane1.setViewportView(chat);
 
-        mensaje.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        mensaje.setDoubleBuffered(true);
-        mensaje.addActionListener(new java.awt.event.ActionListener() {
+        chat_box.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        chat_box.setDoubleBuffered(true);
+        chat_box.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mensajeActionPerformed(evt);
+                chat_boxActionPerformed(evt);
             }
         });
 
@@ -2195,7 +2203,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(avatar_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(mensaje))
+                        .addComponent(chat_box))
                     .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
             .addComponent(danger_server, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2211,45 +2219,49 @@ public class WaitingRoom extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(mensaje))
+                    .addComponent(chat_box))
                 .addContainerGap())
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void mensajeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mensajeActionPerformed
+    private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_boxActionPerformed
         // TODO add your handling code here:
 
-        chat.append("[" + local_nick + Translator.translate("] dice: ") + this.mensaje.getText() + "\n");
+        String mensaje = chat_box.getText().trim();
 
-        if (!chat.isFocusOwner()) {
-            chat.setCaretPosition(chat.getText().length());
-        }
+        if (chat_enabled && mensaje.length() > 0) {
 
-        this.enviarMensajeChat(local_nick, this.mensaje.getText());
+            chat.append("[" + local_nick + Translator.translate("] dice: ") + mensaje + "\n");
 
-        this.mensaje.setText("");
-
-        mensaje.setEnabled(false);
-
-        Helpers.threadRun(new Runnable() {
-            public void run() {
-
-                Helpers.pausar(1000);
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-
-                        mensaje.setEnabled(true);
-                        mensaje.requestFocus();
-
-                    }
-                });
-
+            if (!chat.isFocusOwner()) {
+                chat.setCaretPosition(chat.getText().length());
             }
-        });
-    }//GEN-LAST:event_mensajeActionPerformed
+
+            this.enviarMensajeChat(local_nick, mensaje);
+
+            this.chat_box.setText("");
+
+            chat_enabled = false;
+
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+
+                    Helpers.pausar(1000);
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            chat_enabled = true;
+
+                        }
+                    });
+
+                }
+            });
+        }
+    }//GEN-LAST:event_chat_boxActionPerformed
 
     private void kick_userActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_kick_userActionPerformed
 
@@ -2531,7 +2543,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
-        mensaje.requestFocusInWindow();
+        chat_box.requestFocusInWindow();
     }//GEN-LAST:event_formComponentShown
 
     private void logoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_logoMouseClicked
@@ -2653,6 +2665,7 @@ public class WaitingRoom extends javax.swing.JFrame {
     private javax.swing.JLabel avatar_label;
     private javax.swing.JLabel blinds;
     private javax.swing.JTextArea chat;
+    private javax.swing.JTextField chat_box;
     private javax.swing.JList<String> conectados;
     private javax.swing.JLabel danger_server;
     private javax.swing.JButton empezar_timba;
@@ -2661,7 +2674,6 @@ public class WaitingRoom extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JButton kick_user;
     private javax.swing.JLabel logo;
-    private javax.swing.JTextField mensaje;
     private javax.swing.JButton new_bot_button;
     private javax.swing.JScrollPane panel_conectados;
     private javax.swing.JLabel pass_icon;

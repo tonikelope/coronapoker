@@ -916,9 +916,9 @@ public class Helpers {
 
         synchronized (TTS_LOCK) {
 
-            if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE) && mensaje != null && !"".equals(mensaje)) {
+            if (mensaje != null && !"".equals(mensaje)) {
 
-                String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿<>]", "").replaceAll(" +", " ");
+                String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿<>]", "").replaceAll("([a-záéíóúñü@&,:;!?¡¿<>])\\1{2,}", "$1").replaceAll("[a-záéíóúñü]{24,}", "").replaceAll(" {2,}", " ");
 
                 if (!"".equals(limpio) && limpio.length() <= Helpers.MAX_TTS_LENGTH) {
 
@@ -928,14 +928,28 @@ public class Helpers {
                     https://texttospeech.responsivevoice.org/v1/text:synthesize?text="+URLEncoder.encode(msj)+"&lang=es&engine=g1&name=&pitch=0.5&rate=0.5&volume=1&key=uu8DEkxz&gender=female
                     
                     http://texttospeechrobot.com/ https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text="+URLEncoder.encode(msj)+"&voice=es-ES_EnriqueVoice&download=true&accept=audio%2Fmp3
+                    
+                    https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=Hola%20qu%C3%A9%20tal%3F&voice=es-ES_LauraVoice&download=true&accept=audio%2Fmp3
+                    
+                    https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=Hello%2C%20how%20are%20you%3F&voice=en-US_AllisonVoice&download=true&accept=audio%2Fmp3
 
                     VEREMOS LO QUE DURAN...
                      */
-                    String[] tts_services = new String[]{
-                        "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=__TTS__",
-                        "https://texttospeech.responsivevoice.org/v1/text:synthesize?text=__TTS__&lang=es&engine=g1&name=&pitch=0.5&rate=0.5&volume=1&key=uu8DEkxz&gender=female",
-                        "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=es-ES_EnriqueVoice&download=true&accept=audio%2Fmp3"
-                    };
+                    String[] tts_services = null;
+
+                    if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
+                        tts_services = new String[]{
+                            "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=__TTS__",
+                            "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=es-ES_LauraVoice&download=true&accept=audio%2Fmp3",
+                            "https://texttospeech.responsivevoice.org/v1/text:synthesize?text=__TTS__&lang=es&engine=g1&name=&pitch=0.5&rate=0.5&volume=1&key=uu8DEkxz&gender=female"
+                        };
+                    } else {
+                        tts_services = new String[]{
+                            "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=en&q=__TTS__",
+                            "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=en-US_AllisonVoice&download=true&accept=audio%2Fmp3",
+                            "https://texttospeech.responsivevoice.org/v1/text:synthesize?text=__TTS__&lang=en&engine=g1&name=&pitch=0.5&rate=0.5&volume=1&key=uu8DEkxz&gender=female"
+                        };
+                    }
 
                     boolean error;
 

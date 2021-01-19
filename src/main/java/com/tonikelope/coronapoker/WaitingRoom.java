@@ -1758,7 +1758,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                     chat.setCaretPosition(chat.getText().length());
                 }
 
-                if (!isVisible() && Game.SONIDOS && Game.SONIDOS_TTS) {
+                if (WaitingRoom.isPartida_empezada() && Game.SONIDOS && Game.SONIDOS_TTS) {
 
                     Helpers.TTS_CHAT_QUEUE.add(new Object[]{nick, msg});
 

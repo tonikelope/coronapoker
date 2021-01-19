@@ -6,7 +6,10 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Image;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import javazoom.jlgui.basicplayer.BasicPlayerException;
 
 /**
  *
@@ -14,11 +17,15 @@ import javax.swing.ImageIcon;
  */
 public class NickTTSDialog extends javax.swing.JDialog {
 
+    private volatile String player = null;
+
     /**
      * Creates new form NickTTSDialog
      */
     public NickTTSDialog(java.awt.Frame parent, boolean modal, String nick) {
         super(parent, modal);
+
+        this.player = nick;
 
         NickTTSDialog THIS = this;
 
@@ -26,7 +33,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
             public void run() {
                 initComponents();
 
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Helpers.TTS_BLOCKED_USERS.contains(nick) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
 
                 nick_tts.setText(nick);
 
@@ -60,10 +67,16 @@ public class NickTTSDialog extends javax.swing.JDialog {
         sound_icon = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         setFocusCycleRoot(false);
         setFocusable(false);
         setFocusableWindowState(false);
         setUndecorated(true);
+        addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                formMouseClicked(evt);
+            }
+        });
 
         jPanel1.setBackground(new java.awt.Color(102, 102, 102));
 
@@ -108,6 +121,24 @@ public class NickTTSDialog extends javax.swing.JDialog {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
+
+    private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
+
+        if (!Helpers.TTS_BLOCKED_USERS.contains(player) && !Game.getInstance().getLocalPlayer().getNickname().equals(player)) {
+
+            try {
+                // TODO add your handling code here:
+                Helpers.TTS_PLAYER.stop();
+            } catch (BasicPlayerException ex) {
+                Logger.getLogger(NickTTSDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?") == 0) {
+
+                Helpers.TTS_BLOCKED_USERS.add(player);
+            }
+        }
+    }//GEN-LAST:event_formMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel jPanel1;

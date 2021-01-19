@@ -40,7 +40,6 @@ import javax.swing.JRadioButtonMenuItem;
 import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.Timer;
-import javazoom.jlgui.basicplayer.BasicPlayerException;
 
 /**
  *
@@ -2509,12 +2508,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(Game.SONIDOS_TTS);
 
-        if (!Game.SONIDOS_TTS && Helpers.TTS_PLAYER != null) {
-            try {
-                Helpers.TTS_PLAYER.stop();
-            } catch (BasicPlayerException ex) {
-                Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
-            }
+        if (Game.SONIDOS_TTS) {
+            Helpers.TTS_BLOCKED_USERS.clear();
         }
     }//GEN-LAST:event_tts_menuActionPerformed
 

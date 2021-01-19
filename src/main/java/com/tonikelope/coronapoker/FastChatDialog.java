@@ -101,7 +101,7 @@ public class FastChatDialog extends javax.swing.JDialog {
 
         String mensaje = chat_box.getText().trim();
 
-        if (mensaje.length() > 0) {
+        if (Game.getInstance().getSala_espera().isChat_enabled() && mensaje.length() > 0) {
 
             Game.getInstance().getSala_espera().getChat().append("[" + Game.getInstance().getLocalPlayer().getNickname() + Translator.translate("] dice: ") + mensaje + "\n");
 
@@ -119,6 +119,24 @@ public class FastChatDialog extends javax.swing.JDialog {
                     Helpers.TTS_CHAT_QUEUE.notifyAll();
                 }
             }
+
+            Game.getInstance().getSala_espera().setChat_enabled(false);
+
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+
+                    Helpers.pausar(1000);
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            Game.getInstance().getSala_espera().setChat_enabled(true);
+
+                        }
+                    });
+
+                }
+            });
         }
     }//GEN-LAST:event_chat_boxActionPerformed
 
@@ -128,8 +146,6 @@ public class FastChatDialog extends javax.swing.JDialog {
         if (evt.getKeyChar() == 'º') {
             setVisible(false);
         } else {
-
-            System.out.println(evt.getExtendedKeyCode());
 
             if (chat_box.getText().length() <= Helpers.MAX_TTS_LENGTH) {
 

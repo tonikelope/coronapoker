@@ -530,41 +530,37 @@ public class Init extends javax.swing.JFrame {
 
                         Object[] tts = Helpers.TTS_CHAT_QUEUE.poll();
 
-                        if (Game.SONIDOS_TTS) {
+                        NickTTSDialog nick_dialog = new NickTTSDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), false, (String) tts[0]);
 
-                            NickTTSDialog nick_dialog = new NickTTSDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), false, (String) tts[0]);
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                nick_dialog.setLocation(nick_dialog.getParent().getLocation());
+
+                            }
+                        });
+
+                        if (Game.SONIDOS && Game.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+
+                            Helpers.TTS((String) tts[1], nick_dialog);
+
+                        } else {
 
                             Helpers.GUIRun(new Runnable() {
                                 @Override
                                 public void run() {
-                                    nick_dialog.setLocation(nick_dialog.getParent().getLocation());
-
+                                    nick_dialog.setVisible(true);
                                 }
                             });
 
-                            if (!Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                            Helpers.pausar(1000);
 
-                                Helpers.TTS((String) tts[1], nick_dialog);
-
-                            } else {
-
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        nick_dialog.setVisible(true);
-                                    }
-                                });
-
-                                Helpers.pausar(1000);
-
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        nick_dialog.setVisible(false);
-                                    }
-                                });
-                            }
-
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    nick_dialog.setVisible(false);
+                                }
+                            });
                         }
 
                     }

@@ -33,7 +33,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
             public void run() {
                 initComponents();
 
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Helpers.TTS_BLOCKED_USERS.contains(nick) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!Game.SONIDOS || !Game.SONIDOS_TTS || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
 
                 nick_tts.setText(nick);
 

@@ -1001,8 +1001,6 @@ public class Helpers {
 
                                 Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
 
-                                Helpers.TTS_PLAYER = null;
-
                                 Helpers.unMuteAll();
 
                                 Helpers.GUIRun(new Runnable() {
@@ -1728,6 +1726,10 @@ public class Helpers {
                         }
                     }
                 } while (player.getStatus() == BasicPlayer.PLAYING || player.getStatus() == BasicPlayer.PAUSED);
+
+                if (tts) {
+                    TTS_PLAYER = null;
+                }
 
             } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);

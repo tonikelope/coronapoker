@@ -160,10 +160,12 @@ public class Helpers {
 
     public static final String USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final float MASTER_VOLUME = 0.8f;
-    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.3f); //DEFAULT * CUSTOM
+    public static final float TTS_VOLUME = 1.0f;
+    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.2f); //DEFAULT * CUSTOM
     public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/stats_music.mp3", 0.7f);
-    public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/waiting_room.mp3", 0.8f);
-    public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME);
+    public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/waiting_room.mp3", 0.7f);
+    public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.7f);
+    public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
     public static final int RANDOMORG_TIMEOUT = 10000;
     public static final int SPRNG = 2;
     public static final int TRNG = 1;
@@ -960,6 +962,8 @@ public class Helpers {
 
                         HttpURLConnection con = null;
 
+                        String filename = "";
+
                         try {
 
                             URL url_api = new URL(tts_services[conta_service].replace("__TTS__", URLEncoder.encode(limpio)));
@@ -981,7 +985,7 @@ public class Helpers {
                                     byte_res.write(buffer, 0, reads);
                                 }
 
-                                String filename = Helpers.genRandomString(30);
+                                filename = Helpers.genRandomString(30);
 
                                 try (OutputStream outputStream = new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename)) {
                                     byte_res.writeTo(outputStream);
@@ -997,32 +1001,41 @@ public class Helpers {
                                     }
                                 });
 
-                                Helpers.muteAll();
+                                Helpers.muteAllExceptMp3Loops();
 
                                 Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
-
-                                Helpers.unMuteAll();
-
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        Game.getInstance().getSonidos_menu().setEnabled(true);
-                                        nick_dialog.setVisible(false);
-                                    }
-                                });
-
-                                Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
 
                             }
 
                         } catch (Exception ex) {
+
                             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                             error = true;
                             conta_service++;
+
                         } finally {
+
                             if (con != null) {
                                 con.disconnect();
+                            }
+
+                            Helpers.unMuteAll();
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    Game.getInstance().getSonidos_menu().setEnabled(true);
+                                    nick_dialog.setVisible(false);
+                                }
+                            });
+
+                            if (filename.length() > 0) {
+                                try {
+                                    Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
+                                } catch (IOException ex) {
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
                         }
 
@@ -1337,7 +1350,7 @@ public class Helpers {
 
     public static float getSoundVolume(String sound) {
 
-        return CUSTOM_VOLUMES.containsKey(sound) ? MASTER_VOLUME * CUSTOM_VOLUMES.get(sound) : MASTER_VOLUME;
+        return CUSTOM_VOLUMES.containsKey(sound) ? CUSTOM_VOLUMES.get(sound) : (TTS_PLAYER != null && ((BasicPlayer) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? TTS_VOLUME : MASTER_VOLUME);
     }
 
     public static ConcurrentHashMap<String, Object> loadMOD() {
@@ -1903,6 +1916,16 @@ public class Helpers {
         muteAllMp3();
 
         muteAllLoopMp3();
+
+        muteAllWav();
+
+    }
+
+    public static void muteAllExceptMp3Loops() {
+
+        MUTED_ALL = true;
+
+        muteAllMp3();
 
         muteAllWav();
 

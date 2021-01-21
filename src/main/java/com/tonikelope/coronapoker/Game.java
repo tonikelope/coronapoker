@@ -1397,14 +1397,15 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Game.getInstance().getTapete().hideALL();
 
-        if (pausa_dialog != null) {
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                if (pausa_dialog != null) {
                     pausa_dialog.setVisible(false);
                 }
-            });
-        }
+                Game.getInstance().getFastchat_dialog().setVisible(false);
+            }
+        });
 
         synchronized (lock_fin) {
 

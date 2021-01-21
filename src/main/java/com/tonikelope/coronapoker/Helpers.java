@@ -920,7 +920,7 @@ public class Helpers {
 
             if (mensaje != null && !"".equals(mensaje)) {
 
-                String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿<>]", "").replaceAll("([a-záéíóúñü@&,:;!?¡¿<>])\\1{2,}", "$1").replaceAll("[a-záéíóúñü]{24,}", "").replaceAll(" {2,}", " ");
+                String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿<>]", "").replaceAll("([a-záéíóúñü@&,:;!?¡¿<>])\\1{2,}", "$1").replaceAll(" {2,}", " ");
 
                 if (!"".equals(limpio) && limpio.length() <= Helpers.MAX_TTS_LENGTH) {
 
@@ -1938,8 +1938,14 @@ public class Helpers {
 
             for (Clip c : list) {
 
-                FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
-                gainControl.setValue(gainControl.getMinimum());
+                try {
+                    if (c.isOpen()) {
+                        FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
+                        gainControl.setValue(gainControl.getMinimum());
+                    }
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         }
     }
@@ -2009,9 +2015,17 @@ public class Helpers {
 
             for (Clip c : list) {
 
-                FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
-                float dB = (float) Math.log10(getSoundVolume(entry.getKey())) * 20.0f;
-                gainControl.setValue(dB);
+                try {
+
+                    if (c.isOpen()) {
+                        FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
+                        float dB = (float) Math.log10(getSoundVolume(entry.getKey())) * 20.0f;
+                        gainControl.setValue(dB);
+                    }
+
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         }
     }

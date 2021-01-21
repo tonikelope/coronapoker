@@ -7,12 +7,15 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import javax.swing.JTextField;
 
 /**
  *
  * @author tonikelope
  */
 public class FastChatDialog extends javax.swing.JDialog {
+
+    private volatile boolean focusing = false;
 
     /**
      * Creates new form FastChatDialog
@@ -35,6 +38,10 @@ public class FastChatDialog extends javax.swing.JDialog {
 
     }
 
+    public JTextField getChat_box() {
+        return chat_box;
+    }
+
     public void showDialog(java.awt.Frame p) {
 
         Helpers.GUIRunAndWait(new Runnable() {
@@ -46,7 +53,6 @@ public class FastChatDialog extends javax.swing.JDialog {
 
                 pack();
 
-                //setLocationRelativeTo(parent);
                 setLocation(p.getX(), p.getY() + p.getHeight() - getHeight());
 
                 setVisible(true);
@@ -71,6 +77,14 @@ public class FastChatDialog extends javax.swing.JDialog {
         chat_box.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
         chat_box.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         chat_box.setDoubleBuffered(true);
+        chat_box.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                chat_boxFocusGained(evt);
+            }
+            public void focusLost(java.awt.event.FocusEvent evt) {
+                chat_boxFocusLost(evt);
+            }
+        });
         chat_box.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 chat_boxActionPerformed(evt);
@@ -157,6 +171,53 @@ public class FastChatDialog extends javax.swing.JDialog {
             }
         }
     }//GEN-LAST:event_chat_boxKeyPressed
+
+    private void chat_boxFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chat_boxFocusLost
+        // TODO add your handling code here:
+        if (this.isVisible() && !focusing) {
+
+            this.focusing = true;
+
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+
+                    while (focusing) {
+
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+                                if (Game.getInstance().getFastchat_dialog().isVisible() && !Game.getInstance().getFastchat_dialog().getChat_box().isFocusOwner()) {
+                                    Game.getInstance().getFastchat_dialog().getChat_box().requestFocus();
+                                } else {
+                                    focusing = false;
+                                }
+                            }
+                        });
+
+                        if (focusing) {
+
+                            Helpers.pausar(250);
+
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+                                    if (!Game.getInstance().getFastchat_dialog().isVisible() || Game.getInstance().getFastchat_dialog().getChat_box().isFocusOwner()) {
+                                        focusing = false;
+                                    }
+                                }
+                            });
+
+                        }
+                    }
+                }
+            });
+        }
+    }//GEN-LAST:event_chat_boxFocusLost
+
+    private void chat_boxFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chat_boxFocusGained
+        // TODO add your handling code here:
+        if (!this.isVisible()) {
+            Game.getInstance().getFastchat_dialog().getChat_box().grabFocus();
+        }
+    }//GEN-LAST:event_chat_boxFocusGained
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextField chat_box;

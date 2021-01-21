@@ -35,18 +35,19 @@ public class FastChatDialog extends javax.swing.JDialog {
 
     }
 
-    public void showDialog(java.awt.Frame parent) {
+    public void showDialog(java.awt.Frame p) {
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
-                chat_box.setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.4f), chat_box.getHeight()));
+                chat_box.setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
 
-                setPreferredSize(new Dimension((int) Math.round(parent.getWidth() * 0.4f), chat_box.getHeight()));
+                setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
 
                 pack();
 
-                setLocationRelativeTo(parent);
+                //setLocationRelativeTo(parent);
+                setLocation(p.getX(), p.getY() + p.getHeight() - getHeight());
 
                 setVisible(true);
             }
@@ -65,10 +66,9 @@ public class FastChatDialog extends javax.swing.JDialog {
         chat_box = new javax.swing.JTextField();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
-        setModal(true);
         setUndecorated(true);
 
-        chat_box.setFont(new java.awt.Font("Dialog", 0, 28)); // NOI18N
+        chat_box.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
         chat_box.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         chat_box.setDoubleBuffered(true);
         chat_box.addActionListener(new java.awt.event.ActionListener() {

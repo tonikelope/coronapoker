@@ -65,6 +65,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                 }
 
                 getCommunityCards().setVisible(false);
+
             }
         });
 

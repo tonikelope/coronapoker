@@ -536,6 +536,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     }
 
+    public FastChatDialog getFastchat_dialog() {
+        return fastchat_dialog;
+    }
+
     public void setGame_over_dialog(boolean game_over_dialog) {
         this.game_over_dialog = game_over_dialog;
     }
@@ -676,7 +680,13 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         actionMap.put(key_fast_chat, new AbstractAction("FASTCHAT") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                fastchat_dialog.showDialog(getFull_screen_frame() != null ? getFull_screen_frame() : Game.getInstance());
+
+                if (!fastchat_dialog.isVisible()) {
+                    fastchat_dialog.showDialog(getFull_screen_frame() != null ? getFull_screen_frame() : Game.getInstance());
+                } else {
+                    fastchat_dialog.setVisible(false);
+                }
+
             }
         });
 
@@ -1623,7 +1633,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         getRegistro().print(Translator.translate("COMIENZA LA TIMBA -> ") + Helpers.getFechaHoraActual());
 
-        fastchat_dialog = new FastChatDialog(this, true);
+        fastchat_dialog = new FastChatDialog(this, false);
 
         Helpers.threadRun(crupier);
     }

@@ -9,7 +9,6 @@ import java.awt.Image;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
-import javazoom.jlgui.basicplayer.BasicPlayerException;
 
 /**
  *
@@ -37,12 +36,26 @@ public class NickTTSDialog extends javax.swing.JDialog {
 
                 nick_tts.setText(nick);
 
-                if (Game.getInstance().getSala_espera().getAvatar() != null) {
+                if (Game.getInstance().getLocalPlayer().getNickname().equals(nick)) {
 
-                    nick_tts.setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                    if (Game.getInstance().getSala_espera().getAvatar() != null) {
+
+                        nick_tts.setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                    } else {
+
+                        nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                    }
                 } else {
 
-                    nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                    if (Game.getInstance().getParticipantes().get(nick).getAvatar() != null) {
+
+                        nick_tts.setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+
+                    } else {
+
+                        nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                    }
+
                 }
 
                 Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
@@ -126,11 +139,13 @@ public class NickTTSDialog extends javax.swing.JDialog {
 
         if (!Helpers.TTS_BLOCKED_USERS.contains(player) && !Game.getInstance().getLocalPlayer().getNickname().equals(player)) {
 
-            try {
-                // TODO add your handling code here:
-                Helpers.TTS_PLAYER.stop();
-            } catch (BasicPlayerException ex) {
-                Logger.getLogger(NickTTSDialog.class.getName()).log(Level.SEVERE, null, ex);
+            if (Helpers.TTS_PLAYER != null) {
+                try {
+                    // TODO add your handling code here:
+                    Helpers.TTS_PLAYER.stop();
+                } catch (Exception ex) {
+                    Logger.getLogger(NickTTSDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
 
             if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?") == 0) {

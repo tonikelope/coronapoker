@@ -181,6 +181,8 @@ public class GameOverDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         Game.getInstance().getTapete().hideALL();
 
+        Game.getInstance().getFastchat_dialog().setVisible(false);
+
         requestFocusInWindow();
 
         Helpers.threadRun(new Runnable() {

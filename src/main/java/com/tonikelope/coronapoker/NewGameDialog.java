@@ -308,11 +308,21 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         server_port_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_port_textfield.setDoubleBuffered(true);
+        server_port_textfield.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                server_port_textfieldActionPerformed(evt);
+            }
+        });
 
         server_ip_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_ip_textfield.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
         server_ip_textfield.setText("localhost");
         server_ip_textfield.setDoubleBuffered(true);
+        server_ip_textfield.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                server_ip_textfieldActionPerformed(evt);
+            }
+        });
 
         jLabel2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel2.setText(":");
@@ -838,12 +848,12 @@ public class NewGameDialog extends javax.swing.JDialog {
 
     private void nickActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nickActionPerformed
         // TODO add your handling code here:
-        vamosActionPerformed(evt);
+        vamos.doClick();
     }//GEN-LAST:event_nickActionPerformed
 
     private void pass_textActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pass_textActionPerformed
         // TODO add your handling code here:
-        vamosActionPerformed(evt);
+        vamos.doClick();
     }//GEN-LAST:event_pass_textActionPerformed
 
     private void game_comboItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_game_comboItemStateChanged
@@ -864,6 +874,16 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
     }//GEN-LAST:event_manos_checkboxItemStateChanged
+
+    private void server_ip_textfieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_server_ip_textfieldActionPerformed
+        // TODO add your handling code here:
+        vamos.doClick();
+    }//GEN-LAST:event_server_ip_textfieldActionPerformed
+
+    private void server_port_textfieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_server_port_textfieldActionPerformed
+        // TODO add your handling code here:
+        vamos.doClick();
+    }//GEN-LAST:event_server_port_textfieldActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;

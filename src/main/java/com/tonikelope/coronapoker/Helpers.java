@@ -966,7 +966,7 @@ public class Helpers {
 
                         try {
 
-                            URL url_api = new URL(tts_services[conta_service].replace("__TTS__", URLEncoder.encode(limpio)));
+                            URL url_api = new URL(tts_services[conta_service].replace("__TTS__", URLEncoder.encode(limpio, "UTF-8")));
 
                             con = (HttpURLConnection) url_api.openConnection();
 

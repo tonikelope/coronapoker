@@ -1323,9 +1323,11 @@ public class Helpers {
             }
         }
 
-        int elegido = Helpers.PRNG_GENERATOR.nextInt(sounds.size());
+        if (!sounds.isEmpty()) {
+            int elegido = Helpers.PRNG_GENERATOR.nextInt(sounds.size());
 
-        Helpers.playWavResource(sounds.get(elegido));
+            Helpers.playWavResource(sounds.get(elegido));
+        }
     }
 
     public static void playRandomWavResourceAndWait(Map<String, String[]> sonidos) {
@@ -1343,9 +1345,12 @@ public class Helpers {
             }
         }
 
-        int elegido = Helpers.PRNG_GENERATOR.nextInt(sounds.size());
+        if (!sounds.isEmpty()) {
 
-        Helpers.playWavResourceAndWait(sounds.get(elegido));
+            int elegido = Helpers.PRNG_GENERATOR.nextInt(sounds.size());
+
+            Helpers.playWavResourceAndWait(sounds.get(elegido));
+        }
     }
 
     public static float getSoundVolume(String sound) {
@@ -2530,7 +2535,7 @@ public class Helpers {
                     }
                 };
 
-                Action comentariosAction = new AbstractAction("Comentarios profesionales") {
+                Action comentariosAction = new AbstractAction("Sonidos de coña") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         Game.getInstance().getSonidos_chorra_menu().doClick();
@@ -2696,10 +2701,12 @@ public class Helpers {
                 SONIDOS_MENU = new JCheckBoxMenuItem(soundAction);
                 SONIDOS_MENU.setSelected(Game.SONIDOS);
                 popup.add(SONIDOS_MENU);
+
                 SONIDOS_COMENTARIOS_MENU = new JCheckBoxMenuItem(comentariosAction);
                 SONIDOS_COMENTARIOS_MENU.setSelected(Game.SONIDOS_CHORRA);
                 SONIDOS_COMENTARIOS_MENU.setEnabled(Game.SONIDOS);
                 popup.add(SONIDOS_COMENTARIOS_MENU);
+
                 SONIDOS_MUSICA_MENU = new JCheckBoxMenuItem(musicaAction);
                 SONIDOS_MUSICA_MENU.setSelected(Game.MUSICA_AMBIENTAL);
                 SONIDOS_MUSICA_MENU.setEnabled(Game.SONIDOS);

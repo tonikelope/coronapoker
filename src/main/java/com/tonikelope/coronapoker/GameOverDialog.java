@@ -33,9 +33,14 @@ public class GameOverDialog extends javax.swing.JDialog {
     public GameOverDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
+        GameOverDialog tthis = this;
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+                Helpers.translateComponents(tthis, false);
+                pack();
             }
         });
 
@@ -44,11 +49,17 @@ public class GameOverDialog extends javax.swing.JDialog {
     public GameOverDialog(java.awt.Frame parent, boolean modal, boolean direct) {
         super(parent, modal);
 
+        GameOverDialog tthis = this;
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
 
                 direct_gameover = direct;
+
+                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+
+                Helpers.translateComponents(tthis, false);
 
                 if (direct_gameover) {
                     exit_now_button.setEnabled(false);

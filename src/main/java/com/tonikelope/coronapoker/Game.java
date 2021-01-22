@@ -90,7 +90,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static volatile boolean ANIMACION_REPARTIR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
     public static volatile boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
-    public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es");
+    public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static volatile boolean RECOVER = false;
     public static volatile String RECOVER_ID = null;
@@ -1595,7 +1595,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             Helpers.muteAll();
         }
 
-        Helpers.playWavResource("misc/startplay.wav");
+        if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
+
+            Helpers.playWavResource("misc/startplay.wav");
+        }
 
         if (Game.MUSICA_AMBIENTAL) {
             Helpers.unmuteLoopMp3("misc/background_music.mp3");
@@ -1812,7 +1815,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         sonidos_chorra_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         sonidos_chorra_menu.setSelected(true);
-        sonidos_chorra_menu.setText("Comentarios profesionales");
+        sonidos_chorra_menu.setText("Sonidos de coña");
         sonidos_chorra_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 sonidos_chorra_menuActionPerformed(evt);

@@ -49,7 +49,7 @@ public class Crupier implements Runnable {
 
     public static volatile Map.Entry<String, Object[][]> ALLIN_CINEMATICS_MOD = null;
 
-    public static final Map.Entry<String, String[]> ALLIN_SOUNDS = new HashMap.SimpleEntry<String, String[]>("allin/", new String[]{
+    public static final Map.Entry<String, String[]> ALLIN_SOUNDS_ES = new HashMap.SimpleEntry<String, String[]>("joke/es/allin/", new String[]{
         "dolor.wav",
         "final_flash.wav",
         "follon.wav",
@@ -63,9 +63,13 @@ public class Crupier implements Runnable {
         "vanidoso.wav",
         "vietnam.wav"});
 
+    public static final Map.Entry<String, String[]> ALLIN_SOUNDS_EN = new HashMap.SimpleEntry<String, String[]>("joke/en/allin/", new String[]{});
+
+    public static final Map<String, Map.Entry<String, String[]>> ALLIN_SOUNDS = new HashMap<>();
+
     public static volatile Map.Entry<String, String[]> ALLIN_SOUNDS_MOD = null;
 
-    public static final Map.Entry<String, String[]> FOLD_SOUNDS = new HashMap.SimpleEntry<String, String[]>("fold/", new String[]{
+    public static final Map.Entry<String, String[]> FOLD_SOUNDS_ES = new HashMap.SimpleEntry<String, String[]>("joke/es/fold/", new String[]{
         "fary.wav",
         "mamar_pollas.wav",
         "maricon.wav",
@@ -74,16 +78,27 @@ public class Crupier implements Runnable {
         "mierda_alta.wav",
         "percibo_miedo.wav"});
 
+    public static final Map.Entry<String, String[]> FOLD_SOUNDS_EN = new HashMap.SimpleEntry<String, String[]>("joke/en/fold/", new String[]{});
+
+    public static final Map<String, Map.Entry<String, String[]>> FOLD_SOUNDS = new HashMap<>();
+
     public static volatile Map.Entry<String, String[]> FOLD_SOUNDS_MOD = null;
 
-    public static final Map.Entry<String, String[]> SHOWDOWN_SOUNDS = new HashMap.SimpleEntry<String, String[]>("showdown/", new String[]{
+    public static final Map.Entry<String, String[]> SHOWDOWN_SOUNDS_ES = new HashMap.SimpleEntry<String, String[]>("joke/es/showdown/", new String[]{
         "berto.wav",
         "bond.wav",
         "kbill_show.wav"});
 
+    public static final Map.Entry<String, String[]> SHOWDOWN_SOUNDS_EN = new HashMap.SimpleEntry<String, String[]>("joke/en/showdown/", new String[]{
+        "berto.wav",
+        "bond.wav",
+        "kbill_show.wav"});
+
+    public static final Map<String, Map.Entry<String, String[]>> SHOWDOWN_SOUNDS = new HashMap<>();
+
     public static volatile Map.Entry<String, String[]> SHOWDOWN_SOUNDS_MOD = null;
 
-    public static final Map.Entry<String, String[]> WINNER_SOUNDS = new HashMap.SimpleEntry<String, String[]>("winner/", new String[]{
+    public static final Map.Entry<String, String[]> WINNER_SOUNDS_ES = new HashMap.SimpleEntry<String, String[]>("joke/es/winner/", new String[]{
         "ateam.wav",
         "divertido.wav",
         "dura.wav",
@@ -94,9 +109,13 @@ public class Crupier implements Runnable {
         "reymundo.wav",
         "vivarey.wav"});
 
+    public static final Map.Entry<String, String[]> WINNER_SOUNDS_EN = new HashMap.SimpleEntry<String, String[]>("joke/en/winner/", new String[]{});
+
+    public static final Map<String, Map.Entry<String, String[]>> WINNER_SOUNDS = new HashMap<>();
+
     public static volatile Map.Entry<String, String[]> WINNER_SOUNDS_MOD = null;
 
-    public static final Map.Entry<String, String[]> LOSER_SOUNDS = new HashMap.SimpleEntry<String, String[]>("loser/", new String[]{
+    public static final Map.Entry<String, String[]> LOSER_SOUNDS_ES = new HashMap.SimpleEntry<String, String[]>("joke/es/loser/", new String[]{
         "afregar.wav",
         "bambi.wav",
         "elgolpe.wav",
@@ -111,7 +130,27 @@ public class Crupier implements Runnable {
         "quecabron.wav",
         "vamos_no_me_jodas.wav"});
 
+    public static final Map.Entry<String, String[]> LOSER_SOUNDS_EN = new HashMap.SimpleEntry<String, String[]>("joke/en/loser/", new String[]{});
+
+    public static final Map<String, Map.Entry<String, String[]>> LOSER_SOUNDS = new HashMap<>();
+
     public static volatile Map.Entry<String, String[]> LOSER_SOUNDS_MOD = null;
+
+    static {
+
+        ALLIN_SOUNDS.put("es", ALLIN_SOUNDS_ES);
+        FOLD_SOUNDS.put("es", FOLD_SOUNDS_ES);
+        WINNER_SOUNDS.put("es", WINNER_SOUNDS_ES);
+        LOSER_SOUNDS.put("es", LOSER_SOUNDS_ES);
+        SHOWDOWN_SOUNDS.put("es", SHOWDOWN_SOUNDS_ES);
+
+        ALLIN_SOUNDS.put("en", ALLIN_SOUNDS_EN);
+        FOLD_SOUNDS.put("en", FOLD_SOUNDS_EN);
+        WINNER_SOUNDS.put("en", WINNER_SOUNDS_EN);
+        LOSER_SOUNDS.put("en", LOSER_SOUNDS_EN);
+        SHOWDOWN_SOUNDS.put("en", SHOWDOWN_SOUNDS_EN);
+
+    }
 
     public static final int CARTA_ALTA = 1;
     public static final int PAREJA = 2;
@@ -323,8 +362,8 @@ public class Crupier implements Runnable {
 
         if (Init.MOD != null) {
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/allin/"))) {
-                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/allin/").listFiles(File::isFile);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + Game.LANGUAGE + "/allin/"))) {
+                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + Game.LANGUAGE + "/allin/").listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
 
@@ -334,25 +373,25 @@ public class Crupier implements Runnable {
                 }
 
                 if (!FUSION_MOD_SOUNDS) {
-                    Crupier.ALLIN_SOUNDS_MOD = new HashMap.SimpleEntry<>("allin/", filenames.toArray(new String[filenames.size()]));
+                    Crupier.ALLIN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + Game.LANGUAGE + "/allin/", filenames.toArray(new String[filenames.size()]));
                 } else {
 
                     ArrayList<String> sounds = new ArrayList<>();
 
-                    sounds.addAll(Arrays.asList(Crupier.ALLIN_SOUNDS.getValue()));
+                    sounds.addAll(Arrays.asList(Crupier.ALLIN_SOUNDS.get(Game.LANGUAGE).getValue()));
 
                     sounds.addAll(filenames);
 
-                    Crupier.ALLIN_SOUNDS_MOD = new HashMap.SimpleEntry<>("allin/", sounds.toArray(new String[sounds.size()]));
+                    Crupier.ALLIN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + Game.LANGUAGE + "/allin/", sounds.toArray(new String[sounds.size()]));
                 }
 
             } else {
 
-                Crupier.ALLIN_SOUNDS_MOD = Crupier.ALLIN_SOUNDS;
+                Crupier.ALLIN_SOUNDS_MOD = Crupier.ALLIN_SOUNDS.get(Game.LANGUAGE);
             }
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/fold/"))) {
-                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/fold/").listFiles(File::isFile);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + Game.LANGUAGE + "/fold/"))) {
+                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + Game.LANGUAGE + "/fold/").listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
 
@@ -362,24 +401,24 @@ public class Crupier implements Runnable {
                 }
 
                 if (!FUSION_MOD_SOUNDS) {
-                    Crupier.FOLD_SOUNDS_MOD = new HashMap.SimpleEntry<>("fold/", filenames.toArray(new String[filenames.size()]));
+                    Crupier.FOLD_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + Game.LANGUAGE + "/fold/", filenames.toArray(new String[filenames.size()]));
                 } else {
 
                     ArrayList<String> sounds = new ArrayList<>();
 
-                    sounds.addAll(Arrays.asList(Crupier.FOLD_SOUNDS.getValue()));
+                    sounds.addAll(Arrays.asList(Crupier.FOLD_SOUNDS.get(Game.LANGUAGE).getValue()));
 
                     sounds.addAll(filenames);
 
-                    Crupier.FOLD_SOUNDS_MOD = new HashMap.SimpleEntry<>("fold/", sounds.toArray(new String[sounds.size()]));
+                    Crupier.FOLD_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + Game.LANGUAGE + "/fold/", sounds.toArray(new String[sounds.size()]));
                 }
 
             } else {
-                Crupier.FOLD_SOUNDS_MOD = Crupier.FOLD_SOUNDS;
+                Crupier.FOLD_SOUNDS_MOD = Crupier.FOLD_SOUNDS.get(Game.LANGUAGE);
             }
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/showdown/"))) {
-                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/showdown/").listFiles(File::isFile);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + Game.LANGUAGE + "/showdown/"))) {
+                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + Game.LANGUAGE + "/showdown/").listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
 
@@ -389,25 +428,25 @@ public class Crupier implements Runnable {
                 }
 
                 if (!FUSION_MOD_SOUNDS) {
-                    Crupier.SHOWDOWN_SOUNDS_MOD = new HashMap.SimpleEntry<>("showdown/", filenames.toArray(new String[filenames.size()]));
+                    Crupier.SHOWDOWN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + Game.LANGUAGE + "/showdown/", filenames.toArray(new String[filenames.size()]));
                 } else {
 
                     ArrayList<String> sounds = new ArrayList<>();
 
-                    sounds.addAll(Arrays.asList(Crupier.SHOWDOWN_SOUNDS.getValue()));
+                    sounds.addAll(Arrays.asList(Crupier.SHOWDOWN_SOUNDS.get(Game.LANGUAGE).getValue()));
 
                     sounds.addAll(filenames);
 
-                    Crupier.SHOWDOWN_SOUNDS_MOD = new HashMap.SimpleEntry<>("showdown/", sounds.toArray(new String[sounds.size()]));
+                    Crupier.SHOWDOWN_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + Game.LANGUAGE + "/showdown/", sounds.toArray(new String[sounds.size()]));
                 }
 
             } else {
 
-                Crupier.SHOWDOWN_SOUNDS_MOD = Crupier.SHOWDOWN_SOUNDS;
+                Crupier.SHOWDOWN_SOUNDS_MOD = Crupier.SHOWDOWN_SOUNDS.get(Game.LANGUAGE);
             }
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/loser/"))) {
-                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/loser/").listFiles(File::isFile);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + Game.LANGUAGE + "/loser/"))) {
+                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + Game.LANGUAGE + "/loser/").listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
 
@@ -417,25 +456,25 @@ public class Crupier implements Runnable {
                 }
 
                 if (!FUSION_MOD_SOUNDS) {
-                    Crupier.LOSER_SOUNDS_MOD = new HashMap.SimpleEntry<>("loser/", filenames.toArray(new String[filenames.size()]));
+                    Crupier.LOSER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + Game.LANGUAGE + "/loser/", filenames.toArray(new String[filenames.size()]));
                 } else {
 
                     ArrayList<String> sounds = new ArrayList<>();
 
-                    sounds.addAll(Arrays.asList(Crupier.LOSER_SOUNDS.getValue()));
+                    sounds.addAll(Arrays.asList(Crupier.LOSER_SOUNDS.get(Game.LANGUAGE).getValue()));
 
                     sounds.addAll(filenames);
 
-                    Crupier.LOSER_SOUNDS_MOD = new HashMap.SimpleEntry<>("loser/", sounds.toArray(new String[sounds.size()]));
+                    Crupier.LOSER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + Game.LANGUAGE + "/loser/", sounds.toArray(new String[sounds.size()]));
                 }
 
             } else {
 
-                Crupier.LOSER_SOUNDS_MOD = Crupier.LOSER_SOUNDS;
+                Crupier.LOSER_SOUNDS_MOD = Crupier.LOSER_SOUNDS.get(Game.LANGUAGE);
             }
 
-            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/winner/"))) {
-                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/winner/").listFiles(File::isFile);
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + Game.LANGUAGE + "/winner/"))) {
+                File[] archivos = new File(Helpers.getCurrentJarParentPath() + "/mod/sounds/joke/" + Game.LANGUAGE + "/winner/").listFiles(File::isFile);
 
                 ArrayList<String> filenames = new ArrayList<>();
 
@@ -445,21 +484,20 @@ public class Crupier implements Runnable {
                 }
 
                 if (!FUSION_MOD_SOUNDS) {
-                    Crupier.WINNER_SOUNDS_MOD = new HashMap.SimpleEntry<>("winner/", filenames.toArray(new String[filenames.size()]));
+                    Crupier.WINNER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + Game.LANGUAGE + "/winner/", filenames.toArray(new String[filenames.size()]));
                 } else {
 
                     ArrayList<String> sounds = new ArrayList<>();
 
-                    sounds.addAll(Arrays.asList(Crupier.WINNER_SOUNDS.getValue()));
+                    sounds.addAll(Arrays.asList(Crupier.WINNER_SOUNDS.get(Game.LANGUAGE).getValue()));
 
                     sounds.addAll(filenames);
 
-                    Crupier.WINNER_SOUNDS_MOD = new HashMap.SimpleEntry<>("winner/", sounds.toArray(new String[sounds.size()]));
+                    Crupier.WINNER_SOUNDS_MOD = new HashMap.SimpleEntry<>("joke/" + Game.LANGUAGE + "/winner/", sounds.toArray(new String[sounds.size()]));
                 }
 
             } else {
-
-                Crupier.WINNER_SOUNDS_MOD = Crupier.WINNER_SOUNDS;
+                Crupier.WINNER_SOUNDS_MOD = Crupier.WINNER_SOUNDS.get(Game.LANGUAGE);
             }
 
         }
@@ -806,7 +844,7 @@ public class Crupier implements Runnable {
 
         if (!this.sincronizando_mano && Game.SONIDOS_CHORRA && !fold_sound_playing) {
 
-            Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD) : Map.ofEntries(Crupier.ALLIN_SOUNDS));
+            Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD) : Map.ofEntries(Crupier.ALLIN_SOUNDS.get(Game.LANGUAGE)));
 
         }
 
@@ -817,7 +855,7 @@ public class Crupier implements Runnable {
             this.fold_sound_playing = true;
             Helpers.threadRun(new Runnable() {
                 public void run() {
-                    Helpers.playRandomWavResourceAndWait(Init.MOD != null ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD) : Map.ofEntries(Crupier.FOLD_SOUNDS));
+                    Helpers.playRandomWavResourceAndWait(Init.MOD != null ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD) : Map.ofEntries(Crupier.FOLD_SOUNDS.get(Game.LANGUAGE)));
                     fold_sound_playing = false;
                 }
             });
@@ -835,7 +873,7 @@ public class Crupier implements Runnable {
                         Helpers.unmuteAllLoopMp3();
                     }
                 });
-            } else if (jugada_ganadora >= Hand.POKER) {
+            } else if (jugada_ganadora >= Hand.POKER && Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
@@ -846,7 +884,7 @@ public class Crupier implements Runnable {
                 });
 
             } else {
-                Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.SHOWDOWN_SOUNDS_MOD, Crupier.WINNER_SOUNDS_MOD, Crupier.LOSER_SOUNDS_MOD) : Map.ofEntries(Crupier.SHOWDOWN_SOUNDS, Crupier.WINNER_SOUNDS, Crupier.LOSER_SOUNDS));
+                Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.SHOWDOWN_SOUNDS_MOD, Crupier.WINNER_SOUNDS_MOD, Crupier.LOSER_SOUNDS_MOD) : Map.ofEntries(Crupier.SHOWDOWN_SOUNDS.get(Game.LANGUAGE), Crupier.WINNER_SOUNDS.get(Game.LANGUAGE), Crupier.LOSER_SOUNDS.get(Game.LANGUAGE)));
             }
         }
     }
@@ -854,7 +892,7 @@ public class Crupier implements Runnable {
     public void soundWinner(int jugada, boolean ultima_carta) {
         if (!this.sincronizando_mano && Game.SONIDOS_CHORRA && !fold_sound_playing) {
 
-            if (jugada >= Hand.POKER || badbeat) {
+            if ((jugada >= Hand.POKER || badbeat) && Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
@@ -868,13 +906,13 @@ public class Crupier implements Runnable {
 
                 Map<String, String[]> sonidos;
 
-                if (ultima_carta) {
+                if (ultima_carta && Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
 
-                    sonidos = Init.MOD != null ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD, new HashMap.SimpleEntry<String, String[]>("misc/", new String[]{"lastcard.wav"})) : Map.ofEntries(Crupier.WINNER_SOUNDS, new HashMap.SimpleEntry<String, String[]>("misc/", new String[]{"lastcard.wav"}));
+                    sonidos = Init.MOD != null ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD, new HashMap.SimpleEntry<String, String[]>("misc/", new String[]{"lastcard.wav"})) : Map.ofEntries(Crupier.WINNER_SOUNDS.get(Game.LANGUAGE), new HashMap.SimpleEntry<String, String[]>("misc/", new String[]{"lastcard.wav"}));
 
                 } else {
 
-                    sonidos = Init.MOD != null ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD) : Map.ofEntries(Crupier.WINNER_SOUNDS);
+                    sonidos = Init.MOD != null ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD) : Map.ofEntries(Crupier.WINNER_SOUNDS.get(Game.LANGUAGE));
                 }
 
                 Helpers.playRandomWavResource(sonidos);
@@ -893,16 +931,16 @@ public class Crupier implements Runnable {
                         Helpers.unmuteAllLoopMp3();
                     }
                 });
-            } else if (jugada >= Hand.FULL) {
+            } else if (jugada >= Hand.FULL && Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
 
-                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<String, String[]>("loser/", new String[]{
+                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<String, String[]>("joke/es/loser/", new String[]{
                     "encargado.wav",
                     "matias.wav"});
 
                 Helpers.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
 
             } else {
-                Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD) : Map.ofEntries(Crupier.LOSER_SOUNDS));
+                Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD) : Map.ofEntries(Crupier.LOSER_SOUNDS.get(Game.LANGUAGE)));
             }
         }
     }
@@ -1982,7 +2020,7 @@ public class Crupier implements Runnable {
 
         if (Helpers.float1DSecureCompare(0f, this.bote_sobrante) < 0) {
 
-            if (Game.SONIDOS_CHORRA) {
+            if (Game.SONIDOS_CHORRA && Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
                 Helpers.playWavResource("misc/indivisible.wav");
             }
 
@@ -5065,7 +5103,7 @@ public class Crupier implements Runnable {
                         if (Game.SONIDOS_CHORRA && jugador_actual == Game.getInstance().getLocalPlayer()) {
 
                             if (jugador_actual.getDecision() == Player.ALLIN) {
-                                Helpers.playWavResource("winner/orgasmo.wav", true);
+                                Helpers.playWavResource("joke/" + Game.LANGUAGE + "/winner/applause.wav", true);
                             } else {
                                 this.soundWinner(jugada.getVal(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
                             }
@@ -5101,8 +5139,8 @@ public class Crupier implements Runnable {
 
                         if (Game.SONIDOS_CHORRA && jugador_actual == Game.getInstance().getLocalPlayer()) {
 
-                            if (jugador_actual.getDecision() == Player.ALLIN) {
-                                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<String, String[]>("loser/", new String[]{
+                            if (jugador_actual.getDecision() == Player.ALLIN && Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
+                                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<String, String[]>("joke/es/loser/", new String[]{
                                     "encargado.wav",
                                     "matias.wav"});
 
@@ -5129,7 +5167,7 @@ public class Crupier implements Runnable {
                         if (Game.SONIDOS_CHORRA && jugador_actual == Game.getInstance().getLocalPlayer()) {
 
                             if (jugador_actual.getDecision() == Player.ALLIN) {
-                                Helpers.playWavResource("winner/orgasmo.wav", true);
+                                Helpers.playWavResource("joke/" + Game.LANGUAGE + "/winner/applause.wav", true);
                             } else {
                                 this.soundWinner(jugada.getVal(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
                             }
@@ -5159,8 +5197,8 @@ public class Crupier implements Runnable {
 
                         if (Game.SONIDOS_CHORRA && jugador_actual == Game.getInstance().getLocalPlayer()) {
 
-                            if (jugador_actual.getDecision() == Player.ALLIN) {
-                                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<String, String[]>("loser/", new String[]{
+                            if (jugador_actual.getDecision() == Player.ALLIN && Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
+                                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<String, String[]>("joke/es/loser/", new String[]{
                                     "encargado.wav",
                                     "matias.wav"});
 

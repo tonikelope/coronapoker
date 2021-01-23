@@ -302,11 +302,10 @@ public class Stats extends javax.swing.JDialog {
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                Helpers.closeSQLITE();
             }
 
         } else {
+
             try {
 
                 String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_JUGADAS, ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_GANADAS, CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS PRECISION, roi||'%' AS ROI, case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as EFECTIVIDAD from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where action>=2 and round=1 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown left join (select player,count(distinct id_hand) as GANADAS from showdown where winner=1 group by player) as tc on showdown.player=tc.player group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by EFECTIVIDAD DESC";
@@ -319,8 +318,6 @@ public class Stats extends javax.swing.JDialog {
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                Helpers.closeSQLITE();
             }
 
         }
@@ -329,6 +326,8 @@ public class Stats extends javax.swing.JDialog {
             Helpers.resultSetToTableModel(rs, res_table);
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
         TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
@@ -400,8 +399,6 @@ public class Stats extends javax.swing.JDialog {
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                Helpers.closeSQLITE();
             }
 
         } else {
@@ -421,8 +418,6 @@ public class Stats extends javax.swing.JDialog {
 
             } catch (SQLException ex) {
                 Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                Helpers.closeSQLITE();
             }
 
         }
@@ -430,6 +425,8 @@ public class Stats extends javax.swing.JDialog {
             Helpers.resultSetToTableModel(rs, res_table);
         } catch (SQLException ex) {
             Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
         }
 
         TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());

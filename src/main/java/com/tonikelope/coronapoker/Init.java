@@ -79,6 +79,15 @@ public class Init extends javax.swing.JFrame {
 
                 sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
+                if (!Game.SONIDOS) {
+
+                    Helpers.muteAll();
+
+                } else {
+
+                    Helpers.unMuteAll();
+
+                }
                 Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
 
                 pack();
@@ -127,6 +136,11 @@ public class Init extends javax.swing.JFrame {
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("CoronaPoker");
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentShown(java.awt.event.ComponentEvent evt) {
+                formComponentShown(evt);
+            }
+        });
 
         corona_init_panel.setOpaque(false);
 
@@ -406,6 +420,12 @@ public class Init extends javax.swing.JFrame {
 
         dialog.setVisible(true);
     }//GEN-LAST:event_jButton1ActionPerformed
+
+    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
+        // TODO add your handling code here:
+
+        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+    }//GEN-LAST:event_formComponentShown
 
     /**
      * @param args the command line arguments

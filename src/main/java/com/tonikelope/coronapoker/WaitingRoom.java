@@ -2487,8 +2487,6 @@ public class WaitingRoom extends javax.swing.JFrame {
                 }
             });
 
-            ventana_inicio.getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
-
             Helpers.stopLoopMp3("misc/waiting_room.mp3");
 
             Helpers.unmuteLoopMp3("misc/background_music.mp3");
@@ -2507,13 +2505,7 @@ public class WaitingRoom extends javax.swing.JFrame {
 
         Helpers.savePropertiesFile();
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
-
-            }
-        });
+        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
         if (!Game.SONIDOS) {
 

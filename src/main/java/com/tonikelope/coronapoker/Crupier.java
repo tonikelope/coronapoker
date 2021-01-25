@@ -5021,13 +5021,6 @@ public class Crupier implements Runnable {
 
     public void pausaConBarra(int tiempo) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                Game.getInstance().getBarra_tiempo().setMaximum(tiempo);
-                Game.getInstance().getBarra_tiempo().setValue(tiempo);
-            }
-        });
-
         this.setTiempo_pausa(tiempo);
 
         while (this.getTiempo_pausa() > 0) {

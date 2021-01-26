@@ -71,8 +71,6 @@ public class Stats extends javax.swing.JDialog {
                 hand_data_panel.setVisible(false);
                 hand_combo.addItem(Translator.translate("TODAS LAS MANOS"));
                 hand_combo.setVisible(false);
-                game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
-                game_combo.setSelectedIndex(0);
                 game_data_panel.setVisible(false);
                 res_table.setDefaultEditor(Object.class, null);
                 res_table.setRowHeight(res_table.getRowHeight() + 20);
@@ -94,6 +92,8 @@ public class Stats extends javax.swing.JDialog {
                 setTitle(Translator.translate(getTitle()));
 
                 loadGames();
+
+                game_combo.setSelectedIndex(0);
 
                 init = false;
 
@@ -972,9 +972,39 @@ public class Stats extends javax.swing.JDialog {
 
     }
 
+    private boolean deleteGame(int id) {
+
+        try {
+
+            String sql = "DELETE FROM game WHERE id=?";
+
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, id);
+
+            return (statement.executeUpdate() > 0);
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
+        }
+
+        return false;
+
+    }
+
     private void loadGames() {
 
         try {
+
+            game.clear();
+
+            game_combo.removeAllItems();
+
+            game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
 
             String sql = "SELECT id,start,server FROM game ORDER BY start DESC";
 
@@ -1038,6 +1068,7 @@ public class Stats extends javax.swing.JDialog {
         game_rebuy_val = new javax.swing.JLabel();
         game_playtime_label = new javax.swing.JLabel();
         game_playtime_val = new javax.swing.JLabel();
+        delete_game_button = new javax.swing.JButton();
         hand_combo = new javax.swing.JComboBox<>();
         hand_data_panel = new javax.swing.JPanel();
         hand_blinds_label = new javax.swing.JLabel();
@@ -1088,7 +1119,7 @@ public class Stats extends javax.swing.JDialog {
         scroll_stats_panel.setDoubleBuffered(true);
 
         game_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        game_combo.setMaximumRowCount(10);
+        game_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         game_combo.setDoubleBuffered(true);
         game_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
@@ -1154,6 +1185,16 @@ public class Stats extends javax.swing.JDialog {
         game_playtime_val.setText(" ");
         game_playtime_val.setDoubleBuffered(true);
 
+        delete_game_button.setBackground(new java.awt.Color(255, 0, 0));
+        delete_game_button.setForeground(new java.awt.Color(255, 255, 255));
+        delete_game_button.setText("ELIMINAR TIMBA");
+        delete_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        delete_game_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                delete_game_buttonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout game_data_panelLayout = new javax.swing.GroupLayout(game_data_panel);
         game_data_panel.setLayout(game_data_panelLayout);
         game_data_panelLayout.setHorizontalGroup(
@@ -1186,13 +1227,18 @@ public class Stats extends javax.swing.JDialog {
                         .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(game_hand_val, javax.swing.GroupLayout.DEFAULT_SIZE, 888, Short.MAX_VALUE)
                             .addComponent(game_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_playtime_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                            .addComponent(game_playtime_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, game_data_panelLayout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(delete_game_button)))
                 .addContainerGap())
         );
         game_data_panelLayout.setVerticalGroup(
             game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(game_data_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
+                .addContainerGap()
+                .addComponent(delete_game_button)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(game_playtime_label)
                     .addComponent(game_playtime_val))
@@ -1224,7 +1270,7 @@ public class Stats extends javax.swing.JDialog {
         );
 
         hand_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_combo.setMaximumRowCount(10);
+        hand_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         hand_combo.setDoubleBuffered(true);
         hand_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
@@ -1414,7 +1460,7 @@ public class Stats extends javax.swing.JDialog {
         );
 
         stats_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        stats_combo.setMaximumRowCount(10);
+        stats_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         stats_combo.setDoubleBuffered(true);
         stats_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
@@ -1595,7 +1641,21 @@ public class Stats extends javax.swing.JDialog {
         }
     }//GEN-LAST:event_formWindowClosed
 
+    private void delete_game_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_delete_game_buttonActionPerformed
+        // TODO add your handling code here:
+        if (Helpers.mostrarMensajeInformativoSINO(null, "¿ELIMINAR ESTA TIMBA?") == 0) {
+            if (deleteGame((int) game.get((String) game_combo.getSelectedItem()).get("id"))) {
+                loadGames();
+
+                if (!game.isEmpty()) {
+                    game_combo.setSelectedIndex(1);
+                }
+            }
+        }
+    }//GEN-LAST:event_delete_game_buttonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton delete_game_button;
     private javax.swing.JLabel game_blinds_double_label;
     private javax.swing.JLabel game_blinds_double_val;
     private javax.swing.JLabel game_blinds_label;

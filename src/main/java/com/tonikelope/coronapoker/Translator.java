@@ -22,6 +22,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿ELIMINAR ESTA TIMBA?", "REMOVE THIS GAME?"},
+            {"ELIMINAR TIMBA", "REMOVE GAME"},
             {"¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?", "IGNORE TTS MESSAGES FROM THIS USER?"},
             {"La canción que suena en la sala de espera es \"The Dream\" compuesta por Jerry Goldsmith para la película Total Recall.", "The song that sounds in the waiting room is \"The Dream\" composed by Jerry Goldsmith for the movie Total Recall."},
             {"ERROR FATAL: NO SE HA PODIDO RECUPERAR LA CLAVE DE LA PERMUTACIÓN", "FATAL ERROR: UNABLE TO RECOVER THE PERMUTATION KEY"},

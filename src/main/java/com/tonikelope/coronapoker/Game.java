@@ -331,12 +331,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
-                GraphicsDevice device = env.getDefaultScreenDevice();
-
                 if (!full_screen) {
 
-                    if (Helpers.OSValidator.isWindows()) {
+                    if (Helpers.OSValidator.isWindows() || Helpers.OSValidator.isMac()) {
                         setVisible(false);
                         getContentPane().remove(Game.getInstance().getTapete());
                         full_screen_frame = new JFrame();
@@ -363,6 +360,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         }
 
                     } else {
+
+                        GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
+                        GraphicsDevice device = env.getDefaultScreenDevice();
                         menu_bar.setVisible(false);
                         setVisible(false);
                         device.setFullScreenWindow(Game.getInstance());
@@ -370,7 +370,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 } else {
 
-                    if (Helpers.OSValidator.isWindows()) {
+                    if (Helpers.OSValidator.isWindows() || Helpers.OSValidator.isMac()) {
 
                         full_screen_frame.getContentPane().remove(Game.getInstance().getTapete());
                         full_screen_frame.setVisible(false);
@@ -392,6 +392,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     } else {
 
+                        GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
+                        GraphicsDevice device = env.getDefaultScreenDevice();
                         device.setFullScreenWindow(null);
                         setExtendedState(JFrame.MAXIMIZED_BOTH);
                         setVisible(true);

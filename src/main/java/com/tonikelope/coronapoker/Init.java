@@ -544,7 +544,7 @@ public class Init extends javax.swing.JFrame {
 
                         Object[] tts = Helpers.TTS_CHAT_QUEUE.poll();
 
-                        NickTTSDialog nick_dialog = new NickTTSDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), false, (String) tts[0]);
+                        NickTTSDialog nick_dialog = new NickTTSDialog(Game.getInstance().getFrame(), false, (String) tts[0]);
 
                         Helpers.GUIRun(new Runnable() {
                             @Override

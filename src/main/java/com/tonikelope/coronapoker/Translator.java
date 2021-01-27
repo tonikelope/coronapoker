@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Recomprar (siguiente mano)", "Rebuy (next hand)"},
             {"¿ELIMINAR ESTA TIMBA?", "REMOVE THIS GAME?"},
             {"ELIMINAR TIMBA", "REMOVE GAME"},
             {"¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?", "IGNORE TTS MESSAGES FROM THIS USER?"},

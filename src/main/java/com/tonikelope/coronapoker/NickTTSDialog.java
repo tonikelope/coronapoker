@@ -148,7 +148,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
                 }
             }
 
-            if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?") == 0) {
+            if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), "¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?") == 0) {
 
                 Helpers.TTS_BLOCKED_USERS.add(player);
             }

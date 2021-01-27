@@ -75,6 +75,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer hurryup_timer = null;
     private volatile int response_counter = 0;
 
+    public JLabel getPlayer_buyin() {
+        return player_buyin;
+    }
+
     public JSpinner getBet_spinner() {
         return bet_spinner;
     }
@@ -2011,9 +2015,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!Game.getInstance().isPartida_local()) {
 
-            Identicon identicon = new Identicon(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, player_name.getText(), Game.getInstance().getSala_espera().getLocal_client_aes_key());
+            Identicon identicon = new Identicon(Game.getInstance().getFrame(), true, player_name.getText(), Game.getInstance().getSala_espera().getLocal_client_aes_key());
 
-            identicon.setLocationRelativeTo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance());
+            identicon.setLocationRelativeTo(Game.getInstance().getFrame());
 
             identicon.setVisible(true);
         }
@@ -2022,55 +2026,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_buyinMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_buyinMouseClicked
         // TODO add your handling code here:
 
-        if (player_buyin.isEnabled() && isActivo()) {
-
-            player_buyin.setEnabled(false);
-
-            if (crupier.getRebuy_now().contains(nickname)) {
-
-                this.player_buyin.setBackground(Helpers.float1DSecureCompare((float) Game.BUYIN, buyin) == 0 ? new Color(204, 204, 204) : Color.cyan);
-
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        crupier.rebuyNow(nickname);
-                        player_buyin.setEnabled(true);
-                        Helpers.playWavResource("misc/auto_button_off.wav");
-                    }
-                });
-
-            } else if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "¿RECOMPRAR EN LA PRÓXIMA MANO?") == 0) {
-
-                if (!Game.REBUY) {
-                    Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "NO SE PUEDE RECOMPRAR EN ESTA TIMBA");
-                    player_buyin.setEnabled(true);
-                } else if (crupier.getRebuy_now().contains(nickname)) {
-                    Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "YA TIENES UNA SOLICITUD DE RECOMPRA ACTIVA");
-                    player_buyin.setEnabled(true);
-                } else if (Helpers.float1DSecureCompare(stack + (this.getDecision() != Player.FOLD ? bote : 0f) + pagar, (float) Game.BUYIN) >= 0) {
-                    Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("PARA RECOMPRAR DEBES TENER MENOS DE ") + Game.BUYIN);
-                    player_buyin.setEnabled(true);
-                } else {
-                    this.player_buyin.setBackground(Color.YELLOW);
-
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
-                            crupier.rebuyNow(nickname);
-                            player_buyin.setEnabled(true);
-                            Helpers.playWavResource("misc/auto_button_on.wav");
-                        }
-                    });
-                }
-
-            } else {
-                player_buyin.setEnabled(true);
-            }
-
-        }
+        Game.getInstance().getRebuy_now_menu().doClick();
     }//GEN-LAST:event_player_buyinMouseClicked
 
     private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
-        player_buyinMouseClicked(evt);
+        Game.getInstance().getRebuy_now_menu().doClick();
     }//GEN-LAST:event_player_stackMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

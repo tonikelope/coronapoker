@@ -699,7 +699,7 @@ public class Crupier implements Runnable {
 
                 if (icon != null) {
 
-                    GifAnimation gif = new GifAnimation(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), false, icon);
+                    GifAnimation gif = new GifAnimation(Game.getInstance().getFrame(), false, icon);
 
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
@@ -2071,7 +2071,7 @@ public class Crupier implements Runnable {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "NO SE PUEDE RECUPERAR LA MANO EN CURSO PORQUE FALTAN JUGADORES DE LA MANO ANTERIOR");
+                        Helpers.mostrarMensajeInformativo(Game.getInstance().getFrame(), "NO SE PUEDE RECUPERAR LA MANO EN CURSO PORQUE FALTAN JUGADORES DE LA MANO ANTERIOR");
                     }
                 });
 
@@ -2086,7 +2086,7 @@ public class Crupier implements Runnable {
 
                     if (permutacion_recuperada == null) {
 
-                        Helpers.mostrarMensajeError(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "ERROR FATAL: NO SE HA PODIDO RECUPERAR LA CLAVE DE LA PERMUTACIÓN");
+                        Helpers.mostrarMensajeError(Game.getInstance().getFrame(), "ERROR FATAL: NO SE HA PODIDO RECUPERAR LA CLAVE DE LA PERMUTACIÓN");
 
                         if (Game.getInstance().getJugadores().size() > 1) {
 
@@ -2169,7 +2169,7 @@ public class Crupier implements Runnable {
                         ImageIcon icon = new ImageIcon(getClass().getResource("/cinematics/misc/shuffle.gif"));
 
                         if (icon != null) {
-                            GifAnimation gif = new GifAnimation(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), false, icon);
+                            GifAnimation gif = new GifAnimation(Game.getInstance().getFrame(), false, icon);
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
 
@@ -5306,7 +5306,7 @@ public class Crupier implements Runnable {
         if (Game.getInstance().getSala_espera().isUnsecure_server()) {
             Helpers.threadRun(new Runnable() {
                 public void run() {
-                    Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "¡¡TEN CUIDADO!! ES MUY PROBABLE QUE EL SERVIDOR ESTÉ INTENTANDO HACER TRAMPAS.");
+                    Helpers.mostrarMensajeInformativo(Game.getInstance().getFrame(), "¡¡TEN CUIDADO!! ES MUY PROBABLE QUE EL SERVIDOR ESTÉ INTENTANDO HACER TRAMPAS.");
                 }
             });
         }
@@ -5715,7 +5715,7 @@ public class Crupier implements Runnable {
 
                                     if (!Game.AUTO_REBUY) {
 
-                                        GameOverDialog dialog = new GameOverDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true);
+                                        GameOverDialog dialog = new GameOverDialog(Game.getInstance().getFrame(), true);
 
                                         Game.getInstance().setGame_over_dialog(true);
 
@@ -5786,7 +5786,7 @@ public class Crupier implements Runnable {
 
                                 } else {
 
-                                    GameOverDialog dialog = new GameOverDialog(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), true, true);
+                                    GameOverDialog dialog = new GameOverDialog(Game.getInstance().getFrame(), true, true);
 
                                     Game.getInstance().setGame_over_dialog(true);
 
@@ -5815,7 +5815,7 @@ public class Crupier implements Runnable {
 
                                         if (rebuy_players.contains(jugador.getNickname()) && Game.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
 
-                                            int res = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname());
+                                            int res = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname());
 
                                             rebuy_players.remove(jugador.getNickname());
 

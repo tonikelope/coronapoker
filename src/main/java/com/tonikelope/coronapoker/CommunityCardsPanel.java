@@ -412,7 +412,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             tthis.getHand_label().setEnabled(false);
 
-            if (Game.MANOS == Game.getInstance().getCrupier().getMano() || Game.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿ÚLTIMA MANO?")) == 0) {
+            if (Game.MANOS == Game.getInstance().getCrupier().getMano() || Game.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), Translator.translate("¿ÚLTIMA MANO?")) == 0) {
 
                 Helpers.threadRun(new Runnable() {
 
@@ -450,7 +450,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (!(Game.getInstance().getCrupier().isLast_hand() && Game.getInstance().getCrupier().isShow_time()) && Game.getInstance().isPartida_local() && !Game.getInstance().isTimba_pausada() && !Game.getInstance().getLocalPlayer().isTurno() && !Game.getInstance().getLocalPlayer().isAuto_pause() && !Game.getInstance().getLocalPlayer().isSpectator()) {
 
-            pause_now = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("¿PAUSAR AHORA MISMO?"));
+            pause_now = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), Translator.translate("¿PAUSAR AHORA MISMO?"));
 
         }
 
@@ -485,7 +485,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 if (!Game.getInstance().getLocalPlayer().isAuto_pause_warning()) {
                     Game.getInstance().getLocalPlayer().setAuto_pause_warning(true);
-                    Helpers.mostrarMensajeInformativo(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), Translator.translate("PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO"));
+                    Helpers.mostrarMensajeInformativo(Game.getInstance().getFrame(), Translator.translate("PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO"));
                 }
 
             } else {

@@ -248,7 +248,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                             }
                         });
 
-                        if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
+                        if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
 
                             continua = true;
 
@@ -317,7 +317,7 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                 Helpers.stopWavResource("misc/gameover.wav");
 
-                if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFull_screen_frame() != null ? Game.getInstance().getFull_screen_frame() : Game.getInstance(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
+                if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
 
                     continua = true;
 

@@ -2474,6 +2474,7 @@ public class Helpers {
         public static JCheckBoxMenuItem SONIDOS_TTS_MENU;
         public static JCheckBoxMenuItem RELOJ_MENU;
         public static JCheckBoxMenuItem AUTOREBUY_MENU;
+        public static JCheckBoxMenuItem REBUY_NOW_MENU;
         public static JCheckBoxMenuItem COMPACTA_MENU;
         public static JCheckBoxMenuItem CONFIRM_MENU;
         public static JCheckBoxMenuItem ANIMACION_MENU;
@@ -2631,6 +2632,13 @@ public class Helpers {
                     }
                 };
 
+                Action rebuyNowAction = new AbstractAction("Recomprar (siguiente mano)") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        Game.getInstance().getRebuy_now_menu().doClick();
+                    }
+                };
+
                 Action confirmAction = new AbstractAction("Confirmar todas las acciones") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -2755,6 +2763,9 @@ public class Helpers {
                 AUTOREBUY_MENU = new JCheckBoxMenuItem(rebuyAction);
                 AUTOREBUY_MENU.setSelected(Game.AUTO_REBUY);
                 popup.add(AUTOREBUY_MENU);
+                REBUY_NOW_MENU = new JCheckBoxMenuItem(rebuyNowAction);
+                REBUY_NOW_MENU.setSelected(false);
+                popup.add(REBUY_NOW_MENU);
                 popup.addSeparator();
                 EXIT_MENU = new JMenuItem(exitAction);
                 popup.add(EXIT_MENU);

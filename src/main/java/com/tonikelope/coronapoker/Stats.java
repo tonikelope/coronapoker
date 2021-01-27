@@ -1647,6 +1647,8 @@ public class Stats extends javax.swing.JDialog {
             if (deleteGame((int) game.get((String) game_combo.getSelectedItem()).get("id"))) {
                 loadGames();
 
+                Helpers.playWavResource("misc/toilet.wav");
+
                 if (!game.isEmpty()) {
                     game_combo.setSelectedIndex(1);
                 }

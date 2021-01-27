@@ -2047,6 +2047,14 @@ public class Crupier implements Runnable {
 
         this.rebuy_now.clear();
 
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                Game.getInstance().getRebuy_now_menu().setSelected(false);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+            }
+        });
+
         Integer[] permutacion_recuperada = null;
 
         boolean saltar_mano_recover = false;

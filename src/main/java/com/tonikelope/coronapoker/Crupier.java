@@ -6075,7 +6075,7 @@ public class Crupier implements Runnable {
                 }
             }
 
-            //Nos cargamos todos los que tengan un trío con carta más pequeña
+            //Nos cargamos todos los que tengan una pareja con carta más pequeña
             for (Iterator<Map.Entry<Player, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
                 Map.Entry<Player, Hand> entry = it.next();
                 Hand jugada = entry.getValue();

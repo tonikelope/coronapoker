@@ -532,7 +532,7 @@ public class Participant implements Runnable {
                                             break;
 
                                         case "REBUYNOW":
-                                            Game.getInstance().getCrupier().rebuyNow(nick);
+                                            Game.getInstance().getCrupier().rebuyNow(nick, Integer.parseInt(partes_comando[3]));
                                             break;
                                         case "SHOWMYCARDS":
                                             Game.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);

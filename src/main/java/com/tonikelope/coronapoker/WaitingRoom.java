@@ -1215,7 +1215,7 @@ public class WaitingRoom extends javax.swing.JFrame {
                                                         break;
 
                                                     case "REBUYNOW":
-                                                        Game.getInstance().getCrupier().rebuyNow(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                        Game.getInstance().getCrupier().rebuyNow(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Integer.parseInt(partes_comando[4]));
                                                         break;
 
                                                     case "EXIT":

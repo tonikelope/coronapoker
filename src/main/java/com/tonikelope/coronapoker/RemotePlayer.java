@@ -1144,9 +1144,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         pagar = 0f;
 
-        if (Helpers.float1DSecureCompare(getStack(), 0f) == 0) {
-            reComprar(Game.BUYIN);
-        } else if (crupier.getRebuy_now().containsKey(nickname)) {
+        if (crupier.getRebuy_now().containsKey(nickname)) {
             reComprar((Integer) crupier.getRebuy_now().get(nickname));
         }
 

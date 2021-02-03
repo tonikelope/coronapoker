@@ -2562,9 +2562,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         LocalPlayer player = Game.getInstance().getLocalPlayer();
 
-        if (!getCrupier().isRebuy_time() && player.isActivo()) {
+        if (player.isActivo()) {
 
             this.rebuy_now_menu.setEnabled(false);
+
             Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(false);
 
             if (crupier.getRebuy_now().containsKey(player.getNickname())) {

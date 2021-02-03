@@ -22,6 +22,11 @@ public class GameOverDialog extends javax.swing.JDialog {
     private volatile boolean continua = false;
     private volatile String last_mp3_loop = null;
     private volatile boolean direct_gameover = false;
+    private volatile RebuyNowDialog buyin_dialog = null;
+
+    public RebuyNowDialog getBuyin_dialog() {
+        return buyin_dialog;
+    }
 
     public boolean isContinua() {
         return continua;
@@ -38,6 +43,11 @@ public class GameOverDialog extends javax.swing.JDialog {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+
+                if (Game.getInstance().getRebuy_dialog() != null) {
+                    Game.getInstance().getRebuy_dialog().dispose();
+                }
+
                 Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
                 Helpers.translateComponents(tthis, false);
                 pack();
@@ -54,6 +64,10 @@ public class GameOverDialog extends javax.swing.JDialog {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+
+                if (Game.getInstance().getRebuy_dialog() != null) {
+                    Game.getInstance().getRebuy_dialog().dispose();
+                }
 
                 direct_gameover = direct;
 
@@ -252,19 +266,32 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                             continua = true;
 
-                            Helpers.playWavResourceAndWait("misc/rebuy.wav");
+                            Helpers.playWavResource("misc/rebuy.wav");
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    dispose();
+                                    buyin_dialog = new RebuyNowDialog(Game.getInstance().getFrame(), true, false);
+
+                                    buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
+
+                                    buyin_dialog.setVisible(true);
+                                }
+                            });
 
                         } else {
 
                             Helpers.playWavResourceAndWait("misc/norebuy.wav");
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    dispose();
+                                }
+                            });
                         }
 
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
-                                dispose();
-                            }
-                        });
                     }
                 } else {
                     Helpers.playWavResourceAndWait("misc/norebuy.wav");
@@ -297,11 +324,17 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         this.timer.stop();
 
-        dispose();
-
         Helpers.stopWavResource("misc/gameover.wav");
 
         Helpers.playWavResource("misc/rebuy.wav");
+
+        dispose();
+
+        buyin_dialog = new RebuyNowDialog(Game.getInstance().getFrame(), true, false);
+
+        buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
+
+        buyin_dialog.setVisible(true);
     }//GEN-LAST:event_continue_buttonActionPerformed
 
     private void exit_now_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_now_buttonActionPerformed
@@ -321,19 +354,31 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                     continua = true;
 
-                    Helpers.playWavResourceAndWait("misc/rebuy.wav");
+                    Helpers.playWavResource("misc/rebuy.wav");
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            dispose();
+                            buyin_dialog = new RebuyNowDialog(Game.getInstance().getFrame(), true, false);
+
+                            buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
+
+                            buyin_dialog.setVisible(true);
+                        }
+                    });
 
                 } else {
 
                     Helpers.playWavResourceAndWait("misc/norebuy.wav");
-                }
 
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-                        dispose();
-                    }
-                });
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            dispose();
+                        }
+                    });
+                }
 
             }
         });

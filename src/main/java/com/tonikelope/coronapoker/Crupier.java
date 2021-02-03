@@ -1043,7 +1043,11 @@ public class Crupier implements Runnable {
 
                             if (partes[4].equals("0")) {
                                 jugador.setSpectator(null);
+                            } else {
+                                rebuy_now.put(nick, Integer.parseInt(partes[4]));
                             }
+                        } else {
+                            rebuy_now.put(nick, Game.BUYIN);
                         }
 
                     } else {
@@ -5743,7 +5747,9 @@ public class Crupier implements Runnable {
 
                                                 rebuy_players.remove(Game.getInstance().getLocalPlayer().getNickname());
 
-                                                String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"));
+                                                rebuy_now.put(Game.getInstance().getLocalPlayer().getNickname(), Integer.parseInt((String) dialog.getBuyin_dialog().getRebuy_checkbox().getSelectedItem()));
+
+                                                String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#" + dialog.getBuyin_dialog().getRebuy_checkbox().getSelectedItem();
 
                                                 if (Game.getInstance().isPartida_local()) {
                                                     this.broadcastGAMECommandFromServer(comando, null);
@@ -5779,6 +5785,8 @@ public class Crupier implements Runnable {
                                         try {
 
                                             rebuy_players.remove(Game.getInstance().getLocalPlayer().getNickname());
+
+                                            rebuy_now.put(Game.getInstance().getLocalPlayer().getNickname(), Game.BUYIN);
 
                                             String comando = "REBUY#" + Base64.encodeBase64String(Game.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"));
 
@@ -5827,8 +5835,10 @@ public class Crupier implements Runnable {
 
                                             rebuy_players.remove(jugador.getNickname());
 
+                                            rebuy_now.put(jugador.getNickname(), Game.BUYIN);
+
                                             try {
-                                                String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!Game.REBUY || res != 0) ? "#0" : "");
+                                                String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!Game.REBUY || res != 0) ? "#0" : "#" + String.valueOf(Game.BUYIN));
 
                                                 this.broadcastGAMECommandFromServer(comando, null);
 

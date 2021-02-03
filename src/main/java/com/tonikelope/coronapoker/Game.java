@@ -123,6 +123,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
     private volatile FastChatDialog fastchat_dialog = null;
+    private volatile RebuyNowDialog rebuy_dialog = null;
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
 
@@ -2550,6 +2551,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         }
     }//GEN-LAST:event_tts_menuActionPerformed
 
+    public RebuyNowDialog getRebuy_dialog() {
+        return rebuy_dialog;
+    }
+
     private void rebuy_now_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rebuy_now_menuActionPerformed
         // TODO add your handling code here:
 
@@ -2557,7 +2562,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         LocalPlayer player = Game.getInstance().getLocalPlayer();
 
-        if (player.isActivo()) {
+        if (!getCrupier().isRebuy_time() && player.isActivo()) {
 
             this.rebuy_now_menu.setEnabled(false);
             Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(false);
@@ -2592,19 +2597,19 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
                 } else {
 
-                    RebuyNowDialog dialog = new RebuyNowDialog(Game.getInstance().getFrame(), true);
+                    rebuy_dialog = new RebuyNowDialog(Game.getInstance().getFrame(), true, true);
 
-                    dialog.setLocationRelativeTo(dialog.getParent());
+                    rebuy_dialog.setLocationRelativeTo(rebuy_dialog.getParent());
 
-                    dialog.setVisible(true);
+                    rebuy_dialog.setVisible(true);
 
-                    if (dialog.isRebuy()) {
+                    if (rebuy_dialog.isRebuy()) {
                         player.getPlayer_buyin().setBackground(Color.YELLOW);
-                        player.getPlayer_buyin().setText(String.valueOf(player.getBuyin() + Integer.parseInt((String) dialog.getRebuy_checkbox().getSelectedItem())));
+                        player.getPlayer_buyin().setText(String.valueOf(player.getBuyin() + Integer.parseInt((String) rebuy_dialog.getRebuy_checkbox().getSelectedItem())));
 
                         Helpers.threadRun(new Runnable() {
                             public void run() {
-                                crupier.rebuyNow(player.getNickname(), Integer.parseInt((String) dialog.getRebuy_checkbox().getSelectedItem()));
+                                crupier.rebuyNow(player.getNickname(), Integer.parseInt((String) rebuy_dialog.getRebuy_checkbox().getSelectedItem()));
                                 rebuy_now_menu.setEnabled(true);
                                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                                 Helpers.playWavResource("misc/auto_button_on.wav");
@@ -2616,6 +2621,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
                     }
+
+                    rebuy_dialog = null;
                 }
 
             }

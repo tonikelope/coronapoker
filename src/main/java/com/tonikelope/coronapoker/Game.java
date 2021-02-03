@@ -2565,6 +2565,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             if (crupier.getRebuy_now().containsKey(player.getNickname())) {
 
                 player.getPlayer_buyin().setBackground(Helpers.float1DSecureCompare((float) Game.BUYIN, player.getBuyin()) == 0 ? new Color(204, 204, 204) : Color.cyan);
+                player.getPlayer_buyin().setText(String.valueOf(player.getBuyin()));
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
@@ -2599,6 +2600,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     if (dialog.isRebuy()) {
                         player.getPlayer_buyin().setBackground(Color.YELLOW);
+                        player.getPlayer_buyin().setText(String.valueOf(player.getBuyin() + Integer.parseInt((String) dialog.getRebuy_checkbox().getSelectedItem())));
 
                         Helpers.threadRun(new Runnable() {
                             public void run() {

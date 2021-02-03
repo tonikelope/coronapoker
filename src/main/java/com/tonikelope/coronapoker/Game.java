@@ -2613,6 +2613,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                                 rebuy_now_menu.setEnabled(true);
                                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                                 Helpers.playWavResource("misc/auto_button_on.wav");
+                                rebuy_dialog = null;
                             }
                         });
                     } else {
@@ -2620,9 +2621,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         rebuy_now_menu.setSelected(false);
                         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+                        rebuy_dialog = null;
                     }
-
-                    rebuy_dialog = null;
                 }
 
             }

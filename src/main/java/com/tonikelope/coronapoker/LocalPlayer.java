@@ -499,7 +499,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.stack += cantidad;
         this.buyin += cantidad;
-        Game.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(Game.BUYIN) + ")");
+        Game.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(cantidad) + ")");
         Helpers.playWavResource("misc/cash_register.wav");
 
         Helpers.GUIRun(new Runnable() {

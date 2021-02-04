@@ -5775,6 +5775,18 @@ public class Crupier implements Runnable {
                                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                             }
 
+                                            if (rebuy_now.containsKey(Game.getInstance().getLocalPlayer().getNickname())) {
+
+                                                rebuy_now.remove(Game.getInstance().getLocalPlayer().getNickname());
+
+                                                Helpers.GUIRun(new Runnable() {
+                                                    public void run() {
+                                                        Game.getInstance().getLocalPlayer().getPlayer_buyin().setBackground(Helpers.float1DSecureCompare((float) Game.BUYIN, Game.getInstance().getLocalPlayer().getBuyin()) == 0 ? new Color(204, 204, 204) : Color.cyan);
+                                                        Game.getInstance().getLocalPlayer().getPlayer_buyin().setText(String.valueOf(Game.getInstance().getLocalPlayer().getBuyin()));
+                                                    }
+                                                });
+                                            }
+
                                             Game.getInstance().getLocalPlayer().setSpectator(null);
 
                                             Game.getInstance().getRegistro().print(Game.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));

@@ -1260,6 +1260,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 auto_rebuy_menu.setEnabled(Game.REBUY);
 
+                rebuy_now_menu.setEnabled(Game.REBUY);
+
                 compact_menu.setSelected(Game.VISTA_COMPACTA);
 
                 if (!map.containsKey("allin/") || map.get("allin/").length == 0) {
@@ -1364,6 +1366,8 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 Helpers.TapetePopupMenu.addTo(tapete);
 
                 Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(Game.REBUY);
+
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(Game.REBUY);
 
                 Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
 
@@ -2584,13 +2588,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
             } else {
 
-                if (!Game.REBUY) {
-                    Helpers.mostrarMensajeError(Game.getInstance().getFrame(), "NO SE PUEDE RECOMPRAR EN ESTA TIMBA");
-                    rebuy_now_menu.setEnabled(true);
-                    rebuy_now_menu.setSelected(false);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
-                } else if (Helpers.float1DSecureCompare(player.getStack() + (player.getDecision() != Player.FOLD ? player.getBote() : 0f) + player.getPagar(), (float) Game.BUYIN) >= 0) {
+                if (Helpers.float1DSecureCompare(player.getStack() + (player.getDecision() != Player.FOLD ? player.getBote() : 0f) + player.getPagar(), (float) Game.BUYIN) >= 0) {
                     Helpers.mostrarMensajeError(Game.getInstance().getFrame(), Translator.translate("PARA RECOMPRAR DEBES TENER MENOS DE ") + Game.BUYIN);
                     rebuy_now_menu.setEnabled(true);
                     rebuy_now_menu.setSelected(false);

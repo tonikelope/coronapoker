@@ -552,7 +552,7 @@ public class Init extends javax.swing.JFrame {
 
                         Object[] tts = Helpers.TTS_CHAT_QUEUE.poll();
 
-                        Helpers.GUIRun(new Runnable() {
+                        Helpers.GUIRunAndWait(new Runnable() {
                             @Override
                             public void run() {
                                 nick_dialog = new NickTTSDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);

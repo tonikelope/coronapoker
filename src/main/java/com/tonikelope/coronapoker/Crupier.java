@@ -701,19 +701,18 @@ public class Crupier implements Runnable {
 
                 if (icon != null) {
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon);
-                            gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-
-                            gif_dialog.setVisible(true);
-                        }
-                    });
-
                     Helpers.threadRun(new Runnable() {
 
                         public void run() {
+
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+
+                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon);
+                                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                                    gif_dialog.setVisible(true);
+                                }
+                            });
 
                             if (pausa != 0L) {
                                 Helpers.pausar(pausa);

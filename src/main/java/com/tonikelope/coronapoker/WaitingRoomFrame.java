@@ -262,6 +262,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
      * Creates new form SalaEspera
      */
     public WaitingRoomFrame(Init ventana_ini, boolean local, String nick, String servidor_ip_port, File avatar, String pass) {
+        THIS = this;
         password = pass;
         partida_empezada = false;
         partida_empezando = false;

@@ -135,7 +135,6 @@ import javax.xml.parsers.ParserConfigurationException;
 import javazoom.jlgui.basicplayer.BasicController;
 import javazoom.jlgui.basicplayer.BasicPlayer;
 import javazoom.jlgui.basicplayer.BasicPlayerEvent;
-import javazoom.jlgui.basicplayer.BasicPlayerException;
 import javazoom.jlgui.basicplayer.BasicPlayerListener;
 import org.apache.commons.codec.binary.Base64;
 import org.random.api.RandomOrgClient;
@@ -1800,7 +1799,7 @@ public class Helpers {
 
                 MP3_LOOP_MUTED.remove(sound);
 
-            } catch (BasicPlayerException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -1815,7 +1814,7 @@ public class Helpers {
             try {
                 player.pause();
 
-            } catch (BasicPlayerException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -1831,7 +1830,7 @@ public class Helpers {
                 MP3_LOOP_MUTED.add(sound);
                 player.setGain(0f);
 
-            } catch (BasicPlayerException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -1850,7 +1849,7 @@ public class Helpers {
                     player.setGain(getSoundVolume(sound));
                 }
 
-            } catch (BasicPlayerException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -1866,7 +1865,7 @@ public class Helpers {
             try {
                 player.resume();
 
-            } catch (BasicPlayerException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
 
@@ -1884,7 +1883,7 @@ public class Helpers {
 
                 try {
                     entry.getValue().pause();
-                } catch (BasicPlayerException ex) {
+                } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
@@ -1910,7 +1909,7 @@ public class Helpers {
 
                     MP3_LOOP_MUTED.remove(entry.getKey());
 
-                } catch (BasicPlayerException ex) {
+                } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
@@ -1966,7 +1965,7 @@ public class Helpers {
 
             try {
                 entry.getValue().setGain(0f);
-            } catch (BasicPlayerException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -1979,7 +1978,7 @@ public class Helpers {
 
             try {
                 entry.getValue().setGain(0f);
-            } catch (BasicPlayerException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -1996,7 +1995,7 @@ public class Helpers {
                     entry.getValue().setGain(getSoundVolume(entry.getKey()));
                 }
 
-            } catch (BasicPlayerException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -2012,7 +2011,7 @@ public class Helpers {
                     entry.getValue().setGain(getSoundVolume(entry.getKey()));
                 }
 
-            } catch (BasicPlayerException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }

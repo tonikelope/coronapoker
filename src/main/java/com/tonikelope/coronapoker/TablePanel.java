@@ -5,8 +5,8 @@
  */
 package com.tonikelope.coronapoker;
 
-import static com.tonikelope.coronapoker.Game.AUTO_ZOOM_TIMEOUT;
-import static com.tonikelope.coronapoker.Game.GUI_ZOOM_WAIT;
+import static com.tonikelope.coronapoker.GameFrame.AUTO_ZOOM_TIMEOUT;
+import static com.tonikelope.coronapoker.GameFrame.GUI_ZOOM_WAIT;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.TexturePaint;
@@ -108,7 +108,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                 super.paintComponent(g);
 
                 if (tp == null) {
-                    BufferedImage tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + Game.COLOR_TAPETE + ".jpg"));
+                    BufferedImage tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
 
                     Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
 
@@ -180,15 +180,15 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                 double playerHeight = ((JPanel) jugador).getHeight();
                 double playerWidth = ((JPanel) jugador).getWidth();
 
-                if (Game.getZoom_level() != Game.DEFAULT_ZOOM_LEVEL) {
+                if (GameFrame.getZoom_level() != GameFrame.DEFAULT_ZOOM_LEVEL) {
 
                     //RESET ZOOM
                     Helpers.GUIRun(new Runnable() {
                         @Override
                         public void run() {
-                            Game.getInstance().getZoom_menu_reset().setEnabled(true);
-                            Game.getInstance().getZoom_menu_reset().doClick();
-                            Game.getInstance().getZoom_menu_reset().setEnabled(false);
+                            GameFrame.getInstance().getZoom_menu_reset().setEnabled(true);
+                            GameFrame.getInstance().getZoom_menu_reset().doClick();
+                            GameFrame.getInstance().getZoom_menu_reset().setEnabled(false);
                         }
                     });
 
@@ -220,9 +220,9 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                     Helpers.GUIRun(new Runnable() {
                         @Override
                         public void run() {
-                            Game.getInstance().getZoom_menu_out().setEnabled(true);
-                            Game.getInstance().getZoom_menu_out().doClick();
-                            Game.getInstance().getZoom_menu_out().setEnabled(false);
+                            GameFrame.getInstance().getZoom_menu_out().setEnabled(true);
+                            GameFrame.getInstance().getZoom_menu_out().doClick();
+                            GameFrame.getInstance().getZoom_menu_out().setEnabled(false);
                         }
                     });
 

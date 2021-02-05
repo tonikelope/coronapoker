@@ -314,9 +314,9 @@ public class Translator {
 
     private static String _translate(String orig, boolean force) {
 
-        if (!LANG.equals(Game.LANGUAGE)) {
+        if (!LANG.equals(GameFrame.LANGUAGE)) {
 
-            LANG = Game.LANGUAGE;
+            LANG = GameFrame.LANGUAGE;
 
             _rosetta.clear();
 
@@ -332,7 +332,7 @@ public class Translator {
             }
         }
 
-        if (LANG.equals(Game.DEFAULT_LANGUAGE)) {
+        if (LANG.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
             if (orig != null && force) {
 

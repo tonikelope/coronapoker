@@ -67,15 +67,12 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
     public Reconnect2ServerDialog(java.awt.Frame parent, boolean modal, String ip_p) {
         super(parent, modal);
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
-                ip_port.setText(ip_p);
-                barra.setVisible(false);
-                barra.setIndeterminate(true);
-                pack();
-            }
-        });
+        initComponents();
+        ip_port.setText(ip_p);
+        barra.setVisible(false);
+        barra.setIndeterminate(true);
+        pack();
+
     }
 
     /**
@@ -180,8 +177,8 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
 
         Helpers.threadRun(new Runnable() {
             public void run() {
-                synchronized (WaitingRoom.getInstance().getLock_reconnect()) {
-                    WaitingRoom.getInstance().getLock_reconnect().notifyAll();
+                synchronized (WaitingRoomFrame.getInstance().getLock_reconnect()) {
+                    WaitingRoomFrame.getInstance().getLock_reconnect().notifyAll();
                 }
             }
         });
@@ -189,8 +186,8 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
-        if (WaitingRoom.isPartida_empezada()) {
-            Game.getInstance().getExit_menu().doClick();
+        if (WaitingRoomFrame.isPartida_empezada()) {
+            GameFrame.getInstance().getExit_menu().doClick();
         }
     }//GEN-LAST:event_formWindowClosing
 

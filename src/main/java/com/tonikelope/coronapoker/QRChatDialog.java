@@ -21,7 +21,7 @@ import javax.swing.ImageIcon;
  *
  * @author tonikelope
  */
-public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserver {
+public class QRChatDialog extends javax.swing.JDialog implements ClipboardChangeObserver {
 
     public static final int QR_SIZE = 300;
     private volatile boolean cboard_monitor = false;
@@ -39,35 +39,28 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
     /**
      * Creates new form Identicon
      */
-    public QRChat(java.awt.Frame parent, boolean modal, String link, boolean clipboard_monitor) {
+    public QRChatDialog(java.awt.Frame parent, boolean modal, String link, boolean clipboard_monitor) {
         super(parent, modal);
 
         this.link = link;
 
         cboard_monitor = clipboard_monitor;
 
-        QRChat tthis = this;
+        initComponents();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        if (cboard_monitor) {
+            share_button.setEnabled(false);
+        } else {
+            share_button.setVisible(false);
+        }
 
-                if (cboard_monitor) {
-                    share_button.setEnabled(false);
-                } else {
-                    share_button.setVisible(false);
-                }
+        updateQR(link);
 
-                updateQR(link);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
 
-                Helpers.translateComponents(tthis, false);
-
-                pack();
-
-            }
-        });
+        pack();
 
         if (cboard_monitor) {
             Helpers.CLIPBOARD_SPY.attachObserver(this);
@@ -99,7 +92,7 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
                     }
                 });
             } catch (WriterException ex) {
-                Logger.getLogger(QRChat.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(QRChatDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
@@ -182,7 +175,6 @@ public class QRChat extends javax.swing.JDialog implements ClipboardChangeObserv
                     .addComponent(qr_status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(share_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(layout.createSequentialGroup()
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(icon_label, javax.swing.GroupLayout.PREFERRED_SIZE, 300, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())

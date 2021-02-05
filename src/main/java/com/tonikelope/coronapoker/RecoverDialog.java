@@ -28,16 +28,11 @@ public class RecoverDialog extends javax.swing.JDialog {
     public RecoverDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        RecoverDialog tthis = this;
+        initComponents();
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
+        pack();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
-                Helpers.translateComponents(tthis, false);
-                pack();
-            }
-        });
     }
 
     /**

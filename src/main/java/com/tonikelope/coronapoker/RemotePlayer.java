@@ -27,17 +27,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public static final String[][] ACTIONS_LABELS_ES = new String[][]{new String[]{"NO VA"}, new String[]{"PASA", "VA"}, new String[]{"APUESTA", "SUBE"}, new String[]{"ALL IN"}};
     public static final String[][] ACTIONS_LABELS_EN = new String[][]{new String[]{"FOLD"}, new String[]{"CHECK", "CALL"}, new String[]{"BET", "RAISE"}, new String[]{"ALL IN"}};
-    public static volatile String[][] ACTIONS_LABELS = Game.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
+    public static volatile String[][] ACTIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
     public static final String[] POSITIONS_LABELS_ES = new String[]{"CP", "CG", "DE"};
     public static final String[] POSITIONS_LABELS_EN = new String[]{"SB", "BB", "DE"};
-    public static volatile String[] POSITIONS_LABELS = Game.LANGUAGE.equals("es") ? POSITIONS_LABELS_ES : POSITIONS_LABELS_EN;
+    public static volatile String[] POSITIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? POSITIONS_LABELS_ES : POSITIONS_LABELS_EN;
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.ORANGE, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 300;
     public static final int MIN_ACTION_HEIGHT = 45;
 
     private volatile String nickname;
     private volatile float stack = 0f;
-    private volatile int buyin = Game.BUYIN;
+    private volatile int buyin = GameFrame.BUYIN;
     private volatile Crupier crupier = null;
     private volatile float bet = 0f;
     private volatile int decision = Player.NODEC;
@@ -62,7 +62,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public int getResponseTime() {
 
-        return Game.TIEMPO_PENSAR - response_counter;
+        return GameFrame.TIEMPO_PENSAR - response_counter;
     }
 
     public int getPos() {
@@ -135,7 +135,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 @Override
                 public void run() {
 
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                     playingCard1.liberarCarta();
                     playingCard2.liberarCarta();
@@ -211,7 +211,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                    setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                     player_pot.setBackground(Color.WHITE);
 
@@ -227,19 +227,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_action.setEnabled(false);
 
-                    Game.getInstance().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
+                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
 
-                    Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
                 }
             });
 
-            if (!Game.TEST_MODE) {
+            if (!GameFrame.TEST_MODE) {
 
                 //Tiempo máximo para pensar
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
-                        response_counter = Game.TIEMPO_PENSAR;
+                        response_counter = GameFrame.TIEMPO_PENSAR;
 
                         ActionListener listener = new ActionListener() {
 
@@ -247,11 +247,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && !WaitingRoom.isExit() && response_counter > 0 && t == crupier.getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
+                                if (!crupier.isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.isExit() && response_counter > 0 && t == crupier.getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
 
                                     response_counter--;
 
-                                    Game.getInstance().getBarra_tiempo().setValue(response_counter);
+                                    GameFrame.getInstance().getBarra_tiempo().setValue(response_counter);
 
                                     if (response_counter == 10 && Helpers.float1DSecureCompare(0f, call_required) < 0) {
                                         Helpers.playWavResource("misc/hurryup.wav");
@@ -265,7 +265,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                                                 if (auto_action.isRunning() && t == crupier.getTurno()) {
 
-                                                    Game.getInstance().checkPause();
+                                                    GameFrame.getInstance().checkPause();
 
                                                     if (auto_action.isRunning() && t == crupier.getTurno()) {
 
@@ -303,7 +303,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+                GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
             }
         });
 
@@ -368,7 +368,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                        setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                         player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (" + Helpers.float2String(bet + getStack()) + ")");
                     }
@@ -378,7 +378,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                        setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                         player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                     }
@@ -411,13 +411,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
 
                 if (decision != Player.ALLIN && decision != Player.FOLD) {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
                 }
 
                 turno = false;
 
-                synchronized (Game.getInstance().getCrupier().getLock_apuestas()) {
-                    Game.getInstance().getCrupier().getLock_apuestas().notifyAll();
+                synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
+                    GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
                 }
             }
         });
@@ -459,7 +459,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.BET);
 
-        if (Game.SONIDOS_CHORRA && crupier.getConta_raise() > 0 && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0) {
+        if (GameFrame.SONIDOS_CHORRA && crupier.getConta_raise() > 0 && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0) {
             Helpers.playWavResource("misc/raise.wav");
         }
 
@@ -550,7 +550,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_pot.setForeground(Color.BLACK);
 
-                player_buyin.setText(String.valueOf(Game.BUYIN));
+                player_buyin.setText(String.valueOf(GameFrame.BUYIN));
             }
         });
 
@@ -575,16 +575,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 player_name.setText(nickname);
 
-                if (Game.getInstance().isPartida_local() && !Game.getInstance().getParticipantes().get(nickname).isCpu()) {
+                if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(nickname).isCpu()) {
 
                     player_name.setToolTipText("CLICK -> AES-KEY");
                     player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-                } else if (!Game.getInstance().isPartida_local()) {
+                } else if (!GameFrame.getInstance().isPartida_local()) {
 
-                    if (Game.getInstance().getSala_espera().getServer_nick().equals(player_name.getText())) {
+                    if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(player_name.getText())) {
 
-                        if (Game.getInstance().getSala_espera().isUnsecure_server()) {
+                        if (GameFrame.getInstance().getSala_espera().isUnsecure_server()) {
 
                             danger.setVisible(true);
 
@@ -598,7 +598,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        if (Game.getInstance().isPartida_local() && Game.getInstance().getParticipantes().get(this.nickname).isCpu()) {
+        if (GameFrame.getInstance().isPartida_local() && GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu()) {
             this.bot = new Bot(this);
         }
     }
@@ -629,7 +629,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action = new javax.swing.JLabel();
         danger = new javax.swing.JLabel();
 
-        setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.Game.ZOOM_LEVEL*com.tonikelope.coronapoker.Game.ZOOM_STEP))));
+        setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL*com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
         setFocusable(false);
         setOpaque(false);
 
@@ -816,7 +816,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
         player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
-        player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP())), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP()))));
+        player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.getZoom_level() * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP())), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.getZoom_level() * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP()))));
         player_action.setOpaque(true);
 
         danger.setBackground(new java.awt.Color(255, 0, 0));
@@ -859,7 +859,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         // TODO add your handling code here:
 
         // 0=yes, 1=no, 2=cancel
-        if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance(), "Este usuario tiene problemas de conexión que bloquean la partida. ¿Quieres expulsarlo?") == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "Este usuario tiene problemas de conexión que bloquean la partida. ¿Quieres expulsarlo?") == 0) {
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
@@ -872,11 +872,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
 
-        if (Game.getInstance().isPartida_local() && !Game.getInstance().getParticipantes().get(player_name.getText()).isCpu()) {
+        if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(player_name.getText()).isCpu()) {
 
-            Identicon identicon = new Identicon(Game.getInstance().getFrame(), true, player_name.getText(), Game.getInstance().getParticipantes().get(player_name.getText()).getAes_key());
+            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance().getFrame(), true, player_name.getText(), GameFrame.getInstance().getParticipantes().get(player_name.getText()).getAes_key());
 
-            identicon.setLocationRelativeTo(Game.getInstance().getFrame());
+            identicon.setLocationRelativeTo(GameFrame.getInstance().getFrame());
 
             identicon.setVisible(true);
         }
@@ -925,7 +925,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             while (altura_avatar == avatar_panel.getHeight()) {
                 try {
-                    Thread.sleep(Game.GUI_ZOOM_WAIT);
+                    Thread.sleep(GameFrame.GUI_ZOOM_WAIT);
                 } catch (InterruptedException ex) {
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -944,7 +944,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
                 player_action.setBackground(Color.GREEN);
                 player_action.setForeground(Color.BLACK);
                 player_action.setText(msg);
@@ -960,7 +960,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                setBorder(javax.swing.BorderFactory.createLineBorder(Color.RED, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                setBorder(javax.swing.BorderFactory.createLineBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                 player_action.setBackground(Color.RED);
                 player_action.setForeground(Color.WHITE);
@@ -1099,7 +1099,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.stack += cantidad;
         this.buyin += cantidad;
 
-        Game.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(cantidad) + ")");
+        GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(cantidad) + ")");
 
         Helpers.playWavResource("misc/cash_register.wav");
 
@@ -1127,7 +1127,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         pos = p;
 
         if (this.crupier == null) {
-            this.crupier = Game.getInstance().getCrupier();
+            this.crupier = GameFrame.getInstance().getCrupier();
         }
 
         this.decision = Player.NODEC;
@@ -1151,7 +1151,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
-                setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                 player_action.setText(" ");
 
@@ -1276,7 +1276,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 player_buyin.setText(String.valueOf(buyin));
 
-                if (buyin > Game.BUYIN) {
+                if (buyin > GameFrame.BUYIN) {
                     player_buyin.setBackground(Color.cyan);
                 }
             }
@@ -1291,7 +1291,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                     player_blind.setVisible(false);
                     player_pot.setText("----");
@@ -1316,7 +1316,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                 player_pot.setVisible(true);
                 player_pot.setEnabled(true);
@@ -1350,10 +1350,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
 
                 while (avatar_panel.getHeight() == 0) {
-                    Helpers.pausar(Game.GUI_ZOOM_WAIT);
+                    Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
                 }
 
-                String avatar_path = Game.getInstance().getNick2avatar().get(nickname);
+                String avatar_path = GameFrame.getInstance().getNick2avatar().get(nickname);
 
                 getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
 

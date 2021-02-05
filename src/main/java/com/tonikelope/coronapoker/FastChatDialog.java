@@ -23,18 +23,11 @@ public class FastChatDialog extends javax.swing.JDialog {
     public FastChatDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        FastChatDialog THIS = this;
+        initComponents();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
-                initComponents();
-
-                Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
-
-                pack();
-            }
-        });
+        pack();
 
     }
 
@@ -115,23 +108,23 @@ public class FastChatDialog extends javax.swing.JDialog {
 
         String mensaje = chat_box.getText().trim();
 
-        if (Game.getInstance().getSala_espera().isChat_enabled() && mensaje.length() > 0) {
+        if (GameFrame.getInstance().getSala_espera().isChat_enabled() && mensaje.length() > 0) {
 
-            Game.getInstance().getSala_espera().getChat().append("[" + Game.getInstance().getLocalPlayer().getNickname() + Translator.translate("] dice: ") + mensaje + "\n");
+            GameFrame.getInstance().getSala_espera().getChat().append("[" + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate("] dice: ") + mensaje + "\n");
 
-            Game.getInstance().getSala_espera().enviarMensajeChat(Game.getInstance().getLocalPlayer().getNickname(), mensaje);
+            GameFrame.getInstance().getSala_espera().enviarMensajeChat(GameFrame.getInstance().getLocalPlayer().getNickname(), mensaje);
 
             chat_box.setText("");
 
             setVisible(false);
 
-            Helpers.TTS_CHAT_QUEUE.add(new Object[]{Game.getInstance().getLocalPlayer().getNickname(), mensaje});
+            Helpers.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), mensaje});
 
             synchronized (Helpers.TTS_CHAT_QUEUE) {
                 Helpers.TTS_CHAT_QUEUE.notifyAll();
             }
 
-            Game.getInstance().getSala_espera().setChat_enabled(false);
+            GameFrame.getInstance().getSala_espera().setChat_enabled(false);
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
@@ -141,7 +134,7 @@ public class FastChatDialog extends javax.swing.JDialog {
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
 
-                            Game.getInstance().getSala_espera().setChat_enabled(true);
+                            GameFrame.getInstance().getSala_espera().setChat_enabled(true);
 
                         }
                     });
@@ -185,8 +178,8 @@ public class FastChatDialog extends javax.swing.JDialog {
 
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
-                                if (Game.getInstance().getFastchat_dialog().isVisible() && !Game.getInstance().getFastchat_dialog().getChat_box().isFocusOwner()) {
-                                    Game.getInstance().getFastchat_dialog().getChat_box().requestFocus();
+                                if (GameFrame.getInstance().getFastchat_dialog().isVisible() && !GameFrame.getInstance().getFastchat_dialog().getChat_box().isFocusOwner()) {
+                                    GameFrame.getInstance().getFastchat_dialog().getChat_box().requestFocus();
                                 } else {
                                     focusing = false;
                                 }
@@ -199,7 +192,7 @@ public class FastChatDialog extends javax.swing.JDialog {
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
-                                    if (!Game.getInstance().getFastchat_dialog().isVisible() || Game.getInstance().getFastchat_dialog().getChat_box().isFocusOwner()) {
+                                    if (!GameFrame.getInstance().getFastchat_dialog().isVisible() || GameFrame.getInstance().getFastchat_dialog().getChat_box().isFocusOwner()) {
                                         focusing = false;
                                     }
                                 }
@@ -215,7 +208,7 @@ public class FastChatDialog extends javax.swing.JDialog {
     private void chat_boxFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chat_boxFocusGained
         // TODO add your handling code here:
         if (!this.isVisible()) {
-            Game.getInstance().getFastchat_dialog().getChat_box().grabFocus();
+            GameFrame.getInstance().getFastchat_dialog().getChat_box().grabFocus();
         }
     }//GEN-LAST:event_chat_boxFocusGained
 

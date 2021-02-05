@@ -40,7 +40,7 @@ public class Bot {
     public void resetBot() {
 
         if (crupier == null) {
-            crupier = Game.getInstance().getCrupier();
+            crupier = GameFrame.getInstance().getCrupier();
         }
 
         card1 = new org.alberta.poker.Card(cpu_player.getPlayingCard1().getValorNumerico() - 2, getCardSuit(cpu_player.getPlayingCard1()));

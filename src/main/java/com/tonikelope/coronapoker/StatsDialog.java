@@ -32,7 +32,7 @@ import org.apache.commons.codec.binary.Base64;
  *
  * @author tonikelope
  */
-public class Stats extends javax.swing.JDialog {
+public class StatsDialog extends javax.swing.JDialog {
 
     private final HashMap<String, HashMap<String, Object>> game = new HashMap<>();
     private final HashMap<String, HashMap<String, Object>> hand = new HashMap<>();
@@ -43,12 +43,10 @@ public class Stats extends javax.swing.JDialog {
     /**
      * Creates new form Stats
      */
-    public Stats(java.awt.Frame parent, boolean modal) {
+    public StatsDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
         init = true;
-
-        Stats tthis = this;
 
         sqlstats.put(Translator.translate("GANANCIAS/PÉRDIDAS"), this::balance);
         sqlstats.put(Translator.translate("TIEMPO MEDIO DE RESPUESTA (SEGUNDOS)"), this::tiempoMedioRespuesta);
@@ -59,48 +57,43 @@ public class Stats extends javax.swing.JDialog {
         sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL TURN"), this::subidasTurn);
         sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL RIVER"), this::subidasRiver);
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
-                setSize(Math.round(0.8f * parent.getWidth()), Math.round(0.8f * parent.getHeight()));
-                scroll_stats_panel.getVerticalScrollBar().setUnitIncrement(16);
-                scroll_stats_panel.getHorizontalScrollBar().setUnitIncrement(16);
-                res_table_warning.setVisible(false);
-                showdown_panel.setVisible(false);
-                table_panel.setVisible(false);
-                hand_data_panel.setVisible(false);
-                hand_combo.addItem(Translator.translate("TODAS LAS MANOS"));
-                hand_combo.setVisible(false);
-                game_data_panel.setVisible(false);
-                res_table.setDefaultEditor(Object.class, null);
-                res_table.setRowHeight(res_table.getRowHeight() + 20);
-                showdown_table.setRowHeight(showdown_table.getRowHeight() + 20);
-                showdown_table.setDefaultEditor(Object.class, null);
+        initComponents();
+        setSize(Math.round(0.8f * parent.getWidth()), Math.round(0.8f * parent.getHeight()));
+        scroll_stats_panel.getVerticalScrollBar().setUnitIncrement(16);
+        scroll_stats_panel.getHorizontalScrollBar().setUnitIncrement(16);
+        res_table_warning.setVisible(false);
+        showdown_panel.setVisible(false);
+        table_panel.setVisible(false);
+        hand_data_panel.setVisible(false);
+        hand_combo.addItem(Translator.translate("TODAS LAS MANOS"));
+        hand_combo.setVisible(false);
+        game_data_panel.setVisible(false);
+        res_table.setDefaultEditor(Object.class, null);
+        res_table.setRowHeight(res_table.getRowHeight() + 20);
+        showdown_table.setRowHeight(showdown_table.getRowHeight() + 20);
+        showdown_table.setDefaultEditor(Object.class, null);
 
-                for (Map.Entry<String, SQLStats> entry : sqlstats.entrySet()) {
+        for (Map.Entry<String, SQLStats> entry : sqlstats.entrySet()) {
 
-                    stats_combo.setSelectedIndex(-1);
-                    stats_combo.addItem(entry.getKey());
-                }
+            stats_combo.setSelectedIndex(-1);
+            stats_combo.addItem(entry.getKey());
+        }
 
-                Font original_dialog_font = res_table.getFont();
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
-                res_table.setFont(original_dialog_font);
-                showdown_table.setFont(original_dialog_font);
-                hand_comcards_val.setFont(original_dialog_font);
-                Helpers.translateComponents(tthis, false);
-                setTitle(Translator.translate(getTitle()));
+        Font original_dialog_font = res_table.getFont();
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        res_table.setFont(original_dialog_font);
+        showdown_table.setFont(original_dialog_font);
+        hand_comcards_val.setFont(original_dialog_font);
+        Helpers.translateComponents(this, false);
+        setTitle(Translator.translate(getTitle()));
 
-                loadGames();
+        loadGames();
 
-                game_combo.setSelectedIndex(0);
+        game_combo.setSelectedIndex(0);
 
-                init = false;
+        init = false;
 
-                stats_combo.setSelectedIndex(0);
-
-            }
-        });
+        stats_combo.setSelectedIndex(0);
 
     }
 
@@ -129,7 +122,7 @@ public class Stats extends javax.swing.JDialog {
                 res_table_warning.setVisible(false);
 
             } catch (SQLException ex) {
-                Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             } finally {
                 Helpers.closeSQLITE();
             }
@@ -150,7 +143,7 @@ public class Stats extends javax.swing.JDialog {
                 res_table_warning.setVisible(true);
 
             } catch (SQLException ex) {
-                Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             } finally {
                 Helpers.closeSQLITE();
             }
@@ -258,7 +251,7 @@ public class Stats extends javax.swing.JDialog {
                     try {
                         return Long.compare(new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o1.split(" @ ")[1]).getTime()).getTime(), new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o2.split(" @ ")[1]).getTime()).getTime());
                     } catch (ParseException ex) {
-                        Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     return 0;
                 });
@@ -268,7 +261,7 @@ public class Stats extends javax.swing.JDialog {
             table_panel.setVisible(true);
 
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -301,7 +294,7 @@ public class Stats extends javax.swing.JDialog {
                 rs = statement.executeQuery();
 
             } catch (SQLException ex) {
-                Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         } else {
@@ -317,7 +310,7 @@ public class Stats extends javax.swing.JDialog {
                 rs = statement.executeQuery(sql);
 
             } catch (SQLException ex) {
-                Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         }
@@ -325,7 +318,7 @@ public class Stats extends javax.swing.JDialog {
         try {
             Helpers.resultSetToTableModel(rs, res_table);
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -398,7 +391,7 @@ public class Stats extends javax.swing.JDialog {
                 rs = statement.executeQuery();
 
             } catch (SQLException ex) {
-                Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         } else {
@@ -417,14 +410,14 @@ public class Stats extends javax.swing.JDialog {
                 rs = statement.executeQuery();
 
             } catch (SQLException ex) {
-                Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         }
         try {
             Helpers.resultSetToTableModel(rs, res_table);
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -577,7 +570,7 @@ public class Stats extends javax.swing.JDialog {
             table_panel.setVisible(true);
 
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -623,7 +616,7 @@ public class Stats extends javax.swing.JDialog {
             game_rebuy_val.setText(rs.getBoolean("rebuy") ? Translator.translate("SÍ") : "NO");
 
         } catch (SQLException | UnsupportedEncodingException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -731,7 +724,7 @@ public class Stats extends javax.swing.JDialog {
             loadShowdownData(id_hand);
 
         } catch (SQLException | UnsupportedEncodingException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -755,7 +748,7 @@ public class Stats extends javax.swing.JDialog {
             showdownData(rs);
 
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -859,7 +852,7 @@ public class Stats extends javax.swing.JDialog {
             showdown_panel.setVisible(true);
 
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -926,7 +919,7 @@ public class Stats extends javax.swing.JDialog {
             table_panel.setVisible(true);
 
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -959,13 +952,13 @@ public class Stats extends javax.swing.JDialog {
 
                     hand.put(Translator.translate("MANO") + " " + String.valueOf(rs.getInt("counter")), map);
                 } catch (SQLException ex) {
-                    Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
 
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -987,7 +980,7 @@ public class Stats extends javax.swing.JDialog {
             return (statement.executeUpdate() > 0);
 
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -1027,13 +1020,13 @@ public class Stats extends javax.swing.JDialog {
                     game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
                     game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
                 } catch (SQLException ex) {
-                    Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
 
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -1623,7 +1616,7 @@ public class Stats extends javax.swing.JDialog {
 
         last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
 
-        if (Game.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
+        if (GameFrame.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
             Helpers.muteLoopMp3(last_mp3_loop);
         } else {
             last_mp3_loop = null;

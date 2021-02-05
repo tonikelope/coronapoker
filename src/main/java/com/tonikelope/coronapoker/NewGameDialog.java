@@ -71,120 +71,113 @@ public class NewGameDialog extends javax.swing.JDialog {
     public NewGameDialog(java.awt.Frame parent, boolean modal, boolean loc) {
         super(parent, modal);
 
-        NewGameDialog tthis = this;
+        initComponents();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
+        game_combo.setEnabled(false);
 
-                initComponents();
+        password.setEnabled(false);
 
-                game_combo.setEnabled(false);
+        manos_spinner.setEnabled(false);
 
-                password.setEnabled(false);
+        class VamosButtonListener implements DocumentListener {
 
-                manos_spinner.setEnabled(false);
+            public void changedUpdate(DocumentEvent e) {
+                vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+                password.setEnabled(pass_text.getPassword().length > 0);
+            }
 
-                class VamosButtonListener implements DocumentListener {
+            public void insertUpdate(DocumentEvent e) {
+                vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+                password.setEnabled(pass_text.getPassword().length > 0);
+            }
 
-                    public void changedUpdate(DocumentEvent e) {
-                        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
-                        password.setEnabled(pass_text.getPassword().length > 0);
-                    }
+            public void removeUpdate(DocumentEvent e) {
+                vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+                password.setEnabled(pass_text.getPassword().length > 0);
+            }
+        }
 
-                    public void insertUpdate(DocumentEvent e) {
-                        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
-                        password.setEnabled(pass_text.getPassword().length > 0);
-                    }
+        partida_local = loc;
 
-                    public void removeUpdate(DocumentEvent e) {
-                        vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
-                        password.setEnabled(pass_text.getPassword().length > 0);
-                    }
-                }
+        JTextFieldRegularPopupMenu.addTo(server_ip_textfield);
+        server_ip_textfield.getDocument().addDocumentListener(new VamosButtonListener());
 
-                partida_local = loc;
+        JTextFieldRegularPopupMenu.addTo(server_port_textfield);
+        server_port_textfield.getDocument().addDocumentListener(new VamosButtonListener());
+        ((AbstractDocument) server_port_textfield.getDocument()).setDocumentFilter(new Helpers.numericFilter(server_port_textfield, MAX_PORT_LENGTH));
 
-                JTextFieldRegularPopupMenu.addTo(server_ip_textfield);
-                server_ip_textfield.getDocument().addDocumentListener(new VamosButtonListener());
+        JTextFieldRegularPopupMenu.addTo(randomorg_apikey);
 
-                JTextFieldRegularPopupMenu.addTo(server_port_textfield);
-                server_port_textfield.getDocument().addDocumentListener(new VamosButtonListener());
-                ((AbstractDocument) server_port_textfield.getDocument()).setDocumentFilter(new Helpers.numericFilter(server_port_textfield, MAX_PORT_LENGTH));
+        JTextFieldRegularPopupMenu.addTo(nick);
+        nick.getDocument().addDocumentListener(new VamosButtonListener());
+        ((AbstractDocument) nick.getDocument()).setDocumentFilter(new Helpers.maxLenghtFilter(nick, MAX_NICK_LENGTH));
 
-                JTextFieldRegularPopupMenu.addTo(randomorg_apikey);
+        JTextFieldRegularPopupMenu.addTo(pass_text);
+        pass_text.getDocument().addDocumentListener(new VamosButtonListener());
+        ((AbstractDocument) pass_text.getDocument()).setDocumentFilter(new Helpers.maxLenghtFilter(pass_text, MAX_PASS_LENGTH));
 
-                JTextFieldRegularPopupMenu.addTo(nick);
-                nick.getDocument().addDocumentListener(new VamosButtonListener());
-                ((AbstractDocument) nick.getDocument()).setDocumentFilter(new Helpers.maxLenghtFilter(nick, MAX_NICK_LENGTH));
+        String elnick = Helpers.PROPERTIES.getProperty("nick", "");
 
-                JTextFieldRegularPopupMenu.addTo(pass_text);
-                pass_text.getDocument().addDocumentListener(new VamosButtonListener());
-                ((AbstractDocument) pass_text.getDocument()).setDocumentFilter(new Helpers.maxLenghtFilter(pass_text, MAX_PASS_LENGTH));
+        nick.setText(elnick.substring(0, Math.min(MAX_NICK_LENGTH, elnick.length())));
 
-                String elnick = Helpers.PROPERTIES.getProperty("nick", "");
+        String avatar_path = Helpers.PROPERTIES.getProperty("avatar", "");
 
-                nick.setText(elnick.substring(0, Math.min(MAX_NICK_LENGTH, elnick.length())));
+        if (!avatar_path.isEmpty()) {
 
-                String avatar_path = Helpers.PROPERTIES.getProperty("avatar", "");
+            avatar = new File(avatar_path);
 
-                if (!avatar_path.isEmpty()) {
+            if (avatar.exists() && avatar.canRead() && avatar.length() <= AVATAR_MAX_FILESIZE * 1024) {
+                avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
+                avatar_img.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
 
-                    avatar = new File(avatar_path);
-
-                    if (avatar.exists() && avatar.canRead() && avatar.length() <= AVATAR_MAX_FILESIZE * 1024) {
-                        avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                        avatar_img.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-
-                    } else {
-                        avatar = null;
-                        avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                        avatar_img.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-
-                    }
-                } else {
-                    avatar = null;
-                    avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                    avatar_img.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-
-                }
-
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
-
-                if (partida_local) {
-                    server_ip_textfield.setText("localhost");
-                    server_ip_textfield.setEnabled(false);
-                    server_port_textfield.setText(Helpers.PROPERTIES.getProperty("local_port", String.valueOf(DEFAULT_PORT)));
-                    config_partida_panel.setVisible(true);
-                    random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.SPRNG))) - 1);
-                    randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
-                    rebuy_checkbox.setSelected(true);
-                    doblar_checkbox.setSelected(true);
-                    ((DefaultEditor) doblar_ciegas_spinner.getEditor()).getTextField().setEditable(false);
-
-                    String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
-
-                    float ciega_grande = Float.valueOf(valores[1].trim());
-
-                    buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 3))));
-
-                    ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
-
-                    ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
-
-                    Helpers.setTranslatedTitle(tthis, "Crear timba");
-
-                } else {
-                    server_port_textfield.setText(Helpers.PROPERTIES.getProperty("server_port", String.valueOf(DEFAULT_PORT)));
-                    server_ip_textfield.setText(Helpers.PROPERTIES.getProperty("server_ip", "localhost"));
-                    Helpers.setTranslatedTitle(tthis, "Unirme a timba");
-                }
-
-                Helpers.translateComponents(tthis, false);
-
-                pack();
+            } else {
+                avatar = null;
+                avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
+                avatar_img.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
 
             }
-        });
+        } else {
+            avatar = null;
+            avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
+            avatar_img.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+
+        }
+
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+        if (partida_local) {
+            server_ip_textfield.setText("localhost");
+            server_ip_textfield.setEnabled(false);
+            server_port_textfield.setText(Helpers.PROPERTIES.getProperty("local_port", String.valueOf(DEFAULT_PORT)));
+            config_partida_panel.setVisible(true);
+            random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.SPRNG))) - 1);
+            randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
+            rebuy_checkbox.setSelected(true);
+            doblar_checkbox.setSelected(true);
+            ((DefaultEditor) doblar_ciegas_spinner.getEditor()).getTextField().setEditable(false);
+
+            String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
+
+            float ciega_grande = Float.valueOf(valores[1].trim());
+
+            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 3))));
+
+            ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+
+            ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
+
+            Helpers.setTranslatedTitle(this, "Crear timba");
+
+        } else {
+            server_port_textfield.setText(Helpers.PROPERTIES.getProperty("server_port", String.valueOf(DEFAULT_PORT)));
+            server_ip_textfield.setText(Helpers.PROPERTIES.getProperty("server_ip", "localhost"));
+            Helpers.setTranslatedTitle(this, "Unirme a timba");
+        }
+
+        Helpers.translateComponents(this, false);
+
+        pack();
+
     }
 
     private void loadGames() {
@@ -213,13 +206,13 @@ public class NewGameDialog extends javax.swing.JDialog {
                     game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
 
                 } catch (SQLException ex) {
-                    Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
 
         } catch (SQLException ex) {
-            Logger.getLogger(Stats.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();
         }
@@ -659,36 +652,36 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             Helpers.savePropertiesFile();
 
-            Game.setRECOVER(this.recover_checkbox.isSelected());
+            GameFrame.setRECOVER(this.recover_checkbox.isSelected());
 
-            if (Game.RECOVER) {
-                Game.RECOVER_ID = sqlGetRecoverIdFromGameId((int) game.get((String) game_combo.getSelectedItem()).get("id"));
+            if (GameFrame.RECOVER) {
+                GameFrame.RECOVER_ID = sqlGetRecoverIdFromGameId((int) game.get((String) game_combo.getSelectedItem()).get("id"));
             }
 
             if (this.manos_checkbox.isSelected()) {
 
-                Game.MANOS = (int) this.manos_spinner.getValue();
+                GameFrame.MANOS = (int) this.manos_spinner.getValue();
             }
 
-            Game.REBUY = this.rebuy_checkbox.isSelected();
+            GameFrame.REBUY = this.rebuy_checkbox.isSelected();
 
-            Game.BUYIN = (int) this.buyin_spinner.getValue();
+            GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
             String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).split("/");
 
-            Game.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
+            GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
 
-            Game.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].trim());
+            GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].trim());
 
             if (this.doblar_checkbox.isSelected()) {
-                Game.CIEGAS_TIME = (int) this.doblar_ciegas_spinner.getValue();
+                GameFrame.CIEGAS_TIME = (int) this.doblar_ciegas_spinner.getValue();
             } else {
-                Game.CIEGAS_TIME = 0;
+                GameFrame.CIEGAS_TIME = 0;
             }
 
             this.dialog_ok = true;
 
-            WaitingRoom espera = new WaitingRoom((Init) getParent(), partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()));
+            WaitingRoomFrame espera = new WaitingRoomFrame((Init) getParent(), partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()));
 
             espera.setLocationRelativeTo(this);
 

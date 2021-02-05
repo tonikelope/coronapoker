@@ -24,23 +24,17 @@ public class PauseDialog extends javax.swing.JDialog {
     public PauseDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        PauseDialog tthis = this;
+        initComponents();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        setBackground(new Color(0, 0, 0, 0));
 
-                setBackground(new Color(0, 0, 0, 0));
+        pausa_label.setBackground(new Color(0, 0, 0, 0));
 
-                pausa_label.setBackground(new Color(0, 0, 0, 0));
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
 
-                Helpers.translateComponents(tthis, false);
-
-                pack();
-            }
-        });
+        pack();
 
         ActionListener listener = new ActionListener() {
 
@@ -124,7 +118,7 @@ public class PauseDialog extends javax.swing.JDialog {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
-        Game.getInstance().getExit_menu().doClick();
+        GameFrame.getInstance().getExit_menu().doClick();
     }//GEN-LAST:event_formWindowClosing
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed

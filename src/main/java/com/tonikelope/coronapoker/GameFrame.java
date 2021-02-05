@@ -45,7 +45,7 @@ import javax.swing.Timer;
  *
  * @author tonikelope
  */
-public final class Game extends javax.swing.JFrame implements ZoomableInterface {
+public final class GameFrame extends javax.swing.JFrame implements ZoomableInterface {
 
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;
@@ -84,7 +84,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static volatile boolean AUTO_REBUY = false;
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
-    public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(Game.DEFAULT_ZOOM_LEVEL)));
+    public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
     public static volatile boolean VISTA_COMPACTA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("vista_compacta", "false")) && !TEST_MODE;
     public static volatile boolean ANIMACION_REPARTIR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
@@ -95,9 +95,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     public static volatile boolean RECOVER = false;
     public static volatile String RECOVER_ID = null;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
-    private static volatile Game THIS = null;
+    private static volatile GameFrame THIS = null;
 
-    public static Game getInstance() {
+    public static GameFrame getInstance() {
         return THIS;
     }
 
@@ -124,6 +124,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private volatile GameLogDialog registro_dialog = null;
     private volatile FastChatDialog fastchat_dialog = null;
     private volatile RebuyNowDialog rebuy_dialog = null;
+    private volatile GifAnimationDialog gif_dialog = null;
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
 
@@ -168,7 +169,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                                 full_screen_lock.wait(1000);
                                 t += 1000;
                             } catch (InterruptedException ex) {
-                                Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+                                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                             }
                         }
                     }
@@ -210,14 +211,14 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 }
 
                 if (!tapete.autoZoom()) {
-                    Logger.getLogger(Game.class.getName()).log(Level.SEVERE, "AUTOZOOM TIMEOUT ERROR!");
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "AUTOZOOM TIMEOUT ERROR!");
                 }
 
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
 
-                        if (!Game.isRECOVER()) {
+                        if (!GameFrame.isRECOVER()) {
                             full_screen_menu.setEnabled(true);
                             Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                         }
@@ -344,18 +345,18 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     if (Helpers.OSValidator.isWindows() || Helpers.OSValidator.isMac()) {
                         setVisible(false);
-                        getContentPane().remove(Game.getInstance().getTapete());
+                        getContentPane().remove(GameFrame.getInstance().getTapete());
                         full_screen_frame = new JFrame();
                         full_screen_frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
                         full_screen_frame.addWindowListener(new java.awt.event.WindowAdapter() {
                             @Override
                             public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-                                Game.getInstance().closeWindow();
+                                GameFrame.getInstance().closeWindow();
                             }
                         });
-                        full_screen_frame.setTitle(Game.getInstance().getTitle());
+                        full_screen_frame.setTitle(GameFrame.getInstance().getTitle());
                         full_screen_frame.setUndecorated(true);
-                        full_screen_frame.getContentPane().add(Game.getInstance().getTapete());
+                        full_screen_frame.getContentPane().add(GameFrame.getInstance().getTapete());
                         full_screen_frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
                         full_screen_frame.setVisible(true);
 
@@ -374,27 +375,27 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                         GraphicsDevice device = env.getDefaultScreenDevice();
                         menu_bar.setVisible(false);
                         setVisible(false);
-                        device.setFullScreenWindow(Game.getInstance());
+                        device.setFullScreenWindow(GameFrame.getInstance());
                     }
 
                 } else {
 
                     if (Helpers.OSValidator.isWindows() || Helpers.OSValidator.isMac()) {
 
-                        full_screen_frame.getContentPane().remove(Game.getInstance().getTapete());
+                        full_screen_frame.getContentPane().remove(GameFrame.getInstance().getTapete());
                         full_screen_frame.setVisible(false);
                         full_screen_frame.dispose();
                         full_screen_frame = null;
 
-                        Game.getInstance().getContentPane().add(Game.getInstance().getTapete());
-                        Game.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
-                        Game.getInstance().setVisible(true);
+                        GameFrame.getInstance().getContentPane().add(GameFrame.getInstance().getTapete());
+                        GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
+                        GameFrame.getInstance().setVisible(true);
 
                         if (timba_pausada) {
 
                             pausa_dialog.setVisible(false);
                             pausa_dialog.dispose();
-                            pausa_dialog = new PauseDialog(Game.getInstance(), false);
+                            pausa_dialog = new PauseDialog(GameFrame.getInstance(), false);
                             pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
                             pausa_dialog.setVisible(true);
                         }
@@ -425,7 +426,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public void cambiarBaraja() {
 
-        Card.updateCachedImages(1f + Game.getZoom_level() * Game.getZOOM_STEP(), true);
+        Card.updateCachedImages(1f + GameFrame.getZoom_level() * GameFrame.getZOOM_STEP(), true);
 
         Helpers.playWavResource("misc/uncover.wav", false);
 
@@ -504,21 +505,22 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
             this.lock_pause.notifyAll();
 
-            if (this.pausa_dialog == null) {
-                this.pausa_dialog = new PauseDialog(getFrame(), false);
-            }
-
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
+
+                    if (pausa_dialog == null) {
+                        pausa_dialog = new PauseDialog(getFrame(), false);
+                    }
+
                     if (timba_pausada) {
 
                         if (isPartida_local() || getNick_local().equals(user)) {
-                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("CONTINUAR"));
-                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
+                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("CONTINUAR"));
+                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
 
                         } else {
-                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(false);
+                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(false);
                         }
 
                         pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
@@ -527,12 +529,12 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     } else {
 
                         if (isPartida_local()) {
-                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR"));
+                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR"));
                         } else {
-                            Game.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + getLocalPlayer().getPause_counter() + ")");
+                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + getLocalPlayer().getPause_counter() + ")");
                         }
 
-                        Game.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled((isPartida_local() || getLocalPlayer().getPause_counter() > 0));
+                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled((isPartida_local() || getLocalPlayer().getPause_counter() > 0));
 
                         pausa_dialog.setVisible(false);
                         pausa_dialog.dispose();
@@ -559,16 +561,16 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         boolean paused = false;
 
-        while (this.timba_pausada || Game.getInstance().getCrupier().isFin_de_la_transmision()) {
+        while (this.timba_pausada || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
             paused = true;
 
             if (this.timba_pausada) {
                 synchronized (this.lock_pause) {
                     try {
-                        this.lock_pause.wait(Game.WAIT_PAUSE);
+                        this.lock_pause.wait(GameFrame.WAIT_PAUSE);
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
 
@@ -588,7 +590,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     }
 
     public static void setRECOVER(boolean RECOVER) {
-        Game.RECOVER = RECOVER;
+        GameFrame.RECOVER = RECOVER;
     }
 
     public JMenuItem getShortcuts_menu() {
@@ -619,7 +621,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         actionMap.put(key_pause, new AbstractAction("PAUSE") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                Game.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+                GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
             }
         });
 
@@ -732,7 +734,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
-                    if (Game.getInstance().getLocalPlayer().isBoton_mostrar()) {
+                    if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar()) {
                         getLocalPlayer().getPlayer_allin().doClick();
 
                     } else {
@@ -756,7 +758,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
         actionMap.put(key_allin, new AbstractAction("ALLIN-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (!getCrupier().isSincronizando_mano() && !Game.getInstance().getLocalPlayer().isBoton_mostrar()) {
+                if (!getCrupier().isSincronizando_mano() && !GameFrame.getInstance().getLocalPlayer().isBoton_mostrar()) {
                     getLocalPlayer().getPlayer_allin().doClick();
                 }
             }
@@ -827,17 +829,17 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 
-        if (Game.key_event_dispatcher != null) {
-            kfm.removeKeyEventDispatcher(Game.key_event_dispatcher);
+        if (GameFrame.key_event_dispatcher != null) {
+            kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
         }
 
-        Game.key_event_dispatcher = new KeyEventDispatcher() {
+        GameFrame.key_event_dispatcher = new KeyEventDispatcher() {
 
             @Override
             public boolean dispatchKeyEvent(KeyEvent e) {
                 KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
 
-                JFrame frame = Game.getInstance().getFrame();
+                JFrame frame = GameFrame.getInstance().getFrame();
 
                 if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()))) {
                     final Action a = actionMap.get(keyStroke);
@@ -857,10 +859,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         };
 
-        kfm.addKeyEventDispatcher(Game.key_event_dispatcher);
+        kfm.addKeyEventDispatcher(GameFrame.key_event_dispatcher);
     }
 
-    private WaitingRoom sala_espera;
+    private WaitingRoomFrame sala_espera;
 
     public Crupier getCrupier() {
         return crupier;
@@ -945,9 +947,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                tapete.getCommunityCards().getHand_label().setText("#" + String.valueOf(mano) + (Game.MANOS != -1 ? "/" + String.valueOf(Game.MANOS) : ""));
+                tapete.getCommunityCards().getHand_label().setText("#" + String.valueOf(mano) + (GameFrame.MANOS != -1 ? "/" + String.valueOf(GameFrame.MANOS) : ""));
 
-                if (Game.MANOS != -1 && crupier.getMano() > Game.MANOS) {
+                if (GameFrame.MANOS != -1 && crupier.getMano() > GameFrame.MANOS) {
                     tapete.getCommunityCards().getHand_label().setBackground(Color.red);
                     tapete.getCommunityCards().getHand_label().setForeground(Color.WHITE);
                     tapete.getCommunityCards().getHand_label().setOpaque(true);
@@ -1036,10 +1038,10 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         if (nuevo_tapete != null) {
 
-            Game.getInstance().getJugadores().clear();
+            GameFrame.getInstance().getJugadores().clear();
 
             for (Player jugador : nuevo_tapete.getPlayers()) {
-                Game.getInstance().getJugadores().add(jugador);
+                GameFrame.getInstance().getJugadores().add(jugador);
             }
 
             JFrame frame = getFrame();
@@ -1054,13 +1056,13 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     frame.getContentPane().add(tapete);
 
-                    Game.getInstance().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
+                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
 
-                    Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
 
                     updateSoundIcon();
 
-                    switch (Game.COLOR_TAPETE) {
+                    switch (GameFrame.COLOR_TAPETE) {
 
                         case "verde":
                             cambiarColorContadoresTapete(new Color(153, 204, 0));
@@ -1089,9 +1091,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                     Helpers.translateComponents(frame, false);
 
-                    if (Game.getZoom_level() != 0) {
+                    if (GameFrame.getZoom_level() != 0) {
 
-                        Game.getInstance().zoom(1f + Game.getZoom_level() * Game.ZOOM_STEP);
+                        GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP);
 
                     }
 
@@ -1117,13 +1119,13 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                tapete.getCommunityCards().getBlinds_label().setText(Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (Game.CIEGAS_TIME > 0 ? " @ " + String.valueOf(Game.CIEGAS_TIME) + "'" + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
+                tapete.getCommunityCards().getBlinds_label().setText(Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
             }
         });
 
     }
 
-    public WaitingRoom getSala_espera() {
+    public WaitingRoomFrame getSala_espera() {
         return sala_espera;
     }
 
@@ -1135,7 +1137,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 @Override
                 public void run() {
                     tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(tapete.getCommunityCards().getPot_label().getHeight(), tapete.getCommunityCards().getPot_label().getHeight()));
-                    tapete.getCommunityCards().getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(tapete.getCommunityCards().getPot_label().getHeight(), tapete.getCommunityCards().getPot_label().getHeight(), Image.SCALE_SMOOTH)));
+                    tapete.getCommunityCards().getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(tapete.getCommunityCards().getPot_label().getHeight(), tapete.getCommunityCards().getPot_label().getHeight(), Image.SCALE_SMOOTH)));
                 }
             });
         } else {
@@ -1143,7 +1145,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 @Override
                 public void run() {
                     tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH));
-                    tapete.getCommunityCards().getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH, Image.SCALE_SMOOTH)));
+                    tapete.getCommunityCards().getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH, Image.SCALE_SMOOTH)));
                 }
             });
         }
@@ -1169,7 +1171,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 @Override
                 public void actionPerformed(ActionEvent e) {
 
-                    Game.BARAJA = menu_item.getText();
+                    GameFrame.BARAJA = menu_item.getText();
 
                     Helpers.PROPERTIES.setProperty("baraja", menu_item.getText());
 
@@ -1202,7 +1204,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     /**
      * Creates new form CoronaMainView
      */
-    public Game(WaitingRoom salaespera, String nicklocal, boolean partidalocal) {
+    public GameFrame(WaitingRoomFrame salaespera, String nicklocal, boolean partidalocal) {
 
         THIS = this;
 
@@ -1256,42 +1258,42 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 getContentPane().add(tapete);
 
-                auto_rebuy_menu.setSelected(Game.AUTO_REBUY);
+                auto_rebuy_menu.setSelected(GameFrame.AUTO_REBUY);
 
-                auto_rebuy_menu.setEnabled(Game.REBUY);
+                auto_rebuy_menu.setEnabled(GameFrame.REBUY);
 
-                rebuy_now_menu.setEnabled(Game.REBUY);
+                rebuy_now_menu.setEnabled(GameFrame.REBUY);
 
-                compact_menu.setSelected(Game.VISTA_COMPACTA);
+                compact_menu.setSelected(GameFrame.VISTA_COMPACTA);
 
                 if (!map.containsKey("allin/") || map.get("allin/").length == 0) {
-                    Game.CINEMATICAS = false;
+                    GameFrame.CINEMATICAS = false;
                     menu_cinematicas.setSelected(false);
                     menu_cinematicas.setEnabled(false);
 
                 } else {
-                    menu_cinematicas.setSelected(Game.CINEMATICAS);
+                    menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
                 }
 
                 rebuy_now_menu.setSelected(false);
 
-                animacion_menu.setSelected(Game.ANIMACION_REPARTIR);
+                animacion_menu.setSelected(GameFrame.ANIMACION_REPARTIR);
 
-                confirmar_menu.setSelected(Game.CONFIRM_ACTIONS);
+                confirmar_menu.setSelected(GameFrame.CONFIRM_ACTIONS);
 
-                auto_action_menu.setSelected(Game.AUTO_ACTION_BUTTONS);
+                auto_action_menu.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
 
-                sonidos_menu.setSelected(Game.SONIDOS);
+                sonidos_menu.setSelected(GameFrame.SONIDOS);
 
-                sonidos_chorra_menu.setSelected(Game.SONIDOS_CHORRA);
+                sonidos_chorra_menu.setSelected(GameFrame.SONIDOS_CHORRA);
 
-                ascensor_menu.setSelected(Game.MUSICA_AMBIENTAL);
+                ascensor_menu.setSelected(GameFrame.MUSICA_AMBIENTAL);
 
                 sonidos_chorra_menu.setEnabled(sonidos_menu.isSelected());
 
                 ascensor_menu.setEnabled(sonidos_menu.isSelected());
 
-                tts_menu.setSelected(Game.SONIDOS_TTS);
+                tts_menu.setSelected(GameFrame.SONIDOS_TTS);
 
                 tts_menu.setEnabled(sonidos_menu.isSelected());
 
@@ -1299,22 +1301,22 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 for (Component menu : menu_barajas.getMenuComponents()) {
 
-                    if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(Game.BARAJA)) {
+                    if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(GameFrame.BARAJA)) {
                         ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
                     } else {
                         ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
                     }
                 }
 
-                menu_tapete_verde.setSelected(Game.COLOR_TAPETE.equals("verde"));
+                menu_tapete_verde.setSelected(GameFrame.COLOR_TAPETE.equals("verde"));
 
-                menu_tapete_azul.setSelected(Game.COLOR_TAPETE.equals("azul"));
+                menu_tapete_azul.setSelected(GameFrame.COLOR_TAPETE.equals("azul"));
 
-                menu_tapete_rojo.setSelected(Game.COLOR_TAPETE.equals("rojo"));
+                menu_tapete_rojo.setSelected(GameFrame.COLOR_TAPETE.equals("rojo"));
 
-                menu_tapete_madera.setSelected(Game.COLOR_TAPETE.equals("madera"));
+                menu_tapete_madera.setSelected(GameFrame.COLOR_TAPETE.equals("madera"));
 
-                switch (Game.COLOR_TAPETE) {
+                switch (GameFrame.COLOR_TAPETE) {
 
                     case "verde":
                         cambiarColorContadoresTapete(new Color(153, 204, 0));
@@ -1345,48 +1347,48 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 tapete.getCommunityCards().getBarra_tiempo().setMinimum(0);
 
-                tapete.getCommunityCards().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
+                tapete.getCommunityCards().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
 
                 server_separator_menu.setVisible(partida_local);
 
-                tapete.getCommunityCards().getTiempo_partida().setVisible(Game.SHOW_CLOCK);
+                tapete.getCommunityCards().getTiempo_partida().setVisible(GameFrame.SHOW_CLOCK);
 
-                time_menu.setSelected(Game.SHOW_CLOCK);
+                time_menu.setSelected(GameFrame.SHOW_CLOCK);
 
                 tapete.getLocalPlayer().getPlayingCard1().setCompactable(false);
                 tapete.getLocalPlayer().getPlayingCard2().setCompactable(false);
 
                 //Metemos la pasta a todos (el BUY IN se podría parametrizar)
                 for (Player jugador : jugadores) {
-                    jugador.setStack(Game.BUYIN);
+                    jugador.setStack(GameFrame.BUYIN);
                 }
 
                 setupGlobalShortcuts();
 
                 Helpers.TapetePopupMenu.addTo(tapete);
 
-                Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(Game.REBUY);
+                Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(GameFrame.REBUY);
 
-                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(Game.REBUY);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
 
                 Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
 
                 for (Component menu : BARAJAS_MENU.getMenuComponents()) {
 
-                    if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(Game.BARAJA)) {
+                    if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(GameFrame.BARAJA)) {
                         ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
                     } else {
                         ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
                     }
                 }
 
-                Helpers.TapetePopupMenu.TAPETE_VERDE.setSelected(Game.COLOR_TAPETE.equals("verde"));
+                Helpers.TapetePopupMenu.TAPETE_VERDE.setSelected(GameFrame.COLOR_TAPETE.equals("verde"));
 
-                Helpers.TapetePopupMenu.TAPETE_AZUL.setSelected(Game.COLOR_TAPETE.equals("azul"));
+                Helpers.TapetePopupMenu.TAPETE_AZUL.setSelected(GameFrame.COLOR_TAPETE.equals("azul"));
 
-                Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(Game.COLOR_TAPETE.equals("rojo"));
+                Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(GameFrame.COLOR_TAPETE.equals("rojo"));
 
-                Helpers.TapetePopupMenu.TAPETE_MADERA.setSelected(Game.COLOR_TAPETE.equals("madera"));
+                Helpers.TapetePopupMenu.TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.equals("madera"));
 
                 if (!menu_cinematicas.isEnabled()) {
                     Helpers.TapetePopupMenu.CINEMATICAS_MENU.setEnabled(false);
@@ -1412,7 +1414,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     public void finTransmision(boolean partida_terminada) {
 
-        Game.getInstance().getTapete().hideALL();
+        GameFrame.getInstance().getTapete().hideALL();
 
         Helpers.GUIRun(new Runnable() {
             @Override
@@ -1420,7 +1422,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                 if (pausa_dialog != null) {
                     pausa_dialog.setVisible(false);
                 }
-                Game.getInstance().getFastchat_dialog().setVisible(false);
+                GameFrame.getInstance().getFastchat_dialog().setVisible(false);
             }
         });
 
@@ -1458,7 +1460,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     statement.setLong(2, crupier.getSqlite_game_id());
                     statement.executeUpdate();
                 } catch (SQLException ex) {
-                    Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
@@ -1492,7 +1494,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             try {
                 Files.writeString(Paths.get(log_file), getRegistro().getText());
             } catch (IOException ex1) {
-                Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
+                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
             }
 
             String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
@@ -1500,19 +1502,24 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             try {
                 Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());
             } catch (IOException ex1) {
-                Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex1);
+                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
             }
 
             if (partida_terminada) {
 
-                BalanceDialog balance = new BalanceDialog(Game.getInstance().getFrame(), true);
+                Helpers.GUIRunAndWait(new Runnable() {
+                    @Override
+                    public void run() {
+                        BalanceDialog balance = new BalanceDialog(GameFrame.getInstance().getFrame(), true);
 
-                balance.setLocationRelativeTo(balance.getParent());
+                        balance.setLocationRelativeTo(balance.getParent());
 
-                balance.setVisible(true);
+                        balance.setVisible(true);
+                    }
+                });
             }
 
-            if (partida_terminada && Game.CINEMATICAS) {
+            if (partida_terminada && GameFrame.CINEMATICAS) {
 
                 HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
@@ -1534,11 +1541,11 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 
-                if (Game.key_event_dispatcher != null) {
-                    kfm.removeKeyEventDispatcher(Game.key_event_dispatcher);
+                if (GameFrame.key_event_dispatcher != null) {
+                    kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
                 }
 
-                Game.key_event_dispatcher = new KeyEventDispatcher() {
+                GameFrame.key_event_dispatcher = new KeyEventDispatcher() {
 
                     @Override
                     public boolean dispatchKeyEvent(KeyEvent e) {
@@ -1562,7 +1569,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
                     }
                 };
 
-                kfm.addKeyEventDispatcher(Game.key_event_dispatcher);
+                kfm.addKeyEventDispatcher(GameFrame.key_event_dispatcher);
 
                 final ImageIcon icon;
 
@@ -1576,13 +1583,11 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
                 if (icon != null) {
 
-                    GifAnimation gif = new GifAnimation(Game.getInstance().getFrame(), true, icon);
-
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
-                            gif.setLocationRelativeTo(gif.getParent());
-
-                            gif.setVisible(true);
+                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon);
+                            gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                            gif_dialog.setVisible(true);
                         }
                     });
                 }
@@ -1608,16 +1613,16 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.stopLoopMp3("misc/waiting_room.mp3");
 
-        if (!Game.SONIDOS) {
+        if (!GameFrame.SONIDOS) {
             Helpers.muteAll();
         }
 
-        if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
+        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
             Helpers.playWavResource("misc/startplay.wav");
         }
 
-        if (Game.MUSICA_AMBIENTAL) {
+        if (GameFrame.MUSICA_AMBIENTAL) {
             Helpers.unmuteLoopMp3("misc/background_music.mp3");
         }
 
@@ -1650,11 +1655,16 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         tiempo_juego.start();
 
-        registro_dialog = new GameLogDialog(this, false);
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+
+                registro_dialog = new GameLogDialog(GameFrame.getInstance(), false);
+
+                fastchat_dialog = new FastChatDialog(GameFrame.getInstance(), false);
+            }
+        });
 
         getRegistro().print(Translator.translate("COMIENZA LA TIMBA -> ") + Helpers.getFechaHoraActual());
-
-        fastchat_dialog = new FastChatDialog(this, false);
 
         Helpers.threadRun(crupier);
     }
@@ -2210,21 +2220,21 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void sonidos_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sonidos_menuActionPerformed
         // TODO add your handling code here:
 
-        Game.SONIDOS = this.sonidos_menu.isSelected();
+        GameFrame.SONIDOS = this.sonidos_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("sonidos", Game.SONIDOS ? "true" : "false");
+        Helpers.PROPERTIES.setProperty("sonidos", GameFrame.SONIDOS ? "true" : "false");
 
         Helpers.savePropertiesFile();
 
         updateSoundIcon();
 
-        this.sonidos_chorra_menu.setEnabled(Game.SONIDOS);
+        this.sonidos_chorra_menu.setEnabled(GameFrame.SONIDOS);
 
-        this.ascensor_menu.setEnabled(Game.SONIDOS);
+        this.ascensor_menu.setEnabled(GameFrame.SONIDOS);
 
-        this.tts_menu.setEnabled(Game.SONIDOS);
+        this.tts_menu.setEnabled(GameFrame.SONIDOS);
 
-        if (!Game.SONIDOS) {
+        if (!GameFrame.SONIDOS) {
 
             Helpers.muteAll();
 
@@ -2233,13 +2243,13 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             Helpers.unMuteAll();
         }
 
-        Helpers.TapetePopupMenu.SONIDOS_MENU.setSelected(Game.SONIDOS);
+        Helpers.TapetePopupMenu.SONIDOS_MENU.setSelected(GameFrame.SONIDOS);
 
-        Helpers.TapetePopupMenu.SONIDOS_COMENTARIOS_MENU.setEnabled(Game.SONIDOS);
+        Helpers.TapetePopupMenu.SONIDOS_COMENTARIOS_MENU.setEnabled(GameFrame.SONIDOS);
 
-        Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setEnabled(Game.SONIDOS);
+        Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setEnabled(GameFrame.SONIDOS);
 
-        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(Game.SONIDOS);
+        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
     }//GEN-LAST:event_sonidos_menuActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
@@ -2250,7 +2260,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void time_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_time_menuActionPerformed
         // TODO add your handling code here:
 
-        Game.SHOW_CLOCK = time_menu.isSelected();
+        GameFrame.SHOW_CLOCK = time_menu.isSelected();
 
         tapete.getCommunityCards().getTiempo_partida().setVisible(time_menu.isSelected());
 
@@ -2258,24 +2268,24 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.savePropertiesFile();
 
-        Helpers.TapetePopupMenu.RELOJ_MENU.setSelected(Game.SHOW_CLOCK);
+        Helpers.TapetePopupMenu.RELOJ_MENU.setSelected(GameFrame.SHOW_CLOCK);
     }//GEN-LAST:event_time_menuActionPerformed
 
     private void sonidos_chorra_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sonidos_chorra_menuActionPerformed
         // TODO add your handling code here:
-        Game.SONIDOS_CHORRA = this.sonidos_chorra_menu.isSelected();
+        GameFrame.SONIDOS_CHORRA = this.sonidos_chorra_menu.isSelected();
 
         Helpers.PROPERTIES.setProperty("sonidos_chorra", this.sonidos_chorra_menu.isSelected() ? "true" : "false");
 
         Helpers.savePropertiesFile();
 
-        Helpers.TapetePopupMenu.SONIDOS_COMENTARIOS_MENU.setSelected(Game.SONIDOS_CHORRA);
+        Helpers.TapetePopupMenu.SONIDOS_COMENTARIOS_MENU.setSelected(GameFrame.SONIDOS_CHORRA);
 
     }//GEN-LAST:event_sonidos_chorra_menuActionPerformed
 
     private void ascensor_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ascensor_menuActionPerformed
         // TODO add your handling code here:
-        Game.MUSICA_AMBIENTAL = this.ascensor_menu.isSelected();
+        GameFrame.MUSICA_AMBIENTAL = this.ascensor_menu.isSelected();
 
         Helpers.PROPERTIES.setProperty("sonido_ascensor", this.ascensor_menu.isSelected() ? "true" : "false");
 
@@ -2287,7 +2297,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             Helpers.muteLoopMp3("misc/background_music.mp3");
         }
 
-        Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setSelected(Game.MUSICA_AMBIENTAL);
+        Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setSelected(GameFrame.MUSICA_AMBIENTAL);
     }//GEN-LAST:event_ascensor_menuActionPerformed
 
     private void jugadas_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jugadas_menuActionPerformed
@@ -2295,19 +2305,20 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.threadRun(new Runnable() {
             public void run() {
-                if (jugadas_dialog == null) {
 
-                    jugadas_dialog = new HandGeneratorDialog(Game.getInstance(), false);
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
 
-                    jugadas_dialog.pintarJugada();
+                        if (jugadas_dialog == null) {
+                            jugadas_dialog = new HandGeneratorDialog(GameFrame.getInstance(), false);
 
-                } else {
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
+                            jugadas_dialog.pintarJugada();
+                        } else {
                             jugadas_dialog.setVisible(false);
                         }
-                    });
-                }
+
+                    }
+                });
 
                 for (Card carta : jugadas_dialog.getCartas()) {
                     carta.refreshCard();
@@ -2346,13 +2357,13 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void auto_rebuy_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_rebuy_menuActionPerformed
         // TODO add your handling code here:
 
-        Game.AUTO_REBUY = this.auto_rebuy_menu.isSelected();
+        GameFrame.AUTO_REBUY = this.auto_rebuy_menu.isSelected();
 
         Helpers.PROPERTIES.setProperty("auto_rebuy", this.auto_rebuy_menu.isSelected() ? "true" : "false");
 
         Helpers.savePropertiesFile();
 
-        Helpers.TapetePopupMenu.AUTOREBUY_MENU.setSelected(Game.AUTO_REBUY);
+        Helpers.TapetePopupMenu.AUTOREBUY_MENU.setSelected(GameFrame.AUTO_REBUY);
 
         Helpers.playWavResource("misc/cash_register.wav");
 
@@ -2360,9 +2371,9 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     private void compact_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_compact_menuActionPerformed
         // TODO add your handling code here:
-        Game.VISTA_COMPACTA = this.compact_menu.isSelected();
+        GameFrame.VISTA_COMPACTA = this.compact_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(Game.VISTA_COMPACTA));
+        Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(GameFrame.VISTA_COMPACTA));
 
         Helpers.savePropertiesFile();
 
@@ -2372,20 +2383,20 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
             }
         });
 
-        Helpers.TapetePopupMenu.COMPACTA_MENU.setSelected(Game.VISTA_COMPACTA);
+        Helpers.TapetePopupMenu.COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA);
     }//GEN-LAST:event_compact_menuActionPerformed
 
     private void confirmar_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_confirmar_menuActionPerformed
         // TODO add your handling code here:
-        Game.CONFIRM_ACTIONS = this.confirmar_menu.isSelected();
+        GameFrame.CONFIRM_ACTIONS = this.confirmar_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("confirmar_todo", String.valueOf(Game.CONFIRM_ACTIONS));
+        Helpers.PROPERTIES.setProperty("confirmar_todo", String.valueOf(GameFrame.CONFIRM_ACTIONS));
 
         Helpers.savePropertiesFile();
 
-        Helpers.TapetePopupMenu.CONFIRM_MENU.setSelected(Game.CONFIRM_ACTIONS);
+        Helpers.TapetePopupMenu.CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
 
-        if (!Game.CONFIRM_ACTIONS) {
+        if (!GameFrame.CONFIRM_ACTIONS) {
             this.getLocalPlayer().desarmarBotonesAccion();
         }
 
@@ -2394,26 +2405,26 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void animacion_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_animacion_menuActionPerformed
         // TODO add your handling code here:
 
-        Game.ANIMACION_REPARTIR = this.animacion_menu.isSelected();
+        GameFrame.ANIMACION_REPARTIR = this.animacion_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(Game.ANIMACION_REPARTIR));
+        Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(GameFrame.ANIMACION_REPARTIR));
 
         Helpers.savePropertiesFile();
 
-        Helpers.TapetePopupMenu.ANIMACION_MENU.setSelected(Game.ANIMACION_REPARTIR);
+        Helpers.TapetePopupMenu.ANIMACION_MENU.setSelected(GameFrame.ANIMACION_REPARTIR);
     }//GEN-LAST:event_animacion_menuActionPerformed
 
     private void auto_action_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_action_menuActionPerformed
         // TODO add your handling code here:
-        Game.AUTO_ACTION_BUTTONS = this.auto_action_menu.isSelected();
+        GameFrame.AUTO_ACTION_BUTTONS = this.auto_action_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("auto_action_buttons", String.valueOf(Game.AUTO_ACTION_BUTTONS));
+        Helpers.PROPERTIES.setProperty("auto_action_buttons", String.valueOf(GameFrame.AUTO_ACTION_BUTTONS));
 
         Helpers.savePropertiesFile();
 
-        Helpers.TapetePopupMenu.AUTO_ACTION_MENU.setSelected(Game.AUTO_ACTION_BUTTONS);
+        Helpers.TapetePopupMenu.AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
 
-        if (Game.AUTO_ACTION_BUTTONS) {
+        if (GameFrame.AUTO_ACTION_BUTTONS) {
             this.getLocalPlayer().activarPreBotones();
         } else {
             this.getLocalPlayer().desActivarPreBotones();
@@ -2422,7 +2433,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     private void menu_tapete_verdeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_verdeActionPerformed
         // TODO add your handling code here:
-        Game.COLOR_TAPETE = "verde";
+        GameFrame.COLOR_TAPETE = "verde";
 
         Helpers.PROPERTIES.setProperty("color_tapete", "verde");
 
@@ -2448,7 +2459,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void menu_tapete_azulActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_azulActionPerformed
         // TODO add your handling code here:
 
-        Game.COLOR_TAPETE = "azul";
+        GameFrame.COLOR_TAPETE = "azul";
 
         Helpers.PROPERTIES.setProperty("color_tapete", "azul");
 
@@ -2473,7 +2484,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     private void menu_tapete_rojoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_rojoActionPerformed
         // TODO add your handling code here:
-        Game.COLOR_TAPETE = "rojo";
+        GameFrame.COLOR_TAPETE = "rojo";
 
         Helpers.PROPERTIES.setProperty("color_tapete", "rojo");
 
@@ -2498,7 +2509,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
     private void menu_tapete_maderaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_maderaActionPerformed
         // TODO add your handling code here:
-        Game.COLOR_TAPETE = "madera";
+        GameFrame.COLOR_TAPETE = "madera";
 
         Helpers.PROPERTIES.setProperty("color_tapete", "madera");
 
@@ -2524,13 +2535,13 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void menu_cinematicasActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_cinematicasActionPerformed
         // TODO add your handling code here:
 
-        Game.CINEMATICAS = this.menu_cinematicas.isSelected();
+        GameFrame.CINEMATICAS = this.menu_cinematicas.isSelected();
 
-        Helpers.PROPERTIES.setProperty("cinematicas", String.valueOf(Game.CINEMATICAS));
+        Helpers.PROPERTIES.setProperty("cinematicas", String.valueOf(GameFrame.CINEMATICAS));
 
         Helpers.savePropertiesFile();
 
-        Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(Game.CINEMATICAS);
+        Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
     }//GEN-LAST:event_menu_cinematicasActionPerformed
 
     private void shortcuts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_shortcuts_menuActionPerformed
@@ -2542,15 +2553,15 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
     private void tts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_tts_menuActionPerformed
         // TODO add your handling code here:
 
-        Game.SONIDOS_TTS = this.tts_menu.isSelected();
+        GameFrame.SONIDOS_TTS = this.tts_menu.isSelected();
 
         Helpers.PROPERTIES.setProperty("sonidos_tts", this.tts_menu.isSelected() ? "true" : "false");
 
         Helpers.savePropertiesFile();
 
-        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(Game.SONIDOS_TTS);
+        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
 
-        if (Game.SONIDOS_TTS) {
+        if (GameFrame.SONIDOS_TTS) {
             Helpers.TTS_BLOCKED_USERS.clear();
         }
     }//GEN-LAST:event_tts_menuActionPerformed
@@ -2564,7 +2575,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(this.rebuy_now_menu.isSelected());
 
-        LocalPlayer player = Game.getInstance().getLocalPlayer();
+        LocalPlayer player = GameFrame.getInstance().getLocalPlayer();
 
         if (player.isActivo()) {
 
@@ -2574,7 +2585,7 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
             if (crupier.getRebuy_now().containsKey(player.getNickname())) {
 
-                player.getPlayer_buyin().setBackground(Helpers.float1DSecureCompare((float) Game.BUYIN, player.getBuyin()) == 0 ? new Color(204, 204, 204) : Color.cyan);
+                player.getPlayer_buyin().setBackground(Helpers.float1DSecureCompare((float) GameFrame.BUYIN, player.getBuyin()) == 0 ? new Color(204, 204, 204) : Color.cyan);
                 player.getPlayer_buyin().setText(String.valueOf(player.getBuyin()));
 
                 Helpers.threadRun(new Runnable() {
@@ -2588,15 +2599,15 @@ public final class Game extends javax.swing.JFrame implements ZoomableInterface 
 
             } else {
 
-                if (Helpers.float1DSecureCompare(player.getStack() + (player.getDecision() != Player.FOLD ? player.getBote() : 0f) + player.getPagar(), (float) Game.BUYIN) >= 0) {
-                    Helpers.mostrarMensajeError(Game.getInstance().getFrame(), Translator.translate("PARA RECOMPRAR DEBES TENER MENOS DE ") + Game.BUYIN);
+                if (Helpers.float1DSecureCompare(player.getStack() + (player.getDecision() != Player.FOLD ? player.getBote() : 0f) + player.getPagar(), (float) GameFrame.BUYIN) >= 0) {
+                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("PARA RECOMPRAR DEBES TENER MENOS DE ") + GameFrame.BUYIN);
                     rebuy_now_menu.setEnabled(true);
                     rebuy_now_menu.setSelected(false);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
                 } else {
 
-                    rebuy_dialog = new RebuyNowDialog(Game.getInstance().getFrame(), true, true);
+                    rebuy_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, true);
 
                     rebuy_dialog.setLocationRelativeTo(rebuy_dialog.getParent());
 

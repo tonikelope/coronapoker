@@ -1414,6 +1414,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void finTransmision(boolean partida_terminada) {
 
+        Helpers.muteAllWav();
+
         GameFrame.getInstance().getTapete().hideALL();
 
         Helpers.GUIRun(new Runnable() {

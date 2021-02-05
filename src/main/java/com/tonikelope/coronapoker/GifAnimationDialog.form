@@ -4,9 +4,6 @@
   <Properties>
     <Property name="defaultCloseOperation" type="int" value="0"/>
     <Property name="focusCycleRoot" type="boolean" value="false"/>
-    <Property name="focusTraversalPolicy" type="java.awt.FocusTraversalPolicy" editor="org.netbeans.modules.form.ComponentChooserEditor">
-      <ComponentRef name="null"/>
-    </Property>
     <Property name="focusable" type="boolean" value="false"/>
     <Property name="focusableWindowState" type="boolean" value="false"/>
     <Property name="undecorated" type="boolean" value="true"/>

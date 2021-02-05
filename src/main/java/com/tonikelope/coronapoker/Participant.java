@@ -16,7 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
-import static com.tonikelope.coronapoker.Game.WAIT_QUEUES;
+import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -47,7 +47,7 @@ public class Participant implements Runnable {
     private final Object participant_socket_lock = new Object();
     private final HashMap<String, Integer> last_received = new HashMap<>();
     private final ConcurrentLinkedQueue<String> async_command_queue = new ConcurrentLinkedQueue<>();
-    private final WaitingRoom sala_espera;
+    private final WaitingRoomFrame sala_espera;
     private final String nick;
     private final File avatar;
 
@@ -63,7 +63,7 @@ public class Participant implements Runnable {
     private volatile String permutation_key_hash = null;
     private volatile int new_hand_ready = 0;
 
-    public Participant(WaitingRoom espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
+    public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
         this.nick = nick;
         this.setSocket(socket);
@@ -153,7 +153,7 @@ public class Participant implements Runnable {
             if (this.socket != null) {
                 try {
 
-                    if (!WaitingRoom.isPartida_empezada()) {
+                    if (!WaitingRoomFrame.isPartida_empezada()) {
                         this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
                     }
                     this.socketClose();
@@ -276,10 +276,10 @@ public class Participant implements Runnable {
             try {
                 this.input_stream = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
 
-                Logger.getLogger(WaitingRoom.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
+                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
 
                 //Mandamos el chat
-                socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(WaitingRoom.getInstance().getChat().getText().getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
+                socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat().getText().getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
 
             } catch (IOException ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
@@ -302,11 +302,11 @@ public class Participant implements Runnable {
 
             Object[] confirmation;
 
-            synchronized (WaitingRoom.getInstance().getReceived_confirmations()) {
+            synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
 
-                while (!exit && !WaitingRoom.getInstance().getReceived_confirmations().isEmpty()) {
+                while (!exit && !WaitingRoomFrame.getInstance().getReceived_confirmations().isEmpty()) {
 
-                    confirmation = WaitingRoom.getInstance().getReceived_confirmations().poll();
+                    confirmation = WaitingRoomFrame.getInstance().getReceived_confirmations().poll();
 
                     if (confirmation != null && confirmation[0] != null && confirmation[1] != null) {
 
@@ -321,16 +321,16 @@ public class Participant implements Runnable {
                 if (!exit) {
 
                     if (!rejected.isEmpty()) {
-                        WaitingRoom.getInstance().getReceived_confirmations().addAll(rejected);
+                        WaitingRoomFrame.getInstance().getReceived_confirmations().addAll(rejected);
                         rejected.clear();
                     }
 
-                    if (System.currentTimeMillis() - start_time > Game.CONFIRMATION_TIMEOUT) {
+                    if (System.currentTimeMillis() - start_time > GameFrame.CONFIRMATION_TIMEOUT) {
                         timeout = true;
                     } else if (!pending.isEmpty()) {
 
                         try {
-                            WaitingRoom.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
+                            WaitingRoomFrame.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
                             Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -353,7 +353,7 @@ public class Participant implements Runnable {
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    while (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
+                    while (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada()) {
 
                         int ping = Helpers.SPRNG_GENERATOR.nextInt();
 
@@ -361,17 +361,17 @@ public class Participant implements Runnable {
 
                             writeCommandFromServer("PING#" + String.valueOf(ping));
 
-                            if (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
+                            if (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada()) {
                                 synchronized (keep_alive_lock) {
                                     try {
-                                        keep_alive_lock.wait(WaitingRoom.PING_PONG_TIMEOUT);
+                                        keep_alive_lock.wait(WaitingRoomFrame.PING_PONG_TIMEOUT);
                                     } catch (InterruptedException ex) {
                                         Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                                     }
                                 }
                             }
 
-                            if (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada() && ping + 1 != pong) {
+                            if (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada() && ping + 1 != pong) {
 
                                 Logger.getLogger(Participant.class.getName()).log(Level.WARNING, nick + " NO respondió al PING " + String.valueOf(ping) + " " + String.valueOf(pong));
 
@@ -389,9 +389,9 @@ public class Participant implements Runnable {
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    while (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
+                    while (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada()) {
 
-                        while (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada() && !getAsync_command_queue().isEmpty()) {
+                        while (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada() && !getAsync_command_queue().isEmpty()) {
 
                             String command = getAsync_command_queue().peek();
 
@@ -419,13 +419,13 @@ public class Participant implements Runnable {
 
                                 }
 
-                            } while (!pendientes.isEmpty() && !exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada());
+                            } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada());
 
                             getAsync_command_queue().poll();
 
                         }
 
-                        if (!exit && !WaitingRoom.isExit() && !WaitingRoom.isPartida_empezada()) {
+                        if (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada()) {
                             synchronized (getAsync_command_queue()) {
 
                                 try {
@@ -477,10 +477,10 @@ public class Participant implements Runnable {
                                 break;
                             case "CONF":
                                 //Es una confirmación de un cliente
-                                WaitingRoom.getInstance().getReceived_confirmations().add(new Object[]{nick, Integer.parseInt(partes_comando[1])});
-                                synchronized (WaitingRoom.getInstance().getReceived_confirmations()) {
+                                WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{nick, Integer.parseInt(partes_comando[1])});
+                                synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
 
-                                    WaitingRoom.getInstance().getReceived_confirmations().notifyAll();
+                                    WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
                                 }
 
                                 break;
@@ -498,16 +498,16 @@ public class Participant implements Runnable {
                                             //ES UN PING DE JUEGO -> NO tenemos que hacer nada más
                                             break;
                                         case "CINEMATICEND":
-                                            Game.getInstance().getCrupier().remoteCinematicEnd(nick);
+                                            GameFrame.getInstance().getCrupier().remoteCinematicEnd(nick);
                                             break;
 
                                         case "PERMUTATIONKEY":
                                             Helpers.threadRun(new Runnable() {
                                                 public void run() {
-                                                    synchronized (Game.getInstance().getCrupier().getPermutation_key_lock()) {
+                                                    synchronized (GameFrame.getInstance().getCrupier().getPermutation_key_lock()) {
 
-                                                        Game.getInstance().getCrupier().setPermutation_key(partes_comando[3]);
-                                                        Game.getInstance().getCrupier().getPermutation_key_lock().notifyAll();
+                                                        GameFrame.getInstance().getCrupier().setPermutation_key(partes_comando[3]);
+                                                        GameFrame.getInstance().getCrupier().getPermutation_key_lock().notifyAll();
                                                     }
                                                 }
                                             });
@@ -516,13 +516,13 @@ public class Participant implements Runnable {
 
                                             Helpers.threadRun(new Runnable() {
                                                 public void run() {
-                                                    synchronized (Game.getInstance().getLock_pause()) {
+                                                    synchronized (GameFrame.getInstance().getLock_pause()) {
 
-                                                        if (("0".equals(partes_comando[3]) && Game.getInstance().isTimba_pausada()) && nick.equals(Game.getInstance().getNick_pause()) || ("1".equals(partes_comando[3]) && !Game.getInstance().isTimba_pausada())) {
-                                                            Game.getInstance().pauseTimba(nick);
+                                                        if (("0".equals(partes_comando[3]) && GameFrame.getInstance().isTimba_pausada()) && nick.equals(GameFrame.getInstance().getNick_pause()) || ("1".equals(partes_comando[3]) && !GameFrame.getInstance().isTimba_pausada())) {
+                                                            GameFrame.getInstance().pauseTimba(nick);
 
-                                                            if (Game.getInstance().isTimba_pausada()) {
-                                                                Game.getInstance().getRegistro().print("PAUSE (" + nick + ")");
+                                                            if (GameFrame.getInstance().isTimba_pausada()) {
+                                                                GameFrame.getInstance().getRegistro().print("PAUSE (" + nick + ")");
                                                             }
                                                         }
                                                     }
@@ -532,28 +532,28 @@ public class Participant implements Runnable {
                                             break;
 
                                         case "REBUYNOW":
-                                            Game.getInstance().getCrupier().rebuyNow(nick, Integer.parseInt(partes_comando[3]));
+                                            GameFrame.getInstance().getCrupier().rebuyNow(nick, Integer.parseInt(partes_comando[3]));
                                             break;
                                         case "SHOWMYCARDS":
-                                            Game.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
+                                            GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
                                             break;
                                         case "NEWHANDREADY":
 
                                             this.new_hand_ready = Integer.parseInt(partes_comando[3]);
 
-                                            synchronized (Game.getInstance().getCrupier().getLock_nueva_mano()) {
-                                                Game.getInstance().getCrupier().getLock_nueva_mano().notifyAll();
+                                            synchronized (GameFrame.getInstance().getCrupier().getLock_nueva_mano()) {
+                                                GameFrame.getInstance().getCrupier().getLock_nueva_mano().notifyAll();
                                             }
                                             break;
                                         case "EXIT":
-                                            Game.getInstance().getCrupier().remotePlayerQuit(nick);
+                                            GameFrame.getInstance().getCrupier().remotePlayerQuit(nick);
                                             exit = true;
                                             break;
                                         default:
                                                 //Metemos el mensaje en la cola
-                                                synchronized (Game.getInstance().getCrupier().getReceived_commands()) {
-                                                Game.getInstance().getCrupier().getReceived_commands().add(recibido);
-                                                Game.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                             }
                                             break;
                                     }
@@ -574,13 +574,13 @@ public class Participant implements Runnable {
 
                 }
 
-            } while (!exit && !WaitingRoom.isExit());
+            } while (!exit && !WaitingRoomFrame.isExit());
 
-            if (!WaitingRoom.isExit()) {
+            if (!WaitingRoomFrame.isExit()) {
 
-                if (WaitingRoom.isPartida_empezada() && !exit) {
+                if (WaitingRoomFrame.isPartida_empezada() && !exit) {
 
-                    Game.getInstance().getCrupier().remotePlayerQuit(nick);
+                    GameFrame.getInstance().getCrupier().remotePlayerQuit(nick);
 
                 }
 

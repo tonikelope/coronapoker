@@ -26,44 +26,38 @@ public class NickTTSDialog extends javax.swing.JDialog {
 
         this.player = nick;
 
-        NickTTSDialog THIS = this;
+        initComponents();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
 
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!Game.SONIDOS || !Game.SONIDOS_TTS || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+        nick_tts.setText(nick);
 
-                nick_tts.setText(nick);
+        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
 
-                if (Game.getInstance().getLocalPlayer().getNickname().equals(nick)) {
+            if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
 
-                    if (Game.getInstance().getSala_espera().getAvatar() != null) {
+                nick_tts.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+            } else {
 
-                        nick_tts.setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
-                    } else {
-
-                        nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
-                    }
-                } else {
-
-                    if (Game.getInstance().getParticipantes().get(nick).getAvatar() != null) {
-
-                        nick_tts.setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
-
-                    } else {
-
-                        nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
-                    }
-
-                }
-
-                Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
-
-                pack();
-
+                nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
             }
-        });
+        } else {
+
+            if (GameFrame.getInstance().getParticipantes().get(nick).getAvatar() != null) {
+
+                nick_tts.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+
+            } else {
+
+                nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+            }
+
+        }
+
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+        pack();
+
     }
 
     /**
@@ -137,7 +131,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
 
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
 
-        if (!Helpers.TTS_BLOCKED_USERS.contains(player) && !Game.getInstance().getLocalPlayer().getNickname().equals(player)) {
+        if (!Helpers.TTS_BLOCKED_USERS.contains(player) && !GameFrame.getInstance().getLocalPlayer().getNickname().equals(player)) {
 
             if (Helpers.TTS_PLAYER != null) {
                 try {
@@ -148,7 +142,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
                 }
             }
 
-            if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), "¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?") == 0) {
+            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?") == 0) {
 
                 Helpers.TTS_BLOCKED_USERS.add(player);
             }

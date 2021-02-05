@@ -16,7 +16,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "FINAL-6.97";
+    public static final String VERSION = "FINAL-6.98";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
     private volatile String last_mp3_loop = null;
@@ -27,43 +27,38 @@ public class AboutDialog extends javax.swing.JDialog {
     public AboutDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        AboutDialog tthis = this;
+        initComponents();
+        Helpers.setTranslatedTitle(this, TITLE);
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
-                Helpers.setTranslatedTitle(tthis, TITLE);
+        if (Init.MOD != null) {
+            mod_label.setText(Init.MOD.get("name") + " " + Init.MOD.get("version"));
 
-                if (Init.MOD != null) {
-                    mod_label.setText(Init.MOD.get("name") + " " + Init.MOD.get("version"));
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/mod.png"))) {
+                Image logo = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/mod.png").getImage();
 
-                    if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/mod.png"))) {
-                        Image logo = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/mod.png").getImage();
+                if (logo.getHeight(null) > MAX_MOD_LOGO_HEIGHT || logo.getWidth(null) > MAX_MOD_LOGO_HEIGHT) {
 
-                        if (logo.getHeight(null) > MAX_MOD_LOGO_HEIGHT || logo.getWidth(null) > MAX_MOD_LOGO_HEIGHT) {
+                    int new_height = MAX_MOD_LOGO_HEIGHT;
 
-                            int new_height = MAX_MOD_LOGO_HEIGHT;
+                    int new_width = Math.round(((float) logo.getWidth(null) * MAX_MOD_LOGO_HEIGHT) / logo.getHeight(null));
 
-                            int new_width = Math.round(((float) logo.getWidth(null) * MAX_MOD_LOGO_HEIGHT) / logo.getHeight(null));
+                    mod_label.setIcon(new ImageIcon(logo.getScaledInstance(new_width, new_height, Image.SCALE_SMOOTH)));
 
-                            mod_label.setIcon(new ImageIcon(logo.getScaledInstance(new_width, new_height, Image.SCALE_SMOOTH)));
-
-                        } else {
-                            mod_label.setIcon(new ImageIcon(logo));
-
-                        }
-                    }
                 } else {
-                    mod_label.setVisible(false);
+                    mod_label.setIcon(new ImageIcon(logo));
+
                 }
-
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
-
-                Helpers.translateComponents(tthis, false);
-
-                pack();
             }
-        });
+        } else {
+            mod_label.setVisible(false);
+        }
+
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+        Helpers.translateComponents(this, false);
+
+        pack();
+
     }
 
     /**
@@ -253,7 +248,7 @@ public class AboutDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
 
-        if (Game.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
+        if (GameFrame.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
             Helpers.muteLoopMp3(last_mp3_loop);
         } else {
             last_mp3_loop = null;

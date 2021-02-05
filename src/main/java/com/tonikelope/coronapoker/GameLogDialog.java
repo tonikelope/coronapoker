@@ -46,64 +46,22 @@ public class GameLogDialog extends javax.swing.JDialog {
     public GameLogDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        GameLogDialog tthis = this;
+        initComponents();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        Helpers.setTranslatedTitle(this, TITLE);
 
-                Helpers.setTranslatedTitle(tthis, TITLE);
+        utf8_cards_menu.setSelected(false);
 
-                utf8_cards_menu.setSelected(false);
+        Helpers.JTextFieldRegularPopupMenu.addTo(textarea);
 
-                Helpers.JTextFieldRegularPopupMenu.addTo(textarea);
+        Helpers.updateFonts(jMenuBar1, Helpers.GUI_FONT, null);
 
-                Helpers.updateFonts(jMenuBar1, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
 
-                Helpers.translateComponents(tthis, false);
+        getTextArea().setText("[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n");
 
-                getTextArea().setText("[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n");
-            }
-        });
     }
 
-    /*
-    public GameLogDialog(java.awt.Frame parent, GameLogDialog dialog) {
-        super(parent, dialog.isModal());
-
-        GameLogDialog tthis = this;
-
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-
-                initComponents();
-
-                Helpers.setTranslatedTitle(tthis, TITLE);
-
-                utf8_cards = dialog.isUtf8_cards();
-
-                utf8_cards_menu.setSelected(utf8_cards);
-
-                auto_scroll = dialog.isAuto_scroll();
-
-                auto_scroll_menu.setSelected(auto_scroll);
-
-                text = dialog.getText();
-
-                textarea.setText(text);
-
-                if (auto_scroll) {
-                    textarea.setCaretPosition(textarea.getText().length());
-                }
-
-                Helpers.JTextFieldRegularPopupMenu.addTo(textarea);
-
-                Helpers.updateFonts(jMenuBar1, Helpers.GUI_FONT, null);
-
-                Helpers.translateComponents(tthis, false);
-            }
-        });
-    }*/
     public JTextArea getTextArea() {
         return textarea;
     }
@@ -121,7 +79,7 @@ public class GameLogDialog extends javax.swing.JDialog {
 
                 Hand jugada = entry.getValue();
 
-                if (!"".equals(perdedor.getPlayingCard1().getValor()) && ((perdedor != Game.getInstance().getLocalPlayer() && !perdedor.getPlayingCard1().isTapada()) || (perdedor == Game.getInstance().getLocalPlayer() && Game.getInstance().getLocalPlayer().isMuestra()))) {
+                if (!"".equals(perdedor.getPlayingCard1().getValor()) && ((perdedor != GameFrame.getInstance().getLocalPlayer() && !perdedor.getPlayingCard1().isTapada()) || (perdedor == GameFrame.getInstance().getLocalPlayer() && GameFrame.getInstance().getLocalPlayer().isMuestra()))) {
 
                     ArrayList<Card> cartas_repartidas_jugador = new ArrayList<>();
 

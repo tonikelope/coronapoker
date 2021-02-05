@@ -127,7 +127,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     @Override
                     public void run() {
                         sound_icon.setPreferredSize(new Dimension(pot_label.getHeight(), pot_label.getHeight()));
-                        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+                        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
                         panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) pot_label.getHeight() * 0.65)));
                     }
                 });
@@ -137,9 +137,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     }
 
     public void last_hand_on() {
-        Game.getInstance().getCrupier().setLast_hand(true);
+        GameFrame.getInstance().getCrupier().setLast_hand(true);
 
-        CommunityCardsPanel tthis = Game.getInstance().getTapete().getCommunityCards();
+        CommunityCardsPanel tthis = GameFrame.getInstance().getTapete().getCommunityCards();
 
         Helpers.GUIRun(new Runnable() {
             @Override
@@ -159,9 +159,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     public void last_hand_off() {
 
-        Game.getInstance().getCrupier().setLast_hand(false);
+        GameFrame.getInstance().getCrupier().setLast_hand(false);
 
-        CommunityCardsPanel tthis = Game.getInstance().getTapete().getCommunityCards();
+        CommunityCardsPanel tthis = GameFrame.getInstance().getTapete().getCommunityCards();
 
         Helpers.GUIRun(new Runnable() {
             @Override
@@ -172,7 +172,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 tthis.getHand_label().setToolTipText(null);
                 tthis.getLast_hand_label().setVisible(false);
 
-                if (Game.MANOS != -1 && Game.getInstance().getCrupier().getMano() > Game.MANOS) {
+                if (GameFrame.MANOS != -1 && GameFrame.getInstance().getCrupier().getMano() > GameFrame.MANOS) {
                     tthis.getHand_label().setBackground(Color.red);
                     tthis.getHand_label().setForeground(Color.WHITE);
                     tthis.getHand_label().setOpaque(true);
@@ -400,30 +400,30 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
         // TODO add your handling code here:
 
-        Game.getInstance().getSonidos_menu().doClick();
+        GameFrame.getInstance().getSonidos_menu().doClick();
     }//GEN-LAST:event_sound_iconMouseClicked
 
     private void hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hand_labelMouseClicked
         // TODO add your handling code here:
 
-        CommunityCardsPanel tthis = Game.getInstance().getTapete().getCommunityCards();
+        CommunityCardsPanel tthis = GameFrame.getInstance().getTapete().getCommunityCards();
 
-        if (Game.getInstance().isPartida_local() && tthis.getHand_label().isEnabled()) {
+        if (GameFrame.getInstance().isPartida_local() && tthis.getHand_label().isEnabled()) {
 
             tthis.getHand_label().setEnabled(false);
 
-            if (Game.MANOS == Game.getInstance().getCrupier().getMano() || Game.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), Translator.translate("¿ÚLTIMA MANO?")) == 0) {
+            if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿ÚLTIMA MANO?")) == 0) {
 
                 Helpers.threadRun(new Runnable() {
 
                     public void run() {
 
-                        if (!Game.getInstance().getCrupier().isLast_hand()) {
-                            Game.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#1", null);
+                        if (!GameFrame.getInstance().getCrupier().isLast_hand()) {
+                            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#1", null);
                             last_hand_on();
 
                         } else {
-                            Game.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#0", null);
+                            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#0", null);
                             last_hand_off();
                         }
 
@@ -444,24 +444,24 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void pause_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pause_buttonActionPerformed
         // TODO add your handling code here:
 
-        CommunityCardsPanel tthis = Game.getInstance().getTapete().getCommunityCards();
+        CommunityCardsPanel tthis = GameFrame.getInstance().getTapete().getCommunityCards();
 
         int pause_now = -2;
 
-        if (!(Game.getInstance().getCrupier().isLast_hand() && Game.getInstance().getCrupier().isShow_time()) && Game.getInstance().isPartida_local() && !Game.getInstance().isTimba_pausada() && !Game.getInstance().getLocalPlayer().isTurno() && !Game.getInstance().getLocalPlayer().isAuto_pause() && !Game.getInstance().getLocalPlayer().isSpectator()) {
+        if (!(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
 
-            pause_now = Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), Translator.translate("¿PAUSAR AHORA MISMO?"));
+            pause_now = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿PAUSAR AHORA MISMO?"));
 
         }
 
-        if (pause_now < 1 && !Game.getInstance().getLocalPlayer().isAuto_pause() && ((Game.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (Game.getInstance().isPartida_local() && ((Game.getInstance().getCrupier().isLast_hand() && Game.getInstance().getCrupier().isShow_time()) || Game.getInstance().isTimba_pausada() || pause_now == 0 || Game.getInstance().getLocalPlayer().isSpectator())))) {
+        if (pause_now < 1 && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && ((GameFrame.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (GameFrame.getInstance().isPartida_local() && ((GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) || GameFrame.getInstance().isTimba_pausada() || pause_now == 0 || GameFrame.getInstance().getLocalPlayer().isSpectator())))) {
 
             tthis.getPause_button().setBackground(new Color(255, 102, 0));
             tthis.getPause_button().setForeground(Color.WHITE);
 
-            if (!Game.getInstance().isTimba_pausada() && !Game.getInstance().isPartida_local()) {
-                Game.getInstance().getLocalPlayer().setPause_counter(Game.getInstance().getLocalPlayer().getPause_counter() - 1);
-                tthis.getPause_button().setText(Translator.translate("PAUSAR") + " (" + Game.getInstance().getLocalPlayer().getPause_counter() + ")");
+            if (!GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().isPartida_local()) {
+                GameFrame.getInstance().getLocalPlayer().setPause_counter(GameFrame.getInstance().getLocalPlayer().getPause_counter() - 1);
+                tthis.getPause_button().setText(Translator.translate("PAUSAR") + " (" + GameFrame.getInstance().getLocalPlayer().getPause_counter() + ")");
             }
 
             tthis.getPause_button().setEnabled(false);
@@ -469,29 +469,29 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-                    Game.getInstance().pauseTimba(Game.getInstance().isPartida_local() ? null : Game.getInstance().getLocalPlayer().getNickname());
+                    GameFrame.getInstance().pauseTimba(GameFrame.getInstance().isPartida_local() ? null : GameFrame.getInstance().getLocalPlayer().getNickname());
 
                 }
             });
 
-        } else if (!Game.getInstance().getLocalPlayer().isSpectator()) {
+        } else if (!GameFrame.getInstance().getLocalPlayer().isSpectator()) {
 
-            if (!Game.getInstance().getLocalPlayer().isAuto_pause()) {
+            if (!GameFrame.getInstance().getLocalPlayer().isAuto_pause()) {
 
                 tthis.getPause_button().setBackground(Color.WHITE);
                 tthis.getPause_button().setForeground(new Color(255, 102, 0));
-                Game.getInstance().getLocalPlayer().setAuto_pause(true);
+                GameFrame.getInstance().getLocalPlayer().setAuto_pause(true);
                 Helpers.playWavResource("misc/auto_button_on.wav");
 
-                if (!Game.getInstance().getLocalPlayer().isAuto_pause_warning()) {
-                    Game.getInstance().getLocalPlayer().setAuto_pause_warning(true);
-                    Helpers.mostrarMensajeInformativo(Game.getInstance().getFrame(), Translator.translate("PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO"));
+                if (!GameFrame.getInstance().getLocalPlayer().isAuto_pause_warning()) {
+                    GameFrame.getInstance().getLocalPlayer().setAuto_pause_warning(true);
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), Translator.translate("PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO"));
                 }
 
             } else {
                 tthis.getPause_button().setBackground(new Color(255, 102, 0));
                 tthis.getPause_button().setForeground(Color.WHITE);
-                Game.getInstance().getLocalPlayer().setAuto_pause(false);
+                GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
                 Helpers.playWavResource("misc/auto_button_off.wav");
             }
         }
@@ -534,7 +534,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         while (altura_sound == pot_label.getHeight()) {
             try {
-                Thread.sleep(Game.GUI_ZOOM_WAIT);
+                Thread.sleep(GameFrame.GUI_ZOOM_WAIT);
             } catch (InterruptedException ex) {
                 Logger.getLogger(CommunityCardsPanel.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -544,7 +544,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             @Override
             public void run() {
                 sound_icon.setPreferredSize(new Dimension(pot_label.getHeight(), pot_label.getHeight()));
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
                 panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) pot_label.getHeight() * 0.65)));
             }
         });

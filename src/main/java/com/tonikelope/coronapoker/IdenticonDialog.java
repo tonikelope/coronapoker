@@ -21,12 +21,12 @@ import javax.swing.ImageIcon;
  *
  * @author tonikelope
  */
-public class Identicon extends javax.swing.JDialog {
+public class IdenticonDialog extends javax.swing.JDialog {
 
     /**
      * Creates new form Identicon
      */
-    public Identicon(java.awt.Frame parent, boolean modal, String nick, SecretKeySpec key) {
+    public IdenticonDialog(java.awt.Frame parent, boolean modal, String nick, SecretKeySpec key) {
         super(parent, modal);
 
         try {
@@ -34,33 +34,30 @@ public class Identicon extends javax.swing.JDialog {
 
             String hash = Helpers.toHexString(md.digest(key.getEncoded()));
 
-            Helpers.GUIRunAndWait(new Runnable() {
-                public void run() {
-                    initComponents();
+            initComponents();
 
-                    setTitle(nick);
+            setTitle(nick);
 
-                    int SIZE = Math.round(parent.getHeight() * 0.3f);
+            int SIZE = Math.round(parent.getHeight() * 0.3f);
 
-                    while (SIZE % 5 != 0) {
-                        SIZE--;
-                    }
+            while (SIZE % 5 != 0) {
+                SIZE--;
+            }
 
-                    ImageIcon icon = new ImageIcon(generateIdenticon(hash, SIZE, SIZE));
+            ImageIcon icon = new ImageIcon(generateIdenticon(hash, SIZE, SIZE));
 
-                    icon_label.setIcon(icon);
+            icon_label.setIcon(icon);
 
-                    icon_label.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
+            icon_label.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
 
-                    icon_panel.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
+            icon_panel.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
 
-                    setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
+            setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
 
-                    pack();
-                }
-            });
+            pack();
+
         } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(Identicon.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(IdenticonDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
 
     }
@@ -146,12 +143,12 @@ public class Identicon extends javax.swing.JDialog {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(icon_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 340, Short.MAX_VALUE)
+            .addComponent(icon_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(icon_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 292, Short.MAX_VALUE)
+                .addComponent(icon_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
         );
 

@@ -58,15 +58,15 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         if (force || CURRENT_ZOOM != zoom) {
 
             CURRENT_ZOOM = zoom;
-            CARD_WIDTH = Math.round(((float) DEFAULT_HEIGHT / ((float) ((Object[]) BARAJAS.get(Game.BARAJA))[0])) * zoom);
+            CARD_WIDTH = Math.round(((float) DEFAULT_HEIGHT / ((float) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[0])) * zoom);
             CARD_HEIGHT = Math.round(DEFAULT_HEIGHT * zoom);
             CARD_CORNER = Math.round(Card.DEFAULT_CORNER * zoom);
-            IMAGEN_TRASERA = createCardImageIcon("/images/decks/" + Game.BARAJA + "/trasera.jpg");
-            IMAGEN_TRASERA_B = createCardImageIcon("/images/decks/" + Game.BARAJA + "/trasera_b.jpg");
-            IMAGEN_JOKER = createCardImageIcon("/images/decks/" + Game.BARAJA + "/joker.jpg");
+            IMAGEN_TRASERA = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
+            IMAGEN_TRASERA_B = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera_b.jpg");
+            IMAGEN_JOKER = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/joker.jpg");
 
-            if (((Object[]) BARAJAS.get(Game.BARAJA))[2] != null) {
-                CARTAS_SONIDO = Arrays.asList(((String) ((Object[]) BARAJAS.get(Game.BARAJA))[2]).split(" *, *"));
+            if (((Object[]) BARAJAS.get(GameFrame.BARAJA))[2] != null) {
+                CARTAS_SONIDO = Arrays.asList(((String) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[2]).split(" *, *"));
             }
         }
     }
@@ -79,14 +79,14 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         Image img;
 
-        boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(Game.BARAJA))[1];
+        boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
 
         if (baraja_mod) {
 
             if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + path.replace("/images/decks/", "")))) {
                 img = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + path.replace("/images/decks/", "")).getImage();
             } else {
-                img = new ImageIcon(Card.class.getResource(path.replace(Game.BARAJA, "coronapoker"))).getImage();
+                img = new ImageIcon(Card.class.getResource(path.replace(GameFrame.BARAJA, "coronapoker"))).getImage();
                 Logger.getLogger(Card.class.getName()).log(Level.WARNING, "No existe {0}", Helpers.getCurrentJarParentPath() + "/mod/decks/" + path.replace("/images/decks/", ""));
             }
         } else {
@@ -182,8 +182,8 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                setPreferredSize(new Dimension(CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
             }
         });
 
@@ -200,7 +200,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
-                        card_image.setIcon(createCardImageIcon("/images/decks/" + Game.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
+                        card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
                     }
                 });
             }
@@ -460,8 +460,8 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                setPreferredSize(new Dimension(CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (Game.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
 
                 if (isIniciada()) {
 
@@ -476,9 +476,9 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
                     } else {
 
                         if (isDesenfocada()) {
-                            card_image.setIcon(createCardImageIcon("/images/decks/" + Game.BARAJA + "/" + valor + "_" + palo + "_b.jpg"));
+                            card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg"));
                         } else {
-                            card_image.setIcon(createCardImageIcon("/images/decks/" + Game.BARAJA + "/" + valor + "_" + palo + ".jpg"));
+                            card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg"));
                         }
 
                     }
@@ -508,10 +508,10 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
     public boolean checkSpecialCardSound() {
 
-        if (Game.SONIDOS_CHORRA && CARTAS_SONIDO != null) {
+        if (GameFrame.SONIDOS_CHORRA && CARTAS_SONIDO != null) {
 
             if (CARTAS_SONIDO.contains(this.toShortString())) {
-                Helpers.playWavResource("decks/" + Game.BARAJA + "/" + this.toShortString() + ".wav");
+                Helpers.playWavResource("decks/" + GameFrame.BARAJA + "/" + this.toShortString() + ".wav");
                 return true;
             }
         }
@@ -563,17 +563,17 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
                 if (!isTapada()) {
 
-                    visor = new CardVisorDialog(Game.getInstance().getFrame(), false, this.valor, this.palo, false);
+                    visor = new CardVisorDialog(GameFrame.getInstance().getFrame(), false, this.valor, this.palo, false);
 
                 } else {
 
-                    visor = new CardVisorDialog(Game.getInstance().getFrame(), false, 53, false);
+                    visor = new CardVisorDialog(GameFrame.getInstance().getFrame(), false, 53, false);
 
                 }
 
             } else {
 
-                visor = new CardVisorDialog(Game.getInstance().getFrame(), false, 54, false);
+                visor = new CardVisorDialog(GameFrame.getInstance().getFrame(), false, 54, false);
 
             }
 

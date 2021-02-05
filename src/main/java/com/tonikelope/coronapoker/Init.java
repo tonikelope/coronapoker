@@ -56,6 +56,8 @@ public class Init extends javax.swing.JFrame {
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
     public static final int ANTI_SCREENSAVER_DELAY = 55000; //Ms
 
+    private static volatile NickTTSDialog nick_dialog = null;
+
     /**
      * Creates new form Inicio
      */
@@ -69,7 +71,7 @@ public class Init extends javax.swing.JFrame {
 
                 setTitle(Init.WINDOW_TITLE);
 
-                if (Game.LANGUAGE.equals(Game.DEFAULT_LANGUAGE)) {
+                if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                     language_combobox.setSelectedIndex(0);
                 } else {
                     language_combobox.setSelectedIndex(1);
@@ -77,9 +79,9 @@ public class Init extends javax.swing.JFrame {
 
                 setExtendedState(JFrame.MAXIMIZED_BOTH);
 
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
-                if (!Game.SONIDOS) {
+                if (!GameFrame.SONIDOS) {
 
                     Helpers.muteAll();
 
@@ -101,11 +103,11 @@ public class Init extends javax.swing.JFrame {
     }
 
     public void translateGlobalLabels() {
-        LocalPlayer.ACTIONS_LABELS = Game.LANGUAGE.equals("es") ? LocalPlayer.ACTIONS_LABELS_ES : LocalPlayer.ACTIONS_LABELS_EN;
-        LocalPlayer.POSITIONS_LABELS = Game.LANGUAGE.equals("es") ? LocalPlayer.POSITIONS_LABELS_ES : LocalPlayer.POSITIONS_LABELS_EN;
-        RemotePlayer.ACTIONS_LABELS = Game.LANGUAGE.equals("es") ? RemotePlayer.ACTIONS_LABELS_ES : RemotePlayer.ACTIONS_LABELS_EN;
-        RemotePlayer.POSITIONS_LABELS = Game.LANGUAGE.equals("es") ? RemotePlayer.POSITIONS_LABELS_ES : RemotePlayer.POSITIONS_LABELS_EN;
-        Hand.NOMBRES_JUGADAS = Game.LANGUAGE.equals("es") ? Hand.NOMBRES_JUGADAS_ES : Hand.NOMBRES_JUGADAS_EN;
+        LocalPlayer.ACTIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? LocalPlayer.ACTIONS_LABELS_ES : LocalPlayer.ACTIONS_LABELS_EN;
+        LocalPlayer.POSITIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? LocalPlayer.POSITIONS_LABELS_ES : LocalPlayer.POSITIONS_LABELS_EN;
+        RemotePlayer.ACTIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? RemotePlayer.ACTIONS_LABELS_ES : RemotePlayer.ACTIONS_LABELS_EN;
+        RemotePlayer.POSITIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? RemotePlayer.POSITIONS_LABELS_ES : RemotePlayer.POSITIONS_LABELS_EN;
+        Hand.NOMBRES_JUGADAS = GameFrame.LANGUAGE.equals("es") ? Hand.NOMBRES_JUGADAS_ES : Hand.NOMBRES_JUGADAS_EN;
 
     }
 
@@ -363,21 +365,21 @@ public class Init extends javax.swing.JFrame {
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
         // TODO add your handling code here:
 
-        Game.SONIDOS = !Game.SONIDOS;
+        GameFrame.SONIDOS = !GameFrame.SONIDOS;
 
-        Helpers.PROPERTIES.setProperty("sonidos", Game.SONIDOS ? "true" : "false");
+        Helpers.PROPERTIES.setProperty("sonidos", GameFrame.SONIDOS ? "true" : "false");
 
         Helpers.savePropertiesFile();
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
             }
         });
 
-        if (!Game.SONIDOS) {
+        if (!GameFrame.SONIDOS) {
 
             Helpers.muteAll();
 
@@ -399,9 +401,9 @@ public class Init extends javax.swing.JFrame {
 
     private void language_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_language_comboboxActionPerformed
         // TODO add your handling code here:
-        Game.LANGUAGE = language_combobox.getSelectedIndex() == 0 ? "es" : "en";
+        GameFrame.LANGUAGE = language_combobox.getSelectedIndex() == 0 ? "es" : "en";
 
-        Helpers.PROPERTIES.setProperty("lenguaje", Game.LANGUAGE);
+        Helpers.PROPERTIES.setProperty("lenguaje", GameFrame.LANGUAGE);
 
         Helpers.savePropertiesFile();
 
@@ -414,7 +416,7 @@ public class Init extends javax.swing.JFrame {
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         // TODO add your handling code here:
-        Stats dialog = new Stats(this, true);
+        StatsDialog dialog = new StatsDialog(this, true);
 
         dialog.setLocationRelativeTo(this);
 
@@ -424,7 +426,7 @@ public class Init extends javax.swing.JFrame {
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
 
-        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(Game.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
     }//GEN-LAST:event_formComponentShown
 
     /**
@@ -451,6 +453,12 @@ public class Init extends javax.swing.JFrame {
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
                 java.util.logging.Logger.getLogger(Init.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
             }
+            //</editor-fold>
+            //</editor-fold>
+            //</editor-fold>
+            //</editor-fold>
+            //</editor-fold>
+            //</editor-fold>
             //</editor-fold>
             //</editor-fold>
 
@@ -504,23 +512,23 @@ public class Init extends javax.swing.JFrame {
 
             }
 
-            if (!Card.BARAJAS.containsKey(Game.BARAJA)) {
-                Game.BARAJA = Game.BARAJA_DEFAULT;
+            if (!Card.BARAJAS.containsKey(GameFrame.BARAJA)) {
+                GameFrame.BARAJA = GameFrame.BARAJA_DEFAULT;
             }
 
-            Card.updateCachedImages(1f + Game.getZoom_level() * Game.getZOOM_STEP(), true);
+            Card.updateCachedImages(1f + GameFrame.getZoom_level() * GameFrame.getZOOM_STEP(), true);
 
             Helpers.playWavResource("misc/init.wav");
 
             Helpers.playLoopMp3Resource("misc/background_music.mp3");
 
-            Init ventana = new Init();
-
-            Helpers.centrarJFrame(ventana, 0);
-
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
+                    Init ventana = new Init();
+
+                    Helpers.centrarJFrame(ventana, 0);
+
                     ventana.setVisible(true);
                 }
             });
@@ -544,17 +552,16 @@ public class Init extends javax.swing.JFrame {
 
                         Object[] tts = Helpers.TTS_CHAT_QUEUE.poll();
 
-                        NickTTSDialog nick_dialog = new NickTTSDialog(Game.getInstance().getFrame(), false, (String) tts[0]);
-
                         Helpers.GUIRun(new Runnable() {
                             @Override
                             public void run() {
+                                nick_dialog = new NickTTSDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
                                 nick_dialog.setLocation(nick_dialog.getParent().getLocation());
 
                             }
                         });
 
-                        if (Game.SONIDOS && Game.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                        if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
                             Helpers.TTS((String) tts[1], nick_dialog);
 

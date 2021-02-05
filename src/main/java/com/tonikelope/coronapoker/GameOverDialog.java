@@ -38,51 +38,40 @@ public class GameOverDialog extends javax.swing.JDialog {
     public GameOverDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        GameOverDialog tthis = this;
+        initComponents();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        if (GameFrame.getInstance().getRebuy_dialog() != null) {
+            GameFrame.getInstance().getRebuy_dialog().dispose();
+        }
 
-                if (Game.getInstance().getRebuy_dialog() != null) {
-                    Game.getInstance().getRebuy_dialog().dispose();
-                }
-
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
-                Helpers.translateComponents(tthis, false);
-                pack();
-            }
-        });
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
+        pack();
 
     }
 
     public GameOverDialog(java.awt.Frame parent, boolean modal, boolean direct) {
         super(parent, modal);
 
-        GameOverDialog tthis = this;
+        initComponents();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        if (GameFrame.getInstance().getRebuy_dialog() != null) {
+            GameFrame.getInstance().getRebuy_dialog().dispose();
+        }
 
-                if (Game.getInstance().getRebuy_dialog() != null) {
-                    Game.getInstance().getRebuy_dialog().dispose();
-                }
+        direct_gameover = direct;
 
-                direct_gameover = direct;
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
 
-                Helpers.translateComponents(tthis, false);
+        if (direct_gameover) {
+            exit_now_button.setEnabled(false);
+            continue_button.setEnabled(false);
+            numbers.setIcon(new ImageIcon(getClass().getResource("/images/gameover/0.png")));
+            pack();
+        }
 
-                if (direct_gameover) {
-                    exit_now_button.setEnabled(false);
-                    continue_button.setEnabled(false);
-                    numbers.setIcon(new ImageIcon(getClass().getResource("/images/gameover/0.png")));
-                    pack();
-                }
-            }
-        });
     }
 
     /**
@@ -128,7 +117,7 @@ public class GameOverDialog extends javax.swing.JDialog {
         numbers.setDoubleBuffered(true);
 
         continue_button.setFont(new java.awt.Font("Dialog", 1, 60)); // NOI18N
-        continue_button.setIcon(new ImageIcon(getClass().getResource("/images/gameover/continue_"+com.tonikelope.coronapoker.Game.LANGUAGE+".png")));
+        continue_button.setIcon(new ImageIcon(getClass().getResource("/images/gameover/continue_"+com.tonikelope.coronapoker.GameFrame.LANGUAGE+".png")));
         continue_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         continue_button.setDoubleBuffered(true);
         continue_button.addActionListener(new java.awt.event.ActionListener() {
@@ -204,9 +193,9 @@ public class GameOverDialog extends javax.swing.JDialog {
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
-        Game.getInstance().getTapete().hideALL();
+        GameFrame.getInstance().getTapete().hideALL();
 
-        Game.getInstance().getFastchat_dialog().setVisible(false);
+        GameFrame.getInstance().getFastchat_dialog().setVisible(false);
 
         requestFocusInWindow();
 
@@ -216,7 +205,7 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                 last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
 
-                if (Game.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
+                if (GameFrame.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
                     Helpers.muteLoopMp3(last_mp3_loop);
                 } else {
                     last_mp3_loop = null;
@@ -262,7 +251,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                             }
                         });
 
-                        if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
+                        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
 
                             continua = true;
 
@@ -272,7 +261,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                                 @Override
                                 public void run() {
                                     dispose();
-                                    buyin_dialog = new RebuyNowDialog(Game.getInstance().getFrame(), true, false);
+                                    buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false);
 
                                     buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
 
@@ -311,7 +300,7 @@ public class GameOverDialog extends javax.swing.JDialog {
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
 
-        Game.getInstance().getTapete().showALL();
+        GameFrame.getInstance().getTapete().showALL();
 
         if (last_mp3_loop != null) {
             Helpers.unmuteLoopMp3(last_mp3_loop);
@@ -330,7 +319,7 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         dispose();
 
-        buyin_dialog = new RebuyNowDialog(Game.getInstance().getFrame(), true, false);
+        buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false);
 
         buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
 
@@ -350,7 +339,7 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                 Helpers.stopWavResource("misc/gameover.wav");
 
-                if (Helpers.mostrarMensajeInformativoSINO(Game.getInstance().getFrame(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
+                if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
 
                     continua = true;
 
@@ -360,7 +349,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                         @Override
                         public void run() {
                             dispose();
-                            buyin_dialog = new RebuyNowDialog(Game.getInstance().getFrame(), true, false);
+                            buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false);
 
                             buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
 

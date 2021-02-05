@@ -111,7 +111,7 @@
               <Font name="Dialog" size="60" style="1"/>
             </Property>
             <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-              <Connection code="new ImageIcon(getClass().getResource(&quot;/images/gameover/continue_&quot;+com.tonikelope.coronapoker.Game.LANGUAGE+&quot;.png&quot;))" type="code"/>
+              <Connection code="new ImageIcon(getClass().getResource(&quot;/images/gameover/continue_&quot;+com.tonikelope.coronapoker.GameFrame.LANGUAGE+&quot;.png&quot;))" type="code"/>
             </Property>
             <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
               <Color id="Cursor de Mano"/>

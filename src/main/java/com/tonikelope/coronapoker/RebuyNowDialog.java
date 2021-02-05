@@ -39,7 +39,7 @@ public class RebuyNowDialog extends javax.swing.JDialog {
 
             Helpers.pausar(1000);
 
-            if (!Game.getInstance().isTimba_pausada() && !Game.getInstance().getCrupier().isFin_de_la_transmision()) {
+            if (!GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
                 final int v = --t;
 
@@ -65,29 +65,23 @@ public class RebuyNowDialog extends javax.swing.JDialog {
     public RebuyNowDialog(java.awt.Frame parent, boolean modal, boolean cancel) {
         super(parent, modal);
 
-        RebuyNowDialog tthis = this;
+        initComponents();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        barra.setVisible(false);
 
-                barra.setVisible(false);
+        rebuy_checkbox.addItem(String.valueOf(GameFrame.BUYIN));
 
-                rebuy_checkbox.addItem(String.valueOf(Game.BUYIN));
+        rebuy_checkbox.addItem(Helpers.float2String((float) GameFrame.BUYIN / 2));
 
-                rebuy_checkbox.addItem(Helpers.float2String((float) Game.BUYIN / 2));
+        if (!cancel) {
+            cancel_button.setEnabled(false);
+        }
 
-                if (!cancel) {
-                    cancel_button.setEnabled(false);
-                }
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
 
-                Helpers.translateComponents(tthis, false);
-
-                pack();
-            }
-        });
+        pack();
 
         if (!cancel) {
 

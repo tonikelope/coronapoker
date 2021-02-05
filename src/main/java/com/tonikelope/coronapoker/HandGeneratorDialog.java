@@ -37,18 +37,13 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
     public HandGeneratorDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        HandGeneratorDialog tthis = this;
+        initComponents();
+        Helpers.setTranslatedTitle(this, TITLE);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
+        cartas = new Card[]{card1, card2, card3, card4, card5};
+        pack();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
-                Helpers.setTranslatedTitle(tthis, TITLE);
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
-                Helpers.translateComponents(tthis, false);
-                cartas = new Card[]{card1, card2, card3, card4, card5};
-                pack();
-            }
-        });
     }
 
     public Card[] getCartas() {

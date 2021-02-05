@@ -38,31 +38,28 @@ public class CardVisorDialog extends javax.swing.JDialog {
     public CardVisorDialog(java.awt.Frame parent, boolean modal, String valor, String palo, boolean buttons) {
         super(parent, modal);
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        initComponents();
 
-                setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
+        setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
-                setSize(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight()));
+        setSize(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight()));
 
-                valores.put("A", 1);
-                valores.put("J", 11);
-                valores.put("Q", 12);
-                valores.put("K", 13);
+        valores.put("A", 1);
+        valores.put("J", 11);
+        valores.put("Q", 12);
+        valores.put("K", 13);
 
-                carta = CardVisorDialog.PALOS.indexOf(palo) * 13 + (valores.containsKey(valor) ? valores.get(valor) : Integer.valueOf(valor));
+        carta = CardVisorDialog.PALOS.indexOf(palo) * 13 + (valores.containsKey(valor) ? valores.get(valor) : Integer.valueOf(valor));
 
-                scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
-                scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
+        scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
+        scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
-                HandScrollListener scrollListener = new HandScrollListener(card);
-                scroll_panel.getViewport().addMouseMotionListener(scrollListener);
-                scroll_panel.getViewport().addMouseListener(scrollListener);
+        HandScrollListener scrollListener = new HandScrollListener(card);
+        scroll_panel.getViewport().addMouseMotionListener(scrollListener);
+        scroll_panel.getViewport().addMouseListener(scrollListener);
 
-                showCard(carta);
-            }
-        });
+        showCard(carta);
+
     }
 
     public CardVisorDialog(java.awt.Frame parent, boolean modal, int carta, boolean buttons) {
@@ -143,13 +140,13 @@ public class CardVisorDialog extends javax.swing.JDialog {
                 break;
         }
 
-        boolean baraja_mod = (boolean) ((Object[]) Card.BARAJAS.get(Game.BARAJA))[1];
+        boolean baraja_mod = (boolean) ((Object[]) Card.BARAJAS.get(GameFrame.BARAJA))[1];
 
-        if (baraja_mod && !Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + Game.BARAJA + "/hq/" + c))) {
-            Logger.getLogger(CardVisorDialog.class.getName()).log(Level.INFO, "No existe {0}", Helpers.getCurrentJarParentPath() + "/mod/decks/" + Game.BARAJA + "/hq/" + c);
+        if (baraja_mod && !Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/hq/" + c))) {
+            Logger.getLogger(CardVisorDialog.class.getName()).log(Level.INFO, "No existe {0}", Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/hq/" + c);
             this.setVisible(false);
         } else {
-            icon = baraja_mod ? new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + Game.BARAJA + "/hq/" + c) : new ImageIcon(getClass().getResource("/images/decks/" + Game.BARAJA + "/hq/" + c));
+            icon = baraja_mod ? new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/hq/" + c) : new ImageIcon(getClass().getResource("/images/decks/" + GameFrame.BARAJA + "/hq/" + c));
             im = Helpers.makeImageRoundedCorner(icon.getImage(), CORNER);
             this.card.setIcon(new ImageIcon(im));
 

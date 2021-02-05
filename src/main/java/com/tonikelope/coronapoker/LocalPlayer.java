@@ -31,10 +31,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public static final String[][] ACTIONS_LABELS_ES = new String[][]{new String[]{"NO VAS"}, new String[]{"PASAS", "VAS"}, new String[]{"APUESTAS", "SUBES"}, new String[]{"ALL IN"}};
     public static final String[][] ACTIONS_LABELS_EN = new String[][]{new String[]{"FOLD"}, new String[]{"CHECK", "CALL"}, new String[]{"BET", "RAISE"}, new String[]{"ALL IN"}};
-    public static String[][] ACTIONS_LABELS = Game.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
+    public static String[][] ACTIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
     public static final String[] POSITIONS_LABELS_ES = new String[]{"CP", "CG", "DE"};
     public static final String[] POSITIONS_LABELS_EN = new String[]{"SB", "BB", "DE"};
-    public static String[] POSITIONS_LABELS = Game.LANGUAGE.equals("es") ? POSITIONS_LABELS_ES : POSITIONS_LABELS_EN;
+    public static String[] POSITIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? POSITIONS_LABELS_ES : POSITIONS_LABELS_EN;
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.ORANGE, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 550;
     public static final int MIN_ACTION_HEIGHT = 45;
@@ -45,7 +45,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private volatile String nickname;
 
-    private volatile int buyin = Game.BUYIN;
+    private volatile int buyin = GameFrame.BUYIN;
     private volatile float stack = 0f;
     private volatile float bet = 0f;
     private volatile boolean utg = false;
@@ -68,8 +68,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile float min_raise;
     private volatile int pre_pulsado = Player.NODEC;
     private volatile boolean muestra = false;
-    private volatile int parguela_counter = Game.PEPILLO_COUNTER_MAX;
-    private volatile int pause_counter = Game.PAUSE_COUNTER_MAX;
+    private volatile int parguela_counter = GameFrame.PEPILLO_COUNTER_MAX;
+    private volatile int pause_counter = GameFrame.PAUSE_COUNTER_MAX;
     private volatile boolean auto_pause = false;
     private volatile boolean auto_pause_warning = false;
     private volatile Timer hurryup_timer = null;
@@ -85,7 +85,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public int getResponseTime() {
 
-        return Game.TIEMPO_PENSAR - response_counter;
+        return GameFrame.TIEMPO_PENSAR - response_counter;
     }
 
     public Timer getAuto_action() {
@@ -190,7 +190,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_allin_button.setBackground(new Color(51, 153, 255));
                 player_allin_button.setEnabled(true);
 
-                if (Game.TEST_MODE) {
+                if (GameFrame.TEST_MODE) {
                     player_allin_button.doClick();
                 }
             }
@@ -208,7 +208,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                     player_blind.setVisible(false);
                     player_pot.setText("----");
@@ -224,11 +224,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setEnabled(false);
 
                     setAuto_pause(false);
-                    Game.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(new Color(255, 102, 0));
-                    Game.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(Color.WHITE);
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(new Color(255, 102, 0));
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(Color.WHITE);
 
-                    if (!Game.getInstance().isPartida_local()) {
-                        Game.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(false);
+                    if (!GameFrame.getInstance().isPartida_local()) {
+                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(false);
                     }
 
                 }
@@ -242,13 +242,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                 player_pot.setVisible(true);
                 player_pot.setEnabled(true);
                 player_stack.setEnabled(true);
                 player_action.setText(" ");
-                Game.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
+                GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
             }
         });
     }
@@ -315,7 +315,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                     playingCard1.liberarCarta();
                     playingCard2.liberarCarta();
@@ -351,7 +351,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 player_name.setText(nickname);
 
-                if (!Game.getInstance().isPartida_local()) {
+                if (!GameFrame.getInstance().isPartida_local()) {
 
                     player_name.setToolTipText("CLICK -> AES-KEY");
                     player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -428,7 +428,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_blind.setVisible(false);
 
-                player_buyin.setText(String.valueOf(Game.BUYIN));
+                player_buyin.setText(String.valueOf(GameFrame.BUYIN));
 
                 utg_textfield.setVisible(false);
 
@@ -499,7 +499,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.stack += cantidad;
         this.buyin += cantidad;
-        Game.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(cantidad) + ")");
+        GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(cantidad) + ")");
         Helpers.playWavResource("misc/cash_register.wav");
 
         Helpers.GUIRun(new Runnable() {
@@ -528,7 +528,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
-                    setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                    setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                     player_check_button.setEnabled(false);
 
@@ -575,7 +575,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     }
 
-                    if (crupier.puedenApostar(Game.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0)
+                    if (crupier.puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0)
                             || (Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
 
                         //Actualizamos el spinner y el botón de apuestas
@@ -595,7 +595,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         if (spinner_min.compareTo(spinner_max) < 0) {
 
-                            SpinnerNumberModel nummodel = new SpinnerNumberModel(spinner_min, spinner_min, spinner_max, new BigDecimal(Game.CIEGA_PEQUEÑA).setScale(1, RoundingMode.HALF_UP)) {
+                            SpinnerNumberModel nummodel = new SpinnerNumberModel(spinner_min, spinner_min, spinner_max, new BigDecimal(GameFrame.CIEGA_PEQUEÑA).setScale(1, RoundingMode.HALF_UP)) {
                                 public Object getNextValue() {
                                     BigDecimal current = (BigDecimal) super.getValue();
 
@@ -638,14 +638,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     }
 
-                    if (crupier.puedenApostar(Game.getInstance().getJugadores()) == 1 && Helpers.float1DSecureCompare(call_required, stack) < 0) {
+                    if (crupier.puedenApostar(GameFrame.getInstance().getJugadores()) == 1 && Helpers.float1DSecureCompare(call_required, stack) < 0) {
                         player_allin_button.setText(" ");
                         player_allin_button.setEnabled(false);
                     }
 
-                    Game.getInstance().getBarra_tiempo().setMaximum(Game.TIEMPO_PENSAR);
+                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
 
-                    Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
 
                     Helpers.translateComponents(botonera, false);
 
@@ -654,16 +654,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             });
 
             if (auto_pause) {
-                Game.getInstance().getLocalPlayer().setAuto_pause(false);
-                Game.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+                GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
+                GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
             }
 
-            if (Game.TEST_MODE) {
+            if (GameFrame.TEST_MODE) {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
-                        Helpers.pausar(Game.TEST_MODE_PAUSE);
+                        Helpers.pausar(GameFrame.TEST_MODE_PAUSE);
 
                         ArrayList<JButton> botones = new ArrayList<>(Arrays.asList(new JButton[]{player_check_button, player_bet_button, player_allin_button, player_fold_button}));
 
@@ -694,7 +694,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
-                        response_counter = Game.TIEMPO_PENSAR;
+                        response_counter = GameFrame.TIEMPO_PENSAR;
 
                         ActionListener listener = new ActionListener() {
 
@@ -702,11 +702,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == crupier.getTurno()) {
+                                if (!crupier.isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == crupier.getTurno()) {
 
                                     response_counter--;
 
-                                    Game.getInstance().getBarra_tiempo().setValue(response_counter);
+                                    GameFrame.getInstance().getBarra_tiempo().setValue(response_counter);
 
                                     if (response_counter == 10) {
                                         Helpers.playWavResource("misc/hurryup.wav");
@@ -717,13 +717,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                 @Override
                                                 public void actionPerformed(ActionEvent ae) {
 
-                                                    if (!crupier.isFin_de_la_transmision() && !Game.getInstance().isTimba_pausada() && hurryup_timer.isRunning() && t == crupier.getTurno()) {
+                                                    if (!crupier.isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && hurryup_timer.isRunning() && t == crupier.getTurno()) {
                                                         if (player_action.getBackground() == Color.WHITE) {
-                                                            setBorder(javax.swing.BorderFactory.createLineBorder(Color.GRAY, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                                                            setBorder(javax.swing.BorderFactory.createLineBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
                                                             player_action.setBackground(Color.GRAY);
                                                             player_action.setForeground(Color.WHITE);
                                                         } else {
-                                                            setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                                                            setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
                                                             player_action.setBackground(Color.WHITE);
                                                             player_action.setForeground(Color.BLACK);
                                                         }
@@ -752,7 +752,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                                 if (auto_action.isRunning() && t == crupier.getTurno() && getDecision() == Player.NODEC) {
 
-                                                    Game.getInstance().checkPause();
+                                                    GameFrame.getInstance().checkPause();
 
                                                     if (auto_action.isRunning() && t == crupier.getTurno() && getDecision() == Player.NODEC) {
 
@@ -802,7 +802,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             }
 
-            if (Game.AUTO_ACTION_BUTTONS && pre_pulsado != Player.NODEC) {
+            if (GameFrame.AUTO_ACTION_BUTTONS && pre_pulsado != Player.NODEC) {
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
 
@@ -841,16 +841,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
 
                 if (decision != Player.ALLIN && decision != Player.FOLD) {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
                 }
 
                 turno = false;
 
-                synchronized (Game.getInstance().getCrupier().getLock_apuestas()) {
-                    Game.getInstance().getCrupier().getLock_apuestas().notifyAll();
+                synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
+                    GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
                 }
 
-                if (Game.AUTO_ACTION_BUTTONS && getDecision() != Player.ALLIN && getDecision() != Player.FOLD) {
+                if (GameFrame.AUTO_ACTION_BUTTONS && getDecision() != Player.ALLIN && getDecision() != Player.FOLD) {
                     activarPreBotones();
                 }
             }
@@ -1082,7 +1082,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.pos = p;
 
         if (this.crupier == null) {
-            this.crupier = Game.getInstance().getCrupier();
+            this.crupier = GameFrame.getInstance().getCrupier();
         }
 
         this.decision = Player.NODEC;
@@ -1108,7 +1108,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
-                setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                 desactivar_boton_mostrar();
 
@@ -1215,7 +1215,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             while (altura_avatar == player_pot.getHeight()) {
 
                 try {
-                    Thread.sleep(Game.GUI_ZOOM_WAIT);
+                    Thread.sleep(GameFrame.GUI_ZOOM_WAIT);
                 } catch (InterruptedException ex) {
                     Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -1360,7 +1360,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         bet_spinner = new javax.swing.JSpinner();
         player_action = new javax.swing.JLabel();
 
-        setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.Game.ZOOM_LEVEL*com.tonikelope.coronapoker.Game.ZOOM_STEP))));
+        setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL*com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
         setFocusable(false);
         setOpaque(false);
 
@@ -1638,7 +1638,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
         player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
-        player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP())), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.Game.getZoom_level() * com.tonikelope.coronapoker.Game.getZOOM_STEP()))));
+        player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.getZoom_level() * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP())), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.getZoom_level() * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP()))));
         player_action.setOpaque(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
@@ -1695,15 +1695,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 }
             }
 
-        } else if (!Game.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_fold_button.isEnabled()) {
+        } else if (!GameFrame.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_fold_button.isEnabled()) {
 
-            if (pre_pulsado == Player.FOLD || !Game.CONFIRM_ACTIONS || Helpers.float1DSecureCompare(0f, bote) == 0 || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
+            if (pre_pulsado == Player.FOLD || !GameFrame.CONFIRM_ACTIONS || Helpers.float1DSecureCompare(0f, bote) == 0 || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
 
                 Helpers.playWavResource("misc/fold.wav");
 
                 desactivarControles();
 
-                Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+                GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
 
                 if (auto_action != null) {
                     auto_action.stop();
@@ -1739,7 +1739,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_allin_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_player_allin_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (!Game.getInstance().isTimba_pausada()) {
+        if (!GameFrame.getInstance().isTimba_pausada()) {
 
             if (player_allin_button.isEnabled()) {
 
@@ -1755,7 +1755,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -1775,11 +1775,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         @Override
                                         public void run() {
 
-                                            if (Game.getInstance().isPartida_local()) {
+                                            if (GameFrame.getInstance().isPartida_local()) {
                                                 crupier.showAndBroadcastPlayerCards(nickname);
                                             } else {
                                                 crupier.sendGAMECommandToServer("SHOWMYCARDS");
-                                                crupier.setTiempo_pausa(Game.PAUSA_ENTRE_MANOS);
+                                                crupier.setTiempo_pausa(GameFrame.PAUSA_ENTRE_MANOS);
                                             }
 
                                         }
@@ -1792,7 +1792,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                     String lascartas = Card.collection2String(cartas);
 
-                                    for (Card carta_comun : Game.getInstance().getCartas_comunes()) {
+                                    for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
                                         if (!carta_comun.isTapada()) {
                                             cartas.add(carta_comun);
@@ -1807,14 +1807,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                     player_action.setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
 
-                                    if (Game.SONIDOS_CHORRA && decision == Player.FOLD) {
+                                    if (GameFrame.SONIDOS_CHORRA && decision == Player.FOLD) {
 
                                         Helpers.playWavResource("misc/showyourcards.wav");
 
                                     }
 
                                     if (!crupier.getPerdedores().containsKey(this)) {
-                                        Game.getInstance().getRegistro().print(nickname + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
+                                        GameFrame.getInstance().getRegistro().print(nickname + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
                                     }
 
                                     Helpers.translateComponents(botonera, false);
@@ -1829,13 +1829,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 } else if (getDecision() == Player.NODEC) {
 
-                    if (Game.TEST_MODE || this.action_button_armed.get(player_allin_button) || click_recuperacion) {
+                    if (GameFrame.TEST_MODE || this.action_button_armed.get(player_allin_button) || click_recuperacion) {
 
                         Helpers.playWavResource("misc/allin.wav");
 
                         desactivarControles();
 
-                        Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+                        GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
 
                         if (auto_action != null) {
                             auto_action.stop();
@@ -1903,9 +1903,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 }
             }
 
-        } else if (!Game.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_check_button.isEnabled()) {
+        } else if (!GameFrame.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_check_button.isEnabled()) {
 
-            if (pre_pulsado == Player.CHECK || !Game.CONFIRM_ACTIONS || this.action_button_armed.get(player_check_button) || click_recuperacion) {
+            if (pre_pulsado == Player.CHECK || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_check_button) || click_recuperacion) {
 
                 if (Helpers.float1DSecureCompare(this.stack - (crupier.getApuesta_actual() - this.bet), 0f) == 0) {
                     player_allin_buttonActionPerformed(null);
@@ -1915,7 +1915,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -1949,7 +1949,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_bet_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_player_bet_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (!Game.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_bet_button.isEnabled()) {
+        if (!GameFrame.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_bet_button.isEnabled()) {
 
             if (Helpers.float1DSecureCompare(stack, (((BigDecimal) bet_spinner.getValue()).floatValue()) + call_required) == 0) {
 
@@ -1957,7 +1957,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             } else {
 
-                if (!Game.CONFIRM_ACTIONS || this.action_button_armed.get(player_bet_button) || click_recuperacion) {
+                if (!GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_bet_button) || click_recuperacion) {
 
                     float bet_spinner_val = Helpers.floatClean1D(((BigDecimal) bet_spinner.getValue()).floatValue());
 
@@ -1965,7 +1965,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Game.getInstance().getBarra_tiempo().setValue(Game.TIEMPO_PENSAR);
+                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -1993,7 +1993,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             setDecision(Player.BET);
 
-                            if (!crupier.isSincronizando_mano() && Game.SONIDOS_CHORRA && crupier.getConta_raise() > 0 && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0) {
+                            if (!crupier.isSincronizando_mano() && GameFrame.SONIDOS_CHORRA && crupier.getConta_raise() > 0 && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0) {
                                 Helpers.playWavResource("misc/raise.wav");
                             }
 
@@ -2013,11 +2013,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
 
-        if (!Game.getInstance().isPartida_local()) {
+        if (!GameFrame.getInstance().isPartida_local()) {
 
-            Identicon identicon = new Identicon(Game.getInstance().getFrame(), true, player_name.getText(), Game.getInstance().getSala_espera().getLocal_client_aes_key());
+            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance().getFrame(), true, player_name.getText(), GameFrame.getInstance().getSala_espera().getLocal_client_aes_key());
 
-            identicon.setLocationRelativeTo(Game.getInstance().getFrame());
+            identicon.setLocationRelativeTo(GameFrame.getInstance().getFrame());
 
             identicon.setVisible(true);
         }
@@ -2026,12 +2026,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_buyinMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_buyinMouseClicked
         // TODO add your handling code here:
 
-        Game.getInstance().getRebuy_now_menu().doClick();
+        GameFrame.getInstance().getRebuy_now_menu().doClick();
     }//GEN-LAST:event_player_buyinMouseClicked
 
     private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
-        Game.getInstance().getRebuy_now_menu().doClick();
+        GameFrame.getInstance().getRebuy_now_menu().doClick();
     }//GEN-LAST:event_player_stackMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -2066,7 +2066,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
                 player_action.setEnabled(true);
                 player_action.setBackground(Color.GREEN);
                 player_action.setForeground(Color.BLACK);
@@ -2084,7 +2084,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                setBorder(javax.swing.BorderFactory.createLineBorder(Color.RED, Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                setBorder(javax.swing.BorderFactory.createLineBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
                 player_action.setEnabled(true);
                 player_action.setBackground(Color.RED);
                 player_action.setForeground(Color.WHITE);
@@ -2173,7 +2173,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                        setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
                         player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (" + Helpers.float2String(bet + getStack()) + ")");
                     }
                 });
@@ -2182,7 +2182,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + Game.ZOOM_LEVEL * Game.ZOOM_STEP))));
+                        setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
                         player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                     }
@@ -2239,7 +2239,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 player_buyin.setText(String.valueOf(buyin));
 
-                if (buyin > Game.BUYIN) {
+                if (buyin > GameFrame.BUYIN) {
                     player_buyin.setBackground(Color.cyan);
                 }
             }
@@ -2272,12 +2272,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
 
                 while (avatar_panel.getHeight() == 0) {
-                    Helpers.pausar(Game.GUI_ZOOM_WAIT);
+                    Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
                 }
 
-                if (Game.getInstance().getSala_espera().getAvatar() != null) {
+                if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
                     getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-                    getAvatar().setIcon(new ImageIcon(new ImageIcon(Game.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
+                    getAvatar().setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
                 } else {
                     getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
                     getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));

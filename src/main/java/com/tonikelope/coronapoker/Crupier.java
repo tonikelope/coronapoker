@@ -5748,9 +5748,9 @@ public class Crupier implements Runnable {
 
                                                 rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
 
-                                                rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(), Integer.parseInt((String) gameover_dialog.getBuyin_dialog().getRebuy_checkbox().getSelectedItem()));
+                                                rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(), (int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
 
-                                                String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#" + gameover_dialog.getBuyin_dialog().getRebuy_checkbox().getSelectedItem();
+                                                String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#" + String.valueOf((int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
 
                                                 if (GameFrame.getInstance().isPartida_local()) {
                                                     this.broadcastGAMECommandFromServer(comando, null);

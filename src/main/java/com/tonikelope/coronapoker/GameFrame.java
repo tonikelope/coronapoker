@@ -2609,7 +2609,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
                 } else {
 
-                    rebuy_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, true);
+                    rebuy_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, true, -1);
 
                     rebuy_dialog.setLocationRelativeTo(rebuy_dialog.getParent());
 
@@ -2617,11 +2617,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     if (rebuy_dialog.isRebuy()) {
                         player.getPlayer_buyin().setBackground(Color.YELLOW);
-                        player.getPlayer_buyin().setText(String.valueOf(player.getBuyin() + Integer.parseInt((String) rebuy_dialog.getRebuy_checkbox().getSelectedItem())));
+                        player.getPlayer_buyin().setText(String.valueOf(player.getBuyin() + (int) rebuy_dialog.getRebuy_spinner().getValue()));
 
                         Helpers.threadRun(new Runnable() {
                             public void run() {
-                                crupier.rebuyNow(player.getNickname(), Integer.parseInt((String) rebuy_dialog.getRebuy_checkbox().getSelectedItem()));
+                                crupier.rebuyNow(player.getNickname(), (int) rebuy_dialog.getRebuy_spinner().getValue());
                                 rebuy_now_menu.setEnabled(true);
                                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                                 Helpers.playWavResource("misc/auto_button_on.wav");

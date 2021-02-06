@@ -5,7 +5,8 @@
  */
 package com.tonikelope.coronapoker;
 
-import javax.swing.JComboBox;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
 
 /**
  *
@@ -14,13 +15,14 @@ import javax.swing.JComboBox;
 public class RebuyNowDialog extends javax.swing.JDialog {
 
     private volatile boolean rebuy = false;
+    private volatile boolean touched = false;
 
     public boolean isRebuy() {
         return rebuy;
     }
 
-    public JComboBox<String> getRebuy_checkbox() {
-        return rebuy_checkbox;
+    public JSpinner getRebuy_spinner() {
+        return rebuy_spinner;
     }
 
     private void pausaConBarra(int tiempo) {
@@ -35,11 +37,11 @@ public class RebuyNowDialog extends javax.swing.JDialog {
 
         int t = tiempo;
 
-        while (t > 0 && !rebuy) {
+        while (t > 0 && !rebuy && !touched) {
 
             Helpers.pausar(1000);
 
-            if (!GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+            if (!GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !rebuy && !touched) {
 
                 final int v = --t;
 
@@ -62,16 +64,16 @@ public class RebuyNowDialog extends javax.swing.JDialog {
     /**
      * Creates new form RebuyNowDialog
      */
-    public RebuyNowDialog(java.awt.Frame parent, boolean modal, boolean cancel) {
+    public RebuyNowDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout) {
         super(parent, modal);
 
         initComponents();
 
         barra.setVisible(false);
 
-        rebuy_checkbox.addItem(String.valueOf(GameFrame.BUYIN));
+        rebuy_spinner.setModel(new SpinnerNumberModel(GameFrame.BUYIN, 1, GameFrame.BUYIN, 1));
 
-        rebuy_checkbox.addItem(Helpers.float2String((float) GameFrame.BUYIN / 2));
+        ((JSpinner.DefaultEditor) rebuy_spinner.getEditor()).getTextField().setEditable(false);
 
         if (!cancel) {
             cancel_button.setEnabled(false);
@@ -83,13 +85,13 @@ public class RebuyNowDialog extends javax.swing.JDialog {
 
         pack();
 
-        if (!cancel) {
+        if (timeout > 0) {
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
-                    pausaConBarra(10);
+                    pausaConBarra(timeout);
 
-                    if (!rebuy) {
+                    if (!rebuy && !touched) {
                         rebuy = true;
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
@@ -115,10 +117,10 @@ public class RebuyNowDialog extends javax.swing.JDialog {
         jPanel1 = new javax.swing.JPanel();
         jLabel2 = new javax.swing.JLabel();
         jLabel1 = new javax.swing.JLabel();
-        rebuy_checkbox = new javax.swing.JComboBox<>();
         ok_button = new javax.swing.JButton();
         cancel_button = new javax.swing.JButton();
         barra = new javax.swing.JProgressBar();
+        rebuy_spinner = new javax.swing.JSpinner();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("RECOMPRAR");
@@ -137,11 +139,6 @@ public class RebuyNowDialog extends javax.swing.JDialog {
         jLabel1.setText("RECOMPRAR");
         jLabel1.setDoubleBuffered(true);
         jLabel1.setFocusable(false);
-
-        rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        rebuy_checkbox.setDoubleBuffered(true);
-        rebuy_checkbox.setFocusable(false);
 
         ok_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         ok_button.setText("Aceptar");
@@ -165,6 +162,18 @@ public class RebuyNowDialog extends javax.swing.JDialog {
             }
         });
 
+        barra.setDoubleBuffered(true);
+
+        rebuy_spinner.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        rebuy_spinner.setModel(new javax.swing.SpinnerNumberModel());
+        rebuy_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        rebuy_spinner.setDoubleBuffered(true);
+        rebuy_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                rebuy_spinnerStateChanged(evt);
+            }
+        });
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
@@ -174,14 +183,13 @@ public class RebuyNowDialog extends javax.swing.JDialog {
                 .addComponent(jLabel2)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
                         .addComponent(ok_button)
-                        .addGap(18, 18, 18)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(cancel_button))
-                    .addComponent(rebuy_checkbox, javax.swing.GroupLayout.Alignment.TRAILING, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(rebuy_spinner, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jLabel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -191,8 +199,8 @@ public class RebuyNowDialog extends javax.swing.JDialog {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addComponent(jLabel1)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(rebuy_checkbox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addComponent(rebuy_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(18, 18, 18)
@@ -229,6 +237,11 @@ public class RebuyNowDialog extends javax.swing.JDialog {
         dispose();
     }//GEN-LAST:event_ok_buttonActionPerformed
 
+    private void rebuy_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_rebuy_spinnerStateChanged
+        // TODO add your handling code here:
+        touched = true;
+    }//GEN-LAST:event_rebuy_spinnerStateChanged
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra;
     private javax.swing.JButton cancel_button;
@@ -236,6 +249,6 @@ public class RebuyNowDialog extends javax.swing.JDialog {
     private javax.swing.JLabel jLabel2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JButton ok_button;
-    private javax.swing.JComboBox<String> rebuy_checkbox;
+    private javax.swing.JSpinner rebuy_spinner;
     // End of variables declaration//GEN-END:variables
 }

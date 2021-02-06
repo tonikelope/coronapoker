@@ -261,7 +261,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                                 @Override
                                 public void run() {
                                     dispose();
-                                    buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false);
+                                    buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false, 10);
 
                                     buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
 
@@ -319,7 +319,7 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         dispose();
 
-        buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false);
+        buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false, 10);
 
         buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
 
@@ -349,7 +349,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                         @Override
                         public void run() {
                             dispose();
-                            buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false);
+                            buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false, 10);
 
                             buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
 

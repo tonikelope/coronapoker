@@ -1697,7 +1697,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         } else if (!GameFrame.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_fold_button.isEnabled()) {
 
-            if (pre_pulsado == Player.FOLD || !GameFrame.CONFIRM_ACTIONS || Helpers.float1DSecureCompare(0f, bote) == 0 || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
+            if (pre_pulsado == Player.FOLD || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
 
                 Helpers.playWavResource("misc/fold.wav");
 

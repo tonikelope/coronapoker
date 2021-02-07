@@ -314,7 +314,7 @@ public class Crupier implements Runnable {
             if (GameFrame.getInstance().isPartida_local()) {
 
                 try {
-                    this.broadcastGAMECommandFromServer("REBUYNOW#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname()) ? null : nick + "#" + String.valueOf(buyin));
+                    this.broadcastGAMECommandFromServer("REBUYNOW#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + String.valueOf(buyin), nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname()) ? null : nick);
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }

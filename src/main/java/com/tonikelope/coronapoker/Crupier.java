@@ -2168,6 +2168,8 @@ public class Crupier implements Runnable {
 
             this.apuestas = GameFrame.getInstance().getJugadores().get(this.big_pos).getBet() + GameFrame.getInstance().getJugadores().get(this.small_pos).getBet();
 
+            this.bote_total = this.apuestas;
+
             actualizarContadoresTapete();
 
             Object lock = new Object();
@@ -3536,6 +3538,8 @@ public class Crupier implements Runnable {
 
             resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), null);
 
+            actualizarContadoresTapete();
+
             do {
                 GameFrame.getInstance().checkPause();
 
@@ -3778,6 +3782,8 @@ public class Crupier implements Runnable {
 
                             this.apuestas += current_player.getBet() - old_player_bet;
 
+                            this.bote_total += current_player.getBet() - old_player_bet;
+
                             if (decision == Player.BET || (decision == Player.ALLIN && Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) <= 0)) {
 
                                 this.conta_bet++;
@@ -3850,16 +3856,14 @@ public class Crupier implements Runnable {
 
             } while (conta_pos != end_pos && resisten.size() > 1);
 
-            this.bote_total += this.apuestas;
-
             this.apuestas = 0f;
 
             actualizarContadoresTapete();
+
+            GameFrame.getInstance().hideTapeteApuestas();
         }
 
         if (resisten.size() > 1 && puedenApostar(resisten) <= 1) {
-
-            GameFrame.getInstance().hideTapeteApuestas();
 
             this.destapar_resistencia = true;
 

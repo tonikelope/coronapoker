@@ -1025,7 +1025,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         break;
                 }
 
-                tapete.getCommunityCards().getBet_label().setText(fase + Helpers.float2String(apuestas));
+                tapete.getCommunityCards().getBet_label().setText(fase + (Helpers.float1DSecureCompare(0f, apuestas) < 0 ? Helpers.float2String(apuestas) : "---"));
+
                 tapete.getCommunityCards().getBet_label().setVisible(true);
             }
         });

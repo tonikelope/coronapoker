@@ -2600,10 +2600,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void video_chat_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_video_chat_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (server && this.getVideo_chat_link() == null) {
-            Helpers.openBrowserURL("https://duo.google.com");
-        }
-
         QRChatDialog chat_dialog = new QRChatDialog(this, true, this.getVideo_chat_link(), server);
 
         chat_dialog.setLocationRelativeTo(this);

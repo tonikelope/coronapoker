@@ -197,8 +197,6 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         GameFrame.getInstance().getFastchat_dialog().setVisible(false);
 
-        requestFocusInWindow();
-
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {

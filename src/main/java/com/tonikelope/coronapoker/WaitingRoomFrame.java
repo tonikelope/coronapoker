@@ -1965,6 +1965,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         tot_conectados = new javax.swing.JLabel();
         blinds = new javax.swing.JLabel();
         danger_server = new javax.swing.JLabel();
+        tts_warning = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -2188,13 +2189,26 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         danger_server.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         danger_server.setOpaque(true);
 
+        tts_warning.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
+        tts_warning.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        tts_warning.setText("Aviso: la privacidad del CHAT no está garantizada al usar la función de voz TTS (click para más info).");
+        tts_warning.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        tts_warning.setDoubleBuffered(true);
+        tts_warning.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                tts_warningMouseClicked(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(danger_server, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(tts_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(jScrollPane1)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(avatar_label)
@@ -2202,7 +2216,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         .addComponent(chat_box))
                     .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
-            .addComponent(danger_server, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2216,6 +2229,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(chat_box))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(tts_warning)
                 .addContainerGap())
         );
 
@@ -2531,7 +2546,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
-        chat_box.requestFocusInWindow();
+        chat_box.requestFocus();
     }//GEN-LAST:event_formComponentShown
 
     private void logoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_logoMouseClicked
@@ -2645,6 +2660,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_pass_iconMouseClicked
 
+    private void tts_warningMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tts_warningMouseClicked
+        // TODO add your handling code here:
+        Helpers.mostrarMensajeInformativo(this,
+                "Aunque CoronaPoker usa cifrado extremo a extremo en todas las comunicaciones, el chat de\nvoz utiliza APIs externas TTS para convertir el texto en audio, por lo que los mensajes\nenviados a esos servidores podrían ser (en teoría) leidos por terceros.\n\nPOR FAVOR, TENLO EN CUENTA A LA HORA DE USAR EL CHAT");
+    }//GEN-LAST:event_tts_warningMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
     private javax.swing.JLabel blinds;
@@ -2665,6 +2686,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private javax.swing.JLabel status;
     private javax.swing.JLabel status1;
     private javax.swing.JLabel tot_conectados;
+    private javax.swing.JLabel tts_warning;
     private javax.swing.JButton video_chat_button;
     // End of variables declaration//GEN-END:variables
 }

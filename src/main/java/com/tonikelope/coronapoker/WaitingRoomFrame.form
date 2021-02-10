@@ -434,7 +434,7 @@
           <Font name="Dialog" size="10" style="2"/>
         </Property>
         <Property name="horizontalAlignment" type="int" value="0"/>
-        <Property name="text" type="java.lang.String" value="Aviso: la privacidad del CHAT no est&#xe1; garantizada al usar la funci&#xf3;n de voz TTS (click para m&#xe1;s info)."/>
+        <Property name="text" type="java.lang.String" value="Aviso: la privacidad del CHAT no est&#xe1; garantizada si alg&#xfa;n jugador usa la funci&#xf3;n de voz TTS (click para m&#xe1;s info)."/>
         <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
           <Color id="Cursor de Mano"/>
         </Property>

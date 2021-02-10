@@ -22,7 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
-            {"Aviso: la privacidad del CHAT no está garantizada al usar la función de voz TTS (click para más info).", "Warning: CHAT privacy is not guaranteed when using the TTS voice function (click for more info)."},
+            {"Aviso: la privacidad del CHAT no está garantizada si algún jugador usa la función de voz TTS (click para más info).", "Notice: CHAT privacy is not guaranteed if any player uses the TTS voice function (click for more info)."},
             {"Aunque CoronaPoker usa cifrado extremo a extremo en todas las comunicaciones, el chat de\nvoz utiliza APIs externas TTS para convertir el texto en audio, por lo que los mensajes\nenviados a esos servidores podrían ser (en teoría) leidos por terceros.\n\nPOR FAVOR, TENLO EN CUENTA A LA HORA DE USAR EL CHAT", "Although CoronaPoker uses end-to-end encryption on all communications, the voice chat\nuses external TTS APIs to convert text to audio, so messages sent to those servers could\n(in theory) be read by third parties.\n\n PLEASE KEEP THIS IN MIND WHEN USING THE CHAT"},
             {"RECOMPRAR", "REBUY"},
             {"Aceptar", "OK"},

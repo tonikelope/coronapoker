@@ -44,8 +44,12 @@ public class GameOverDialog extends javax.swing.JDialog {
             GameFrame.getInstance().getRebuy_dialog().dispose();
         }
 
+        continue_button.requestFocus();
+
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
         Helpers.translateComponents(this, false);
+
         pack();
 
     }
@@ -60,6 +64,8 @@ public class GameOverDialog extends javax.swing.JDialog {
         }
 
         direct_gameover = direct;
+
+        continue_button.requestFocus();
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
@@ -196,6 +202,8 @@ public class GameOverDialog extends javax.swing.JDialog {
         GameFrame.getInstance().getTapete().hideALL();
 
         GameFrame.getInstance().getFastchat_dialog().setVisible(false);
+
+        continue_button.requestFocus();
 
         Helpers.threadRun(new Runnable() {
             @Override

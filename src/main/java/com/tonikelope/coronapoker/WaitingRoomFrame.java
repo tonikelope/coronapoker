@@ -2191,7 +2191,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         tts_warning.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         tts_warning.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        tts_warning.setText("Aviso: la privacidad del CHAT no está garantizada al usar la función de voz TTS (click para más info).");
+        tts_warning.setText("Aviso: la privacidad del CHAT no está garantizada si algún jugador usa la función de voz TTS (click para más info).");
         tts_warning.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         tts_warning.setDoubleBuffered(true);
         tts_warning.addMouseListener(new java.awt.event.MouseAdapter() {

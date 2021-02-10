@@ -79,6 +79,8 @@ public class RebuyNowDialog extends javax.swing.JDialog {
             cancel_button.setEnabled(false);
         }
 
+        ok_button.requestFocus();
+
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
@@ -144,7 +146,6 @@ public class RebuyNowDialog extends javax.swing.JDialog {
         ok_button.setText("Aceptar");
         ok_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ok_button.setDoubleBuffered(true);
-        ok_button.setFocusable(false);
         ok_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 ok_buttonActionPerformed(evt);
@@ -155,7 +156,6 @@ public class RebuyNowDialog extends javax.swing.JDialog {
         cancel_button.setText("Cancelar");
         cancel_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         cancel_button.setDoubleBuffered(true);
-        cancel_button.setFocusable(false);
         cancel_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 cancel_buttonActionPerformed(evt);

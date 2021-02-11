@@ -1756,7 +1756,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                chat.append("[" + nick + Translator.translate("] dice: ") + msg + "\n");
+                chat.append("[" + nick + "]: " + msg + "\n");
 
                 if (!chat.isFocusOwner()) {
                     chat.setCaretPosition(chat.getText().length());
@@ -2244,7 +2244,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (chat_enabled && mensaje.length() > 0) {
 
-            chat.append("[" + local_nick + Translator.translate("] dice: ") + mensaje + "\n");
+            chat.append("[" + local_nick + "]: " + mensaje + "\n");
 
             if (!chat.isFocusOwner()) {
                 chat.setCaretPosition(chat.getText().length());

@@ -118,7 +118,7 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
         setUndecorated(true);
         setResizable(false);
 
-        jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0), 8));
+        jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(26, 115, 232), 8));
 
         icon_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/duo_big.png"))); // NOI18N
         icon_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));

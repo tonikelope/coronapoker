@@ -74,6 +74,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public static final int MAX_PING_PONG_ERROR = 3;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
+    public static final int MAX_REC_SOCKET_ERROR = 5;
     private static volatile boolean partida_empezada = false;
     private static volatile boolean partida_empezando = false;
     private static volatile String password = null;
@@ -499,7 +500,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             try {
                 WaitingRoomFrame tthis = this;
 
-                boolean ok;
+                boolean ok_rec;
 
                 if (!local_client_socket.isClosed()) {
                     try {
@@ -513,7 +514,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 long start = System.currentTimeMillis();
 
-                ok = false;
+                ok_rec = false;
 
                 Mac old_sha256_HMAC = Mac.getInstance("HmacSHA256");
 
@@ -594,6 +595,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         boolean ok_chat;
 
+                        int conta_error = 0;
+
                         do {
 
                             ok_chat = false;
@@ -602,41 +605,64 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             recibido = this.local_client_buffer_read_is.readLine();
 
-                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, recibido);
+                            if (recibido != null) {
 
-                            if (recibido != null && recibido.startsWith("*")) {
+                                if (recibido.startsWith("*")) {
+                                    try {
 
-                                try {
+                                        recibido = Helpers.decryptCommand(recibido, local_client_aes_key, local_client_hmac_key);
 
-                                    recibido = Helpers.decryptCommand(recibido, local_client_aes_key, local_client_hmac_key);
+                                        if (recibido != null) {
 
-                                    String chat_text;
+                                            String chat_text;
 
-                                    chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
+                                            chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
 
-                                    Helpers.GUIRun(new Runnable() {
-                                        public void run() {
+                                            Helpers.GUIRun(new Runnable() {
+                                                public void run() {
 
-                                            chat.setText(chat_text);
+                                                    chat.setText(chat_text);
+                                                }
+                                            });
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "HEMOS CONSEGUIDO RECONECTAR CORRECTAMENTE CON EL SERVIDOR");
+
+                                            ok_chat = true;
+
                                         }
-                                    });
 
-                                    ok_chat = true;
+                                    } catch (Exception ex) {
 
-                                } catch (Exception ex) {
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, null, ex);
+                                        Helpers.pausar(1000);
+                                    }
 
-                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, null, ex);
+                                } else {
+                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SOCKET DE RECONEXiÓN RECIBIÓ BASURA");
+                                    conta_error++;
                                     Helpers.pausar(1000);
                                 }
 
                             } else {
-                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SOCKET RECIBIÓ NULL");
-                                Helpers.pausar(1000);
+                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "EL SOCKET DE RECONEXiÓN RECIBIÓ NULL");
                             }
 
-                        } while (!ok_chat);
+                        } while (!ok_chat && conta_error < MAX_REC_SOCKET_ERROR && recibido != null);
 
-                        ok = true;
+                        if (ok_chat) {
+                            ok_rec = true;
+                        } else {
+                            if (local_client_socket != null && !local_client_socket.isClosed()) {
+
+                                try {
+                                    local_client_socket.close();
+
+                                } catch (Exception ex2) {
+                                }
+
+                                local_client_socket = null;
+                            }
+                        }
 
                     } catch (Exception ex) {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -653,7 +679,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         }
                     }
 
-                    if (!ok) {
+                    if (!ok_rec) {
 
                         if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT && WaitingRoomFrame.isPartida_empezada()) {
 
@@ -662,7 +688,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
                                         reconnect_dialog = new Reconnect2ServerDialog(GameFrame.getInstance() != null ? GameFrame.getInstance() : tthis, true, server_ip_port);
-
                                         reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
                                         reconnect_dialog.setVisible(true);
 
@@ -682,7 +707,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 });
                             }
 
-                            while (!reconnect_dialog.isReconectar()) {
+                            while (reconnect_dialog == null || !reconnect_dialog.isReconectar()) {
                                 synchronized (this.lock_reconnect) {
                                     try {
                                         this.lock_reconnect.wait(1000);
@@ -701,11 +726,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         }
                     }
 
-                } while (!ok && (!WaitingRoomFrame.isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit()));
+                } while (!ok_rec && (!WaitingRoomFrame.isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit()));
 
                 if (this.reconnect_dialog != null) {
 
-                    Helpers.GUIRun(new Runnable() {
+                    Helpers.GUIRunAndWait(new Runnable() {
                         @Override
                         public void run() {
                             reconnect_dialog.dispose();
@@ -714,7 +739,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     });
                 }
 
-                if (ok) {
+                if (ok_rec) {
                     Helpers.playWavResource("misc/yahoo.wav");
                 }
 
@@ -722,7 +747,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 getLocalClientSocketLock().notifyAll();
 
-                return ok;
+                return ok_rec;
 
             } catch (InvalidKeyException | NoSuchAlgorithmException | UnsupportedEncodingException ex) {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -1591,14 +1616,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Reseteando el socket del cliente...");
 
                                             //Es un usuario intentado reconectar
-                                            participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key);
+                                            if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {
 
-                                            Helpers.playWavResource("misc/yahoo.wav");
+                                                Helpers.playWavResource("misc/yahoo.wav");
 
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
+                                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
+                                            } else {
+                                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR");
+
+                                                try {
+                                                    client_socket.close();
+                                                } catch (Exception ex) {
+                                                }
+                                            }
 
                                         } else {
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR");
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR (BAD HMAC)");
 
                                             try {
                                                 client_socket.close();
@@ -1607,7 +1640,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                         }
 
                                     } else {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El usuario " + client_nick + " HA FALLADO AL RECONECTAR su socket.");
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El usuario " + client_nick + " INTENTA RECONECTAR UNA TIMBA ANTERIOR -> DENEGADO");
 
                                         try {
                                             client_socket.close();

@@ -110,7 +110,7 @@ public class FastChatDialog extends javax.swing.JDialog {
 
         if (GameFrame.getInstance().getSala_espera().isChat_enabled() && mensaje.length() > 0) {
 
-            GameFrame.getInstance().getSala_espera().getChat().append("[" + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate("] dice: ") + mensaje + "\n");
+            GameFrame.getInstance().getSala_espera().getChat().append("[" + GameFrame.getInstance().getLocalPlayer().getNickname() + "]: " + mensaje + "\n");
 
             GameFrame.getInstance().getSala_espera().enviarMensajeChat(GameFrame.getInstance().getLocalPlayer().getNickname(), mensaje);
 

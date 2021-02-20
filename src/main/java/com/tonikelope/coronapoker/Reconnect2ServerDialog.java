@@ -16,7 +16,7 @@ import javax.swing.JTextField;
  */
 public class Reconnect2ServerDialog extends javax.swing.JDialog {
 
-    private boolean reconectar = false;
+    private volatile boolean reconectar = false;
 
     public void reset() {
 
@@ -89,6 +89,7 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         yes = new javax.swing.JButton();
         barra = new javax.swing.JProgressBar();
         status2 = new javax.swing.JLabel();
+        exit_button = new javax.swing.JButton();
 
         setUndecorated(true);
         setResizable(false);
@@ -117,6 +118,7 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         yes.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         yes.setForeground(new java.awt.Color(255, 255, 255));
         yes.setText("RECONECTAR");
+        yes.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         yes.setDoubleBuffered(true);
         yes.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -131,6 +133,18 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         status2.setText("(Comprueba si la dirección o el puerto han cambiado antes de reconectar)");
         status2.setDoubleBuffered(true);
 
+        exit_button.setBackground(new java.awt.Color(255, 0, 0));
+        exit_button.setForeground(new java.awt.Color(255, 255, 255));
+        exit_button.setText("SALIR DEL JUEGO");
+        exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        exit_button.setDoubleBuffered(true);
+        exit_button.setFocusable(false);
+        exit_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exit_buttonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -142,7 +156,8 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
                     .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(yes, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(status2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(status2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -158,6 +173,8 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
                 .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(yes)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(exit_button)
                 .addContainerGap())
         );
 
@@ -196,8 +213,15 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         Helpers.playWavResource("misc/warning.wav");
     }//GEN-LAST:event_formComponentShown
 
+    private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
+        // TODO add your handling code here:
+
+        System.exit(1);
+    }//GEN-LAST:event_exit_buttonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra;
+    private javax.swing.JButton exit_button;
     private javax.swing.JTextField ip_port;
     private javax.swing.JLabel status;
     private javax.swing.JLabel status2;

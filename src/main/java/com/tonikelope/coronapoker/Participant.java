@@ -141,6 +141,21 @@ public class Participant implements Runnable {
 
     }
 
+    public BufferedReader getInput_stream() {
+
+        while (resetting_socket) {
+            synchronized (getParticipant_socket_lock()) {
+                try {
+                    getParticipant_socket_lock().wait(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
+        return input_stream;
+    }
+
     public boolean isCpu() {
         return cpu;
     }
@@ -227,7 +242,7 @@ public class Participant implements Runnable {
             }
         }
 
-        return Helpers.decryptCommand(this.input_stream.readLine(), this.getAes_key(), this.getHmac_key());
+        return Helpers.decryptCommand(this.getInput_stream().readLine(), this.getAes_key(), this.getHmac_key());
     }
 
     public void socketClose() throws IOException {
@@ -252,7 +267,7 @@ public class Participant implements Runnable {
         }
     }
 
-    public void resetSocket(Socket socket, SecretKeySpec aes_key, SecretKeySpec hmac_key) {
+    public boolean resetSocket(Socket sock, SecretKeySpec aes_k, SecretKeySpec hmac_k) {
 
         this.resetting_socket = true;
 
@@ -267,25 +282,33 @@ public class Participant implements Runnable {
 
         synchronized (participant_socket_lock) {
 
-            this.aes_key = aes_key;
-
-            this.hmac_key = hmac_key;
-
-            this.socket = socket;
-
             try {
+
+                this.socket = sock;
+
+                this.aes_key = aes_k;
+
+                this.hmac_key = hmac_k;
+
                 this.input_stream = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
 
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
 
                 //Mandamos el chat
-                socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat().getText().getBytes("UTF-8")), aes_key, hmac_key) + "\n").getBytes("UTF-8"));
+                this.socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat().getText().getBytes("UTF-8")), this.aes_key, this.hmac_key) + "\n").getBytes("UTF-8"));
+
+                this.resetting_socket = false;
+
+                return true;
 
             } catch (IOException ex) {
-                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-            }
 
-            this.resetting_socket = false;
+                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+
+                this.resetting_socket = false;
+
+                return false;
+            }
         }
     }
 

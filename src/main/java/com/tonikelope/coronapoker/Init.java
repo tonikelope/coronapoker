@@ -565,7 +565,7 @@ public class Init extends javax.swing.JFrame {
 
                             Helpers.TTS((String) tts[1], nick_dialog);
 
-                        } else {
+                        } else if (GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
                             Helpers.GUIRun(new Runnable() {
                                 @Override

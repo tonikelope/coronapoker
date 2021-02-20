@@ -182,7 +182,7 @@ public class Crupier implements Runnable {
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
-    private final ConcurrentLinkedQueue<String> acciones_recuperadas = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<String> acciones_locales_recuperadas = new ConcurrentLinkedQueue<>();
     private final ConcurrentHashMap<String, Integer> rebuy_now = new ConcurrentHashMap<>();
     private final HashMap<String, Float[]> auditor = new HashMap<>();
     private final Object lock_apuestas = new Object();
@@ -2125,7 +2125,7 @@ public class Crupier implements Runnable {
 
                 recuperarAccionesLocales();
 
-                if (!this.acciones_recuperadas.isEmpty()) {
+                if (!this.acciones_locales_recuperadas.isEmpty()) {
                     this.sincronizando_mano = true;
                 } else {
                     GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
@@ -2135,8 +2135,8 @@ public class Crupier implements Runnable {
                             recover_dialog.setVisible(false);
                             recover_dialog.dispose();
                             recover_dialog = null;
-                            GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                            GameFrame.getInstance().getFull_screen_menu().setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
 
                         }
                     });
@@ -2149,8 +2149,8 @@ public class Crupier implements Runnable {
                         recover_dialog.setVisible(false);
                         recover_dialog.dispose();
                         recover_dialog = null;
-                        GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                        GameFrame.getInstance().getFull_screen_menu().setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
 
                     }
                 });
@@ -3565,7 +3565,7 @@ public class Crupier implements Runnable {
                         current_player.esTuTurno();
 
                         //SOMOS NOSOTROS (jugador local)
-                        if (this.isSincronizando_mano() && (accion_recuperada = siguienteAccionRecuperada(current_player.getNickname())) != null) {
+                        if (this.isSincronizando_mano() && (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) != null) {
 
                             LocalPlayer localplayer = (LocalPlayer) current_player;
 
@@ -3661,7 +3661,7 @@ public class Crupier implements Runnable {
 
                         } else {
 
-                            if (!this.isSincronizando_mano() || (action = siguienteAccionRecuperada(current_player.getNickname())) == null) {
+                            if (!this.isSincronizando_mano() || (action = siguienteAccionLocalRecuperada(current_player.getNickname())) == null) {
 
                                 float call_required = getApuesta_actual() - current_player.getBet();
 
@@ -3838,8 +3838,15 @@ public class Crupier implements Runnable {
 
                     if (!this.sincronizando_mano) {
                         this.sqlNewAction(current_player);
-                    } else if (!this.sqlCheckRecoverAction(current_player)) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, current_player.getNickname() + " BAD RECOVER ACTION!");
+                    } else {
+
+                        String recover_action = current_player.getNickname() + " " + String.valueOf(current_player.getDecision()) + " " + Helpers.float2String(current_player.getBet()) + " COUNTER: " + String.valueOf(this.conta_accion) + " HAND ID: " + String.valueOf(this.sqlite_id_hand);
+
+                        if (this.sqlCheckRecoverAction(current_player)) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "RECOVER ACTION OK -> " + recover_action);
+                        } else {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "BAD RECOVER ACTION! -> " + recover_action);
+                        }
                     }
                 }
 
@@ -4314,6 +4321,8 @@ public class Crupier implements Runnable {
             }
             ret = actions;
 
+            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, actions);
+
         } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -4413,7 +4422,7 @@ public class Crupier implements Runnable {
 
             } else {
 
-                sqlUpdateGameLastDeck(per.substring(0, per.length() - 1));
+                sqlUpdateGameLastDeck(Base64.encodeBase64String(per.substring(0, per.length() - 1).getBytes("UTF-8")));
 
             }
         } catch (UnsupportedEncodingException ex) {
@@ -4446,7 +4455,7 @@ public class Crupier implements Runnable {
 
                 ArrayList<String> pendientes = new ArrayList<>();
 
-                pendientes.add(new String(Base64.decodeBase64(perm_parts[0])));
+                pendientes.add(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
 
                 int id = Helpers.SPRNG_GENERATOR.nextInt();
 
@@ -4476,7 +4485,7 @@ public class Crupier implements Runnable {
 
                 datos = Helpers.decryptString(perm_parts[2], new SecretKeySpec(Base64.decodeBase64(permutation_key), "AES"), null);
             } else {
-                datos = this.sqlRecoverGameLastDeck();
+                datos = new String(Base64.decodeBase64(this.sqlRecoverGameLastDeck()), "UTF-8");
             }
 
             String[] partes = datos.split("\\|");
@@ -4501,13 +4510,13 @@ public class Crupier implements Runnable {
         return null;
     }
 
-    private Object[] siguienteAccionRecuperada(String nick) {
+    private Object[] siguienteAccionLocalRecuperada(String nick) {
 
         Object[] res = null;
 
-        while (!this.acciones_recuperadas.isEmpty()) {
+        while (!this.acciones_locales_recuperadas.isEmpty()) {
             try {
-                String accion = this.acciones_recuperadas.poll();
+                String accion = this.acciones_locales_recuperadas.poll();
 
                 String[] accion_partes = accion.split("#");
 
@@ -4533,7 +4542,7 @@ public class Crupier implements Runnable {
             }
         }
 
-        if (this.acciones_recuperadas.isEmpty()) {
+        if (this.acciones_locales_recuperadas.isEmpty()) {
 
             if (recover_dialog != null) {
 
@@ -4542,8 +4551,8 @@ public class Crupier implements Runnable {
                         recover_dialog.setVisible(false);
                         recover_dialog.dispose();
                         recover_dialog = null;
-                        GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                        GameFrame.getInstance().getFull_screen_menu().setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
                     }
                 });
             }
@@ -4576,7 +4585,7 @@ public class Crupier implements Runnable {
                         String nick = new String(Base64.decodeBase64(parts[0]), "UTF-8");
 
                         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) || (GameFrame.getInstance().isPartida_local() && GameFrame.getInstance().getParticipantes().get(nick).isCpu())) {
-                            acciones_recuperadas.add(r);
+                            acciones_locales_recuperadas.add(r);
                         }
                     }
                 }
@@ -5346,6 +5355,29 @@ public class Crupier implements Runnable {
 
                     if (GameFrame.AUTO_ACTION_BUTTONS) {
                         GameFrame.getInstance().getLocalPlayer().desActivarPreBotones();
+                    }
+
+                    if (!this.acciones_locales_recuperadas.isEmpty()) {
+
+                        this.acciones_locales_recuperadas.clear();
+
+                        if (recover_dialog != null) {
+
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+                                    recover_dialog.setVisible(false);
+                                    recover_dialog.dispose();
+                                    recover_dialog = null;
+                                    GameFrame.getInstance().getFull_screen_menu().setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                                }
+                            });
+                        }
+
+                        this.setSincronizando_mano(false);
+
+                        GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+                        Helpers.playWavResource("misc/cash_register.wav");
                     }
 
                     this.show_time = true;

@@ -2237,16 +2237,23 @@ public class Helpers {
                 }
             }
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    Font old_font = component.getFont();
+            if (Helpers.ORIGINAL_FONT_SIZE.containsKey(component)) {
 
-                    Font new_font = old_font.deriveFont(old_font.getStyle(), Math.round(Helpers.ORIGINAL_FONT_SIZE.get(component) * zoom_factor));
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        Font old_font = component.getFont();
 
-                    component.setFont(new_font);
-                }
-            });
+                        if (old_font != null) {
+
+                            Font new_font = old_font.deriveFont(old_font.getStyle(), Math.round(Helpers.ORIGINAL_FONT_SIZE.get(component) * zoom_factor));
+
+                            component.setFont(new_font);
+                        }
+                    }
+                });
+
+            }
         }
     }
 

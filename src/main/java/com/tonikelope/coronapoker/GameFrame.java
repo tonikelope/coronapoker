@@ -14,10 +14,12 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.PreparedStatement;
@@ -93,6 +95,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static volatile boolean RECOVER = false;
+    public static volatile boolean MAC_NATIVE_FULLSCREEN = false;
     public static volatile String RECOVER_ID = null;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
     private static volatile GameFrame THIS = null;
@@ -140,6 +143,35 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return lock_pause;
     }
 
+    public void MacNativeFullScreen(Window window) {
+
+        String className = "com.apple.eawt.FullScreenUtilities";
+        String methodName = "setWindowCanFullScreen";
+
+        try {
+            Class<?> clazz = Class.forName(className);
+            Method method = clazz.getMethod(methodName, new Class<?>[]{Window.class, boolean.class});
+            method.invoke(null, window, true);
+
+            GameFrame.MAC_NATIVE_FULLSCREEN = true;
+
+        } catch (Throwable t) {
+            System.err.println("Full screen mode is not supported");
+            t.printStackTrace();
+        }
+
+        GameFrame.MAC_NATIVE_FULLSCREEN = false;
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                full_screen_menu.setEnabled(false);
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
+            }
+        });
+    }
+
     public void autoZoomFullScreen() {
 
         Helpers.threadRun(new Runnable() {
@@ -175,6 +207,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
 
                 } else {
+
+                    GameFrame.getInstance().MacNativeFullScreen(GameFrame.getInstance());
 
                     Helpers.GUIRunAndWait(new Runnable() {
                         @Override
@@ -219,8 +253,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     public void run() {
 
                         if (!GameFrame.isRECOVER()) {
-                            full_screen_menu.setEnabled(true);
-                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                            full_screen_menu.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
                         }
 
                         zoom_menu_in.setEnabled(true);
@@ -343,7 +377,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (!full_screen) {
 
-                    if (Helpers.OSValidator.isWindows() || Helpers.OSValidator.isMac()) {
+                    if (Helpers.OSValidator.isWindows()) {
                         setVisible(false);
                         getContentPane().remove(GameFrame.getInstance().getTapete());
                         full_screen_frame = new JFrame();
@@ -380,7 +414,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 } else {
 
-                    if (Helpers.OSValidator.isWindows() || Helpers.OSValidator.isMac()) {
+                    if (Helpers.OSValidator.isWindows()) {
 
                         full_screen_frame.getContentPane().remove(GameFrame.getInstance().getTapete());
                         full_screen_frame.setVisible(false);
@@ -411,8 +445,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 }
 
-                full_screen_menu.setEnabled(true);
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                full_screen_menu.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
 
                 full_screen = !full_screen;
 
@@ -1342,7 +1376,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     tapete.getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR"));
                 }
 
-                full_screen_menu.setEnabled(true);
+                full_screen_menu.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
 
                 updateSoundIcon();
 

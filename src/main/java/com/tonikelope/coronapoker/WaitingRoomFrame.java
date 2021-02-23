@@ -16,7 +16,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import com.dosse.upnp.UPnP;
 import com.tonikelope.coronahmac.M;
 import java.awt.Dimension;
 import java.awt.Image;
@@ -108,6 +107,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile int pong;
     private volatile String video_chat_link = null;
     private volatile boolean chat_enabled = true;
+    private volatile boolean upnp = false;
+    private volatile int server_port = 0;
 
     public boolean isChat_enabled() {
         return chat_enabled;
@@ -167,6 +168,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public boolean isUnsecure_server() {
         return unsecure_server;
+    }
+
+    public int getServer_port() {
+        return server_port;
+    }
+
+    public boolean isUpnp() {
+        return upnp;
     }
 
     public void setUnsecure_server(boolean val) {
@@ -1529,10 +1538,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     }
                 });
 
-                boolean upnp = false;
-
-                int puerto = 0;
-
                 while (!exit) {
 
                     String recibido = "";
@@ -1542,33 +1547,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     try {
                         String[] direccion = server_ip_port.trim().split(":");
 
-                        puerto = Integer.valueOf(direccion[1]);
+                        server_port = Integer.valueOf(direccion[1]);
 
-                        if ((upnp = UPnP.isUPnPAvailable())) {
-
-                            if (!UPnP.isMappedTCP(puerto)) {
-                                if (UPnP.openPortTCP(puerto)) {
-
-                                    Logger.getLogger(Init.class.getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP " + String.valueOf(puerto));
-
-                                } else {
-                                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP " + String.valueOf(puerto));
-                                    upnp = false;
-                                }
-
-                            } else {
-                                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP " + String.valueOf(puerto));
-                            }
-
-                        } else {
-                            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "UPnP NO DISPONIBLE");
-                        }
-
-                        final boolean upnp_ok = upnp;
+                        upnp = Helpers.UPnPOpen(server_port);
 
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
-                                status1.setText(stat + " (UPnP" + (upnp_ok ? " OK)" : " NO)"));
+                                status1.setText(stat + " (UPnP" + (upnp ? " OK)" : " NO)"));
                             }
                         });
 
@@ -1576,7 +1561,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             Helpers.mostrarMensajeInformativo(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás mapearlo manualmente en tu router)");
                         }
 
-                        server_socket = new ServerSocket(puerto);
+                        server_socket = new ServerSocket(server_port);
 
                         while (!server_socket.isClosed()) {
 
@@ -1830,11 +1815,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     }
                 }
 
-                if (upnp && UPnP.isMappedTCP(puerto)) {
-                    if (UPnP.closePortTCP(puerto)) {
-                        Logger.getLogger(Init.class.getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP " + String.valueOf(puerto));
-                    }
-                }
+                Helpers.UPnPClose(server_port);
             }
         });
     }
@@ -2761,14 +2742,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_tts_warningMouseClicked
 
     private void status1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_status1MouseClicked
-        try {
-            // TODO add your handling code here:
 
-            Helpers.copyTextToClipboard("INTERNET -> " + Helpers.getMyPublicIP() + ":" + String.valueOf(server_socket.getLocalPort()) + "\n\nRED LOCAL -> " + InetAddress.getLocalHost().getHostAddress() + ":" + String.valueOf(server_socket.getLocalPort()));
-        } catch (UnknownHostException ex) {
-            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+        if (server) {
+            try {
+                // TODO add your handling code here:
+
+                Helpers.copyTextToClipboard("INTERNET -> " + Helpers.getMyPublicIP() + ":" + String.valueOf(server_socket.getLocalPort()) + "\n\nRED LOCAL -> " + InetAddress.getLocalHost().getHostAddress() + ":" + String.valueOf(server_socket.getLocalPort()));
+                Helpers.mostrarMensajeInformativo(this, Translator.translate("DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES"));
+            } catch (UnknownHostException ex) {
+                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
-        Helpers.mostrarMensajeInformativo(this, Translator.translate("DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES"));
     }//GEN-LAST:event_status1MouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

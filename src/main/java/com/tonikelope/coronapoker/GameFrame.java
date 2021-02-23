@@ -1556,6 +1556,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 });
             }
 
+            Helpers.SQLITEVAC();
+
+            Helpers.forceCloseSQLITE();
+
+            if (isPartida_local() && getSala_espera().isUpnp()) {
+                Helpers.UPnPClose(getSala_espera().getServer_port());
+            }
+
             if (partida_terminada && GameFrame.CINEMATICAS) {
 
                 HashMap<KeyStroke, Action> actionMap = new HashMap<>();
@@ -1633,10 +1641,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Helpers.playWavResourceAndWait("misc/end.wav");
             }
-
-            Helpers.SQLITEVAC();
-
-            Helpers.forceCloseSQLITE();
 
             System.exit(0); //No hay otra
         }

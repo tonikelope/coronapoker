@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker;
 
+import com.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Helpers.SPRNG;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
@@ -192,6 +193,52 @@ public class Helpers {
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
     public volatile static Boolean ctrlPressed = false;
     public volatile static BasicPlayer TTS_PLAYER = null;
+
+    public static boolean UPnPClose(int port) {
+
+        boolean ret = false;
+
+        if (UPnP.isMappedTCP(port)) {
+
+            if ((ret = UPnP.closePortTCP(port))) {
+
+                Logger.getLogger(Init.class.getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP " + String.valueOf(port));
+
+            } else {
+
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, "ERROR al (Des)mapear por UPnP el puerto TCP " + String.valueOf(port));
+            }
+        }
+
+        return ret;
+    }
+
+    public static boolean UPnPOpen(int port) {
+
+        boolean upnp;
+
+        if ((upnp = UPnP.isUPnPAvailable())) {
+
+            if (!UPnP.isMappedTCP(port)) {
+                if (UPnP.openPortTCP(port)) {
+
+                    Logger.getLogger(Init.class.getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP " + String.valueOf(port));
+
+                } else {
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP " + String.valueOf(port));
+                    upnp = false;
+                }
+
+            } else {
+                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP " + String.valueOf(port));
+            }
+
+        } else {
+            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "UPnP NO DISPONIBLE");
+        }
+
+        return upnp;
+    }
 
     public static void antiScreensaver() {
 

@@ -1632,6 +1632,10 @@ public class Crupier implements Runnable {
 
         HashMap<String, Object> map = sqlRecoverGameBalance();
 
+        if ((Long) map.get("hand_end") != 0L) {
+            saltar_primera_mano = true;
+        }
+
         this.sqlite_id_hand = (int) map.get("hand_id");
         GameFrame.BUYIN = (int) map.get("buyin");
         GameFrame.REBUY = (boolean) map.get("rebuy");
@@ -2079,15 +2083,7 @@ public class Crupier implements Runnable {
                 }
             });
 
-            if ((saltar_mano_recover = recuperarDatosClavePartida())) {
-
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "NO SE PUEDE RECUPERAR LA MANO EN CURSO PORQUE FALTAN JUGADORES DE LA MANO ANTERIOR");
-                    }
-                });
-
-            }
+            saltar_mano_recover = recuperarDatosClavePartida();
 
             if (getJugadoresActivos() > 1 && !saltar_mano_recover) {
 
@@ -4338,7 +4334,7 @@ public class Crupier implements Runnable {
 
         try {
 
-            String sql = "select hand.id as hand_id, server, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, hand.blinds_double as blinds_double, hand.dealer as dealer from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
+            String sql = "select hand.id as hand_id, hand.end as hand_end, server, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, hand.blinds_double as blinds_double, hand.dealer as dealer from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -4356,6 +4352,7 @@ public class Crupier implements Runnable {
 
             map = new HashMap<>();
             map.put("hand_id", rs.getInt("hand_id"));
+            map.put("hand_end", rs.getLong("hand_end"));
             map.put("server", rs.getString("server"));
             map.put("buyin", rs.getInt("buyin"));
             map.put("rebuy", rs.getBoolean("rebuy"));

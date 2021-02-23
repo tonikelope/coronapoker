@@ -22,6 +22,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás mapearlo manualmente en tu router)", "IT HAS NOT BEEN POSSIBLE TO AUTOMATICALLY MAP THE PORT USING UPnP (If you want to share the game over the Internet you will have to map it manually in your router)"},
+            {"DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES", "CONNECTION INFO COPIED TO CLIPBOARD"},
             {"HA FALLADO LA AUTO-RECONEXIÓN. ¿QUIERES INTENTAR UNA RECONEXIÓN MANUAL?", "AUTO-RECONNECTION FAILED. DO YOU WANT TO TRY A MANUAL RECONNECTION?"},
             {"HAS PERDIDO LA CONEXIÓN CON EL SERVIDOR. ¡ADIÓS!", "YOU HAVE LOST THE CONNECTION TO THE SERVER. BYE!"},
             {"Aviso: la privacidad del CHAT no está garantizada si algún jugador usa la función de voz TTS (click para más info).", "Notice: CHAT privacy is not guaranteed if any player uses the TTS voice function (click for more info)."},

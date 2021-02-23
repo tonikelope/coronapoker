@@ -46,8 +46,8 @@ import javax.swing.UIManager;
 public class Init extends javax.swing.JFrame {
 
     public static final boolean DEV_MODE = false;
-    public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
+    public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;
     public static volatile boolean INIT = false;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";

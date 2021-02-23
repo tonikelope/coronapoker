@@ -269,7 +269,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         buyin_label = new javax.swing.JLabel();
         doblar_checkbox = new javax.swing.JCheckBox();
         doblar_ciegas_spinner = new javax.swing.JSpinner();
-        jLabel3 = new javax.swing.JLabel();
         recover_checkbox = new javax.swing.JCheckBox();
         rebuy_checkbox = new javax.swing.JCheckBox();
         ciegas_label = new javax.swing.JLabel();
@@ -377,11 +376,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         doblar_ciegas_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         doblar_ciegas_spinner.setDoubleBuffered(true);
 
-        jLabel3.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
-        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel3.setText("Nota: no olvides mapear el puerto en tu router si quieres compartir la timba por Internet");
-        jLabel3.setDoubleBuffered(true);
-
         recover_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         recover_checkbox.setText("CONTINUAR TIMBA");
         recover_checkbox.setToolTipText("El MODO RECUPERACIÓN permite arrancar una timba que se interrumpió previamente");
@@ -441,8 +435,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             .addGroup(config_partida_panelLayout.createSequentialGroup()
                 .addComponent(random_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(random_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(random_combobox, 0, 237, Short.MAX_VALUE))
             .addGroup(config_partida_panelLayout.createSequentialGroup()
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -475,9 +468,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         config_partida_panelLayout.setVerticalGroup(
             config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(config_partida_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(jLabel3)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addContainerGap()
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(random_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(random_label))
@@ -890,7 +881,6 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JComboBox<String> game_combo;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
-    private javax.swing.JLabel jLabel3;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;

@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.dosse.upnp.UPnP;
 import com.tonikelope.coronahmac.M;
 import java.awt.Dimension;
 import java.awt.Image;
@@ -29,9 +30,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.KeyException;
 import java.security.KeyFactory;
@@ -1518,6 +1521,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.threadRun(new Runnable() {
             public void run() {
 
+                String stat = status1.getText();
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+                        status1.setText("UPnP checking...");
+                    }
+                });
+
+                boolean upnp = false;
+
+                int puerto = 0;
+
                 while (!exit) {
 
                     String recibido = "";
@@ -1527,7 +1542,41 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     try {
                         String[] direccion = server_ip_port.trim().split(":");
 
-                        server_socket = new ServerSocket(Integer.valueOf(direccion[1]));
+                        puerto = Integer.valueOf(direccion[1]);
+
+                        if ((upnp = UPnP.isUPnPAvailable())) {
+
+                            if (!UPnP.isMappedTCP(puerto)) {
+                                if (UPnP.openPortTCP(puerto)) {
+
+                                    Logger.getLogger(Init.class.getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP " + String.valueOf(puerto));
+
+                                } else {
+                                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP " + String.valueOf(puerto));
+                                    upnp = false;
+                                }
+
+                            } else {
+                                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP " + String.valueOf(puerto));
+                            }
+
+                        } else {
+                            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "UPnP NO DISPONIBLE");
+                        }
+
+                        final boolean upnp_ok = upnp;
+
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+                                status1.setText(stat + " (UPnP" + (upnp_ok ? " OK)" : " NO)"));
+                            }
+                        });
+
+                        if (!upnp) {
+                            Helpers.mostrarMensajeInformativo(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás mapearlo manualmente en tu router)");
+                        }
+
+                        server_socket = new ServerSocket(puerto);
 
                         while (!server_socket.isClosed()) {
 
@@ -1778,6 +1827,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             }
                         });
+                    }
+                }
+
+                if (upnp && UPnP.isMappedTCP(puerto)) {
+                    if (UPnP.closePortTCP(puerto)) {
+                        Logger.getLogger(Init.class.getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP " + String.valueOf(puerto));
                     }
                 }
             }
@@ -2073,7 +2128,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         status1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         status1.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
         status1.setText("1.1.1.1");
+        status1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         status1.setDoubleBuffered(true);
+        status1.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                status1MouseClicked(evt);
+            }
+        });
 
         sound_icon.setBackground(new java.awt.Color(153, 153, 153));
         sound_icon.setToolTipText("Click para activar/desactivar el sonido");
@@ -2698,6 +2759,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.mostrarMensajeInformativo(this,
                 "Aunque CoronaPoker usa cifrado extremo a extremo en todas las comunicaciones, el chat de\nvoz utiliza APIs externas TTS para convertir el texto en audio, por lo que los mensajes\nenviados a esos servidores podrían ser (en teoría) leidos por terceros.\n\nPOR FAVOR, TENLO EN CUENTA A LA HORA DE USAR EL CHAT");
     }//GEN-LAST:event_tts_warningMouseClicked
+
+    private void status1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_status1MouseClicked
+        try {
+            // TODO add your handling code here:
+
+            Helpers.copyTextToClipboard("INTERNET -> " + Helpers.getMyPublicIP() + ":" + String.valueOf(server_socket.getLocalPort()) + "\n\nRED LOCAL -> " + InetAddress.getLocalHost().getHostAddress() + ":" + String.valueOf(server_socket.getLocalPort()));
+        } catch (UnknownHostException ex) {
+            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        Helpers.mostrarMensajeInformativo(this, Translator.translate("DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES"));
+    }//GEN-LAST:event_status1MouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

@@ -1568,6 +1568,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         Helpers.PROPERTIES.setProperty("upnp", String.valueOf(upnp));
 
+                        Helpers.savePropertiesFile();
+
                         server_socket = new ServerSocket(server_port);
 
                         while (!server_socket.isClosed()) {

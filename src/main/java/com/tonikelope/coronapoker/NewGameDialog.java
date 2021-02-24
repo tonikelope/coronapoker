@@ -73,13 +73,19 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         initComponents();
 
+        partida_local = loc;
+
         game_combo.setEnabled(false);
 
         password.setEnabled(false);
 
         manos_spinner.setEnabled(false);
 
-        upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "true")));
+        if (partida_local) {
+            upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "true")));
+        } else {
+            upnp_checkbox.setEnabled(false);
+        }
 
         class VamosButtonListener implements DocumentListener {
 
@@ -98,8 +104,6 @@ public class NewGameDialog extends javax.swing.JDialog {
                 password.setEnabled(pass_text.getPassword().length > 0);
             }
         }
-
-        partida_local = loc;
 
         JTextFieldRegularPopupMenu.addTo(server_ip_textfield);
         server_ip_textfield.getDocument().addDocumentListener(new VamosButtonListener());

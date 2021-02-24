@@ -2263,7 +2263,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         GameFrame.SONIDOS = this.sonidos_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("sonidos", GameFrame.SONIDOS ? "true" : "false");
+        Helpers.PROPERTIES.setProperty("sonidos", String.valueOf(GameFrame.SONIDOS));
 
         Helpers.savePropertiesFile();
 
@@ -2305,7 +2305,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         tapete.getCommunityCards().getTiempo_partida().setVisible(time_menu.isSelected());
 
-        Helpers.PROPERTIES.setProperty("show_time", this.time_menu.isSelected() ? "true" : "false");
+        Helpers.PROPERTIES.setProperty("show_time", String.valueOf(this.time_menu.isSelected()));
 
         Helpers.savePropertiesFile();
 
@@ -2316,7 +2316,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
         GameFrame.SONIDOS_CHORRA = this.sonidos_chorra_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("sonidos_chorra", this.sonidos_chorra_menu.isSelected() ? "true" : "false");
+        Helpers.PROPERTIES.setProperty("sonidos_chorra", String.valueOf(this.sonidos_chorra_menu.isSelected()));
 
         Helpers.savePropertiesFile();
 
@@ -2328,7 +2328,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
         GameFrame.MUSICA_AMBIENTAL = this.ascensor_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("sonido_ascensor", this.ascensor_menu.isSelected() ? "true" : "false");
+        Helpers.PROPERTIES.setProperty("sonido_ascensor", String.valueOf(this.ascensor_menu.isSelected()));
 
         Helpers.savePropertiesFile();
 
@@ -2400,7 +2400,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         GameFrame.AUTO_REBUY = this.auto_rebuy_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("auto_rebuy", this.auto_rebuy_menu.isSelected() ? "true" : "false");
+        Helpers.PROPERTIES.setProperty("auto_rebuy", String.valueOf(this.auto_rebuy_menu.isSelected()));
 
         Helpers.savePropertiesFile();
 
@@ -2596,7 +2596,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         GameFrame.SONIDOS_TTS = this.tts_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("sonidos_tts", this.tts_menu.isSelected() ? "true" : "false");
+        Helpers.PROPERTIES.setProperty("sonidos_tts", String.valueOf(this.tts_menu.isSelected()));
 
         Helpers.savePropertiesFile();
 

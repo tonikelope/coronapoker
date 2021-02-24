@@ -274,8 +274,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     /**
      * Creates new form SalaEspera
      */
-    public WaitingRoomFrame(Init ventana_ini, boolean local, String nick, String servidor_ip_port, File avatar, String pass) {
+    public WaitingRoomFrame(Init ventana_ini, boolean local, String nick, String servidor_ip_port, File avatar, String pass, boolean use_upnp) {
         THIS = this;
+        upnp = use_upnp;
         password = pass;
         partida_empezada = false;
         partida_empezando = false;
@@ -1530,14 +1531,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.threadRun(new Runnable() {
             public void run() {
 
-                String stat = status1.getText();
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        status1.setText("UPnP checking...");
-                    }
-                });
-
                 while (!exit) {
 
                     String recibido = "";
@@ -1549,16 +1542,30 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         server_port = Integer.valueOf(direccion[1]);
 
-                        upnp = Helpers.UPnPOpen(server_port);
+                        if (upnp) {
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                status1.setText(stat + " (UPnP" + (upnp ? " OK)" : " NO)"));
+                            String stat = status1.getText();
+
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+                                    status1.setText(Translator.translate("Probando UPnP..."));
+                                }
+                            });
+
+                            upnp = Helpers.UPnPOpen(server_port);
+
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+                                    status1.setText(stat + " (UPnP" + (upnp ? " OK)" : " ERROR)"));
+                                }
+                            });
+
+                            if (!upnp) {
+                                Helpers.mostrarMensajeInformativo(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás mapearlo manualmente en tu router)");
                             }
-                        });
 
-                        if (!upnp) {
-                            Helpers.mostrarMensajeInformativo(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás mapearlo manualmente en tu router)");
+                            Helpers.PROPERTIES.setProperty("upnp", String.valueOf(upnp));
+
                         }
 
                         server_socket = new ServerSocket(server_port);

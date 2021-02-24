@@ -1,6 +1,6 @@
 package com.tonikelope.coronapoker;
 
-import com.dosse.upnp.UPnP;
+import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Helpers.SPRNG;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;

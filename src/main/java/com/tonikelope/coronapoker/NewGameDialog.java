@@ -438,7 +438,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             .addGroup(config_partida_panelLayout.createSequentialGroup()
                 .addComponent(random_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(random_combobox, 0, 355, Short.MAX_VALUE))
+                .addComponent(random_combobox, 0, 192, Short.MAX_VALUE))
             .addGroup(config_partida_panelLayout.createSequentialGroup()
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -577,6 +577,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         );
 
         upnp_checkbox.setText("UPnP");
+        upnp_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         upnp_checkbox.setDoubleBuffered(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());

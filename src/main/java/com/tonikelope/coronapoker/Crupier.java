@@ -1677,9 +1677,7 @@ public class Crupier implements Runnable {
 
                     jugador.setBet(0f);
 
-                    if (Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
-                        jugador.setSpectator(null);
-                    } else if (nick2player.get(dealer) == null) {
+                    if (nick2player.get(dealer) == null) {
                         dealer = jugador.getNickname();
                     }
                     this.auditor.put(name, new Float[]{Float.parseFloat(partes[1]), Float.parseFloat(partes[2])});
@@ -2084,6 +2082,8 @@ public class Crupier implements Runnable {
             });
 
             saltar_mano_recover = recuperarDatosClavePartida();
+
+            checkRebuyTime();
 
             if (getJugadoresActivos() > 1 && !saltar_mano_recover) {
 
@@ -5736,173 +5736,7 @@ public class Crupier implements Runnable {
 
                         if (!this.isLast_hand()) {
 
-                            ArrayList<String> rebuy_players = new ArrayList<>();
-
-                            for (Player jugador : GameFrame.getInstance().getJugadores()) {
-
-                                if (jugador != GameFrame.getInstance().getLocalPlayer() && jugador.isActivo() && Helpers.float1DSecureCompare(0f, Helpers.floatClean1D(jugador.getStack()) + Helpers.floatClean1D(jugador.getPagar())) == 0) {
-
-                                    if (GameFrame.REBUY) {
-                                        rebuy_players.add(jugador.getNickname());
-                                    } else {
-                                        jugador.setSpectator(null);
-                                    }
-
-                                }
-                            }
-
-                            this.rebuy_time = !rebuy_players.isEmpty();
-
-                            if (GameFrame.getInstance().getLocalPlayer().isActivo() && Helpers.float1DSecureCompare(Helpers.floatClean1D(GameFrame.getInstance().getLocalPlayer().getStack()) + Helpers.floatClean1D(GameFrame.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
-
-                                this.rebuy_time = true;
-
-                                if (GameFrame.REBUY) {
-
-                                    if (!GameFrame.AUTO_REBUY) {
-
-                                        Helpers.GUIRunAndWait(new Runnable() {
-                                            public void run() {
-                                                gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true);
-
-                                                GameFrame.getInstance().setGame_over_dialog(true);
-
-                                                gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
-
-                                                gameover_dialog.setVisible(true);
-                                            }
-                                        });
-
-                                        GameFrame.getInstance().setGame_over_dialog(false);
-
-                                        if (gameover_dialog.isContinua()) {
-
-                                            try {
-
-                                                rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
-
-                                                rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(), (int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
-
-                                                String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#" + String.valueOf((int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
-
-                                                if (GameFrame.getInstance().isPartida_local()) {
-                                                    this.broadcastGAMECommandFromServer(comando, null);
-                                                } else {
-                                                    this.sendGAMECommandToServer(comando);
-                                                }
-                                            } catch (UnsupportedEncodingException ex) {
-                                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                            }
-                                        } else {
-                                            try {
-
-                                                rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
-
-                                                String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#0";
-
-                                                if (GameFrame.getInstance().isPartida_local()) {
-                                                    this.broadcastGAMECommandFromServer(comando, null);
-                                                } else {
-                                                    this.sendGAMECommandToServer(comando);
-                                                }
-                                            } catch (UnsupportedEncodingException ex) {
-                                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                            }
-
-                                            if (rebuy_now.containsKey(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-
-                                                rebuy_now.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
-
-                                                Helpers.GUIRun(new Runnable() {
-                                                    public void run() {
-                                                        GameFrame.getInstance().getLocalPlayer().getPlayer_buyin().setBackground(Helpers.float1DSecureCompare((float) GameFrame.BUYIN, GameFrame.getInstance().getLocalPlayer().getBuyin()) == 0 ? new Color(204, 204, 204) : Color.cyan);
-                                                        GameFrame.getInstance().getLocalPlayer().getPlayer_buyin().setText(String.valueOf(GameFrame.getInstance().getLocalPlayer().getBuyin()));
-                                                    }
-                                                });
-                                            }
-
-                                            GameFrame.getInstance().getLocalPlayer().setSpectator(null);
-
-                                            GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
-                                        }
-
-                                    } else {
-
-                                        try {
-
-                                            rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
-
-                                            rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.BUYIN);
-
-                                            String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"));
-
-                                            if (GameFrame.getInstance().isPartida_local()) {
-                                                this.broadcastGAMECommandFromServer(comando, null);
-                                            } else {
-                                                this.sendGAMECommandToServer(comando);
-                                            }
-                                        } catch (UnsupportedEncodingException ex) {
-                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
-                                    }
-
-                                } else {
-
-                                    Helpers.GUIRunAndWait(new Runnable() {
-                                        public void run() {
-                                            gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true, true);
-
-                                            GameFrame.getInstance().setGame_over_dialog(true);
-                                            gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
-                                            gameover_dialog.setVisible(true);
-                                        }
-                                    });
-
-                                    GameFrame.getInstance().setGame_over_dialog(false);
-
-                                    GameFrame.getInstance().getLocalPlayer().setSpectator(null);
-
-                                    GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
-                                }
-
-                            }
-
-                            if (!rebuy_players.isEmpty()) {
-
-                                //Enviamos los REBUYS de los bots
-                                if (GameFrame.getInstance().isPartida_local()) {
-
-                                    for (Player jugador : GameFrame.getInstance().getJugadores()) {
-
-                                        if (rebuy_players.contains(jugador.getNickname()) && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
-
-                                            int res = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname());
-
-                                            rebuy_players.remove(jugador.getNickname());
-
-                                            rebuy_now.put(jugador.getNickname(), GameFrame.BUYIN);
-
-                                            try {
-                                                String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!GameFrame.REBUY || res != 0) ? "#0" : "#" + String.valueOf(GameFrame.BUYIN));
-
-                                                this.broadcastGAMECommandFromServer(comando, null);
-
-                                            } catch (UnsupportedEncodingException ex) {
-                                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                            }
-
-                                            if (res != 0) {
-                                                jugador.setSpectator(null);
-                                            }
-
-                                        }
-                                    }
-                                }
-
-                                this.recibirRebuys(rebuy_players);
-                            }
-
-                            this.rebuy_time = false;
+                            checkRebuyTime();
 
                             exitSpectatorBots();
 
@@ -5963,6 +5797,178 @@ public class Crupier implements Runnable {
         }
 
         GameFrame.getInstance().finTransmision(fin_de_la_transmision);
+
+    }
+
+    public void checkRebuyTime() {
+
+        ArrayList<String> rebuy_players = new ArrayList<>();
+
+        for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+            if (jugador != GameFrame.getInstance().getLocalPlayer() && jugador.isActivo() && Helpers.float1DSecureCompare(0f, Helpers.floatClean1D(jugador.getStack()) + Helpers.floatClean1D(jugador.getPagar())) == 0) {
+
+                if (GameFrame.REBUY) {
+                    rebuy_players.add(jugador.getNickname());
+                } else {
+                    jugador.setSpectator(null);
+                }
+
+            }
+        }
+
+        this.rebuy_time = !rebuy_players.isEmpty();
+
+        if (GameFrame.getInstance().getLocalPlayer().isActivo() && Helpers.float1DSecureCompare(Helpers.floatClean1D(GameFrame.getInstance().getLocalPlayer().getStack()) + Helpers.floatClean1D(GameFrame.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
+
+            this.rebuy_time = true;
+
+            if (GameFrame.REBUY) {
+
+                if (!GameFrame.AUTO_REBUY) {
+
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        public void run() {
+                            gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true);
+
+                            GameFrame.getInstance().setGame_over_dialog(true);
+
+                            gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
+
+                            gameover_dialog.setVisible(true);
+                        }
+                    });
+
+                    GameFrame.getInstance().setGame_over_dialog(false);
+
+                    if (gameover_dialog.isContinua()) {
+
+                        try {
+
+                            rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+                            rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(), (int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
+
+                            String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#" + String.valueOf((int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
+
+                            if (GameFrame.getInstance().isPartida_local()) {
+                                this.broadcastGAMECommandFromServer(comando, null);
+                            } else {
+                                this.sendGAMECommandToServer(comando);
+                            }
+                        } catch (UnsupportedEncodingException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    } else {
+                        try {
+
+                            rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+                            String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#0";
+
+                            if (GameFrame.getInstance().isPartida_local()) {
+                                this.broadcastGAMECommandFromServer(comando, null);
+                            } else {
+                                this.sendGAMECommandToServer(comando);
+                            }
+                        } catch (UnsupportedEncodingException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                        if (rebuy_now.containsKey(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+
+                            rebuy_now.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+                                    GameFrame.getInstance().getLocalPlayer().getPlayer_buyin().setBackground(Helpers.float1DSecureCompare((float) GameFrame.BUYIN, GameFrame.getInstance().getLocalPlayer().getBuyin()) == 0 ? new Color(204, 204, 204) : Color.cyan);
+                                    GameFrame.getInstance().getLocalPlayer().getPlayer_buyin().setText(String.valueOf(GameFrame.getInstance().getLocalPlayer().getBuyin()));
+                                }
+                            });
+                        }
+
+                        GameFrame.getInstance().getLocalPlayer().setSpectator(null);
+
+                        GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
+                    }
+
+                } else {
+
+                    try {
+
+                        rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+                        rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.BUYIN);
+
+                        String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"));
+
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            this.broadcastGAMECommandFromServer(comando, null);
+                        } else {
+                            this.sendGAMECommandToServer(comando);
+                        }
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+
+            } else {
+
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+                        gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true, true);
+
+                        GameFrame.getInstance().setGame_over_dialog(true);
+                        gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
+                        gameover_dialog.setVisible(true);
+                    }
+                });
+
+                GameFrame.getInstance().setGame_over_dialog(false);
+
+                GameFrame.getInstance().getLocalPlayer().setSpectator(null);
+
+                GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
+            }
+
+        }
+
+        if (!rebuy_players.isEmpty()) {
+
+            //Enviamos los REBUYS de los bots
+            if (GameFrame.getInstance().isPartida_local()) {
+
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                    if (rebuy_players.contains(jugador.getNickname()) && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
+
+                        int res = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname());
+
+                        rebuy_players.remove(jugador.getNickname());
+
+                        rebuy_now.put(jugador.getNickname(), GameFrame.BUYIN);
+
+                        try {
+                            String comando = "REBUY#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + ((!GameFrame.REBUY || res != 0) ? "#0" : "#" + String.valueOf(GameFrame.BUYIN));
+
+                            this.broadcastGAMECommandFromServer(comando, null);
+
+                        } catch (UnsupportedEncodingException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                        if (res != 0) {
+                            jugador.setSpectator(null);
+                        }
+
+                    }
+                }
+            }
+
+            this.recibirRebuys(rebuy_players);
+        }
+
+        this.rebuy_time = false;
 
     }
 

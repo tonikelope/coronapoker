@@ -23,7 +23,7 @@ public class Translator {
 
         String[][] rosetta = {
             {"Probando UPnP...", "Testing UPnP..."},
-            {"NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás mapearlo manualmente en tu router)", "IT HAS NOT BEEN POSSIBLE TO AUTOMATICALLY MAP THE PORT USING UPnP (If you want to share the game over the Internet you will have to map it manually in your router)"},
+            {"NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás activar UPnP en tu router o mapear el puerto de forma manual)", "IT HAS NOT BEEN POSSIBLE TO AUTOMATICALLY MAP THE PORT USING UPnP (If you want to share the game over the Internet you will have to activate UPnP in your router or map the port manually)"},
             {"DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES", "CONNECTION INFO COPIED TO CLIPBOARD"},
             {"HA FALLADO LA AUTO-RECONEXIÓN. ¿QUIERES INTENTAR UNA RECONEXIÓN MANUAL?", "AUTO-RECONNECTION FAILED. DO YOU WANT TO TRY A MANUAL RECONNECTION?"},
             {"HAS PERDIDO LA CONEXIÓN CON EL SERVIDOR. ¡ADIÓS!", "YOU HAVE LOST THE CONNECTION TO THE SERVER. BYE!"},

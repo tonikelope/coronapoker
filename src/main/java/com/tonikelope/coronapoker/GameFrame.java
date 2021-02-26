@@ -19,7 +19,9 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.PreparedStatement;
@@ -145,15 +147,44 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void enableMacNativeFullScreen(Window window) {
 
-        String className = "com.apple.eawt.FullScreenUtilities";
-        String methodName = "setWindowCanFullScreen";
-
         try {
-            Class<?> clazz = Class.forName(className);
 
-            Method method = clazz.getMethod(methodName, new Class<?>[]{Window.class, boolean.class});
+            Method setWindowCanFullScreen = Class.forName("com.apple.eawt.FullScreenUtilities").getMethod("setWindowCanFullScreen", new Class<?>[]{Window.class, boolean.class});
 
-            method.invoke(null, window, true);
+            setWindowCanFullScreen.invoke(null, window, true);
+
+            Method addFullScreenListenerTo = Class.forName("com.apple.eawt.FullScreenUtilities").getMethod("addFullScreenListenerTo", new Class<?>[]{Window.class, Class.forName("com.apple.eawt.FullScreenListener")});
+
+            Object proxyFullScreenListener = Proxy.newProxyInstance(Class.forName("com.apple.eawt.FullScreenListener").getClassLoader(), new Class[]{Class.forName("com.apple.eawt.FullScreenListener")}, new InvocationHandler() {
+
+                @Override
+                public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+
+                    if (method.getName().equals("windowEnteredFullScreen")) {
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                menu_bar.setVisible(false);
+                            }
+                        });
+
+                    } else if (method.getName().equals("windowExitedFullScreen")) {
+                        
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                menu_bar.setVisible(true);
+                            }
+                        });
+                    }
+
+                    return true;
+                }
+
+            });
+
+            addFullScreenListenerTo.invoke(null, window, Class.forName("com.apple.eawt.FullScreenListener").cast(proxyFullScreenListener));
 
             GameFrame.MAC_NATIVE_FULLSCREEN = true;
 

@@ -143,33 +143,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return lock_pause;
     }
 
-    public void MacNativeFullScreen(Window window) {
+    public void enableMacNativeFullScreen(Window window) {
 
         String className = "com.apple.eawt.FullScreenUtilities";
         String methodName = "setWindowCanFullScreen";
 
         try {
             Class<?> clazz = Class.forName(className);
+
             Method method = clazz.getMethod(methodName, new Class<?>[]{Window.class, boolean.class});
+
             method.invoke(null, window, true);
 
             GameFrame.MAC_NATIVE_FULLSCREEN = true;
 
-        } catch (Throwable t) {
-            System.err.println("Full screen mode is not supported");
-            t.printStackTrace();
+        } catch (Exception e) {
+            Logger.getLogger(GameFrame.class.getName()).log(Level.WARNING, null, e);
+            GameFrame.MAC_NATIVE_FULLSCREEN = false;
         }
 
-        GameFrame.MAC_NATIVE_FULLSCREEN = false;
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                full_screen_menu.setEnabled(false);
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
-            }
-        });
     }
 
     public void autoZoomFullScreen() {
@@ -208,7 +200,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 } else {
 
-                    GameFrame.getInstance().MacNativeFullScreen(GameFrame.getInstance());
+                    GameFrame.getInstance().enableMacNativeFullScreen(GameFrame.getInstance());
 
                     Helpers.GUIRunAndWait(new Runnable() {
                         @Override

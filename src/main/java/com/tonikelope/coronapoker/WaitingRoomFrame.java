@@ -1561,7 +1561,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             });
 
                             if (!upnp) {
-                                Helpers.mostrarMensajeInformativo(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás mapearlo manualmente en tu router)");
+                                Helpers.mostrarMensajeError(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás activar UPnP en tu router o mapear el puerto de forma manual)");
                             }
 
                         }

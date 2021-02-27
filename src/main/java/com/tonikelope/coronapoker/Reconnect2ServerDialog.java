@@ -23,7 +23,7 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 getIp_port().setEnabled(true);
-                getYes().setText("RECONECTAR");
+                getYes().setText(Translator.translate("RECONECTAR"));
                 getYes().setEnabled(true);
                 getStatus().setEnabled(true);
                 getStatus2().setEnabled(true);
@@ -71,6 +71,8 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         ip_port.setText(ip_p);
         barra.setVisible(false);
         barra.setIndeterminate(true);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
         pack();
 
     }
@@ -91,16 +93,12 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         status2 = new javax.swing.JLabel();
         exit_button = new javax.swing.JButton();
 
+        setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setUndecorated(true);
         setResizable(false);
         addComponentListener(new java.awt.event.ComponentAdapter() {
             public void componentShown(java.awt.event.ComponentEvent evt) {
                 formComponentShown(evt);
-            }
-        });
-        addWindowListener(new java.awt.event.WindowAdapter() {
-            public void windowClosing(java.awt.event.WindowEvent evt) {
-                formWindowClosing(evt);
             }
         });
 
@@ -187,7 +185,7 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         this.status.setEnabled(false);
         this.status2.setEnabled(false);
         this.yes.setEnabled(false);
-        this.yes.setText("Reconectando...");
+        this.yes.setText(Translator.translate("Reconectando..."));
         this.barra.setVisible(true);
         this.reconectar = true;
         pack();
@@ -200,13 +198,6 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
             }
         });
     }//GEN-LAST:event_yesActionPerformed
-
-    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
-        // TODO add your handling code here:
-        if (WaitingRoomFrame.isPartida_empezada()) {
-            GameFrame.getInstance().getExit_menu().doClick();
-        }
-    }//GEN-LAST:event_formWindowClosing
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:

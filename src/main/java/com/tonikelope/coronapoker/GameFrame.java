@@ -170,7 +170,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         });
 
                     } else if (method.getName().equals("windowExitedFullScreen")) {
-                        
+
                         Helpers.GUIRun(new Runnable() {
                             @Override
                             public void run() {

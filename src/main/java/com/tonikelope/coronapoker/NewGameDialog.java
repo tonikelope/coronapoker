@@ -152,7 +152,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         if (partida_local) {
-            server_ip_textfield.setText("localhost");
+            server_ip_textfield.setText(Helpers.PROPERTIES.getProperty("local_ip", "localhost"));
             server_ip_textfield.setEnabled(false);
             server_port_textfield.setText(Helpers.PROPERTIES.getProperty("local_port", String.valueOf(DEFAULT_PORT)));
             config_partida_panel.setVisible(true);
@@ -638,7 +638,12 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             Helpers.PROPERTIES.setProperty("nick", elnick);
 
-            Helpers.PROPERTIES.setProperty("server_ip", this.server_ip_textfield.getText().trim());
+            if (this.partida_local) {
+                Helpers.PROPERTIES.setProperty("local_ip", this.server_ip_textfield.getText().trim());
+            } else {
+
+                Helpers.PROPERTIES.setProperty("server_ip", this.server_ip_textfield.getText().trim());
+            }
 
             Helpers.PROPERTIES.setProperty(this.partida_local ? "local_port" : "server_port", this.server_port_textfield.getText().trim());
 

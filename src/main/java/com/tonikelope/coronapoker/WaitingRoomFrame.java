@@ -2083,6 +2083,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         avatar_label.setDoubleBuffered(true);
 
         pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
+        pass_icon.setToolTipText("Click para gestionar contraseña");
         pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         pass_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -2118,6 +2119,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         status1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         status1.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
         status1.setText("1.1.1.1");
+        status1.setToolTipText("Click para obtener datos de conexión");
         status1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         status1.setDoubleBuffered(true);
         status1.addMouseListener(new java.awt.event.MouseAdapter() {

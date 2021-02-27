@@ -606,13 +606,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         //Leemos el contenido del chat
                         String recibido;
 
-                        boolean ok_chat;
-
                         int conta_error = 0;
 
                         do {
 
-                            ok_chat = false;
+                            ok_rec = false;
 
                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Leyendo datos del chat...");
 
@@ -640,7 +638,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "HEMOS CONSEGUIDO RECONECTAR CORRECTAMENTE CON EL SERVIDOR");
 
-                                            ok_chat = true;
+                                            ok_rec = true;
 
                                         }
 
@@ -660,21 +658,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "EL SOCKET DE RECONEXiÓN RECIBIÓ NULL");
                             }
 
-                        } while (!ok_chat && conta_error < MAX_REC_SOCKET_ERROR && recibido != null);
+                        } while (!ok_rec && conta_error < MAX_REC_SOCKET_ERROR && recibido != null);
 
-                        if (ok_chat) {
-                            ok_rec = true;
-                        } else {
-                            if (local_client_socket != null && !local_client_socket.isClosed()) {
+                        if (!ok_rec && local_client_socket != null && !local_client_socket.isClosed()) {
 
-                                try {
-                                    local_client_socket.close();
+                            try {
+                                local_client_socket.close();
 
-                                } catch (Exception ex2) {
-                                }
-
-                                local_client_socket = null;
+                            } catch (Exception ex2) {
                             }
+
+                            local_client_socket = null;
                         }
 
                     } catch (Exception ex) {
@@ -1212,6 +1206,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             if (isPartida_empezada()) {
 
                                                 switch (subcomando) {
+
+                                                    case "PING":
+                                                        break;
+
                                                     case "VIDEOCHAT":
                                                         setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         break;
@@ -1786,6 +1784,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                                         }
                                     });
+
+                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " CONECTADO");
                                 }
 
                             } else {

@@ -138,7 +138,7 @@ public class PauseDialog extends javax.swing.JDialog {
 
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
         // TODO add your handling code here:
-        
+
         GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
     }//GEN-LAST:event_formMouseClicked
 

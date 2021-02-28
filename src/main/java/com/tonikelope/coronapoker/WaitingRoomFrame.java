@@ -187,6 +187,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             public void run() {
 
                 danger_server.setVisible(unsecure_server);
+                pack();
 
             }
         });
@@ -512,7 +513,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         synchronized (getLocalClientSocketLock()) {
 
             try {
-                WaitingRoomFrame tthis = this;
 
                 boolean ok_rec;
 
@@ -695,7 +695,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
-                                        reconnect_dialog = new Reconnect2ServerDialog(GameFrame.getInstance() != null ? GameFrame.getInstance() : tthis, true, server_ip_port);
+                                        reconnect_dialog = new Reconnect2ServerDialog(GameFrame.getInstance() != null ? GameFrame.getInstance() : THIS, true, server_ip_port);
                                         reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
                                         reconnect_dialog.setVisible(true);
 
@@ -860,8 +860,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void cliente() {
 
-        WaitingRoomFrame tthis = this;
-
         HashMap<String, Integer> last_received = new HashMap<>();
 
         Helpers.threadRun(new Runnable() {
@@ -963,37 +961,34 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     if (partes[0].equals("BADVERSION")) {
                         exit = true;
-                        Helpers.mostrarMensajeError(tthis, Translator.translate("Versión de CoronaPoker incorrecta") + "(" + partes[1] + ")");
-                    } else if (partes[0].equals("BADJARHMAC")) {
-                        exit = true;
-                        Helpers.mostrarMensajeError(tthis, "EL EJECUTABLE DE TU COPIA DEL JUEGO NO COINCIDE CON EL DEL SERVIDOR\n\n(Cuando esto pasa es porque alguna de las partes intenta hacer trampas con una versión hackeada del juego).");
+                        Helpers.mostrarMensajeError(THIS, Translator.translate("Versión de CoronaPoker incorrecta") + "(" + partes[1] + ")");
                     } else if (partes[0].equals("YOUARELATE")) {
                         exit = true;
-                        Helpers.mostrarMensajeError(tthis, "Llegas TARDE. La partida ya ha empezado.");
+                        Helpers.mostrarMensajeError(THIS, "Llegas TARDE. La partida ya ha empezado.");
 
                     } else if (partes[0].equals("NOSPACE")) {
                         exit = true;
-                        Helpers.mostrarMensajeError(tthis, "NO HAY SITIO");
+                        Helpers.mostrarMensajeError(THIS, "NO HAY SITIO");
 
                     } else if (partes[0].equals("NICKFAIL")) {
                         exit = true;
-                        Helpers.mostrarMensajeError(tthis, "El nick elegido ya lo está usando otro usuario.");
+                        Helpers.mostrarMensajeError(THIS, "El nick elegido ya lo está usando otro usuario.");
 
                     } else if (partes[0].equals("BADPASSWORD")) {
                         exit = true;
-                        Helpers.mostrarMensajeError(tthis, "PASSWORD INCORRECTA");
+                        Helpers.mostrarMensajeError(THIS, "PASSWORD INCORRECTA");
                     } else if (partes[0].equals("NICKOK")) {
 
                         String server_jar_hmac = M.J1(Base64.decodeBase64(jar_hmac), local_client_hmac_key.getEncoded());
 
                         if (!server_jar_hmac.equals(partes[2])) {
 
-                            tthis.setUnsecure_server(true);
+                            THIS.setUnsecure_server(true);
 
                             Helpers.threadRun(new Runnable() {
                                 public void run() {
 
-                                    Helpers.mostrarMensajeInformativo(tthis, "¡¡TEN CUIDADO!! ES MUY PROBABLE QUE EL SERVIDOR ESTÉ INTENTANDO HACER TRAMPAS.");
+                                    Helpers.mostrarMensajeInformativo(THIS, "CUIDADO: el ejecutable del juego del servidor es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)");
                                 }
                             });
                         }
@@ -1181,7 +1176,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                         exit = true;
 
-                                        Helpers.mostrarMensajeError(tthis, "El servidor ha cancelado la timba antes de empezar.");
+                                        Helpers.mostrarMensajeError(THIS, "El servidor ha cancelado la timba antes de empezar.");
 
                                     } else if (partes_comando[0].equals("KICKED")) {
 
@@ -1189,7 +1184,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                         Helpers.playWavResource("loser/payaso.wav");
 
-                                        Helpers.mostrarMensajeInformativo(tthis, "¡A LA PUTA CALLE!");
+                                        Helpers.mostrarMensajeInformativo(THIS, "¡A LA PUTA CALLE!");
 
                                     } else if (partes_comando[0].equals("GAME")) {
 
@@ -1390,7 +1385,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                             try {
                                                                 //Inicializamos partida
-                                                                new GameFrame(tthis, local_nick, false);
+                                                                new GameFrame(THIS, local_nick, false);
 
                                                             } catch (ClassCastException ex) {
                                                                 ok = false;
@@ -1442,7 +1437,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     //Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                 } catch (Exception ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    Helpers.mostrarMensajeError(tthis, "ERROR INESPERADO");
+                    Helpers.mostrarMensajeError(THIS, "ERROR INESPERADO");
                     System.exit(1);
                 }
 
@@ -1454,11 +1449,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     if (local_client_socket == null) {
 
-                        Helpers.mostrarMensajeError(tthis, "ALGO HA FALLADO. (Probablemente la timba no esté aún creada).");
+                        Helpers.mostrarMensajeError(THIS, "ALGO HA FALLADO. (Probablemente la timba no esté aún creada).");
 
                     } else {
 
-                        Helpers.mostrarMensajeError(tthis, "ALGO HA FALLADO. Has perdido la conexión con el servidor.");
+                        Helpers.mostrarMensajeError(THIS, "ALGO HA FALLADO. Has perdido la conexión con el servidor.");
                     }
                 }
 
@@ -1524,8 +1519,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.playLoopMp3Resource("misc/waiting_room.mp3");
 
         this.server_nick = this.local_nick;
-
-        WaitingRoomFrame tthis = this;
 
         Helpers.threadRun(new Runnable() {
             public void run() {
@@ -1698,8 +1691,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                             } else if (!partes[1].split("@")[0].equals(AboutDialog.VERSION)) {
                                                 writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
-                                            } else if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
-                                                writeCommandFromServer(Helpers.encryptCommand("BADJARHMAC", aes_key, hmac_key), client_socket);
                                             } else if (password != null && ("*".equals(partes[3]) || !password.equals(new String(Base64.decodeBase64(partes[3]), "UTF-8")))) {
                                                 writeCommandFromServer(Helpers.encryptCommand("BADPASSWORD", aes_key, hmac_key), client_socket);
                                             } else if (WaitingRoomFrame.isPartida_empezando() || WaitingRoomFrame.isPartida_empezada()) {
@@ -1794,6 +1785,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                         Helpers.playWavResource("misc/new_user.wav");
                                                     }
 
+                                                    if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
+
+                                                        Helpers.threadRun(new Runnable() {
+                                                            public void run() {
+
+                                                                Helpers.mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
+                                                            }
+                                                        });
+
+                                                    }
+
                                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " CONECTADO");
 
                                                 }
@@ -1822,7 +1824,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             exit = true;
 
-                            Helpers.mostrarMensajeError(tthis, "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
+                            Helpers.mostrarMensajeError(THIS, "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
                         }
 
                     } catch (Exception ex) {
@@ -2289,7 +2291,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         danger_server.setForeground(new java.awt.Color(255, 255, 255));
         danger_server.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         danger_server.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/danger.png"))); // NOI18N
-        danger_server.setText("ESTE SERVIDOR NO ES SEGURO");
+        danger_server.setText("POSIBLE SERVIDOR TRAMPOSO");
         danger_server.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         danger_server.setOpaque(true);
 
@@ -2491,8 +2493,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 partida_empezando = true;
 
-                WaitingRoomFrame tthis = this;
-
                 setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                 this.empezar_timba.setEnabled(false);
                 this.empezar_timba.setVisible(false);
@@ -2542,7 +2542,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             try {
                                 //Inicializamos partida
-                                new GameFrame(tthis, local_nick, true);
+                                new GameFrame(THIS, local_nick, true);
 
                             } catch (ClassCastException ex) {
                                 ok = false;

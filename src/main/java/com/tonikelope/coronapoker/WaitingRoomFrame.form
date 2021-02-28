@@ -427,7 +427,7 @@
         <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
           <Image iconType="3" name="/images/danger.png"/>
         </Property>
-        <Property name="text" type="java.lang.String" value="ESTE SERVIDOR NO ES SEGURO"/>
+        <Property name="text" type="java.lang.String" value="POSIBLE SERVIDOR TRAMPOSO"/>
         <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
           <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
             <EmptyBorder bottom="10" left="10" right="10" top="10"/>

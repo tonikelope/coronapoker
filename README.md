@@ -4,7 +4,7 @@
 
 ### What is coronahmac.jar?
 
-It is a small module that is loaded at startup to mitigate any player (including the server) trying to cheat using a hacked version of the game. For obvious reasons the source code is not available.
+It is a small module that is loaded at game startup to mitigate any player (including the server) trying to cheat using a hacked version of the game. For obvious reasons the source code is not available.
 
 #### Installing coronaHMAC as Maven local package:
 ```

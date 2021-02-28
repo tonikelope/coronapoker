@@ -89,6 +89,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final Object local_client_socket_lock = new Object();
     private final Object keep_alive_lock = new Object();
     private final Object lock_new_client = new Object();
+    private final Object lock_new_client_socket = new Object();
     private final Object lock_reconnect = new Object();
     private final boolean server;
     private final String local_nick;
@@ -99,6 +100,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile SecretKeySpec local_client_permutation_key = null;
     private volatile String local_client_permutation_key_hash = null;
     private volatile Socket local_client_socket = null;
+    private volatile Socket client_socket_aux = null;
     private volatile BufferedReader local_client_buffer_read_is = null;
     private volatile String server_ip_port;
     private volatile String server_nick;
@@ -1562,10 +1564,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         while (!server_socket.isClosed()) {
 
-                            Socket client_socket = server_socket.accept();
+                            client_socket_aux = server_socket.accept();
 
                             Helpers.threadRun(new Runnable() {
                                 public void run() {
+
+                                    final Socket client_socket = client_socket_aux;
+
+                                    client_socket_aux = null;
+
+                                    synchronized (lock_new_client_socket) {
+                                        lock_new_client_socket.notifyAll();
+                                    }
 
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "Un cliente intenta conectar...");
 
@@ -1815,6 +1825,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 }
                             });
+
+                            while (client_socket_aux != null) {
+
+                                synchronized (lock_new_client_socket) {
+
+                                    lock_new_client_socket.wait(1000);
+                                }
+                            }
 
                         }
 

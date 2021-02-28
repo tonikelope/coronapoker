@@ -823,7 +823,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         danger.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         danger.setForeground(new java.awt.Color(255, 255, 255));
         danger.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        danger.setText("PROBABLEMENTE HACIENDO TRAMPAS");
+        danger.setText("POSIBLEMENTE HACIENDO TRAMPAS");
         danger.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         danger.setOpaque(true);
 

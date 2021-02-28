@@ -411,6 +411,8 @@ public class Init extends javax.swing.JFrame {
 
         translateGlobalLabels();
 
+        Crupier.loadMODSounds();
+
         Locale.setDefault(Locale.Category.FORMAT, Locale.ENGLISH);
     }//GEN-LAST:event_language_comboboxActionPerformed
 

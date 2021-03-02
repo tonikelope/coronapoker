@@ -62,6 +62,8 @@ public class Init extends javax.swing.JFrame {
 
     private static volatile NickTTSDialog nick_dialog = null;
 
+    private static volatile boolean force_close_dialog = false;
+
     /**
      * Creates new form Inicio
      */
@@ -81,8 +83,16 @@ public class Init extends javax.swing.JFrame {
                 actionMap.put(force_exit, new AbstractAction("FORCE_EXIT") {
                     @Override
                     public void actionPerformed(ActionEvent e) {
-                        if (Helpers.mostrarMensajeInformativoSINO(null, "¿FORZAR CIERRE?") == 0) {
-                            System.exit(1);
+
+                        if (!force_close_dialog) {
+
+                            force_close_dialog = true;
+
+                            if (Helpers.mostrarMensajeInformativoSINO(null, "¿FORZAR CIERRE?") == 0) {
+                                System.exit(1);
+                            }
+
+                            force_close_dialog = false;
                         }
                     }
                 });

@@ -19,6 +19,7 @@ package com.tonikelope.coronapoker;
 import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
+import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -34,9 +35,12 @@ import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.AbstractAction;
+import javax.swing.Action;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.KeyStroke;
 import javax.swing.UIManager;
 
 /**
@@ -70,6 +74,46 @@ public class Init extends javax.swing.JFrame {
                 initComponents();
 
                 setTitle(Init.WINDOW_TITLE);
+
+                HashMap<KeyStroke, Action> actionMap = new HashMap<>();
+
+                KeyStroke force_exit = KeyStroke.getKeyStroke(KeyEvent.VK_K, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK);
+                actionMap.put(force_exit, new AbstractAction("FORCE_EXIT") {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        if (Helpers.mostrarMensajeInformativoSINO(null, "¿FORZAR CIERRE?") == 0) {
+                            System.exit(1);
+                        }
+                    }
+                });
+
+                KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+
+                kfm.addKeyEventDispatcher(
+                        new KeyEventDispatcher() {
+
+                    @Override
+                    public boolean dispatchKeyEvent(KeyEvent e) {
+                        KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
+
+                        if (actionMap.containsKey(keyStroke)) {
+                            final Action a = actionMap.get(keyStroke);
+                            final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    a.actionPerformed(ae);
+                                }
+                            });
+
+                            return true;
+                        }
+
+                        return false;
+                    }
+                }
+                );
 
                 if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                     language_combobox.setSelectedIndex(0);

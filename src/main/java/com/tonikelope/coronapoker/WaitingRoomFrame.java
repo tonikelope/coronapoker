@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronahmac.M;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.io.BufferedReader;
@@ -110,6 +111,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile boolean chat_enabled = true;
     private volatile boolean upnp = false;
     private volatile int server_port = 0;
+    private volatile boolean checking_upnp = false;
 
     public boolean isChat_enabled() {
         return chat_enabled;
@@ -1784,6 +1786,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         if (upnp) {
 
+                            checking_upnp = true;
+
                             String stat = status1.getText();
 
                             Helpers.GUIRun(new Runnable() {
@@ -1794,16 +1798,26 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             upnp = Helpers.UPnPOpen(server_port);
 
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-                                    status1.setText(stat + " (UPnP" + (upnp ? " OK)" : " ERROR)"));
-                                }
-                            });
+                            if (upnp) {
 
-                            if (!upnp) {
+                                Helpers.GUIRun(new Runnable() {
+                                    public void run() {
+                                        status1.setForeground(Color.BLUE);
+                                        status1.setText(Helpers.getMyPublicIP() + ":" + String.valueOf(server_port) + " (UPnP OK)");
+                                    }
+                                });
+
+                            } else {
+                                Helpers.GUIRun(new Runnable() {
+                                    public void run() {
+                                        status1.setText(stat + " (UPnP ERROR)");
+                                    }
+                                });
+
                                 Helpers.mostrarMensajeError(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás activar UPnP en tu router o mapear el puerto de forma manual)");
                             }
 
+                            checking_upnp = false;
                         }
 
                         Helpers.PROPERTIES.setProperty("upnp", String.valueOf(upnp));
@@ -2562,52 +2576,55 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
-        if (!WaitingRoomFrame.isPartida_empezada()) {
 
-            exit = true;
+        if (!checking_upnp) {
+            if (!WaitingRoomFrame.isPartida_empezada()) {
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+                exit = true;
 
-                    if (isServer()) {
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
 
-                        participantes.entrySet().forEach((entry) -> {
+                        if (isServer()) {
 
-                            Participant p = entry.getValue();
+                            participantes.entrySet().forEach((entry) -> {
 
-                            if (p != null) {
+                                Participant p = entry.getValue();
 
-                                p.setExit();
+                                if (p != null) {
+
+                                    p.setExit();
+                                }
+
+                            });
+
+                            if (getServer_socket() != null) {
+                                try {
+                                    getServer_socket().close();
+                                } catch (Exception ex) {
+                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
 
-                        });
+                        } else if (local_client_socket != null && !reconnecting) {
 
-                        if (getServer_socket() != null) {
                             try {
-                                getServer_socket().close();
+                                writeCommandToServer(Helpers.encryptCommand("EXIT", getLocal_client_aes_key(), getLocal_client_hmac_key()));
+                                local_client_socket.close();
                             } catch (Exception ex) {
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                             }
                         }
-
-                    } else if (local_client_socket != null && !reconnecting) {
-
-                        try {
-                            writeCommandToServer(Helpers.encryptCommand("EXIT", getLocal_client_aes_key(), getLocal_client_hmac_key()));
-                            local_client_socket.close();
-                        } catch (Exception ex) {
-                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-                        }
                     }
-                }
-            });
+                });
 
-            Helpers.stopLoopMp3("misc/waiting_room.mp3");
+                Helpers.stopLoopMp3("misc/waiting_room.mp3");
 
-            Helpers.unmuteLoopMp3("misc/background_music.mp3");
+                Helpers.unmuteLoopMp3("misc/background_music.mp3");
 
-        } else {
-            setVisible(false);
+            } else {
+                setVisible(false);
+            }
         }
     }//GEN-LAST:event_formWindowClosing
 
@@ -2776,7 +2793,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             try {
                 // TODO add your handling code here:
 
-                Helpers.copyTextToClipboard("INTERNET -> " + Helpers.getMyPublicIP() + ":" + String.valueOf(server_socket.getLocalPort()) + "\n\nRED LOCAL -> " + InetAddress.getLocalHost().getHostAddress() + ":" + String.valueOf(server_socket.getLocalPort()));
+                Helpers.copyTextToClipboard("[CoronaPoker] INTERNET -> " + Helpers.getMyPublicIP() + ":" + String.valueOf(server_socket.getLocalPort()) + "\n\nRED LOCAL -> " + InetAddress.getLocalHost().getHostAddress() + ":" + String.valueOf(server_socket.getLocalPort()));
                 Helpers.mostrarMensajeInformativo(this, Translator.translate("DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES"));
             } catch (UnknownHostException ex) {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);

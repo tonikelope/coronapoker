@@ -2092,6 +2092,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void exit_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_menuActionPerformed
         // TODO add your handling code here:
 
+        if (getLocalPlayer().isExit() && Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+            System.exit(1);
+        }
+
         if (this.isPartida_local()) {
 
             if (jugadores.size() > 1) {

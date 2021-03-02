@@ -2578,49 +2578,60 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
 
         if (!checking_upnp) {
+
             if (!WaitingRoomFrame.isPartida_empezada()) {
 
-                exit = true;
+                if (exit) {
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
+                    if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+                        System.exit(1);
+                    }
 
-                        if (isServer()) {
+                } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿SEGURO?") == 0) {
 
-                            participantes.entrySet().forEach((entry) -> {
+                    exit = true;
 
-                                Participant p = entry.getValue();
+                    Helpers.threadRun(new Runnable() {
+                        public void run() {
 
-                                if (p != null) {
+                            if (isServer()) {
 
-                                    p.setExit();
+                                participantes.entrySet().forEach((entry) -> {
+
+                                    Participant p = entry.getValue();
+
+                                    if (p != null) {
+
+                                        p.setExit();
+                                    }
+
+                                });
+
+                                if (getServer_socket() != null) {
+                                    try {
+                                        getServer_socket().close();
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
                                 }
 
-                            });
+                            } else if (local_client_socket != null && !reconnecting) {
 
-                            if (getServer_socket() != null) {
                                 try {
-                                    getServer_socket().close();
+                                    writeCommandToServer(Helpers.encryptCommand("EXIT", getLocal_client_aes_key(), getLocal_client_hmac_key()));
+                                    local_client_socket.close();
                                 } catch (Exception ex) {
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                                 }
                             }
-
-                        } else if (local_client_socket != null && !reconnecting) {
-
-                            try {
-                                writeCommandToServer(Helpers.encryptCommand("EXIT", getLocal_client_aes_key(), getLocal_client_hmac_key()));
-                                local_client_socket.close();
-                            } catch (Exception ex) {
-                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-                            }
                         }
-                    }
-                });
+                    });
 
-                Helpers.stopLoopMp3("misc/waiting_room.mp3");
+                    Helpers.stopLoopMp3("misc/waiting_room.mp3");
 
-                Helpers.unmuteLoopMp3("misc/background_music.mp3");
+                    Helpers.unmuteLoopMp3("misc/background_music.mp3");
+
+                }
 
             } else {
                 setVisible(false);

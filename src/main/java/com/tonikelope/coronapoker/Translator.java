@@ -22,6 +22,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿FORZAR CIERRE?", "FORCE CLOSE?"},
+            {"¿SEGURO?", "ARE YOU SURE?"},
             {"Click para gestionar contraseña", "Click to manage password"},
             {"Click para obtener datos de conexión", "Click to get connection data"},
             {"RECONECTAR", "RECONNECT"},

@@ -4761,7 +4761,7 @@ public class Crupier implements Runnable {
 
         flop.add(GameFrame.getInstance().getFlop3());
 
-        GameFrame.getInstance().getRegistro().print("FLOP ->" + Card.collection2String(flop));
+        GameFrame.getInstance().getRegistro().print("FLOP -> " + Card.collection2String(flop));
     }
 
     public void turn() {

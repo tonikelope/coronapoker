@@ -525,8 +525,8 @@ public class Crupier implements Runnable {
         return fin_de_la_transmision;
     }
 
-    public void setFin_de_la_transmision(boolean fin_de_la_transmision) {
-        this.fin_de_la_transmision = fin_de_la_transmision;
+    public void setFin_de_la_transmision(boolean fin) {
+        fin_de_la_transmision = fin;
     }
 
     public boolean isSincronizando_mano() {
@@ -1815,8 +1815,10 @@ public class Crupier implements Runnable {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
-                        if (partes.length == 5) {
-                            GameFrame.getInstance().setConta_tiempo_juego(Long.parseLong(partes[4]));
+                        GameFrame.getInstance().setConta_tiempo_juego(Long.parseLong(partes[4]));
+
+                        if (partes[5].equals("1")) {
+
                             this.doblarCiegas();
                         }
 
@@ -4127,7 +4129,7 @@ public class Crupier implements Runnable {
             boolean doblar_ciegas = this.checkDoblarCiegas();
 
             try {
-                comando = "DEALER#" + Base64.encodeBase64String(GameFrame.getInstance().getJugadores().get(this.dealer_pos).getNickname().getBytes("UTF-8")) + (doblar_ciegas ? "#" + String.valueOf(GameFrame.getInstance().getConta_tiempo_juego()) : "");
+                comando = "DEALER#" + Base64.encodeBase64String(GameFrame.getInstance().getJugadores().get(this.dealer_pos).getNickname().getBytes("UTF-8")) + "#" + String.valueOf(GameFrame.getInstance().getConta_tiempo_juego()) + (doblar_ciegas ? "#1" : "#0");
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }

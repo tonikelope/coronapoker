@@ -60,8 +60,6 @@ public class Init extends javax.swing.JFrame {
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
     public static final int ANTI_SCREENSAVER_DELAY = 55000; //Ms
 
-    private static volatile NickTTSDialog nick_dialog = null;
-
     private static volatile boolean force_close_dialog = false;
 
     /**
@@ -590,71 +588,7 @@ public class Init extends javax.swing.JFrame {
             });
 
             antiScreensaver();
-
-            TTSWatchdog();
-
         }
-    }
-
-    private static void TTSWatchdog() {
-
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
-
-                while (true) {
-
-                    while (!Helpers.TTS_CHAT_QUEUE.isEmpty()) {
-
-                        Object[] tts = Helpers.TTS_CHAT_QUEUE.poll();
-
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            @Override
-                            public void run() {
-                                nick_dialog = new NickTTSDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
-                                nick_dialog.setLocation(nick_dialog.getParent().getLocation());
-
-                            }
-                        });
-
-                        if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
-
-                            Helpers.TTS((String) tts[1], nick_dialog);
-
-                        } else if (GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
-
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
-                                    nick_dialog.setVisible(true);
-                                }
-                            });
-
-                            Helpers.pausar(1000);
-
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
-                                    nick_dialog.setVisible(false);
-                                }
-                            });
-                        }
-
-                    }
-
-                    synchronized (Helpers.TTS_CHAT_QUEUE) {
-
-                        try {
-                            Helpers.TTS_CHAT_QUEUE.wait(1000);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    }
-
-                }
-            }
-        });
-
     }
 
     private static void antiScreensaver() {

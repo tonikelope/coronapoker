@@ -125,6 +125,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean game_over_dialog = false;
     private volatile JFrame full_screen_frame = null;
     private volatile AboutDialog about_dialog = null;
+    private volatile NickTTSDialog nick_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
     private volatile FastChatDialog fastchat_dialog = null;
@@ -364,8 +365,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return getFull_screen_frame() != null ? getFull_screen_frame() : this;
     }
 
-    public void setConta_tiempo_juego(long conta_tiempo_juego) {
-        this.conta_tiempo_juego = conta_tiempo_juego;
+    public void setConta_tiempo_juego(long tiempo_juego) {
+        this.conta_tiempo_juego = tiempo_juego;
     }
 
     public JMenuItem getJugadas_menu() {
@@ -1472,21 +1473,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void finTransmision(boolean partida_terminada) {
 
-        Helpers.muteAllWav();
-
-        GameFrame.getInstance().getTapete().hideALL();
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                if (pausa_dialog != null) {
-                    pausa_dialog.setVisible(false);
-                }
-                GameFrame.getInstance().getFastchat_dialog().setVisible(false);
-            }
-        });
-
         synchronized (lock_fin) {
+
+            getCrupier().setFin_de_la_transmision(true);
+
+            if (Helpers.TTS_PLAYER != null) {
+                try {
+                    // TODO add your handling code here:
+                    Helpers.TTS_PLAYER.stop();
+                } catch (Exception ex) {
+                    Logger.getLogger(NickTTSDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            Helpers.muteAllWav();
+
+            GameFrame.getInstance().getTapete().hideALL();
 
             if (this.getLocalPlayer().getAuto_action() != null) {
                 this.getLocalPlayer().getAuto_action().stop();
@@ -1496,11 +1498,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 this.getLocalPlayer().getHurryup_timer().stop();
             }
 
-            getCrupier().setFin_de_la_transmision(true);
-
             Helpers.GUIRun(new Runnable() {
+                @Override
                 public void run() {
+
+                    if (pausa_dialog != null) {
+                        pausa_dialog.setVisible(false);
+                    }
+
+                    GameFrame.getInstance().getFastchat_dialog().setVisible(false);
+
                     exit_menu.setEnabled(false);
+
                     menu_bar.setVisible(false);
                 }
             });
@@ -1728,9 +1737,78 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
+        TTSWatchdog();
+
         getRegistro().print(Translator.translate("COMIENZA LA TIMBA -> ") + Helpers.getFechaHoraActual());
 
         Helpers.threadRun(crupier);
+    }
+
+    private void TTSWatchdog() {
+
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+
+                while (true) {
+
+                    while (!Helpers.TTS_CHAT_QUEUE.isEmpty()) {
+
+                        Object[] tts = Helpers.TTS_CHAT_QUEUE.poll();
+
+                        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                @Override
+                                public void run() {
+                                    nick_dialog = new NickTTSDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
+                                    nick_dialog.setLocation(nick_dialog.getParent().getLocation());
+
+                                }
+                            });
+
+                            if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+
+                                Helpers.TTS((String) tts[1], nick_dialog);
+
+                            } else if (GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+
+                                Helpers.GUIRun(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        nick_dialog.setVisible(true);
+                                    }
+                                });
+
+                                Helpers.pausar(1000);
+
+                                Helpers.GUIRun(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        nick_dialog.setVisible(false);
+                                    }
+                                });
+                            }
+
+                            nick_dialog = null;
+
+                        }
+
+                    }
+
+                    synchronized (Helpers.TTS_CHAT_QUEUE) {
+
+                        try {
+                            Helpers.TTS_CHAT_QUEUE.wait(1000);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+
+                }
+            }
+        });
+
     }
 
     /**

@@ -1400,6 +1400,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                         } while (!ok);
 
                                                         GameFrame.getInstance().AJUGAR();
+
                                                         break;
                                                 }
                                             }
@@ -2577,6 +2578,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         WaitingRoomFrame.partida_empezada = true;
 
                         GameFrame.getInstance().AJUGAR();
+
                     }
                 });
             }

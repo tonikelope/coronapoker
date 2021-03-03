@@ -111,7 +111,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile boolean chat_enabled = true;
     private volatile boolean upnp = false;
     private volatile int server_port = 0;
-    private volatile boolean checking_upnp = false;
+    private volatile boolean booting = false;
 
     public boolean isChat_enabled() {
         return chat_enabled;
@@ -862,6 +862,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void cliente() {
 
+        booting = true;
+
         HashMap<String, Integer> last_received = new HashMap<>();
 
         Helpers.threadRun(new Runnable() {
@@ -1140,6 +1142,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Helpers.muteLoopMp3("misc/background_music.mp3");
 
                         Helpers.playLoopMp3Resource("misc/waiting_room.mp3");
+
+                        booting = false;
 
                         //Nos quedamos en bucle esperando mensajes del server
                         do {
@@ -1465,7 +1469,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     keep_alive_lock.notifyAll();
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
 
                         ventana_inicio.setVisible(true);
@@ -1473,6 +1477,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         dispose();
                     }
                 });
+
+                Helpers.stopLoopMp3("misc/waiting_room.mp3");
+
+                Helpers.unmuteLoopMp3("misc/background_music.mp3");
             }
         });
     }
@@ -1779,14 +1787,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 while (!exit) {
 
+                    booting = true;
+
                     try {
                         String[] direccion = server_ip_port.trim().split(":");
 
                         server_port = Integer.valueOf(direccion[1]);
 
                         if (upnp) {
-
-                            checking_upnp = true;
 
                             String stat = status1.getText();
 
@@ -1816,13 +1824,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 Helpers.mostrarMensajeError(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás activar UPnP en tu router o mapear el puerto de forma manual)");
                             }
-
-                            checking_upnp = false;
                         }
 
                         Helpers.PROPERTIES.setProperty("upnp", String.valueOf(upnp));
 
                         Helpers.savePropertiesFile();
+
+                        booting = false;
 
                         server_socket = new ServerSocket(server_port);
 
@@ -1844,21 +1852,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     } catch (Exception ex) {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
-                    if (exit) {
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-
-                                ventana_inicio.setVisible(true);
-
-                                dispose();
-
-                            }
-                        });
-                    }
                 }
 
                 Helpers.UPnPClose(server_port);
+
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+
+                        ventana_inicio.setVisible(true);
+
+                        dispose();
+                    }
+                });
+
+                Helpers.stopLoopMp3("misc/waiting_room.mp3");
+
+                Helpers.unmuteLoopMp3("misc/background_music.mp3");
             }
         });
     }
@@ -2577,7 +2586,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
 
-        if (!checking_upnp) {
+        if (!booting) {
 
             if (!WaitingRoomFrame.isPartida_empezada()) {
 
@@ -2626,16 +2635,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             }
                         }
                     });
-
-                    Helpers.stopLoopMp3("misc/waiting_room.mp3");
-
-                    Helpers.unmuteLoopMp3("misc/background_music.mp3");
-
                 }
 
             } else {
                 setVisible(false);
             }
+
+        } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+            System.exit(1);
         }
     }//GEN-LAST:event_formWindowClosing
 

@@ -36,7 +36,7 @@ public class PauseDialog extends javax.swing.JDialog {
 
         pack();
 
-        ActionListener listener = new ActionListener() {
+        timer = new Timer(1000, new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent ae) {
@@ -44,9 +44,7 @@ public class PauseDialog extends javax.swing.JDialog {
                 pausa_label.setVisible(!pausa_label.isVisible());
 
             }
-        };
-
-        timer = new Timer(1000, listener);
+        });
     }
 
     /**

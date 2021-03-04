@@ -241,7 +241,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         response_counter = GameFrame.TIEMPO_PENSAR;
 
-                        ActionListener listener = new ActionListener() {
+                        if (auto_action != null) {
+                            auto_action.stop();
+                        }
+
+                        auto_action = new Timer(1000, new ActionListener() {
 
                             long t = crupier.getTurno();
 
@@ -279,13 +283,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                                 }
                             }
-                        };
-
-                        if (auto_action != null) {
-                            auto_action.stop();
-                        }
-
-                        auto_action = new Timer(1000, listener);
+                        });
 
                         auto_action.start();
 

@@ -218,7 +218,8 @@ public class GameOverDialog extends javax.swing.JDialog {
                 }
 
                 if (!direct_gameover) {
-                    ActionListener listener = new ActionListener() {
+
+                    timer = new Timer(COUNTDOWN_PAUSE, new ActionListener() {
 
                         int counter = 9;
 
@@ -236,9 +237,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                             }
 
                         }
-                    };
-
-                    timer = new Timer(COUNTDOWN_PAUSE, listener);
+                    });
 
                     timer.start();
 

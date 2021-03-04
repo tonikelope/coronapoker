@@ -1684,22 +1684,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void AJUGAR() {
 
-        Helpers.stopLoopMp3("misc/waiting_room.mp3");
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
 
-        if (!GameFrame.SONIDOS) {
-            Helpers.muteAll();
-        }
+                registro_dialog = new GameLogDialog(GameFrame.getInstance(), false);
 
-        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                fastchat_dialog = new FastChatDialog(GameFrame.getInstance(), false);
+            }
+        });
 
-            Helpers.playWavResource("misc/startplay.wav");
-        }
+        TTSWatchdog();
 
-        if (GameFrame.MUSICA_AMBIENTAL) {
-            Helpers.unmuteLoopMp3("misc/background_music.mp3");
-        }
+        Helpers.threadRun(crupier);
 
-        ActionListener listener = new ActionListener() {
+        tiempo_juego = new Timer(1000, new ActionListener() {
 
             public void actionPerformed(ActionEvent ae) {
 
@@ -1722,26 +1720,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
 
             }
-        };
-
-        tiempo_juego = new Timer(1000, listener);
+        });
 
         tiempo_juego.start();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-
-                registro_dialog = new GameLogDialog(GameFrame.getInstance(), false);
-
-                fastchat_dialog = new FastChatDialog(GameFrame.getInstance(), false);
-            }
-        });
-
-        TTSWatchdog();
-
         getRegistro().print(Translator.translate("COMIENZA LA TIMBA -> ") + Helpers.getFechaHoraActual());
-
-        Helpers.threadRun(crupier);
     }
 
     private void TTSWatchdog() {
@@ -1750,50 +1733,43 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void run() {
 
-                while (true) {
+                while (!crupier.isFin_de_la_transmision()) {
 
                     while (!Helpers.TTS_CHAT_QUEUE.isEmpty()) {
 
                         Object[] tts = Helpers.TTS_CHAT_QUEUE.poll();
 
-                        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                        Helpers.GUIRunAndWait(new Runnable() {
+                            @Override
+                            public void run() {
+                                nick_dialog = new NickTTSDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
+                                nick_dialog.setLocation(nick_dialog.getParent().getLocation());
+
+                            }
+                        });
+
+                        if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+
+                            Helpers.TTS((String) tts[1], nick_dialog);
+
+                        } else if (GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
                                 public void run() {
-                                    nick_dialog = new NickTTSDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
-                                    nick_dialog.setLocation(nick_dialog.getParent().getLocation());
-
+                                    nick_dialog.setVisible(true);
                                 }
                             });
 
-                            if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                            Helpers.pausar(1000);
 
-                                Helpers.TTS((String) tts[1], nick_dialog);
-
-                            } else if (GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
-
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        nick_dialog.setVisible(true);
-                                    }
-                                });
-
-                                Helpers.pausar(1000);
-
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        nick_dialog.setVisible(false);
-                                    }
-                                });
-                            }
-
-                            nick_dialog = null;
-
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                @Override
+                                public void run() {
+                                    nick_dialog.setVisible(false);
+                                }
+                            });
                         }
-
                     }
 
                     synchronized (Helpers.TTS_CHAT_QUEUE) {

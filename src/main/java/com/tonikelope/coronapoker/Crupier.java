@@ -5295,46 +5295,46 @@ public class Crupier implements Runnable {
             }
         });
 
-        if (!GameFrame.TEST_MODE || GameFrame.getInstance().isPartida_local()) {
-
-            if (GameFrame.getZoom_level() != 0) {
-                Helpers.GUIRunAndWait(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Restaurando zoom..."));
-                    }
-                });
-                GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP);
-
-            }
-
+        if (GameFrame.getZoom_level() != 0) {
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
 
-                    GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Timba en curso"));
+                    GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Restaurando zoom..."));
                 }
             });
+            GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP);
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    GameFrame.getInstance().getSala_espera().setVisible(false);
-                }
-            });
-
-            GameFrame.getInstance().autoZoomFullScreen();
         }
 
-        if (GameFrame.getInstance().getSala_espera().isUnsecure_server()) {
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "¡¡TEN CUIDADO!! ES MUY PROBABLE QUE EL SERVIDOR ESTÉ INTENTANDO HACER TRAMPAS.");
-                }
-            });
+        Helpers.GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+
+                GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Timba en curso"));
+            }
+        });
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                GameFrame.getInstance().getSala_espera().setVisible(false);
+            }
+        });
+
+        Helpers.stopLoopMp3("misc/waiting_room.mp3");
+
+        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+
+            Helpers.playWavResource("misc/startplay.wav");
         }
+
+        if (GameFrame.MUSICA_AMBIENTAL) {
+            Helpers.unmuteLoopMp3("misc/background_music.mp3");
+        }
+
+        GameFrame.getInstance().autoZoomFullScreen();
 
         while (!fin_de_la_transmision) {
 

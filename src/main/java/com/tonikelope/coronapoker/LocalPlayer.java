@@ -696,7 +696,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         response_counter = GameFrame.TIEMPO_PENSAR;
 
-                        ActionListener listener = new ActionListener() {
+                        if (auto_action != null) {
+                            auto_action.stop();
+                        }
+
+                        auto_action = new Timer(1000, new ActionListener() {
 
                             long t = crupier.getTurno();
 
@@ -712,7 +716,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         Helpers.playWavResource("misc/hurryup.wav");
 
                                         if ((hurryup_timer == null || !hurryup_timer.isRunning()) && Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                                            ActionListener listener = new ActionListener() {
+
+                                            if (hurryup_timer != null) {
+                                                hurryup_timer.stop();
+                                            }
+
+                                            hurryup_timer = new Timer(1000, new ActionListener() {
 
                                                 @Override
                                                 public void actionPerformed(ActionEvent ae) {
@@ -729,13 +738,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                         }
                                                     }
                                                 }
-                                            };
-
-                                            if (hurryup_timer != null) {
-                                                hurryup_timer.stop();
-                                            }
-
-                                            hurryup_timer = new Timer(1000, listener);
+                                            });
 
                                             hurryup_timer.start();
                                         }
@@ -787,13 +790,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                 }
                             }
-                        };
-
-                        if (auto_action != null) {
-                            auto_action.stop();
-                        }
-
-                        auto_action = new Timer(1000, listener);
+                        });
 
                         auto_action.start();
 

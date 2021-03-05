@@ -281,10 +281,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public WaitingRoomFrame(Init ventana_ini, boolean local, String nick, String servidor_ip_port, File avatar, String pass, boolean use_upnp) {
         THIS = this;
         upnp = use_upnp;
-        password = pass;
-        partida_empezada = false;
-        partida_empezando = false;
-        exit = false;
         ventana_inicio = ventana_ini;
         server = local;
         local_nick = nick;
@@ -1359,8 +1355,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                     case "INIT":
                                                         setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
 
-                                                        partida_empezada = true;
-
                                                         Helpers.GUIRun(new Runnable() {
                                                             public void run() {
                                                                 sound_icon.setVisible(false);
@@ -1384,24 +1378,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                         GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
 
-                                                        boolean ok;
-
-                                                        do {
-                                                            ok = true;
-
-                                                            try {
-                                                                //Inicializamos partida
-                                                                Helpers.GUIRunAndWait(new Runnable() {
-                                                                    public void run() {
-                                                                        new GameFrame(THIS, local_nick, false);
-                                                                    }
-                                                                });
-
-                                                            } catch (ClassCastException ex) {
-                                                                ok = false;
-                                                                Helpers.pausar(250);
+                                                        //Inicializamos partida
+                                                        Helpers.GUIRunAndWait(new Runnable() {
+                                                            public void run() {
+                                                                new GameFrame(THIS, local_nick, false);
                                                             }
-                                                        } while (!ok);
+                                                        });
+
+                                                        WaitingRoomFrame.partida_empezada = true;
 
                                                         GameFrame.getInstance().AJUGAR();
 
@@ -2563,25 +2547,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         } while (ocupados);
 
-                        boolean ok;
-
-                        do {
-                            ok = true;
-
-                            try {
-                                //Inicializamos partida
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-                                        new GameFrame(THIS, local_nick, true);
-                                    }
-                                });
-
-                            } catch (ClassCastException ex) {
-                                ok = false;
-
-                                Helpers.pausar(250);
+                        //Inicializamos partida
+                        Helpers.GUIRunAndWait(new Runnable() {
+                            public void run() {
+                                new GameFrame(THIS, local_nick, true);
                             }
-                        } while (!ok);
+                        });
 
                         WaitingRoomFrame.partida_empezada = true;
 

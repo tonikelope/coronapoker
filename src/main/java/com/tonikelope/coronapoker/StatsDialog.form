@@ -33,6 +33,7 @@
               <Group type="103" groupAlignment="0" attributes="0">
                   <Component id="title" max="32767" attributes="0"/>
                   <Component id="scroll_stats_panel" alignment="0" max="32767" attributes="0"/>
+                  <Component id="cargando" alignment="0" max="32767" attributes="0"/>
               </Group>
               <EmptySpace max="-2" attributes="0"/>
           </Group>
@@ -43,7 +44,9 @@
           <Group type="102" alignment="0" attributes="0">
               <EmptySpace max="-2" attributes="0"/>
               <Component id="title" min="-2" max="-2" attributes="0"/>
-              <EmptySpace type="separate" max="-2" attributes="0"/>
+              <EmptySpace min="-2" pref="2" max="-2" attributes="0"/>
+              <Component id="cargando" min="-2" max="-2" attributes="0"/>
+              <EmptySpace type="unrelated" max="-2" attributes="0"/>
               <Component id="scroll_stats_panel" max="32767" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
           </Group>
@@ -77,7 +80,11 @@
           <Layout>
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Component id="game_combo" alignment="0" max="32767" attributes="0"/>
+                  <Group type="102" alignment="0" attributes="0">
+                      <Component id="game_combo" max="32767" attributes="0"/>
+                      <EmptySpace max="-2" attributes="0"/>
+                      <Component id="game_combo_filter" min="-2" pref="200" max="-2" attributes="0"/>
+                  </Group>
                   <Component id="hand_combo" alignment="0" max="32767" attributes="0"/>
                   <Component id="stats_combo" alignment="0" max="32767" attributes="0"/>
                   <Component id="table_panel" alignment="0" max="32767" attributes="0"/>
@@ -94,7 +101,10 @@
               <Group type="103" groupAlignment="0" attributes="0">
                   <Group type="102" attributes="0">
                       <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                      <Component id="game_combo" min="-2" max="-2" attributes="0"/>
+                      <Group type="103" groupAlignment="3" attributes="0">
+                          <Component id="game_combo" alignment="3" min="-2" max="-2" attributes="0"/>
+                          <Component id="game_combo_filter" alignment="3" min="-2" max="-2" attributes="0"/>
+                      </Group>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="game_data_panel" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="unrelated" max="-2" attributes="0"/>
@@ -799,9 +809,25 @@
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
             </Component>
+            <Component class="javax.swing.JTextField" name="game_combo_filter">
+              <Properties>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                  <Font name="Dialog" size="16" style="0"/>
+                </Property>
+                <Property name="toolTipText" type="java.lang.String" value="Listar s&#xf3;lo timbas donde particip&#xf3; este jugador"/>
+                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                  <Color id="Cursor Por defecto"/>
+                </Property>
+              </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="game_combo_filterActionPerformed"/>
+              </Events>
+            </Component>
           </SubComponents>
         </Container>
       </SubComponents>
     </Container>
+    <Component class="javax.swing.JProgressBar" name="cargando">
+    </Component>
   </SubComponents>
 </Form>

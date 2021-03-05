@@ -1309,162 +1309,159 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         crupier = new Crupier();
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        initComponents();
 
-                setTitle(Init.WINDOW_TITLE + Translator.translate(" - Timba en curso (") + nicklocal + ")");
+        setTitle(Init.WINDOW_TITLE + Translator.translate(" - Timba en curso (") + nicklocal + ")");
 
-                getContentPane().add(tapete);
+        getContentPane().add(tapete);
 
-                auto_rebuy_menu.setSelected(GameFrame.AUTO_REBUY);
+        auto_rebuy_menu.setSelected(GameFrame.AUTO_REBUY);
 
-                auto_rebuy_menu.setEnabled(GameFrame.REBUY);
+        auto_rebuy_menu.setEnabled(GameFrame.REBUY);
 
-                rebuy_now_menu.setEnabled(GameFrame.REBUY);
+        rebuy_now_menu.setEnabled(GameFrame.REBUY);
 
-                compact_menu.setSelected(GameFrame.VISTA_COMPACTA);
+        compact_menu.setSelected(GameFrame.VISTA_COMPACTA);
 
-                if (!map.containsKey("allin/") || map.get("allin/").length == 0) {
-                    GameFrame.CINEMATICAS = false;
-                    menu_cinematicas.setSelected(false);
-                    menu_cinematicas.setEnabled(false);
+        if (!map.containsKey("allin/") || map.get("allin/").length == 0) {
+            GameFrame.CINEMATICAS = false;
+            menu_cinematicas.setSelected(false);
+            menu_cinematicas.setEnabled(false);
 
-                } else {
-                    menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
-                }
+        } else {
+            menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
+        }
 
-                rebuy_now_menu.setSelected(false);
+        rebuy_now_menu.setSelected(false);
 
-                animacion_menu.setSelected(GameFrame.ANIMACION_REPARTIR);
+        animacion_menu.setSelected(GameFrame.ANIMACION_REPARTIR);
 
-                confirmar_menu.setSelected(GameFrame.CONFIRM_ACTIONS);
+        confirmar_menu.setSelected(GameFrame.CONFIRM_ACTIONS);
 
-                auto_action_menu.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
+        auto_action_menu.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
 
-                sonidos_menu.setSelected(GameFrame.SONIDOS);
+        sonidos_menu.setSelected(GameFrame.SONIDOS);
 
-                sonidos_chorra_menu.setSelected(GameFrame.SONIDOS_CHORRA);
+        sonidos_chorra_menu.setSelected(GameFrame.SONIDOS_CHORRA);
 
-                ascensor_menu.setSelected(GameFrame.MUSICA_AMBIENTAL);
+        ascensor_menu.setSelected(GameFrame.MUSICA_AMBIENTAL);
 
-                sonidos_chorra_menu.setEnabled(sonidos_menu.isSelected());
+        sonidos_chorra_menu.setEnabled(sonidos_menu.isSelected());
 
-                ascensor_menu.setEnabled(sonidos_menu.isSelected());
+        ascensor_menu.setEnabled(sonidos_menu.isSelected());
 
-                tts_menu.setSelected(GameFrame.SONIDOS_TTS);
+        tts_menu.setSelected(GameFrame.SONIDOS_TTS);
 
-                tts_menu.setEnabled(sonidos_menu.isSelected());
+        tts_menu.setEnabled(sonidos_menu.isSelected());
 
-                generarBarajasMenu();
+        generarBarajasMenu();
 
-                for (Component menu : menu_barajas.getMenuComponents()) {
+        for (Component menu : menu_barajas.getMenuComponents()) {
 
-                    if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(GameFrame.BARAJA)) {
-                        ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
-                    } else {
-                        ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
-                    }
-                }
-
-                menu_tapete_verde.setSelected(GameFrame.COLOR_TAPETE.equals("verde"));
-
-                menu_tapete_azul.setSelected(GameFrame.COLOR_TAPETE.equals("azul"));
-
-                menu_tapete_rojo.setSelected(GameFrame.COLOR_TAPETE.equals("rojo"));
-
-                menu_tapete_madera.setSelected(GameFrame.COLOR_TAPETE.equals("madera"));
-
-                switch (GameFrame.COLOR_TAPETE) {
-
-                    case "verde":
-                        cambiarColorContadoresTapete(new Color(153, 204, 0));
-                        break;
-
-                    case "azul":
-                        cambiarColorContadoresTapete(new Color(102, 204, 255));
-                        break;
-
-                    case "rojo":
-                        cambiarColorContadoresTapete(new Color(255, 204, 51));
-                        break;
-
-                    case "madera":
-                        cambiarColorContadoresTapete(Color.WHITE);
-                        break;
-                }
-
-                if (!isPartida_local()) {
-                    tapete.getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + getLocalPlayer().getPause_counter() + ")");
-                } else {
-                    tapete.getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR"));
-                }
-
-                full_screen_menu.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
-
-                updateSoundIcon();
-
-                tapete.getCommunityCards().getBarra_tiempo().setMinimum(0);
-
-                tapete.getCommunityCards().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-
-                server_separator_menu.setVisible(partida_local);
-
-                tapete.getCommunityCards().getTiempo_partida().setVisible(GameFrame.SHOW_CLOCK);
-
-                time_menu.setSelected(GameFrame.SHOW_CLOCK);
-
-                tapete.getLocalPlayer().getPlayingCard1().setCompactable(false);
-                tapete.getLocalPlayer().getPlayingCard2().setCompactable(false);
-
-                //Metemos la pasta a todos (el BUY IN se podría parametrizar)
-                for (Player jugador : jugadores) {
-                    jugador.setStack(GameFrame.BUYIN);
-                }
-
-                setupGlobalShortcuts();
-
-                Helpers.TapetePopupMenu.addTo(tapete);
-
-                Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(GameFrame.REBUY);
-
-                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
-
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-
-                for (Component menu : BARAJAS_MENU.getMenuComponents()) {
-
-                    if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(GameFrame.BARAJA)) {
-                        ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
-                    } else {
-                        ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
-                    }
-                }
-
-                Helpers.TapetePopupMenu.TAPETE_VERDE.setSelected(GameFrame.COLOR_TAPETE.equals("verde"));
-
-                Helpers.TapetePopupMenu.TAPETE_AZUL.setSelected(GameFrame.COLOR_TAPETE.equals("azul"));
-
-                Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(GameFrame.COLOR_TAPETE.equals("rojo"));
-
-                Helpers.TapetePopupMenu.TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.equals("madera"));
-
-                if (!menu_cinematicas.isEnabled()) {
-                    Helpers.TapetePopupMenu.CINEMATICAS_MENU.setEnabled(false);
-                    Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(false);
-                }
-
-                Helpers.loadOriginalFontSizes(THIS);
-
-                Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
-
-                Helpers.translateComponents(THIS, false);
-
-                Helpers.translateComponents(Helpers.TapetePopupMenu.popup, false);
-
-                pack();
+            if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(GameFrame.BARAJA)) {
+                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
+            } else {
+                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
             }
-        });
+        }
+
+        menu_tapete_verde.setSelected(GameFrame.COLOR_TAPETE.equals("verde"));
+
+        menu_tapete_azul.setSelected(GameFrame.COLOR_TAPETE.equals("azul"));
+
+        menu_tapete_rojo.setSelected(GameFrame.COLOR_TAPETE.equals("rojo"));
+
+        menu_tapete_madera.setSelected(GameFrame.COLOR_TAPETE.equals("madera"));
+
+        switch (GameFrame.COLOR_TAPETE) {
+
+            case "verde":
+                cambiarColorContadoresTapete(new Color(153, 204, 0));
+                break;
+
+            case "azul":
+                cambiarColorContadoresTapete(new Color(102, 204, 255));
+                break;
+
+            case "rojo":
+                cambiarColorContadoresTapete(new Color(255, 204, 51));
+                break;
+
+            case "madera":
+                cambiarColorContadoresTapete(Color.WHITE);
+                break;
+        }
+
+        if (!isPartida_local()) {
+            tapete.getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + getLocalPlayer().getPause_counter() + ")");
+        } else {
+            tapete.getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR"));
+        }
+
+        full_screen_menu.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+
+        updateSoundIcon();
+
+        tapete.getCommunityCards().getBarra_tiempo().setMinimum(0);
+
+        tapete.getCommunityCards().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
+
+        server_separator_menu.setVisible(partida_local);
+
+        tapete.getCommunityCards().getTiempo_partida().setVisible(GameFrame.SHOW_CLOCK);
+
+        time_menu.setSelected(GameFrame.SHOW_CLOCK);
+
+        tapete.getLocalPlayer().getPlayingCard1().setCompactable(false);
+        tapete.getLocalPlayer().getPlayingCard2().setCompactable(false);
+
+        //Metemos la pasta a todos (el BUY IN se podría parametrizar)
+        for (Player jugador : jugadores) {
+            jugador.setStack(GameFrame.BUYIN);
+        }
+
+        setupGlobalShortcuts();
+
+        Helpers.TapetePopupMenu.addTo(tapete);
+
+        Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(GameFrame.REBUY);
+
+        Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
+
+        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+
+        for (Component menu : BARAJAS_MENU.getMenuComponents()) {
+
+            if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(GameFrame.BARAJA)) {
+                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
+            } else {
+                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
+            }
+        }
+
+        Helpers.TapetePopupMenu.TAPETE_VERDE.setSelected(GameFrame.COLOR_TAPETE.equals("verde"));
+
+        Helpers.TapetePopupMenu.TAPETE_AZUL.setSelected(GameFrame.COLOR_TAPETE.equals("azul"));
+
+        Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(GameFrame.COLOR_TAPETE.equals("rojo"));
+
+        Helpers.TapetePopupMenu.TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.equals("madera"));
+
+        if (!menu_cinematicas.isEnabled()) {
+            Helpers.TapetePopupMenu.CINEMATICAS_MENU.setEnabled(false);
+            Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(false);
+        }
+
+        Helpers.loadOriginalFontSizes(THIS);
+
+        Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
+
+        Helpers.translateComponents(THIS, false);
+
+        Helpers.translateComponents(Helpers.TapetePopupMenu.popup, false);
+
+        pack();
+
     }
 
     public long getConta_tiempo_juego() {

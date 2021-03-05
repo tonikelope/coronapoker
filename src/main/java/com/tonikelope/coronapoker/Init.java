@@ -69,84 +69,80 @@ public class Init extends javax.swing.JFrame {
 
         Init tthis = this;
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        initComponents();
 
-                setTitle(Init.WINDOW_TITLE);
+        setTitle(Init.WINDOW_TITLE);
 
-                HashMap<KeyStroke, Action> actionMap = new HashMap<>();
+        HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
-                KeyStroke force_exit = KeyStroke.getKeyStroke(KeyEvent.VK_K, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK);
-                actionMap.put(force_exit, new AbstractAction("FORCE_EXIT") {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
+        KeyStroke force_exit = KeyStroke.getKeyStroke(KeyEvent.VK_K, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK);
+        actionMap.put(force_exit, new AbstractAction("FORCE_EXIT") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
 
-                        if (!force_close_dialog) {
+                if (!force_close_dialog) {
 
-                            force_close_dialog = true;
+                    force_close_dialog = true;
 
-                            if (Helpers.mostrarMensajeInformativoSINO(null, "¿FORZAR CIERRE?") == 0) {
-                                System.exit(1);
-                            }
-
-                            force_close_dialog = false;
-                        }
+                    if (Helpers.mostrarMensajeInformativoSINO(null, "¿FORZAR CIERRE?") == 0) {
+                        System.exit(1);
                     }
-                });
 
-                KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-
-                kfm.addKeyEventDispatcher(
-                        new KeyEventDispatcher() {
-
-                    @Override
-                    public boolean dispatchKeyEvent(KeyEvent e) {
-                        KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-
-                        if (actionMap.containsKey(keyStroke)) {
-                            final Action a = actionMap.get(keyStroke);
-                            final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
-
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
-                                    a.actionPerformed(ae);
-                                }
-                            });
-
-                            return true;
-                        }
-
-                        return false;
-                    }
+                    force_close_dialog = false;
                 }
-                );
-
-                if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
-                    language_combobox.setSelectedIndex(0);
-                } else {
-                    language_combobox.setSelectedIndex(1);
-                }
-
-                setExtendedState(JFrame.MAXIMIZED_BOTH);
-
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
-
-                if (!GameFrame.SONIDOS) {
-
-                    Helpers.muteAll();
-
-                } else {
-
-                    Helpers.unMuteAll();
-
-                }
-                Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
-
-                pack();
             }
         });
+
+        KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+
+        kfm.addKeyEventDispatcher(
+                new KeyEventDispatcher() {
+
+            @Override
+            public boolean dispatchKeyEvent(KeyEvent e) {
+                KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
+
+                if (actionMap.containsKey(keyStroke)) {
+                    final Action a = actionMap.get(keyStroke);
+                    final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            a.actionPerformed(ae);
+                        }
+                    });
+
+                    return true;
+                }
+
+                return false;
+            }
+        }
+        );
+
+        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+            language_combobox.setSelectedIndex(0);
+        } else {
+            language_combobox.setSelectedIndex(1);
+        }
+
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+
+        if (!GameFrame.SONIDOS) {
+
+            Helpers.muteAll();
+
+        } else {
+
+            Helpers.unMuteAll();
+
+        }
+        Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+
+        pack();
 
     }
 

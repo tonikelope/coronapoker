@@ -1391,7 +1391,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                             try {
                                                                 //Inicializamos partida
-                                                                new GameFrame(THIS, local_nick, false);
+                                                                Helpers.GUIRunAndWait(new Runnable() {
+                                                                    public void run() {
+                                                                        new GameFrame(THIS, local_nick, false);
+                                                                    }
+                                                                });
 
                                                             } catch (ClassCastException ex) {
                                                                 ok = false;
@@ -2566,7 +2570,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             try {
                                 //Inicializamos partida
-                                new GameFrame(THIS, local_nick, true);
+                                Helpers.GUIRunAndWait(new Runnable() {
+                                    public void run() {
+                                        new GameFrame(THIS, local_nick, true);
+                                    }
+                                });
 
                             } catch (ClassCastException ex) {
                                 ok = false;

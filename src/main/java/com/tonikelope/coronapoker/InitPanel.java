@@ -27,8 +27,10 @@ public class InitPanel extends javax.swing.JPanel {
      * Creates new form InitPanel
      */
     public InitPanel() {
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
+
                 initComponents();
             }
         });

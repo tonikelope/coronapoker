@@ -437,7 +437,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setForeground(Color.BLACK);
 
                 player_pot.setText("----");
-
             }
         });
     }

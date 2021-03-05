@@ -523,7 +523,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
      * Creates new form JugadorInvitadoView
      */
     public RemotePlayer() {
-
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
@@ -551,7 +550,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_buyin.setText(String.valueOf(GameFrame.BUYIN));
             }
         });
-
     }
 
     public Card getPlayingCard1() {

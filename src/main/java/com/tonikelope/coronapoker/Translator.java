@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Listar sólo timbas donde participó este jugador", "Only list games joined by this player"},
             {"¿FORZAR CIERRE?", "FORCE CLOSE?"},
             {"¿SEGURO?", "ARE YOU SURE?"},
             {"Click para gestionar contraseña", "Click to manage password"},

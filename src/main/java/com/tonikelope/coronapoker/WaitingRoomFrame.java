@@ -78,10 +78,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
     public static final int MAX_REC_SOCKET_ERROR = 5;
-    private static volatile boolean partida_empezada = false;
-    private static volatile boolean partida_empezando = false;
-    private static volatile String password = null;
-    private static volatile boolean exit = false;
     private static volatile WaitingRoomFrame THIS = null;
 
     private final Init ventana_inicio;
@@ -112,6 +108,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile boolean upnp = false;
     private volatile int server_port = 0;
     private volatile boolean booting = false;
+    private volatile boolean partida_empezada = false;
+    private volatile boolean partida_empezando = false;
+    private volatile String password = null;
+    private volatile boolean exit = false;
 
     public boolean isChat_enabled() {
         return chat_enabled;
@@ -133,7 +133,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return participantes;
     }
 
-    public static String getPassword() {
+    public String getPassword() {
         return password;
     }
 
@@ -141,7 +141,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return local_avatar;
     }
 
-    public static boolean isPartida_empezando() {
+    public boolean isPartida_empezando() {
         return partida_empezando;
     }
 
@@ -231,7 +231,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     }
 
-    public static boolean isExit() {
+    public boolean isExit() {
         return exit;
     }
 
@@ -375,6 +375,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.translateComponents(this, false);
 
         pack();
+
+        Helpers.muteLoopMp3("misc/background_music.mp3");
+
+        Helpers.playLoopMp3Resource("misc/waiting_room.mp3");
 
         if (server) {
             servidor();
@@ -687,7 +691,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     if (!ok_rec) {
 
-                        if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT && WaitingRoomFrame.isPartida_empezada()) {
+                        if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT && WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                             if (this.reconnect_dialog == null) {
 
@@ -732,7 +736,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         }
                     }
 
-                } while (!ok_rec && (!WaitingRoomFrame.isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit()));
+                } while (!ok_rec && (!WaitingRoomFrame.getInstance().isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit()));
 
                 if (this.reconnect_dialog != null) {
 
@@ -860,11 +864,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         booting = true;
 
-        HashMap<String, Integer> last_received = new HashMap<>();
-
         Helpers.threadRun(new Runnable() {
 
             public void run() {
+                HashMap<String, Integer> last_received = new HashMap<>();
 
                 String recibido = "";
 
@@ -1097,7 +1100,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Helpers.threadRun(new Runnable() {
                             public void run() {
 
-                                while (!exit && !WaitingRoomFrame.isPartida_empezada()) {
+                                while (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                                     int ping = Helpers.SPRNG_GENERATOR.nextInt();
 
@@ -1117,7 +1120,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                         }
                                     }
 
-                                    if (!exit && !WaitingRoomFrame.isPartida_empezada() && ping + 1 != pong) {
+                                    if (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
 
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
 
@@ -1134,10 +1137,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             }
                         });
-
-                        Helpers.muteLoopMp3("misc/background_music.mp3");
-
-                        Helpers.playLoopMp3Resource("misc/waiting_room.mp3");
 
                         booting = false;
 
@@ -1385,7 +1384,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             }
                                                         });
 
-                                                        WaitingRoomFrame.partida_empezada = true;
+                                                        partida_empezada = true;
 
                                                         GameFrame.getInstance().AJUGAR();
 
@@ -1436,7 +1435,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     System.exit(1);
                 }
 
-                if (WaitingRoomFrame.isPartida_empezada()) {
+                if (WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                     GameFrame.getInstance().finTransmision(exit);
 
@@ -1642,7 +1641,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
                         } else if (password != null && ("*".equals(partes[3]) || !password.equals(new String(Base64.decodeBase64(partes[3]), "UTF-8")))) {
                             writeCommandFromServer(Helpers.encryptCommand("BADPASSWORD", aes_key, hmac_key), client_socket);
-                        } else if (WaitingRoomFrame.isPartida_empezando() || WaitingRoomFrame.isPartida_empezada()) {
+                        } else if (WaitingRoomFrame.getInstance().isPartida_empezando() || WaitingRoomFrame.getInstance().isPartida_empezada()) {
                             writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
                         } else if (participantes.size() == MAX_PARTICIPANTES) {
                             writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
@@ -1730,7 +1729,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     }
                                 });
 
-                                if (!WaitingRoomFrame.isPartida_empezada()) {
+                                if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
                                     Helpers.playWavResource("misc/new_user.wav");
                                 }
 
@@ -1765,11 +1764,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void servidor() {
 
-        Helpers.muteLoopMp3("misc/background_music.mp3");
-
-        Helpers.playLoopMp3Resource("misc/waiting_room.mp3");
-
-        this.server_nick = this.local_nick;
+        server_nick = local_nick;
 
         Helpers.threadRun(new Runnable() {
             public void run() {
@@ -1857,6 +1852,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 Helpers.stopLoopMp3("misc/waiting_room.mp3");
 
                 Helpers.unmuteLoopMp3("misc/background_music.mp3");
+
             }
         });
     }
@@ -1872,7 +1868,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     chat.setCaretPosition(chat.getText().length());
                 }
 
-                if (WaitingRoomFrame.isPartida_empezada() && !isActive()) {
+                if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive()) {
 
                     Helpers.TTS_CHAT_QUEUE.add(new Object[]{nick, msg});
 
@@ -1910,7 +1906,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
     }
 
-    public static boolean isPartida_empezada() {
+    public boolean isPartida_empezada() {
         return partida_empezada;
     }
 
@@ -1980,7 +1976,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     conectados.repaint();
 
-                    if (server && !WaitingRoomFrame.isPartida_empezada()) {
+                    if (server && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                         if (participantes.size() < 2) {
                             empezar_timba.setEnabled(false);
@@ -1992,7 +1988,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 }
             });
 
-            if (this.isServer() && !WaitingRoomFrame.isPartida_empezada() && !exit) {
+            if (this.isServer() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !exit) {
 
                 try {
                     String comando = "DELUSER#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
@@ -2454,7 +2450,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void empezar_timbaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_empezar_timbaActionPerformed
         // TODO add your handling code here:
 
-        if (participantes.size() >= 2 && !WaitingRoomFrame.isPartida_empezada() && !WaitingRoomFrame.isPartida_empezando()) {
+        if (participantes.size() >= 2 && !WaitingRoomFrame.getInstance().isPartida_empezada() && !WaitingRoomFrame.getInstance().isPartida_empezando()) {
 
             String missing_players = "";
 
@@ -2554,7 +2550,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             }
                         });
 
-                        WaitingRoomFrame.partida_empezada = true;
+                        partida_empezada = true;
 
                         GameFrame.getInstance().AJUGAR();
 
@@ -2569,7 +2565,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (!booting) {
 
-            if (!WaitingRoomFrame.isPartida_empezada()) {
+            if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                 if (exit) {
 
@@ -2766,7 +2762,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_pass_iconMouseClicked
         // TODO add your handling code here:
 
-        if (server && !WaitingRoomFrame.isPartida_empezada()) {
+        if (server && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
             if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("¿GENERAR CONTRASEÑA NUEVA?")) == 0) {
                 password = Helpers.genRandomString(GEN_PASS_LENGTH);
                 pass_icon.setToolTipText(password);

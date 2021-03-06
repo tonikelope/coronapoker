@@ -40,6 +40,8 @@ public class StatsDialog extends javax.swing.JDialog {
     private final LinkedHashMap<String, SQLStats> sqlstats = new LinkedHashMap<>();
     private volatile boolean init = false;
     private volatile String last_mp3_loop = null;
+    private volatile boolean game_combo_blocked = false;
+    private volatile boolean hand_combo_blocked = false;
 
     /**
      * Creates new form Stats
@@ -59,7 +61,7 @@ public class StatsDialog extends javax.swing.JDialog {
         sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL RIVER"), this::subidasRiver);
 
         initComponents();
-        setSize(Math.round(0.8f * parent.getWidth()), Math.round(0.8f * parent.getHeight()));
+        setSize(Math.round(0.9f * parent.getWidth()), Math.round(0.9f * parent.getHeight()));
         scroll_stats_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_stats_panel.getHorizontalScrollBar().setUnitIncrement(16);
         res_table_warning.setVisible(false);
@@ -87,7 +89,7 @@ public class StatsDialog extends javax.swing.JDialog {
         hand_comcards_val.setFont(original_dialog_font);
         Helpers.translateComponents(this, false);
         setTitle(Translator.translate(getTitle()));
-        stats_combo.setSelectedIndex(0);
+        stats_combo.setSelectedIndex(-1);
 
         cargando.setIndeterminate(true);
 
@@ -106,6 +108,8 @@ public class StatsDialog extends javax.swing.JDialog {
         if (hand_combo.getSelectedIndex() != 0) {
             hand_combo.setSelectedIndex(-1);
         }
+
+        hand_combo.setVisible(false);
 
         Helpers.threadRun(new Runnable() {
 
@@ -128,7 +132,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                         mejoresJugadasResult(rs);
 
-                        Helpers.GUIRun(new Runnable() {
+                        Helpers.GUIRunAndWait(new Runnable() {
                             public void run() {
                                 res_table_warning.setVisible(false);
                             }
@@ -152,7 +156,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                         mejoresJugadasResult(rs);
 
-                        Helpers.GUIRun(new Runnable() {
+                        Helpers.GUIRunAndWait(new Runnable() {
                             public void run() {
                                 res_table_warning.setText(Translator.translate("Nota: se muestran las 1000 mejores jugadas ganadoras"));
                                 res_table_warning.setVisible(true);
@@ -166,7 +170,7 @@ public class StatsDialog extends javax.swing.JDialog {
                     }
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         cargando.setVisible(false);
                         setEnabled(true);
@@ -179,7 +183,7 @@ public class StatsDialog extends javax.swing.JDialog {
     }
 
     private void mejoresJugadasResult(ResultSet rs) {
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
 
             public void run() {
                 try {
@@ -362,7 +366,7 @@ public class StatsDialog extends javax.swing.JDialog {
                     Helpers.closeSQLITE();
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
 
@@ -478,7 +482,7 @@ public class StatsDialog extends javax.swing.JDialog {
                     Helpers.closeSQLITE();
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
 
@@ -564,7 +568,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                         rs = statement.executeQuery();
 
-                        Helpers.GUIRun(new Runnable() {
+                        Helpers.GUIRunAndWait(new Runnable() {
                             public void run() {
                                 res_table_warning.setText(Translator.translate("Nota: lo que se muestra es el balance general después de terminar la mano actual."));
 
@@ -623,7 +627,7 @@ public class StatsDialog extends javax.swing.JDialog {
                             tableModel.addRow(row);
                         }
 
-                        Helpers.GUIRun(new Runnable() {
+                        Helpers.GUIRunAndWait(new Runnable() {
                             public void run() {
                                 res_table.setModel(tableModel);
 
@@ -663,7 +667,7 @@ public class StatsDialog extends javax.swing.JDialog {
                     Helpers.closeSQLITE();
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         cargando.setVisible(false);
                         setEnabled(true);
@@ -678,7 +682,10 @@ public class StatsDialog extends javax.swing.JDialog {
     private void loadGameData(int id) {
 
         cargando.setVisible(true);
+
         setEnabled(false);
+
+        game_combo_blocked = true;
 
         Helpers.threadRun(new Runnable() {
 
@@ -697,16 +704,12 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     ResultSet rs = statement.executeQuery();
 
-                    Helpers.GUIRun(new Runnable() {
+                    Helpers.GUIRunAndWait(new Runnable() {
                         public void run() {
 
                             try {
 
-                                try {
-                                    game_playtime_val.setText((rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")");
-                                } catch (SQLException ex) {
-                                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                                }
+                                game_playtime_val.setText((rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")");
 
                                 String[] jugadores;
 
@@ -731,9 +734,8 @@ public class StatsDialog extends javax.swing.JDialog {
                                 game_blinds_double_val.setText(rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + " min" : "NO");
 
                                 game_rebuy_val.setText(rs.getBoolean("rebuy") ? Translator.translate("SÍ") : "NO");
-                            } catch (SQLException ex) {
-                                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                            } catch (UnsupportedEncodingException ex) {
+
+                            } catch (Exception ex) {
                                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                             }
                         }
@@ -745,10 +747,12 @@ public class StatsDialog extends javax.swing.JDialog {
                     Helpers.closeSQLITE();
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         cargando.setVisible(false);
                         setEnabled(true);
+                        game_data_panel.setVisible(true);
+                        game_combo_blocked = false;
                     }
                 });
 
@@ -777,7 +781,7 @@ public class StatsDialog extends javax.swing.JDialog {
                     statement.setInt(2, id_hand);
 
                     ResultSet rs = statement.executeQuery();
-                    Helpers.GUIRun(new Runnable() {
+                    Helpers.GUIRunAndWait(new Runnable() {
                         public void run() {
                             try {
                                 String[] jugadores;
@@ -864,9 +868,7 @@ public class StatsDialog extends javax.swing.JDialog {
                                 hand_bote_val.setText(String.valueOf(Helpers.floatClean1D(rs.getFloat("pot"))));
 
                                 loadShowdownData(id_hand);
-                            } catch (SQLException ex) {
-                                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                            } catch (UnsupportedEncodingException ex) {
+                            } catch (Exception ex) {
                                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
@@ -879,10 +881,11 @@ public class StatsDialog extends javax.swing.JDialog {
                     Helpers.closeSQLITE();
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         cargando.setVisible(false);
                         setEnabled(true);
+                        hand_data_panel.setVisible(true);
                     }
                 });
 
@@ -917,7 +920,7 @@ public class StatsDialog extends javax.swing.JDialog {
                     Helpers.closeSQLITE();
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         cargando.setVisible(false);
                         setEnabled(true);
@@ -929,7 +932,7 @@ public class StatsDialog extends javax.swing.JDialog {
     }
 
     private void showdownData(ResultSet rs) {
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 try {
 
@@ -1089,7 +1092,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     Helpers.resultSetToTableModel(rs, res_table);
 
-                    Helpers.GUIRun(new Runnable() {
+                    Helpers.GUIRunAndWait(new Runnable() {
                         public void run() {
 
                             TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
@@ -1114,7 +1117,7 @@ public class StatsDialog extends javax.swing.JDialog {
                     Helpers.closeSQLITE();
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         cargando.setVisible(false);
                         setEnabled(true);
@@ -1130,6 +1133,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
         cargando.setVisible(true);
         setEnabled(false);
+        hand_combo_blocked = true;
 
         Helpers.threadRun(new Runnable() {
 
@@ -1146,34 +1150,38 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     ResultSet rs = statement.executeQuery();
 
-                    try {
-                        while (rs.next()) {
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        public void run() {
+
+                            hand.clear();
+
+                            hand_combo.removeAllItems();
+
+                            hand_combo.addItem(Translator.translate("TODAS LAS MANOS"));
 
                             try {
 
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-                                        try {
-                                            hand_combo.addItem(Translator.translate("MANO") + " " + String.valueOf(rs.getInt("counter")));
-                                        } catch (SQLException ex) {
-                                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
+                                while (rs.next()) {
+
+                                    try {
+                                        hand_combo.addItem(Translator.translate("MANO") + " " + String.valueOf(rs.getInt("counter")));
+
+                                        HashMap<String, Object> map = new HashMap<>();
+
+                                        map.put("id", rs.getInt("id"));
+
+                                        hand.put(Translator.translate("MANO") + " " + String.valueOf(rs.getInt("counter")), map);
+
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                                     }
-                                });
 
-                                HashMap<String, Object> map = new HashMap<>();
-
-                                map.put("id", rs.getInt("id"));
-
-                                hand.put(Translator.translate("MANO") + " " + String.valueOf(rs.getInt("counter")), map);
-                            } catch (SQLException ex) {
+                                }
+                            } catch (Exception ex) {
                                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                             }
-
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                    }
+                    });
 
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
@@ -1181,10 +1189,11 @@ public class StatsDialog extends javax.swing.JDialog {
                     Helpers.closeSQLITE();
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         cargando.setVisible(false);
                         setEnabled(true);
+                        hand_combo_blocked = false;
                     }
                 });
 
@@ -1220,16 +1229,17 @@ public class StatsDialog extends javax.swing.JDialog {
     private void loadGames() {
         cargando.setVisible(true);
         setEnabled(false);
+        game_combo_blocked = true;
         Helpers.threadRun(new Runnable() {
 
             public void run() {
 
                 try {
 
-                    game.clear();
-
-                    Helpers.GUIRun(new Runnable() {
+                    Helpers.GUIRunAndWait(new Runnable() {
                         public void run() {
+                            game.clear();
+
                             game_combo.removeAllItems();
 
                             game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
@@ -1285,10 +1295,11 @@ public class StatsDialog extends javax.swing.JDialog {
                     Helpers.closeSQLITE();
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         cargando.setVisible(false);
                         setEnabled(true);
+                        game_combo_blocked = false;
                     }
                 });
             }
@@ -1827,34 +1838,32 @@ public class StatsDialog extends javax.swing.JDialog {
     private void game_comboItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_game_comboItemStateChanged
         // TODO add your handling code here:
 
-        if (game_combo.getSelectedIndex() != -1) {
+        if (!game_combo_blocked) {
+            if (game_combo.getSelectedIndex() != -1) {
 
-            if (game.get((String) game_combo.getSelectedItem()) != null) {
-                loadGameData((int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                game_data_panel.setVisible(true);
-                hand_combo.removeAllItems();
-                hand_combo.addItem(Translator.translate("TODAS LAS MANOS"));
-                loadHands((int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                hand_combo.setVisible(true);
+                if (game.get((String) game_combo.getSelectedItem()) != null) {
+                    loadGameData((int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                    loadHands((int) game.get((String) game_combo.getSelectedItem()).get("id"));
+
+                } else {
+                    game_data_panel.setVisible(false);
+                    hand_combo.setSelectedIndex(-1);
+                }
+
+                if (stats_combo.getSelectedIndex() >= 0) {
+                    res_table_warning.setVisible(false);
+                    res_table.setRowSorter(null);
+                    sqlstats.get((String) stats_combo.getSelectedItem()).call();
+
+                }
+
             } else {
+
+                hand_combo.setVisible(false);
+                hand_data_panel.setVisible(false);
                 game_data_panel.setVisible(false);
-                hand_combo.setSelectedIndex(-1);
             }
-
-            if (stats_combo.getSelectedIndex() >= 0) {
-                res_table_warning.setVisible(false);
-                res_table.setRowSorter(null);
-                sqlstats.get((String) stats_combo.getSelectedItem()).call();
-
-            }
-
-        } else {
-
-            hand_combo.setVisible(false);
-            hand_data_panel.setVisible(false);
-            game_data_panel.setVisible(false);
         }
-
     }//GEN-LAST:event_game_comboItemStateChanged
 
     private void stats_comboItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_stats_comboItemStateChanged
@@ -1864,31 +1873,38 @@ public class StatsDialog extends javax.swing.JDialog {
             res_table_warning.setVisible(false);
             res_table.setRowSorter(null);
             sqlstats.get((String) stats_combo.getSelectedItem()).call();
-
         }
     }//GEN-LAST:event_stats_comboItemStateChanged
 
     private void hand_comboItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_hand_comboItemStateChanged
         // TODO add your handling code here:
 
-        if (hand_combo.getSelectedIndex() != -1) {
+        if (!hand_combo_blocked) {
 
-            if (game.get((String) game_combo.getSelectedItem()) != null && hand.get((String) hand_combo.getSelectedItem()) != null) {
-                loadHandData((int) game.get((String) game_combo.getSelectedItem()).get("id"), (int) hand.get((String) hand_combo.getSelectedItem()).get("id"));
-                hand_data_panel.setVisible(true);
+            if (hand_combo.getSelectedIndex() != -1) {
+
+                if (game.get((String) game_combo.getSelectedItem()) != null && hand.get((String) hand_combo.getSelectedItem()) != null) {
+
+                    loadHandData((int) game.get((String) game_combo.getSelectedItem()).get("id"), (int) hand.get((String) hand_combo.getSelectedItem()).get("id"));
+
+                } else {
+
+                    hand_data_panel.setVisible(false);
+                }
+
+                if (stats_combo.getSelectedIndex() >= 0) {
+
+                    res_table_warning.setVisible(false);
+                    res_table.setRowSorter(null);
+                    sqlstats.get((String) stats_combo.getSelectedItem()).call();
+                }
+
             } else {
+
+                hand_combo.setVisible(false);
                 hand_data_panel.setVisible(false);
             }
 
-            if (stats_combo.getSelectedIndex() >= 0) {
-                res_table_warning.setVisible(false);
-                res_table.setRowSorter(null);
-                sqlstats.get((String) stats_combo.getSelectedItem()).call();
-            }
-
-        } else {
-            hand_combo.setVisible(false);
-            hand_data_panel.setVisible(false);
         }
 
     }//GEN-LAST:event_hand_comboItemStateChanged

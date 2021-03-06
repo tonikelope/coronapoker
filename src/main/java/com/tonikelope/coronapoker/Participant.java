@@ -168,7 +168,7 @@ public class Participant implements Runnable {
             if (this.socket != null) {
                 try {
 
-                    if (!WaitingRoomFrame.isPartida_empezada()) {
+                    if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
                         this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
                     }
                     this.socketClose();
@@ -376,7 +376,7 @@ public class Participant implements Runnable {
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    while (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada()) {
+                    while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                         int ping = Helpers.SPRNG_GENERATOR.nextInt();
 
@@ -384,7 +384,7 @@ public class Participant implements Runnable {
 
                             writeCommandFromServer("PING#" + String.valueOf(ping));
 
-                            if (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada()) {
+                            if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
                                 synchronized (keep_alive_lock) {
                                     try {
                                         keep_alive_lock.wait(WaitingRoomFrame.PING_PONG_TIMEOUT);
@@ -394,7 +394,7 @@ public class Participant implements Runnable {
                                 }
                             }
 
-                            if (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada() && ping + 1 != pong) {
+                            if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
 
                                 Logger.getLogger(Participant.class.getName()).log(Level.WARNING, nick + " NO respondió al PING " + String.valueOf(ping) + " " + String.valueOf(pong));
 
@@ -412,9 +412,9 @@ public class Participant implements Runnable {
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    while (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada()) {
+                    while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                        while (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada() && !getAsync_command_queue().isEmpty()) {
+                        while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !getAsync_command_queue().isEmpty()) {
 
                             String command = getAsync_command_queue().peek();
 
@@ -442,13 +442,13 @@ public class Participant implements Runnable {
 
                                 }
 
-                            } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada());
+                            } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
 
                             getAsync_command_queue().poll();
 
                         }
 
-                        if (!exit && !WaitingRoomFrame.isExit() && !WaitingRoomFrame.isPartida_empezada()) {
+                        if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
                             synchronized (getAsync_command_queue()) {
 
                                 try {
@@ -617,11 +617,11 @@ public class Participant implements Runnable {
 
                 }
 
-            } while (!exit && !WaitingRoomFrame.isExit());
+            } while (!exit && !WaitingRoomFrame.getInstance().isExit());
 
-            if (!WaitingRoomFrame.isExit()) {
+            if (!WaitingRoomFrame.getInstance().isExit()) {
 
-                if (WaitingRoomFrame.isPartida_empezada() && !exit) {
+                if (WaitingRoomFrame.getInstance().isPartida_empezada() && !exit) {
 
                     GameFrame.getInstance().getCrupier().remotePlayerQuit(nick);
 

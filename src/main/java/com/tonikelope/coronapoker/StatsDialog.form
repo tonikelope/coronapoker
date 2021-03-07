@@ -815,9 +815,6 @@
                   <Font name="Dialog" size="16" style="0"/>
                 </Property>
                 <Property name="toolTipText" type="java.lang.String" value="Listar s&#xf3;lo timbas donde particip&#xf3; este jugador"/>
-                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                  <Color id="Cursor Por defecto"/>
-                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="game_combo_filterActionPerformed"/>

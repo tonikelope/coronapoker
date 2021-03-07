@@ -1250,8 +1250,10 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     if (!game_combo_filter.getText().isBlank()) {
 
-                        statement = Helpers.getSQLITE().prepareStatement("SELECT id,start,server FROM game WHERE players LIKE ? ORDER BY start DESC");
-                        statement.setString(1, "%" + Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")) + "%");
+                        statement = Helpers.getSQLITE().prepareStatement("SELECT id,start,server FROM game WHERE (players LIKE ? or players LIKE ? or players LIKE ?) ORDER BY start DESC");
+                        statement.setString(1, "%#" + Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")));
+                        statement.setString(2, Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")) + "#%");
+                        statement.setString(3, "%#" + Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")) + "#%");
                     } else {
 
                         statement = Helpers.getSQLITE().prepareStatement("SELECT id,start,server FROM game ORDER BY start DESC");
@@ -1261,7 +1263,11 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     ResultSet rs = statement.executeQuery();
 
+                    int i = 0;
+
                     while (rs.next()) {
+
+                        i++;
                         // read the result set
 
                         try {
@@ -1285,6 +1291,17 @@ public class StatsDialog extends javax.swing.JDialog {
                             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
+                    }
+
+                    if (i == 0) {
+
+                        Helpers.GUIRunAndWait(new Runnable() {
+                            public void run() {
+
+                                game_combo_filter.setBackground(Color.RED);
+
+                            }
+                        });
                     }
 
                 } catch (SQLException ex) {
@@ -1759,7 +1776,6 @@ public class StatsDialog extends javax.swing.JDialog {
 
         game_combo_filter.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_combo_filter.setToolTipText("Listar sólo timbas donde participó este jugador");
-        game_combo_filter.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         game_combo_filter.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 game_combo_filterActionPerformed(evt);

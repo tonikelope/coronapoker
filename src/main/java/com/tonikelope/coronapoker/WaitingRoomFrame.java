@@ -113,6 +113,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile String password = null;
     private volatile boolean exit = false;
 
+    public Socket getLocal_client_socket() {
+        return local_client_socket;
+    }
+
     public boolean isChat_enabled() {
         return chat_enabled;
     }
@@ -609,7 +613,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         //Leemos el contenido del chat
                         String recibido;
 
-                        int conta_error = 0;
+                        int conta_basura = 0;
 
                         do {
 
@@ -653,7 +657,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 } else {
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SOCKET DE RECONEXiÓN RECIBIÓ BASURA");
-                                    conta_error++;
+                                    conta_basura++;
                                     Helpers.pausar(1000);
                                 }
 
@@ -661,78 +665,69 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "EL SOCKET DE RECONEXiÓN RECIBIÓ NULL");
                             }
 
-                        } while (!ok_rec && conta_error < MAX_REC_SOCKET_ERROR && recibido != null);
-
-                        if (!ok_rec && local_client_socket != null && !local_client_socket.isClosed()) {
-
-                            try {
-                                local_client_socket.close();
-
-                            } catch (Exception ex2) {
-                            }
-
-                            local_client_socket = null;
-                        }
+                        } while (!ok_rec && conta_basura < MAX_REC_SOCKET_ERROR && recibido != null);
 
                     } catch (Exception ex) {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
 
-                        if (local_client_socket != null && !local_client_socket.isClosed()) {
+                    } finally {
 
-                            try {
-                                local_client_socket.close();
+                        if (!ok_rec) {
 
-                            } catch (Exception ex2) {
+                            if (local_client_socket != null && !local_client_socket.isClosed()) {
+                                try {
+                                    local_client_socket.close();
+
+                                } catch (Exception ex2) {
+                                }
+
+                                local_client_socket = null;
                             }
 
-                            local_client_socket = null;
-                        }
-                    }
+                            if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT && WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                    if (!ok_rec) {
+                                if (this.reconnect_dialog == null) {
 
-                        if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT && WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                                    Helpers.GUIRun(new Runnable() {
+                                        public void run() {
+                                            reconnect_dialog = new Reconnect2ServerDialog(GameFrame.getInstance() != null ? GameFrame.getInstance() : THIS, true, server_ip_port);
+                                            reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
+                                            reconnect_dialog.setVisible(true);
 
-                            if (this.reconnect_dialog == null) {
+                                        }
+                                    });
 
-                                Helpers.GUIRun(new Runnable() {
-                                    public void run() {
-                                        reconnect_dialog = new Reconnect2ServerDialog(GameFrame.getInstance() != null ? GameFrame.getInstance() : THIS, true, server_ip_port);
-                                        reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
-                                        reconnect_dialog.setVisible(true);
+                                } else {
+                                    reconnect_dialog.setReconectar(false);
 
-                                    }
-                                });
+                                    Helpers.GUIRun(new Runnable() {
+                                        public void run() {
+                                            reconnect_dialog.reset();
+                                            reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
+                                            reconnect_dialog.setVisible(true);
 
-                            } else {
-                                reconnect_dialog.setReconectar(false);
+                                        }
+                                    });
+                                }
 
-                                Helpers.GUIRun(new Runnable() {
-                                    public void run() {
-                                        reconnect_dialog.reset();
-                                        reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
-                                        reconnect_dialog.setVisible(true);
-
-                                    }
-                                });
-                            }
-
-                            while (reconnect_dialog == null || !reconnect_dialog.isReconectar()) {
-                                synchronized (this.lock_reconnect) {
-                                    try {
-                                        this.lock_reconnect.wait(1000);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                while (reconnect_dialog == null || !reconnect_dialog.isReconectar()) {
+                                    synchronized (this.lock_reconnect) {
+                                        try {
+                                            this.lock_reconnect.wait(1000);
+                                        } catch (InterruptedException ex) {
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
                                     }
                                 }
+
+                                start = System.currentTimeMillis();
+                                server_ip_port = reconnect_dialog.getIp_port().getText().trim();
+
+                            } else {
+
+                                Helpers.pausar(GameFrame.CLIENT_RECON_ERROR_PAUSE);
                             }
 
-                            start = System.currentTimeMillis();
-                            server_ip_port = reconnect_dialog.getIp_port().getText().trim();
-
-                        } else {
-
-                            Helpers.pausar(GameFrame.CLIENT_RECON_ERROR_PAUSE);
                         }
                     }
 
@@ -1406,21 +1401,21 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 } else {
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SOCKET RECIBIÓ NULL");
-                                    Helpers.pausar(1000);
                                 }
 
                             } catch (SocketException ex) {
 
-                                //Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
-                                if (!exit && (!isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit())) {
+                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EXCEPCION AL LEER DEL SOCKET");
+                                recibido = null;
 
-                                    if (!reconectarCliente()) {
-                                        exit = true;
-                                    }
-                                }
                             } catch (KeyException ex) {
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "KEY-EXCEPTION AL LEER DEL SOCKET", ex);
                                 Helpers.pausar(1000);
+
+                            } finally {
+                                if (recibido == null && (!exit && (!isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit())) && !reconectarCliente()) {
+                                    exit = true;
+                                }
                             }
 
                         } while (!exit);
@@ -1734,6 +1729,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 }
 
                                 if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
+
+                                    participantes.get(client_nick).setUnsecure_player(true);
 
                                     Helpers.threadRun(new Runnable() {
                                         public void run() {
@@ -2409,13 +2406,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     public void run() {
                         try {
 
+                            participantes.get(expulsado).setExit(true);
+
                             if (!participantes.get(expulsado).isCpu()) {
 
                                 String comando = "KICKED#" + Base64.encodeBase64String(expulsado.getBytes("UTF-8"));
                                 participantes.get(expulsado).writeCommandFromServer(Helpers.encryptCommand(comando, participantes.get(expulsado).getAes_key(), participantes.get(expulsado).getHmac_key()));
                             }
 
-                            participantes.get(expulsado).setExit();
+                            participantes.get(expulsado).exitAndCloseSocket();
 
                             borrarParticipante(expulsado);
 
@@ -2588,7 +2587,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                     if (p != null) {
 
-                                        p.setExit();
+                                        p.exitAndCloseSocket();
                                     }
 
                                 });

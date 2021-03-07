@@ -62,6 +62,7 @@ public class Participant implements Runnable {
     private volatile SecretKeySpec permutation_key = null;
     private volatile String permutation_key_hash = null;
     private volatile int new_hand_ready = 0;
+    private volatile boolean unsecure_player = false;
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
@@ -87,6 +88,14 @@ public class Participant implements Runnable {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+    }
+
+    public boolean isUnsecure_player() {
+        return unsecure_player;
+    }
+
+    public void setUnsecure_player(boolean unsecure_player) {
+        this.unsecure_player = unsecure_player;
     }
 
     public String getPermutation_key_hash() {
@@ -160,27 +169,30 @@ public class Participant implements Runnable {
         return cpu;
     }
 
-    public void setExit() {
+    public void setExit(boolean exit) {
+        this.exit = exit;
+    }
 
-        if (!this.exit) {
-            this.exit = true;
+    public void exitAndCloseSocket() {
 
-            if (this.socket != null) {
-                try {
+        this.exit = true;
 
-                    if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                        this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
-                    }
-                    this.socketClose();
-                } catch (IOException ex) {
-                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+        if (this.socket != null) {
+            try {
+
+                if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                    this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
                 }
+                this.socketClose();
+            } catch (IOException ex) {
+                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+            }
 
-                synchronized (keep_alive_lock) {
-                    keep_alive_lock.notifyAll();
-                }
+            synchronized (keep_alive_lock) {
+                keep_alive_lock.notifyAll();
             }
         }
+
     }
 
     public boolean isExit() {
@@ -221,12 +233,12 @@ public class Participant implements Runnable {
 
                 ok = false;
 
-                if (!resetting_socket) {
+                if (!resetting_socket && !isExit()) {
                     Helpers.pausar(1000);
                 }
             }
 
-        } while (!ok);
+        } while (!ok && !isExit());
 
     }
 
@@ -247,7 +259,7 @@ public class Participant implements Runnable {
 
     public void socketClose() throws IOException {
         synchronized (getParticipant_socket_lock()) {
-            this.socket.getOutputStream().close();
+            this.socket.close();
         }
     }
 

@@ -1145,7 +1145,7 @@ public class Crupier implements Runnable {
 
             if (GameFrame.getInstance().isPartida_local()) {
 
-                GameFrame.getInstance().getParticipantes().get(nick).setExit();
+                GameFrame.getInstance().getParticipantes().get(nick).exitAndCloseSocket();
 
                 try {
 
@@ -4035,7 +4035,7 @@ public class Crupier implements Runnable {
                                 }
                             } else {
                                 for (String nick : pendientes) {
-                                    GameFrame.getInstance().getParticipantes().get(nick).setExit();
+                                    GameFrame.getInstance().getParticipantes().get(nick).exitAndCloseSocket();
                                 }
                             }
 

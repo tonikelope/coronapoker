@@ -580,7 +580,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(player_name.getText())) {
 
-                        if (GameFrame.getInstance().getSala_espera().isUnsecure_server()) {
+                        if (GameFrame.getInstance().getSala_espera().isUnsecure_server() || GameFrame.getInstance().getParticipantes().get(nickname).isUnsecure_player()) {
 
                             danger.setVisible(true);
 
@@ -819,7 +819,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         danger.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         danger.setForeground(new java.awt.Color(255, 255, 255));
         danger.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        danger.setText("POSIBLEMENTE HACIENDO TRAMPAS");
+        danger.setText("POSIBLE TRAMPOS@");
         danger.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         danger.setOpaque(true);
 

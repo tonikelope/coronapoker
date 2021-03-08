@@ -1266,7 +1266,7 @@ public class Crupier implements Runnable {
                     }
 
                     if (!perdedores.containsKey(jugador)) {
-                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
+                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
                     }
 
                     sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);
@@ -1327,7 +1327,7 @@ public class Crupier implements Runnable {
                 }
 
                 if (!perdedores.containsKey(jugador)) {
-                    GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
+                    GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
                 }
 
                 sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);

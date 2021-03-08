@@ -113,10 +113,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile String password = null;
     private volatile boolean exit = false;
 
-    public Socket getLocal_client_socket() {
-        return local_client_socket;
-    }
-
     public boolean isChat_enabled() {
         return chat_enabled;
     }
@@ -125,20 +121,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         this.chat_enabled = chat_enabled;
     }
 
-    public SecretKeySpec getLocal_client_permutation_key() {
-        return local_client_permutation_key;
-    }
-
-    public String getLocal_client_permutation_key_hash() {
-        return local_client_permutation_key_hash;
-    }
-
     public Map<String, Participant> getParticipantes() {
         return participantes;
-    }
-
-    public String getPassword() {
-        return password;
     }
 
     public File getLocal_avatar() {
@@ -167,10 +151,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 video_chat_button.setEnabled(true);
             }
         });
-    }
-
-    public JLabel getDanger_server() {
-        return danger_server;
     }
 
     public boolean isUnsecure_server() {
@@ -555,9 +535,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "¡Conectado al servidor! Vamos a intercambiar las claves...");
 
                         //Le mandamos los bytes "mágicos"
-                        byte[] magic = Helpers.toByteArray(MAGIC_BYTES);
-
-                        local_client_socket.getOutputStream().write(magic);
+                        local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
 
                         /* INICIO INTERCAMBIO CLAVES */
                         KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
@@ -675,10 +653,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         if (!ok_rec) {
 
                             if (local_client_socket != null && !local_client_socket.isClosed()) {
+
                                 try {
+
                                     local_client_socket.close();
 
-                                } catch (Exception ex2) {
+                                } catch (Exception ex) {
                                 }
 
                                 local_client_socket = null;
@@ -875,9 +855,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     local_client_socket = new Socket(direccion[0], Integer.valueOf(direccion[1]));
 
                     //Le mandamos los bytes "mágicos"
-                    byte[] magic = Helpers.toByteArray(MAGIC_BYTES);
-
-                    local_client_socket.getOutputStream().write(magic);
+                    local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
 
                     Helpers.GUIRun(new Runnable() {
                         public void run() {

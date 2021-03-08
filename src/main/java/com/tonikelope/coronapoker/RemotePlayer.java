@@ -733,10 +733,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         jPanel3.setFocusable(false);
         jPanel3.setOpaque(false);
 
-        player_name.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        player_name.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_name.setForeground(new java.awt.Color(255, 255, 255));
         player_name.setText("12345678901234567890");
-        player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
+        player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 2, 0, 2));
         player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
         player_name.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -806,7 +806,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addGap(0, 0, 0))
         );
 
-        player_action.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        player_action.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_action.setText("ESCALERA DE COLOR");
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));

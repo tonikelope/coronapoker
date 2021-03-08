@@ -995,10 +995,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
-                    player_check_button.setText(Translator.translate("AUTO PASAR +CG"));
+                    player_check_button.setText(Translator.translate("[A] PASAR +CG"));
                     player_check_button.setEnabled(true);
 
-                    player_fold_button.setText(Translator.translate("AUTO NO IR"));
+                    player_fold_button.setText(Translator.translate("[A] NO IR"));
                     player_fold_button.setEnabled(true);
 
                     if (pre_pulsado != Player.NODEC) {
@@ -1471,10 +1471,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         jPanel5.setFocusable(false);
         jPanel5.setOpaque(false);
 
-        player_name.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        player_name.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_name.setForeground(new java.awt.Color(255, 255, 255));
         player_name.setText("123456789012345");
-        player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
+        player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 2, 0, 2));
         player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
         player_name.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -1548,7 +1548,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         botonera.setOpaque(false);
 
         player_allin_button.setBackground(new java.awt.Color(0, 0, 0));
-        player_allin_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        player_allin_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         player_allin_button.setForeground(new java.awt.Color(255, 255, 255));
         player_allin_button.setText("ALL IN");
         player_allin_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1561,7 +1561,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         player_fold_button.setBackground(new java.awt.Color(255, 0, 0));
-        player_fold_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        player_fold_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         player_fold_button.setForeground(new java.awt.Color(255, 255, 255));
         player_fold_button.setText("NO IR");
         player_fold_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1573,7 +1573,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        player_check_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        player_check_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         player_check_button.setText("PASAR");
         player_check_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_check_button.setDoubleBuffered(true);
@@ -1585,7 +1585,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         player_bet_button.setBackground(java.awt.Color.orange);
-        player_bet_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        player_bet_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         player_bet_button.setText("APOSTAR");
         player_bet_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_bet_button.setDoubleBuffered(true);
@@ -1596,7 +1596,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        bet_spinner.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        bet_spinner.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         bet_spinner.setModel(new javax.swing.SpinnerNumberModel());
         bet_spinner.setBorder(null);
         bet_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1628,7 +1628,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addContainerGap())
         );
 
-        player_action.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        player_action.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_action.setText("ESCALERA DE COLOR");
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));

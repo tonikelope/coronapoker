@@ -5407,7 +5407,7 @@ public class Crupier implements Runnable {
                         if (resisten.size() == 1) {
 
                             //Todos se han tirado menos uno GANA SIN MOSTRAR
-                            resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("GANAS SIN MOSTRAR") : Translator.translate("GANA SIN MOSTRAR"));
+                            resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("GANAS") : Translator.translate("GANA"));
 
                             resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante);
 

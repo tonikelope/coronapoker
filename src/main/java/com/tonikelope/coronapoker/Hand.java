@@ -373,27 +373,30 @@ public class Hand {
         return escalera.getVal() == ESCALERA && escalera.getMano().get(0).getValor().equals("A");
     }
 
-    ArrayList<Card> cartas_utilizables;
-    ArrayList<Card> mano;
-    ArrayList<Card> winners;
-    ArrayList<Card> kickers;
-    int val;
-    String name;
+    ArrayList<Card> cartas_utilizables = null;
+    ArrayList<Card> mano = null;
+    ArrayList<Card> winners = null;
+    ArrayList<Card> kickers = null;
+    int val = -1;
+    String name = null;
 
     public Hand(ArrayList<Card> cartas) {
-        this.cartas_utilizables = new ArrayList<>(cartas);
-        Object[] mejor_jugada = calcularMejorJugada();
-        this.val = (int) mejor_jugada[0];
-        this.name = NOMBRES_JUGADAS[this.val - 1];
-        this.winners = (ArrayList<Card>) mejor_jugada[1];
-        this.mano = new ArrayList<>(this.winners);
+        if (!cartas.isEmpty()) {
+            this.cartas_utilizables = new ArrayList<>(cartas);
+            Object[] mejor_jugada = calcularMejorJugada();
+            this.val = (int) mejor_jugada[0];
+            this.name = NOMBRES_JUGADAS[this.val - 1];
+            this.winners = (ArrayList<Card>) mejor_jugada[1];
+            this.mano = new ArrayList<>(this.winners);
 
-        if (mejor_jugada.length == 3) {
-            this.kickers = (ArrayList<Card>) mejor_jugada[2];
-            this.mano.addAll(kickers);
-        } else {
-            this.kickers = null;
+            if (mejor_jugada.length == 3 && mejor_jugada[2]!=null) {
+                this.kickers = (ArrayList<Card>) mejor_jugada[2];
+                this.mano.addAll(kickers);
+            } else {
+                this.kickers = null;
+            }
         }
+
     }
 
     @Override
@@ -434,7 +437,7 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{POKER, mejor_jugada, getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{POKER, mejor_jugada, k.isEmpty() ? null : getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
         }
         mejor_jugada = Hand.hayFull(cartas_utilizables);
         if (mejor_jugada != null) {
@@ -455,7 +458,7 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{TRIO, mejor_jugada, getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{TRIO, mejor_jugada, k.isEmpty() ? null : getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
         }
         mejor_jugada = Hand.hayDoblePareja(cartas_utilizables);
         if (mejor_jugada != null) {
@@ -464,7 +467,7 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{DOBLE_PAREJA, mejor_jugada, getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{DOBLE_PAREJA, mejor_jugada, k.isEmpty() ? null : getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
 
         }
         mejor_jugada = Hand.hayPareja(cartas_utilizables);
@@ -474,7 +477,7 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{PAREJA, mejor_jugada, getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{PAREJA, mejor_jugada, k.isEmpty() ? null : getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
 
         }
         mejor_jugada = getCartasAltas(cartas_utilizables, CARTAS_MAX);

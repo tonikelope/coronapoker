@@ -1506,6 +1506,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
                         empezar_timba.setEnabled(false);
+                        game_info.setEnabled(false);
 
                     }
                 });
@@ -1719,6 +1720,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     Helpers.GUIRun(new Runnable() {
                                         public void run() {
                                             empezar_timba.setEnabled(true);
+                                            game_info.setEnabled(true);
                                             kick_user.setEnabled(true);
                                             new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                                         }

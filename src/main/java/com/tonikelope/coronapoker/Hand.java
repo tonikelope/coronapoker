@@ -389,7 +389,7 @@ public class Hand {
             this.winners = (ArrayList<Card>) mejor_jugada[1];
             this.mano = new ArrayList<>(this.winners);
 
-            if (mejor_jugada.length == 3 && mejor_jugada[2]!=null) {
+            if (mejor_jugada.length == 3 && mejor_jugada[2] != null) {
                 this.kickers = (ArrayList<Card>) mejor_jugada[2];
                 this.mano.addAll(kickers);
             } else {

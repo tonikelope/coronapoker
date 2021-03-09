@@ -285,7 +285,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         );
         panel_barraLayout.setVerticalGroup(
             panel_barraLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
+            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 20, Short.MAX_VALUE)
         );
 
         cards_panel.setFocusable(false);
@@ -342,7 +342,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         });
 
         last_hand_label.setBackground(new java.awt.Color(255, 255, 0));
-        last_hand_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        last_hand_label.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         last_hand_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         last_hand_label.setText("ÚLTIMA MANO");
         last_hand_label.setDoubleBuffered(true);

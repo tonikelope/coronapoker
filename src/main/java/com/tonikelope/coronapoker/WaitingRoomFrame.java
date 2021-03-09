@@ -2821,7 +2821,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void game_infoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_game_infoMouseClicked
         // TODO add your handling code here:
 
-        if (server && game_info.isEnabled()) {
+        if (server && !isPartida_empezada() && !isPartida_empezando() && game_info.isEnabled()) {
 
             game_info.setEnabled(false);
 

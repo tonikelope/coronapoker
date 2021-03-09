@@ -135,7 +135,7 @@
                       </Group>
                       <Component id="video_chat_button" alignment="0" max="32767" attributes="0"/>
                       <Component id="new_bot_button" alignment="0" max="32767" attributes="0"/>
-                      <Component id="blinds" alignment="0" max="32767" attributes="0"/>
+                      <Component id="game_info" alignment="0" max="32767" attributes="0"/>
                       <Component id="tot_conectados" alignment="1" min="-2" max="-2" attributes="0"/>
                       <Component id="logo" alignment="0" max="32767" attributes="0"/>
                   </Group>
@@ -155,7 +155,7 @@
                           <EmptySpace max="-2" attributes="0"/>
                           <Component id="tot_conectados" min="-2" max="-2" attributes="0"/>
                           <EmptySpace max="32767" attributes="0"/>
-                          <Component id="blinds" min="-2" max="-2" attributes="0"/>
+                          <Component id="game_info" min="-2" max="-2" attributes="0"/>
                           <EmptySpace type="unrelated" max="-2" attributes="0"/>
                           <Component id="new_bot_button" min="-2" max="-2" attributes="0"/>
                           <EmptySpace type="unrelated" max="-2" attributes="0"/>
@@ -402,13 +402,19 @@
             <Property name="text" type="java.lang.String" value="0/10"/>
           </Properties>
         </Component>
-        <Component class="javax.swing.JLabel" name="blinds">
+        <Component class="javax.swing.JLabel" name="game_info">
           <Properties>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="18" style="1"/>
             </Property>
             <Property name="text" type="java.lang.String" value=" "/>
+            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+              <Color id="Cursor de Mano"/>
+            </Property>
           </Properties>
+          <Events>
+            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_infoMouseClicked"/>
+          </Events>
         </Component>
       </SubComponents>
     </Container>

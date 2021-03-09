@@ -320,7 +320,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             status.setText("Esperando jugadores...");
 
-            blinds.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : ""));
+            game_info.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : ""));
 
             participantes.put(local_nick, null);
 
@@ -983,7 +983,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
 
-                                blinds.setText(blinds_msg);
+                                game_info.setText(blinds_msg);
                             }
                         });
 
@@ -1255,6 +1255,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             } else {
 
                                                 switch (subcomando) {
+                                                    case "GAMEINFO":
+                                                        Helpers.GUIRun(new Runnable() {
+                                                            public void run() {
+
+                                                                try {
+                                                                    game_info.setText(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                                } catch (UnsupportedEncodingException ex) {
+                                                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                                                }
+
+                                                            }
+                                                        });
+                                                        break;
                                                     case "VIDEOCHAT":
                                                         setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         break;
@@ -1490,6 +1503,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "Un cliente intenta conectar...");
 
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+                        empezar_timba.setEnabled(false);
+
+                    }
+                });
+
                 String recibido = "";
 
                 String[] partes = null;
@@ -1648,7 +1668,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             String jar_hmac = M.J1(Base64.decodeBase64(client_jar_hmac), hmac_key.getEncoded());
 
-                            writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1") + "#" + jar_hmac + "#" + Base64.encodeBase64String(blinds.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
+                            writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1") + "#" + jar_hmac + "#" + Base64.encodeBase64String(game_info.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 
                             byte[] avatar_bytes = null;
 
@@ -1670,57 +1690,61 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             synchronized (lock_new_client) {
 
-                                //Añadimos al participante
-                                nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false);
+                                if (participantes.size() < MAX_PARTICIPANTES && !WaitingRoomFrame.getInstance().isPartida_empezando() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                                //Mandamos la lista de participantes actuales al nuevo participante
-                                if (participantes.size() > 2) {
-                                    enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
-                                }
+                                    //Añadimos al participante
+                                    nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false);
 
-                                //Mandamos el nuevo participante al resto de participantes
-                                String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
-
-                                if (client_avatar != null) {
-
-                                    byte[] avatar_b;
-
-                                    try (FileInputStream is = new FileInputStream(client_avatar)) {
-                                        avatar_b = is.readAllBytes();
+                                    //Mandamos la lista de participantes actuales al nuevo participante
+                                    if (participantes.size() > 2) {
+                                        enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
                                     }
 
-                                    comando += "#" + Base64.encodeBase64String(avatar_b);
-                                }
+                                    //Mandamos el nuevo participante al resto de participantes
+                                    String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
 
-                                broadcastASYNCGAMECommandFromServer(comando, participantes.get(client_nick));
+                                    if (client_avatar != null) {
 
-                                Helpers.GUIRun(new Runnable() {
-                                    public void run() {
-                                        empezar_timba.setEnabled(true);
-                                        kick_user.setEnabled(true);
-                                        new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
+                                        byte[] avatar_b;
+
+                                        try (FileInputStream is = new FileInputStream(client_avatar)) {
+                                            avatar_b = is.readAllBytes();
+                                        }
+
+                                        comando += "#" + Base64.encodeBase64String(avatar_b);
                                     }
-                                });
 
-                                if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                                    Helpers.playWavResource("misc/new_user.wav");
-                                }
+                                    broadcastASYNCGAMECommandFromServer(comando, participantes.get(client_nick));
 
-                                if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
-
-                                    participantes.get(client_nick).setUnsecure_player(true);
-
-                                    Helpers.threadRun(new Runnable() {
+                                    Helpers.GUIRun(new Runnable() {
                                         public void run() {
-
-                                            Helpers.mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
+                                            empezar_timba.setEnabled(true);
+                                            kick_user.setEnabled(true);
+                                            new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                                         }
                                     });
 
+                                    if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                                        Helpers.playWavResource("misc/new_user.wav");
+                                    }
+
+                                    if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
+
+                                        participantes.get(client_nick).setUnsecure_player(true);
+
+                                        Helpers.threadRun(new Runnable() {
+                                            public void run() {
+
+                                                Helpers.mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
+                                            }
+                                        });
+
+                                    }
+
+                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " CONECTADO");
+                                } else {
+                                    client_socket.close();
                                 }
-
-                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " CONECTADO");
-
                             }
 
                         }
@@ -2044,7 +2068,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         kick_user = new javax.swing.JButton();
         empezar_timba = new javax.swing.JButton();
         tot_conectados = new javax.swing.JLabel();
-        blinds = new javax.swing.JLabel();
+        game_info = new javax.swing.JLabel();
         danger_server = new javax.swing.JLabel();
         tts_warning = new javax.swing.JLabel();
 
@@ -2214,8 +2238,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         tot_conectados.setForeground(new java.awt.Color(0, 102, 255));
         tot_conectados.setText("0/10");
 
-        blinds.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        blinds.setText(" ");
+        game_info.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        game_info.setText(" ");
+        game_info.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        game_info.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                game_infoMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -2233,7 +2263,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(new_bot_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(blinds, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(game_info, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(tot_conectados, javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -2250,7 +2280,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(tot_conectados)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(blinds)
+                        .addComponent(game_info)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(new_bot_button)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -2415,11 +2445,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         if (password != null && !participantes.get(expulsado).isCpu()) {
                             Helpers.copyTextToClipboard(password);
-                            Helpers.mostrarMensajeInformativo(THIS, Translator.translate("NUEVA PASSWORD COPIADA EN EL PORTAPAPELES"));
+                            Helpers.mostrarMensajeInformativo(THIS, "NUEVA PASSWORD COPIADA EN EL PORTAPAPELES");
                         }
                     }
                 });
             }
+        } else {
+            Helpers.mostrarMensajeError(THIS, "Tienes que seleccionar algún participante antes");
         }
 
     }//GEN-LAST:event_kick_userActionPerformed
@@ -2492,49 +2524,52 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
-                        boolean ocupados;
+                        synchronized (lock_new_client) {
 
-                        do {
+                            boolean ocupados;
 
-                            ocupados = false;
+                            do {
 
-                            for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
+                                ocupados = false;
 
-                                Participant p = entry.getValue();
+                                for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
 
-                                if (p != null && !p.isCpu() && !p.getAsync_command_queue().isEmpty()) {
+                                    Participant p = entry.getValue();
 
-                                    ocupados = true;
+                                    if (p != null && !p.isCpu() && !p.getAsync_command_queue().isEmpty()) {
 
-                                    break;
+                                        ocupados = true;
+
+                                        break;
+
+                                    }
 
                                 }
 
-                            }
+                                if (ocupados) {
 
-                            if (ocupados) {
+                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Hay algun participante con comandos sin confirmar. NO podemos empezar aún...");
+                                    Helpers.pausar(1000);
+                                }
 
-                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Hay algun participante con comandos sin confirmar. NO podemos empezar aún...");
-                                Helpers.pausar(1000);
-                            }
+                            } while (ocupados);
 
-                        } while (ocupados);
+                            //Inicializamos partida
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                public void run() {
+                                    new GameFrame(THIS, local_nick, true);
+                                }
+                            });
 
-                        //Inicializamos partida
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            public void run() {
-                                new GameFrame(THIS, local_nick, true);
-                            }
-                        });
+                            partida_empezada = true;
 
-                        partida_empezada = true;
-
-                        GameFrame.getInstance().AJUGAR();
-
+                            GameFrame.getInstance().AJUGAR();
+                        }
                     }
                 });
             }
         }
+
     }//GEN-LAST:event_empezar_timbaActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
@@ -2687,15 +2722,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         comando += "#" + Base64.encodeBase64String(avatar_b);
 
-                        nuevoParticipante(bot_nick, null, null, null, null, true);
+                        synchronized (lock_new_client) {
 
-                        broadcastASYNCGAMECommandFromServer(comando, participantes.get(bot_nick));
+                            nuevoParticipante(bot_nick, null, null, null, null, true);
 
-                        empezar_timba.setEnabled(true);
+                            broadcastASYNCGAMECommandFromServer(comando, participantes.get(bot_nick));
 
-                        kick_user.setEnabled(true);
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+                                    empezar_timba.setEnabled(true);
+                                    kick_user.setEnabled(true);
 
-                        new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
+                                    new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
+
+                                }
+                            });
+                        }
 
                     } catch (UnsupportedEncodingException ex) {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -2773,14 +2815,57 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_status1MouseClicked
 
+    private void game_infoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_game_infoMouseClicked
+        // TODO add your handling code here:
+
+        if (server && game_info.isEnabled()) {
+
+            game_info.setEnabled(false);
+
+            NewGameDialog dialog = new NewGameDialog(this, true);
+
+            dialog.setLocationRelativeTo(dialog.getParent());
+
+            dialog.setVisible(true);
+
+            if (dialog.isDialog_ok()) {
+
+                game_info.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : ""));
+
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
+
+                        try {
+                            broadcastASYNCGAMECommandFromServer("GAMEINFO#" + Base64.encodeBase64String(game_info.getText().getBytes("UTF-8")), null);
+                        } catch (UnsupportedEncodingException ex) {
+                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+
+                                game_info.setEnabled(true);
+                            }
+                        });
+
+                    }
+                });
+            } else {
+                game_info.setEnabled(true);
+            }
+
+        }
+
+    }//GEN-LAST:event_game_infoMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
-    private javax.swing.JLabel blinds;
     private javax.swing.JTextArea chat;
     private javax.swing.JTextField chat_box;
     private javax.swing.JList<String> conectados;
     private javax.swing.JLabel danger_server;
     private javax.swing.JButton empezar_timba;
+    private javax.swing.JLabel game_info;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;

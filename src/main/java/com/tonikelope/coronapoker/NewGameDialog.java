@@ -60,9 +60,40 @@ public class NewGameDialog extends javax.swing.JDialog {
     private volatile boolean dialog_ok = false;
     private volatile boolean partida_local;
     private volatile File avatar = null;
+    private volatile boolean update = false;
 
     public boolean isDialog_ok() {
         return dialog_ok;
+    }
+
+    public NewGameDialog(java.awt.Frame parent, boolean modal) {
+        super(parent, modal);
+
+        initComponents();
+
+        update = true;
+        config_partida_panel.setVisible(true);
+        nick_pass_panel.setVisible(false);
+        this.server_ip_textfield.setVisible(false);
+        this.server_port_puntos.setVisible(false);
+        this.server_port_textfield.setVisible(false);
+        this.upnp_checkbox.setVisible(false);
+        this.random_combobox.setVisible(false);
+        this.random_label.setVisible(false);
+        this.randomorg_apikey.setVisible(false);
+        this.randomorg_label.setVisible(false);
+        this.recover_checkbox.setVisible(false);
+        this.game_combo.setVisible(false);
+        this.vamos.setText("GUARDAR");
+        this.rebuy_checkbox.setSelected(true);
+        this.doblar_checkbox.setSelected(true);
+        manos_spinner.setEnabled(false);
+
+        Helpers.setTranslatedTitle(this, "Actualizar timba");
+
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
+        pack();
     }
 
     /**
@@ -149,8 +180,6 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         }
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-
         if (partida_local) {
             server_ip_textfield.setText(Helpers.PROPERTIES.getProperty("local_ip", "localhost"));
             server_ip_textfield.setEnabled(false);
@@ -179,6 +208,8 @@ public class NewGameDialog extends javax.swing.JDialog {
             server_ip_textfield.setText(Helpers.PROPERTIES.getProperty("server_ip", "localhost"));
             Helpers.setTranslatedTitle(this, "Unirme a timba");
         }
+
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
 
@@ -265,7 +296,8 @@ public class NewGameDialog extends javax.swing.JDialog {
         vamos = new javax.swing.JButton();
         server_port_textfield = new javax.swing.JTextField();
         server_ip_textfield = new javax.swing.JTextField();
-        jLabel2 = new javax.swing.JLabel();
+        server_port_puntos = new javax.swing.JLabel();
+        upnp_checkbox = new javax.swing.JCheckBox();
         config_partida_panel = new javax.swing.JPanel();
         randomorg_label = new javax.swing.JLabel();
         random_label = new javax.swing.JLabel();
@@ -282,13 +314,12 @@ public class NewGameDialog extends javax.swing.JDialog {
         game_combo = new javax.swing.JComboBox<>();
         manos_checkbox = new javax.swing.JCheckBox();
         manos_spinner = new javax.swing.JSpinner();
-        jPanel1 = new javax.swing.JPanel();
+        nick_pass_panel = new javax.swing.JPanel();
         avatar_img = new javax.swing.JLabel();
         nick = new javax.swing.JTextField();
         jLabel1 = new javax.swing.JLabel();
         password = new javax.swing.JLabel();
         pass_text = new javax.swing.JPasswordField();
-        upnp_checkbox = new javax.swing.JCheckBox();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("CoronaPoker - Nueva timba");
@@ -323,9 +354,13 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
-        jLabel2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel2.setText(":");
-        jLabel2.setDoubleBuffered(true);
+        server_port_puntos.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        server_port_puntos.setText(":");
+        server_port_puntos.setDoubleBuffered(true);
+
+        upnp_checkbox.setText("UPnP");
+        upnp_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        upnp_checkbox.setDoubleBuffered(true);
 
         config_partida_panel.setVisible(false);
         config_partida_panel.setOpaque(false);
@@ -549,40 +584,36 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
+        javax.swing.GroupLayout nick_pass_panelLayout = new javax.swing.GroupLayout(nick_pass_panel);
+        nick_pass_panel.setLayout(nick_pass_panelLayout);
+        nick_pass_panelLayout.setHorizontalGroup(
+            nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(nick_pass_panelLayout.createSequentialGroup()
                 .addComponent(avatar_img, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(password)
                     .addComponent(jLabel1))
                 .addGap(6, 6, 6)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(pass_text)
                     .addComponent(nick))
                 .addGap(0, 0, 0))
         );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
+        nick_pass_panelLayout.setVerticalGroup(
+            nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(nick_pass_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(avatar_img, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(jLabel1)
                         .addComponent(nick, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(password)
                     .addComponent(pass_text, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
-
-        upnp_checkbox.setText("UPnP");
-        upnp_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        upnp_checkbox.setDoubleBuffered(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -594,13 +625,13 @@ public class NewGameDialog extends javax.swing.JDialog {
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(server_ip_textfield)
                         .addGap(0, 0, 0)
-                        .addComponent(jLabel2)
+                        .addComponent(server_port_puntos)
                         .addGap(0, 0, 0)
                         .addComponent(server_port_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(upnp_checkbox))
                     .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(nick_pass_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
@@ -611,14 +642,14 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(server_ip_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(jLabel2))
+                        .addComponent(server_port_puntos))
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(server_port_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(upnp_checkbox)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(config_partida_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(vamos, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
@@ -630,47 +661,15 @@ public class NewGameDialog extends javax.swing.JDialog {
     private void vamosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_vamosActionPerformed
         // TODO add your handling code here:
 
-        if (!this.nick.getText().trim().isEmpty() && !this.server_ip_textfield.getText().trim().isEmpty() && !this.server_port_textfield.getText().trim().isEmpty()) {
-
-            Helpers.playWavResource("misc/allin.wav");
-
-            String elnick = this.nick.getText().trim();
-
-            Helpers.PROPERTIES.setProperty("nick", elnick);
-
-            if (this.partida_local) {
-                Helpers.PROPERTIES.setProperty("local_ip", this.server_ip_textfield.getText().trim());
-            } else {
-
-                Helpers.PROPERTIES.setProperty("server_ip", this.server_ip_textfield.getText().trim());
-            }
-
-            Helpers.PROPERTIES.setProperty(this.partida_local ? "local_port" : "server_port", this.server_port_textfield.getText().trim());
-
-            if (this.config_partida_panel.isVisible()) {
-                Helpers.PROPERTIES.setProperty("random_generator", String.valueOf(Helpers.DECK_RANDOM_GENERATOR));
-                Helpers.PROPERTIES.setProperty("randomorg_api", this.randomorg_apikey.getText().trim());
-                Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
-                Helpers.RANDOM_ORG_APIKEY = this.randomorg_apikey.getText().trim();
-            }
-
-            if (this.avatar != null) {
-                Helpers.PROPERTIES.setProperty("avatar", this.avatar.getAbsolutePath());
-            } else {
-                Helpers.PROPERTIES.setProperty("avatar", "");
-            }
-
-            Helpers.savePropertiesFile();
-
-            GameFrame.setRECOVER(this.recover_checkbox.isSelected());
-
-            if (GameFrame.RECOVER) {
-                GameFrame.RECOVER_ID = sqlGetRecoverIdFromGameId((int) game.get((String) game_combo.getSelectedItem()).get("id"));
-            }
+        if (update) {
 
             if (this.manos_checkbox.isSelected()) {
 
                 GameFrame.MANOS = (int) this.manos_spinner.getValue();
+
+            } else {
+
+                GameFrame.MANOS = -1;
             }
 
             GameFrame.REBUY = this.rebuy_checkbox.isSelected();
@@ -691,16 +690,83 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             this.dialog_ok = true;
 
-            WaitingRoomFrame espera = new WaitingRoomFrame((Init) getParent(), partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()), upnp_checkbox.isSelected());
-
-            espera.setLocationRelativeTo(this);
-
             setVisible(false);
 
-            espera.setVisible(true);
-
         } else {
-            Helpers.mostrarMensajeError((JFrame) this.getParent(), "Te falta algún campo obligatorio por completar");
+
+            if (!this.nick.getText().trim().isEmpty() && !this.server_ip_textfield.getText().trim().isEmpty() && !this.server_port_textfield.getText().trim().isEmpty()) {
+
+                Helpers.playWavResource("misc/allin.wav");
+
+                String elnick = this.nick.getText().trim();
+
+                Helpers.PROPERTIES.setProperty("nick", elnick);
+
+                if (this.partida_local) {
+                    Helpers.PROPERTIES.setProperty("local_ip", this.server_ip_textfield.getText().trim());
+                } else {
+
+                    Helpers.PROPERTIES.setProperty("server_ip", this.server_ip_textfield.getText().trim());
+                }
+
+                Helpers.PROPERTIES.setProperty(this.partida_local ? "local_port" : "server_port", this.server_port_textfield.getText().trim());
+
+                if (this.config_partida_panel.isVisible()) {
+                    Helpers.PROPERTIES.setProperty("random_generator", String.valueOf(Helpers.DECK_RANDOM_GENERATOR));
+                    Helpers.PROPERTIES.setProperty("randomorg_api", this.randomorg_apikey.getText().trim());
+                    Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
+                    Helpers.RANDOM_ORG_APIKEY = this.randomorg_apikey.getText().trim();
+                }
+
+                if (this.avatar != null) {
+                    Helpers.PROPERTIES.setProperty("avatar", this.avatar.getAbsolutePath());
+                } else {
+                    Helpers.PROPERTIES.setProperty("avatar", "");
+                }
+
+                Helpers.savePropertiesFile();
+
+                GameFrame.setRECOVER(this.recover_checkbox.isSelected());
+
+                if (GameFrame.RECOVER) {
+                    GameFrame.RECOVER_ID = sqlGetRecoverIdFromGameId((int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                }
+
+                if (this.manos_checkbox.isSelected()) {
+
+                    GameFrame.MANOS = (int) this.manos_spinner.getValue();
+                }
+
+                GameFrame.REBUY = this.rebuy_checkbox.isSelected();
+
+                GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
+
+                String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).split("/");
+
+                GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
+
+                GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].trim());
+
+                if (this.doblar_checkbox.isSelected()) {
+                    GameFrame.CIEGAS_TIME = (int) this.doblar_ciegas_spinner.getValue();
+                } else {
+                    GameFrame.CIEGAS_TIME = 0;
+                }
+
+                this.dialog_ok = true;
+
+                WaitingRoomFrame espera = new WaitingRoomFrame((Init) getParent(), partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()), upnp_checkbox.isSelected());
+
+                espera.setLocationRelativeTo(this);
+
+                setVisible(false);
+
+                espera.setVisible(true);
+
+            } else {
+                Helpers.mostrarMensajeError((JFrame) this.getParent(), "Te falta algún campo obligatorio por completar");
+            }
+
         }
 
     }//GEN-LAST:event_vamosActionPerformed
@@ -708,17 +774,19 @@ public class NewGameDialog extends javax.swing.JDialog {
     private void random_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_random_comboboxActionPerformed
         // TODO add your handling code here:
 
-        Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
+        if (!update) {
+            Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
 
-        this.randomorg_label.setVisible(Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG);
-        this.randomorg_apikey.setVisible(Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG);
+            this.randomorg_label.setVisible(Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG);
+            this.randomorg_apikey.setVisible(Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG);
 
-        if (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG) {
-            this.randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
-            Helpers.RANDOM_ORG_APIKEY = Helpers.PROPERTIES.getProperty("randomorg_api", "");
+            if (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG) {
+                this.randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
+                Helpers.RANDOM_ORG_APIKEY = Helpers.PROPERTIES.getProperty("randomorg_api", "");
+            }
+
+            pack();
         }
-
-        pack();
     }//GEN-LAST:event_random_comboboxActionPerformed
 
     private void avatar_imgMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatar_imgMouseClicked
@@ -899,11 +967,10 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JSpinner doblar_ciegas_spinner;
     private javax.swing.JComboBox<String> game_combo;
     private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel2;
-    private javax.swing.JPanel jPanel1;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;
     private javax.swing.JTextField nick;
+    private javax.swing.JPanel nick_pass_panel;
     private javax.swing.JPasswordField pass_text;
     private javax.swing.JLabel password;
     private javax.swing.JComboBox<String> random_combobox;
@@ -913,6 +980,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JCheckBox rebuy_checkbox;
     private javax.swing.JCheckBox recover_checkbox;
     private javax.swing.JTextField server_ip_textfield;
+    private javax.swing.JLabel server_port_puntos;
     private javax.swing.JTextField server_port_textfield;
     private javax.swing.JCheckBox upnp_checkbox;
     private javax.swing.JButton vamos;

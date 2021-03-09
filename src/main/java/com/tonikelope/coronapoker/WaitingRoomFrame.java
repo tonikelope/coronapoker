@@ -278,6 +278,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         danger_server.setVisible(false);
 
         if (server) {
+            game_info.setToolTipText("Click para actualizar datos de la timba");
             pass_icon.setVisible(true);
 
             if (password != null) {

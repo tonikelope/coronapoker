@@ -22,6 +22,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Click para actualizar datos de la timba", "Click for updating game info"},
+            {"GUARDAR", "SAVE"},
             {"Actualizar timba", "Uodate game"},
             {"Tienes que seleccionar algún participante antes", "You must select a participant before"},
             {"Listar sólo timbas donde participó este jugador", "Only list games joined by this player"},

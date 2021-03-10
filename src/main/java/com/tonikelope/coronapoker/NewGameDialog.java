@@ -85,15 +85,16 @@ public class NewGameDialog extends javax.swing.JDialog {
         this.game_combo.setVisible(false);
         this.vamos.setText("GUARDAR");
 
+        doblar_ciegas_spinner.setEnabled(GameFrame.CIEGAS_TIME > 0);
         ((DefaultEditor) doblar_ciegas_spinner.getEditor()).getTextField().setEditable(false);
 
+        this.manos_spinner.setEnabled(GameFrame.MANOS > 0);
+        this.manos_checkbox.setSelected(GameFrame.MANOS > 0);
+        manos_spinner.setModel(new SpinnerNumberModel(GameFrame.MANOS > 0 ? GameFrame.MANOS : 60, 5, null, 5));
         ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
 
-        doblar_ciegas_spinner.setEnabled(GameFrame.CIEGAS_TIME > 0);
-        manos_spinner.setEnabled(GameFrame.MANOS > 0);
         this.rebuy_checkbox.setSelected(GameFrame.REBUY);
         this.doblar_checkbox.setSelected(GameFrame.CIEGAS_TIME > 0);
-        this.manos_checkbox.setSelected(GameFrame.MANOS > 0);
 
         String ciegas = (GameFrame.CIEGA_PEQUEÑA >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_PEQUEÑA)) : Helpers.float2String(GameFrame.CIEGA_PEQUEÑA)) + " / " + (GameFrame.CIEGA_GRANDE >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_GRANDE)) : Helpers.float2String(GameFrame.CIEGA_GRANDE));
 

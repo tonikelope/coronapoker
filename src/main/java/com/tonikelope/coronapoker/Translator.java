@@ -22,6 +22,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿SEGURO QUE QUIERES SALIR AHORA?", "SURE YOU WANT TO EXIT NOW?"},
+            {"¿SEGURO QUE QUIERES EMPEZAR YA?", "SURE YOU WANT TO START NOW?"},
             {"Click para actualizar datos de la timba", "Click for updating game info"},
             {"GUARDAR", "SAVE"},
             {"Actualizar timba", "Uodate game"},

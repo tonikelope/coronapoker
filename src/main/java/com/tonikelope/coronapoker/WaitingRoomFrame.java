@@ -1841,7 +1841,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     }
                 }
 
-                Helpers.UPnPClose(server_port);
+                if (upnp) {
+                    Helpers.UPnPClose(server_port);
+                }
 
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
@@ -2463,7 +2465,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void empezar_timbaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_empezar_timbaActionPerformed
         // TODO add your handling code here:
 
-        if (participantes.size() >= 2 && !WaitingRoomFrame.getInstance().isPartida_empezada() && !WaitingRoomFrame.getInstance().isPartida_empezando()) {
+        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES EMPEZAR YA?") == 0 && participantes.size() >= 2 && !WaitingRoomFrame.getInstance().isPartida_empezada() && !WaitingRoomFrame.getInstance().isPartida_empezando()) {
 
             String missing_players = "";
 
@@ -2589,7 +2591,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         System.exit(1);
                     }
 
-                } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿SEGURO?") == 0) {
+                } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES SALIR AHORA?") == 0) {
 
                     exit = true;
 
@@ -2851,7 +2853,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 game_info.setEnabled(true);
                             }
                         });
-                        
+
                         Helpers.playWavResource("misc/last_hand_on.wav");
 
                     }

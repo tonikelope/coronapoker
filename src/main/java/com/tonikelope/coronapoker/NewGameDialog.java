@@ -86,6 +86,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         this.vamos.setText("GUARDAR");
 
         doblar_ciegas_spinner.setEnabled(GameFrame.CIEGAS_TIME > 0);
+        doblar_ciegas_spinner.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_TIME > 0 ? GameFrame.CIEGAS_TIME : 60, 5, null, 5));
         ((DefaultEditor) doblar_ciegas_spinner.getEditor()).getTextField().setEditable(false);
 
         this.manos_spinner.setEnabled(GameFrame.MANOS > 0);

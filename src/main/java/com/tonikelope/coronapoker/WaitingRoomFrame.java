@@ -1268,6 +1268,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                             }
                                                         });
+                                                        Helpers.playWavResource("misc/last_hand_on.wav");
                                                         break;
                                                     case "VIDEOCHAT":
                                                         setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
@@ -2850,6 +2851,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 game_info.setEnabled(true);
                             }
                         });
+                        
+                        Helpers.playWavResource("misc/last_hand_on.wav");
 
                     }
                 });

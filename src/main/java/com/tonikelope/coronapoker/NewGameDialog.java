@@ -61,6 +61,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     private volatile boolean partida_local;
     private volatile File avatar = null;
     private volatile boolean update = false;
+    private volatile boolean init = false;
 
     public boolean isDialog_ok() {
         return dialog_ok;
@@ -72,12 +73,10 @@ public class NewGameDialog extends javax.swing.JDialog {
         initComponents();
 
         update = true;
-        config_partida_panel.setVisible(true);
+
+        url_panel.setVisible(false);
         nick_pass_panel.setVisible(false);
-        this.server_ip_textfield.setVisible(false);
-        this.server_port_puntos.setVisible(false);
-        this.server_port_textfield.setVisible(false);
-        this.upnp_checkbox.setVisible(false);
+        config_partida_panel.setVisible(true);
         this.random_combobox.setVisible(false);
         this.random_label.setVisible(false);
         this.randomorg_apikey.setVisible(false);
@@ -85,15 +84,45 @@ public class NewGameDialog extends javax.swing.JDialog {
         this.recover_checkbox.setVisible(false);
         this.game_combo.setVisible(false);
         this.vamos.setText("GUARDAR");
-        this.rebuy_checkbox.setSelected(true);
-        this.doblar_checkbox.setSelected(true);
-        manos_spinner.setEnabled(false);
+
+        ((DefaultEditor) doblar_ciegas_spinner.getEditor()).getTextField().setEditable(false);
+
+        ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
+
+        doblar_ciegas_spinner.setEnabled(GameFrame.CIEGAS_TIME > 0);
+        manos_spinner.setEnabled(GameFrame.MANOS > 0);
+        this.rebuy_checkbox.setSelected(GameFrame.REBUY);
+        this.doblar_checkbox.setSelected(GameFrame.CIEGAS_TIME > 0);
+        this.manos_checkbox.setSelected(GameFrame.MANOS > 0);
+
+        String ciegas = (GameFrame.CIEGA_PEQUEÑA >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_PEQUEÑA)) : Helpers.float2String(GameFrame.CIEGA_PEQUEÑA)) + " / " + (GameFrame.CIEGA_GRANDE >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_GRANDE)) : Helpers.float2String(GameFrame.CIEGA_GRANDE));
+
+        int i = 0, t = this.ciegas_combobox.getModel().getSize();
+
+        while (i < t) {
+            String item = this.ciegas_combobox.getItemAt(i);
+
+            if (item.equals(ciegas)) {
+                break;
+            }
+
+            i++;
+        }
+
+        buyin_spinner.setModel(new SpinnerNumberModel((int) GameFrame.BUYIN, (int) (GameFrame.CIEGA_GRANDE * 10f), (int) (GameFrame.CIEGA_GRANDE * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 3))));
+
+        ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+
+        if (i < t) {
+            this.ciegas_combobox.setSelectedIndex(i);
+        }
 
         Helpers.setTranslatedTitle(this, "Actualizar timba");
-
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
         pack();
+
+        init = true;
     }
 
     /**
@@ -195,7 +224,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             float ciega_grande = Float.valueOf(valores[1].trim());
 
-            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 3))));
+            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4))));
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
@@ -214,6 +243,8 @@ public class NewGameDialog extends javax.swing.JDialog {
         Helpers.translateComponents(this, false);
 
         pack();
+
+        init = true;
 
     }
 
@@ -294,10 +325,11 @@ public class NewGameDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         vamos = new javax.swing.JButton();
-        server_port_textfield = new javax.swing.JTextField();
-        server_ip_textfield = new javax.swing.JTextField();
+        url_panel = new javax.swing.JPanel();
         server_port_puntos = new javax.swing.JLabel();
+        server_port_textfield = new javax.swing.JTextField();
         upnp_checkbox = new javax.swing.JCheckBox();
+        server_ip_textfield = new javax.swing.JTextField();
         config_partida_panel = new javax.swing.JPanel();
         randomorg_label = new javax.swing.JLabel();
         random_label = new javax.swing.JLabel();
@@ -336,6 +368,10 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
+        server_port_puntos.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        server_port_puntos.setText(":");
+        server_port_puntos.setDoubleBuffered(true);
+
         server_port_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_port_textfield.setDoubleBuffered(true);
         server_port_textfield.addActionListener(new java.awt.event.ActionListener() {
@@ -343,6 +379,10 @@ public class NewGameDialog extends javax.swing.JDialog {
                 server_port_textfieldActionPerformed(evt);
             }
         });
+
+        upnp_checkbox.setText("UPnP");
+        upnp_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        upnp_checkbox.setDoubleBuffered(true);
 
         server_ip_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_ip_textfield.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
@@ -354,13 +394,34 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
-        server_port_puntos.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        server_port_puntos.setText(":");
-        server_port_puntos.setDoubleBuffered(true);
-
-        upnp_checkbox.setText("UPnP");
-        upnp_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        upnp_checkbox.setDoubleBuffered(true);
+        javax.swing.GroupLayout url_panelLayout = new javax.swing.GroupLayout(url_panel);
+        url_panel.setLayout(url_panelLayout);
+        url_panelLayout.setHorizontalGroup(
+            url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(url_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(server_ip_textfield)
+                .addGap(0, 0, 0)
+                .addComponent(server_port_puntos)
+                .addGap(0, 0, 0)
+                .addComponent(server_port_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(upnp_checkbox)
+                .addGap(0, 0, 0))
+        );
+        url_panelLayout.setVerticalGroup(
+            url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(url_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(server_ip_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(server_port_puntos))
+                    .addGroup(url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(server_port_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(upnp_checkbox)))
+                .addGap(0, 0, 0))
+        );
 
         config_partida_panel.setVisible(false);
         config_partida_panel.setOpaque(false);
@@ -622,31 +683,18 @@ public class NewGameDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(server_ip_textfield)
-                        .addGap(0, 0, 0)
-                        .addComponent(server_port_puntos)
-                        .addGap(0, 0, 0)
-                        .addComponent(server_port_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(upnp_checkbox))
                     .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(nick_pass_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(url_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(server_ip_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(server_port_puntos))
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(server_port_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(upnp_checkbox)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(url_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(config_partida_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -907,14 +955,17 @@ public class NewGameDialog extends javax.swing.JDialog {
     private void ciegas_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ciegas_comboboxActionPerformed
         // TODO add your handling code here:
 
-        String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
+        if (init) {
 
-        float ciega_grande = Float.valueOf(valores[1].trim());
+            String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
 
-        buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4))));
+            float ciega_grande = Float.valueOf(valores[1].trim());
 
-        ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4))));
 
+            ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+
+        }
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
 
     private void nickActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nickActionPerformed
@@ -983,6 +1034,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JLabel server_port_puntos;
     private javax.swing.JTextField server_port_textfield;
     private javax.swing.JCheckBox upnp_checkbox;
+    private javax.swing.JPanel url_panel;
     private javax.swing.JButton vamos;
     // End of variables declaration//GEN-END:variables
 }

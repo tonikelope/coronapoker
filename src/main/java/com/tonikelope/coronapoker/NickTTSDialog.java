@@ -28,7 +28,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
 
         nick_tts.setText(nick);
 

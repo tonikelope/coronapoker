@@ -98,6 +98,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static volatile boolean RECOVER = false;
     public static volatile boolean MAC_NATIVE_FULLSCREEN = false;
+    public static volatile boolean TTS_SERVER = true;
     public static volatile String RECOVER_ID = null;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
     private static volatile GameFrame THIS = null;
@@ -1745,11 +1746,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             }
                         });
 
-                        if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                        if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
                             Helpers.TTS((String) tts[1], nick_dialog);
 
-                        } else if (GameFrame.SONIDOS_TTS && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                        } else if (GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
@@ -2681,7 +2682,27 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
 
         if (GameFrame.SONIDOS_TTS) {
+
             Helpers.TTS_BLOCKED_USERS.clear();
+
+            if (!GameFrame.TTS_SERVER && GameFrame.getInstance().isPartida_local()) {
+
+                GameFrame.TTS_SERVER = true;
+
+                getCrupier().broadcastGAMECommandFromServer("TTS#1", null);
+
+            }
+
+        } else if (GameFrame.getInstance().isPartida_local()) {
+
+            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿DESACTIVAR EL CHAT DE VOZ PARA TODOS?") == 0) {
+
+                GameFrame.TTS_SERVER = false;
+
+                getCrupier().broadcastGAMECommandFromServer("TTS#0", null);
+
+            }
+
         }
     }//GEN-LAST:event_tts_menuActionPerformed
 

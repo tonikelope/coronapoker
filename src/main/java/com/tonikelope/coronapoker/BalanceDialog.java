@@ -60,7 +60,7 @@ public class BalanceDialog extends javax.swing.JDialog {
 
                 label.setText(entry.getKey() + " " + ganancia_msg);
 
-                label.setFont(label.getFont().deriveFont(Font.BOLD, Math.round(label.getFont().getSize() * 1.5f)));
+                label.setFont(label.getFont().deriveFont(Font.BOLD, 22f));
 
                 if (entry.getKey().equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
                     label.setBackground(new Color(255, 255, 153));
@@ -135,7 +135,7 @@ public class BalanceDialog extends javax.swing.JDialog {
         setUndecorated(true);
 
         title.setBackground(new java.awt.Color(102, 102, 102));
-        title.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        title.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
         title.setForeground(new java.awt.Color(255, 255, 255));
         title.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         title.setText("LA TIMBA HA TERMINADO");
@@ -155,7 +155,7 @@ public class BalanceDialog extends javax.swing.JDialog {
         jScrollPane1.setViewportView(jugadores);
 
         ok_button.setBackground(new java.awt.Color(0, 130, 0));
-        ok_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        ok_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         ok_button.setForeground(new java.awt.Color(255, 255, 255));
         ok_button.setText("OK");
         ok_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -171,7 +171,7 @@ public class BalanceDialog extends javax.swing.JDialog {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, 411, Short.MAX_VALUE)
+            .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jScrollPane1)
             .addComponent(ok_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
@@ -180,7 +180,7 @@ public class BalanceDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addComponent(title)
                 .addGap(0, 0, 0)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 249, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 240, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
                 .addComponent(ok_button)
                 .addGap(0, 0, 0))

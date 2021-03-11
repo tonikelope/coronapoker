@@ -22,6 +22,9 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿DESACTIVAR EL CHAT DE VOZ PARA TODOS?", "DISABLE VOICE CHAT FOR EVERYONE?"},
+            {"EL SERVIDOR HA REACTIVADO EL CHAT DE VOZ", "THE SERVER HAS RE-ENABLED THE VOICE CHAT"},
+            {"EL SERVIDOR HA DESACTIVADO EL CHAT DE VOZ", "THE SERVER HAS DISABLED THE VOICE CHAT"},
             {"¿SEGURO QUE QUIERES SALIR AHORA?", "SURE YOU WANT TO EXIT NOW?"},
             {"¿SEGURO QUE QUIERES EMPEZAR YA?", "SURE YOU WANT TO START NOW?"},
             {"Click para actualizar datos de la timba", "Click for updating game info"},

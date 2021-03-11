@@ -1181,6 +1181,29 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                     case "PING":
                                                         break;
 
+                                                    case "TTS":
+                                                        GameFrame.TTS_SERVER = partes_comando[3].equals("1");
+
+                                                        Helpers.GUIRun(new Runnable() {
+                                                            public void run() {
+
+                                                                GameFrame.getInstance().getTts_menu().setEnabled(GameFrame.TTS_SERVER);
+                                                                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
+
+                                                                if (GameFrame.SONIDOS_TTS) {
+
+                                                                    if (GameFrame.TTS_SERVER) {
+                                                                        Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA REACTIVADO EL CHAT DE VOZ");
+                                                                    } else {
+                                                                        Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA DESACTIVADO EL CHAT DE VOZ");
+                                                                    }
+                                                                }
+
+                                                            }
+                                                        });
+
+                                                        break;
+
                                                     case "VIDEOCHAT":
                                                         setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                         break;
@@ -1399,16 +1422,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             } catch (SocketException ex) {
 
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EXCEPCION AL LEER DEL SOCKET");
+
                                 recibido = null;
 
                             } catch (KeyException ex) {
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "KEY-EXCEPTION AL LEER DEL SOCKET", ex);
-                                Helpers.pausar(1000);
+
+                                recibido = null;
 
                             } finally {
                                 if (recibido == null && (!exit && (!isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit())) && !reconectarCliente()) {
                                     exit = true;
                                 }
+                            }
+
+                            if (!exit) {
+                                Helpers.pausar(1000);
                             }
 
                         } while (!exit);

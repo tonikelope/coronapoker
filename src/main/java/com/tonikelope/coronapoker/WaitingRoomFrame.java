@@ -103,6 +103,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile boolean reconnecting = false;
     private volatile boolean unsecure_server = false;
     private volatile int pong;
+    private volatile String gameinfo_original = null;
     private volatile String video_chat_link = null;
     private volatile boolean chat_enabled = true;
     private volatile boolean upnp = false;
@@ -321,7 +322,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             status.setText("Esperando jugadores...");
 
-            game_info.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : ""));
+            gameinfo_original = GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : "");
+
+            game_info.setText(gameinfo_original);
 
             participantes.put(local_nick, null);
 
@@ -979,12 +982,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             });
                         }
 
-                        String blinds_msg = new String(Base64.decodeBase64(partes[3]), "UTF-8");
+                        gameinfo_original = new String(Base64.decodeBase64(partes[3]), "UTF-8");
 
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
 
-                                game_info.setText(blinds_msg);
+                                game_info.setText(gameinfo_original);
                             }
                         });
 
@@ -1271,18 +1274,32 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                 switch (subcomando) {
                                                     case "GAMEINFO":
-                                                        Helpers.GUIRun(new Runnable() {
-                                                            public void run() {
 
-                                                                try {
-                                                                    game_info.setText(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-                                                                } catch (UnsupportedEncodingException ex) {
-                                                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                                        String ginfo = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+                                                        if (!ginfo.equals(game_info.getText())) {
+
+                                                            Helpers.GUIRun(new Runnable() {
+                                                                public void run() {
+
+                                                                    game_info.setText(ginfo);
+
+                                                                    if (!gameinfo_original.equals(game_info.getText())) {
+                                                                        game_info.setOpaque(true);
+                                                                        game_info.setBackground(Color.YELLOW);
+                                                                    } else {
+                                                                        game_info.setOpaque(false);
+                                                                        game_info.setBackground(null);
+                                                                    }
                                                                 }
+                                                            });
 
+                                                            if (gameinfo_original.equals(ginfo)) {
+                                                                Helpers.playWavResource("misc/last_hand_off.wav");
+                                                            } else {
+                                                                Helpers.playWavResource("misc/last_hand_on.wav");
                                                             }
-                                                        });
-                                                        Helpers.playWavResource("misc/last_hand_on.wav");
+                                                        }
+
                                                         break;
                                                     case "VIDEOCHAT":
                                                         setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
@@ -2858,6 +2875,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 game_info.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : ""));
 
+                if (!gameinfo_original.equals(game_info.getText())) {
+                    game_info.setOpaque(true);
+                    game_info.setBackground(Color.YELLOW);
+                } else {
+                    game_info.setOpaque(false);
+                    game_info.setBackground(null);
+                }
+
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
@@ -2873,9 +2898,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 game_info.setEnabled(true);
                             }
                         });
-
-                        Helpers.playWavResource("misc/last_hand_on.wav");
-
                     }
                 });
             } else {

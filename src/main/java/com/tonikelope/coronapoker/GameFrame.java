@@ -2691,6 +2691,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 getCrupier().broadcastGAMECommandFromServer("TTS#1", null);
 
+                this.tts_menu.setOpaque(false);
+
+                this.tts_menu.setBackground(null);
+
+                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(false);
+
+                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(null);
+
             }
 
         } else if (GameFrame.getInstance().isPartida_local()) {
@@ -2700,6 +2708,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.TTS_SERVER = false;
 
                 getCrupier().broadcastGAMECommandFromServer("TTS#0", null);
+
+                this.tts_menu.setBackground(Color.RED);
+
+                this.tts_menu.setOpaque(true);
+
+                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(Color.RED);
+
+                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(true);
 
             }
 

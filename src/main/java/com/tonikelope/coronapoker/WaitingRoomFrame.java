@@ -1190,15 +1190,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 GameFrame.getInstance().getTts_menu().setEnabled(GameFrame.TTS_SERVER);
                                                                 Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
 
-                                                                if (GameFrame.SONIDOS_TTS) {
-
-                                                                    if (GameFrame.TTS_SERVER) {
-                                                                        Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA REACTIVADO EL CHAT DE VOZ");
-                                                                    } else {
-                                                                        Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA DESACTIVADO EL CHAT DE VOZ");
-                                                                    }
-                                                                }
-
                                                             }
                                                         });
 

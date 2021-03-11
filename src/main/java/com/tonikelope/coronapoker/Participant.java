@@ -600,32 +600,41 @@ public class Participant implements Runnable {
                     } else {
                         Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "EL SOCKET RECIBIÓ NULL");
 
-                        int id = Helpers.SPRNG_GENERATOR.nextInt();
+                        if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
 
-                        String full_command = "GAME#" + String.valueOf(id) + "#" + "PING";
-                        try {
-                            this.writeCommandFromServer(full_command);
-                        } catch (IOException ex1) {
-                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex1);
+                            int id = Helpers.SPRNG_GENERATOR.nextInt();
+
+                            String full_command = "GAME#" + String.valueOf(id) + "#" + "PING";
+                            try {
+                                this.writeCommandFromServer(full_command);
+                            } catch (IOException ex1) {
+                                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex1);
+                            }
+
+                            Helpers.pausar(1000);
+
                         }
-                        Helpers.pausar(1000);
+
                     }
 
                 } catch (Exception ex) {
 
                     Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "EXCEPCION AL LEER DEL SOCKET", ex);
 
-                    int id = Helpers.SPRNG_GENERATOR.nextInt();
+                    if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
+                        int id = Helpers.SPRNG_GENERATOR.nextInt();
 
-                    String full_command = "GAME#" + String.valueOf(id) + "#" + "PING";
+                        String full_command = "GAME#" + String.valueOf(id) + "#" + "PING";
 
-                    try {
-                        this.writeCommandFromServer(full_command);
-                    } catch (IOException ex1) {
-                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex1);
+                        try {
+                            this.writeCommandFromServer(full_command);
+                        } catch (IOException ex1) {
+                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex1);
+                        }
+
+                        Helpers.pausar(1000);
+
                     }
-
-                    Helpers.pausar(1000);
 
                 }
 

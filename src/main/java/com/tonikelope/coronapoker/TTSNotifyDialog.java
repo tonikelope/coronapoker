@@ -5,6 +5,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Color;
 import java.awt.Image;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -68,6 +69,8 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(!tts ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
 
         message.setText(Translator.translate(tts ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR"));
+
+        this.jPanel1.setBackground(tts ? new Color(102, 102, 102) : Color.RED);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
@@ -161,7 +164,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
 
-        if (!Helpers.TTS_BLOCKED_USERS.contains(player) && !GameFrame.getInstance().getLocalPlayer().getNickname().equals(player)) {
+        if (player != null && !Helpers.TTS_BLOCKED_USERS.contains(player) && !GameFrame.getInstance().getLocalPlayer().getNickname().equals(player)) {
 
             if (Helpers.TTS_PLAYER != null) {
                 try {

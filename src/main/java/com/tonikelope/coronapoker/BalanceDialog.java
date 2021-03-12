@@ -98,11 +98,11 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         }
 
-        setPreferredSize(new Dimension(jugadores.getWidth(), Math.round(0.7f * getParent().getHeight())));
-
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
+
+        setPreferredSize(new Dimension(jugadores.getWidth(), Math.round(0.7f * getParent().getHeight())));
 
         pack();
 

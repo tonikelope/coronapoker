@@ -3069,15 +3069,9 @@ public class Crupier implements Runnable {
 
                     if (p != null && !p.isCpu()) {
 
-                        try {
-                            String carta1 = jugador.getPlayingCard1().toShortString();
-
-                            String carta2 = jugador.getPlayingCard2().toShortString();
-
-                            p.writeCommandFromServer(Helpers.encryptCommand(command + "#" + carta1 + "@" + carta2, p.getAes_key(), iv, p.getHmac_key()));
-                        } catch (IOException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
+                        String carta1 = jugador.getPlayingCard1().toShortString();
+                        String carta2 = jugador.getPlayingCard2().toShortString();
+                        p.writeCommandFromServer(Helpers.encryptCommand(command + "#" + carta1 + "@" + carta2, p.getAes_key(), iv, p.getHmac_key()));
 
                     }
                 }
@@ -3981,10 +3975,7 @@ public class Crupier implements Runnable {
 
                     if (p != null && !p.isCpu() && pendientes.contains(p.getNick())) {
 
-                        try {
-                            p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
-                        } catch (IOException ex) {
-                        }
+                        p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
 
                     }
                 }

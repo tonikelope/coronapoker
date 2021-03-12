@@ -965,7 +965,7 @@ public class Helpers {
         return df.format(currentDate);
     }
 
-    public static void TTS(String mensaje, NickTTSDialog nick_dialog) {
+    public static void TTS(String mensaje, TTSNotifyDialog nick_dialog) {
 
         synchronized (TTS_LOCK) {
 

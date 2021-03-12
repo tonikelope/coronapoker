@@ -68,11 +68,13 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(!tts ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
 
-        message.setText(Translator.translate(tts ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR"));
+        message.setText(tts ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR");
 
-        this.jPanel1.setBackground(tts ? new Color(102, 102, 102) : Color.RED);
+        jPanel1.setBackground(tts ? new Color(102, 102, 102) : Color.RED);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+        Helpers.translateComponents(this, false);
 
         pack();
 

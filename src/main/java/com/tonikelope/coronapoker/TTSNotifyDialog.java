@@ -14,14 +14,14 @@ import javax.swing.ImageIcon;
  *
  * @author tonikelope
  */
-public class NickTTSDialog extends javax.swing.JDialog {
+public class TTSNotifyDialog extends javax.swing.JDialog {
 
     private volatile String player = null;
 
     /**
      * Creates new form NickTTSDialog
      */
-    public NickTTSDialog(java.awt.Frame parent, boolean modal, String nick) {
+    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick) {
         super(parent, modal);
 
         this.player = nick;
@@ -30,26 +30,26 @@ public class NickTTSDialog extends javax.swing.JDialog {
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
 
-        nick_tts.setText(nick);
+        message.setText(nick);
 
         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
 
             if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
 
-                nick_tts.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                message.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
             } else {
 
-                nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                message.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
             }
         } else {
 
             if (GameFrame.getInstance().getParticipantes().get(nick).getAvatar() != null) {
 
-                nick_tts.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                message.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
 
             } else {
 
-                nick_tts.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                message.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
             }
 
         }
@@ -57,6 +57,36 @@ public class NickTTSDialog extends javax.swing.JDialog {
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         pack();
+
+    }
+
+    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, boolean tts) {
+        super(parent, modal);
+
+        initComponents();
+
+        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(!tts ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+
+        message.setText(Translator.translate(tts ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR"));
+
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+        pack();
+
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+
+                Helpers.pausar(2000);
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+
+                        setVisible(false);
+
+                    }
+                });
+            }
+        });
 
     }
 
@@ -70,7 +100,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         jPanel1 = new javax.swing.JPanel();
-        nick_tts = new javax.swing.JLabel();
+        message = new javax.swing.JLabel();
         sound_icon = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
@@ -87,12 +117,12 @@ public class NickTTSDialog extends javax.swing.JDialog {
 
         jPanel1.setBackground(new java.awt.Color(102, 102, 102));
 
-        nick_tts.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
-        nick_tts.setForeground(new java.awt.Color(255, 255, 255));
-        nick_tts.setText("NICK");
-        nick_tts.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        nick_tts.setDoubleBuffered(true);
-        nick_tts.setFocusable(false);
+        message.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
+        message.setForeground(new java.awt.Color(255, 255, 255));
+        message.setText("TEXT");
+        message.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        message.setDoubleBuffered(true);
+        message.setFocusable(false);
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -102,7 +132,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
                 .addGap(0, 0, 0)
                 .addComponent(sound_icon)
                 .addGap(0, 0, 0)
-                .addComponent(nick_tts, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(message, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
         );
         jPanel1Layout.setVerticalGroup(
@@ -110,7 +140,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(nick_tts, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(message, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(0, 0, 0))
         );
@@ -138,7 +168,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
                     // TODO add your handling code here:
                     Helpers.TTS_PLAYER.stop();
                 } catch (Exception ex) {
-                    Logger.getLogger(NickTTSDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(TTSNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 
@@ -151,7 +181,7 @@ public class NickTTSDialog extends javax.swing.JDialog {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel jPanel1;
-    private javax.swing.JLabel nick_tts;
+    private javax.swing.JLabel message;
     private javax.swing.JLabel sound_icon;
     // End of variables declaration//GEN-END:variables
 }

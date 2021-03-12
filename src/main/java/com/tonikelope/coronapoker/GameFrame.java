@@ -126,7 +126,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean game_over_dialog = false;
     private volatile JFrame full_screen_frame = null;
     private volatile AboutDialog about_dialog = null;
-    private volatile NickTTSDialog nick_dialog = null;
+    private volatile TTSNotifyDialog nick_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
     private volatile FastChatDialog fastchat_dialog = null;
@@ -1480,7 +1480,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     // TODO add your handling code here:
                     Helpers.TTS_PLAYER.stop();
                 } catch (Exception ex) {
-                    Logger.getLogger(NickTTSDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(TTSNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 
@@ -1740,7 +1740,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         Helpers.GUIRunAndWait(new Runnable() {
                             @Override
                             public void run() {
-                                nick_dialog = new NickTTSDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
+                                nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
                                 nick_dialog.setLocation(nick_dialog.getParent().getLocation());
 
                             }
@@ -2352,7 +2352,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         this.ascensor_menu.setEnabled(GameFrame.SONIDOS);
 
-        this.tts_menu.setEnabled(GameFrame.SONIDOS);
+        if (GameFrame.TTS_SERVER) {
+            this.tts_menu.setEnabled(GameFrame.SONIDOS);
+        }
 
         if (!GameFrame.SONIDOS) {
 
@@ -2691,6 +2693,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 tts_menu.setEnabled(false);
 
+                TTSNotifyDialog dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, true);
+
+                dialog.setLocation(dialog.getParent().getLocation());
+
+                dialog.setVisible(true);
+
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
@@ -2723,7 +2731,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 GameFrame.TTS_SERVER = false;
 
-                tts_menu.setEnabled(true);
+                tts_menu.setEnabled(false);
+
+                TTSNotifyDialog dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, false);
+
+                dialog.setLocation(dialog.getParent().getLocation());
+
+                dialog.setVisible(true);
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {

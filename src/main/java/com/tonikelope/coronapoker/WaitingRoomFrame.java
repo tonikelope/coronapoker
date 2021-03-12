@@ -784,23 +784,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 if (p != null && !p.isCpu() && pendientes.contains(p.getNick())) {
 
-                    try {
+                    if (!confirmation) {
 
-                        if (!confirmation) {
+                        String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
-                            String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+                        p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
 
-                            p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
+                    } else {
 
-                        } else {
-
-                            synchronized (p.getAsync_command_queue()) {
-                                p.getAsync_command_queue().add(command);
-                                p.getAsync_command_queue().notifyAll();
-                            }
-
+                        synchronized (p.getAsync_command_queue()) {
+                            p.getAsync_command_queue().add(command);
+                            p.getAsync_command_queue().notifyAll();
                         }
-                    } catch (IOException ex) {
+
                     }
 
                 }
@@ -816,25 +812,21 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void sendASYNCGAMECommandFromServer(String command, Participant p, boolean confirmation) {
 
-        try {
+        if (!confirmation) {
 
-            if (!confirmation) {
+            int id = Helpers.SPRNG_GENERATOR.nextInt();
 
-                int id = Helpers.SPRNG_GENERATOR.nextInt();
+            String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
-                String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+            p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
 
-                p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
+        } else {
 
-            } else {
-
-                synchronized (p.getAsync_command_queue()) {
-                    p.getAsync_command_queue().add(command);
-                    p.getAsync_command_queue().notifyAll();
-                }
-
+            synchronized (p.getAsync_command_queue()) {
+                p.getAsync_command_queue().add(command);
+                p.getAsync_command_queue().notifyAll();
             }
-        } catch (IOException ex) {
+
         }
 
     }
@@ -1191,7 +1183,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             public void run() {
 
                                                                 GameFrame.getInstance().getTts_menu().setEnabled(GameFrame.TTS_SERVER);
+
                                                                 Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
+
+                                                                if (GameFrame.SONIDOS_TTS) {
+                                                                    TTSNotifyDialog dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, GameFrame.TTS_SERVER);
+
+                                                                    dialog.setLocation(dialog.getParent().getLocation());
+
+                                                                    dialog.setVisible(true);
+                                                                }
 
                                                             }
                                                         });

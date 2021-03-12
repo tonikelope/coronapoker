@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.Socket;
-import java.net.SocketException;
 import java.security.KeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -207,7 +206,7 @@ public class Participant implements Runnable {
         return nick;
     }
 
-    public void writeCommandFromServer(String command) throws IOException {
+    public void writeCommandFromServer(String command) {
 
         boolean ok;
 
@@ -228,17 +227,17 @@ public class Participant implements Runnable {
                 synchronized (getParticipant_socket_lock()) {
                     this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
                 }
-            } catch (SocketException ex) {
+            } catch (IOException ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
 
                 ok = false;
 
-                if (!resetting_socket && !isExit()) {
+                if (!resetting_socket && !isExit() && !WaitingRoomFrame.getInstance().isExit()) {
                     Helpers.pausar(1000);
                 }
             }
 
-        } while (!ok && !isExit());
+        } while (!ok && !isExit() && !WaitingRoomFrame.getInstance().isExit());
 
     }
 
@@ -392,28 +391,20 @@ public class Participant implements Runnable {
 
                         int ping = Helpers.SPRNG_GENERATOR.nextInt();
 
-                        try {
-
-                            writeCommandFromServer("PING#" + String.valueOf(ping));
-
-                            if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                                synchronized (keep_alive_lock) {
-                                    try {
-                                        keep_alive_lock.wait(WaitingRoomFrame.PING_PONG_TIMEOUT);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
+                        writeCommandFromServer("PING#" + String.valueOf(ping));
+                        if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                            synchronized (keep_alive_lock) {
+                                try {
+                                    keep_alive_lock.wait(WaitingRoomFrame.PING_PONG_TIMEOUT);
+                                } catch (InterruptedException ex) {
+                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                                 }
                             }
+                        }
+                        if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
 
-                            if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
+                            Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "{0} NO respondió al PING {1} {2}", new Object[]{nick, String.valueOf(ping), String.valueOf(pong)});
 
-                                Logger.getLogger(Participant.class.getName()).log(Level.WARNING, nick + " NO respondió al PING " + String.valueOf(ping) + " " + String.valueOf(pong));
-
-                            }
-
-                        } catch (IOException ex) {
-                            Logger.getLogger(Participant.class.getName()).log(Level.WARNING, nick + " NO respondió al PING (excepción) " + String.valueOf(ping) + " " + String.valueOf(pong));
                         }
 
                     }
@@ -439,20 +430,11 @@ public class Participant implements Runnable {
                             pendientes.add(getNick());
 
                             do {
-                                try {
+                                synchronized (getParticipant_socket_lock()) {
 
-                                    synchronized (getParticipant_socket_lock()) {
-
-                                        writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()));
-                                    }
-
-                                    waitAsyncConfirmations(id, pendientes);
-
-                                } catch (IOException ex) {
-
-                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-
+                                    writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()));
                                 }
+                                waitAsyncConfirmations(id, pendientes);
 
                             } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
 
@@ -605,11 +587,8 @@ public class Participant implements Runnable {
                             int id = Helpers.SPRNG_GENERATOR.nextInt();
 
                             String full_command = "GAME#" + String.valueOf(id) + "#" + "PING";
-                            try {
-                                this.writeCommandFromServer(full_command);
-                            } catch (IOException ex1) {
-                                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex1);
-                            }
+
+                            this.writeCommandFromServer(full_command);
 
                             Helpers.pausar(1000);
 
@@ -622,15 +601,12 @@ public class Participant implements Runnable {
                     Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "EXCEPCION AL LEER DEL SOCKET", ex);
 
                     if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
+
                         int id = Helpers.SPRNG_GENERATOR.nextInt();
 
                         String full_command = "GAME#" + String.valueOf(id) + "#" + "PING";
 
-                        try {
-                            this.writeCommandFromServer(full_command);
-                        } catch (IOException ex1) {
-                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex1);
-                        }
+                        this.writeCommandFromServer(full_command);
 
                         Helpers.pausar(1000);
 

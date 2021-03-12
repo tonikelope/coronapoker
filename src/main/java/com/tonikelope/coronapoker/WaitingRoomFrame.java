@@ -1543,14 +1543,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "Un cliente intenta conectar...");
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        empezar_timba.setEnabled(false);
-                        game_info.setEnabled(false);
-
-                    }
-                });
-
                 String recibido = "";
 
                 String[] partes = null;
@@ -1731,62 +1723,82 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             synchronized (lock_new_client) {
 
-                                if (participantes.size() < MAX_PARTICIPANTES && !WaitingRoomFrame.getInstance().isPartida_empezando() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                                try {
 
-                                    //Añadimos al participante
-                                    nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false);
-
-                                    //Mandamos la lista de participantes actuales al nuevo participante
-                                    if (participantes.size() > 2) {
-                                        enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
-                                    }
-
-                                    //Mandamos el nuevo participante al resto de participantes
-                                    String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
-
-                                    if (client_avatar != null) {
-
-                                        byte[] avatar_b;
-
-                                        try (FileInputStream is = new FileInputStream(client_avatar)) {
-                                            avatar_b = is.readAllBytes();
-                                        }
-
-                                        comando += "#" + Base64.encodeBase64String(avatar_b);
-                                    }
-
-                                    broadcastASYNCGAMECommandFromServer(comando, participantes.get(client_nick));
-
-                                    Helpers.GUIRun(new Runnable() {
+                                    Helpers.GUIRunAndWait(new Runnable() {
                                         public void run() {
-                                            empezar_timba.setEnabled(true);
-                                            game_info.setEnabled(true);
-                                            kick_user.setEnabled(true);
-                                            new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
+                                            empezar_timba.setEnabled(false);
+                                            game_info.setEnabled(false);
+
                                         }
                                     });
 
-                                    if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                                        Helpers.playWavResource("misc/new_user.wav");
-                                    }
+                                    if (participantes.size() < MAX_PARTICIPANTES && !WaitingRoomFrame.getInstance().isPartida_empezando() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                                    if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
+                                        //Añadimos al participante
+                                        nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false);
 
-                                        participantes.get(client_nick).setUnsecure_player(true);
+                                        //Mandamos la lista de participantes actuales al nuevo participante
+                                        if (participantes.size() > 2) {
+                                            enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
+                                        }
 
-                                        Helpers.threadRun(new Runnable() {
+                                        //Mandamos el nuevo participante al resto de participantes
+                                        String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
+
+                                        if (client_avatar != null) {
+
+                                            byte[] avatar_b;
+
+                                            try (FileInputStream is = new FileInputStream(client_avatar)) {
+                                                avatar_b = is.readAllBytes();
+                                            }
+
+                                            comando += "#" + Base64.encodeBase64String(avatar_b);
+                                        }
+
+                                        broadcastASYNCGAMECommandFromServer(comando, participantes.get(client_nick));
+
+                                        Helpers.GUIRun(new Runnable() {
                                             public void run() {
-
-                                                Helpers.mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
+                                                kick_user.setEnabled(true);
+                                                new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                                             }
                                         });
 
+                                        if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                                            Helpers.playWavResource("misc/new_user.wav");
+                                        }
+
+                                        if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
+
+                                            participantes.get(client_nick).setUnsecure_player(true);
+
+                                            Helpers.threadRun(new Runnable() {
+                                                public void run() {
+
+                                                    Helpers.mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
+                                                }
+                                            });
+
+                                        }
+
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " CONECTADO");
+                                    } else {
+                                        client_socket.close();
                                     }
 
-                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " CONECTADO");
-                                } else {
-                                    client_socket.close();
+                                } catch (Exception ex) {
+                                } finally {
+                                    Helpers.GUIRunAndWait(new Runnable() {
+                                        public void run() {
+                                            empezar_timba.setEnabled(true);
+                                            game_info.setEnabled(true);
+
+                                        }
+                                    });
                                 }
+
                             }
 
                         }

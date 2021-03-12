@@ -2725,43 +2725,39 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             }
 
-        } else if (GameFrame.getInstance().isPartida_local()) {
+        } else if (GameFrame.getInstance().isPartida_local() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿DESACTIVAR EL CHAT DE VOZ PARA TODOS?") == 0) {
 
-            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿DESACTIVAR EL CHAT DE VOZ PARA TODOS?") == 0) {
+            GameFrame.TTS_SERVER = false;
 
-                GameFrame.TTS_SERVER = false;
+            tts_menu.setEnabled(false);
 
-                tts_menu.setEnabled(false);
+            TTSNotifyDialog dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, false);
 
-                TTSNotifyDialog dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, false);
+            dialog.setLocation(dialog.getParent().getLocation());
 
-                dialog.setLocation(dialog.getParent().getLocation());
+            dialog.setVisible(true);
 
-                dialog.setVisible(true);
+            Helpers.threadRun(new Runnable() {
+                public void run() {
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
+                    getCrupier().broadcastGAMECommandFromServer("TTS#0", null);
 
-                        getCrupier().broadcastGAMECommandFromServer("TTS#0", null);
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
+                            tts_menu.setEnabled(true);
 
-                                tts_menu.setEnabled(true);
+                            tts_menu.setBackground(Color.RED);
 
-                                tts_menu.setBackground(Color.RED);
+                            tts_menu.setOpaque(true);
 
-                                tts_menu.setOpaque(true);
+                            Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(Color.RED);
 
-                                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(Color.RED);
-
-                                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(true);
-                            }
-                        });
-                    }
-                });
-
-            }
+                            Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(true);
+                        }
+                    });
+                }
+            });
 
         }
     }//GEN-LAST:event_tts_menuActionPerformed

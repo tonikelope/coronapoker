@@ -34,69 +34,65 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         ArrayList<Object[]> ranking = new ArrayList<>();
 
-        synchronized (GameFrame.getInstance().getCrupier().getLock_contabilidad()) {
+        for (Map.Entry<String, Float[]> entry : GameFrame.getInstance().getCrupier().getAuditor().entrySet()) {
 
-            for (Map.Entry<String, Float[]> entry : GameFrame.getInstance().getCrupier().getAuditor().entrySet()) {
+            JLabel label = new JLabel();
 
-                JLabel label = new JLabel();
+            Float[] pasta = entry.getValue();
 
-                Float[] pasta = entry.getValue();
+            String ganancia_msg = "";
 
-                String ganancia_msg = "";
+            float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(pasta[0]) - Helpers.floatClean1D(pasta[1]));
 
-                float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(pasta[0]) - Helpers.floatClean1D(pasta[1]));
-
-                if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                    ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
-                    label.setForeground(Color.RED);
-                } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                    ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
-                    label.setForeground(new Color(0, 130, 0));
-                } else {
-                    ganancia_msg += Translator.translate("NI GANA NI PIERDE");
-                }
-
-                label.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-
-                label.setText(entry.getKey() + " " + ganancia_msg);
-
-                label.setFont(label.getFont().deriveFont(Font.BOLD, 22f));
-
-                if (entry.getKey().equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                    label.setBackground(new Color(255, 255, 153));
-                    label.setOpaque(true);
-                }
-
-                String avatar_path = GameFrame.getInstance().getNick2avatar().get(entry.getKey());
-
-                if (!"".equals(avatar_path) && !"*".equals(avatar_path)) {
-
-                    label.setIcon(new ImageIcon(new ImageIcon(avatar_path).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-
-                } else if ("*".equals(avatar_path)) {
-
-                    label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-
-                } else {
-
-                    label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
-                }
-
-                ranking.add(new Object[]{ganancia, label});
+            if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
+                ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
+                label.setForeground(Color.RED);
+            } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
+                ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
+                label.setForeground(new Color(0, 130, 0));
+            } else {
+                ganancia_msg += Translator.translate("NI GANA NI PIERDE");
             }
 
-            Collections.sort(ranking, new RankingComparator());
+            label.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-            Collections.reverse(ranking);
+            label.setText(entry.getKey() + " " + ganancia_msg);
 
-            for (Object[] o : ranking) {
+            label.setFont(label.getFont().deriveFont(Font.BOLD, 22f));
 
-                jugadores.add((JLabel) o[1]);
+            if (entry.getKey().equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+                label.setBackground(new Color(255, 255, 153));
+                label.setOpaque(true);
             }
 
-            pack();
+            String avatar_path = GameFrame.getInstance().getNick2avatar().get(entry.getKey());
 
+            if (!"".equals(avatar_path) && !"*".equals(avatar_path)) {
+
+                label.setIcon(new ImageIcon(new ImageIcon(avatar_path).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+
+            } else if ("*".equals(avatar_path)) {
+
+                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+
+            } else {
+
+                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+            }
+
+            ranking.add(new Object[]{ganancia, label});
         }
+
+        Collections.sort(ranking, new RankingComparator());
+
+        Collections.reverse(ranking);
+
+        for (Object[] o : ranking) {
+
+            jugadores.add((JLabel) o[1]);
+        }
+
+        pack();
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 

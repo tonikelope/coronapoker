@@ -30,6 +30,8 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         initComponents();
 
+        jugadores.setSize(new Dimension(1, 1));
+
         jScrollPane1.getVerticalScrollBar().setUnitIncrement(20);
 
         ArrayList<Object[]> ranking = new ArrayList<>();
@@ -93,6 +95,10 @@ public class BalanceDialog extends javax.swing.JDialog {
         }
 
         pack();
+
+        while (jugadores.getWidth() == 1) {
+            Helpers.pausar(250);
+        }
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 

@@ -228,11 +228,13 @@ public class Participant implements Runnable {
                     this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
                 }
             } catch (IOException ex) {
-                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
 
                 ok = false;
 
                 if (!resetting_socket && !isExit() && !WaitingRoomFrame.getInstance().isExit()) {
+
+                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+
                     Helpers.pausar(1000);
                 }
             }
@@ -580,16 +582,10 @@ public class Participant implements Runnable {
                                 break;
                         }
                     } else {
-                        Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "EL SOCKET RECIBIÓ NULL");
 
                         if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
 
-                            int id = Helpers.SPRNG_GENERATOR.nextInt();
-
-                            String full_command = "GAME#" + String.valueOf(id) + "#" + "PING";
-
-                            this.writeCommandFromServer(full_command);
-
+                            Logger.getLogger(Participant.class.getName()).log(Level.WARNING, nick + " -> EL SOCKET RECIBIÓ NULL");
                             Helpers.pausar(1000);
 
                         }
@@ -598,16 +594,9 @@ public class Participant implements Runnable {
 
                 } catch (Exception ex) {
 
-                    Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "EXCEPCION AL LEER DEL SOCKET", ex);
-
                     if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
 
-                        int id = Helpers.SPRNG_GENERATOR.nextInt();
-
-                        String full_command = "GAME#" + String.valueOf(id) + "#" + "PING";
-
-                        this.writeCommandFromServer(full_command);
-
+                        Logger.getLogger(Participant.class.getName()).log(Level.WARNING, nick + " -> EXCEPCION AL LEER DEL SOCKET", ex);
                         Helpers.pausar(1000);
 
                     }

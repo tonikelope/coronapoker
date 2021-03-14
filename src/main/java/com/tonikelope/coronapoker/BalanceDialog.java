@@ -30,8 +30,6 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        jugadores.setSize(new Dimension(1, 1));
-
         jScrollPane1.getVerticalScrollBar().setUnitIncrement(20);
 
         ArrayList<Object[]> ranking = new ArrayList<>();
@@ -94,17 +92,13 @@ public class BalanceDialog extends javax.swing.JDialog {
             jugadores.add((JLabel) o[1]);
         }
 
-        pack();
-
-        while (jugadores.getWidth() == 1) {
-            Helpers.pausar(250);
-        }
-
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
 
-        setPreferredSize(new Dimension(jugadores.getWidth(), Math.round(0.7f * getParent().getHeight())));
+        pack();
+
+        setPreferredSize(new Dimension(getWidth(), Math.round(0.8f * getParent().getHeight())));
 
         pack();
 
@@ -135,6 +129,7 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setUndecorated(true);
+        setResizable(false);
 
         title.setBackground(new java.awt.Color(102, 102, 102));
         title.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
@@ -153,6 +148,7 @@ public class BalanceDialog extends javax.swing.JDialog {
         jugadores.setBackground(new java.awt.Color(245, 245, 245));
         jugadores.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         jugadores.setFocusable(false);
+        jugadores.setPreferredSize(null);
         jugadores.setLayout(new java.awt.GridLayout(0, 1));
         jScrollPane1.setViewportView(jugadores);
 
@@ -182,7 +178,7 @@ public class BalanceDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addComponent(title)
                 .addGap(0, 0, 0)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 240, Short.MAX_VALUE)
+                .addComponent(jScrollPane1)
                 .addGap(0, 0, 0)
                 .addComponent(ok_button)
                 .addGap(0, 0, 0))

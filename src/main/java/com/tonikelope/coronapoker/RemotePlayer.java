@@ -1328,6 +1328,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                     player_action.setBackground(null);
                     player_action.setEnabled(false);
+                    player_name.setOpaque(false);
+                    player_name.setBackground(null);
+
+                    if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
+                        player_name.setForeground(Color.YELLOW);
+                    } else {
+                        player_name.setForeground(Color.WHITE);
+                    }
                 }
             });
         }

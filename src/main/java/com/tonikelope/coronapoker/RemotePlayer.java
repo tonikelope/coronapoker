@@ -735,7 +735,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         jPanel3.setFocusable(false);
         jPanel3.setOpaque(false);
 
-        player_name.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        player_name.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_name.setForeground(new java.awt.Color(255, 255, 255));
         player_name.setText("12345678901234567890");
         player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
@@ -748,7 +748,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         utg_textfield.setBackground(new java.awt.Color(255, 204, 204));
-        utg_textfield.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        utg_textfield.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         utg_textfield.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         utg_textfield.setText("UTG");
         utg_textfield.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
@@ -757,7 +757,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         utg_textfield.setOpaque(true);
 
         player_blind.setBackground(new java.awt.Color(51, 51, 255));
-        player_blind.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        player_blind.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_blind.setForeground(new java.awt.Color(255, 255, 255));
         player_blind.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_blind.setText("CP");

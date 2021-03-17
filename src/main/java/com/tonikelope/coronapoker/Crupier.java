@@ -2761,9 +2761,24 @@ public class Crupier implements Runnable {
     }
 
     private void sqlNewHand() {
+
+        String jugadores = "";
+
+        for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+            if (jugador.isActivo()) {
+
+                try {
+                    jugadores += "#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8"));
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
         try {
 
-            String sql = "INSERT INTO hand(id_game, counter, sbval, blinds_double, dealer, sb, bb, start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO hand(id_game, counter, sbval, blinds_double, dealer, sb, bb, start, preflop_players) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -2784,6 +2799,8 @@ public class Crupier implements Runnable {
             statement.setString(7, this.bb_nick);
 
             statement.setLong(8, System.currentTimeMillis());
+
+            statement.setString(9, jugadores);
 
             statement.executeUpdate();
 
@@ -4093,9 +4110,8 @@ public class Crupier implements Runnable {
     }
 
     private void calcularPosiciones() {
-        
-        //DEAD BUTTON STRATEGY
 
+        //DEAD BUTTON STRATEGY
         if (this.bb_nick == null) {
 
             this.bb_nick = this.nicks_permutados[0];

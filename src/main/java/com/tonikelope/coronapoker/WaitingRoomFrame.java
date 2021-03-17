@@ -2527,6 +2527,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     String sql = "SELECT preflop_players as PLAYERS FROM hand WHERE hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand where hand.id_game=?)";
 
+                    System.out.println(game_id);
+
                     PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
                     statement.setQueryTimeout(30);
@@ -2537,19 +2539,21 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     ResultSet rs = statement.executeQuery();
 
-                    rs.next();
+                    if (rs.next()) {
 
-                    String datos = rs.getString("PLAYERS");
-                    String[] partes = datos.split("#");
+                        String datos = rs.getString("PLAYERS");
 
-                    for (String player_data : partes) {
+                        String[] partes = datos.split("#");
 
-                        partes = player_data.split("\\|");
+                        for (String player_data : partes) {
 
-                        String nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
+                            partes = player_data.split("\\|");
 
-                        if (!participantes.containsKey(nick)) {
-                            missing_players += nick + "\n\n";
+                            String nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
+
+                            if (!participantes.containsKey(nick)) {
+                                missing_players += nick + "\n\n";
+                            }
                         }
                     }
 

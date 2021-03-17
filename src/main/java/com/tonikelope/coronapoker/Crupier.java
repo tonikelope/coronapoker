@@ -2180,7 +2180,7 @@ public class Crupier implements Runnable {
                 sqlNewHand();
             }
 
-            this.apuestas = nick2player.get(this.bb_nick).getBet() + nick2player.get(this.sb_nick).getBet();
+            this.apuestas = nick2player.get(this.bb_nick).getBet() + (nick2player.containsKey(this.sb_nick) ? nick2player.get(this.sb_nick).getBet() : 0f);
 
             this.bote_total = this.apuestas;
 
@@ -4111,6 +4111,8 @@ public class Crupier implements Runnable {
 
     private void calcularPosiciones() {
 
+        String old_bb = this.bb_nick;
+
         //DEAD BUTTON STRATEGY
         if (this.bb_nick == null) {
 
@@ -4128,9 +4130,9 @@ public class Crupier implements Runnable {
 
             while (!this.nick2player.containsKey(new_bb) || !this.nick2player.get(new_bb).isActivo()) {
 
-                new_bb = nicks_permutados[(i + 1) % nicks_permutados.length];
+                i = (i + 1) % nicks_permutados.length;
 
-                i++;
+                new_bb = nicks_permutados[i];
 
             }
 
@@ -4154,6 +4156,7 @@ public class Crupier implements Runnable {
 
         } else {
 
+            //UTG
             int i = 0, bb;
 
             while (!this.nicks_permutados[i].equals(this.bb_nick)) {
@@ -4166,29 +4169,66 @@ public class Crupier implements Runnable {
 
             while (!this.nick2player.containsKey(new_utg) || !this.nick2player.get(new_utg).isActivo()) {
 
-                new_utg = nicks_permutados[(i + 1) % nicks_permutados.length];
-                i++;
+                i = (i + 1) % nicks_permutados.length;
+
+                new_utg = nicks_permutados[i];
+
             }
 
             this.utg_nick = new_utg;
 
-            i = bb;
+            //DEALER
+            i = 0;
 
-            i--;
+            String new_dealer;
 
-            if (i < 0) {
-                i += nicks_permutados.length;
+            if (this.sb_nick != null) {
+
+                while (!this.nicks_permutados[i].equals(this.sb_nick)) {
+                    i++;
+                }
+
+                new_dealer = this.sb_nick;
+
+            } else {
+
+                i = bb - 2;
+
+                if (i < 0) {
+                    i += nicks_permutados.length;
+                }
+
+                new_dealer = nicks_permutados[i];
+
             }
 
-            this.sb_nick = nicks_permutados[i];
+            while (!this.nick2player.containsKey(new_dealer) || !this.nick2player.get(new_dealer).isActivo()) {
 
-            i--;
+                i--;
 
-            if (i < 0) {
-                i += nicks_permutados.length;
+                if (i < 0) {
+                    i += nicks_permutados.length;
+                }
+
+                new_dealer = nicks_permutados[i];
+
             }
 
-            this.dealer_nick = nicks_permutados[i];
+            this.dealer_nick = new_dealer;
+
+            //CIEGA PEQUEÑA
+            if (old_bb != null) {
+                this.sb_nick = old_bb;
+            } else {
+
+                i = bb - 1;
+
+                if (i < 0) {
+                    i += nicks_permutados.length;
+                }
+
+                this.sb_nick = nicks_permutados[i];
+            }
 
         }
     }

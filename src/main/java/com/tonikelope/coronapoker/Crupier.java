@@ -209,10 +209,6 @@ public class Crupier implements Runnable {
     private volatile int conta_bet = 0;
     private volatile float bote_sobrante = 0f;
     private volatile String[] nicks_permutados;
-    private volatile int dealer_pos = -1;
-    private volatile int small_pos = -1;
-    private volatile int big_pos = -1;
-    private volatile int utg_pos = -1;
     private volatile boolean fin_de_la_transmision = false;
     private volatile int fase = PREFLOP;
     private volatile Pot bote = null;
@@ -240,6 +236,26 @@ public class Crupier implements Runnable {
     private volatile String permutation_key = null;
     private volatile GifAnimationDialog gif_dialog = null;
     private volatile GameOverDialog gameover_dialog = null;
+    private volatile String dealer_nick = null;
+    private volatile String bb_nick = null;
+    private volatile String sb_nick = null;
+    private volatile String utg_nick = null;
+
+    public String getDealer_nick() {
+        return dealer_nick;
+    }
+
+    public String getBb_nick() {
+        return bb_nick;
+    }
+
+    public String getSb_nick() {
+        return sb_nick;
+    }
+
+    public String getUtg_nick() {
+        return utg_nick;
+    }
 
     public ConcurrentHashMap<String, Player> getNick2player() {
         return nick2player;
@@ -1730,49 +1746,46 @@ public class Crupier implements Runnable {
                 }
             }
         }
-        this.dealer_pos = 0;
-        while (this.dealer_pos < GameFrame.getInstance().getJugadores().size()) {
 
-            if (GameFrame.getInstance().getJugadores().get(this.dealer_pos).getNickname().equals(dealer)) {
-                break;
-            }
+        this.dealer_nick = dealer;
 
-            this.dealer_pos++;
-        }
         if (getJugadoresActivos() == 2) {
 
-            this.small_pos = this.dealer_pos;
+            for (Player j : GameFrame.getInstance().getJugadores()) {
 
-            this.utg_pos = this.dealer_pos;
+                if (j.isActivo() && !j.getNickname().equals(this.bb_nick)) {
+                    this.sb_nick = j.getNickname();
+                    break;
+                }
 
-            this.big_pos = (this.dealer_pos + 1) % GameFrame.getInstance().getJugadores().size();
-
-            while (!GameFrame.getInstance().getJugadores().get(this.big_pos).isActivo()) {
-
-                this.big_pos = (this.big_pos + 1) % GameFrame.getInstance().getJugadores().size();
             }
+
+            this.dealer_nick = this.sb_nick;
 
         } else {
 
-            this.small_pos = (this.dealer_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            int i = 0;
 
-            while (!GameFrame.getInstance().getJugadores().get(this.small_pos).isActivo()) {
-
-                this.small_pos = (this.small_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            while (!this.nicks_permutados[i].equals(this.bb_nick)) {
+                i++;
             }
 
-            this.big_pos = (this.small_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            i--;
 
-            while (!GameFrame.getInstance().getJugadores().get(this.big_pos).isActivo()) {
-
-                this.big_pos = (this.big_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            if (i < 0) {
+                i += nicks_permutados.length;
             }
 
-            this.utg_pos = (this.big_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            this.sb_nick = nicks_permutados[i];
 
-            while (!GameFrame.getInstance().getJugadores().get(this.utg_pos).isActivo()) {
-                this.utg_pos = (this.utg_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            i--;
+
+            if (i < 0) {
+                i += nicks_permutados.length;
             }
+
+            this.dealer_nick = nicks_permutados[i];
+
         }
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
             jugador.refreshPos();
@@ -1783,9 +1796,7 @@ public class Crupier implements Runnable {
 
     }
 
-    private String recibirDealer() {
-
-        String dealer = null;
+    private void recibirPosiciones() {
 
         boolean ok;
 
@@ -1805,19 +1816,26 @@ public class Crupier implements Runnable {
 
                     String[] partes = comando.split("#");
 
-                    if (partes[2].equals("DEALER")) {
+                    if (partes[2].equals("POSITIONS")) {
 
                         ok = true;
 
                         try {
-                            dealer = new String(Base64.decodeBase64(partes[3]), "UTF-8");
+                            this.utg_nick = new String(Base64.decodeBase64(partes[3]), "UTF-8");
+
+                            this.bb_nick = new String(Base64.decodeBase64(partes[4]), "UTF-8");
+
+                            this.sb_nick = new String(Base64.decodeBase64(partes[5]), "UTF-8");
+
+                            this.dealer_nick = new String(Base64.decodeBase64(partes[6]), "UTF-8");
+
                         } catch (UnsupportedEncodingException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
-                        GameFrame.getInstance().setConta_tiempo_juego(Long.parseLong(partes[4]));
+                        GameFrame.getInstance().setConta_tiempo_juego(Long.parseLong(partes[7]));
 
-                        if (partes[5].equals("1")) {
+                        if (partes[8].equals("1")) {
 
                             this.doblarCiegas();
                         }
@@ -1858,8 +1876,6 @@ public class Crupier implements Runnable {
             }
 
         } while (!ok);
-
-        return dealer;
 
     }
 
@@ -2164,7 +2180,7 @@ public class Crupier implements Runnable {
                 sqlNewHand();
             }
 
-            this.apuestas = GameFrame.getInstance().getJugadores().get(this.big_pos).getBet() + GameFrame.getInstance().getJugadores().get(this.small_pos).getBet();
+            this.apuestas = nick2player.get(this.bb_nick).getBet() + nick2player.get(this.sb_nick).getBet();
 
             this.bote_total = this.apuestas;
 
@@ -2761,11 +2777,11 @@ public class Crupier implements Runnable {
 
             statement.setInt(4, this.ciegas_double);
 
-            statement.setString(5, GameFrame.getInstance().getJugadores().get(this.dealer_pos).getNickname());
+            statement.setString(5, this.dealer_nick);
 
-            statement.setString(6, GameFrame.getInstance().getJugadores().get(this.small_pos).getNickname());
+            statement.setString(6, this.sb_nick);
 
-            statement.setString(7, GameFrame.getInstance().getJugadores().get(this.big_pos).getNickname());
+            statement.setString(7, this.bb_nick);
 
             statement.setLong(8, System.currentTimeMillis());
 
@@ -2837,7 +2853,13 @@ public class Crupier implements Runnable {
             }
         }
 
-        int j, pivote = (this.getDealer_pos() + 1) % GameFrame.getInstance().getJugadores().size();
+        int i = 0;
+
+        while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.dealer_nick)) {
+            i++;
+        }
+
+        int j, pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();
 
         j = pivote;
 
@@ -2985,7 +3007,13 @@ public class Crupier implements Runnable {
 
     private void preCargarCartas() {
 
-        int p = 0, j, pivote = (this.getDealer_pos() + 1) % GameFrame.getInstance().getJugadores().size();
+        int i = 0;
+
+        while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.dealer_nick)) {
+            i++;
+        }
+
+        int p = 0, j, pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();
 
         //Repartirmos la primera carta a todos los jugadores
         j = pivote;
@@ -3522,7 +3550,26 @@ public class Crupier implements Runnable {
                 }
             }
 
-            int conta_pos = (fase == PREFLOP ? this.utg_pos : this.small_pos);
+            int conta_pos, i;
+
+            if (fase == PREFLOP) {
+
+                i = 0;
+
+                while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.utg_nick)) {
+                    i++;
+                }
+
+            } else {
+
+                i = 0;
+
+                while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.sb_nick)) {
+                    i++;
+                }
+            }
+
+            conta_pos = i;
 
             int end_pos = conta_pos;
 
@@ -3875,7 +3922,7 @@ public class Crupier implements Runnable {
         }
 
         if (this.fase == Crupier.PREFLOP) {
-            GameFrame.getInstance().getJugadores().get(this.getUtg_pos()).disableUTG();
+            nick2player.get(this.utg_nick).disableUTG();
         }
 
         return (resisten.size() > 1 && fase < RIVER && getJugadoresActivos() > 1) ? rondaApuestas(fase + 1, resisten) : resisten;
@@ -4046,66 +4093,87 @@ public class Crupier implements Runnable {
     }
 
     private void calcularPosiciones() {
+        
+        //DEAD BUTTON STRATEGY
 
-        if (GameFrame.getInstance().isPartida_local()) {
+        if (this.bb_nick == null) {
 
-            if (this.dealer_pos == -1) {
-                this.dealer_pos = 0;
+            this.bb_nick = this.nicks_permutados[0];
 
-                for (int i = 0; i < GameFrame.getInstance().getJugadores().size(); i++) {
+        } else {
 
-                    if (GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.nicks_permutados[0])) {
-                        break;
-                    } else {
-                        this.dealer_pos++;
-                    }
-                }
-            } else {
+            int i = 0;
 
-                this.dealer_pos = (this.dealer_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            while (!this.nicks_permutados[i].equals(this.bb_nick)) {
+                i++;
+            }
 
-                while (!GameFrame.getInstance().getJugadores().get(this.dealer_pos).isActivo()) {
+            String new_bb = nicks_permutados[(i + 1) % nicks_permutados.length];
 
-                    this.dealer_pos = (this.dealer_pos + 1) % GameFrame.getInstance().getJugadores().size();
-                }
+            while (!this.nick2player.containsKey(new_bb) || !this.nick2player.get(new_bb).isActivo()) {
+
+                new_bb = nicks_permutados[(i + 1) % nicks_permutados.length];
+
+                i++;
 
             }
+
+            this.bb_nick = new_bb;
         }
 
         if (getJugadoresActivos() == 2) {
 
-            this.small_pos = this.dealer_pos;
+            for (Player j : GameFrame.getInstance().getJugadores()) {
 
-            this.utg_pos = this.dealer_pos;
+                if (j.isActivo() && !j.getNickname().equals(this.bb_nick)) {
+                    this.sb_nick = j.getNickname();
+                    break;
+                }
 
-            this.big_pos = (this.dealer_pos + 1) % GameFrame.getInstance().getJugadores().size();
-
-            while (!GameFrame.getInstance().getJugadores().get(this.big_pos).isActivo()) {
-
-                this.big_pos = (this.big_pos + 1) % GameFrame.getInstance().getJugadores().size();
             }
+
+            this.dealer_nick = this.sb_nick;
+
+            this.utg_nick = this.dealer_nick;
 
         } else {
 
-            this.small_pos = (this.dealer_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            int i = 0, bb;
 
-            while (!GameFrame.getInstance().getJugadores().get(this.small_pos).isActivo()) {
-
-                this.small_pos = (this.small_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            while (!this.nicks_permutados[i].equals(this.bb_nick)) {
+                i++;
             }
 
-            this.big_pos = (this.small_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            bb = i;
 
-            while (!GameFrame.getInstance().getJugadores().get(this.big_pos).isActivo()) {
+            String new_utg = this.nicks_permutados[(i + 1) % this.nicks_permutados.length];
 
-                this.big_pos = (this.big_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            while (!this.nick2player.containsKey(new_utg) || !this.nick2player.get(new_utg).isActivo()) {
+
+                new_utg = nicks_permutados[(i + 1) % nicks_permutados.length];
+                i++;
             }
 
-            this.utg_pos = (this.big_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            this.utg_nick = new_utg;
 
-            while (!GameFrame.getInstance().getJugadores().get(this.utg_pos).isActivo()) {
-                this.utg_pos = (this.utg_pos + 1) % GameFrame.getInstance().getJugadores().size();
+            i = bb;
+
+            i--;
+
+            if (i < 0) {
+                i += nicks_permutados.length;
             }
+
+            this.sb_nick = nicks_permutados[i];
+
+            i--;
+
+            if (i < 0) {
+                i += nicks_permutados.length;
+            }
+
+            this.dealer_nick = nicks_permutados[i];
+
         }
     }
 
@@ -4120,7 +4188,9 @@ public class Crupier implements Runnable {
             boolean doblar_ciegas = this.checkDoblarCiegas();
 
             try {
-                comando = "DEALER#" + Base64.encodeBase64String(GameFrame.getInstance().getJugadores().get(this.dealer_pos).getNickname().getBytes("UTF-8")) + "#" + String.valueOf(GameFrame.getInstance().getConta_tiempo_juego()) + (doblar_ciegas ? "#1" : "#0");
+
+                comando = "POSITIONS#" + Base64.encodeBase64String(this.utg_nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(this.bb_nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(this.sb_nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(this.dealer_nick != null ? this.dealer_nick.getBytes("UTF-8") : "".getBytes("UTF-8")) + "#" + String.valueOf(GameFrame.getInstance().getConta_tiempo_juego()) + (doblar_ciegas ? "#1" : "#0");
+
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -4133,39 +4203,10 @@ public class Crupier implements Runnable {
 
         } else {
 
-            //Leemos el nick del dealer y calculamos posiciones nosotros en nuestro tablero
-            String dealer = this.recibirDealer();
-
-            this.dealer_pos = 0;
-
-            while (this.dealer_pos < GameFrame.getInstance().getJugadores().size()) {
-
-                if (GameFrame.getInstance().getJugadores().get(this.dealer_pos).getNickname().equals(dealer)) {
-                    break;
-                }
-
-                this.dealer_pos++;
-            }
-
-            this.calcularPosiciones();
+            //Recibimos las posiciones utg, bb, sb, dealer calculados por el servidor
+            this.recibirPosiciones();
 
         }
-    }
-
-    public int getDealer_pos() {
-        return dealer_pos;
-    }
-
-    public int getSmall_pos() {
-        return small_pos;
-    }
-
-    public int getBig_pos() {
-        return big_pos;
-    }
-
-    public int getUtg_pos() {
-        return utg_pos;
     }
 
     private void colocarAvatares() {
@@ -4399,11 +4440,15 @@ public class Crupier implements Runnable {
 
             if (areClientHumanActivePlayers()) {
 
-                int i = this.dealer_pos;
+                int i = 0;
+
+                while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.dealer_nick)) {
+                    i++;
+                }
 
                 Participant participante = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getJugadores().get(i).getNickname());
 
-                while (GameFrame.getInstance().getJugadores().get(i) == GameFrame.getInstance().getLocalPlayer() || participante.isCpu()) {
+                while (GameFrame.getInstance().getJugadores().get(i) == GameFrame.getInstance().getLocalPlayer() || participante.isCpu() || participante.isExit()) {
                     i = (i + 1) % GameFrame.getInstance().getJugadores().size();
                     participante = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getJugadores().get(i).getNickname());
                 }
@@ -5084,7 +5129,13 @@ public class Crupier implements Runnable {
 
         } else {
 
-            pivote = (this.getDealer_pos() + 1) % GameFrame.getInstance().getJugadores().size();
+            int i = 0;
+
+            while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.dealer_nick)) {
+                i++;
+            }
+
+            pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();
         }
 
         boolean hay_ganador = false;
@@ -5335,7 +5386,7 @@ public class Crupier implements Runnable {
 
                     auditorCuentas();
 
-                    GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getJugadores().get(this.big_pos).getNickname() + Translator.translate(" es la CIEGA GRANDE (") + Helpers.float2String(this.ciega_grande) + ") / " + GameFrame.getInstance().getJugadores().get(this.small_pos).getNickname() + Translator.translate(" es la CIEGA PEQUEÑA (") + Helpers.float2String(this.ciega_pequeña) + ") / " + GameFrame.getInstance().getJugadores().get(this.dealer_pos).getNickname() + Translator.translate(" es el DEALER"));
+                    GameFrame.getInstance().getRegistro().print(this.bb_nick + Translator.translate(" es la CIEGA GRANDE (") + Helpers.float2String(this.ciega_grande) + ") / " + this.sb_nick + Translator.translate(" es la CIEGA PEQUEÑA (") + Helpers.float2String(this.ciega_pequeña) + ") / " + this.dealer_nick + Translator.translate(" es el DEALER"));
 
                     ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));
 

@@ -1061,17 +1061,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.bet = 0f;
 
-        if (pos == crupier.getDealer_pos()) {
-            this.setPosition(DEALER);
-        } else if (pos == crupier.getBig_pos()) {
+        if (this.nickname.equals(crupier.getBb_nick())) {
             this.setPosition(BIG_BLIND);
-        } else if (pos == crupier.getSmall_pos()) {
+        } else if (this.nickname.equals(crupier.getSb_nick())) {
             this.setPosition(SMALL_BLIND);
+        } else if (this.nickname.equals(crupier.getDealer_nick())) {
+            this.setPosition(DEALER);
         } else {
             this.setPosition(-1);
         }
 
-        if (pos == crupier.getUtg_pos()) {
+        if (this.nickname.equals(crupier.getUtg_nick())) {
             this.setUTG();
         } else {
             this.disableUTG();
@@ -1159,17 +1159,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        if (pos == crupier.getDealer_pos()) {
-            this.setPosition(DEALER);
-        } else if (pos == crupier.getBig_pos()) {
+        if (this.nickname.equals(crupier.getBb_nick())) {
             this.setPosition(BIG_BLIND);
-        } else if (pos == crupier.getSmall_pos()) {
+        } else if (this.nickname.equals(crupier.getSb_nick())) {
             this.setPosition(SMALL_BLIND);
+        } else if (this.nickname.equals(crupier.getDealer_nick())) {
+            this.setPosition(DEALER);
         } else {
             this.setPosition(-1);
         }
 
-        if (pos == crupier.getUtg_pos()) {
+        if (this.nickname.equals(crupier.getUtg_nick())) {
             this.setUTG();
         } else {
             this.disableUTG();
@@ -1253,11 +1253,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_blind.setBackground(Color.white);
                         player_blind.setForeground(Color.black);
                         player_blind.setText(POSITIONS_LABELS[2]);
+                        player_name.setOpaque(false);
+                        player_name.setBackground(null);
+
+                        if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
+                            player_name.setForeground(Color.YELLOW);
+                        } else {
+                            player_name.setForeground(Color.WHITE);
+                        }
 
                     }
                 });
 
-                if (crupier.getDealer_pos() == crupier.getSmall_pos()) {
+                if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
                     if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                         setBet(crupier.getCiega_pequeña());
                         setStack(stack - bet);

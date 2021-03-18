@@ -3567,26 +3567,29 @@ public class Crupier implements Runnable {
                 }
             }
 
-            int conta_pos, i;
+            int conta_pos = 0;
 
             if (fase == PREFLOP) {
 
-                i = 0;
-
-                while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.utg_nick)) {
-                    i++;
+                while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.utg_nick)) {
+                    conta_pos++;
                 }
 
             } else {
 
-                i = 0;
+                if (nick2player.containsKey(this.sb_nick) && nick2player.get(this.sb_nick).isActivo()) {
 
-                while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.sb_nick)) {
-                    i++;
+                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.sb_nick)) {
+                        conta_pos++;
+                    }
+
+                } else {
+
+                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.bb_nick)) {
+                        conta_pos++;
+                    }
                 }
             }
-
-            conta_pos = i;
 
             int end_pos = conta_pos;
 

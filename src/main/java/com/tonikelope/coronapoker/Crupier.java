@@ -4109,30 +4109,55 @@ public class Crupier implements Runnable {
         broadcastGAMECommandFromServer(command, skip_nick, true);
     }
 
+    private int permutadoNick2Pos(String nick) {
+
+        int i = 0;
+
+        while (!this.nicks_permutados[i].equals(nick)) {
+            i++;
+        }
+
+        return i;
+    }
+
+    private String permutadoPos2Nick(int i) {
+
+        if (i < 0) {
+
+            while (i < 0) {
+                i += nicks_permutados.length;
+            }
+
+        } else if (i >= nicks_permutados.length) {
+            i = i % nicks_permutados.length;
+        }
+
+        return nicks_permutados[i];
+
+    }
+
     private void calcularPosiciones() {
+        //DEAD BUTTON STRATEGY
 
         String old_bb = this.bb_nick;
 
-        //DEAD BUTTON STRATEGY
+        int bb_pos;
+
         if (this.bb_nick == null) {
 
             this.bb_nick = this.nicks_permutados[0];
 
+            bb_pos = 0;
+
         } else {
 
-            int i = 0;
+            bb_pos = permutadoNick2Pos(this.bb_nick) + 1;
 
-            while (!this.nicks_permutados[i].equals(this.bb_nick)) {
-                i++;
-            }
-
-            String new_bb = nicks_permutados[(i + 1) % nicks_permutados.length];
+            String new_bb = permutadoPos2Nick(bb_pos);
 
             while (!this.nick2player.containsKey(new_bb) || !this.nick2player.get(new_bb).isActivo()) {
 
-                i = (i + 1) % nicks_permutados.length;
-
-                new_bb = nicks_permutados[i];
+                new_bb = permutadoPos2Nick(++bb_pos);
 
             }
 
@@ -4157,77 +4182,46 @@ public class Crupier implements Runnable {
         } else {
 
             //UTG
-            int i = 0, bb;
+            int utg_pos = bb_pos + 1;
 
-            while (!this.nicks_permutados[i].equals(this.bb_nick)) {
-                i++;
-            }
-
-            bb = i;
-
-            String new_utg = this.nicks_permutados[(i + 1) % this.nicks_permutados.length];
+            String new_utg = permutadoPos2Nick(utg_pos);
 
             while (!this.nick2player.containsKey(new_utg) || !this.nick2player.get(new_utg).isActivo()) {
 
-                i = (i + 1) % nicks_permutados.length;
-
-                new_utg = nicks_permutados[i];
+                new_utg = permutadoPos2Nick(++utg_pos);
 
             }
 
             this.utg_nick = new_utg;
 
             //DEALER
-            i = 0;
-
-            String new_dealer;
+            int de_pos;
 
             if (this.sb_nick != null) {
 
-                while (!this.nicks_permutados[i].equals(this.sb_nick)) {
-                    i++;
-                }
-
-                new_dealer = this.sb_nick;
+                de_pos = permutadoNick2Pos(this.sb_nick);
 
             } else {
 
-                i = bb - 2;
-
-                if (i < 0) {
-                    i += nicks_permutados.length;
-                }
-
-                new_dealer = nicks_permutados[i];
-
+                de_pos = bb_pos - 2;
             }
+
+            String new_dealer = permutadoPos2Nick(de_pos);
 
             while (!this.nick2player.containsKey(new_dealer) || !this.nick2player.get(new_dealer).isActivo()) {
 
-                i--;
-
-                if (i < 0) {
-                    i += nicks_permutados.length;
-                }
-
-                new_dealer = nicks_permutados[i];
+                new_dealer = permutadoPos2Nick(--de_pos);
 
             }
 
             this.dealer_nick = new_dealer;
 
-            //CIEGA PEQUEÑA
+            //SB
             if (old_bb != null) {
                 this.sb_nick = old_bb;
             } else {
 
-                i = bb - 1;
-
-                if (i < 0) {
-                    i += nicks_permutados.length;
-                }
-
-                this.sb_nick = nicks_permutados[i];
+                this.sb_nick = permutadoPos2Nick(bb_pos - 1);
             }
 
         }

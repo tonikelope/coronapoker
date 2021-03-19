@@ -50,7 +50,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean timeout_val = false;
     private volatile boolean winner = false;
     private volatile boolean loser = false;
-    private volatile int pos = -1;
     private volatile float call_required;
     private volatile boolean turno = false;
     private volatile Bot bot = null;
@@ -63,10 +62,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public int getResponseTime() {
 
         return GameFrame.TIEMPO_PENSAR - response_counter;
-    }
-
-    public int getPos() {
-        return pos;
     }
 
     public Bot getBot() {
@@ -1148,9 +1143,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public void nuevaMano(int p) {
-
-        pos = p;
+    public void nuevaMano() {
 
         if (this.crupier == null) {
             this.crupier = GameFrame.getInstance().getCrupier();

@@ -63,7 +63,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean loser = false;
     private volatile Float apuesta_recuperada = null;
     private volatile boolean click_recuperacion = false;
-    private volatile int pos = -1;
     private volatile float call_required;
     private volatile float min_raise;
     private volatile int pre_pulsado = Player.NODEC;
@@ -118,10 +117,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setPause_counter(int pause_counter) {
         this.pause_counter = pause_counter;
-    }
-
-    public int getPos() {
-        return pos;
     }
 
     public boolean isTurno() {
@@ -1079,11 +1074,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public void nuevaMano(int p) {
+    public void nuevaMano() {
 
         desPrePulsarTodo();
-
-        this.pos = p;
 
         if (this.crupier == null) {
             this.crupier = GameFrame.getInstance().getCrupier();

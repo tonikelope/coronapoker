@@ -76,7 +76,7 @@ public interface Player {
 
     void refreshPos();
 
-    public void nuevaMano(int pos);
+    public void nuevaMano();
 
     public void esTuTurno();
 

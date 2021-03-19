@@ -1653,8 +1653,11 @@ public class Crupier implements Runnable {
         }
 
         this.sqlite_id_hand = (int) map.get("hand_id");
+
         GameFrame.BUYIN = (int) map.get("buyin");
+
         GameFrame.REBUY = (boolean) map.get("rebuy");
+
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
@@ -1664,17 +1667,23 @@ public class Crupier implements Runnable {
 
             }
         });
+
         GameFrame.getInstance().setConta_tiempo_juego((long) map.get("play_time"));
+
         this.conta_mano = (int) map.get("conta_mano");
+
         this.ciega_pequeña = (float) map.get("sbval");
+
         this.ciega_grande = (float) map.get("bbval");
+
         GameFrame.CIEGAS_TIME = (int) map.get("blinds_time");
+
         this.ciegas_double = (int) map.get("blinds_double");
-        String dealer = (String) map.get("dealer");
-        String sb = (String) map.get("sb");
-        String bb = (String) map.get("bb");
+
         String[] auditor_partes = ((String) map.get("balance")).split("@");
+
         ArrayList<String> nicks_recuperados = new ArrayList<>();
+
         for (String player_data : auditor_partes) {
 
             String[] partes = player_data.split("\\|");
@@ -1688,21 +1697,23 @@ public class Crupier implements Runnable {
 
                 if (jugador != null) {
 
+                    //Es un jugador que estaba en la timba anterior y vuelve a estar en esta
                     jugador.setStack(Float.parseFloat(partes[1]));
 
                     jugador.setBuyin(Integer.parseInt(partes[2]));
 
                     jugador.setBet(0f);
 
-                    if (nick2player.get(dealer) == null) {
-                        dealer = jugador.getNickname();
-                    }
                     this.auditor.put(name, new Float[]{Float.parseFloat(partes[1]), Float.parseFloat(partes[2])});
+
                 } else {
+
+                    //Un jugador que estaba en la timba anterior pero no está ahora
                     this.auditor.put(name, new Float[]{Float.parseFloat(partes[1]), Float.parseFloat(partes[2])});
 
                     if (this.sqlIsPlayerInHandPreflop(name, this.sqlite_id_hand) && Helpers.float1DSecureCompare(0f, Float.parseFloat(partes[1])) < 0) {
 
+                        //Este jugador estaba en la mano que se interrumpió -> NO SE PUEDE RECUPERAR LA MANO INTERRUMPIDA
                         String ganancia_msg = "";
 
                         float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(Float.parseFloat(partes[1])) - Helpers.floatClean1D(Float.parseFloat(partes[2])));
@@ -1726,6 +1737,7 @@ public class Crupier implements Runnable {
             }
         }
 
+        //COMPROBAMOS LOS JUGADORES NUEVOS Y LOS PONEMOS A CALENTAR EN LA PRIMERA MANO
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
             if (!nicks_recuperados.contains(jugador.getNickname())) {
@@ -1737,52 +1749,46 @@ public class Crupier implements Runnable {
                 GameFrame.getInstance().getRegistro().print(jugador.getNickname() + Translator.translate(" se UNE a la TIMBA."));
             }
         }
-        if (GameFrame.getInstance().getJugadores().size() - this.getTotalSpectators() == 1) {
 
-            for (Player jugador : GameFrame.getInstance().getJugadores()) {
+        //RECUPERAMOS LAS POSICIONES DE LA MESA
+        this.dealer_nick = (String) map.get("dealer");
 
-                if (jugador.isSpectator() && Helpers.float1DSecureCompare(0f, jugador.getStack()) < 0) {
+        this.sb_nick = (String) map.get("sb");
 
-                    jugador.unsetSpectator();
-                }
-            }
-        }
-
-        this.dealer_nick = dealer;
-
-        this.sb_nick = sb;
-
-        this.bb_nick = bb;
-
-        int bb_pos = permutadoNick2Pos(this.bb_nick);
-
-        if (bb_pos != -1) {
-
-            if (getJugadoresActivos() == 2) {
-
-                this.utg_nick = this.dealer_nick;
-
-            } else {
-
-                //UTG
-                int utg_pos = bb_pos + 1;
-
-                String new_utg = permutadoPos2Nick(utg_pos);
-
-                while (!this.nick2player.containsKey(new_utg) || !this.nick2player.get(new_utg).isActivo()) {
-
-                    new_utg = permutadoPos2Nick(++utg_pos);
-
-                }
-
-                this.utg_nick = new_utg;
-            }
-        }
+        this.bb_nick = (String) map.get("bb");
 
         if (!saltar_primera_mano) {
 
-            for (Player jugador : GameFrame.getInstance().getJugadores()) {
-                jugador.refreshPos();
+            int bb_pos = permutadoNick2Pos(this.bb_nick);
+
+            if (bb_pos != -1) {
+
+                //SI LA CIEGA GRANDE NO ESTÁ YA, LA MANO ACTUAL NO SE PUEDE RECUPERAR
+                if (getJugadoresActivos() == 2) {
+
+                    this.utg_nick = this.dealer_nick;
+
+                } else {
+
+                    //UTG
+                    int utg_pos = bb_pos + 1;
+
+                    String new_utg = permutadoPos2Nick(utg_pos);
+
+                    while (!this.nick2player.containsKey(new_utg) || !this.nick2player.get(new_utg).isActivo()) {
+
+                        new_utg = permutadoPos2Nick(++utg_pos);
+
+                    }
+
+                    this.utg_nick = new_utg;
+                }
+
+                //Si la mano que se interrumpió se puede recuperar actualizamos las posiciones de dealer, ciegas y utg
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                    jugador.refreshPos();
+                }
+
             }
         }
 
@@ -2055,15 +2061,12 @@ public class Crupier implements Runnable {
 
         this.bote = new Pot(0f);
 
-        int i = 0;
-
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
             if (jugador.isActivo()) {
-                jugador.nuevaMano(i);
+                jugador.nuevaMano();
             }
 
-            i++;
         }
 
         this.rebuy_now.clear();
@@ -2098,6 +2101,19 @@ public class Crupier implements Runnable {
             saltar_mano_recover = recuperarDatosClavePartida();
 
             checkRebuyTime();
+
+            if (!rebuy_now.isEmpty()) {
+
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                    if (rebuy_now.containsKey(jugador.getNickname())) {
+                        jugador.nuevaMano();
+                        jugador.setSpectator(Translator.translate("CALENTANDO"));
+                    }
+                }
+
+                this.rebuy_now.clear();
+            }
 
             if (getJugadoresActivos() > 1 && !saltar_mano_recover) {
 
@@ -2179,7 +2195,6 @@ public class Crupier implements Runnable {
             sqlUpdateGameSeats(players.substring(1));
 
             GameFrame.setRECOVER(false);
-
         }
 
         if (getJugadoresActivos() > 1 && !saltar_mano_recover) {
@@ -2309,10 +2324,10 @@ public class Crupier implements Runnable {
 
         } else {
 
-            //Si la mano no se ja podido recuperar le devolvemos la pasta a las ciegas
+            //Si la mano no se ha podido recuperar le devolvemos la pasta a las ciegas
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
-                if (jugador.isActivo()) {
+                if (jugador.isActivo() && Helpers.float1DSecureCompare(0f, jugador.getBet()) < 0) {
                     jugador.pagar(jugador.getBet());
                 }
 

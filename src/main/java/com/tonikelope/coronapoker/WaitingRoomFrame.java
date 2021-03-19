@@ -2551,7 +2551,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             String nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
 
-                            if (!participantes.containsKey(nick)) {
+                            if (!"".equals(nick) && !participantes.containsKey(nick)) {
                                 missing_players += nick + "\n\n";
                             }
                         }

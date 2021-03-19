@@ -1671,7 +1671,8 @@ public class Crupier implements Runnable {
         GameFrame.CIEGAS_TIME = (int) map.get("blinds_time");
         this.ciegas_double = (int) map.get("blinds_double");
         String dealer = (String) map.get("dealer");
-        ;
+        String sb = (String) map.get("sb");
+        String bb = (String) map.get("bb");
         String[] auditor_partes = ((String) map.get("balance")).split("@");
         ArrayList<String> nicks_recuperados = new ArrayList<>();
         for (String player_data : auditor_partes) {
@@ -1749,47 +1750,42 @@ public class Crupier implements Runnable {
 
         this.dealer_nick = dealer;
 
-        if (getJugadoresActivos() == 2) {
+        this.sb_nick = sb;
 
-            for (Player j : GameFrame.getInstance().getJugadores()) {
+        this.bb_nick = bb;
 
-                if (j.isActivo() && !j.getNickname().equals(this.bb_nick)) {
-                    this.sb_nick = j.getNickname();
-                    break;
+        int bb_pos = permutadoNick2Pos(this.bb_nick);
+
+        if (bb_pos != -1) {
+
+            if (getJugadoresActivos() == 2) {
+
+                this.utg_nick = this.dealer_nick;
+
+            } else {
+
+                //UTG
+                int utg_pos = bb_pos + 1;
+
+                String new_utg = permutadoPos2Nick(utg_pos);
+
+                while (!this.nick2player.containsKey(new_utg) || !this.nick2player.get(new_utg).isActivo()) {
+
+                    new_utg = permutadoPos2Nick(++utg_pos);
+
                 }
 
+                this.utg_nick = new_utg;
             }
-
-            this.dealer_nick = this.sb_nick;
-
-        } else {
-
-            int i = 0;
-
-            while (!this.nicks_permutados[i].equals(this.bb_nick)) {
-                i++;
-            }
-
-            i--;
-
-            if (i < 0) {
-                i += nicks_permutados.length;
-            }
-
-            this.sb_nick = nicks_permutados[i];
-
-            i--;
-
-            if (i < 0) {
-                i += nicks_permutados.length;
-            }
-
-            this.dealer_nick = nicks_permutados[i];
-
         }
-        for (Player jugador : GameFrame.getInstance().getJugadores()) {
-            jugador.refreshPos();
+
+        if (!saltar_primera_mano) {
+
+            for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                jugador.refreshPos();
+            }
         }
+
         actualizarContadoresTapete();
 
         return saltar_primera_mano;
@@ -2169,6 +2165,18 @@ public class Crupier implements Runnable {
                     }
                 });
             }
+
+            String players = "";
+
+            for (String nick : this.nicks_permutados) {
+                try {
+                    players += "#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            sqlUpdateGameSeats(players.substring(1));
 
             GameFrame.setRECOVER(false);
 
@@ -4116,7 +4124,7 @@ public class Crupier implements Runnable {
 
         int i = 0;
 
-        while (!this.nicks_permutados[i].equals(nick)) {
+        while (i < this.nicks_permutados.length && !this.nicks_permutados[i].equals(nick)) {
             i++;
         }
 
@@ -4292,8 +4300,29 @@ public class Crupier implements Runnable {
                 }
             }
 
-            //Los nicks actuales nuevos los sentamos al final
-            permutados.addAll(actuales);
+            if (!actuales.isEmpty()) {
+
+                //Los jugadores nuevos los colocamos después de la CIEGA GRANDE
+                HashMap<String, Object> map = this.sqlRecoverGamePositions();
+
+                ArrayList<String> permutados_aux = new ArrayList<>();
+
+                for (String nick : permutados) {
+
+                    permutados_aux.add(nick);
+
+                    if (nick.equals(map.get("bb"))) {
+                        permutados_aux.addAll(actuales);
+                        actuales.clear();
+                    }
+                }
+
+                if (!actuales.isEmpty()) {
+                    permutados_aux.addAll(actuales);
+                }
+
+                permutados = permutados_aux;
+            }
 
             return permutados.toArray(new String[permutados.size()]);
 
@@ -4381,6 +4410,28 @@ public class Crupier implements Runnable {
         return ret;
     }
 
+    private void sqlUpdateGameSeats(String players) {
+
+        try {
+            String sql = "UPDATE game SET players=? WHERE id=?";
+
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setString(1, players);
+
+            statement.setInt(2, this.sqlite_id_game);
+
+            statement.executeUpdate();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
+        }
+    }
+
     private String sqlRecoverHandActions() {
 
         String ret = null;
@@ -4421,7 +4472,7 @@ public class Crupier implements Runnable {
 
         try {
 
-            String sql = "select hand.id as hand_id, hand.end as hand_end, server, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, hand.blinds_double as blinds_double, hand.dealer as dealer from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
+            String sql = "select hand.id as hand_id, hand.end as hand_end, server, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -4450,6 +4501,8 @@ public class Crupier implements Runnable {
             map.put("blinds_time", rs.getInt("blinds_time"));
             map.put("blinds_double", rs.getInt("blinds_double"));
             map.put("dealer", rs.getString("dealer"));
+            map.put("sb", rs.getString("sb"));
+            map.put("bb", rs.getString("bb"));
 
             sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
 
@@ -4473,6 +4526,41 @@ public class Crupier implements Runnable {
             map.put("balance", String.join("@", balance));
 
         } catch (SQLException | UnsupportedEncodingException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.closeSQLITE();
+        }
+
+        return map;
+    }
+
+    private HashMap<String, Object> sqlRecoverGamePositions() {
+
+        HashMap<String, Object> map = null;
+
+        try {
+
+            String sql = "select hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
+
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, this.sqlite_id_game);
+
+            statement.setInt(2, this.sqlite_id_game);
+
+            ResultSet rs = statement.executeQuery();
+
+            rs.next();
+
+            map = new HashMap<>();
+
+            map.put("dealer", rs.getString("dealer"));
+            map.put("sb", rs.getString("sb"));
+            map.put("bb", rs.getString("bb"));
+
+        } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             Helpers.closeSQLITE();

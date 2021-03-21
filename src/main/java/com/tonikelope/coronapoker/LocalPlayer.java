@@ -210,8 +210,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_pot.setBackground(null);
                     player_pot.setEnabled(false);
                     utg_textfield.setVisible(false);
-                    playingCard1.liberarCarta();
-                    playingCard2.liberarCarta();
+                    playingCard1.resetearCarta();
+                    playingCard2.resetearCarta();
                     player_stack.setBackground(null);
                     player_stack.setEnabled(false);
                     player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
@@ -320,8 +320,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 public void run() {
                     setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
 
-                    playingCard1.liberarCarta();
-                    playingCard2.liberarCarta();
+                    playingCard1.resetearCarta();
+                    playingCard2.resetearCarta();
                     player_action.setBackground(new Color(255, 102, 0));
                     player_action.setForeground(Color.WHITE);
                     player_action.setText(Translator.translate("ABANDONAS LA TIMBA"));

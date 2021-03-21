@@ -58,6 +58,7 @@ public class Participant implements Runnable {
     private volatile Boolean resetting_socket = false;
     private volatile SecretKeySpec aes_key = null;
     private volatile SecretKeySpec hmac_key = null;
+    private volatile SecretKeySpec hmac_key_orig = null;
     private volatile SecretKeySpec permutation_key = null;
     private volatile String permutation_key_hash = null;
     private volatile int new_hand_ready = 0;
@@ -72,6 +73,7 @@ public class Participant implements Runnable {
         this.cpu = cpu;
         this.aes_key = aes_k;
         this.hmac_key = hmac_k;
+        this.hmac_key_orig = hmac_k;
 
         if (this.aes_key != null) {
             try {
@@ -116,6 +118,10 @@ public class Participant implements Runnable {
 
     public ConcurrentLinkedQueue<String> getAsync_command_queue() {
         return async_command_queue;
+    }
+
+    public SecretKeySpec getHmac_key_orig() {
+        return hmac_key_orig;
     }
 
     public SecretKeySpec getHmac_key() {
@@ -297,18 +303,18 @@ public class Participant implements Runnable {
 
             try {
 
+                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
+
+                //Mandamos el chat
+                sock.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat().getText().getBytes("UTF-8")), aes_k, hmac_k) + "\n").getBytes("UTF-8"));
+
                 this.socket = sock;
+
+                this.input_stream = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
 
                 this.aes_key = aes_k;
 
                 this.hmac_key = hmac_k;
-
-                this.input_stream = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
-
-                //Mandamos el chat
-                this.socket.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat().getText().getBytes("UTF-8")), this.aes_key, this.hmac_key) + "\n").getBytes("UTF-8"));
 
                 this.resetting_socket = false;
 

@@ -56,7 +56,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
     public void pintarJugada() {
 
         for (Card carta : cartas) {
-            carta.liberarCarta();
+            carta.resetearCarta();
         }
 
         switch (valor_jugada) {

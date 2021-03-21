@@ -237,7 +237,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         });
     }
 
-    public void liberarCarta() {
+    public void resetearCarta() {
         this.iniciada = false;
         this.tapada = false;
         this.desenfocada = false;

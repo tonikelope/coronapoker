@@ -1997,14 +1997,14 @@ public class Crupier implements Runnable {
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
             if (jugador.isActivo()) {
-                jugador.getPlayingCard1().liberarCarta();
-                jugador.getPlayingCard2().liberarCarta();
+                jugador.getPlayingCard1().resetearCarta();
+                jugador.getPlayingCard2().resetearCarta();
             }
 
         }
 
         for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
-            carta.liberarCarta();
+            carta.resetearCarta();
         }
 
         this.conta_mano++;
@@ -2023,7 +2023,9 @@ public class Crupier implements Runnable {
         GameFrame.getInstance().getRegistro().print("\n*************** " + Translator.translate("MANO") + " (" + String.valueOf(this.conta_mano) + ") ***************");
 
         //Colocamos al dealer, CP y CG
-        this.setPositions();
+        if (!GameFrame.RECOVER) {
+            this.setPositions();
+        }
 
         this.badbeat = false;
 
@@ -2385,13 +2387,13 @@ public class Crupier implements Runnable {
 
     }
 
-    private boolean sqlCheckRecoverAction(Player current_player) {
+    private boolean sqlCheckGenuineRecoverAction(Player current_player) {
 
         boolean ret = false;
 
         try {
 
-            String sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=? and action=?" + (current_player.getDecision() >= Player.BET ? " and bet=?" : "");
+            String sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=?";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -2403,15 +2405,37 @@ public class Crupier implements Runnable {
 
             statement.setInt(3, this.conta_accion);
 
-            statement.setInt(4, current_player.getDecision());
-
-            if (current_player.getDecision() >= Player.BET) {
-                statement.setFloat(5, Helpers.floatClean1D(current_player.getBet()));
-            }
-
             ResultSet rs = statement.executeQuery();
 
-            ret = rs.next();
+            if (rs.next()) {
+                //Existe la acción de ese jugador en esa mano, ahora vamos a ver si coincide lo que tenemos guardado con lo que ha enviado el servidor/jugador
+
+                sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=? and action=?" + (current_player.getDecision() >= Player.BET ? " and bet=?" : "");
+
+                statement = Helpers.getSQLITE().prepareStatement(sql);
+
+                statement.setQueryTimeout(30);
+
+                statement.setInt(1, this.sqlite_id_hand);
+
+                statement.setString(2, current_player.getNickname());
+
+                statement.setInt(3, this.conta_accion);
+
+                statement.setInt(4, current_player.getDecision());
+
+                if (current_player.getDecision() >= Player.BET) {
+                    statement.setFloat(5, Helpers.floatClean1D(current_player.getBet()));
+                }
+
+                rs = statement.executeQuery();
+
+                ret = rs.next();
+
+            } else {
+                //No existe esa acción para ese jugador, por lo que no podemos comparar y por tanto nos fiamos de lo que envía el servidor/jugador
+                ret = true;
+            }
 
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -3924,7 +3948,7 @@ public class Crupier implements Runnable {
 
                         String recover_action = current_player.getNickname() + " " + String.valueOf(current_player.getDecision()) + " " + Helpers.float2String(current_player.getBet()) + " COUNTER: " + String.valueOf(this.conta_accion) + " HAND ID: " + String.valueOf(this.sqlite_id_hand);
 
-                        if (this.sqlCheckRecoverAction(current_player)) {
+                        if (this.sqlCheckGenuineRecoverAction(current_player)) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "RECOVER ACTION OK -> " + recover_action);
                         } else {
                             Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "BAD RECOVER ACTION! -> " + recover_action);

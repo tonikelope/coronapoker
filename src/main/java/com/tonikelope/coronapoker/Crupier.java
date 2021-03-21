@@ -4317,13 +4317,16 @@ public class Crupier implements Runnable {
         }
     }
 
-    private String[] recuperarSorteoSitios(String[] nicks_actuales) {
+    private ArrayList<String> recuperarSorteoSitios() {
 
         try {
 
             ArrayList<String> actuales = new ArrayList<>();
 
-            Collections.addAll(actuales, nicks_actuales);
+            for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
+
+                actuales.add(entry.getKey());
+            }
 
             String[] sitiosb64 = this.sqlRecoverGameSeats().split("#");
 
@@ -4351,19 +4354,16 @@ public class Crupier implements Runnable {
                     permutados_aux.add(nick);
 
                     if (nick.equals(map.get("bb"))) {
+                        Collections.shuffle(actuales, Helpers.SPRNG_GENERATOR);
                         permutados_aux.addAll(actuales);
                         actuales.clear();
                     }
                 }
 
-                if (!actuales.isEmpty()) {
-                    permutados_aux.addAll(actuales);
-                }
-
                 permutados = permutados_aux;
             }
 
-            return permutados.toArray(new String[permutados.size()]);
+            return permutados;
 
         } catch (IOException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -4814,39 +4814,28 @@ public class Crupier implements Runnable {
 
     private String[] sortearSitios() {
 
-        String[] permutados = null;
+        ArrayList<String> nicks = null;
 
-        Integer[] permutacion = null;
+        String[] permutados = null;
 
         if (GameFrame.getInstance().isPartida_local()) {
 
-            String[] nicks = new String[GameFrame.getInstance().getParticipantes().size()];
+            if (!GameFrame.isRECOVER() || (nicks = this.recuperarSorteoSitios()) == null) {
 
-            int i = 0;
+                nicks = new ArrayList<>();
 
-            for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
+                for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
 
-                nicks[i++] = entry.getKey();
-            }
-
-            if (!GameFrame.isRECOVER() || (permutados = this.recuperarSorteoSitios(nicks)) == null) {
-
-                permutacion = Helpers.getIntegerPermutation(Helpers.SPRNG, GameFrame.getInstance().getParticipantes().size());
-
-                permutados = new String[nicks.length];
-
-                i = 0;
-
-                for (int p : permutacion) {
-
-                    permutados[i++] = nicks[p - 1];
+                    nicks.add(entry.getKey());
                 }
+
+                Collections.shuffle(nicks, Helpers.SPRNG_GENERATOR);
             }
 
             //Comunicamos a todos los participantes el sorteo
-            String command = "SEATS#" + String.valueOf(permutados.length);
+            String command = "SEATS#" + String.valueOf(nicks.size());
 
-            for (String nick : permutados) {
+            for (String nick : nicks) {
 
                 try {
                     command += "#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
@@ -4857,7 +4846,7 @@ public class Crupier implements Runnable {
 
             this.broadcastGAMECommandFromServer(command, null);
 
-            return permutados;
+            permutados = nicks.toArray(new String[nicks.size()]);
 
         } else {
 

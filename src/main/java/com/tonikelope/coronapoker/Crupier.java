@@ -2190,7 +2190,15 @@ public class Crupier implements Runnable {
                     this.sincronizando_mano = true;
                 } else {
                     GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
-                    Helpers.playWavResource("misc/cash_register.wav");
+                    if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+
+                        Helpers.playWavResource("misc/startplay.wav");
+                    }
+
+                    if (GameFrame.MUSICA_AMBIENTAL) {
+                        Helpers.stopLoopMp3("misc/recovering.mp3");
+                        Helpers.playLoopMp3Resource("misc/background_music.mp3");
+                    }
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
                             recover_dialog.setVisible(false);
@@ -2204,7 +2212,15 @@ public class Crupier implements Runnable {
                 }
             } else {
                 GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
-                Helpers.playWavResource("misc/cash_register.wav");
+                if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+
+                    Helpers.playWavResource("misc/startplay.wav");
+                }
+
+                if (GameFrame.MUSICA_AMBIENTAL) {
+                    Helpers.stopLoopMp3("misc/recovering.mp3");
+                    Helpers.playLoopMp3Resource("misc/background_music.mp3");
+                }
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
                         recover_dialog.setVisible(false);
@@ -4987,7 +5003,7 @@ public class Crupier implements Runnable {
 
             if (GameFrame.MUSICA_AMBIENTAL) {
                 Helpers.stopLoopMp3("misc/recovering.mp3");
-                Helpers.unmuteLoopMp3("misc/background_music.mp3");
+                Helpers.playLoopMp3Resource("misc/background_music.mp3");
 
             }
         }
@@ -5765,6 +5781,7 @@ public class Crupier implements Runnable {
             if (!GameFrame.RECOVER) {
                 Helpers.unmuteLoopMp3("misc/background_music.mp3");
             } else {
+                Helpers.stopLoopMp3("misc/background_music.mp3");
                 Helpers.playLoopMp3Resource("misc/recovering.mp3");
             }
         }
@@ -5819,7 +5836,7 @@ public class Crupier implements Runnable {
 
                         if (GameFrame.MUSICA_AMBIENTAL) {
                             Helpers.stopLoopMp3("misc/recovering.mp3");
-                            Helpers.unmuteLoopMp3("misc/background_music.mp3");
+                            Helpers.playLoopMp3Resource("misc/background_music.mp3");
                         }
                     }
 

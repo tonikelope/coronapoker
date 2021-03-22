@@ -7,12 +7,8 @@ package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import java.awt.Color;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -244,8 +240,6 @@ public class Crupier implements Runnable {
     private volatile String bb_nick = null;
     private volatile String sb_nick = null;
     private volatile String utg_nick = null;
-    private volatile boolean saltar_primera_mano = false;
-    private volatile boolean recover_error = false;
 
     public String getDealer_nick() {
         return dealer_nick;
@@ -1648,17 +1642,11 @@ public class Crupier implements Runnable {
         return t;
     }
 
-    private void recuperarDatosClavePartida() {
+    private boolean recuperarDatosClavePartida() {
 
-        HashMap<String, Object> map = null;
+        boolean saltar_primera_mano = false;
 
-        saltar_primera_mano = false;
-
-        if (this.recover_error) {
-            map = recibirDatosClaveRecuperados();
-        } else {
-            map = sqlRecoverGameBalance();
-        }
+        HashMap<String, Object> map = sqlRecoverGameBalance();
 
         if ((Long) map.get("hand_end") != 0L) {
             saltar_primera_mano = true;
@@ -1749,8 +1737,6 @@ public class Crupier implements Runnable {
             }
         }
 
-        final ArrayList<String> pendientes_datos_recover = new ArrayList<>();
-
         //COMPROBAMOS LOS JUGADORES NUEVOS Y LOS PONEMOS A CALENTAR EN LA PRIMERA MANO
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
@@ -1760,29 +1746,8 @@ public class Crupier implements Runnable {
 
                 this.auditor.put(jugador.getNickname(), new Float[]{jugador.getStack(), (float) jugador.getBuyin()});
 
-                if (GameFrame.getInstance().isPartida_local()) {
-                    Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-
-                    if (p != null && !p.isCpu()) {
-                        pendientes_datos_recover.add(jugador.getNickname());
-                    }
-                }
-
                 GameFrame.getInstance().getRegistro().print(jugador.getNickname() + Translator.translate(" se UNE a la TIMBA."));
-
             }
-        }
-
-        if (GameFrame.getInstance().isPartida_local() && !pendientes_datos_recover.isEmpty()) {
-            final HashMap<String, Object> map_datos = map;
-
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-
-                    enviarDatosClaveRecuperados(pendientes_datos_recover, map_datos);
-                }
-            });
-
         }
 
         //RECUPERAMOS LAS POSICIONES DE LA MESA
@@ -1828,6 +1793,8 @@ public class Crupier implements Runnable {
         }
 
         actualizarContadoresTapete();
+
+        return saltar_primera_mano;
 
     }
 
@@ -2133,7 +2100,7 @@ public class Crupier implements Runnable {
                 }
             });
 
-            recuperarDatosClavePartida();
+            saltar_mano_recover = recuperarDatosClavePartida();
 
             checkRebuyTime();
 
@@ -3232,177 +3199,6 @@ public class Crupier implements Runnable {
                     nick2player.get(nick).setTimeout(true);
                 }
 
-            }
-
-        } while (!pendientes.isEmpty() && !timeout);
-
-        if (timeout) {
-
-            for (String nick : pendientes) {
-                if (!nick2player.get(nick).isExit()) {
-                    this.remotePlayerQuit(nick);
-                }
-            }
-        }
-
-    }
-
-    private HashMap<String, Object> recibirDatosClaveRecuperados() {
-
-        HashMap<String, Object> map = null;
-
-        boolean ok;
-
-        long start_time = System.currentTimeMillis();
-
-        do {
-
-            ok = false;
-
-            synchronized (this.getReceived_commands()) {
-
-                ArrayList<String> rejected = new ArrayList<>();
-
-                while (!ok && !this.getReceived_commands().isEmpty()) {
-
-                    String comando = this.received_commands.poll();
-
-                    String[] partes = comando.split("#");
-
-                    if (partes[2].equals("RECOVERDATA")) {
-
-                        ObjectInputStream in = null;
-                        try {
-                            ok = true;
-                            ByteArrayInputStream byteIn = new ByteArrayInputStream(Base64.decodeBase64(partes[3]));
-                            in = new ObjectInputStream(byteIn);
-                            map = (HashMap<String, Object>) in.readObject();
-                            map.put("hand_id", -1);
-                        } catch (IOException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (ClassNotFoundException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        } finally {
-                            try {
-                                in.close();
-                            } catch (IOException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                        }
-
-                    } else {
-                        rejected.add(comando);
-                    }
-
-                }
-
-                if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
-                    rejected.clear();
-                }
-
-            }
-
-            if (!ok) {
-
-                if (GameFrame.getInstance().checkPause()) {
-                    start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-
-                    this.sendGAMECommandToServer("PING");
-
-                    start_time = System.currentTimeMillis();
-                } else {
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    }
-                }
-            }
-
-        } while (!ok);
-
-        return map;
-    }
-
-    private void enviarDatosClaveRecuperados(ArrayList<String> pendientes, HashMap<String, Object> datos) {
-
-        long start = System.currentTimeMillis();
-
-        int id = Helpers.SPRNG_GENERATOR.nextInt();
-
-        boolean timeout = false;
-
-        byte[] iv = new byte[16];
-
-        Helpers.SPRNG_GENERATOR.nextBytes(iv);
-
-        do {
-
-            ObjectOutputStream out = null;
-            try {
-
-                ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-
-                out = new ObjectOutputStream(byteOut);
-
-                out.writeObject(datos);
-
-                String command = "GAME#" + String.valueOf(id) + "#RECOVERDATA#" + Base64.encodeBase64String(byteOut.toByteArray());
-
-                for (Player jugador : GameFrame.getInstance().getJugadores()) {
-
-                    if (pendientes.contains(jugador.getNickname())) {
-
-                        Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-
-                        if (p != null && !p.isCpu()) {
-
-                            p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
-
-                        }
-                    }
-                }
-
-                //Esperamos confirmaciones
-                this.waitSyncConfirmations(id, pendientes);
-                for (Player jugador : GameFrame.getInstance().getJugadores()) {
-
-                    if (jugador.isExit() && pendientes.contains(jugador.getNickname())) {
-
-                        pendientes.remove(jugador.getNickname());
-                    }
-                }
-                if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                    int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
-
-                    // 0=yes, 1=no, 2=cancel
-                    if (input == 1) {
-
-                        timeout = true;
-
-                    } else {
-                        start = System.currentTimeMillis();
-                    }
-                }
-                if (!pendientes.isEmpty()) {
-
-                    for (String nick : pendientes) {
-                        nick2player.get(nick).setTimeout(true);
-                    }
-
-                }
-            } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                try {
-                    out.close();
-                } catch (IOException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                }
             }
 
         } while (!pendientes.isEmpty() && !timeout);
@@ -5679,10 +5475,6 @@ public class Crupier implements Runnable {
 
         if (GameFrame.RECOVER) {
             this.sqlite_id_game = Crupier.sqlGetGameIdFromRecoverId();
-
-            if (this.sqlite_id_game == -1) {
-                this.recover_error = true;
-            }
         }
 
         Helpers.GUIRun(new Runnable() {
@@ -5697,7 +5489,7 @@ public class Crupier implements Runnable {
 
         sentarParticipantes();
 
-        if (!GameFrame.RECOVER || this.recover_error) {
+        if (!GameFrame.RECOVER) {
             sqlNewGame();
         }
 
@@ -6491,7 +6283,7 @@ public class Crupier implements Runnable {
 
             carta_alta = 1;
 
-            //Averiguamos la carta más alta de la segunda pareja
+            //Averiguamos la carta más alta de la segunda pareja 
             for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
                 Hand jugada = entry.getValue();
                 if (jugada.getMano().get(2).getValorNumerico() > carta_alta) {
@@ -6647,7 +6439,7 @@ public class Crupier implements Runnable {
 
             int carta_alta = 1;
 
-            //Averiguamos la carta más alta
+            //Averiguamos la carta más alta 
             for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
                 Hand jugada = entry.getValue();
                 if (jugada.getMano().get(i).getValorNumerico() > carta_alta) {

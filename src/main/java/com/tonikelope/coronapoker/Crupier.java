@@ -2116,7 +2116,7 @@ public class Crupier implements Runnable {
 
         Integer[] permutacion_recuperada = null;
 
-        boolean saltar_mano_recover = false;
+        saltar_primera_mano = false;
 
         //Actualizamos los datos en caso de estar en modo recover
         if (GameFrame.isRECOVER()) {
@@ -2150,7 +2150,7 @@ public class Crupier implements Runnable {
                 this.rebuy_now.clear();
             }
 
-            if (getJugadoresActivos() > 1 && !saltar_mano_recover) {
+            if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
 
                 GameFrame.getInstance().getRegistro().print("\n*************** " + Translator.translate("MANO RECUPERADA") + " (" + String.valueOf(this.conta_mano) + ") ***************");
 
@@ -2232,7 +2232,7 @@ public class Crupier implements Runnable {
             GameFrame.setRECOVER(false);
         }
 
-        if (getJugadoresActivos() > 1 && !saltar_mano_recover) {
+        if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
 
             if (this.sqlite_id_hand == -1) {
                 sqlNewHand();
@@ -4979,7 +4979,17 @@ public class Crupier implements Runnable {
             this.setSincronizando_mano(false);
 
             GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
-            Helpers.playWavResource("misc/cash_register.wav");
+
+            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+
+                Helpers.playWavResource("misc/startplay.wav");
+            }
+
+            if (GameFrame.MUSICA_AMBIENTAL) {
+                Helpers.stopLoopMp3("misc/recovering.mp3");
+                Helpers.unmuteLoopMp3("misc/background_music.mp3");
+
+            }
         }
 
         return res;
@@ -5003,7 +5013,7 @@ public class Crupier implements Runnable {
 
                         String nick = new String(Base64.decodeBase64(parts[0]), "UTF-8");
 
-                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) || (GameFrame.getInstance().isPartida_local() && GameFrame.getInstance().getParticipantes().get(nick).isCpu())) {
+                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) || (GameFrame.getInstance().isPartida_local() && GameFrame.getInstance().getParticipantes().containsKey(nick) && GameFrame.getInstance().getParticipantes().get(nick).isCpu())) {
                             acciones_locales_recuperadas.add(r);
                         }
                     }
@@ -5678,6 +5688,7 @@ public class Crupier implements Runnable {
         }
 
         if (GameFrame.RECOVER) {
+
             this.sqlite_id_game = Crupier.sqlGetGameIdFromRecoverId();
 
             if (this.sqlite_id_game == -1) {
@@ -5744,13 +5755,18 @@ public class Crupier implements Runnable {
 
         Helpers.stopLoopMp3("misc/waiting_room.mp3");
 
-        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+        if (!GameFrame.RECOVER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
             Helpers.playWavResource("misc/startplay.wav");
         }
 
         if (GameFrame.MUSICA_AMBIENTAL) {
-            Helpers.unmuteLoopMp3("misc/background_music.mp3");
+
+            if (!GameFrame.RECOVER) {
+                Helpers.unmuteLoopMp3("misc/background_music.mp3");
+            } else {
+                Helpers.playLoopMp3Resource("misc/recovering.mp3");
+            }
         }
 
         GameFrame.getInstance().autoZoomFullScreen();
@@ -5795,7 +5811,16 @@ public class Crupier implements Runnable {
                         this.setSincronizando_mano(false);
 
                         GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
-                        Helpers.playWavResource("misc/cash_register.wav");
+
+                        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+
+                            Helpers.playWavResource("misc/startplay.wav");
+                        }
+
+                        if (GameFrame.MUSICA_AMBIENTAL) {
+                            Helpers.stopLoopMp3("misc/recovering.mp3");
+                            Helpers.unmuteLoopMp3("misc/background_music.mp3");
+                        }
                     }
 
                     this.show_time = true;

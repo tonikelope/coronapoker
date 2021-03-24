@@ -828,9 +828,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             public void run() {
                 HashMap<String, Integer> last_received = new HashMap<>();
 
-                String recibido = "";
+                String recibido;
 
-                String[] partes = null;
+                String[] partes;
 
                 try {
 
@@ -1528,9 +1528,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "Un cliente intenta conectar...");
 
-                String recibido = "";
+                String recibido;
 
-                String[] partes = null;
+                String[] partes;
 
                 try {
                     //Leemos los bytes "mágicos"

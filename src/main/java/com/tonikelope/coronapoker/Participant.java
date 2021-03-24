@@ -522,6 +522,20 @@ public class Participant implements Runnable {
                                         case "PING":
                                             //ES UN PING DE JUEGO -> NO tenemos que hacer nada más
                                             break;
+
+                                        case "RECOVERDATA":
+                                            Helpers.threadRun(new Runnable() {
+                                                public void run() {
+
+                                                    ArrayList<String> pendientes = new ArrayList<>();
+
+                                                    pendientes.add(nick);
+
+                                                    GameFrame.getInstance().getCrupier().enviarDatosClaveRecuperados(pendientes, GameFrame.getInstance().getCrupier().sqlRecoverGameBalance());
+                                                }
+                                            });
+                                            break;
+
                                         case "CINEMATICEND":
                                             GameFrame.getInstance().getCrupier().remoteCinematicEnd(nick);
                                             break;

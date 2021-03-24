@@ -1655,9 +1655,15 @@ public class Crupier implements Runnable {
         saltar_primera_mano = false;
 
         if (this.recover_error) {
+
+            sendGAMECommandToServer("RECOVERDATA");
+
             map = recibirDatosClaveRecuperados();
+
         } else {
+
             map = sqlRecoverGameBalance();
+
         }
 
         if ((Long) map.get("hand_end") != 0L) {
@@ -1749,8 +1755,6 @@ public class Crupier implements Runnable {
             }
         }
 
-        final ArrayList<String> pendientes_datos_recover = new ArrayList<>();
-
         //COMPROBAMOS LOS JUGADORES NUEVOS Y LOS PONEMOS A CALENTAR EN LA PRIMERA MANO
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
@@ -1760,29 +1764,9 @@ public class Crupier implements Runnable {
 
                 this.auditor.put(jugador.getNickname(), new Float[]{jugador.getStack(), (float) jugador.getBuyin()});
 
-                if (GameFrame.getInstance().isPartida_local()) {
-                    Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-
-                    if (p != null && !p.isCpu()) {
-                        pendientes_datos_recover.add(jugador.getNickname());
-                    }
-                }
-
                 GameFrame.getInstance().getRegistro().print(jugador.getNickname() + Translator.translate(" se UNE a la TIMBA."));
 
             }
-        }
-
-        if (GameFrame.getInstance().isPartida_local() && !pendientes_datos_recover.isEmpty()) {
-            final HashMap<String, Object> map_datos = map;
-
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-
-                    enviarDatosClaveRecuperados(pendientes_datos_recover, map_datos);
-                }
-            });
-
         }
 
         //RECUPERAMOS LAS POSICIONES DE LA MESA
@@ -3344,7 +3328,7 @@ public class Crupier implements Runnable {
         return map;
     }
 
-    private void enviarDatosClaveRecuperados(ArrayList<String> pendientes, HashMap<String, Object> datos) {
+    public void enviarDatosClaveRecuperados(ArrayList<String> pendientes, HashMap<String, Object> datos) {
 
         long start = System.currentTimeMillis();
 
@@ -4725,7 +4709,7 @@ public class Crupier implements Runnable {
         return ret;
     }
 
-    private HashMap<String, Object> sqlRecoverGameBalance() {
+    public HashMap<String, Object> sqlRecoverGameBalance() {
 
         HashMap<String, Object> map = null;
 
@@ -5708,7 +5692,35 @@ public class Crupier implements Runnable {
             this.sqlite_id_game = Crupier.sqlGetGameIdFromRecoverId();
 
             if (this.sqlite_id_game == -1) {
+
                 this.recover_error = true;
+
+                if (GameFrame.getInstance().isPartida_local()) {
+
+                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR FATAL: NO SE HA PODIDO RECUPERAR LA TIMBA");
+
+                    if (GameFrame.getInstance().getJugadores().size() > 1) {
+
+                        //Hay que avisar a los clientes de que la timba ha terminado
+                        broadcastGAMECommandFromServer("SERVEREXIT", null, false);
+
+                        GameFrame.getInstance().getLocalPlayer().setExit();
+
+                        GameFrame.getInstance().finTransmision(true);
+
+                    } else {
+
+                        Helpers.threadRun(new Runnable() {
+                            public void run() {
+
+                                GameFrame.getInstance().getLocalPlayer().setExit();
+
+                                GameFrame.getInstance().finTransmision(true);
+                            }
+                        });
+                    }
+                }
+
             }
         }
 

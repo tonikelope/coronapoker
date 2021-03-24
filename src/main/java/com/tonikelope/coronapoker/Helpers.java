@@ -988,7 +988,7 @@ public class Helpers {
 
                     VEREMOS LO QUE DURAN...
                      */
-                    String[] tts_services = null;
+                    String[] tts_services;
 
                     if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                         tts_services = new String[]{

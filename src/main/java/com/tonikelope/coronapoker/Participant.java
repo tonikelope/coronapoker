@@ -531,7 +531,7 @@ public class Participant implements Runnable {
 
                                                     pendientes.add(nick);
 
-                                                    GameFrame.getInstance().getCrupier().enviarDatosClaveRecuperados(pendientes, GameFrame.getInstance().getCrupier().sqlRecoverGameBalance());
+                                                    GameFrame.getInstance().getCrupier().enviarDatosClaveRecuperados(pendientes, GameFrame.getInstance().getCrupier().sqlRecoverGameKeyData());
                                                 }
                                             });
                                             break;

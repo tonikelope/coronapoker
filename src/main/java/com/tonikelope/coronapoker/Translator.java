@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"NO SE HA PODIDO RECUPERAR LA MANO #", "IT HAS NOT BEEN POSSIBLE TO RECOVER THE HAND#"},
             {"ERROR FATAL: NO SE HA PODIDO RECUPERAR LA TIMBA", "FATAL ERROR: GAME COULD NOT BE RECOVERED"},
             {"TTS ACTIVADO POR EL SERVIDOR", "TTS ENABLED BY SERVER"},
             {"TTS DESACTIVADO POR EL SERVIDOR", "TTS DISABLED BY SERVER"},

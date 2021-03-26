@@ -1725,9 +1725,9 @@ public class Crupier implements Runnable {
 
                     this.auditor.put(name, new Float[]{Float.parseFloat(partes[1]), Float.parseFloat(partes[2])});
 
-                    if (!((String) map.get("preflop_players")).contains(partes[0])) {
+                    if (!((String) map.get("preflop_players")).contains(partes[0]) && Helpers.float1DSecureCompare(0f, jugador.getStack()) < 0) {
 
-                        //El jugador no estuvo en la mano anterior, así que en esta tiene que estar de espectador
+                        //El jugador no estuvo en la mano anterior (pero no porque fuera espectador), así que en esta tiene que entrar de espectador
                         jugador.setSpectator(Translator.translate("CALENTANDO"));
                     }
 
@@ -2871,7 +2871,7 @@ public class Crupier implements Runnable {
 
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
-                if (jugador.isActivo()) {
+                if (jugador.isActivo() || Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
 
                     this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + jugador.getBet(), jugador.getBuyin());
                 }
@@ -2885,7 +2885,7 @@ public class Crupier implements Runnable {
 
                 if (jugador != null) {
 
-                    if (jugador.isActivo()) {
+                    if (jugador.isActivo() || Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
 
                         this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + jugador.getBet(), jugador.getBuyin());
                     }

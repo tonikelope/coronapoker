@@ -4373,9 +4373,11 @@ public class Crupier implements Runnable {
 
                     String[] asientos = this.sqlRecoverGameSeats().split("#");
 
+                    String grande_b64 = Base64.encodeBase64String(this.bb_nick.getBytes("UTF-8"));
+
                     int i = 0;
 
-                    while (i < asientos.length && !asientos[i].equals(Base64.encodeBase64String(this.bb_nick.getBytes("UTF-8")))) {
+                    while (i < asientos.length && !asientos[i].equals(grande_b64)) {
 
                         i++;
                     }
@@ -4525,13 +4527,15 @@ public class Crupier implements Runnable {
 
             String[] sitiosb64 = this.sqlRecoverGameSeats().split("#");
 
+            String preflop_players = (String) this.sqlRecoverGameKeyData().get("preflop_players");
+
             ArrayList<String> permutados = new ArrayList<>();
 
             for (String b64 : sitiosb64) {
 
                 String nick = new String(Base64.decodeBase64(b64), "UTF-8");
 
-                if (actuales.contains(nick)) {
+                if (actuales.contains(nick) && preflop_players.contains(b64)) {
                     permutados.add(nick);
                     actuales.remove(nick);
                 }
@@ -4549,9 +4553,11 @@ public class Crupier implements Runnable {
 
                     String[] asientos = this.sqlRecoverGameSeats().split("#");
 
+                    String grande_b64 = Base64.encodeBase64String(grande.getBytes("UTF-8"));
+
                     int i = 0;
 
-                    while (i < asientos.length && !asientos[i].equals(Base64.encodeBase64String(grande.getBytes("UTF-8")))) {
+                    while (i < asientos.length && !asientos[i].equals(grande_b64)) {
 
                         i++;
                     }

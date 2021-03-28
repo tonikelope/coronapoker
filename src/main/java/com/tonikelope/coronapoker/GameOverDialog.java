@@ -344,35 +344,14 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                 Helpers.stopWavResource("misc/gameover.wav");
 
-                if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?") == 0) {
+                Helpers.playWavResourceAndWait("misc/norebuy.wav");
 
-                    continua = true;
-
-                    Helpers.playWavResource("misc/rebuy.wav");
-
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-                            dispose();
-                            buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false, 10);
-
-                            buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
-
-                            buyin_dialog.setVisible(true);
-                        }
-                    });
-
-                } else {
-
-                    Helpers.playWavResourceAndWait("misc/norebuy.wav");
-
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-                            dispose();
-                        }
-                    });
-                }
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        dispose();
+                    }
+                });
 
             }
         });

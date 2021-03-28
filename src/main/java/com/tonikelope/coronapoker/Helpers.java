@@ -326,8 +326,6 @@ public class Helpers {
 
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
 
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS recover(id INTEGER PRIMARY KEY, id_recover TEXT, id_game INTEGER, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
-
         } catch (SQLException | ClassNotFoundException ex) {
             Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -2526,7 +2524,6 @@ public class Helpers {
         public static JCheckBoxMenuItem SONIDOS_MUSICA_MENU;
         public static JCheckBoxMenuItem SONIDOS_TTS_MENU;
         public static JCheckBoxMenuItem RELOJ_MENU;
-        public static JCheckBoxMenuItem AUTOREBUY_MENU;
         public static JCheckBoxMenuItem REBUY_NOW_MENU;
         public static JCheckBoxMenuItem COMPACTA_MENU;
         public static JCheckBoxMenuItem CONFIRM_MENU;
@@ -2678,13 +2675,6 @@ public class Helpers {
                     }
                 };
 
-                Action rebuyAction = new AbstractAction("Recompra automática") {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getAuto_rebuy_menu().doClick();
-                    }
-                };
-
                 Action rebuyNowAction = new AbstractAction("Recomprar (siguiente mano)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -2813,9 +2803,6 @@ public class Helpers {
                 TAPETES_MENU.add(TAPETE_MADERA);
                 popup.add(TAPETES_MENU);
                 popup.addSeparator();
-                AUTOREBUY_MENU = new JCheckBoxMenuItem(rebuyAction);
-                AUTOREBUY_MENU.setSelected(GameFrame.AUTO_REBUY);
-                popup.add(AUTOREBUY_MENU);
                 REBUY_NOW_MENU = new JCheckBoxMenuItem(rebuyNowAction);
                 REBUY_NOW_MENU.setSelected(false);
                 popup.add(REBUY_NOW_MENU);

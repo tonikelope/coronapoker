@@ -85,7 +85,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
     public static volatile boolean SONIDOS_TTS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_tts", "true"));
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
-    public static volatile boolean AUTO_REBUY = false;
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
     public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
@@ -99,7 +98,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean RECOVER = false;
     public static volatile boolean MAC_NATIVE_FULLSCREEN = false;
     public static volatile boolean TTS_SERVER = true;
-    public static volatile String RECOVER_ID = null;
+    public static volatile int RECOVER_ID = -1;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
     private static volatile GameFrame THIS = null;
 
@@ -332,10 +331,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public JCheckBoxMenuItem getAscensor_menu() {
         return ascensor_menu;
-    }
-
-    public JCheckBoxMenuItem getAuto_rebuy_menu() {
-        return auto_rebuy_menu;
     }
 
     public JMenuItem getChat_menu() {
@@ -1316,10 +1311,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         getContentPane().add(tapete);
 
-        auto_rebuy_menu.setSelected(GameFrame.AUTO_REBUY);
-
-        auto_rebuy_menu.setEnabled(GameFrame.REBUY);
-
         rebuy_now_menu.setEnabled(GameFrame.REBUY);
 
         compact_menu.setSelected(GameFrame.VISTA_COMPACTA);
@@ -1424,8 +1415,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         setupGlobalShortcuts();
 
         Helpers.TapetePopupMenu.addTo(tapete);
-
-        Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(GameFrame.REBUY);
 
         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
 
@@ -1830,7 +1819,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         menu_tapete_rojo = new javax.swing.JRadioButtonMenuItem();
         menu_tapete_madera = new javax.swing.JRadioButtonMenuItem();
         jSeparator4 = new javax.swing.JPopupMenu.Separator();
-        auto_rebuy_menu = new javax.swing.JCheckBoxMenuItem();
         rebuy_now_menu = new javax.swing.JCheckBoxMenuItem();
         help_menu = new javax.swing.JMenu();
         shortcuts_menu = new javax.swing.JMenuItem();
@@ -2090,16 +2078,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         opciones_menu.add(menu_tapetes);
         opciones_menu.add(jSeparator4);
-
-        auto_rebuy_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        auto_rebuy_menu.setSelected(true);
-        auto_rebuy_menu.setText("Recompra automática");
-        auto_rebuy_menu.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                auto_rebuy_menuActionPerformed(evt);
-            }
-        });
-        opciones_menu.add(auto_rebuy_menu);
 
         rebuy_now_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         rebuy_now_menu.setSelected(true);
@@ -2476,21 +2454,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     }//GEN-LAST:event_full_screen_menuActionPerformed
 
-    private void auto_rebuy_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_rebuy_menuActionPerformed
-        // TODO add your handling code here:
-
-        GameFrame.AUTO_REBUY = this.auto_rebuy_menu.isSelected();
-
-        Helpers.PROPERTIES.setProperty("auto_rebuy", String.valueOf(this.auto_rebuy_menu.isSelected()));
-
-        Helpers.savePropertiesFile();
-
-        Helpers.TapetePopupMenu.AUTOREBUY_MENU.setSelected(GameFrame.AUTO_REBUY);
-
-        Helpers.playWavResource("misc/cash_register.wav");
-
-    }//GEN-LAST:event_auto_rebuy_menuActionPerformed
-
     private void compact_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_compact_menuActionPerformed
         // TODO add your handling code here:
         GameFrame.VISTA_COMPACTA = this.compact_menu.isSelected();
@@ -2841,7 +2804,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JCheckBoxMenuItem animacion_menu;
     private javax.swing.JCheckBoxMenuItem ascensor_menu;
     private javax.swing.JCheckBoxMenuItem auto_action_menu;
-    private javax.swing.JCheckBoxMenuItem auto_rebuy_menu;
     private javax.swing.JMenuItem chat_menu;
     private javax.swing.JCheckBoxMenuItem compact_menu;
     private javax.swing.JCheckBoxMenuItem confirmar_menu;

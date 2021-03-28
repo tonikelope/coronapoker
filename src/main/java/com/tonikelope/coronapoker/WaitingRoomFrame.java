@@ -282,7 +282,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         danger_server.setVisible(false);
 
         if (server) {
-            game_info.setToolTipText("Click para actualizar datos de la timba");
+
+            if (!GameFrame.RECOVER) {
+                game_info.setToolTipText("Click para actualizar datos de la timba");
+            } else {
+                game_info.setText("(CONTINUANDO TIMBA)");
+                game_info.setEnabled(false);
+            }
+
             pass_icon.setVisible(true);
 
             if (password != null) {
@@ -327,7 +334,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             gameinfo_original = GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : "");
 
-            game_info.setText(gameinfo_original);
+            if (game_info.isEnabled()) {
+                game_info.setText(gameinfo_original);
+            }
 
             participantes.put(local_nick, null);
 
@@ -1380,8 +1389,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                         GameFrame.CIEGAS_TIME = Integer.parseInt(partes_comando[6]);
 
                                                         GameFrame.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
-
-                                                        GameFrame.RECOVER_ID = partes_comando[7].split("@")[1];
 
                                                         GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
 
@@ -2460,7 +2467,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             if (!participantes.get(expulsado).isCpu()) {
 
                                 String comando = "KICKED#" + Base64.encodeBase64String(expulsado.getBytes("UTF-8"));
-                                participantes.get(expulsado).writeCommandFromServer(Helpers.encryptCommand(comando, participantes.get(expulsado).getAes_key(), participantes.get(expulsado).getHmac_key()));
+                                participantes.get(expulsado).writeCommandFromServer(Helpers.encryptCommand(comando, participantes.get(expulsado).getAes_key(), participantes.get(expulsado).getHmac_key()), false);
                             }
 
                             participantes.get(expulsado).exitAndCloseSocket();
@@ -2506,7 +2513,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             if (GameFrame.RECOVER) {
 
-                int game_id = Crupier.sqlGetGameIdFromRecoverId();
+                int game_id = GameFrame.RECOVER_ID;
 
                 try {
 

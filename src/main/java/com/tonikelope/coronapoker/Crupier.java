@@ -245,8 +245,8 @@ public class Crupier implements Runnable {
     private volatile String sb_nick = null;
     private volatile String utg_nick = null;
     private volatile boolean saltar_primera_mano = false;
-    private volatile boolean recover_error = false;
     private volatile boolean update_game_seats = false;
+    private volatile int tot_acciones_recuperadas = 0;
 
     public String getDealer_nick() {
         return dealer_nick;
@@ -1111,7 +1111,7 @@ public class Crupier implements Runnable {
 
                         }
 
-                        int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
+                        int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
                         // 0=yes, 1=no, 2=cancel
                         if (input == 1) {
@@ -1655,15 +1655,25 @@ public class Crupier implements Runnable {
 
         saltar_primera_mano = false;
 
-        if (this.recover_error) {
+        if (GameFrame.getInstance().isPartida_local()) {
 
-            sendGAMECommandToServer("RECOVERDATA");
+            map = sqlRecoverGameKeyData();
 
-            map = recibirDatosClaveRecuperados();
+            ArrayList<String> pendientes = new ArrayList<>();
+
+            for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                if (jugador != GameFrame.getInstance().getLocalPlayer() && !GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
+
+                    pendientes.add(jugador.getNickname());
+                }
+            }
+
+            enviarDatosClaveRecuperados(pendientes, map);
 
         } else {
 
-            map = sqlRecoverGameKeyData();
+            map = recibirDatosClaveRecuperados();
 
         }
 
@@ -1676,16 +1686,6 @@ public class Crupier implements Runnable {
         GameFrame.BUYIN = (int) map.get("buyin");
 
         GameFrame.REBUY = (boolean) map.get("rebuy");
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                GameFrame.getInstance().getAuto_rebuy_menu().setEnabled(GameFrame.REBUY);
-                Helpers.TapetePopupMenu.AUTOREBUY_MENU.setEnabled(GameFrame.REBUY);
-
-            }
-        });
 
         GameFrame.getInstance().setConta_tiempo_juego((long) map.get("play_time"));
 
@@ -2126,7 +2126,7 @@ public class Crupier implements Runnable {
 
             recuperarDatosClavePartida();
 
-            if (this.recover_error) {
+            if (!GameFrame.getInstance().isPartida_local()) {
                 sqlNewGame();
             }
 
@@ -2179,7 +2179,9 @@ public class Crupier implements Runnable {
                     }
                 }
 
-                recuperarAccionesLocales();
+                if (GameFrame.getInstance().isPartida_local() || GameFrame.getInstance().getLocalPlayer().isActivo()) {
+                    recuperarAccionesLocales();
+                }
 
                 if (!this.acciones_locales_recuperadas.isEmpty()) {
                     this.sincronizando_mano = true;
@@ -2766,18 +2768,6 @@ public class Crupier implements Runnable {
 
             sqlite_id_game = statement.getGeneratedKeys().getInt(1);
 
-            sql = "INSERT INTO recover(id_recover, id_game) VALUES (?, ?)";
-
-            statement = Helpers.getSQLITE().prepareStatement(sql);
-
-            statement.setQueryTimeout(30);
-
-            statement.setString(1, GameFrame.RECOVER_ID);
-
-            statement.setInt(2, sqlite_id_game);
-
-            statement.executeUpdate();
-
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
         } catch (UnsupportedEncodingException ex) {
@@ -2786,33 +2776,6 @@ public class Crupier implements Runnable {
             Helpers.closeSQLITE();
         }
 
-    }
-
-    public static int sqlGetGameIdFromRecoverId() {
-
-        int ret = -1;
-        try {
-            String sql = "SELECT id_game from recover where id_recover=?";
-
-            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
-            statement.setQueryTimeout(30);
-
-            statement.setString(1, GameFrame.RECOVER_ID);
-
-            ResultSet rs = statement.executeQuery();
-
-            if (rs.next()) {
-                ret = rs.getInt("id_game");
-            }
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.closeSQLITE();
-        }
-
-        return ret;
     }
 
     private void sqlNewHand() {
@@ -3193,7 +3156,7 @@ public class Crupier implements Runnable {
             }
 
             if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
+                int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
                 // 0=yes, 1=no, 2=cancel
                 if (input == 1) {
@@ -3307,6 +3270,76 @@ public class Crupier implements Runnable {
         return map;
     }
 
+    private String recibirAccionesRecuperadas() {
+
+        String actions = null;
+
+        boolean ok;
+
+        long start_time = System.currentTimeMillis();
+
+        do {
+
+            ok = false;
+
+            synchronized (this.getReceived_commands()) {
+
+                ArrayList<String> rejected = new ArrayList<>();
+
+                while (!ok && !this.getReceived_commands().isEmpty()) {
+
+                    String comando = this.received_commands.poll();
+
+                    String[] partes = comando.split("#");
+
+                    if (partes[2].equals("ACTIONDATA")) {
+
+                        ok = true;
+
+                        try {
+                            actions = new String(Base64.decodeBase64(partes[3]), "UTF-8");
+                        } catch (UnsupportedEncodingException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                    } else {
+                        rejected.add(comando);
+                    }
+
+                }
+
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                    rejected.clear();
+                }
+
+            }
+
+            if (!ok) {
+
+                if (GameFrame.getInstance().checkPause()) {
+                    start_time = System.currentTimeMillis();
+                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+
+                    this.sendGAMECommandToServer("PING");
+
+                    start_time = System.currentTimeMillis();
+                } else {
+                    synchronized (this.getReceived_commands()) {
+                        try {
+                            this.received_commands.wait(WAIT_QUEUES);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                }
+            }
+
+        } while (!ok);
+
+        return actions;
+    }
+
     public void enviarDatosClaveRecuperados(ArrayList<String> pendientes, HashMap<String, Object> datos) {
 
         long start = System.currentTimeMillis();
@@ -3356,7 +3389,7 @@ public class Crupier implements Runnable {
                     }
                 }
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                    int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
+                    int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
                     // 0=yes, 1=no, 2=cancel
                     if (input == 1) {
@@ -3382,6 +3415,83 @@ public class Crupier implements Runnable {
                 } catch (IOException ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
+            }
+
+        } while (!pendientes.isEmpty() && !timeout);
+
+        if (timeout) {
+
+            for (String nick : pendientes) {
+                if (!nick2player.get(nick).isExit()) {
+                    this.remotePlayerQuit(nick);
+                }
+            }
+        }
+
+    }
+
+    public void enviarAccionesRecuperadas(ArrayList<String> pendientes, String datos) {
+
+        long start = System.currentTimeMillis();
+
+        int id = Helpers.SPRNG_GENERATOR.nextInt();
+
+        boolean timeout = false;
+
+        byte[] iv = new byte[16];
+
+        Helpers.SPRNG_GENERATOR.nextBytes(iv);
+
+        do {
+
+            try {
+
+                String command = "GAME#" + String.valueOf(id) + "#ACTIONDATA#" + Base64.encodeBase64String(datos.getBytes("UTF-8"));
+
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                    if (pendientes.contains(jugador.getNickname())) {
+
+                        Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
+
+                        if (p != null && !p.isCpu()) {
+
+                            p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
+
+                        }
+                    }
+                }
+
+                //Esperamos confirmaciones
+                this.waitSyncConfirmations(id, pendientes);
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                    if (jugador.isExit() && pendientes.contains(jugador.getNickname())) {
+
+                        pendientes.remove(jugador.getNickname());
+                    }
+                }
+                if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
+                    int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
+
+                    // 0=yes, 1=no, 2=cancel
+                    if (input == 1) {
+
+                        timeout = true;
+
+                    } else {
+                        start = System.currentTimeMillis();
+                    }
+                }
+                if (!pendientes.isEmpty()) {
+
+                    for (String nick : pendientes) {
+                        nick2player.get(nick).setTimeout(true);
+                    }
+
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         } while (!pendientes.isEmpty() && !timeout);
@@ -3595,7 +3705,7 @@ public class Crupier implements Runnable {
 
                             jugador.setTimeout(true);
 
-                            int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance(), jugador.getNickname() + Translator.translate(" parece que perdió la conexión y no ha vuelto a conectar (se le eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?"));
+                            int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), jugador.getNickname() + Translator.translate(" parece que perdió la conexión y no ha vuelto a conectar (se le eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?"));
 
                             // 0=yes, 1=no, 2=cancel
                             if (input == 1) {
@@ -4125,9 +4235,9 @@ public class Crupier implements Runnable {
                 if (current_player.isActivo()) {
                     this.conta_accion++;
 
-                    if (!this.sincronizando_mano) {
+                    if (!this.isSincronizando_mano() || this.conta_accion > this.tot_acciones_recuperadas) {
                         this.sqlNewAction(current_player);
-                    } else {
+                    } else if (GameFrame.getInstance().isPartida_local()) {
 
                         String recover_action = current_player.getNickname() + " " + String.valueOf(current_player.getDecision()) + " " + Helpers.float2String(current_player.getBet()) + " COUNTER: " + String.valueOf(this.conta_accion) + " HAND ID: " + String.valueOf(this.sqlite_id_hand);
 
@@ -4282,7 +4392,7 @@ public class Crupier implements Runnable {
                     }
 
                     if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                        int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
+                        int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
                         // 0=yes, 1=no, 2=cancel
                         if (input == 1) {
@@ -4446,13 +4556,57 @@ public class Crupier implements Runnable {
             this.utg_nick = new_utg;
 
             //DEALER
-            int de_pos = 0;
+            int de_pos;
 
             String new_dealer;
 
             if (this.sb_nick != null) {
 
                 new_dealer = this.sb_nick;
+
+                de_pos = permutadoNick2Pos(new_dealer);
+
+                if (de_pos == -1) {
+
+                    try {
+
+                        String[] asientos = this.sqlRecoverGameSeats().split("#");
+
+                        String dealer_b64 = Base64.encodeBase64String(new_dealer.getBytes("UTF-8"));
+
+                        int i = 0;
+
+                        while (i < asientos.length && !asientos[i].equals(dealer_b64)) {
+
+                            i++;
+                        }
+
+                        int j = i;
+
+                        i--;
+
+                        if (i < 0) {
+                            i += asientos.length;
+                        }
+
+                        while (j != i && this.permutadoNick2Pos(new String(Base64.decodeBase64(asientos[i]), "UTF-8")) == -1) {
+
+                            i--;
+
+                            if (i < 0) {
+                                i += asientos.length;
+                            }
+                        }
+
+                        new_dealer = new String(Base64.decodeBase64(asientos[i]), "UTF-8");
+
+                        de_pos = permutadoNick2Pos(new_dealer);
+
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                }
 
             } else {
 
@@ -5023,11 +5177,35 @@ public class Crupier implements Runnable {
     private void recuperarAccionesLocales() {
 
         try {
-            String datos = sqlRecoverHandActions();
+
+            String datos;
+
+            if (GameFrame.getInstance().isPartida_local()) {
+
+                datos = sqlRecoverHandActions();
+
+                ArrayList<String> pendientes = new ArrayList<>();
+
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                    if (jugador != GameFrame.getInstance().getLocalPlayer() && jugador.isActivo() && !GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
+
+                        pendientes.add(jugador.getNickname());
+                    }
+                }
+
+                enviarAccionesRecuperadas(pendientes, datos);
+
+            } else {
+
+                datos = this.recibirAccionesRecuperadas();
+            }
 
             if (datos != null) {
 
                 String[] rec = datos.split("@");
+
+                this.tot_acciones_recuperadas = rec.length;
 
                 for (String r : rec) {
 
@@ -5699,52 +5877,37 @@ public class Crupier implements Runnable {
 
         if (GameFrame.getInstance().isPartida_local()) {
 
-            if (!GameFrame.RECOVER) {
-                byte[] random = new byte[16];
-
-                Helpers.SPRNG_GENERATOR.nextBytes(random);
-
-                GameFrame.RECOVER_ID = Base64.encodeBase64String(random);
-            }
-
-            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_TIME) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.RECOVER_ID + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS), null);
+            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_TIME) + "#" + String.valueOf(GameFrame.isRECOVER()) + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS), null);
 
         }
 
-        if (GameFrame.RECOVER) {
+        if (GameFrame.RECOVER && GameFrame.getInstance().isPartida_local()) {
 
-            this.sqlite_id_game = Crupier.sqlGetGameIdFromRecoverId();
+            this.sqlite_id_game = GameFrame.RECOVER_ID;
 
             if (this.sqlite_id_game == -1) {
+                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR FATAL: NO SE HA PODIDO RECUPERAR LA TIMBA");
 
-                this.recover_error = true;
+                if (GameFrame.getInstance().getJugadores().size() > 1) {
 
-                if (GameFrame.getInstance().isPartida_local()) {
+                    //Hay que avisar a los clientes de que la timba ha terminado
+                    broadcastGAMECommandFromServer("SERVEREXIT", null, false);
 
-                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR FATAL: NO SE HA PODIDO RECUPERAR LA TIMBA");
+                    GameFrame.getInstance().getLocalPlayer().setExit();
 
-                    if (GameFrame.getInstance().getJugadores().size() > 1) {
+                    GameFrame.getInstance().finTransmision(true);
 
-                        //Hay que avisar a los clientes de que la timba ha terminado
-                        broadcastGAMECommandFromServer("SERVEREXIT", null, false);
+                } else {
 
-                        GameFrame.getInstance().getLocalPlayer().setExit();
+                    Helpers.threadRun(new Runnable() {
+                        public void run() {
 
-                        GameFrame.getInstance().finTransmision(true);
+                            GameFrame.getInstance().getLocalPlayer().setExit();
 
-                    } else {
-
-                        Helpers.threadRun(new Runnable() {
-                            public void run() {
-
-                                GameFrame.getInstance().getLocalPlayer().setExit();
-
-                                GameFrame.getInstance().finTransmision(true);
-                            }
-                        });
-                    }
+                            GameFrame.getInstance().finTransmision(true);
+                        }
+                    });
                 }
-
             }
         }
 
@@ -6283,8 +6446,6 @@ public class Crupier implements Runnable {
 
                     }
 
-                } else {
-                    GameFrame.getInstance().getRegistro().print(Translator.translate("NO SE HA PODIDO RECUPERAR LA MANO #") + this.conta_mano);
                 }
 
             } else {
@@ -6344,82 +6505,29 @@ public class Crupier implements Runnable {
 
             if (GameFrame.REBUY) {
 
-                if (!GameFrame.AUTO_REBUY) {
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+                        gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true);
 
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        public void run() {
-                            gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true);
+                        GameFrame.getInstance().setGame_over_dialog(true);
 
-                            GameFrame.getInstance().setGame_over_dialog(true);
+                        gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
 
-                            gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
-
-                            gameover_dialog.setVisible(true);
-                        }
-                    });
-
-                    GameFrame.getInstance().setGame_over_dialog(false);
-
-                    if (gameover_dialog.isContinua()) {
-
-                        try {
-
-                            rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
-
-                            rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(), (int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
-
-                            String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#" + String.valueOf((int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
-
-                            if (GameFrame.getInstance().isPartida_local()) {
-                                this.broadcastGAMECommandFromServer(comando, null);
-                            } else {
-                                this.sendGAMECommandToServer(comando);
-                            }
-                        } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    } else {
-                        try {
-
-                            rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
-
-                            String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#0";
-
-                            if (GameFrame.getInstance().isPartida_local()) {
-                                this.broadcastGAMECommandFromServer(comando, null);
-                            } else {
-                                this.sendGAMECommandToServer(comando);
-                            }
-                        } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-
-                        if (rebuy_now.containsKey(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-
-                            rebuy_now.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
-
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-                                    GameFrame.getInstance().getLocalPlayer().getPlayer_buyin().setBackground(Helpers.float1DSecureCompare((float) GameFrame.BUYIN, GameFrame.getInstance().getLocalPlayer().getBuyin()) == 0 ? new Color(204, 204, 204) : Color.cyan);
-                                    GameFrame.getInstance().getLocalPlayer().getPlayer_buyin().setText(String.valueOf(GameFrame.getInstance().getLocalPlayer().getBuyin()));
-                                }
-                            });
-                        }
-
-                        GameFrame.getInstance().getLocalPlayer().setSpectator(null);
-
-                        GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
+                        gameover_dialog.setVisible(true);
                     }
+                });
 
-                } else {
+                GameFrame.getInstance().setGame_over_dialog(false);
+
+                if (gameover_dialog.isContinua()) {
 
                     try {
 
                         rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
 
-                        rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.BUYIN);
+                        rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(), (int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
 
-                        String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"));
+                        String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#" + String.valueOf((int) gameover_dialog.getBuyin_dialog().getRebuy_spinner().getValue());
 
                         if (GameFrame.getInstance().isPartida_local()) {
                             this.broadcastGAMECommandFromServer(comando, null);
@@ -6429,6 +6537,37 @@ public class Crupier implements Runnable {
                     } catch (UnsupportedEncodingException ex) {
                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                     }
+                } else {
+                    try {
+
+                        rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+                        String comando = "REBUY#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")) + "#0";
+
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            this.broadcastGAMECommandFromServer(comando, null);
+                        } else {
+                            this.sendGAMECommandToServer(comando);
+                        }
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                    if (rebuy_now.containsKey(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+
+                        rebuy_now.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+                                GameFrame.getInstance().getLocalPlayer().getPlayer_buyin().setBackground(Helpers.float1DSecureCompare((float) GameFrame.BUYIN, GameFrame.getInstance().getLocalPlayer().getBuyin()) == 0 ? new Color(204, 204, 204) : Color.cyan);
+                                GameFrame.getInstance().getLocalPlayer().getPlayer_buyin().setText(String.valueOf(GameFrame.getInstance().getLocalPlayer().getBuyin()));
+                            }
+                        });
+                    }
+
+                    GameFrame.getInstance().getLocalPlayer().setSpectator(null);
+
+                    GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
                 }
 
             } else {

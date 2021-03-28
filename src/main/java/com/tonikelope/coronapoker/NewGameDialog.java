@@ -779,7 +779,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 GameFrame.setRECOVER(this.recover_checkbox.isSelected());
 
                 if (GameFrame.RECOVER) {
-                    GameFrame.RECOVER_ID = sqlGetRecoverIdFromGameId((int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                    GameFrame.RECOVER_ID = (int) game.get((String) game_combo.getSelectedItem()).get("id");
                 }
 
                 if (this.manos_checkbox.isSelected()) {

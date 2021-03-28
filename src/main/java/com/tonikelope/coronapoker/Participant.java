@@ -186,7 +186,7 @@ public class Participant implements Runnable {
             try {
 
                 if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                    this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
+                    this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()), false);
                 }
                 this.socketClose();
             } catch (IOException ex) {
@@ -214,11 +214,14 @@ public class Participant implements Runnable {
 
     public void writeCommandFromServer(String command) {
 
-        boolean ok;
+        writeCommandFromServer(command, true);
 
+    }
+
+    public void writeCommandFromServer(String command, boolean retry) {
+        boolean ok;
         do {
             ok = true;
-
             while (resetting_socket) {
                 synchronized (getParticipant_socket_lock()) {
                     try {
@@ -228,7 +231,6 @@ public class Participant implements Runnable {
                     }
                 }
             }
-
             try {
                 synchronized (getParticipant_socket_lock()) {
                     this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
@@ -237,16 +239,14 @@ public class Participant implements Runnable {
 
                 ok = false;
 
-                if (!resetting_socket && !isExit() && !WaitingRoomFrame.getInstance().isExit()) {
+                if (retry && !resetting_socket && !isExit() && !WaitingRoomFrame.getInstance().isExit()) {
 
                     Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
 
                     Helpers.pausar(1000);
                 }
             }
-
-        } while (!ok && !isExit() && !WaitingRoomFrame.getInstance().isExit());
-
+        } while (retry && !ok && !isExit() && !WaitingRoomFrame.getInstance().isExit());
     }
 
     public String readCommandFromClient() throws KeyException, IOException {
@@ -466,7 +466,9 @@ public class Participant implements Runnable {
 
             });
 
-            String recibido;
+            String recibido = null;
+            long start = System.currentTimeMillis();;
+            boolean timeout = false;
 
             do {
 
@@ -475,6 +477,11 @@ public class Participant implements Runnable {
                     recibido = this.readCommandFromClient();
 
                     if (recibido != null) {
+
+                        if (timeout) {
+                            timeout = false;
+                            GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(timeout);
+                        }
 
                         String[] partes_comando = recibido.split("#");
 
@@ -521,19 +528,6 @@ public class Participant implements Runnable {
                                     switch (subcomando) {
                                         case "PING":
                                             //ES UN PING DE JUEGO -> NO tenemos que hacer nada más
-                                            break;
-
-                                        case "RECOVERDATA":
-                                            Helpers.threadRun(new Runnable() {
-                                                public void run() {
-
-                                                    ArrayList<String> pendientes = new ArrayList<>();
-
-                                                    pendientes.add(nick);
-
-                                                    GameFrame.getInstance().getCrupier().enviarDatosClaveRecuperados(pendientes, GameFrame.getInstance().getCrupier().sqlRecoverGameKeyData());
-                                                }
-                                            });
                                             break;
 
                                         case "CINEMATICEND":
@@ -614,10 +608,42 @@ public class Participant implements Runnable {
 
                 } catch (Exception ex) {
 
+                    recibido = null;
+
                     if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
 
                         Logger.getLogger(Participant.class.getName()).log(Level.WARNING, nick + " -> EXCEPCION AL LEER DEL SOCKET", ex);
                         Helpers.pausar(1000);
+
+                    }
+
+                } finally {
+
+                    if (recibido == null && !exit && !WaitingRoomFrame.getInstance().isExit()) {
+
+                        if (GameFrame.getInstance().checkPause()) {
+                            start = System.currentTimeMillis();
+                        } else if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
+
+                            timeout = true;
+
+                            GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(timeout);
+
+                            int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), nick + Translator.translate(" parece que perdió la conexión y no ha vuelto a conectar (se le eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?"));
+
+                            // 0=yes, 1=no, 2=cancel
+                            if (input == 1) {
+
+                                exit = true;
+
+                                GameFrame.getInstance().getCrupier().remotePlayerQuit(nick);
+
+                            } else {
+
+                                start = System.currentTimeMillis();
+                            }
+
+                        }
 
                     }
 

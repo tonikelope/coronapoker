@@ -2138,7 +2138,10 @@ public class Crupier implements Runnable {
 
                     if (rebuy_now.containsKey(jugador.getNickname())) {
                         jugador.nuevaMano();
-                        jugador.setSpectator(Translator.translate("CALENTANDO"));
+
+                        if (!saltar_primera_mano) {
+                            jugador.setSpectator(Translator.translate("CALENTANDO"));
+                        }
                     }
                 }
 
@@ -6616,6 +6619,7 @@ public class Crupier implements Runnable {
                         }
 
                         if (res != 0) {
+                            rebuy_now.remove(jugador.getNickname());
                             jugador.setSpectator(null);
                         }
 

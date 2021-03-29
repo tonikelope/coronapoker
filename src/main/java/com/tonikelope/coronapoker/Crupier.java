@@ -2013,8 +2013,13 @@ public class Crupier implements Runnable {
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
-            if (jugador.isSpectator() && Helpers.float1DSecureCompare(0f, jugador.getStack()) < 0) {
+            if (!jugador.isExit() && jugador.isSpectator() && (Helpers.float1DSecureCompare(0f, jugador.getStack()) < 0 || rebuy_now.containsKey(jugador.getNickname()))) {
+
                 jugador.unsetSpectator();
+
+                if (rebuy_now.containsKey(jugador.getNickname())) {
+                    jugador.setSpectatorBB(true);
+                }
             }
         }
 

@@ -110,4 +110,6 @@ public interface Player {
 
     public void setAvatar();
 
+    public void setSpectatorBB(boolean bb);
+
 }

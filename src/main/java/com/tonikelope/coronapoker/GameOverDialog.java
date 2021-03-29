@@ -276,7 +276,9 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                         } else {
 
-                            Helpers.playWavResourceAndWait("misc/norebuy.wav");
+                            if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
+                                Helpers.playWavResourceAndWait("misc/norebuy.wav");
+                            }
 
                             Helpers.GUIRun(new Runnable() {
                                 @Override
@@ -288,7 +290,9 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                     }
                 } else {
-                    Helpers.playWavResourceAndWait("misc/norebuy.wav");
+                    if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
+                        Helpers.playWavResourceAndWait("misc/norebuy.wav");
+                    }
 
                     Helpers.GUIRun(new Runnable() {
                         @Override
@@ -344,7 +348,9 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                 Helpers.stopWavResource("misc/gameover.wav");
 
-                Helpers.playWavResourceAndWait("misc/norebuy.wav");
+                if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
+                    Helpers.playWavResourceAndWait("misc/norebuy.wav");
+                }
 
                 Helpers.GUIRun(new Runnable() {
                     @Override

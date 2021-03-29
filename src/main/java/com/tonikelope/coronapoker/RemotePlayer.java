@@ -54,6 +54,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean turno = false;
     private volatile Bot bot = null;
     private volatile int response_counter;
+    private volatile boolean spectator_bb = false;
 
     public JLabel getPlayer_name() {
         return player_name;
@@ -1210,6 +1211,24 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         } else {
             this.disableUTG();
         }
+
+        if (this.spectator_bb) {
+            this.spectator_bb = false;
+
+            if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack + bet) < 0) {
+                setBet(crupier.getCiega_grande());
+                setStack(stack - bet);
+
+            } else {
+
+                //Vamos ALLIN
+                setBet(stack);
+                setStack(0f);
+                setDecision(Player.ALLIN);
+            }
+
+        }
+
     }
 
     public void resetBetDecision() {
@@ -1442,5 +1461,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             this.playingCard1.actualizarValorPaloEnfoque(this.playingCard2.getValor(), this.playingCard2.getPalo(), this.playingCard2.isDesenfocada());
             this.playingCard2.actualizarValorPaloEnfoque(valor1, palo1, desenfocada1);
         }
+    }
+
+    @Override
+    public void setSpectatorBB(boolean bb) {
+        this.spectator_bb = bb;
     }
 }

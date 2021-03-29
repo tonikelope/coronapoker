@@ -217,7 +217,7 @@ public class GameLogDialog extends javax.swing.JDialog {
         textarea.setEditable(false);
         textarea.setBackground(new java.awt.Color(102, 102, 102));
         textarea.setColumns(20);
-        textarea.setFont(new java.awt.Font("Dialog", 0, 20)); // NOI18N
+        textarea.setFont(new java.awt.Font("DejaVu Sans", 0, 20)); // NOI18N
         textarea.setForeground(new java.awt.Color(255, 255, 255));
         textarea.setLineWrap(true);
         textarea.setRows(5);

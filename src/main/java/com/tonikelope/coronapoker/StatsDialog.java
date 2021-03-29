@@ -1649,7 +1649,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
         showdown_panel.setDoubleBuffered(true);
 
-        showdown_table.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        showdown_table.setFont(new java.awt.Font("DejaVu Sans", 0, 16)); // NOI18N
         showdown_table.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null},
@@ -1756,7 +1756,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
         table_panel.setDoubleBuffered(true);
 
-        res_table.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        res_table.setFont(new java.awt.Font("DejaVu Sans", 0, 16)); // NOI18N
         res_table.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null},

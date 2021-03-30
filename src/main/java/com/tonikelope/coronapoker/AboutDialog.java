@@ -16,7 +16,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "FINAL-8.1";
+    public static final String VERSION = "FINAL-8.2";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
     private volatile String last_mp3_loop = null;
@@ -123,7 +123,7 @@ public class AboutDialog extends javax.swing.JDialog {
         jvm.setText(Helpers.getSystemInfo());
         jvm.setDoubleBuffered(true);
 
-        jLabel3.setText("Jn 8:31");
+        jLabel3.setText("Jn 8:32");
         jLabel3.setDoubleBuffered(true);
 
         jLabel4.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N

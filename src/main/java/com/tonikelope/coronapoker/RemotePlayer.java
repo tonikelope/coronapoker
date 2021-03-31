@@ -78,7 +78,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.bote = 0f;
 
         if (Helpers.float1DSecureCompare(0f, this.bet) < 0) {
-            this.setStack(this.stack + this.bet);
+            setStack(this.stack + this.bet);
         }
 
         this.bet = 0f;
@@ -171,12 +171,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setBet(float new_bet) {
 
-        float old_bet = this.bet;
+        float old_bet = bet;
 
-        this.bet = Helpers.floatClean1D(new_bet);
+        bet = Helpers.floatClean1D(new_bet);
 
-        if (Helpers.float1DSecureCompare(old_bet, this.bet) < 0) {
-            this.bote += Helpers.floatClean1D(this.bet - old_bet);
+        if (Helpers.float1DSecureCompare(old_bet, bet) < 0) {
+            this.bote += Helpers.floatClean1D(bet - old_bet);
+            setStack(stack - (bet - old_bet));
         }
 
         crupier.getBote().addPlayer(this);
@@ -435,8 +436,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.playWavResource("misc/check.wav");
 
-        setStack(this.stack - (crupier.getApuesta_actual() - this.bet));
-
         setBet(crupier.getApuesta_actual());
 
         setDecision(Player.CHECK);
@@ -448,8 +447,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void bet(float new_bet) {
 
         Helpers.playWavResource("misc/bet.wav");
-
-        setStack(this.stack - (new_bet - bet));
 
         setBet(new_bet);
 
@@ -480,8 +477,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         setBet(this.stack + this.bet);
-
-        setStack(0f);
 
         setDecision(Player.ALLIN);
 
@@ -1026,13 +1021,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
                     if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                         setBet(crupier.getCiega_pequeña());
-                        setStack(stack - bet);
 
                     } else {
 
                         //Vamos ALLIN
                         setBet(stack);
-                        setStack(0f);
                         setDecision(Player.ALLIN);
                     }
                 } else {
@@ -1056,13 +1049,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0) {
                     setBet(crupier.getCiega_grande());
-                    setStack(stack - bet);
 
                 } else {
 
                     //Vamos ALLIN
                     setBet(stack);
-                    setStack(0f);
+
                     setDecision(Player.ALLIN);
                 }
 
@@ -1083,13 +1075,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                     setBet(crupier.getCiega_pequeña());
-                    setStack(stack - bet);
 
                 } else {
 
                     //Vamos ALLIN
                     setBet(stack);
-                    setStack(0f);
+
                     setDecision(Player.ALLIN);
                 }
 
@@ -1213,17 +1204,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
 
         if (this.spectator_bb) {
+
             this.spectator_bb = false;
 
             if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack + bet) < 0) {
                 setBet(crupier.getCiega_grande());
-                setStack(stack - bet);
-
             } else {
 
                 //Vamos ALLIN
                 setBet(stack);
-                setStack(0f);
                 setDecision(Player.ALLIN);
             }
 

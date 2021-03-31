@@ -217,14 +217,14 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         setFocusable(false);
         setOpaque(false);
 
-        pot_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
+        pot_label.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
         pot_label.setForeground(new java.awt.Color(153, 204, 0));
         pot_label.setText("Bote:");
         pot_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
         pot_label.setDoubleBuffered(true);
         pot_label.setFocusable(false);
 
-        bet_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
+        bet_label.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
         bet_label.setForeground(new java.awt.Color(153, 204, 0));
         bet_label.setText("---------");
         bet_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
@@ -285,7 +285,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         );
         panel_barraLayout.setVerticalGroup(
             panel_barraLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 20, Short.MAX_VALUE)
+            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 27, Short.MAX_VALUE)
         );
 
         cards_panel.setFocusable(false);
@@ -379,7 +379,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(pot_label)
                         .addComponent(bet_label)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(last_hand_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(cards_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -391,7 +391,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(blinds_label)
                         .addComponent(pause_button)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(panel_barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
         );

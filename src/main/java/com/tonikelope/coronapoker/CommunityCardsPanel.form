@@ -51,7 +51,7 @@
                       <Component id="bet_label" alignment="3" min="-2" max="-2" attributes="0"/>
                   </Group>
               </Group>
-              <EmptySpace type="unrelated" max="-2" attributes="0"/>
+              <EmptySpace max="-2" attributes="0"/>
               <Component id="last_hand_label" min="-2" max="-2" attributes="0"/>
               <EmptySpace type="unrelated" max="-2" attributes="0"/>
               <Component id="cards_panel" max="32767" attributes="0"/>
@@ -66,7 +66,7 @@
                       <Component id="pause_button" alignment="3" min="-2" max="-2" attributes="0"/>
                   </Group>
               </Group>
-              <EmptySpace type="unrelated" max="-2" attributes="0"/>
+              <EmptySpace max="-2" attributes="0"/>
               <Component id="panel_barra" max="32767" attributes="0"/>
               <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
           </Group>
@@ -77,7 +77,7 @@
     <Component class="javax.swing.JLabel" name="pot_label">
       <Properties>
         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Dialog" size="26" style="1"/>
+          <Font name="Dialog" size="28" style="1"/>
         </Property>
         <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
           <Color blue="0" green="cc" red="99" type="rgb"/>
@@ -95,7 +95,7 @@
     <Component class="javax.swing.JLabel" name="bet_label">
       <Properties>
         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Dialog" size="26" style="1"/>
+          <Font name="Dialog" size="28" style="1"/>
         </Property>
         <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
           <Color blue="0" green="cc" red="99" type="rgb"/>
@@ -200,7 +200,7 @@
         </DimensionLayout>
         <DimensionLayout dim="1">
           <Group type="103" groupAlignment="0" attributes="0">
-              <Component id="barra_tiempo" alignment="0" pref="20" max="32767" attributes="0"/>
+              <Component id="barra_tiempo" alignment="0" pref="27" max="32767" attributes="0"/>
           </Group>
         </DimensionLayout>
       </Layout>

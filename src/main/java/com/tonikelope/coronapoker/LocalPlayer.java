@@ -471,12 +471,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setBet(float new_bet) {
 
-        float old_bet = this.bet;
+        float old_bet = bet;
 
-        this.bet = Helpers.floatClean1D(new_bet);
+        bet = Helpers.floatClean1D(new_bet);
 
-        if (Helpers.float1DSecureCompare(old_bet, this.bet) < 0) {
-            this.bote += Helpers.floatClean1D(this.bet - old_bet);
+        if (Helpers.float1DSecureCompare(old_bet, bet) < 0) {
+            this.bote += Helpers.floatClean1D(bet - old_bet);
+            setStack(stack - (bet - old_bet));
         }
 
         crupier.getBote().addPlayer(this);
@@ -1052,7 +1053,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.bote = 0f;
 
         if (Helpers.float1DSecureCompare(0f, this.bet) < 0) {
-            this.setStack(this.stack + this.bet);
+            setStack(this.stack + this.bet);
         }
 
         this.bet = 0f;
@@ -1174,13 +1175,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack + bet) < 0) {
                 setBet(crupier.getCiega_grande());
-                setStack(stack - bet);
 
             } else {
 
                 //Vamos ALLIN
                 setBet(stack);
-                setStack(0f);
+
                 setDecision(Player.ALLIN);
             }
 
@@ -1279,13 +1279,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
                     if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                         setBet(crupier.getCiega_pequeña());
-                        setStack(stack - bet);
 
                     } else {
 
                         //Vamos ALLIN
                         setBet(stack);
-                        setStack(0f);
+
                         setDecision(Player.ALLIN);
                     }
                 } else {
@@ -1309,13 +1308,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0) {
                     setBet(crupier.getCiega_grande());
-                    setStack(stack - bet);
 
                 } else {
 
                     //Vamos ALLIN
                     setBet(stack);
-                    setStack(0f);
+
                     setDecision(Player.ALLIN);
                 }
 
@@ -1336,13 +1334,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                     setBet(crupier.getCiega_pequeña());
-                    setStack(stack - bet);
 
                 } else {
 
                     //Vamos ALLIN
                     setBet(stack);
-                    setStack(0f);
+
                     setDecision(Player.ALLIN);
                 }
 
@@ -1902,8 +1899,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                 setBet(stack + bet);
 
-                                setStack(0f);
-
                                 setDecision(Player.ALLIN);
 
                                 finTurno();
@@ -1968,8 +1963,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.threadRun(new Runnable() {
                         public void run() {
 
-                            setStack(stack - (crupier.getApuesta_actual() - bet));
-
                             setBet(crupier.getApuesta_actual());
 
                             setDecision(Player.CHECK);
@@ -2020,11 +2013,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             if (apuesta_recuperada == null) {
 
-                                setStack(stack - (bet_spinner_val + call_required));
-
                                 setBet(bet_spinner_val + bet + call_required);
                             } else {
-                                setStack(stack - (apuesta_recuperada - bet));
 
                                 setBet(apuesta_recuperada);
 

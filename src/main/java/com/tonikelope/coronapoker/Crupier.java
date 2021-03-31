@@ -2249,7 +2249,15 @@ public class Crupier implements Runnable {
                 sqlNewHand();
             }
 
-            this.apuestas = nick2player.get(this.bb_nick).getBet() + (nick2player.containsKey(this.sb_nick) ? nick2player.get(this.sb_nick).getBet() : 0f);
+            this.apuestas = 0f;
+
+            for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                if (Helpers.float1DSecureCompare(0f, jugador.getBet()) < 0) {
+
+                    this.apuestas += jugador.getBet();
+                }
+            }
 
             this.bote_total = this.apuestas;
 

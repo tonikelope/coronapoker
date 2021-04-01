@@ -318,6 +318,8 @@ public class Participant implements Runnable {
 
                 this.resetting_socket = false;
 
+                participant_socket_lock.notifyAll();
+
                 return true;
 
             } catch (IOException ex) {
@@ -325,6 +327,8 @@ public class Participant implements Runnable {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
 
                 this.resetting_socket = false;
+
+                participant_socket_lock.notifyAll();
 
                 return false;
             }
@@ -600,7 +604,6 @@ public class Participant implements Runnable {
                         if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
 
                             Logger.getLogger(Participant.class.getName()).log(Level.WARNING, nick + " -> EL SOCKET RECIBIÓ NULL");
-                            Helpers.pausar(1000);
 
                         }
 
@@ -613,7 +616,6 @@ public class Participant implements Runnable {
                     if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
 
                         Logger.getLogger(Participant.class.getName()).log(Level.WARNING, nick + " -> EXCEPCION AL LEER DEL SOCKET", ex);
-                        Helpers.pausar(1000);
 
                     }
 
@@ -621,13 +623,23 @@ public class Participant implements Runnable {
 
                     if (recibido == null && !exit && !WaitingRoomFrame.getInstance().isExit()) {
 
-                        if (GameFrame.getInstance().checkPause()) {
-                            start = System.currentTimeMillis();
-                        } else if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
+                        if (!timeout) {
 
                             timeout = true;
 
                             GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(timeout);
+
+                            synchronized (getParticipant_socket_lock()) {
+
+                                try {
+                                    getParticipant_socket_lock().wait(GameFrame.CLIENT_RECON_TIMEOUT);
+                                } catch (InterruptedException ex) {
+                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+
+                            }
+
+                        } else {
 
                             int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), nick + Translator.translate(" parece que perdió la conexión y no ha vuelto a conectar (se le eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?"));
 
@@ -640,7 +652,15 @@ public class Participant implements Runnable {
 
                             } else {
 
-                                start = System.currentTimeMillis();
+                                synchronized (getParticipant_socket_lock()) {
+
+                                    try {
+                                        getParticipant_socket_lock().wait(GameFrame.CLIENT_RECON_TIMEOUT);
+                                    } catch (InterruptedException ex) {
+                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+
+                                }
                             }
 
                         }

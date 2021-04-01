@@ -35,6 +35,10 @@ public final class Pot {
         this.diff = dif;
     }
 
+    public float getBet() {
+        return bet;
+    }
+
     public Pot(ArrayList<Player> jugadores, float diff) {
         this.diff = diff;
 

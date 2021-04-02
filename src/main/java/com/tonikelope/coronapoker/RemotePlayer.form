@@ -142,7 +142,7 @@
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="player_buyin" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
-                      <Component id="timeout" min="-2" max="-2" attributes="0"/>
+                      <Component id="timeout_icon" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="32767" attributes="0"/>
                       <Component id="player_pot" min="-2" max="-2" attributes="0"/>
                   </Group>
@@ -154,7 +154,7 @@
                   <Component id="player_pot" alignment="0" max="32767" attributes="0"/>
                   <Group type="102" alignment="0" attributes="0">
                       <Group type="103" groupAlignment="1" attributes="0">
-                          <Component id="timeout" min="-2" max="-2" attributes="0"/>
+                          <Component id="timeout_icon" min="-2" max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Component id="player_buyin" alignment="0" min="-2" max="-2" attributes="0"/>
                               <Component id="player_stack" alignment="0" min="-2" max="-2" attributes="0"/>
@@ -175,7 +175,7 @@
                 <Property name="focusable" type="boolean" value="false"/>
               </Properties>
             </Component>
-            <Component class="javax.swing.JLabel" name="timeout">
+            <Component class="javax.swing.JLabel" name="timeout_icon">
               <Properties>
                 <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
                   <Image iconType="3" name="/images/timeout.png"/>
@@ -187,7 +187,7 @@
                 <Property name="focusable" type="boolean" value="false"/>
               </Properties>
               <Events>
-                <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="timeoutMouseClicked"/>
+                <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="timeout_iconMouseClicked"/>
               </Events>
             </Component>
             <Component class="javax.swing.JLabel" name="player_pot">

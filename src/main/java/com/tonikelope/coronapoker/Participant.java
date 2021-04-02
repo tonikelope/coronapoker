@@ -633,6 +633,12 @@ public class Participant implements Runnable {
 
                             GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(timeout);
 
+                            try {
+                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
+                            } catch (UnsupportedEncodingException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+
                             synchronized (getParticipant_socket_lock()) {
 
                                 if (!reset_socket) {

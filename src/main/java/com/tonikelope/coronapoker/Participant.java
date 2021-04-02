@@ -63,6 +63,7 @@ public class Participant implements Runnable {
     private volatile String permutation_key_hash = null;
     private volatile int new_hand_ready = 0;
     private volatile boolean unsecure_player = false;
+    private volatile boolean reset_socket = false;
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
@@ -318,6 +319,8 @@ public class Participant implements Runnable {
 
                 this.resetting_socket = false;
 
+                this.reset_socket = true;
+
                 participant_socket_lock.notifyAll();
 
                 return true;
@@ -471,10 +474,11 @@ public class Participant implements Runnable {
             });
 
             String recibido = null;
-            long start = System.currentTimeMillis();;
             boolean timeout = false;
 
             do {
+
+                reset_socket = false;
 
                 try {
 
@@ -621,7 +625,7 @@ public class Participant implements Runnable {
 
                 } finally {
 
-                    if (recibido == null && !exit && !WaitingRoomFrame.getInstance().isExit()) {
+                    if (recibido == null && !reset_socket && !exit && !WaitingRoomFrame.getInstance().isExit()) {
 
                         if (!timeout) {
 
@@ -631,12 +635,14 @@ public class Participant implements Runnable {
 
                             synchronized (getParticipant_socket_lock()) {
 
-                                try {
-                                    getParticipant_socket_lock().wait(GameFrame.CLIENT_RECON_TIMEOUT);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                                }
+                                if (!reset_socket) {
 
+                                    try {
+                                        getParticipant_socket_lock().wait(GameFrame.CLIENT_RECON_TIMEOUT);
+                                    } catch (InterruptedException ex) {
+                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                }
                             }
 
                         } else {
@@ -653,11 +659,12 @@ public class Participant implements Runnable {
                             } else {
 
                                 synchronized (getParticipant_socket_lock()) {
-
-                                    try {
-                                        getParticipant_socket_lock().wait(GameFrame.CLIENT_RECON_TIMEOUT);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                    if (!reset_socket) {
+                                        try {
+                                            getParticipant_socket_lock().wait(GameFrame.CLIENT_RECON_TIMEOUT);
+                                        } catch (InterruptedException ex) {
+                                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
                                     }
 
                                 }

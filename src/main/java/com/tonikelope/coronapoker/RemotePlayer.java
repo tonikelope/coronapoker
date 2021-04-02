@@ -47,7 +47,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile float bote = 0f;
     private volatile boolean exit = false;
     private volatile Timer auto_action = null;
-    private volatile boolean timeout_val = false;
+    private volatile boolean timeout = false;
     private volatile boolean winner = false;
     private volatile boolean loser = false;
     private volatile float call_required;
@@ -55,6 +55,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Bot bot = null;
     private volatile int response_counter;
     private volatile boolean spectator_bb = false;
+    private volatile Color aux_border_color = null;
 
     public JLabel getPlayer_name() {
         return player_name;
@@ -203,6 +204,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void esTuTurno() {
         turno = true;
+
+        crupier.unsetAllTimeoutPlayers();
 
         if (this.getDecision() == Player.NODEC) {
 
@@ -494,13 +497,24 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setTimeout(boolean val) {
 
-        if (this.timeout_val != val) {
+        if (this.timeout != val) {
 
-            this.timeout_val = val;
+            this.timeout = val;
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    timeout.setVisible(val);
+                    timeout_icon.setVisible(val);
+
+                    if (val) {
+
+                        aux_border_color = ((LineBorder) getBorder()).getLineColor();
+
+                        setBorder(javax.swing.BorderFactory.createLineBorder(Color.MAGENTA, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                    } else {
+                        setBorder(javax.swing.BorderFactory.createLineBorder(aux_border_color != null ? aux_border_color : new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+
+                        aux_border_color = null;
+                    }
 
                 }
             });
@@ -522,7 +536,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 danger.setVisible(false);
 
-                timeout.setVisible(false);
+                timeout_icon.setVisible(false);
 
                 player_pot.setText("----");
 
@@ -607,7 +621,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         indicadores_arriba = new javax.swing.JPanel();
         avatar_panel = new javax.swing.JPanel();
         avatar = new javax.swing.JLabel();
-        timeout = new javax.swing.JLabel();
+        timeout_icon = new javax.swing.JLabel();
         player_pot = new javax.swing.JLabel();
         player_buyin = new javax.swing.JLabel();
         player_stack = new javax.swing.JLabel();
@@ -658,13 +672,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
 
-        timeout.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
-        timeout.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        timeout.setDoubleBuffered(true);
-        timeout.setFocusable(false);
-        timeout.addMouseListener(new java.awt.event.MouseAdapter() {
+        timeout_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
+        timeout_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        timeout_icon.setDoubleBuffered(true);
+        timeout_icon.setFocusable(false);
+        timeout_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
-                timeoutMouseClicked(evt);
+                timeout_iconMouseClicked(evt);
             }
         });
 
@@ -706,7 +720,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(player_buyin)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeout)
+                .addComponent(timeout_icon)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(player_pot))
         );
@@ -716,7 +730,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             .addComponent(player_pot, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(avatar_panelLayout.createSequentialGroup()
                 .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(timeout)
+                    .addComponent(timeout_icon)
                     .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                         .addComponent(player_buyin)
                         .addComponent(player_stack)))
@@ -844,7 +858,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         );
     }// </editor-fold>//GEN-END:initComponents
 
-    private void timeoutMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_timeoutMouseClicked
+    private void timeout_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_timeout_iconMouseClicked
         // TODO add your handling code here:
 
         // 0=yes, 1=no, 2=cancel
@@ -856,7 +870,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
             });
         }
-    }//GEN-LAST:event_timeoutMouseClicked
+    }//GEN-LAST:event_timeout_iconMouseClicked
 
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
@@ -886,7 +900,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel player_stack;
     private com.tonikelope.coronapoker.Card playingCard1;
     private com.tonikelope.coronapoker.Card playingCard2;
-    private javax.swing.JLabel timeout;
+    private javax.swing.JLabel timeout_icon;
     private javax.swing.JLabel utg_textfield;
     // End of variables declaration//GEN-END:variables
 

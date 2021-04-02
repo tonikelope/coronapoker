@@ -57,7 +57,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean exit = false;
     private volatile boolean turno = false;
     private volatile Timer auto_action = null;
-    private volatile boolean timeout_val = false;
+    private volatile boolean timeout = false;
     private volatile boolean boton_mostrar = false;
     private volatile boolean winner = false;
     private volatile boolean loser = false;
@@ -74,6 +74,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer hurryup_timer = null;
     private volatile int response_counter = 0;
     private volatile boolean spectator_bb = false;
+    private volatile Color aux_border_color = null;
 
     public JLabel getPlayer_buyin() {
         return player_buyin;
@@ -275,13 +276,24 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setTimeout(boolean val) {
 
-        if (this.timeout_val != val) {
+        if (this.timeout != val) {
 
-            this.timeout_val = val;
+            this.timeout = val;
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    timeout.setVisible(val);
+                    timeout_label.setVisible(val);
+
+                    if (val) {
+
+                        aux_border_color = ((LineBorder) getBorder()).getLineColor();
+
+                        setBorder(javax.swing.BorderFactory.createLineBorder(Color.MAGENTA, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                    } else {
+                        setBorder(javax.swing.BorderFactory.createLineBorder(aux_border_color != null ? aux_border_color : new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+
+                        aux_border_color = null;
+                    }
 
                 }
             });
@@ -410,7 +422,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 action_button_colors.put(player_fold_button, new Color[]{player_fold_button.getBackground(), player_fold_button.getForeground()});
                 action_button_armed.put(player_fold_button, false);
 
-                timeout.setVisible(false);
+                timeout_label.setVisible(false);
 
                 player_check_button.setEnabled(false);
 
@@ -519,6 +531,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void esTuTurno() {
 
         turno = true;
+
+        crupier.unsetAllTimeoutPlayers();
 
         if (this.getDecision() == Player.NODEC) {
             Helpers.playWavResource("misc/yourturn.wav");
@@ -1381,7 +1395,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         indicadores_arriba = new javax.swing.JPanel();
         avatar_panel = new javax.swing.JPanel();
         avatar = new javax.swing.JLabel();
-        timeout = new javax.swing.JLabel();
+        timeout_label = new javax.swing.JLabel();
         player_pot = new javax.swing.JLabel();
         player_stack = new javax.swing.JLabel();
         player_buyin = new javax.swing.JLabel();
@@ -1438,9 +1452,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
 
-        timeout.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
-        timeout.setDoubleBuffered(true);
-        timeout.setFocusable(false);
+        timeout_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
+        timeout_label.setDoubleBuffered(true);
+        timeout_label.setFocusable(false);
 
         player_pot.setBackground(new java.awt.Color(255, 255, 255));
         player_pot.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
@@ -1492,7 +1506,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(player_buyin)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeout)
+                .addComponent(timeout_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(player_pot))
         );
@@ -1502,7 +1516,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             .addComponent(player_pot, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(avatar_panelLayout.createSequentialGroup()
                 .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(timeout)
+                    .addComponent(timeout_label)
                     .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(player_stack)
                         .addComponent(player_buyin)))
@@ -2084,7 +2098,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel player_stack;
     private com.tonikelope.coronapoker.Card playingCard1;
     private com.tonikelope.coronapoker.Card playingCard2;
-    private javax.swing.JLabel timeout;
+    private javax.swing.JLabel timeout_label;
     private javax.swing.JLabel utg_textfield;
     // End of variables declaration//GEN-END:variables
 

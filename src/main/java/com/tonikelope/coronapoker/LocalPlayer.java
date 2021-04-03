@@ -74,7 +74,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer hurryup_timer = null;
     private volatile int response_counter = 0;
     private volatile boolean spectator_bb = false;
-    private volatile Color aux_border_color = null;
+    private volatile Color border_color = null;
 
     public JLabel getPlayer_buyin() {
         return player_buyin;
@@ -205,7 +205,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                    setPlayerBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                     player_blind.setVisible(false);
                     player_pot.setText("----");
@@ -247,7 +247,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                setPlayerBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                 player_pot.setVisible(true);
                 player_pot.setEnabled(true);
@@ -286,24 +286,30 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (val) {
 
-                        aux_border_color = ((LineBorder) getBorder()).getLineColor();
-
-                        setBorder(javax.swing.BorderFactory.createLineBorder(Color.MAGENTA, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                        setPlayerBorder(Color.MAGENTA, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                     } else {
-                        setBorder(javax.swing.BorderFactory.createLineBorder(aux_border_color != null ? aux_border_color : new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                        setPlayerBorder(border_color != null ? border_color : new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                        aux_border_color = null;
                     }
 
                 }
             });
 
             if (val) {
-                crupier.setPlayer_timeout(true);
+
                 Helpers.playWavResource("misc/network_error.wav");
             }
         }
 
+    }
+
+    private void setPlayerBorder(Color color, int size) {
+
+        if (!timeout) {
+            border_color = color;
+        }
+
+        setBorder(javax.swing.BorderFactory.createLineBorder(color, size));
     }
 
     public JLabel getAvatar() {
@@ -332,7 +338,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                    setPlayerBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                     playingCard1.resetearCarta();
                     playingCard2.resetearCarta();
@@ -410,6 +416,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+
+                border_color = ((LineBorder) getBorder()).getLineColor();
 
                 action_button_colors.put(player_check_button, new Color[]{player_check_button.getBackground(), player_check_button.getForeground()});
                 action_button_armed.put(player_check_button, false);
@@ -547,7 +555,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
-                    setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                    setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                     player_check_button.setEnabled(false);
 
@@ -747,11 +755,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                                     if (!crupier.isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && hurryup_timer.isRunning() && t == crupier.getTurno()) {
                                                         if (player_action.getBackground() == Color.WHITE) {
-                                                            setBorder(javax.swing.BorderFactory.createLineBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                                                            setPlayerBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                                                             player_action.setBackground(Color.GRAY);
                                                             player_action.setForeground(Color.WHITE);
                                                         } else {
-                                                            setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                                                            setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                                                             player_action.setBackground(Color.WHITE);
                                                             player_action.setForeground(Color.BLACK);
                                                         }
@@ -857,7 +865,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
 
                 if (decision != Player.ALLIN && decision != Player.FOLD) {
-                    setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                    setPlayerBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                 }
 
                 turno = false;
@@ -1122,7 +1130,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
-                setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                setPlayerBorder(new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                 desactivar_boton_mostrar();
 
@@ -1231,8 +1239,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 @Override
                 public void run() {
                     player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * zoom_factor)));
-                    LineBorder border = (LineBorder) getBorder();
-                    setBorder(javax.swing.BorderFactory.createLineBorder(border.getLineColor(), Math.round(Player.BORDER * zoom_factor)));
+                    setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
                     getAvatar().setVisible(false);
                 }
             });
@@ -2111,7 +2118,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                setPlayerBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                 player_action.setEnabled(true);
                 player_action.setBackground(Color.GREEN);
                 player_action.setForeground(Color.BLACK);
@@ -2129,7 +2136,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                setBorder(javax.swing.BorderFactory.createLineBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                setPlayerBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                 player_action.setEnabled(true);
                 player_action.setBackground(Color.RED);
                 player_action.setForeground(Color.WHITE);
@@ -2218,7 +2225,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                        setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                         player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (" + Helpers.float2String(bet + getStack()) + ")");
                     }
                 });
@@ -2227,7 +2234,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+                        setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                         player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                     }

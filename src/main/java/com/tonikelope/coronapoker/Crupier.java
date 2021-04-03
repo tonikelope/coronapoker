@@ -248,6 +248,7 @@ public class Crupier implements Runnable {
     private volatile boolean update_game_seats = false;
     private volatile int tot_acciones_recuperadas = 0;
     private volatile float beneficio_bote_principal;
+    private volatile boolean player_timeout = false;
 
     public String getDealer_nick() {
         return dealer_nick;
@@ -3840,6 +3841,8 @@ public class Crupier implements Runnable {
 
     private ArrayList<Player> rondaApuestas(int fase, ArrayList<Player> resisten) {
 
+        disablePlayerTimeout();
+
         Iterator<Player> iterator = resisten.iterator();
 
         while (iterator.hasNext()) {
@@ -4363,13 +4366,22 @@ public class Crupier implements Runnable {
 
     }
 
-    public void unsetAllTimeoutPlayers() {
+    public void disablePlayerTimeout() {
 
-        for (Player j : GameFrame.getInstance().getJugadores()) {
+        if (player_timeout) {
 
-            j.setTimeout(false);
+            player_timeout = false;
+
+            for (Player j : GameFrame.getInstance().getJugadores()) {
+
+                j.setTimeout(false);
+            }
         }
 
+    }
+
+    public void setPlayer_timeout(boolean player_timeout) {
+        this.player_timeout = player_timeout;
     }
 
     public void broadcastGAMECommandFromServer(String command, String skip_nick, boolean confirmation) {

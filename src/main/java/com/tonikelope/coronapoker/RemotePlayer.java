@@ -24,7 +24,7 @@ import javax.swing.border.LineBorder;
  * @author tonikelope
  */
 public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
-
+    
     public static final String[][] ACTIONS_LABELS_ES = new String[][]{new String[]{"NO VA"}, new String[]{"PASA", "VA"}, new String[]{"APUESTA", "SUBE"}, new String[]{"ALL IN"}};
     public static final String[][] ACTIONS_LABELS_EN = new String[][]{new String[]{"FOLD"}, new String[]{"CHECK", "CALL"}, new String[]{"BET", "RAISE"}, new String[]{"ALL IN"}};
     public static volatile String[][] ACTIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
@@ -34,7 +34,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.ORANGE, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 300;
     public static final int MIN_ACTION_HEIGHT = 45;
-
+    
     private volatile String nickname;
     private volatile float stack = 0f;
     private volatile int buyin = GameFrame.BUYIN;
@@ -56,34 +56,34 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile int response_counter;
     private volatile boolean spectator_bb = false;
     private volatile Color aux_border_color = null;
-
+    
     public JLabel getPlayer_name() {
         return player_name;
     }
-
+    
     public int getResponseTime() {
-
+        
         return GameFrame.TIEMPO_PENSAR - response_counter;
     }
-
+    
     public Bot getBot() {
         return bot;
     }
-
+    
     public boolean isTurno() {
         return turno;
     }
-
+    
     public void refreshPos() {
-
+        
         this.bote = 0f;
-
+        
         if (Helpers.float1DSecureCompare(0f, this.bet) < 0) {
             setStack(this.stack + this.bet);
         }
-
+        
         this.bet = 0f;
-
+        
         if (this.nickname.equals(crupier.getBb_nick())) {
             this.setPosition(BIG_BLIND);
         } else if (this.nickname.equals(crupier.getSb_nick())) {
@@ -93,52 +93,52 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         } else {
             this.setPosition(-1);
         }
-
+        
         if (this.nickname.equals(crupier.getUtg_nick())) {
             this.setUTG();
         } else {
             this.disableUTG();
         }
     }
-
+    
     public boolean isWinner() {
         return winner;
     }
-
+    
     public boolean isLoser() {
         return loser;
     }
-
+    
     public JLabel getAvatar() {
         return avatar;
     }
-
+    
     public int getBuyin() {
         return buyin;
     }
-
+    
     public synchronized boolean isExit() {
         return exit;
     }
-
+    
     public synchronized void setExit() {
-
+        
         if (!this.exit) {
             this.exit = true;
-
+            
             if (auto_action != null) {
                 auto_action.stop();
             }
-
+            
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-
+                    
                     setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
-
+                    
                     playingCard1.resetearCarta();
                     playingCard2.resetearCarta();
-
+                    
                     player_action.setBackground(new Color(255, 102, 0));
                     player_action.setForeground(Color.WHITE);
                     player_action.setText(Translator.translate("ABANDONA LA TIMBA"));
@@ -146,173 +146,173 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setEnabled(true);
                 }
             });
-
+            
         }
-
+        
     }
-
+    
     public float getPagar() {
         return pagar;
     }
-
+    
     public float getBote() {
         return bote;
     }
-
+    
     public void setStack(float stack) {
         this.stack = Helpers.floatClean1D(stack);
-
+        
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 player_stack.setText(Helpers.float2String(stack));
-
+                
             }
         });
     }
-
+    
     public void setBet(float new_bet) {
-
+        
         float old_bet = bet;
-
+        
         bet = Helpers.floatClean1D(new_bet);
-
+        
         if (Helpers.float1DSecureCompare(old_bet, bet) < 0) {
             this.bote += Helpers.floatClean1D(bet - old_bet);
             setStack(stack - (bet - old_bet));
         }
-
+        
         crupier.getBote().addPlayer(this);
-
+        
         Helpers.GUIRun(new Runnable() {
             public void run() {
-
+                
                 if (Helpers.float1DSecureCompare(0f, bote) < 0) {
-
+                    
                     player_pot.setText(Helpers.float2String(bote));
-
+                    
                 } else {
                     player_pot.setBackground(Color.WHITE);
                     player_pot.setForeground(Color.BLACK);
                     player_pot.setText("----");
-
+                    
                 }
-
+                
             }
         });
-
+        
     }
-
+    
     public void esTuTurno() {
         turno = true;
-
-        crupier.unsetAllTimeoutPlayers();
-
+        
+        crupier.disablePlayerTimeout();
+        
         if (this.getDecision() == Player.NODEC) {
-
+            
             call_required = crupier.getApuesta_actual() - bet;
-
+            
             Helpers.GUIRun(new Runnable() {
                 public void run() {
                     setBorder(javax.swing.BorderFactory.createLineBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
-
+                    
                     player_pot.setBackground(Color.WHITE);
-
+                    
                     player_pot.setForeground(Color.BLACK);
-
+                    
                     player_action.setBackground(Color.WHITE);
-
+                    
                     player_action.setForeground(Color.BLACK);
-
+                    
                     player_action.setText(Translator.translate("PENSANDO"));
-
+                    
                     player_action.setBackground(null);
-
+                    
                     player_action.setEnabled(false);
-
+                    
                     GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-
+                    
                     GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
                 }
             });
-
+            
             if (!GameFrame.TEST_MODE) {
 
                 //Tiempo máximo para pensar
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-
+                        
                         response_counter = GameFrame.TIEMPO_PENSAR;
-
+                        
                         if (auto_action != null) {
                             auto_action.stop();
                         }
-
+                        
                         auto_action = new Timer(1000, new ActionListener() {
-
+                            
                             long t = crupier.getTurno();
-
+                            
                             public void actionPerformed(ActionEvent ae) {
-
+                                
                                 if (!crupier.isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == crupier.getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
-
+                                    
                                     response_counter--;
-
+                                    
                                     GameFrame.getInstance().getBarra_tiempo().setValue(response_counter);
-
+                                    
                                     if (response_counter == 10 && Helpers.float1DSecureCompare(0f, call_required) < 0) {
                                         Helpers.playWavResource("misc/hurryup.wav");
                                     }
-
+                                    
                                     if (response_counter == 0) {
-
+                                        
                                         Helpers.threadRun(new Runnable() {
                                             public void run() {
                                                 Helpers.playWavResourceAndWait("misc/timeout.wav");
-
+                                                
                                                 if (auto_action.isRunning() && t == crupier.getTurno()) {
-
+                                                    
                                                     GameFrame.getInstance().checkPause();
-
+                                                    
                                                     if (auto_action.isRunning() && t == crupier.getTurno()) {
-
+                                                        
                                                         auto_action.stop();
                                                     }
                                                 }
                                             }
                                         });
-
+                                        
                                     }
-
+                                    
                                 }
                             }
                         });
-
+                        
                         auto_action.start();
-
+                        
                     }
                 });
             }
         } else {
-
+            
             finTurno();
         }
-
+        
     }
-
+    
     public void setDecisionFromRemotePlayer(int decision, float bet) {
-
+        
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
             }
         });
-
+        
         if (auto_action != null) {
             auto_action.stop();
         }
-
+        
         this.decision = decision;
-
+        
         switch (this.decision) {
             case Player.CHECK:
                 check();
@@ -329,16 +329,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             default:
                 break;
         }
-
+        
     }
-
+    
     public void setDecision(int dec) {
-
+        
         this.decision = dec;
-
+        
         switch (dec) {
             case Player.CHECK:
-
+                
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
@@ -349,7 +349,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         }
                     }
                 });
-
+                
                 break;
             case Player.BET:
                 Helpers.GUIRun(new Runnable() {
@@ -360,7 +360,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         } else {
                             player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
                         }
-
+                        
                     }
                 });
                 break;
@@ -369,7 +369,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     @Override
                     public void run() {
                         setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
-
+                        
                         player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (" + Helpers.float2String(bet + getStack()) + ")");
                     }
                 });
@@ -379,151 +379,154 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     @Override
                     public void run() {
                         setBorder(javax.swing.BorderFactory.createLineBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
-
+                        
                         player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                     }
                 });
                 break;
         }
-
+        
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-
+                
                 player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
-
+                
                 player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
-
+                
                 player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
-
+                
                 player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
-
+                
                 player_action.setEnabled(true);
             }
         });
     }
-
+    
     public void finTurno() {
-
+        
         Helpers.stopWavResource("misc/hurryup.wav");
-
+        
         Helpers.GUIRun(new Runnable() {
             public void run() {
-
+                
                 if (decision != Player.ALLIN && decision != Player.FOLD) {
                     setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
                 }
-
+                
                 turno = false;
-
+                
                 synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                     GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
                 }
             }
         });
     }
-
+    
     private void fold() {
-
+        
         Helpers.playWavResource("misc/fold.wav");
-
+        
         setDecision(Player.FOLD);
-
+        
         playingCard1.desenfocar();
         playingCard2.desenfocar();
-
+        
         finTurno();
     }
-
+    
     private void check() {
-
+        
         Helpers.playWavResource("misc/check.wav");
-
+        
         setBet(crupier.getApuesta_actual());
-
+        
         setDecision(Player.CHECK);
-
+        
         finTurno();
-
+        
     }
-
+    
     private void bet(float new_bet) {
-
+        
         Helpers.playWavResource("misc/bet.wav");
-
+        
         setBet(new_bet);
-
+        
         setDecision(Player.BET);
-
+        
         if (GameFrame.SONIDOS_CHORRA && crupier.getConta_raise() > 0 && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0) {
             Helpers.playWavResource("misc/raise.wav");
         }
-
+        
         finTurno();
-
+        
     }
-
+    
     private void allin() {
-
+        
         Helpers.playWavResource("misc/allin.wav");
-
+        
         crupier.setPlaying_cinematic(true);
-
+        
         Helpers.threadRun(new Runnable() {
-
+            
             public void run() {
-
+                
                 if (!crupier.remoteCinematicAllin()) {
                     crupier.soundAllin();
                 }
             }
         });
-
+        
         setBet(this.stack + this.bet);
-
+        
         setDecision(Player.ALLIN);
-
+        
         finTurno();
-
+        
     }
-
+    
     public int getDecision() {
         return decision;
     }
-
+    
     public float getBet() {
         return bet;
     }
-
+    
     public void setTimeout(boolean val) {
-
+        
         if (this.timeout != val) {
-
+            
             this.timeout = val;
-
+            
             Helpers.GUIRun(new Runnable() {
                 public void run() {
                     timeout_icon.setVisible(val);
-
+                    
                     if (val) {
-
+                        
                         aux_border_color = ((LineBorder) getBorder()).getLineColor();
-
+                        
                         setBorder(javax.swing.BorderFactory.createLineBorder(Color.MAGENTA, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
                     } else {
                         setBorder(javax.swing.BorderFactory.createLineBorder(aux_border_color != null ? aux_border_color : new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
-
+                        
                         aux_border_color = null;
                     }
-
+                    
                 }
             });
-
+            
             if (val) {
+                crupier.setPlayer_timeout(true);
                 Helpers.playWavResource("misc/network_error.wav");
+            } else if (!GameFrame.getInstance().isPartida_local()) {
+                Helpers.playWavResource("misc/yahoo.wav");
             }
         }
-
+        
     }
 
     /**
@@ -533,74 +536,74 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
-
+                
                 danger.setVisible(false);
-
+                
                 timeout_icon.setVisible(false);
-
+                
                 player_pot.setText("----");
-
+                
                 player_action.setText(" ");
-
+                
                 player_action.setBackground(null);
-
+                
                 player_action.setEnabled(false);
-
+                
                 utg_textfield.setVisible(false);
-
+                
                 player_blind.setVisible(false);
-
+                
                 player_pot.setBackground(Color.WHITE);
-
+                
                 player_pot.setForeground(Color.BLACK);
-
+                
                 player_buyin.setText(String.valueOf(GameFrame.BUYIN));
             }
         });
     }
-
+    
     public Card getPlayingCard1() {
         return playingCard1;
     }
-
+    
     public Card getPlayingCard2() {
         return playingCard2;
     }
-
+    
     public String getNickname() {
         return nickname;
     }
-
+    
     public void setNickname(String nickname) {
         this.nickname = nickname;
-
+        
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 player_name.setText(nickname);
-
+                
                 if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(nickname).isCpu()) {
-
+                    
                     player_name.setToolTipText("CLICK -> AES-KEY");
                     player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
+                    
                 } else if (!GameFrame.getInstance().isPartida_local()) {
-
+                    
                     if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
-
+                        
                         if (GameFrame.getInstance().getSala_espera().isUnsecure_server() || GameFrame.getInstance().getParticipantes().get(nickname).isUnsecure_player()) {
-
+                            
                             danger.setVisible(true);
-
+                            
                         }
-
+                        
                         player_name.setForeground(Color.YELLOW);
-
+                        
                     }
-
+                    
                 }
             }
         });
-
+        
         if (GameFrame.getInstance().isPartida_local() && GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu()) {
             this.bot = new Bot(this);
         }
@@ -863,7 +866,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         // 0=yes, 1=no, 2=cancel
         if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "Este usuario tiene problemas de conexión que bloquean la partida. ¿Quieres expulsarlo?") == 0) {
-
+            
             Helpers.threadRun(new Runnable() {
                 public void run() {
                     crupier.remotePlayerQuit(nickname);
@@ -871,16 +874,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             });
         }
     }//GEN-LAST:event_timeout_iconMouseClicked
-
+    
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
 
         if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(player_name.getText()).isCpu()) {
-
+            
             IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance().getFrame(), true, player_name.getText(), GameFrame.getInstance().getParticipantes().get(player_name.getText()).getAes_key());
-
+            
             identicon.setLocationRelativeTo(GameFrame.getInstance().getFrame());
-
+            
             identicon.setVisible(true);
         }
     }//GEN-LAST:event_player_nameMouseClicked
@@ -906,9 +909,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void zoom(float zoom_factor) {
-
+        
         if (Helpers.float1DSecureCompare(0f, zoom_factor) < 0) {
-
+            
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
@@ -918,14 +921,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     getAvatar().setVisible(false);
                 }
             });
-
+            
             playingCard1.zoom(zoom_factor);
             playingCard2.zoom(zoom_factor);
-
+            
             int altura_avatar = avatar_panel.getHeight();
-
+            
             Helpers.zoomFonts(this, zoom_factor);
-
+            
             while (altura_avatar == avatar_panel.getHeight()) {
                 try {
                     Thread.sleep(GameFrame.GUI_ZOOM_WAIT);
@@ -933,17 +936,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-
+            
             setAvatar();
-
+            
         }
-
+        
     }
-
+    
     @Override
     public void setWinner(String msg) {
         this.winner = true;
-
+        
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
@@ -955,37 +958,37 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
     }
-
+    
     @Override
     public void setLoser(String msg) {
         this.loser = true;
-
+        
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
                 setBorder(javax.swing.BorderFactory.createLineBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
-
+                
                 player_action.setBackground(Color.RED);
                 player_action.setForeground(Color.WHITE);
                 player_action.setText(msg);
                 player_action.setEnabled(true);
-
+                
                 playingCard1.desenfocar();
                 playingCard2.desenfocar();
-
+                
                 if (Helpers.float1DSecureCompare(stack, 0f) == 0) {
                     player_stack.setBackground(Color.RED);
                     player_stack.setForeground(Color.WHITE);
                 }
-
+                
             }
         });
-
+        
     }
-
+    
     @Override
     public void setBoteSecundario(String msg) {
-
+        
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
@@ -993,25 +996,25 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
     }
-
+    
     @Override
     public void pagar(float pasta) {
-
+        
         this.pagar += pasta;
-
+        
     }
-
+    
     public void setPosition(int pos) {
-
+        
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-
+                
                 player_pot.setBackground(Color.WHITE);
                 player_pot.setForeground(Color.black);
             }
         });
-
+        
         switch (pos) {
             case Player.DEALER:
                 Helpers.GUIRun(new Runnable() {
@@ -1023,7 +1026,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_blind.setText(POSITIONS_LABELS[2]);
                         player_name.setOpaque(false);
                         player_name.setBackground(null);
-
+                        
                         if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
                             player_name.setForeground(Color.YELLOW);
                         } else {
@@ -1031,11 +1034,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         }
                     }
                 });
-
+                
                 if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
                     if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                         setBet(crupier.getCiega_pequeña());
-
+                        
                     } else {
 
                         //Vamos ALLIN
@@ -1045,7 +1048,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 } else {
                     setBet(0f);
                 }
-
+                
                 break;
             case Player.BIG_BLIND:
                 Helpers.GUIRun(new Runnable() {
@@ -1060,18 +1063,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_name.setForeground(player_blind.getForeground());
                     }
                 });
-
+                
                 if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0) {
                     setBet(crupier.getCiega_grande());
-
+                    
                 } else {
 
                     //Vamos ALLIN
                     setBet(stack);
-
+                    
                     setDecision(Player.ALLIN);
                 }
-
+                
                 break;
             case Player.SMALL_BLIND:
                 Helpers.GUIRun(new Runnable() {
@@ -1086,18 +1089,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_name.setForeground(player_blind.getForeground());
                     }
                 });
-
+                
                 if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                     setBet(crupier.getCiega_pequeña());
-
+                    
                 } else {
 
                     //Vamos ALLIN
                     setBet(stack);
-
+                    
                     setDecision(Player.ALLIN);
                 }
-
+                
                 break;
             default:
                 Helpers.GUIRun(new Runnable() {
@@ -1106,7 +1109,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_blind.setVisible(false);
                         player_name.setOpaque(false);
                         player_name.setBackground(null);
-
+                        
                         if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
                             player_name.setForeground(Color.YELLOW);
                         } else {
@@ -1115,92 +1118,92 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
                 setBet(0f);
-
+                
                 break;
         }
-
+        
     }
-
+    
     public void reComprar(int cantidad) {
-
+        
         this.stack += cantidad;
         this.buyin += cantidad;
-
+        
         GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(cantidad) + ")");
-
+        
         Helpers.playWavResource("misc/cash_register.wav");
-
+        
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 player_stack.setText(Helpers.float2String(stack));
                 player_buyin.setText(String.valueOf(buyin));
                 player_buyin.setBackground(Color.cyan);
-
+                
             }
         });
     }
-
+    
     public float getStack() {
         return stack;
     }
-
+    
     public JLabel getPlayer_action() {
         return player_action;
     }
-
+    
     @Override
     public void nuevaMano() {
-
+        
         if (this.crupier == null) {
             this.crupier = GameFrame.getInstance().getCrupier();
         }
-
+        
         this.decision = Player.NODEC;
-
+        
         this.winner = false;
-
+        
         this.loser = false;
-
+        
         this.bote = 0f;
-
+        
         this.bet = 0f;
-
+        
         setStack(stack + pagar);
-
+        
         pagar = 0f;
-
+        
         if (crupier.getRebuy_now().containsKey(nickname)) {
             reComprar((Integer) crupier.getRebuy_now().get(nickname));
         }
-
+        
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
-
+                
                 setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
-
+                
                 player_action.setText(" ");
-
+                
                 player_action.setBackground(null);
-
+                
                 player_action.setEnabled(false);
-
+                
                 utg_textfield.setVisible(false);
-
+                
                 player_blind.setVisible(false);
-
+                
                 player_pot.setBackground(Color.WHITE);
-
+                
                 player_pot.setForeground(Color.BLACK);
-
+                
                 player_pot.setText("----");
-
+                
                 player_stack.setBackground(new Color(51, 153, 0));
-
+                
                 player_stack.setForeground(Color.WHITE);
-
+                
             }
         });
-
+        
         if (this.nickname.equals(crupier.getBb_nick())) {
             this.setPosition(BIG_BLIND);
         } else if (this.nickname.equals(crupier.getSb_nick())) {
@@ -1210,17 +1213,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         } else {
             this.setPosition(-1);
         }
-
+        
         if (this.nickname.equals(crupier.getUtg_nick())) {
             this.setUTG();
         } else {
             this.disableUTG();
         }
-
+        
         if (this.spectator_bb) {
-
+            
             this.spectator_bb = false;
-
+            
             if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack + bet) < 0) {
                 setBet(crupier.getCiega_grande());
             } else {
@@ -1229,47 +1232,47 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setBet(stack);
                 setDecision(Player.ALLIN);
             }
-
+            
         }
-
+        
     }
-
+    
     public void resetBetDecision() {
         this.decision = Player.NODEC;
-
+        
         Helpers.GUIRun(new Runnable() {
             public void run() {
-
+                
                 player_action.setText(" ");
-
+                
                 player_action.setBackground(null);
-
+                
                 player_action.setEnabled(false);
-
+                
             }
         });
-
+        
     }
-
+    
     public void disableUTG() {
-
+        
         if (this.utg) {
             this.utg = false;
-
+            
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
                     utg_textfield.setVisible(false);
-
+                    
                 }
             });
         }
     }
-
+    
     public void setUTG() {
-
+        
         this.utg = true;
-
+        
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
@@ -1277,21 +1280,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 utg_textfield.setText("UTG");
                 utg_textfield.setBackground(Color.PINK);
                 utg_textfield.setForeground(Color.BLACK);
-
+                
             }
         });
     }
-
+    
     @Override
     public boolean isSpectator() {
         return this.spectator;
     }
-
+    
     @Override
     public String getLastActionString() {
-
+        
         String action = nickname + " ";
-
+        
         switch (this.getDecision()) {
             case Player.FOLD:
                 action += player_action.getText() + " (" + Helpers.float2String(this.bote) + ")";
@@ -1308,34 +1311,34 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             default:
                 break;
         }
-
+        
         return action;
     }
-
+    
     public void setBuyin(int buyin) {
         this.buyin = buyin;
-
+        
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 player_buyin.setText(String.valueOf(buyin));
-
+                
                 if (buyin > GameFrame.BUYIN) {
                     player_buyin.setBackground(Color.cyan);
                 }
             }
         });
     }
-
+    
     public void setSpectator(String msg) {
         if (!this.exit) {
             this.spectator = true;
             this.bote = 0f;
-
+            
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
                     setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
-
+                    
                     player_blind.setVisible(false);
                     player_pot.setText("----");
                     player_pot.setBackground(null);
@@ -1350,7 +1353,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setEnabled(false);
                     player_name.setOpaque(false);
                     player_name.setBackground(null);
-
+                    
                     if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
                         player_name.setForeground(Color.YELLOW);
                     } else {
@@ -1360,15 +1363,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             });
         }
     }
-
+    
     public void unsetSpectator() {
         this.spectator = false;
-
+        
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
                 setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
-
+                
                 player_pot.setVisible(true);
                 player_pot.setEnabled(true);
                 player_stack.setEnabled(true);
@@ -1376,7 +1379,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
     }
-
+    
     @Override
     public void showCards(String jugada) {
         Helpers.GUIRun(new Runnable() {
@@ -1387,71 +1390,71 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
     }
-
+    
     @Override
     public void resetBote() {
         this.bet = 0f;
         this.bote = 0f;
     }
-
+    
     @Override
     public void setAvatar() {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-
+                
                 while (avatar_panel.getHeight() == 0) {
                     Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
                 }
-
+                
                 String avatar_path = GameFrame.getInstance().getNick2avatar().get(nickname);
-
+                
                 getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-
+                
                 if (!"".equals(avatar_path) && !"*".equals(avatar_path)) {
-
+                    
                     getAvatar().setIcon(new ImageIcon(new ImageIcon(avatar_path).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-
+                    
                 } else if ("*".equals(avatar_path)) {
-
+                    
                     getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-
+                    
                 } else {
-
+                    
                     getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
                 }
-
+                
                 getAvatar().setVisible(true);
-
+                
             }
         });
     }
-
+    
     @Override
     public boolean isActivo() {
         return (!exit && !spectator);
     }
-
+    
     @Override
     public void setPagar(float pagar) {
         this.pagar = pagar;
     }
-
+    
     @Override
     public void destaparCartas(boolean sound) {
-
+        
         if (getPlayingCard1().isIniciada() && getPlayingCard1().isTapada()) {
-
+            
             if (sound) {
                 Helpers.playWavResource("misc/uncover.wav", false);
             }
-
+            
             getPlayingCard1().destapar(false);
-
+            
             getPlayingCard2().destapar(false);
         }
     }
-
+    
     @Override
     public void ordenarCartas() {
         if (getPlayingCard1().getValorNumerico() != -1 && getPlayingCard2().getValorNumerico() != -1 && getPlayingCard1().getValorNumerico() < getPlayingCard2().getValorNumerico()) {
@@ -1460,12 +1463,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             String valor1 = this.playingCard1.getValor();
             String palo1 = this.playingCard1.getPalo();
             boolean desenfocada1 = this.playingCard1.isDesenfocada();
-
+            
             this.playingCard1.actualizarValorPaloEnfoque(this.playingCard2.getValor(), this.playingCard2.getPalo(), this.playingCard2.isDesenfocada());
             this.playingCard2.actualizarValorPaloEnfoque(valor1, palo1, desenfocada1);
         }
     }
-
+    
     @Override
     public void setSpectatorBB(boolean bb) {
         this.spectator_bb = bb;

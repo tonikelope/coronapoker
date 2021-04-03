@@ -248,7 +248,6 @@ public class Crupier implements Runnable {
     private volatile boolean update_game_seats = false;
     private volatile int tot_acciones_recuperadas = 0;
     private volatile float beneficio_bote_principal;
-    private volatile boolean player_timeout = false;
 
     public String getDealer_nick() {
         return dealer_nick;
@@ -4368,20 +4367,11 @@ public class Crupier implements Runnable {
 
     public void disablePlayerTimeout() {
 
-        if (player_timeout) {
+        for (Player j : GameFrame.getInstance().getJugadores()) {
 
-            player_timeout = false;
-
-            for (Player j : GameFrame.getInstance().getJugadores()) {
-
-                j.setTimeout(false);
-            }
+            j.setTimeout(false);
         }
 
-    }
-
-    public void setPlayer_timeout(boolean player_timeout) {
-        this.player_timeout = player_timeout;
     }
 
     public void broadcastGAMECommandFromServer(String command, String skip_nick, boolean confirmation) {

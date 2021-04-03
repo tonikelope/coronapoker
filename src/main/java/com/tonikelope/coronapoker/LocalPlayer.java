@@ -299,6 +299,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             });
 
             if (val) {
+                crupier.setPlayer_timeout(true);
                 Helpers.playWavResource("misc/network_error.wav");
             }
         }
@@ -532,7 +533,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         turno = true;
 
-        crupier.unsetAllTimeoutPlayers();
+        crupier.disablePlayerTimeout();
 
         if (this.getDecision() == Player.NODEC) {
             Helpers.playWavResource("misc/yourturn.wav");

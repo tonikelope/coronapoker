@@ -541,7 +541,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         turno = true;
 
-        crupier.disablePlayerTimeout();
+        crupier.disableAllPlayersTimeout();
 
         if (this.getDecision() == Player.NODEC) {
             Helpers.playWavResource("misc/yourturn.wav");

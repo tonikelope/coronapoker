@@ -41,6 +41,7 @@ import org.apache.commons.codec.binary.Base64;
 public class Participant implements Runnable {
 
     public static final int ASYNC_COMMAND_QUEUE_WAIT = 1000;
+    public static final int RECIBIDO_TIMEOUT = 5000;
 
     private final Object keep_alive_lock = new Object();
     private final Object participant_socket_lock = new Object();
@@ -644,7 +645,7 @@ public class Participant implements Runnable {
                                 if (!reset_socket) {
 
                                     try {
-                                        getParticipant_socket_lock().wait(GameFrame.CLIENT_RECON_TIMEOUT);
+                                        getParticipant_socket_lock().wait(resetting_socket ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
                                     } catch (InterruptedException ex) {
                                         Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                                     }
@@ -667,7 +668,7 @@ public class Participant implements Runnable {
                                 synchronized (getParticipant_socket_lock()) {
                                     if (!reset_socket) {
                                         try {
-                                            getParticipant_socket_lock().wait(GameFrame.CLIENT_RECON_TIMEOUT);
+                                            getParticipant_socket_lock().wait(resetting_socket ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
                                         } catch (InterruptedException ex) {
                                             Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                                         }

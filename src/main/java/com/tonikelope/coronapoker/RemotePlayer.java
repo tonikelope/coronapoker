@@ -214,7 +214,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void esTuTurno() {
         turno = true;
 
-        crupier.disablePlayerTimeout();
+        crupier.disableAllPlayersTimeout();
 
         if (this.getDecision() == Player.NODEC) {
 
@@ -526,7 +526,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             });
 
             if (val) {
-
                 Helpers.playWavResource("misc/network_error.wav");
             } else if (!GameFrame.getInstance().isPartida_local()) {
                 Helpers.playWavResource("misc/yahoo.wav");

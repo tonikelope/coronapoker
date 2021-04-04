@@ -3840,7 +3840,7 @@ public class Crupier implements Runnable {
 
     private ArrayList<Player> rondaApuestas(int fase, ArrayList<Player> resisten) {
 
-        disablePlayerTimeout();
+        disableAllPlayersTimeout();
 
         Iterator<Player> iterator = resisten.iterator();
 
@@ -4365,7 +4365,7 @@ public class Crupier implements Runnable {
 
     }
 
-    public void disablePlayerTimeout() {
+    public void disableAllPlayersTimeout() {
 
         for (Player j : GameFrame.getInstance().getJugadores()) {
 

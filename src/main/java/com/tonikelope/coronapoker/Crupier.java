@@ -6369,7 +6369,7 @@ public class Crupier implements Runnable {
 
                                         this.bote_total -= pagar;
 
-                                        current.getPlayers().get(0).setBoteSecundario("+ #" + String.valueOf(conta_bote_secundario));
+                                        current.getPlayers().get(0).setBoteSecundario("+" + String.valueOf(conta_bote_secundario));
 
                                         GameFrame.getInstance().getRegistro().print(current.getPlayers().get(0).getNickname() + Translator.translate(" RECUPERA BOTE (SOBRANTE) SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(pagar) + ")");
 
@@ -6399,7 +6399,7 @@ public class Crupier implements Runnable {
 
                                             Hand jugada = entry.getValue();
 
-                                            ganador.setBoteSecundario("+ #" + String.valueOf(conta_bote_secundario));
+                                            ganador.setBoteSecundario("+" + String.valueOf(conta_bote_secundario));
 
                                             ArrayList<Card> cartas_repartidas_jugador = new ArrayList<>();
 

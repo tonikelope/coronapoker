@@ -102,7 +102,7 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
             }
         });
 
-        status.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        status.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         status.setText("SE PERDIÓ LA CONEXIÓN CON EL SERVIDOR");
         status.setDoubleBuffered(true);
@@ -126,7 +126,7 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
 
         barra.setDoubleBuffered(true);
 
-        status2.setFont(new java.awt.Font("Dialog", 2, 14)); // NOI18N
+        status2.setFont(new java.awt.Font("Dialog", 2, 16)); // NOI18N
         status2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         status2.setText("(Comprueba si la dirección o el puerto han cambiado antes de reconectar)");
         status2.setDoubleBuffered(true);
@@ -167,12 +167,12 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
                 .addComponent(status)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(status2)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGap(18, 18, 18)
                 .addComponent(yes)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(exit_button)
+                .addGap(18, 18, 18)
+                .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
 

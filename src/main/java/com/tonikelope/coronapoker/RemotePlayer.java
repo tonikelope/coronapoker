@@ -222,7 +222,20 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+
+                    Color turno_color = null;
+
+                    if (crupier.getBb_nick().equals(getNickname())) {
+                        turno_color = Color.YELLOW;
+                    } else if (crupier.getSb_nick().equals(getNickname())) {
+                        turno_color = Color.BLUE;
+                    } else if (crupier.getUtg_nick().equals(getNickname()) && crupier.getFase() == Crupier.PREFLOP) {
+                        turno_color = Color.PINK;
+                    } else {
+                        turno_color = Color.ORANGE;
+                    }
+
+                    setPlayerBorder(turno_color, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                     player_pot.setBackground(Color.WHITE);
 

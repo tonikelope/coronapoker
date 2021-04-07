@@ -1032,11 +1032,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
     }
 
-    public void setTapeteBote(float bote, float beneficio) {
+    public void setTapeteBote(float bote, Float beneficio) {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                tapete.getCommunityCards().getPot_label().setText(Translator.translate("Bote: ") + Helpers.float2String(bote) + (Helpers.float1DSecureCompare(0f, beneficio) < 0 ? " (" + Helpers.float2String(beneficio) + ")" : ""));
+                tapete.getCommunityCards().getPot_label().setText(Translator.translate("Bote: ") + Helpers.float2String(bote) + (beneficio != null ? " (" + Helpers.float2String(beneficio) + ")" : ""));
             }
         });
     }

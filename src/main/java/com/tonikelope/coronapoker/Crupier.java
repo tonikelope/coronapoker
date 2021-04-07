@@ -247,7 +247,7 @@ public class Crupier implements Runnable {
     private volatile boolean saltar_primera_mano = false;
     private volatile boolean update_game_seats = false;
     private volatile int tot_acciones_recuperadas = 0;
-    private volatile float beneficio_bote_principal;
+    private volatile Float beneficio_bote_principal = null;
 
     public String getDealer_nick() {
         return dealer_nick;
@@ -634,6 +634,10 @@ public class Crupier implements Runnable {
                             }
                         }
                     });
+                } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null) {
+
+                    Helpers.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
+
                 }
 
                 return _cinematicAllin(filename, pausa);
@@ -861,7 +865,7 @@ public class Crupier implements Runnable {
 
         }
 
-        return (pausa == 0L);
+        return (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null);
 
     }
 
@@ -2098,7 +2102,7 @@ public class Crupier implements Runnable {
 
         this.bote = new Pot(0f);
 
-        this.beneficio_bote_principal = 0f;
+        this.beneficio_bote_principal = null;
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 

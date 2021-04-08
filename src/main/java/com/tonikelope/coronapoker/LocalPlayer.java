@@ -76,6 +76,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean spectator_bb = false;
     private volatile Color border_color = null;
 
+    public boolean isTimeout() {
+        return timeout;
+    }
+
     public JLabel getPlayer_buyin() {
         return player_buyin;
     }
@@ -555,19 +559,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
-                    Color turno_color = null;
-
-                    if (crupier.getBb_nick().equals(getNickname())) {
-                        turno_color = Color.YELLOW;
-                    } else if (crupier.getSb_nick().equals(getNickname())) {
-                        turno_color = Color.BLUE;
-                    } else if (crupier.getUtg_nick().equals(getNickname()) && crupier.getFase() == Crupier.PREFLOP) {
-                        turno_color = Color.PINK;
-                    } else {
-                        turno_color = Color.ORANGE;
-                    }
-
-                    setPlayerBorder(turno_color, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                    setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                     player_check_button.setEnabled(false);
 
@@ -745,7 +737,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!crupier.isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == crupier.getTurno()) {
+                                if (!crupier.isFin_de_la_transmision() && !crupier.isPlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == crupier.getTurno()) {
 
                                     response_counter--;
 

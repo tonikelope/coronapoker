@@ -95,6 +95,7 @@ public class TablePanelFactory {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
+                        nuevo_panel.getCommunityCards().getRandom_button().setVisible(panel.getCommunityCards().getRandom_button().isVisible());
                         nuevo_panel.getCommunityCards().getPause_button().setForeground(panel.getCommunityCards().getPause_button().getForeground());
                         nuevo_panel.getCommunityCards().getPause_button().setBackground(panel.getCommunityCards().getPause_button().getBackground());
 

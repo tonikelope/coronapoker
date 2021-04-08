@@ -57,6 +57,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean spectator_bb = false;
     private volatile Color border_color = null;
 
+    public boolean isTimeout() {
+        return timeout;
+    }
+
     private void setPlayerBorder(Color color, int size) {
 
         if (!timeout) {
@@ -223,19 +227,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
-                    Color turno_color = null;
-
-                    if (crupier.getBb_nick().equals(getNickname())) {
-                        turno_color = Color.YELLOW;
-                    } else if (crupier.getSb_nick().equals(getNickname())) {
-                        turno_color = Color.BLUE;
-                    } else if (crupier.getUtg_nick().equals(getNickname()) && crupier.getFase() == Crupier.PREFLOP) {
-                        turno_color = Color.PINK;
-                    } else {
-                        turno_color = Color.ORANGE;
-                    }
-
-                    setPlayerBorder(turno_color, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                    setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                     player_pot.setBackground(Color.WHITE);
 
@@ -275,7 +267,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!crupier.isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == crupier.getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
+                                if (!crupier.isFin_de_la_transmision() && !crupier.isPlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == crupier.getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
 
                                     response_counter--;
 

@@ -82,6 +82,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return new Card[]{flop1, flop2, flop3, turn, river};
     }
 
+    public JButton getRandom_button() {
+        return random_button;
+    }
+
     public void cambiarColorContadores(Color color) {
 
         this.color_contadores = color;
@@ -113,6 +117,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             public void run() {
                 initComponents();
                 last_hand_label.setVisible(false);
+                random_button.setVisible(false);
             }
         });
 
@@ -213,6 +218,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         flop1 = new com.tonikelope.coronapoker.Card();
         pause_button = new javax.swing.JButton();
         last_hand_label = new javax.swing.JLabel();
+        random_button = new javax.swing.JButton();
 
         setFocusable(false);
         setOpaque(false);
@@ -349,6 +355,18 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         last_hand_label.setFocusable(false);
         last_hand_label.setOpaque(true);
 
+        random_button.setBackground(new java.awt.Color(255, 0, 0));
+        random_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        random_button.setForeground(new java.awt.Color(255, 255, 255));
+        random_button.setText("RANDOM.ORG");
+        random_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        random_button.setDoubleBuffered(true);
+        random_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                random_buttonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -363,6 +381,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addComponent(blinds_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(pause_button)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(random_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(tiempo_partida)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -390,7 +410,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                         .addComponent(tiempo_partida))
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(blinds_label)
-                        .addComponent(pause_button)))
+                        .addComponent(pause_button)
+                        .addComponent(random_button)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(panel_barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
@@ -412,7 +433,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             tthis.getHand_label().setEnabled(false);
 
-            if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿ÚLTIMA MANO?")) == 0) {
+            if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿ÚLTIMA MANO?") == 0) {
 
                 Helpers.threadRun(new Runnable() {
 
@@ -450,7 +471,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (!(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
 
-            pause_now = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿PAUSAR AHORA MISMO?"));
+            pause_now = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿PAUSAR AHORA MISMO?");
 
         }
 
@@ -485,7 +506,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 if (!GameFrame.getInstance().getLocalPlayer().isAuto_pause_warning()) {
                     GameFrame.getInstance().getLocalPlayer().setAuto_pause_warning(true);
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), Translator.translate("PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO"));
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO");
                 }
 
             } else {
@@ -497,6 +518,17 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         }
 
     }//GEN-LAST:event_pause_buttonActionPerformed
+
+    private void random_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_random_buttonActionPerformed
+        // TODO add your handling code here:
+
+        Helpers.DECK_RANDOM_GENERATOR = Helpers.TRNG;
+
+        GameFrame.getInstance().getTapete().getCommunityCards().getRandom_button().setVisible(false);
+
+        Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "SE HA REACTIVADO RANDOM.ORG");
+
+    }//GEN-LAST:event_random_buttonActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra_tiempo;
@@ -511,6 +543,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private javax.swing.JPanel panel_barra;
     private javax.swing.JButton pause_button;
     private javax.swing.JLabel pot_label;
+    private javax.swing.JButton random_button;
     private com.tonikelope.coronapoker.Card river;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel tiempo_partida;

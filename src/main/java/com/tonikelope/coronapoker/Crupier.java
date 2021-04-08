@@ -249,6 +249,18 @@ public class Crupier implements Runnable {
     private volatile int tot_acciones_recuperadas = 0;
     private volatile Float beneficio_bote_principal = null;
 
+    public boolean isPlayerTimeout() {
+
+        for (Player j : GameFrame.getInstance().getJugadores()) {
+            if (j.isTimeout()) {
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public String getDealer_nick() {
         return dealer_nick;
     }
@@ -6284,7 +6296,7 @@ public class Crupier implements Runnable {
 
                                 this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
 
-                                String bote_tapete = "#1[" + Helpers.float2String(this.bote.getTotal()) + " (" + Helpers.float2String(this.beneficio_bote_principal) + ")]";
+                                String bote_tapete = Helpers.float2String(this.bote.getTotal()) + " (" + Helpers.float2String(this.beneficio_bote_principal) + ")";
 
                                 ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
 
@@ -6367,7 +6379,7 @@ public class Crupier implements Runnable {
 
                                     if (current_pot.getPlayers().size() == 1) {
 
-                                        bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "[" + Helpers.float2String(current_pot.getTotal()) + "]";
+                                        bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "/" + Helpers.float2String(current_pot.getTotal()) + "/";
 
                                         current_pot.getPlayers().get(0).pagar(current_pot.getTotal());
 
@@ -6389,7 +6401,7 @@ public class Crupier implements Runnable {
 
                                         float beneficio_bote = cantidad_pagar_ganador[0] - current_pot.getBet();
 
-                                        bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "[" + Helpers.float2String(current_pot.getTotal()) + " (" + Helpers.float2String(beneficio_bote) + ")]";
+                                        bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "/" + Helpers.float2String(current_pot.getTotal()) + " (" + Helpers.float2String(beneficio_bote) + ")/";
 
                                         for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
 

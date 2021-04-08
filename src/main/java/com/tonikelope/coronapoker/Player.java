@@ -112,4 +112,6 @@ public interface Player {
 
     public void setSpectatorBB(boolean bb);
 
+    public boolean isTimeout();
+
 }

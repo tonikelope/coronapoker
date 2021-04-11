@@ -769,11 +769,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (!pendientes.isEmpty()) {
 
-            int id = Helpers.SPRNG_GENERATOR.nextInt();
+            int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
             byte[] iv = new byte[16];
 
-            Helpers.SPRNG_GENERATOR.nextBytes(iv);
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
             for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
 
@@ -811,7 +811,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (!confirmation) {
 
-            int id = Helpers.SPRNG_GENERATOR.nextInt();
+            int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
             String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
@@ -1017,7 +1017,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             if (server_avatar_base64.length() > 0) {
 
-                                int file_id = Helpers.SPRNG_GENERATOR.nextInt();
+                                int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
 
                                 if (file_id < 0) {
                                     file_id *= -1;
@@ -1070,7 +1070,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 while (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                                    int ping = Helpers.SPRNG_GENERATOR.nextInt();
+                                    int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
                                     try {
 
@@ -1327,7 +1327,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                         File avatar = null;
 
-                                                        int file_id = Helpers.SPRNG_GENERATOR.nextInt();
+                                                        int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
 
                                                         if (file_id < 0) {
                                                             file_id *= -1;
@@ -1359,7 +1359,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             avatar = null;
 
                                                             if (user_parts.length == 2) {
-                                                                file_id = Helpers.SPRNG_GENERATOR.nextInt();
+                                                                file_id = Helpers.CSPRNG_GENERATOR.nextInt();
 
                                                                 if (file_id < 0) {
                                                                     file_id *= -1;
@@ -1685,7 +1685,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 if (!"*".equals(client_avatar_base64)) {
 
-                                    int file_id = Helpers.SPRNG_GENERATOR.nextInt();
+                                    int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
 
                                     if (file_id < 0) {
                                         file_id *= -1;
@@ -1942,7 +1942,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             byte[] iv = new byte[16];
 
-            Helpers.SPRNG_GENERATOR.nextBytes(iv);
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
             //Reenviamos el mensaje al resto de participantes
             participantes.entrySet().forEach((entry) -> {
@@ -1975,7 +1975,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 byte[] iv = new byte[16];
 
-                Helpers.SPRNG_GENERATOR.nextBytes(iv);
+                Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
                 if (!server) {
                     try {

@@ -186,7 +186,7 @@ public class Helpers {
     public volatile static int DECK_RANDOM_GENERATOR = CSPRNG;
     public volatile static String RANDOM_ORG_APIKEY = "";
     public volatile static Random PRNG_GENERATOR = null;
-    public volatile static SecureRandom SPRNG_GENERATOR = null;
+    public volatile static SecureRandom CSPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = loadPropertiesFile();
     public volatile static Font GUI_FONT = null;
     public volatile static boolean MUTED_ALL = false;
@@ -403,7 +403,7 @@ public class Helpers {
 
         byte[] iv = new byte[16];
 
-        Helpers.SPRNG_GENERATOR.nextBytes(iv);
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
         return encryptString(cadena, aes_key, iv, hmac_key);
 
@@ -554,7 +554,7 @@ public class Helpers {
 
         byte[] iv = new byte[16];
 
-        Helpers.SPRNG_GENERATOR.nextBytes(iv);
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
         return encryptCommand(command, aes_key, iv, hmac_key);
 
@@ -1223,13 +1223,13 @@ public class Helpers {
             }
 
             //If hotbits fails we will try Java SecureRandom CSPRNG 
-            if (Helpers.SPRNG_GENERATOR != null) {
+            if (Helpers.CSPRNG_GENERATOR != null) {
 
                 for (int i = 1; i <= count; i++) {
                     permutacion.add(i);
                 }
 
-                Collections.shuffle(permutacion, Helpers.SPRNG_GENERATOR);
+                Collections.shuffle(permutacion, Helpers.CSPRNG_GENERATOR);
 
                 return permutacion.toArray(new Integer[permutacion.size()]);
             }

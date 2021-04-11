@@ -3156,13 +3156,13 @@ public class Crupier implements Runnable {
             }
         }
 
-        int id = Helpers.SPRNG_GENERATOR.nextInt();
+        int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
         boolean timeout = false;
 
         byte[] iv = new byte[16];
 
-        Helpers.SPRNG_GENERATOR.nextBytes(iv);
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
         do {
 
@@ -3389,13 +3389,13 @@ public class Crupier implements Runnable {
 
         long start = System.currentTimeMillis();
 
-        int id = Helpers.SPRNG_GENERATOR.nextInt();
+        int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
         boolean timeout = false;
 
         byte[] iv = new byte[16];
 
-        Helpers.SPRNG_GENERATOR.nextBytes(iv);
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
         do {
 
@@ -3484,13 +3484,13 @@ public class Crupier implements Runnable {
 
         long start = System.currentTimeMillis();
 
-        int id = Helpers.SPRNG_GENERATOR.nextInt();
+        int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
         boolean timeout = false;
 
         byte[] iv = new byte[16];
 
-        Helpers.SPRNG_GENERATOR.nextBytes(iv);
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
         do {
 
@@ -3587,7 +3587,7 @@ public class Crupier implements Runnable {
 
         pendientes.add(GameFrame.getInstance().getSala_espera().getServer_nick());
 
-        int id = Helpers.SPRNG_GENERATOR.nextInt();
+        int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
         String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
@@ -4160,11 +4160,11 @@ public class Crupier implements Runnable {
 
                                         if (Helpers.float1DSecureCompare(this.getApuesta_actual(), 0f) == 0) {
 
-                                            b = (slow_play && fase != Crupier.RIVER) ? this.getCiega_grande() : (Helpers.SPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande();
+                                            b = (slow_play && fase != Crupier.RIVER) ? this.getCiega_grande() : (Helpers.CSPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande();
 
                                         } else {
 
-                                            b = getApuesta_actual() + Math.max(min_raise, (Helpers.SPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande());
+                                            b = getApuesta_actual() + Math.max(min_raise, (Helpers.CSPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande());
                                         }
 
                                         if (Helpers.float1DSecureCompare(current_player.getStack() / 2, b - current_player.getBet()) <= 0) {
@@ -4180,7 +4180,7 @@ public class Crupier implements Runnable {
                                         break;
                                 }
 
-                                Helpers.pausar((Helpers.SPRNG_GENERATOR.nextInt(2) + 1) * 1000);
+                                Helpers.pausar((Helpers.CSPRNG_GENERATOR.nextInt(2) + 1) * 1000);
                             }
                         }
 
@@ -4410,13 +4410,13 @@ public class Crupier implements Runnable {
 
         if (!pendientes.isEmpty()) {
 
-            int id = Helpers.SPRNG_GENERATOR.nextInt();
+            int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
             boolean timeout = false;
 
             byte[] iv = new byte[16];
 
-            Helpers.SPRNG_GENERATOR.nextBytes(iv);
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
             do {
 
@@ -4812,7 +4812,7 @@ public class Crupier implements Runnable {
                     if (nick.equals(grande)) {
 
                         //Los jugadores nuevos los colocamos después de la CIEGA GRANDE ACTUAL
-                        Collections.shuffle(actuales, Helpers.SPRNG_GENERATOR);
+                        Collections.shuffle(actuales, Helpers.CSPRNG_GENERATOR);
                         permutados_aux.addAll(actuales);
                         actuales.clear();
                     }
@@ -5131,7 +5131,7 @@ public class Crupier implements Runnable {
 
                 pendientes.add(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
 
-                int id = Helpers.SPRNG_GENERATOR.nextInt();
+                int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
                 Participant p = GameFrame.getInstance().getParticipantes().get(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
 
@@ -5322,7 +5322,7 @@ public class Crupier implements Runnable {
                     nicks.add(entry.getKey());
                 }
 
-                Collections.shuffle(nicks, Helpers.SPRNG_GENERATOR);
+                Collections.shuffle(nicks, Helpers.CSPRNG_GENERATOR);
             }
 
             //Comunicamos a todos los participantes el sorteo

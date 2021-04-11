@@ -520,10 +520,10 @@ public class Init extends javax.swing.JFrame {
 
             try {
                 Security.setProperty("securerandom.drbg.config", "Hash_DRBG,SHA-256,256,pr_and_reseed");
-                Helpers.SPRNG_GENERATOR = SecureRandom.getInstance("DRBG");
+                Helpers.CSPRNG_GENERATOR = SecureRandom.getInstance("DRBG");
             } catch (NoSuchAlgorithmException ex) {
                 Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                Helpers.SPRNG_GENERATOR = new SecureRandom();
+                Helpers.CSPRNG_GENERATOR = new SecureRandom();
             }
 
             Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));

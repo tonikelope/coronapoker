@@ -2,7 +2,6 @@ package com.tonikelope.coronapoker;
 
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
-import static com.tonikelope.coronapoker.Helpers.SPRNG;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
 import static com.tonikelope.coronapoker.Init.DEV_MODE;
@@ -153,6 +152,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
+import static com.tonikelope.coronapoker.Helpers.CSPRNG;
 
 /**
  *
@@ -169,7 +169,7 @@ public class Helpers {
     public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.7f);
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
     public static final int RANDOMORG_TIMEOUT = 10000;
-    public static final int SPRNG = 2;
+    public static final int CSPRNG = 2;
     public static final int TRNG = 1;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
@@ -183,7 +183,7 @@ public class Helpers {
     public static final Object TTS_LOCK = new Object();
 
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
-    public volatile static int DECK_RANDOM_GENERATOR = SPRNG;
+    public volatile static int DECK_RANDOM_GENERATOR = CSPRNG;
     public volatile static String RANDOM_ORG_APIKEY = "";
     public volatile static Random PRNG_GENERATOR = null;
     public volatile static SecureRandom SPRNG_GENERATOR = null;
@@ -1192,7 +1192,7 @@ public class Helpers {
 
                             if (res == 0) {
 
-                                DECK_RANDOM_GENERATOR = SPRNG;
+                                DECK_RANDOM_GENERATOR = CSPRNG;
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
@@ -1208,15 +1208,14 @@ public class Helpers {
                 }
 
                 //Fallback to SPRNG
-                return getPokerDeckPermutation(Helpers.SPRNG);
+                return getPokerDeckPermutation(Helpers.CSPRNG);
 
-            case Helpers.SPRNG:
-                
-                //Let's try hotbits CSPRNG (Mersenne twister + AES 128 seeded with 2496 bytes of radioactively-generated random data from the HotBits generators) -> https://www.fourmilab.ch/hotbits/pseudo.html)
+            case Helpers.CSPRNG:
+
+                //Let's try hotbits CSPRNG -> https://www.fourmilab.ch/hotbits/pseudo.html)
                 try {
 
-                //THIS METHOD IS ABLE TO GENERATE THE 52! PERMUTATIONS (WITH EQUAL PROBABILITY)
-                return hotbitsPokerDeckRandomPermutation();
+                return hotbitsPokerDeckPermutation();
 
             } catch (Exception ex) {
 
@@ -1230,20 +1229,19 @@ public class Helpers {
                     permutacion.add(i);
                 }
 
-                //WARNING THIS METHOD CANNOT GENERATE 52! PERMUTATIONS
                 Collections.shuffle(permutacion, Helpers.SPRNG_GENERATOR);
 
                 return permutacion.toArray(new Integer[permutacion.size()]);
             }
 
             default:
-                return getPokerDeckPermutation(Helpers.SPRNG);
+                return getPokerDeckPermutation(Helpers.CSPRNG);
         }
 
     }
 
     //Returns a random true permutation of the possible 52! with equal probability
-    public static Integer[] hotbitsPokerDeckRandomPermutation() throws MalformedURLException, IOException {
+    public static Integer[] hotbitsPokerDeckPermutation() throws MalformedURLException, IOException {
 
         int count = 52;
 

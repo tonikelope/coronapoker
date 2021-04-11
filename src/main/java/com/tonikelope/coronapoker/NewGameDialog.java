@@ -216,7 +216,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             server_ip_textfield.setEnabled(false);
             server_port_textfield.setText(Helpers.PROPERTIES.getProperty("local_port", String.valueOf(DEFAULT_PORT)));
             config_partida_panel.setVisible(true);
-            random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.SPRNG))) - 1);
+            random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.CSPRNG))) - 1);
             randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
             rebuy_checkbox.setSelected(true);
             doblar_checkbox.setSelected(true);

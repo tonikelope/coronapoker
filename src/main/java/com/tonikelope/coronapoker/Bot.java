@@ -71,7 +71,7 @@ public class Bot {
             if (crupier.getConta_bet() > 0 && Helpers.float1DSecureCompare(cpu_player.getStack(), crupier.getApuesta_actual() - cpu_player.getBet()) <= 0) {
 
                 //Si la apuesta actual nos obliga a ir ALL-IN sólo lo hacemos con manos PREMIUM o el el 50% de las otras veces con manos buenas que no llegan a PREMIUM
-                if ((pareja && valor1 >= 10) || (suited && Math.max(valor1, valor2) == 14) || (Helpers.SPRNG_GENERATOR.nextBoolean() && (pareja && valor1 >= 7) || (suited && Math.max(valor1, valor2) >= 13) || Math.min(valor1, valor2) >= 12 || (suited && straight && Math.min(valor1, valor2) == 7))) {
+                if ((pareja && valor1 >= 10) || (suited && Math.max(valor1, valor2) == 14) || (Helpers.CSPRNG_GENERATOR.nextBoolean() && (pareja && valor1 >= 7) || (suited && Math.max(valor1, valor2) >= 13) || Math.min(valor1, valor2) >= 12 || (suited && straight && Math.min(valor1, valor2) == 7))) {
                     conta_call++;
 
                     return Player.CHECK;
@@ -98,22 +98,22 @@ public class Bot {
                 if (activos <= 4) {
 
                     //50%
-                    vamos = Helpers.SPRNG_GENERATOR.nextBoolean();
+                    vamos = Helpers.CSPRNG_GENERATOR.nextBoolean();
 
                 } else if (activos <= 6) {
 
                     //40%
-                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 3;
+                    vamos = Helpers.CSPRNG_GENERATOR.nextInt(10) <= 3;
 
                 } else if (activos <= 8) {
 
                     //30%
-                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 2;
+                    vamos = Helpers.CSPRNG_GENERATOR.nextInt(10) <= 2;
 
                 } else {
 
                     //20%
-                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 1;
+                    vamos = Helpers.CSPRNG_GENERATOR.nextInt(10) <= 1;
                 }
 
                 return (crupier.getConta_bet() < Bot.MAX_CONTA_BET && vamos) ? Player.BET : Player.CHECK;
@@ -125,22 +125,22 @@ public class Bot {
 
                 if (activos <= 4) {
                     //50%
-                    vamos = Helpers.SPRNG_GENERATOR.nextBoolean();
+                    vamos = Helpers.CSPRNG_GENERATOR.nextBoolean();
 
                 } else if (activos <= 6) {
 
                     //40%
-                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 3;
+                    vamos = Helpers.CSPRNG_GENERATOR.nextInt(10) <= 3;
 
                 } else if (activos <= 8) {
 
                     //30%
-                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 2;
+                    vamos = Helpers.CSPRNG_GENERATOR.nextInt(10) <= 2;
 
                 } else {
 
                     //20%
-                    vamos = Helpers.SPRNG_GENERATOR.nextInt(10) <= 1;
+                    vamos = Helpers.CSPRNG_GENERATOR.nextInt(10) <= 1;
                 }
 
                 if (vamos) {
@@ -158,22 +158,22 @@ public class Bot {
                 if (activos <= 4) {
 
                     //20%
-                    vamos = Helpers.SPRNG_GENERATOR.nextInt(20) <= 3;
+                    vamos = Helpers.CSPRNG_GENERATOR.nextInt(20) <= 3;
 
                 } else if (activos <= 6) {
 
                     //15%
-                    vamos = Helpers.SPRNG_GENERATOR.nextInt(20) <= 2;
+                    vamos = Helpers.CSPRNG_GENERATOR.nextInt(20) <= 2;
 
                 } else if (activos <= 8) {
 
                     //10%
-                    vamos = Helpers.SPRNG_GENERATOR.nextInt(20) <= 1;
+                    vamos = Helpers.CSPRNG_GENERATOR.nextInt(20) <= 1;
 
                 } else {
 
                     //5%
-                    vamos = Helpers.SPRNG_GENERATOR.nextInt(20) == 0;
+                    vamos = Helpers.CSPRNG_GENERATOR.nextInt(20) == 0;
                 }
 
                 if (vamos) {
@@ -199,7 +199,7 @@ public class Bot {
         //System.out.println(cpu_player.getNickname() + " " + Bot.BOT_COMMUNITY_CARDS.size() + "  (" + String.valueOf(opponents) + ")  " + strength + "  " + effectiveStrength + "  " + poseffectiveStrength);
         if (poseffectiveStrength >= 0.85f) {
 
-            if (!isSlow_play() && fase == Crupier.FLOP && Helpers.SPRNG_GENERATOR.nextBoolean()) {
+            if (!isSlow_play() && fase == Crupier.FLOP && Helpers.CSPRNG_GENERATOR.nextBoolean()) {
 
                 //Jugamos lenta el 50% de las veces
                 slow_play = 1;
@@ -226,7 +226,7 @@ public class Bot {
             }
         }
 
-        if (crupier.getConta_bet() == 0 && Helpers.SPRNG_GENERATOR.nextBoolean()) {
+        if (crupier.getConta_bet() == 0 && Helpers.CSPRNG_GENERATOR.nextBoolean()) {
 
             conta_call++;
 

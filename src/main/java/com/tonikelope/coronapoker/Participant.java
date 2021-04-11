@@ -405,7 +405,7 @@ public class Participant implements Runnable {
 
                     while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                        int ping = Helpers.SPRNG_GENERATOR.nextInt();
+                        int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
                         writeCommandFromServer("PING#" + String.valueOf(ping));
                         if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
@@ -437,7 +437,7 @@ public class Participant implements Runnable {
 
                             String command = getAsync_command_queue().peek();
 
-                            int id = Helpers.SPRNG_GENERATOR.nextInt();
+                            int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
                             String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 

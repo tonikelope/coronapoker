@@ -2352,7 +2352,7 @@ public class Crupier implements Runnable {
                 if (permutacion_recuperada != null) {
                     permutacion_baraja = permutacion_recuperada;
                 } else {
-                    permutacion_baraja = Helpers.getIntegerPermutation(Helpers.DECK_RANDOM_GENERATOR, 52);
+                    permutacion_baraja = Helpers.getPokerDeckPermutation(Helpers.DECK_RANDOM_GENERATOR);
                     preservarPermutacion(permutacion_baraja);
                 }
 

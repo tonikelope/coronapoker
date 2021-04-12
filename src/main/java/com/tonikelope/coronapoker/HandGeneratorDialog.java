@@ -129,7 +129,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
             while (posible.size() < Crupier.CARTAS_MAX) {
 
-                int s = Helpers.PRNG_GENERATOR.nextInt(total) + 1;
+                int s = Helpers.CSPRNG_GENERATOR.nextInt(total) + 1;
 
                 if (!valores.contains(s)) {
                     valores.add(s);
@@ -174,7 +174,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         ArrayList<Card> pareja1 = new ArrayList<>();
 
-        int valor_pareja1 = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1);
+        int valor_pareja1 = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
 
         for (int i = 0; i < PALOS.length; i++) {
             Card carta = new Card();
@@ -206,12 +206,12 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             }
         });
 
-        int valor_pareja1 = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
+        int valor_pareja1 = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
 
-        int valor_pareja2 = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
+        int valor_pareja2 = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
 
         while (valor_pareja2 == valor_pareja1) {
-            valor_pareja2 = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
+            valor_pareja2 = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
         }
 
         if (valor_pareja2 > valor_pareja1) {
@@ -275,7 +275,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         ArrayList<Card> trio = new ArrayList<>();
 
-        int valor_trio = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1);
+        int valor_trio = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
 
         for (int i = 0; i < PALOS.length; i++) {
             Card carta = new Card();
@@ -312,13 +312,13 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         do {
             escalera = new ArrayList<>();
 
-            int valor = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - Crupier.CARTAS_ESCALERA - 1) + 1;
+            int valor = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - Crupier.CARTAS_ESCALERA - 1) + 1;
 
             for (int i = 0; i < Crupier.CARTAS_ESCALERA; i++) {
 
                 Card carta = new Card();
 
-                carta.iniciarConValorPalo(VALORES[valor + i], PALOS[Helpers.PRNG_GENERATOR.nextInt(PALOS.length)]);
+                carta.iniciarConValorPalo(VALORES[valor + i], PALOS[Helpers.CSPRNG_GENERATOR.nextInt(PALOS.length)]);
 
                 escalera.add(carta);
             }
@@ -359,11 +359,11 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
             valores.clear();
 
-            int palo = Helpers.PRNG_GENERATOR.nextInt(PALOS.length);
+            int palo = Helpers.CSPRNG_GENERATOR.nextInt(PALOS.length);
 
             while (color.size() < Crupier.CARTAS_COLOR) {
 
-                int i = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1);
+                int i = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
 
                 if (!valores.contains(i)) {
                     Card carta = new Card();
@@ -405,7 +405,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         ArrayList<Card> trio = new ArrayList<>();
 
-        int valor_trio = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1);
+        int valor_trio = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
 
         for (int i = 0; i < PALOS.length; i++) {
             Card carta = new Card();
@@ -425,10 +425,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         ArrayList<Card> pareja = new ArrayList<>();
 
-        int valor_pareja = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1);
+        int valor_pareja = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
 
         while (valor_pareja == valor_trio) {
-            valor_pareja = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1);
+            valor_pareja = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
         }
 
         for (int i = 0; i < PALOS.length; i++) {
@@ -463,7 +463,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         int palo = 0;
 
-        int valor = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - 1);
+        int valor = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
 
         for (int i = 0; i < Crupier.CARTAS_POKER; i++, palo++) {
 
@@ -485,9 +485,9 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             }
         });
 
-        int palo = Helpers.PRNG_GENERATOR.nextInt(PALOS.length);
+        int palo = Helpers.CSPRNG_GENERATOR.nextInt(PALOS.length);
 
-        int valor = Helpers.PRNG_GENERATOR.nextInt(VALORES.length - Crupier.CARTAS_ESCALERA - 1) + 1;
+        int valor = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - Crupier.CARTAS_ESCALERA - 1) + 1;
 
         for (int i = 0; i < Crupier.CARTAS_ESCALERA; i++, valor++) {
 
@@ -508,7 +508,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             }
         });
 
-        int palo = Helpers.PRNG_GENERATOR.nextInt(PALOS.length);
+        int palo = Helpers.CSPRNG_GENERATOR.nextInt(PALOS.length);
 
         int valor = 9;
 

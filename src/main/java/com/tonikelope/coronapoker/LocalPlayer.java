@@ -711,7 +711,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     }
                                 }
 
-                                int eleccion = Helpers.PRNG_GENERATOR.nextInt(botones.size());
+                                int eleccion = Helpers.CSPRNG_GENERATOR.nextInt(botones.size());
 
                                 botones.get(eleccion).doClick();
                             }

@@ -185,7 +185,6 @@ public class Helpers {
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
     public volatile static int DECK_RANDOM_GENERATOR = CSPRNG;
     public volatile static String RANDOM_ORG_APIKEY = "";
-    public volatile static Random PRNG_GENERATOR = null;
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = loadPropertiesFile();
     public volatile static Font GUI_FONT = null;
@@ -1453,7 +1452,7 @@ public class Helpers {
         }
 
         if (!sounds.isEmpty()) {
-            int elegido = Helpers.PRNG_GENERATOR.nextInt(sounds.size());
+            int elegido = Helpers.CSPRNG_GENERATOR.nextInt(sounds.size());
 
             Helpers.playWavResource(sounds.get(elegido));
         }
@@ -1476,7 +1475,7 @@ public class Helpers {
 
         if (!sounds.isEmpty()) {
 
-            int elegido = Helpers.PRNG_GENERATOR.nextInt(sounds.size());
+            int elegido = Helpers.CSPRNG_GENERATOR.nextInt(sounds.size());
 
             Helpers.playWavResourceAndWait(sounds.get(elegido));
         }

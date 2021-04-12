@@ -429,7 +429,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         config_partida_panel.setOpaque(false);
 
         randomorg_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        randomorg_label.setText("RANDOM.ORG API KEY:");
+        randomorg_label.setText("API KEY:");
         randomorg_label.setDoubleBuffered(true);
 
         random_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
@@ -438,7 +438,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         random_label.setDoubleBuffered(true);
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Muy seguro", "Seguro" }));
+        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "TRNG [RANDOM.ORG] (Muy seguro)", "CSPRNG [HOTBITS + DRBG] (Seguro)" }));
         random_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_combobox.setDoubleBuffered(true);
         random_combobox.addActionListener(new java.awt.event.ActionListener() {
@@ -538,26 +538,13 @@ public class NewGameDialog extends javax.swing.JDialog {
         config_partida_panelLayout.setHorizontalGroup(
             config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(config_partida_panelLayout.createSequentialGroup()
-                .addComponent(random_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(random_combobox, 0, 192, Short.MAX_VALUE))
-            .addGroup(config_partida_panelLayout.createSequentialGroup()
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, config_partida_panelLayout.createSequentialGroup()
-                            .addComponent(randomorg_label)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED))
-                        .addGroup(config_partida_panelLayout.createSequentialGroup()
-                            .addComponent(buyin_label)
-                            .addGap(38, 38, 38)))
-                    .addGroup(config_partida_panelLayout.createSequentialGroup()
-                        .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(ciegas_label)
-                            .addComponent(manos_checkbox))
-                        .addGap(129, 129, 129)))
+                    .addComponent(buyin_label)
+                    .addComponent(ciegas_label)
+                    .addComponent(manos_checkbox))
+                .addGap(91, 91, 91)
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(randomorg_apikey)
                     .addComponent(buyin_spinner, javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(manos_spinner, javax.swing.GroupLayout.Alignment.TRAILING)))
             .addGroup(config_partida_panelLayout.createSequentialGroup()
@@ -569,6 +556,14 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(doblar_ciegas_spinner)
                     .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+            .addGroup(config_partida_panelLayout.createSequentialGroup()
+                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(random_label)
+                    .addComponent(randomorg_label))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(randomorg_apikey)
+                    .addComponent(random_combobox, 0, 359, Short.MAX_VALUE)))
         );
         config_partida_panelLayout.setVerticalGroup(
             config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -762,10 +757,17 @@ public class NewGameDialog extends javax.swing.JDialog {
                 Helpers.PROPERTIES.setProperty(this.partida_local ? "local_port" : "server_port", this.server_port_textfield.getText().trim());
 
                 if (this.config_partida_panel.isVisible()) {
-                    Helpers.PROPERTIES.setProperty("random_generator", String.valueOf(Helpers.DECK_RANDOM_GENERATOR));
-                    Helpers.PROPERTIES.setProperty("randomorg_api", this.randomorg_apikey.getText().trim());
+
                     Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
                     Helpers.RANDOM_ORG_APIKEY = this.randomorg_apikey.getText().trim();
+
+                    if (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG && Helpers.RANDOM_ORG_APIKEY.isBlank()) {
+                        Helpers.mostrarMensajeError((JFrame) this.getParent(), "RANDOM.ORG API KEY NO VÁLIDA (se usará el CSPRNG)");
+                        Helpers.DECK_RANDOM_GENERATOR = Helpers.CSPRNG;
+                    }
+
+                    Helpers.PROPERTIES.setProperty("random_generator", String.valueOf(Helpers.DECK_RANDOM_GENERATOR));
+                    Helpers.PROPERTIES.setProperty("randomorg_api", this.randomorg_apikey.getText().trim());
                 }
 
                 if (this.avatar != null) {

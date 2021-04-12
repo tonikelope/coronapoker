@@ -197,7 +197,7 @@ public class Translator {
             {"ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).", "SOMETHING HAS GONE WRONG. (There's probably already a game created in the same port)."},
             {"Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?", "There are users who are taking too long to respond (they will be removed from the game). DO WE WAIT A LITTLE MORE?"},
             {" parece que perdió la conexión y no ha vuelto a conectar (se le eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?", " it looks like he/she lost the connection and hasn't reconnected (he/she'll be removed from the game). DO WE WAIT A LITTLE MORE?"},
-            {"Parece que hubo algún problema con RANDOM.ORG (se usará el SPRNG en su lugar)\n¿Quieres desactivar RANDOM.ORG para el resto de la partida?", "There seems to be some problem with RANDOM.ORG (the SPRNG will be used instead).\nDo you want to disable RANDOM.ORG for the rest of the game?"},
+            {"Parece que hubo algún problema con RANDOM.ORG (se usará el CSPRNG en su lugar)\n¿Quieres desactivar RANDOM.ORG para el resto de la partida?", "There seems to be some problem with RANDOM.ORG (the CSPRNG will be used instead).\nDo you want to disable RANDOM.ORG for the rest of the game?"},
             {"PASAR", "CHECK"},
             {"IR", "CALL"},
             {"APOSTAR", "BET"},

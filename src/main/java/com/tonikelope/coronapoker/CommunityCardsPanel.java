@@ -351,9 +351,15 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         last_hand_label.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         last_hand_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         last_hand_label.setText("ÚLTIMA MANO");
+        last_hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         last_hand_label.setDoubleBuffered(true);
         last_hand_label.setFocusable(false);
         last_hand_label.setOpaque(true);
+        last_hand_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                last_hand_labelMouseClicked(evt);
+            }
+        });
 
         random_button.setBackground(new java.awt.Color(255, 0, 0));
         random_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
@@ -361,6 +367,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         random_button.setText("RANDOM.ORG");
         random_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_button.setDoubleBuffered(true);
+        random_button.setFocusable(false);
         random_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 random_buttonActionPerformed(evt);
@@ -529,6 +536,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "SE HA REACTIVADO RANDOM.ORG");
 
     }//GEN-LAST:event_random_buttonActionPerformed
+
+    private void last_hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_last_hand_labelMouseClicked
+        // TODO add your handling code here:
+        hand_labelMouseClicked(evt);
+    }//GEN-LAST:event_last_hand_labelMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra_tiempo;

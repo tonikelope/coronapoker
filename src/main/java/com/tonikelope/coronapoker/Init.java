@@ -26,7 +26,6 @@ import java.io.FileNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
-import java.util.Random;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.sql.Connection;
@@ -516,14 +515,16 @@ public class Init extends javax.swing.JFrame {
 
             Helpers.initSQLITE();
 
-            Helpers.PRNG_GENERATOR = new Random();
-
             try {
+
                 Security.setProperty("securerandom.drbg.config", "Hash_DRBG,SHA-256,256,pr_and_reseed");
                 Helpers.CSPRNG_GENERATOR = SecureRandom.getInstance("DRBG");
+
             } catch (NoSuchAlgorithmException ex) {
+
                 Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                 Helpers.CSPRNG_GENERATOR = new SecureRandom();
+
             }
 
             Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));

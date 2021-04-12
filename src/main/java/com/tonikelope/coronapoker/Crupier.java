@@ -612,7 +612,7 @@ public class Crupier implements Runnable {
 
             Object[][] allin_cinematics = map.get("allin/");
 
-            int r = Helpers.PRNG_GENERATOR.nextInt(allin_cinematics.length) + 1;
+            int r = Helpers.CSPRNG_GENERATOR.nextInt(allin_cinematics.length) + 1;
 
             String filename = (String) allin_cinematics[r - 1][0];
 
@@ -6379,7 +6379,7 @@ public class Crupier implements Runnable {
 
                                     if (current_pot.getPlayers().size() == 1) {
 
-                                        bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "/" + Helpers.float2String(current_pot.getTotal()) + "/";
+                                        bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.float2String(current_pot.getTotal()) + "}";
 
                                         current_pot.getPlayers().get(0).pagar(current_pot.getTotal());
 
@@ -6401,7 +6401,7 @@ public class Crupier implements Runnable {
 
                                         float beneficio_bote = cantidad_pagar_ganador[0] - current_pot.getBet();
 
-                                        bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "/" + Helpers.float2String(current_pot.getTotal()) + " (" + Helpers.float2String(beneficio_bote) + ")/";
+                                        bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.float2String(current_pot.getTotal()) + " (" + Helpers.float2String(beneficio_bote) + ")}";
 
                                         for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
 

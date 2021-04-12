@@ -1211,7 +1211,7 @@ public class Helpers {
 
             case Helpers.CSPRNG:
 
-                //Let's try hotbits CSPRNG -> https://www.fourmilab.ch/hotbits/pseudo.html)
+                //Let's try hotbits CSPRNG -> https://www.fourmilab.ch/hotbits/pseudo.html
                 try {
 
                 return hotbitsPokerDeckPermutation();
@@ -1276,6 +1276,10 @@ public class Helpers {
                     if (n <= count && !permutacion.contains(n)) {
 
                         permutacion.add(n);
+
+                        if (permutacion.size() == count) {
+                            break;
+                        }
                     }
                 }
 
@@ -1283,7 +1287,7 @@ public class Helpers {
 
             if (permutacion.size() < count) {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(500);
                 } catch (InterruptedException ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                 }

@@ -182,7 +182,7 @@ public class Helpers {
     public static final Object TTS_LOCK = new Object();
 
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
-    public volatile static int DECK_RANDOM_GENERATOR = Helpers.CSPRNG;
+    public volatile static int DECK_RANDOM_GENERATOR = Helpers.TRNG;
     public volatile static String RANDOM_ORG_APIKEY = "";
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = loadPropertiesFile();

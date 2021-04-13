@@ -529,7 +529,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void random_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_random_buttonActionPerformed
         // TODO add your handling code here:
 
-        Helpers.DECK_RANDOM_GENERATOR = Helpers.TRNG;
+        Helpers.DECK_RANDOM_GENERATOR = Helpers.RANDOMORG_TRNG;
 
         GameFrame.getInstance().getTapete().getCommunityCards().getRandom_button().setVisible(false);
 

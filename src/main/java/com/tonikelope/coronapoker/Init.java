@@ -517,7 +517,7 @@ public class Init extends javax.swing.JFrame {
 
             try {
 
-                Security.setProperty("securerandom.drbg.config", "Hash_DRBG,SHA-256,256,pr_and_reseed");
+                Security.setProperty("securerandom.drbg.config", "Hash_DRBG,SHA-512,256,pr_and_reseed");
                 Helpers.CSPRNG_GENERATOR = SecureRandom.getInstance("DRBG");
 
             } catch (NoSuchAlgorithmException ex) {

@@ -177,7 +177,7 @@ public class Translator {
             {"¡VAMOS!", "GO!"},
             {"Seguro", "Safe"},
             {"TRNG [RANDOM.ORG] (Muy seguro)", "TRNG [RANDOM.ORG] (Very secure)"},
-            {"CSPRNG [HOTBITS + DRBG] (Seguro)", "CSPRNG [HOTBITS + DRBG] (Secure)"},
+            {"CSPRNG [DRBG SHA-512] (Seguro)", "CSPRNG [DRBG SHA-512] (Secure)"},
             {"Muy seguro", "Very safe"},
             {"LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)", "GAME IS OVER (NO PLAYERS LEFT)"},
             {"En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos.\nSi esto no es posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).", "In the RECOVERY MODE the previous game will be continued from where it was stopped:\n\n1) It is MANDATORY that the old players use the SAME NICKS.\n\n2) In order to continue from the EXACT POINT (with the same cards) it is MANDATORY that ALL the old players connect.\nIf this is not possible, the hand that was in progress when the game was interrupted will be lost.\n\n3) New players are allowed to join the game (they will be the first hand as spectators)."},

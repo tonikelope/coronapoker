@@ -1152,13 +1152,69 @@ public class Helpers {
                         @Override
                         public Object call() {
 
-                            try {
-                                RandomOrgClient roc = RandomOrgClient.getRandomOrgClient(RANDOM_ORG_APIKEY, 24 * 60 * 60 * 1000, 2 * Helpers.RANDOMORG_TIMEOUT, true);
+                            if (!Helpers.RANDOM_ORG_APIKEY.isBlank()) {
 
-                                return Arrays.stream(roc.generateIntegers(DECK_ELEMENTS, 1, DECK_ELEMENTS, false)).boxed().toArray(Integer[]::new);
+                                try {
+                                    RandomOrgClient roc = RandomOrgClient.getRandomOrgClient(RANDOM_ORG_APIKEY, 24 * 60 * 60 * 1000, 2 * Helpers.RANDOMORG_TIMEOUT, true);
 
-                            } catch (RandomOrgSendTimeoutException | RandomOrgKeyNotRunningError | RandomOrgInsufficientRequestsError | RandomOrgInsufficientBitsError | RandomOrgBadHTTPResponseException | RandomOrgRANDOMORGError | RandomOrgJSONRPCError | IOException ex) {
-                                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                    return Arrays.stream(roc.generateIntegers(DECK_ELEMENTS, 1, DECK_ELEMENTS, false)).boxed().toArray(Integer[]::new);
+
+                                } catch (RandomOrgSendTimeoutException | RandomOrgKeyNotRunningError | RandomOrgInsufficientRequestsError | RandomOrgInsufficientBitsError | RandomOrgBadHTTPResponseException | RandomOrgRANDOMORGError | RandomOrgJSONRPCError | IOException ex) {
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            } else {
+
+                                HttpURLConnection con = null;
+
+                                try {
+
+                                    URL url_api = new URL("https://www.random.org/sequences/?min=1&max=52&col=1&format=plain&rnd=new");
+
+                                    con = (HttpURLConnection) url_api.openConnection();
+
+                                    con.addRequestProperty("User-Agent", Helpers.USER_AGENT);
+
+                                    con.setUseCaches(false);
+
+                                    String output = null;
+
+                                    try (InputStream is = con.getInputStream(); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+
+                                        byte[] buffer = new byte[16];
+
+                                        int reads;
+
+                                        while ((reads = is.read(buffer)) != -1) {
+
+                                            byte_res.write(buffer, 0, reads);
+                                        }
+
+                                        output = new String(byte_res.toByteArray(), "UTF-8").trim();
+
+                                    }
+
+                                    String[] parts = output.split("\n");
+
+                                    ArrayList<Integer> permutacion = new ArrayList<>();
+
+                                    for (String p : parts) {
+
+                                        permutacion.add(Integer.valueOf(p.trim()));
+                                    }
+
+                                    return permutacion.toArray(new Integer[permutacion.size()]);
+
+                                } catch (Exception ex) {
+
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+
+                                } finally {
+
+                                    if (con != null) {
+                                        con.disconnect();
+                                    }
+                                }
+
                             }
 
                             return null;

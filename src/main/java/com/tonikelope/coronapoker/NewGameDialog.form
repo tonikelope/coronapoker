@@ -255,7 +255,7 @@
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="16" style="1"/>
             </Property>
-            <Property name="text" type="java.lang.String" value="API KEY:"/>
+            <Property name="text" type="java.lang.String" value="API KEY (opcional):"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
         </Component>

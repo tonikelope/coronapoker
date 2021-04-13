@@ -429,7 +429,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         config_partida_panel.setOpaque(false);
 
         randomorg_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        randomorg_label.setText("API KEY:");
+        randomorg_label.setText("API KEY (opcional):");
         randomorg_label.setDoubleBuffered(true);
 
         random_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
@@ -760,11 +760,6 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                     Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
                     Helpers.RANDOM_ORG_APIKEY = this.randomorg_apikey.getText().trim();
-
-                    if (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG && Helpers.RANDOM_ORG_APIKEY.isBlank()) {
-                        Helpers.mostrarMensajeError((JFrame) this.getParent(), "RANDOM.ORG API KEY NO VÁLIDA (se usará el CSPRNG)");
-                        Helpers.DECK_RANDOM_GENERATOR = Helpers.CSPRNG;
-                    }
 
                     Helpers.PROPERTIES.setProperty("random_generator", String.valueOf(Helpers.DECK_RANDOM_GENERATOR));
                     Helpers.PROPERTIES.setProperty("randomorg_api", this.randomorg_apikey.getText().trim());

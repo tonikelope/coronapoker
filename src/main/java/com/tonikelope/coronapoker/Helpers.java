@@ -45,7 +45,6 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -168,9 +167,8 @@ public class Helpers {
     public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.7f);
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
     public static final int RANDOMORG_TIMEOUT = 10000;
-    public static final int HOTBITS_CSPRNG = 2;
-    public static final int RANDOMORG_TRNG = 1;
-    public static final int HOTBITS_BYTES_PER_REQUEST = 512;
+    public static final int CSPRNG = 2;
+    public static final int TRNG = 1;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
@@ -184,7 +182,7 @@ public class Helpers {
     public static final Object TTS_LOCK = new Object();
 
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
-    public volatile static int DECK_RANDOM_GENERATOR = Helpers.HOTBITS_CSPRNG;
+    public volatile static int DECK_RANDOM_GENERATOR = Helpers.CSPRNG;
     public volatile static String RANDOM_ORG_APIKEY = "";
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = loadPropertiesFile();
@@ -1144,7 +1142,7 @@ public class Helpers {
         ArrayList<Integer> permutacion = new ArrayList<>();
 
         switch (method) {
-            case Helpers.RANDOMORG_TRNG:
+            case Helpers.TRNG:
 
                 FutureTask future = null;
 
@@ -1190,7 +1188,7 @@ public class Helpers {
 
                             if (res == 0) {
 
-                                DECK_RANDOM_GENERATOR = Helpers.HOTBITS_CSPRNG;
+                                DECK_RANDOM_GENERATOR = Helpers.CSPRNG;
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
@@ -1205,25 +1203,10 @@ public class Helpers {
                     });
                 }
 
-                //Fallback to SPRNG
-                return getPokerDeckPermutation(Helpers.HOTBITS_CSPRNG);
+                //Fallback to CSPRNG
+                return getPokerDeckPermutation(Helpers.CSPRNG);
 
-            case Helpers.HOTBITS_CSPRNG:
-                
-                 //Let's try hotbits CSPRNG -> https://www.fourmilab.ch/hotbits/pseudo.html
-                try {
-
-                return hotbitsPokerDeckPermutation();
-
-            } catch (Exception ex) {
-
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-            //Fallback to Java SecureRandom
-            return getPokerDeckPermutation(-1);
-
-            default:
+            case Helpers.CSPRNG:
 
                 if (Helpers.CSPRNG_GENERATOR != null) {
 
@@ -1236,93 +1219,10 @@ public class Helpers {
                     return permutacion.toArray(new Integer[permutacion.size()]);
                 }
 
-                return null;
+            default:
+
+                return getPokerDeckPermutation(Helpers.CSPRNG);
         }
-
-    }
-
-    //Returns a random true permutation of the possible 52! with equal probability
-    public static Integer[] hotbitsPokerDeckPermutation() throws MalformedURLException, IOException {
-
-        ArrayList<Integer> permutacion = new ArrayList<>();
-
-        byte[] hotbits = new byte[HOTBITS_BYTES_PER_REQUEST];
-
-        do {
-
-            URL url_api = new URL("https://www.fourmilab.ch/cgi-bin/Hotbits.api?nbytes=" + String.valueOf(HOTBITS_BYTES_PER_REQUEST) + "&fmt=bin&npass=1&lpass=8&pwtype=3&apikey=&pseudo=pseudo");
-
-            HttpURLConnection con = (HttpURLConnection) url_api.openConnection();
-
-            con.addRequestProperty("User-Agent", Helpers.USER_AGENT);
-
-            con.setUseCaches(false);
-
-            try (InputStream is = con.getInputStream()) {
-
-                int reads, offset = 0;
-
-                while (offset < HOTBITS_BYTES_PER_REQUEST && (reads = is.read(hotbits, offset, HOTBITS_BYTES_PER_REQUEST - offset)) != -1) {
-
-                    offset += reads;
-                }
-            }
-
-            int conta_byte = 0, conta_bit = 0;
-
-            while (conta_byte < hotbits.length) {
-
-                int n = 0, conta_mask = 0;
-
-                while (conta_mask < 6 && conta_byte < hotbits.length) {
-
-                    int bit_mask = ((((int) hotbits[conta_byte]) & 0xFF) & (1 << conta_bit));
-
-                    if (conta_mask > conta_bit) {
-                        n = n | (bit_mask << (conta_mask - conta_bit));
-                    } else if (conta_mask < conta_bit) {
-                        n = n | (bit_mask >> (conta_bit - conta_mask));
-                    } else {
-                        n = n | bit_mask;
-                    }
-
-                    conta_mask++;
-
-                    if (++conta_bit == 8) {
-                        conta_bit = 0;
-                        conta_byte++;
-                    }
-                }
-
-                if (conta_byte < hotbits.length) {
-
-                    n = n + 1;
-
-                    if (n <= DECK_ELEMENTS && !permutacion.contains(n)) {
-
-                        permutacion.add(n);
-
-                        if (permutacion.size() == DECK_ELEMENTS) {
-                            break;
-                        }
-                    }
-                }
-
-            }
-
-            if (permutacion.size() < DECK_ELEMENTS) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "HOTBITS (pidiendo más bits)...");
-
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-
-        } while (permutacion.size() < DECK_ELEMENTS);
-
-        return permutacion.toArray(new Integer[permutacion.size()]);
 
     }
 

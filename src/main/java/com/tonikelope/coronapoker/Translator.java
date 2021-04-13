@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"API KEY (opcional):", "API KEY (optional):"},
             {"RANDOM.ORG API KEY NO VÁLIDA (se usará el CSPRNG)", "NOT VALID RANDOM.ORG API KEY (it will be used CSPRNG instead)"},
             {"SE HA REACTIVADO RANDOM.ORG", "RANDOM.ORG RE-ENABLED"},
             {"(CONTINUANDO TIMBA)", "(RESUMING GAME)"},

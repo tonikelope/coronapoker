@@ -216,7 +216,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             server_ip_textfield.setEnabled(false);
             server_port_textfield.setText(Helpers.PROPERTIES.getProperty("local_port", String.valueOf(DEFAULT_PORT)));
             config_partida_panel.setVisible(true);
-            random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.CSPRNG))) - 1);
+            random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.HOTBITS_CSPRNG))) - 1);
             randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
             rebuy_checkbox.setSelected(true);
             doblar_checkbox.setSelected(true);
@@ -761,9 +761,9 @@ public class NewGameDialog extends javax.swing.JDialog {
                     Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
                     Helpers.RANDOM_ORG_APIKEY = this.randomorg_apikey.getText().trim();
 
-                    if (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG && Helpers.RANDOM_ORG_APIKEY.isBlank()) {
+                    if (Helpers.DECK_RANDOM_GENERATOR == Helpers.RANDOMORG_TRNG && Helpers.RANDOM_ORG_APIKEY.isBlank()) {
                         Helpers.mostrarMensajeError((JFrame) this.getParent(), "RANDOM.ORG API KEY NO VÁLIDA (se usará el CSPRNG)");
-                        Helpers.DECK_RANDOM_GENERATOR = Helpers.CSPRNG;
+                        Helpers.DECK_RANDOM_GENERATOR = Helpers.HOTBITS_CSPRNG;
                     }
 
                     Helpers.PROPERTIES.setProperty("random_generator", String.valueOf(Helpers.DECK_RANDOM_GENERATOR));
@@ -829,10 +829,10 @@ public class NewGameDialog extends javax.swing.JDialog {
         if (!update) {
             Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
 
-            this.randomorg_label.setVisible(Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG);
-            this.randomorg_apikey.setVisible(Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG);
+            this.randomorg_label.setVisible(Helpers.DECK_RANDOM_GENERATOR == Helpers.RANDOMORG_TRNG);
+            this.randomorg_apikey.setVisible(Helpers.DECK_RANDOM_GENERATOR == Helpers.RANDOMORG_TRNG);
 
-            if (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG) {
+            if (Helpers.DECK_RANDOM_GENERATOR == Helpers.RANDOMORG_TRNG) {
                 this.randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
                 Helpers.RANDOM_ORG_APIKEY = Helpers.PROPERTIES.getProperty("randomorg_api", "");
             }

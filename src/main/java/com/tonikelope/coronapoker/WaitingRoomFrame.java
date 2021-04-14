@@ -274,6 +274,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         local_nick = nick;
         server_ip_port = servidor_ip_port;
         local_avatar = avatar;
+        password = pass;
 
         initComponents();
 

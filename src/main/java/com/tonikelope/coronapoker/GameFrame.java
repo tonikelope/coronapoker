@@ -2133,12 +2133,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 // 0=yes, 1=no, 2=cancel
                 if (Helpers.mostrarMensajeInformativoSINO(this, "¡CUIDADO! ERES EL ANFITRIÓN Y SI SALES SE TERMINARÁ LA TIMBA. ¿ESTÁS SEGURO?") == 0) {
 
+                    getLocalPlayer().setExit();
+
                     Helpers.threadRun(new Runnable() {
                         public void run() {
                             //Hay que avisar a los clientes de que la timba ha terminado
                             crupier.broadcastGAMECommandFromServer("SERVEREXIT", null, false);
-
-                            getLocalPlayer().setExit();
 
                             finTransmision(true);
                         }
@@ -2162,14 +2162,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             // 0=yes, 1=no, 2=cancel
             if (Helpers.mostrarMensajeInformativoSINO(this, "¡CUIDADO! Si sales de la timba no podrás volver a entrar. ¿ESTÁS SEGURO?") == 0) {
 
+                getLocalPlayer().setExit();
+
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
                         if (!getSala_espera().isReconnecting()) {
                             crupier.sendGAMECommandToServer("EXIT", false);
                         }
-
-                        getLocalPlayer().setExit();
 
                         finTransmision(false);
                     }

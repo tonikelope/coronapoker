@@ -2150,13 +2150,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         chat.setEditable(false);
         chat.setColumns(20);
-        chat.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        chat.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         chat.setLineWrap(true);
         chat.setRows(5);
         chat.setDoubleBuffered(true);
         jScrollPane1.setViewportView(chat);
 
-        chat_box.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        chat_box.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         chat_box.setDoubleBuffered(true);
         chat_box.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2164,7 +2164,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        avatar_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        avatar_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         avatar_label.setText("Toni");
         avatar_label.setDoubleBuffered(true);
 
@@ -2244,7 +2244,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         panel_conectados.setFocusable(false);
         panel_conectados.setOpaque(false);
 
-        conectados.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        conectados.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         conectados.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         conectados.setToolTipText("Participantes conectados");
         conectados.setCellRenderer(new com.tonikelope.coronapoker.ParticipantsListRenderer());
@@ -2402,7 +2402,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jScrollPane1)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 136, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)

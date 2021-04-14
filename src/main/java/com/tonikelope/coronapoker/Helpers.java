@@ -158,7 +158,8 @@ import org.xml.sax.SAXException;
  */
 public class Helpers {
 
-    public static final String USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
+    public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
+    public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
     public static final float MASTER_VOLUME = 0.8f;
     public static final float TTS_VOLUME = 1.0f;
     public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.2f); //DEFAULT * CUSTOM
@@ -166,7 +167,7 @@ public class Helpers {
     public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/waiting_room.mp3", 0.7f);
     public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.7f);
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
-    public static final int RANDOMORG_TIMEOUT = 10000;
+    public static final int RANDOMORG_TIMEOUT = 15000;
     public static final int CSPRNG = 2;
     public static final int TRNG = 1;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
@@ -1018,7 +1019,7 @@ public class Helpers {
 
                             con = (HttpURLConnection) url_api.openConnection();
 
-                            con.addRequestProperty("User-Agent", Helpers.USER_AGENT);
+                            con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
 
                             con.setUseCaches(false);
 
@@ -1172,7 +1173,7 @@ public class Helpers {
 
                                     con = (HttpURLConnection) url_api.openConnection();
 
-                                    con.addRequestProperty("User-Agent", Helpers.USER_AGENT);
+                                    con.addRequestProperty("User-Agent", USER_AGENT_CORONAPOKER);
 
                                     con.setUseCaches(false);
 
@@ -1270,7 +1271,7 @@ public class Helpers {
                         permutacion.add(i);
                     }
 
-                    Collections.shuffle(permutacion, Helpers.CSPRNG_GENERATOR);
+                    Collections.shuffle(permutacion, Helpers.CSPRNG_GENERATOR); //BEWARE of PRNG used and its SEED LENGTH and/or internal states (in order to generate ANY of the 52! shuffle permutations, a minimum of 2^226 internal states may be required, although it would be advisable to exceed several orders of magnitude this amount)
 
                     return permutacion.toArray(new Integer[permutacion.size()]);
                 }

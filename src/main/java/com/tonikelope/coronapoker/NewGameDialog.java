@@ -428,8 +428,9 @@ public class NewGameDialog extends javax.swing.JDialog {
         config_partida_panel.setVisible(false);
         config_partida_panel.setOpaque(false);
 
-        randomorg_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        randomorg_label.setFont(new java.awt.Font("Dialog", 3, 16)); // NOI18N
         randomorg_label.setText("API KEY (opcional):");
+        randomorg_label.setToolTipText("Random.org API KEY");
         randomorg_label.setDoubleBuffered(true);
 
         random_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
@@ -448,7 +449,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         });
 
         randomorg_apikey.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        randomorg_apikey.setHorizontalAlignment(javax.swing.JTextField.RIGHT);
         randomorg_apikey.setDoubleBuffered(true);
 
         buyin_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N

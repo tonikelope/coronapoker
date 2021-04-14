@@ -721,8 +721,6 @@ public class Crupier implements Runnable {
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
                     GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
                 }
             });

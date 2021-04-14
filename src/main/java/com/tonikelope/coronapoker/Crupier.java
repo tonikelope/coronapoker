@@ -1749,6 +1749,10 @@ public class Crupier implements Runnable {
 
                         //El jugador no estuvo en la mano anterior (pero no porque fuera espectador), así que en esta tiene que entrar de espectador
                         jugador.setSpectator(Translator.translate("CALENTANDO"));
+
+                    } else if (Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
+
+                        jugador.setSpectator(null);
                     }
 
                 } else {
@@ -2155,24 +2159,6 @@ public class Crupier implements Runnable {
 
             if (!GameFrame.getInstance().isPartida_local()) {
                 sqlNewGame();
-            }
-
-            checkRebuyTime();
-
-            if (!rebuy_now.isEmpty()) {
-
-                for (Player jugador : GameFrame.getInstance().getJugadores()) {
-
-                    if (rebuy_now.containsKey(jugador.getNickname())) {
-                        jugador.nuevaMano();
-
-                        if (!saltar_primera_mano) {
-                            jugador.setSpectator(Translator.translate("CALENTANDO"));
-                        }
-                    }
-                }
-
-                this.rebuy_now.clear();
             }
 
             if (getJugadoresActivos() > 1 && !saltar_primera_mano) {

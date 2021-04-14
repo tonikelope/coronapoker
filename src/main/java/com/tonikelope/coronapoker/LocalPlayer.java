@@ -1078,29 +1078,30 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void refreshPos() {
+        if (this.isActivo()) {
+            this.bote = 0f;
 
-        this.bote = 0f;
+            if (Helpers.float1DSecureCompare(0f, this.bet) < 0) {
+                setStack(this.stack + this.bet);
+            }
 
-        if (Helpers.float1DSecureCompare(0f, this.bet) < 0) {
-            setStack(this.stack + this.bet);
-        }
+            this.bet = 0f;
 
-        this.bet = 0f;
+            if (this.nickname.equals(crupier.getBb_nick())) {
+                this.setPosition(BIG_BLIND);
+            } else if (this.nickname.equals(crupier.getSb_nick())) {
+                this.setPosition(SMALL_BLIND);
+            } else if (this.nickname.equals(crupier.getDealer_nick())) {
+                this.setPosition(DEALER);
+            } else {
+                this.setPosition(-1);
+            }
 
-        if (this.nickname.equals(crupier.getBb_nick())) {
-            this.setPosition(BIG_BLIND);
-        } else if (this.nickname.equals(crupier.getSb_nick())) {
-            this.setPosition(SMALL_BLIND);
-        } else if (this.nickname.equals(crupier.getDealer_nick())) {
-            this.setPosition(DEALER);
-        } else {
-            this.setPosition(-1);
-        }
-
-        if (this.nickname.equals(crupier.getUtg_nick())) {
-            this.setUTG();
-        } else {
-            this.disableUTG();
+            if (this.nickname.equals(crupier.getUtg_nick())) {
+                this.setUTG();
+            } else {
+                this.disableUTG();
+            }
         }
     }
 

@@ -85,25 +85,9 @@ public class NewGameDialog extends javax.swing.JDialog {
         this.game_combo.setVisible(false);
         this.vamos.setText("GUARDAR");
 
-        this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
-
-        if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
-            doblar_ciegas_spinner_minutos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-            doblar_ciegas_spinner_minutos.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_DOUBLE > 0 ? GameFrame.CIEGAS_DOUBLE : 60, 5, null, 5));
-            ((DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
-            doblar_ciegas_spinner_manos.setEnabled(false);
-            ((DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
-            double_blinds_radio_minutos.setSelected(true);
-            double_blinds_radio_manos.setSelected(false);
-        } else {
-            doblar_ciegas_spinner_manos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-            doblar_ciegas_spinner_manos.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_DOUBLE > 0 ? GameFrame.CIEGAS_DOUBLE : 60, 1, null, 1));
-            ((DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
-            doblar_ciegas_spinner_minutos.setEnabled(false);
-            ((DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
-            double_blinds_radio_minutos.setSelected(false);
-            double_blinds_radio_manos.setSelected(true);
-        }
+        doblar_ciegas_spinner.setEnabled(GameFrame.CIEGAS_TIME > 0);
+        doblar_ciegas_spinner.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_TIME > 0 ? GameFrame.CIEGAS_TIME : 60, 5, null, 5));
+        ((DefaultEditor) doblar_ciegas_spinner.getEditor()).getTextField().setEditable(false);
 
         this.manos_spinner.setEnabled(GameFrame.MANOS > 0);
         this.manos_checkbox.setSelected(GameFrame.MANOS > 0);
@@ -111,7 +95,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
 
         this.rebuy_checkbox.setSelected(GameFrame.REBUY);
-        this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
+        this.doblar_checkbox.setSelected(GameFrame.CIEGAS_TIME > 0);
 
         String ciegas = (GameFrame.CIEGA_PEQUEÑA >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_PEQUEÑA)) : Helpers.float2String(GameFrame.CIEGA_PEQUEÑA)) + " / " + (GameFrame.CIEGA_GRANDE >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_GRANDE)) : Helpers.float2String(GameFrame.CIEGA_GRANDE));
 
@@ -158,12 +142,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         password.setEnabled(false);
 
         manos_spinner.setEnabled(false);
-
-        double_blinds_radio_minutos.setSelected(true);
-
-        double_blinds_radio_manos.setSelected(false);
-
-        doblar_ciegas_spinner_manos.setEnabled(false);
 
         if (partida_local) {
             upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "true")));
@@ -242,8 +220,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
             rebuy_checkbox.setSelected(true);
             doblar_checkbox.setSelected(true);
-            ((DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
-            ((DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
+            ((DefaultEditor) doblar_ciegas_spinner.getEditor()).getTextField().setEditable(false);
 
             String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
 
@@ -362,6 +339,8 @@ public class NewGameDialog extends javax.swing.JDialog {
         randomorg_apikey = new javax.swing.JTextField();
         buyin_spinner = new javax.swing.JSpinner();
         buyin_label = new javax.swing.JLabel();
+        doblar_checkbox = new javax.swing.JCheckBox();
+        doblar_ciegas_spinner = new javax.swing.JSpinner();
         recover_checkbox = new javax.swing.JCheckBox();
         rebuy_checkbox = new javax.swing.JCheckBox();
         ciegas_label = new javax.swing.JLabel();
@@ -369,12 +348,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         game_combo = new javax.swing.JComboBox<>();
         manos_checkbox = new javax.swing.JCheckBox();
         manos_spinner = new javax.swing.JSpinner();
-        jPanel1 = new javax.swing.JPanel();
-        doblar_checkbox = new javax.swing.JCheckBox();
-        doblar_ciegas_spinner_minutos = new javax.swing.JSpinner();
-        double_blinds_radio_minutos = new javax.swing.JRadioButton();
-        double_blinds_radio_manos = new javax.swing.JRadioButton();
-        doblar_ciegas_spinner_manos = new javax.swing.JSpinner();
         nick_pass_panel = new javax.swing.JPanel();
         avatar_img = new javax.swing.JLabel();
         nick = new javax.swing.JTextField();
@@ -489,12 +462,27 @@ public class NewGameDialog extends javax.swing.JDialog {
         });
 
         buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        buyin_label.setText("Compra inicial (10 a 100 ciegas grandes):");
+        buyin_label.setText("Compra inicial:");
         buyin_label.setToolTipText("[10-100] ciegas grandes");
         buyin_label.setDoubleBuffered(true);
 
+        doblar_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        doblar_checkbox.setText("Doblar ciegas (min):");
+        doblar_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        doblar_checkbox.setDoubleBuffered(true);
+        doblar_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                doblar_checkboxActionPerformed(evt);
+            }
+        });
+
+        doblar_ciegas_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        doblar_ciegas_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 5, null, 5));
+        doblar_ciegas_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        doblar_ciegas_spinner.setDoubleBuffered(true);
+
         recover_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        recover_checkbox.setText("CONTINUAR TIMBA ANTERIOR:");
+        recover_checkbox.setText("CONTINUAR TIMBA");
         recover_checkbox.setToolTipText("El MODO RECUPERACIÓN permite arrancar una timba que se interrumpió previamente");
         recover_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recover_checkbox.setDoubleBuffered(true);
@@ -504,14 +492,14 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
-        rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         rebuy_checkbox.setText("Permitir recomprar");
         rebuy_checkbox.setToolTipText("Si algún jugador se queda sin fichas");
         rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_checkbox.setDoubleBuffered(true);
 
         ciegas_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        ciegas_label.setText("Ciegas iniciales:");
+        ciegas_label.setText("Ciegas:");
         ciegas_label.setDoubleBuffered(true);
 
         ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
@@ -533,7 +521,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         });
 
         manos_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        manos_checkbox.setText("Límite de manos:");
+        manos_checkbox.setText("Manos:");
         manos_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         manos_checkbox.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
@@ -545,105 +533,29 @@ public class NewGameDialog extends javax.swing.JDialog {
         manos_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 5, null, 5));
         manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
-
-        doblar_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        doblar_checkbox.setText("Aumentar ciegas");
-        doblar_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        doblar_checkbox.setDoubleBuffered(true);
-        doblar_checkbox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                doblar_checkboxActionPerformed(evt);
-            }
-        });
-
-        doblar_ciegas_spinner_minutos.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        doblar_ciegas_spinner_minutos.setModel(new javax.swing.SpinnerNumberModel(60, 5, null, 5));
-        doblar_ciegas_spinner_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        doblar_ciegas_spinner_minutos.setDoubleBuffered(true);
-
-        double_blinds_radio_minutos.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        double_blinds_radio_minutos.setText("Minutos:");
-        double_blinds_radio_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        double_blinds_radio_minutos.setDoubleBuffered(true);
-        double_blinds_radio_minutos.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                double_blinds_radio_minutosActionPerformed(evt);
-            }
-        });
-
-        double_blinds_radio_manos.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        double_blinds_radio_manos.setText("Manos:");
-        double_blinds_radio_manos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        double_blinds_radio_manos.setDoubleBuffered(true);
-        double_blinds_radio_manos.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                double_blinds_radio_manosActionPerformed(evt);
-            }
-        });
-
-        doblar_ciegas_spinner_manos.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        doblar_ciegas_spinner_manos.setModel(new javax.swing.SpinnerNumberModel(30, 1, null, 1));
-        doblar_ciegas_spinner_manos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        doblar_ciegas_spinner_manos.setDoubleBuffered(true);
-
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addComponent(doblar_checkbox)
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addGap(21, 21, 21)
-                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(jPanel1Layout.createSequentialGroup()
-                                .addComponent(double_blinds_radio_manos)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, 227, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(jPanel1Layout.createSequentialGroup()
-                                .addComponent(double_blinds_radio_minutos)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, 227, javax.swing.GroupLayout.PREFERRED_SIZE)))))
-                .addContainerGap())
-        );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(doblar_checkbox)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(double_blinds_radio_minutos)
-                    .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(double_blinds_radio_manos)
-                    .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-
         javax.swing.GroupLayout config_partida_panelLayout = new javax.swing.GroupLayout(config_partida_panel);
         config_partida_panel.setLayout(config_partida_panelLayout);
         config_partida_panelLayout.setHorizontalGroup(
             config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(config_partida_panelLayout.createSequentialGroup()
-                .addComponent(recover_checkbox)
-                .addGap(18, 18, 18)
-                .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addGroup(config_partida_panelLayout.createSequentialGroup()
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(buyin_label)
                     .addComponent(ciegas_label)
                     .addComponent(manos_checkbox))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGap(91, 91, 91)
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(buyin_spinner)
-                    .addComponent(manos_spinner)))
+                    .addComponent(buyin_spinner, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(manos_spinner, javax.swing.GroupLayout.Alignment.TRAILING)))
+            .addGroup(config_partida_panelLayout.createSequentialGroup()
+                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(doblar_checkbox)
+                    .addComponent(recover_checkbox)
+                    .addComponent(rebuy_checkbox))
+                .addGap(18, 18, 18)
+                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(doblar_ciegas_spinner)
+                    .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
             .addGroup(config_partida_panelLayout.createSequentialGroup()
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(random_label)
@@ -651,18 +563,19 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(randomorg_apikey)
-                    .addComponent(random_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, config_partida_panelLayout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
-                .addComponent(rebuy_checkbox))
+                    .addComponent(random_combobox, 0, 359, Short.MAX_VALUE)))
         );
         config_partida_panelLayout.setVerticalGroup(
             config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(config_partida_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(recover_checkbox)
-                    .addComponent(game_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(random_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(random_label))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(randomorg_label)
+                    .addComponent(randomorg_apikey, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(ciegas_label)
@@ -671,23 +584,20 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(buyin_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(buyin_label))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(rebuy_checkbox)
-                .addGap(18, 18, 18)
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(manos_checkbox)
                     .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
+                .addComponent(rebuy_checkbox)
+                .addGap(18, 18, 18)
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(random_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(random_label))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                    .addComponent(doblar_checkbox)
+                    .addComponent(doblar_ciegas_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(randomorg_label)
-                    .addComponent(randomorg_apikey, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap())
+                    .addComponent(recover_checkbox)
+                    .addComponent(game_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
 
         avatar_img.setToolTipText("Haz click para cambiar el avatar");
@@ -781,9 +691,9 @@ public class NewGameDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(url_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(config_partida_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(vamos, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -818,17 +728,9 @@ public class NewGameDialog extends javax.swing.JDialog {
             GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].trim());
 
             if (this.doblar_checkbox.isSelected()) {
-
-                if (this.double_blinds_radio_minutos.isSelected()) {
-                    GameFrame.CIEGAS_DOUBLE = (int) this.doblar_ciegas_spinner_minutos.getValue();
-                    GameFrame.CIEGAS_DOUBLE_TYPE = 1;
-                } else {
-                    GameFrame.CIEGAS_DOUBLE = (int) this.doblar_ciegas_spinner_manos.getValue();
-                    GameFrame.CIEGAS_DOUBLE_TYPE = 2;
-                }
+                GameFrame.CIEGAS_TIME = (int) this.doblar_ciegas_spinner.getValue();
             } else {
-                GameFrame.CIEGAS_DOUBLE_TYPE = 1;
-                GameFrame.CIEGAS_DOUBLE = 0;
+                GameFrame.CIEGAS_TIME = 0;
             }
 
             this.dialog_ok = true;
@@ -893,17 +795,9 @@ public class NewGameDialog extends javax.swing.JDialog {
                 GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].trim());
 
                 if (this.doblar_checkbox.isSelected()) {
-
-                    if (this.double_blinds_radio_minutos.isSelected()) {
-                        GameFrame.CIEGAS_DOUBLE = (int) this.doblar_ciegas_spinner_minutos.getValue();
-                        GameFrame.CIEGAS_DOUBLE_TYPE = 1;
-                    } else {
-                        GameFrame.CIEGAS_DOUBLE = (int) this.doblar_ciegas_spinner_manos.getValue();
-                        GameFrame.CIEGAS_DOUBLE_TYPE = 2;
-                    }
+                    GameFrame.CIEGAS_TIME = (int) this.doblar_ciegas_spinner.getValue();
                 } else {
-                    GameFrame.CIEGAS_DOUBLE_TYPE = 1;
-                    GameFrame.CIEGAS_DOUBLE = 0;
+                    GameFrame.CIEGAS_TIME = 0;
                 }
 
                 this.dialog_ok = true;
@@ -979,10 +873,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
     private void doblar_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_doblar_checkboxActionPerformed
         // TODO add your handling code here:
-        this.doblar_ciegas_spinner_minutos.setEnabled(this.doblar_checkbox.isSelected() && this.double_blinds_radio_minutos.isSelected());
-        this.doblar_ciegas_spinner_manos.setEnabled(this.doblar_checkbox.isSelected() && this.double_blinds_radio_manos.isSelected());
-        this.double_blinds_radio_manos.setEnabled(this.doblar_checkbox.isSelected());
-        this.double_blinds_radio_minutos.setEnabled(this.doblar_checkbox.isSelected());
+        this.doblar_ciegas_spinner.setEnabled(this.doblar_checkbox.isSelected());
     }//GEN-LAST:event_doblar_checkboxActionPerformed
 
     private void buyin_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_buyin_spinnerStateChanged
@@ -1019,13 +910,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 this.ciegas_combobox.setEnabled(false);
 
-                this.doblar_ciegas_spinner_minutos.setEnabled(false);
-
-                this.double_blinds_radio_minutos.setEnabled(false);
-
-                this.doblar_ciegas_spinner_manos.setEnabled(false);
-
-                this.double_blinds_radio_manos.setEnabled(false);
+                this.doblar_ciegas_spinner.setEnabled(false);
 
                 this.doblar_checkbox.setEnabled(false);
 
@@ -1058,9 +943,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             this.ciegas_combobox.setEnabled(true);
 
-            this.double_blinds_radio_minutos.setEnabled(true);
-
-            this.doblar_ciegas_spinner_minutos.setEnabled(true);
+            this.doblar_ciegas_spinner.setEnabled(true);
 
             this.doblar_checkbox.setEnabled(true);
 
@@ -1123,31 +1006,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         vamos.doClick();
     }//GEN-LAST:event_server_port_textfieldActionPerformed
 
-    private void double_blinds_radio_minutosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_double_blinds_radio_minutosActionPerformed
-        // TODO add your handling code here:
-
-        if (this.double_blinds_radio_minutos.isSelected()) {
-            this.doblar_ciegas_spinner_minutos.setEnabled(true);
-            this.double_blinds_radio_manos.setSelected(false);
-            this.doblar_ciegas_spinner_manos.setEnabled(false);
-        } else {
-            this.double_blinds_radio_minutos.setSelected(true);
-        }
-
-    }//GEN-LAST:event_double_blinds_radio_minutosActionPerformed
-
-    private void double_blinds_radio_manosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_double_blinds_radio_manosActionPerformed
-        // TODO add your handling code here:
-
-        if (this.double_blinds_radio_manos.isSelected()) {
-            this.doblar_ciegas_spinner_manos.setEnabled(true);
-            this.double_blinds_radio_minutos.setSelected(false);
-            this.doblar_ciegas_spinner_minutos.setEnabled(false);
-        } else {
-            this.double_blinds_radio_manos.setSelected(true);
-        }
-    }//GEN-LAST:event_double_blinds_radio_manosActionPerformed
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;
     private javax.swing.JLabel buyin_label;
@@ -1156,13 +1014,9 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JLabel ciegas_label;
     private javax.swing.JPanel config_partida_panel;
     private javax.swing.JCheckBox doblar_checkbox;
-    private javax.swing.JSpinner doblar_ciegas_spinner_manos;
-    private javax.swing.JSpinner doblar_ciegas_spinner_minutos;
-    private javax.swing.JRadioButton double_blinds_radio_manos;
-    private javax.swing.JRadioButton double_blinds_radio_minutos;
+    private javax.swing.JSpinner doblar_ciegas_spinner;
     private javax.swing.JComboBox<String> game_combo;
     private javax.swing.JLabel jLabel1;
-    private javax.swing.JPanel jPanel1;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;
     private javax.swing.JTextField nick;

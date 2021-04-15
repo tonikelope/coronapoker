@@ -111,7 +111,7 @@ public class TablePanelFactory {
 
                         nuevo_panel.getCommunityCards().getPot_label().setText(Translator.translate("Bote: ") + "-----");
                         nuevo_panel.getCommunityCards().getHand_label().setText(Translator.translate("Mano: ") + String.valueOf(GameFrame.getInstance().getCrupier().getMano()));
-                        nuevo_panel.getCommunityCards().getBlinds_label().setText(Translator.translate("Ciegas: ") + Helpers.float2String(GameFrame.getInstance().getCrupier().getCiega_pequeña()) + " / " + Helpers.float2String(GameFrame.getInstance().getCrupier().getCiega_grande()) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" + (GameFrame.getInstance().getCrupier().getCiegas_double() > 0 ? " (" + String.valueOf(GameFrame.getInstance().getCrupier().getCiegas_double()) + ")" : "") : ""));
+                        nuevo_panel.getCommunityCards().getBlinds_label().setText(Translator.translate("Ciegas: ") + Helpers.float2String(GameFrame.getInstance().getCrupier().getCiega_pequeña()) + " / " + Helpers.float2String(GameFrame.getInstance().getCrupier().getCiega_grande()) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") + (GameFrame.getInstance().getCrupier().getCiegas_double() > 0 ? " (" + String.valueOf(GameFrame.getInstance().getCrupier().getCiegas_double()) + ")" : "") : ""));
                     }
                 });
             }

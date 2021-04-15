@@ -333,7 +333,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             status.setText("Esperando jugadores...");
 
-            gameinfo_original = GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : "");
+            gameinfo_original = GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : "");
 
             if (game_info.isEnabled()) {
                 game_info.setText(gameinfo_original);
@@ -1398,7 +1398,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                         GameFrame.CIEGA_GRANDE = Float.parseFloat(partes_comando[5]);
 
-                                                        GameFrame.CIEGAS_TIME = Integer.parseInt(partes_comando[6]);
+                                                        String[] ciegas_double = partes_comando[6].split("@");
+
+                                                        GameFrame.CIEGAS_DOUBLE = Integer.parseInt(ciegas_double[0]);
+
+                                                        GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(ciegas_double[1]);
 
                                                         GameFrame.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
 
@@ -2892,7 +2896,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             if (dialog.isDialog_ok()) {
 
-                game_info.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : ""));
+                game_info.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : ""));
 
                 if (!gameinfo_original.equals(game_info.getText())) {
                     game_info.setOpaque(true);

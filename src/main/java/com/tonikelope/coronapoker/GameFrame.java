@@ -78,7 +78,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile float CIEGA_PEQUEÑA = 0.10f;
     public static volatile float CIEGA_GRANDE = 0.20f;
     public static volatile int BUYIN = 10;
-    public static volatile int CIEGAS_TIME = 60;
+    public static volatile int CIEGAS_DOUBLE = 60;
+    public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
     public static volatile boolean REBUY = true;
     public static volatile int MANOS = -1;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
@@ -1174,7 +1175,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                tapete.getCommunityCards().getBlinds_label().setText(Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (GameFrame.CIEGAS_TIME > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_TIME) + "'" + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
+                tapete.getCommunityCards().getBlinds_label().setText(Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
             }
         });
 

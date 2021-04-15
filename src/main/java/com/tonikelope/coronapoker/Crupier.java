@@ -1715,9 +1715,7 @@ public class Crupier implements Runnable {
 
         this.ciega_grande = (float) map.get("bbval");
 
-        GameFrame.CIEGAS_DOUBLE = (int) map.get("blinds_time");
-
-        GameFrame.CIEGAS_DOUBLE_TYPE = (int) map.get("blinds_time_type");
+        GameFrame.CIEGAS_TIME = (int) map.get("blinds_time");
 
         this.ciegas_double = (int) map.get("blinds_double");
 
@@ -1937,11 +1935,7 @@ public class Crupier implements Runnable {
 
     private boolean checkDoblarCiegas() {
 
-        if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
-            return (GameFrame.CIEGAS_DOUBLE > 0 && (int) Math.floor((float) GameFrame.getInstance().getConta_tiempo_juego() / (GameFrame.CIEGAS_DOUBLE * 60)) > this.ciegas_double);
-        } else {
-            return (GameFrame.CIEGAS_DOUBLE > 0 && this.conta_mano > 1 && (int) Math.floor((float) this.conta_mano / GameFrame.CIEGAS_DOUBLE) > this.ciegas_double);
-        }
+        return (GameFrame.CIEGAS_TIME > 0 && (int) Math.floor((float) GameFrame.getInstance().getConta_tiempo_juego() / (GameFrame.CIEGAS_TIME * 60)) > this.ciegas_double);
     }
 
     private void doblarCiegas() {
@@ -2765,7 +2759,7 @@ public class Crupier implements Runnable {
 
         try {
 
-            String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -2788,13 +2782,11 @@ public class Crupier implements Runnable {
 
             statement.setFloat(4, Helpers.floatClean1D(GameFrame.CIEGA_PEQUEÑA));
 
-            statement.setInt(5, GameFrame.CIEGAS_DOUBLE);
+            statement.setInt(5, GameFrame.CIEGAS_TIME);
 
             statement.setBoolean(6, GameFrame.REBUY);
 
             statement.setString(7, GameFrame.getInstance().getSala_espera().getServer_nick());
-
-            statement.setInt(8, GameFrame.CIEGAS_DOUBLE_TYPE);
 
             statement.executeUpdate();
 
@@ -4961,7 +4953,7 @@ public class Crupier implements Runnable {
 
         try {
 
-            String sql = "select hand.id as hand_id, hand.end as hand_end, hand.preflop_players as preflop_players, server, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, blinds_time_type, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
+            String sql = "select hand.id as hand_id, hand.end as hand_end, hand.preflop_players as preflop_players, server, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -4989,7 +4981,6 @@ public class Crupier implements Runnable {
             map.put("sbval", rs.getFloat("sbval"));
             map.put("bbval", rs.getFloat("bbval"));
             map.put("blinds_time", rs.getInt("blinds_time"));
-            map.put("blinds_time_type", rs.getInt("blinds_time_type"));
             map.put("blinds_double", rs.getInt("blinds_double"));
             map.put("dealer", rs.getString("dealer"));
             map.put("sb", rs.getString("sb"));
@@ -5947,7 +5938,7 @@ public class Crupier implements Runnable {
 
         if (GameFrame.getInstance().isPartida_local()) {
 
-            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS), null);
+            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_TIME) + "#" + String.valueOf(GameFrame.isRECOVER()) + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS), null);
 
         }
 

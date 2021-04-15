@@ -22,12 +22,6 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
-            {"Aumentar ciegas", "Increase blinds"},
-            {"Minutos:", "Minutes:"},
-            {"Manos:", "Hands:"},
-            {"Límite de manos:", "Hands limit:"},
-            {"Compra inicial (10 a 100 ciegas grandes):", "Buy-in (10 to 100 big blinds):"},
-            {"Ciegas iniciales:", "Initial blinds:"},
             {"API KEY (opcional):", "API KEY (optional):"},
             {"RANDOM.ORG API KEY NO VÁLIDA (se usará el CSPRNG)", "NOT VALID RANDOM.ORG API KEY (it will be used CSPRNG instead)"},
             {"SE HA REACTIVADO RANDOM.ORG", "RANDOM.ORG RE-ENABLED"},
@@ -71,7 +65,7 @@ public class Translator {
             {"¡¡TEN CUIDADO!! EL JUGADOR NO HIZO ESO LA OTRA VEZ. (ALGUIEN ESTÁ HACIENDO TRAMPAS).", "BE CAREFUL! THE PLAYER DIDN'T DO THAT LAST TIME. (HE/SHE'S OR THE SERVER IS CHEATING)."},
             {"NO SE PUEDE RECUPERAR LA MANO EN CURSO PORQUE FALTAN JUGADORES DE LA MANO ANTERIOR", "THE CURRENT HAND CANNOT BE RECOVERED BECAUSE PLAYERS FROM THE PREVIOUS HAND ARE MISSING"},
             {"Manos:", "Hands:"},
-            {"CONTINUAR TIMBA ANTERIOR:", "RESUME PREVIOUS GAME:"},
+            {"CONTINUAR TIMBA", "RESUME GAME"},
             {"Nota: lo que se muestra es el porcentaje de manos subidas en relación a las manos jugadas.", "Note: what is shown is the percentage of hands raised in relation to the hands played."},
             {"Intercambio de claves...", "Keys exchange..."},
             {"Chequeo de integridad...", "Integrity check..."},

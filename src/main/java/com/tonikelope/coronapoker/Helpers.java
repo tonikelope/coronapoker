@@ -114,7 +114,6 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
-import javax.swing.JRadioButton;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
@@ -313,7 +312,7 @@ public class Helpers {
 
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT)");
 
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
 
@@ -695,11 +694,6 @@ public class Helpers {
 
                 ((JButton) component).setText(Translator.translate(((JButton) component).getText(), force));
                 ((JButton) component).setToolTipText(Translator.translate(((JButton) component).getToolTipText(), force));
-
-            } else if (component instanceof JRadioButton) {
-
-                ((JRadioButton) component).setText(Translator.translate(((JRadioButton) component).getText(), force));
-                ((JRadioButton) component).setToolTipText(Translator.translate(((JRadioButton) component).getToolTipText(), force));
 
             } else if (component instanceof JCheckBox) {
 

@@ -33,10 +33,12 @@
               <Component id="pause_button" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
               <Component id="random_button" min="-2" max="-2" attributes="0"/>
-              <EmptySpace max="-2" attributes="0"/>
-              <Component id="hand_limit_spinner" max="32767" attributes="0"/>
-              <EmptySpace type="unrelated" max="32767" attributes="0"/>
+              <EmptySpace max="32767" attributes="0"/>
               <Component id="tiempo_partida" min="-2" max="-2" attributes="0"/>
+              <EmptySpace type="unrelated" max="-2" attributes="0"/>
+              <Component id="hand_limit_spinner" max="32767" attributes="0"/>
+              <EmptySpace max="-2" attributes="0"/>
+              <Component id="max_hands_button" min="-2" max="-2" attributes="0"/>
               <EmptySpace type="unrelated" max="-2" attributes="0"/>
               <Component id="hand_label" min="-2" max="-2" attributes="0"/>
           </Group>
@@ -61,15 +63,14 @@
               <Component id="cards_panel" max="32767" attributes="0"/>
               <EmptySpace type="unrelated" max="-2" attributes="0"/>
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="103" alignment="0" groupAlignment="3" attributes="0">
-                      <Component id="hand_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                      <Component id="tiempo_partida" alignment="3" min="-2" max="-2" attributes="0"/>
-                  </Group>
+                  <Component id="hand_label" alignment="0" min="-2" max="-2" attributes="0"/>
                   <Group type="103" alignment="0" groupAlignment="3" attributes="0">
                       <Component id="blinds_label" alignment="3" min="-2" max="-2" attributes="0"/>
                       <Component id="pause_button" alignment="3" min="-2" max="-2" attributes="0"/>
                       <Component id="random_button" alignment="3" min="-2" max="-2" attributes="0"/>
                       <Component id="hand_limit_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
+                      <Component id="tiempo_partida" alignment="3" min="-2" max="-2" attributes="0"/>
+                      <Component id="max_hands_button" alignment="3" min="-2" max="-2" attributes="0"/>
                   </Group>
               </Group>
               <EmptySpace max="-2" attributes="0"/>
@@ -143,6 +144,7 @@
           <Color blue="0" green="cc" red="99" type="rgb"/>
         </Property>
         <Property name="text" type="java.lang.String" value="Mano:"/>
+        <Property name="toolTipText" type="java.lang.String" value="CLICK IZQ: &#xda;LTIMA MANO / CLICK DCHO: L&#xcd;MITE DE MANOS"/>
         <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
           <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
             <EmptyBorder/>
@@ -206,7 +208,7 @@
         </DimensionLayout>
         <DimensionLayout dim="1">
           <Group type="103" groupAlignment="0" attributes="0">
-              <Component id="barra_tiempo" alignment="0" pref="27" max="32767" attributes="0"/>
+              <Component id="barra_tiempo" alignment="0" pref="28" max="32767" attributes="0"/>
           </Group>
         </DimensionLayout>
       </Layout>
@@ -358,9 +360,27 @@
     <Component class="javax.swing.JSpinner" name="hand_limit_spinner">
       <Properties>
         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Dialog" size="18" style="1"/>
+          <Font name="Dialog" size="22" style="1"/>
         </Property>
+        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+          <Color id="Cursor de Mano"/>
+        </Property>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
+        <Property name="focusable" type="boolean" value="false"/>
       </Properties>
+    </Component>
+    <Component class="javax.swing.JButton" name="max_hands_button">
+      <Properties>
+        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+          <Font name="Dialog" size="20" style="1"/>
+        </Property>
+        <Property name="text" type="java.lang.String" value="OK"/>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
+        <Property name="focusable" type="boolean" value="false"/>
+      </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="max_hands_buttonActionPerformed"/>
+      </Events>
     </Component>
   </SubComponents>
 </Form>

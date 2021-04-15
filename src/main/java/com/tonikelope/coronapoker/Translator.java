@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"CLICK IZQ: ÚLTIMA MANO / CLICK DCHO: LÍMITE DE MANOS", "LEFT CLICK: LAST HAND / RIGHT CLICK: HANDS LIMIT"},
             {"Aumentar ciegas", "Increase blinds"},
             {"Minutos:", "Minutes:"},
             {"Manos:", "Hands:"},

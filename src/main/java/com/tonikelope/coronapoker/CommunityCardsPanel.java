@@ -122,6 +122,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 last_hand_label.setVisible(false);
                 random_button.setVisible(false);
                 hand_limit_spinner.setVisible(false);
+                max_hands_button.setVisible(false);
             }
         });
 
@@ -201,6 +202,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return hand_limit_spinner;
     }
 
+    public JButton getMax_hands_button() {
+        return max_hands_button;
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -228,6 +233,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         last_hand_label = new javax.swing.JLabel();
         random_button = new javax.swing.JButton();
         hand_limit_spinner = new javax.swing.JSpinner();
+        max_hands_button = new javax.swing.JButton();
 
         setFocusable(false);
         setOpaque(false);
@@ -256,6 +262,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         hand_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         hand_label.setForeground(new java.awt.Color(153, 204, 0));
         hand_label.setText("Mano:");
+        hand_label.setToolTipText("CLICK IZQ: ÚLTIMA MANO / CLICK DCHO: LÍMITE DE MANOS");
         hand_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         hand_label.setDoubleBuffered(true);
@@ -300,7 +307,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         );
         panel_barraLayout.setVerticalGroup(
             panel_barraLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 27, Short.MAX_VALUE)
+            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 28, Short.MAX_VALUE)
         );
 
         cards_panel.setFocusable(false);
@@ -383,7 +390,20 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
-        hand_limit_spinner.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        hand_limit_spinner.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        hand_limit_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        hand_limit_spinner.setDoubleBuffered(true);
+        hand_limit_spinner.setFocusable(false);
+
+        max_hands_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        max_hands_button.setText("OK");
+        max_hands_button.setDoubleBuffered(true);
+        max_hands_button.setFocusable(false);
+        max_hands_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                max_hands_buttonActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
@@ -401,10 +421,12 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addComponent(pause_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(random_button)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(hand_limit_spinner)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(tiempo_partida)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(hand_limit_spinner)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(max_hands_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(hand_label))
             .addComponent(panel_barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -425,14 +447,14 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addComponent(cards_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(hand_label)
-                        .addComponent(tiempo_partida))
+                    .addComponent(hand_label)
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(blinds_label)
                         .addComponent(pause_button)
                         .addComponent(random_button)
-                        .addComponent(hand_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addComponent(hand_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(tiempo_partida)
+                        .addComponent(max_hands_button)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(panel_barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
@@ -486,62 +508,72 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             } else if (SwingUtilities.isRightMouseButton(evt)) {
 
-                if (tthis.getHand_limit_spinner().isVisible()) {
-
-                    tthis.getHand_limit_spinner().setVisible(false);
-
-                    tthis.getHand_label().setEnabled(false);
-
-                    int manos = (int) (GameFrame.getInstance().getTapete().getCommunityCards().getHand_limit_spinner().getValue());
-
-                    int old_manos = GameFrame.MANOS;
-
-                    if (manos == 0) {
-                        GameFrame.MANOS = -1;
-
-                    } else if (GameFrame.getInstance().getCrupier().getMano() < manos) {
-
-                        GameFrame.MANOS = manos;
-                    }
-
-                    GameFrame.getInstance().getTapete().getCommunityCards().getHand_limit_spinner().setVisible(false);
-
-                    if (GameFrame.MANOS != old_manos) {
-
-                        Helpers.threadRun(new Runnable() {
-
-                            public void run() {
-
-                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("MAXHANDS#" + String.valueOf(GameFrame.MANOS), null);
-
-                                GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
-
-                                Helpers.GUIRun(new Runnable() {
-
-                                    public void run() {
-                                        tthis.getHand_label().setEnabled(true);
-                                    }
-                                });
-
-                            }
-                        });
-
-                    } else {
-                        tthis.getHand_label().setEnabled(true);
-                    }
-
-                } else {
-                    tthis.getHand_limit_spinner().setModel(new SpinnerNumberModel(GameFrame.MANOS != -1 ? GameFrame.MANOS : 0, 0, null, 1));
-
-                    ((JSpinner.DefaultEditor) tthis.getHand_limit_spinner().getEditor()).getTextField().setEditable(false);
-
-                    tthis.getHand_limit_spinner().setVisible(true);
-                }
+                click_max_hands();
 
             }
 
         }
     }//GEN-LAST:event_hand_labelMouseClicked
+
+    private void click_max_hands() {
+        CommunityCardsPanel tthis = GameFrame.getInstance().getTapete().getCommunityCards();
+
+        if (tthis.getHand_limit_spinner().isVisible()) {
+
+            tthis.getHand_limit_spinner().setVisible(false);
+
+            max_hands_button.setVisible(false);
+
+            tthis.getHand_label().setEnabled(false);
+
+            int manos = (int) (GameFrame.getInstance().getTapete().getCommunityCards().getHand_limit_spinner().getValue());
+
+            int old_manos = GameFrame.MANOS;
+
+            if (manos == 0) {
+                GameFrame.MANOS = -1;
+
+            } else if (GameFrame.getInstance().getCrupier().getMano() < manos) {
+
+                GameFrame.MANOS = manos;
+            }
+
+            GameFrame.getInstance().getTapete().getCommunityCards().getHand_limit_spinner().setVisible(false);
+
+            if (GameFrame.MANOS != old_manos) {
+
+                Helpers.threadRun(new Runnable() {
+
+                    public void run() {
+
+                        GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("MAXHANDS#" + String.valueOf(GameFrame.MANOS), null);
+
+                        GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+
+                        Helpers.GUIRun(new Runnable() {
+
+                            public void run() {
+                                tthis.getHand_label().setEnabled(true);
+                            }
+                        });
+
+                    }
+                });
+
+            } else {
+                tthis.getHand_label().setEnabled(true);
+            }
+
+        } else {
+            tthis.getHand_limit_spinner().setModel(new SpinnerNumberModel(GameFrame.MANOS != -1 ? GameFrame.MANOS : 0, 0, null, 1));
+
+            ((JSpinner.DefaultEditor) tthis.getHand_limit_spinner().getEditor()).getTextField().setEditable(false);
+
+            tthis.getHand_limit_spinner().setVisible(true);
+
+            tthis.getMax_hands_button().setVisible(true);
+        }
+    }
 
     public JButton getPause_button() {
         return pause_button;
@@ -620,6 +652,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         hand_labelMouseClicked(evt);
     }//GEN-LAST:event_last_hand_labelMouseClicked
 
+    private void max_hands_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_max_hands_buttonActionPerformed
+        // TODO add your handling code here:
+
+        click_max_hands();
+
+    }//GEN-LAST:event_max_hands_buttonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra_tiempo;
     private javax.swing.JLabel bet_label;
@@ -631,6 +670,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private javax.swing.JLabel hand_label;
     private javax.swing.JSpinner hand_limit_spinner;
     private javax.swing.JLabel last_hand_label;
+    private javax.swing.JButton max_hands_button;
     private javax.swing.JPanel panel_barra;
     private javax.swing.JButton pause_button;
     private javax.swing.JLabel pot_label;

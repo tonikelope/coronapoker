@@ -452,7 +452,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (GameFrame.getInstance().isPartida_local() && tthis.getHand_label().isEnabled()) {
 
-            if (SwingUtilities.isLeftMouseButton(evt)) {
+            if (evt == null || SwingUtilities.isLeftMouseButton(evt)) {
 
                 tthis.getHand_label().setEnabled(false);
 

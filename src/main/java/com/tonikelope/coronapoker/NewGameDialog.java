@@ -93,7 +93,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
             doblar_ciegas_spinner_minutos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-            doblar_ciegas_spinner_minutos.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_DOUBLE > 0 ? GameFrame.CIEGAS_DOUBLE : 60, 5, null, 5));
+            doblar_ciegas_spinner_minutos.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_DOUBLE > 0 ? GameFrame.CIEGAS_DOUBLE : 60, 1, null, 1));
             ((DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
             doblar_ciegas_spinner_manos.setEnabled(false);
             ((DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
@@ -562,7 +562,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         });
 
         doblar_ciegas_spinner_minutos.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        doblar_ciegas_spinner_minutos.setModel(new javax.swing.SpinnerNumberModel(60, 5, null, 5));
+        doblar_ciegas_spinner_minutos.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
         doblar_ciegas_spinner_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         doblar_ciegas_spinner_minutos.setDoubleBuffered(true);
 

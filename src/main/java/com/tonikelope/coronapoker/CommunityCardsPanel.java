@@ -89,6 +89,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return random_button;
     }
 
+    public Color getColor_contadores() {
+        return color_contadores;
+    }
+
     public void cambiarColorContadores(Color color) {
 
         this.color_contadores = color;
@@ -397,6 +401,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         max_hands_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         max_hands_button.setText("OK");
+        max_hands_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         max_hands_button.setDoubleBuffered(true);
         max_hands_button.setFocusable(false);
         max_hands_button.addActionListener(new java.awt.event.ActionListener() {

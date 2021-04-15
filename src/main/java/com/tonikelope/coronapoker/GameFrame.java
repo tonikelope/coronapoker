@@ -1008,6 +1008,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     tapete.getCommunityCards().getHand_label().setBackground(Color.red);
                     tapete.getCommunityCards().getHand_label().setForeground(Color.WHITE);
                     tapete.getCommunityCards().getHand_label().setOpaque(true);
+                } else if (GameFrame.MANOS == -1 && tapete.getCommunityCards().getHand_label().getBackground() == Color.RED) {
+                    tapete.getCommunityCards().getHand_label().setOpaque(false);
+                    tapete.getCommunityCards().getHand_label().setForeground(tapete.getCommunityCards().getColor_contadores());
                 }
             }
         });

@@ -14,6 +14,9 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingUtilities;
 
 /**
  *
@@ -118,6 +121,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 initComponents();
                 last_hand_label.setVisible(false);
                 random_button.setVisible(false);
+                hand_limit_spinner.setVisible(false);
             }
         });
 
@@ -193,6 +197,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         hand_labelMouseClicked(null);
     }
 
+    public JSpinner getHand_limit_spinner() {
+        return hand_limit_spinner;
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -219,6 +227,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         pause_button = new javax.swing.JButton();
         last_hand_label = new javax.swing.JLabel();
         random_button = new javax.swing.JButton();
+        hand_limit_spinner = new javax.swing.JSpinner();
 
         setFocusable(false);
         setOpaque(false);
@@ -374,6 +383,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
+        hand_limit_spinner.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -390,7 +401,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addComponent(pause_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(random_button)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(hand_limit_spinner)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(tiempo_partida)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(hand_label))
@@ -418,7 +431,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(blinds_label)
                         .addComponent(pause_button)
-                        .addComponent(random_button)))
+                        .addComponent(random_button)
+                        .addComponent(hand_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(panel_barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
@@ -438,30 +452,94 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (GameFrame.getInstance().isPartida_local() && tthis.getHand_label().isEnabled()) {
 
-            tthis.getHand_label().setEnabled(false);
+            if (SwingUtilities.isLeftMouseButton(evt)) {
 
-            if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿ÚLTIMA MANO?") == 0) {
+                tthis.getHand_label().setEnabled(false);
 
-                Helpers.threadRun(new Runnable() {
+                if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿ÚLTIMA MANO?") == 0) {
 
-                    public void run() {
+                    Helpers.threadRun(new Runnable() {
 
-                        if (!GameFrame.getInstance().getCrupier().isLast_hand()) {
-                            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#1", null);
-                            last_hand_on();
+                        public void run() {
 
-                        } else {
-                            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#0", null);
-                            last_hand_off();
+                            if (!GameFrame.getInstance().getCrupier().isLast_hand()) {
+                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#1", null);
+                                last_hand_on();
+
+                            } else {
+                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#0", null);
+                                last_hand_off();
+                            }
+
+                            Helpers.GUIRun(new Runnable() {
+
+                                public void run() {
+                                    tthis.getHand_label().setEnabled(true);
+                                }
+                            });
                         }
+                    });
 
+                } else {
+                    tthis.getHand_label().setEnabled(true);
+                }
+
+            } else if (SwingUtilities.isRightMouseButton(evt)) {
+
+                if (tthis.getHand_limit_spinner().isVisible()) {
+
+                    tthis.getHand_limit_spinner().setVisible(false);
+
+                    tthis.getHand_label().setEnabled(false);
+
+                    int manos = (int) (GameFrame.getInstance().getTapete().getCommunityCards().getHand_limit_spinner().getValue());
+
+                    int old_manos = GameFrame.MANOS;
+
+                    if (manos == 0) {
+                        GameFrame.MANOS = -1;
+
+                    } else if (GameFrame.getInstance().getCrupier().getMano() < manos) {
+
+                        GameFrame.MANOS = manos;
+                    }
+
+                    GameFrame.getInstance().getTapete().getCommunityCards().getHand_limit_spinner().setVisible(false);
+
+                    if (GameFrame.MANOS != old_manos) {
+
+                        Helpers.threadRun(new Runnable() {
+
+                            public void run() {
+
+                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("MAXHANDS#" + String.valueOf(GameFrame.MANOS), null);
+
+                                GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+
+                                Helpers.GUIRun(new Runnable() {
+
+                                    public void run() {
+                                        tthis.getHand_label().setEnabled(true);
+                                    }
+                                });
+
+                            }
+                        });
+
+                    } else {
                         tthis.getHand_label().setEnabled(true);
                     }
-                });
 
-            } else {
-                tthis.getHand_label().setEnabled(true);
+                } else {
+                    tthis.getHand_limit_spinner().setModel(new SpinnerNumberModel(GameFrame.MANOS != -1 ? GameFrame.MANOS : 0, 0, null, 1));
+
+                    ((JSpinner.DefaultEditor) tthis.getHand_limit_spinner().getEditor()).getTextField().setEditable(false);
+
+                    tthis.getHand_limit_spinner().setVisible(true);
+                }
+
             }
+
         }
     }//GEN-LAST:event_hand_labelMouseClicked
 
@@ -551,6 +629,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private com.tonikelope.coronapoker.Card flop2;
     private com.tonikelope.coronapoker.Card flop3;
     private javax.swing.JLabel hand_label;
+    private javax.swing.JSpinner hand_limit_spinner;
     private javax.swing.JLabel last_hand_label;
     private javax.swing.JPanel panel_barra;
     private javax.swing.JButton pause_button;

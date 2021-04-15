@@ -1264,6 +1264,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                         break;
 
+                                                    case "MAXHANDS":
+
+                                                        GameFrame.MANOS = Integer.parseInt(partes_comando[3]);
+
+                                                        GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+
+                                                        break;
+
                                                     case "SERVEREXIT":
                                                         exit = true;
 

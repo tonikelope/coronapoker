@@ -1237,7 +1237,7 @@ public class Crupier implements Runnable {
         return conta_mano;
     }
 
-    private void actualizarContadoresTapete() {
+    public void actualizarContadoresTapete() {
 
         GameFrame.getInstance().setTapeteBote(this.bote_total, this.beneficio_bote_principal);
         GameFrame.getInstance().setTapeteApuestas(this.apuestas);

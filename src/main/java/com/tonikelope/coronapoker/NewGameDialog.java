@@ -111,7 +111,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         this.manos_spinner.setEnabled(GameFrame.MANOS > 0);
         this.manos_checkbox.setSelected(GameFrame.MANOS > 0);
-        manos_spinner.setModel(new SpinnerNumberModel(GameFrame.MANOS > 0 ? GameFrame.MANOS : 60, 5, null, 5));
+        manos_spinner.setModel(new SpinnerNumberModel(GameFrame.MANOS > 0 ? GameFrame.MANOS : 60, 1, null, 1));
         ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
 
         this.rebuy_checkbox.setSelected(GameFrame.REBUY);

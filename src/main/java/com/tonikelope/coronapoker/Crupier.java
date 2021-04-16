@@ -1948,22 +1948,30 @@ public class Crupier implements Runnable {
 
         int i, j;
 
-        for (i = 0, j = 0; (this.ciega_pequeña / (float) (Math.pow(10, j)) != CIEGAS[i][0]); i = (i + 1) % CIEGAS.length) {
+        i = 0;
 
-            if (i + 1 == CIEGAS.length) {
+        j = 0;
+
+        while (Helpers.float1DSecureCompare((float) ciega_pequeña / (float) (Math.pow(10, j)), CIEGAS[i][0]) != 0) {
+
+            i = (i + 1) % CIEGAS.length;
+
+            if (i == 0) {
                 j++;
             }
         }
 
         i = (i + 1) % CIEGAS.length;
 
+        if (i == 0) {
+            j++;
+        }
+
         this.ciegas_double++;
 
-        double mul = Math.pow(10, (int) (this.ciegas_double / CIEGAS.length));
+        this.ciega_pequeña = (float) (CIEGAS[i][0] * Math.pow(10, j));
 
-        this.ciega_pequeña = CIEGAS[i % CIEGAS.length][0] * (float) mul;
-
-        this.ciega_grande = CIEGAS[i % CIEGAS.length][1] * (float) mul;
+        this.ciega_grande = (float) (CIEGAS[i][1] * Math.pow(10, j));
 
         Helpers.playWavResource("misc/double_blinds.wav");
 

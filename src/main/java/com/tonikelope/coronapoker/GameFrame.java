@@ -55,10 +55,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int DEFAULT_ZOOM_LEVEL = -2;
     public static final float MIN_BIG_BLIND = 0.20f;
     public static final float ZOOM_STEP = 0.05f;
-    public static final int PAUSA_ENTRE_MANOS = 7; //Segundos
+    public static final int PAUSA_ENTRE_MANOS = 8; //Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
-    public static final int TIEMPO_PENSAR = 30; //Segundos
+    public static final int TIEMPO_PENSAR = 35; //Segundos
     public static final int WAIT_QUEUES = 1000;
     public static final int WAIT_PAUSE = 1000;
     public static final int CLIENT_RECEPTION_TIMEOUT = 10000;

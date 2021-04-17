@@ -620,16 +620,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             paused = true;
 
-            if (this.timba_pausada) {
-                synchronized (this.lock_pause) {
-                    try {
-                        this.lock_pause.wait(GameFrame.WAIT_PAUSE);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    }
+            synchronized (this.lock_pause) {
+                try {
+                    this.lock_pause.wait(GameFrame.WAIT_PAUSE);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
             }
+
         }
 
         return paused;

@@ -691,6 +691,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         avatar.setFocusable(false);
 
         timeout_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
+        timeout_icon.setToolTipText("ESTE JUGADOR TIENE PROBLEMAS DE CONEXIÓN");
         timeout_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         timeout_icon.setDoubleBuffered(true);
         timeout_icon.setFocusable(false);
@@ -880,13 +881,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         // TODO add your handling code here:
 
         // 0=yes, 1=no, 2=cancel
-        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "Este usuario tiene problemas de conexión que bloquean la partida. ¿Quieres expulsarlo?") == 0) {
+        if (GameFrame.getInstance().isPartida_local()) {
+            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "Este usuario tiene problemas de conexión que bloquean la partida. ¿Quieres expulsarlo?") == 0) {
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-                    crupier.remotePlayerQuit(nickname);
-                }
-            });
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
+                        crupier.remotePlayerQuit(nickname);
+                    }
+                });
+            }
+        } else {
+            Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "Este usuario tiene problemas de conexión que bloquean la partida.\n(El servidor decidirá si esperar a que se recupere o echarle).");
         }
     }//GEN-LAST:event_timeout_iconMouseClicked
 

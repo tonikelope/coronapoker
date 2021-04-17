@@ -180,6 +180,7 @@
                 <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
                   <Image iconType="3" name="/images/timeout.png"/>
                 </Property>
+                <Property name="toolTipText" type="java.lang.String" value="ESTE JUGADOR TIENE PROBLEMAS DE CONEXI&#xd3;N"/>
                 <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
                   <Color id="Cursor de Mano"/>
                 </Property>

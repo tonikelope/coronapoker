@@ -1940,7 +1940,7 @@ public class Crupier implements Runnable {
         if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
             return (GameFrame.CIEGAS_DOUBLE > 0 && (int) Math.floor((float) GameFrame.getInstance().getConta_tiempo_juego() / (GameFrame.CIEGAS_DOUBLE * 60)) > this.ciegas_double);
         } else {
-            return (GameFrame.CIEGAS_DOUBLE > 0 && this.conta_mano > 1 && (int) Math.floor((float) this.conta_mano / GameFrame.CIEGAS_DOUBLE) > this.ciegas_double);
+            return (GameFrame.CIEGAS_DOUBLE > 0 && this.conta_mano > 1 && ((int) Math.floor((float) (this.conta_mano - 1)) / GameFrame.CIEGAS_DOUBLE) > this.ciegas_double);
         }
     }
 

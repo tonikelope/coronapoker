@@ -301,7 +301,7 @@ public class Participant implements Runnable {
             }
         }
 
-        synchronized (participant_socket_lock) {
+        synchronized (getParticipant_socket_lock()) {
 
             try {
 
@@ -322,7 +322,7 @@ public class Participant implements Runnable {
 
                 this.reset_socket = true;
 
-                participant_socket_lock.notifyAll();
+                getParticipant_socket_lock().notifyAll();
 
                 return true;
 
@@ -332,7 +332,7 @@ public class Participant implements Runnable {
 
                 this.resetting_socket = false;
 
-                participant_socket_lock.notifyAll();
+                getParticipant_socket_lock().notifyAll();
 
                 return false;
             }
@@ -640,16 +640,17 @@ public class Participant implements Runnable {
                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
-                            synchronized (getParticipant_socket_lock()) {
-
-                                if (!reset_socket) {
+                            if (!reset_socket) {
+                                synchronized (getParticipant_socket_lock()) {
 
                                     try {
                                         getParticipant_socket_lock().wait(resetting_socket ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
                                     } catch (InterruptedException ex) {
                                         Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                                     }
+
                                 }
+
                             }
 
                         } else {
@@ -663,18 +664,18 @@ public class Participant implements Runnable {
 
                                 GameFrame.getInstance().getCrupier().remotePlayerQuit(nick);
 
-                            } else {
+                            } else if (!reset_socket) {
 
                                 synchronized (getParticipant_socket_lock()) {
-                                    if (!reset_socket) {
-                                        try {
-                                            getParticipant_socket_lock().wait(resetting_socket ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
-                                        } catch (InterruptedException ex) {
-                                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
+
+                                    try {
+                                        getParticipant_socket_lock().wait(resetting_socket ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
+                                    } catch (InterruptedException ex) {
+                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                                     }
 
                                 }
+
                             }
 
                         }

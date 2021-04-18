@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"ERROR AL RECUPERAR LA MANO", "ERROR RECOVERING HAND"},
             {"ESTE JUGADOR TIENE PROBLEMAS DE CONEXIÓN", "THIS PLAYER HAS CONNECTION PROBLEMS"},
             {"Este usuario tiene problemas de conexión que bloquean la partida.\n(El servidor decidirá si esperar a que se recupere o echarle).", "This user has connection problems that block the game.\n(The server will decide whether to wait for him to recover or kick him/her out)."},
             {"CLICK IZQ: ÚLTIMA MANO / CLICK DCHO: LÍMITE DE MANOS", "LEFT CLICK: LAST HAND / RIGHT CLICK: HANDS LIMIT"},
@@ -70,7 +71,7 @@ public class Translator {
             {"ELIMINAR TIMBA", "REMOVE GAME"},
             {"¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?", "IGNORE TTS MESSAGES FROM THIS USER?"},
             {"La canción que suena en la sala de espera es \"The Dream\" compuesta por Jerry Goldsmith para la película Total Recall.", "The song that sounds in the waiting room is \"The Dream\" composed by Jerry Goldsmith for the movie Total Recall."},
-            {"ERROR FATAL: NO SE HA PODIDO RECUPERAR LA CLAVE DE LA PERMUTACIÓN", "FATAL ERROR: UNABLE TO RECOVER THE PERMUTATION KEY"},
+            {"ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO", "ERROR: UNABLE TO RECOVER PERMUTATION KEY OF THIS HAND"},
             {"¡¡TEN CUIDADO!! EL JUGADOR NO HIZO ESO LA OTRA VEZ. (ALGUIEN ESTÁ HACIENDO TRAMPAS).", "BE CAREFUL! THE PLAYER DIDN'T DO THAT LAST TIME. (HE/SHE'S OR THE SERVER IS CHEATING)."},
             {"NO SE PUEDE RECUPERAR LA MANO EN CURSO PORQUE FALTAN JUGADORES DE LA MANO ANTERIOR", "THE CURRENT HAND CANNOT BE RECOVERED BECAUSE PLAYERS FROM THE PREVIOUS HAND ARE MISSING"},
             {"Manos:", "Hands:"},

@@ -282,13 +282,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         danger_server.setVisible(false);
 
+        if (GameFrame.isRECOVER()) {
+            game_info.setText("(CONTINUANDO TIMBA ANTERIOR)");
+        }
+
         if (server) {
 
-            if (!GameFrame.RECOVER) {
+            if (GameFrame.isRECOVER()) {
                 game_info.setToolTipText("Click para actualizar datos de la timba");
-            } else {
-                game_info.setText("(CONTINUANDO TIMBA)");
-                game_info.setEnabled(false);
             }
 
             pass_icon.setVisible(true);
@@ -298,6 +299,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             } else {
                 pass_icon.setEnabled(false);
             }
+
         } else {
             pass_icon.setVisible(false);
         }
@@ -335,7 +337,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             gameinfo_original = GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : "");
 
-            if (game_info.isEnabled()) {
+            if (game_info.isEnabled() && !GameFrame.isRECOVER()) {
                 game_info.setText(gameinfo_original);
             }
 
@@ -1810,7 +1812,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                         public void run() {
                                             empezar_timba.setEnabled(true);
                                             game_info.setEnabled(true);
-
                                         }
                                     });
                                 }

@@ -180,6 +180,7 @@ public class Crupier implements Runnable {
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; //2 players
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
+    public static final int PERMUTATION_COPY_PLAYERS = 3;
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
@@ -248,6 +249,7 @@ public class Crupier implements Runnable {
     private volatile boolean update_game_seats = false;
     private volatile int tot_acciones_recuperadas = 0;
     private volatile Float beneficio_bote_principal = null;
+    private volatile Integer[] permutacion_recuperada = null;
 
     public boolean isPlayerTimeout() {
 
@@ -1689,12 +1691,33 @@ public class Crupier implements Runnable {
                 }
             }
 
+            permutacion_recuperada = this.recuperarPermutacion();
+
+            if (permutacion_recuperada == null) {
+
+                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
+
+                map.put("permutation_key", false);
+
+                saltar_primera_mano = true;
+
+            } else {
+
+                map.put("permutation_key", true);
+            }
+
             enviarDatosClaveRecuperados(pendientes, map);
 
         } else {
 
             map = recibirDatosClaveRecuperados();
 
+            if (!((boolean) map.get("permutation_key"))) {
+
+                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
+
+                saltar_primera_mano = true;
+            }
         }
 
         if ((Long) map.get("hand_end") != 0L) {
@@ -2150,8 +2173,6 @@ public class Crupier implements Runnable {
             }
         });
 
-        Integer[] permutacion_recuperada = null;
-
         saltar_primera_mano = false;
 
         //Actualizamos los datos en caso de estar en modo recover
@@ -2176,38 +2197,6 @@ public class Crupier implements Runnable {
             }
 
             if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
-
-                GameFrame.getInstance().getRegistro().print("\n*************** " + Translator.translate("MANO RECUPERADA") + " (" + String.valueOf(this.conta_mano) + ") ***************");
-
-                if (GameFrame.getInstance().isPartida_local()) {
-                    permutacion_recuperada = this.recuperarPermutacion();
-
-                    if (permutacion_recuperada == null) {
-
-                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR FATAL: NO SE HA PODIDO RECUPERAR LA CLAVE DE LA PERMUTACIÓN");
-
-                        if (GameFrame.getInstance().getJugadores().size() > 1) {
-
-                            //Hay que avisar a los clientes de que la timba ha terminado
-                            broadcastGAMECommandFromServer("SERVEREXIT", null, false);
-
-                            GameFrame.getInstance().getLocalPlayer().setExit();
-
-                            GameFrame.getInstance().finTransmision(true);
-
-                        } else {
-
-                            Helpers.threadRun(new Runnable() {
-                                public void run() {
-
-                                    GameFrame.getInstance().getLocalPlayer().setExit();
-
-                                    GameFrame.getInstance().finTransmision(true);
-                                }
-                            });
-                        }
-                    }
-                }
 
                 if (GameFrame.getInstance().isPartida_local() || GameFrame.getInstance().getLocalPlayer().isActivo()) {
                     recuperarAccionesLocales();
@@ -2237,6 +2226,7 @@ public class Crupier implements Runnable {
                         }
                     });
                 }
+
             } else {
                 GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
                 if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
@@ -5080,20 +5070,27 @@ public class Crupier implements Runnable {
 
             if (areClientHumanActivePlayers()) {
 
-                int i = 0;
+                ArrayList<Participant> candidatos = new ArrayList<>();
 
-                while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.dealer_nick)) {
-                    i++;
+                for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
+
+                    Participant p = entry.getValue();
+
+                    if (p != null && !p.isCpu() && nick2player.get(p.getNick()).isActivo()) {
+
+                        candidatos.add(p);
+                    }
                 }
 
-                Participant participante = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getJugadores().get(i).getNickname());
+                Collections.shuffle(candidatos, Helpers.CSPRNG_GENERATOR);
 
-                while (GameFrame.getInstance().getJugadores().get(i) == GameFrame.getInstance().getLocalPlayer() || participante.isCpu() || participante.isExit()) {
-                    i = (i + 1) % GameFrame.getInstance().getJugadores().size();
-                    participante = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getJugadores().get(i).getNickname());
+                String enc_per = "";
+
+                for (Participant p : candidatos.subList(0, Math.min(PERMUTATION_COPY_PLAYERS, candidatos.size()))) {
+                    enc_per += Base64.encodeBase64String(p.getNick().getBytes("UTF-8")) + "@" + p.getPermutation_key_hash() + "@" + Helpers.encryptString(per.substring(0, per.length() - 1), p.getPermutation_key(), null) + "#";
                 }
 
-                sqlUpdateGameLastDeck(Base64.encodeBase64String(participante.getNick().getBytes("UTF-8")) + "#" + participante.getPermutation_key_hash() + "#" + Helpers.encryptString(per.substring(0, per.length() - 1), participante.getPermutation_key(), null));
+                sqlUpdateGameLastDeck(enc_per.substring(0, enc_per.length() - 1));
 
             } else {
 
@@ -5101,8 +5098,6 @@ public class Crupier implements Runnable {
 
             }
         } catch (UnsupportedEncodingException ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -5126,39 +5121,52 @@ public class Crupier implements Runnable {
         try {
             String datos;
             if (areClientHumanActivePlayers()) {
-                String[] perm_parts = this.sqlRecoverGameLastDeck().split("#");
 
-                ArrayList<String> pendientes = new ArrayList<>();
+                String[] perm_players = this.sqlRecoverGameLastDeck().split("#");
 
-                pendientes.add(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
+                String per = null;
 
-                int id = Helpers.CSPRNG_GENERATOR.nextInt();
+                for (String player : perm_players) {
 
-                Participant p = GameFrame.getInstance().getParticipantes().get(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
+                    String[] perm_parts = player.split("@");
 
-                String full_command = "GAME#" + String.valueOf(id) + "#PERMUTATIONKEY#" + perm_parts[1];
+                    ArrayList<String> pendientes = new ArrayList<>();
 
-                p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
+                    pendientes.add(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
 
-                this.waitSyncConfirmations(id, pendientes);
+                    int id = Helpers.CSPRNG_GENERATOR.nextInt();
 
-                while (this.permutation_key == null) {
-                    synchronized (this.permutation_key_lock) {
+                    Participant p = GameFrame.getInstance().getParticipantes().get(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
 
-                        try {
-                            permutation_key_lock.wait(1000);
+                    String full_command = "GAME#" + String.valueOf(id) + "#PERMUTATIONKEY#" + perm_parts[1];
 
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
+
+                    this.waitSyncConfirmations(id, pendientes);
+
+                    while (this.permutation_key == null) {
+                        synchronized (this.permutation_key_lock) {
+
+                            try {
+                                permutation_key_lock.wait(1000);
+
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
                         }
+                    }
+
+                    if (!"*".equals(this.permutation_key)) {
+                        per = perm_parts[2];
+                        break;
                     }
                 }
 
-                if ("*".equals(this.permutation_key)) {
+                if (per != null) {
+                    datos = Helpers.decryptString(per, new SecretKeySpec(Base64.decodeBase64(permutation_key), "AES"), null);
+                } else {
                     return null;
                 }
-
-                datos = Helpers.decryptString(perm_parts[2], new SecretKeySpec(Base64.decodeBase64(permutation_key), "AES"), null);
             } else {
                 datos = new String(Base64.decodeBase64(this.sqlRecoverGameLastDeck()), "UTF-8");
             }

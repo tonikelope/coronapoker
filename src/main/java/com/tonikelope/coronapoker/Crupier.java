@@ -1695,7 +1695,11 @@ public class Crupier implements Runnable {
 
             if (permutacion_recuperada == null) {
 
-                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
+                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
+                    }
+                });
 
                 map.put("permutation_key", false);
 
@@ -1713,8 +1717,6 @@ public class Crupier implements Runnable {
             map = recibirDatosClaveRecuperados();
 
             if (!((boolean) map.get("permutation_key"))) {
-
-                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
 
                 saltar_primera_mano = true;
             }
@@ -5068,15 +5070,15 @@ public class Crupier implements Runnable {
                 per += String.valueOf(p) + "|";
             }
 
-            ArrayList<Participant> humanos = getClientHumanActiveParticipants();
+            ArrayList<Participant> clientes_humanos = getClientHumanActiveParticipants();
 
-            if (!humanos.isEmpty()) {
+            if (!clientes_humanos.isEmpty()) {
 
-                Collections.shuffle(humanos, Helpers.CSPRNG_GENERATOR);
+                Collections.shuffle(clientes_humanos, Helpers.CSPRNG_GENERATOR);
 
                 String enc_per = "";
 
-                for (Participant p : humanos.subList(0, Math.min(PERMUTATION_ENCRYPTION_PLAYERS, humanos.size()))) {
+                for (Participant p : clientes_humanos.subList(0, Math.min(PERMUTATION_ENCRYPTION_PLAYERS, clientes_humanos.size()))) {
                     enc_per += Base64.encodeBase64String(p.getNick().getBytes("UTF-8")) + "@" + p.getPermutation_key_hash() + "@" + Helpers.encryptString(per.substring(0, per.length() - 1), p.getPermutation_key(), null) + "#";
                 }
 
@@ -5114,11 +5116,13 @@ public class Crupier implements Runnable {
 
             String last_deck = this.sqlRecoverGameLastDeck();
 
-            if (last_deck.contains("#")) {
+            if (last_deck.contains("@")) {
 
-                String[] perm_players = this.sqlRecoverGameLastDeck().split("#");
+                String[] perm_players = last_deck.split("#");
 
                 String per = null;
+
+                this.permutation_key = null;
 
                 for (String player : perm_players) {
 
@@ -5151,8 +5155,14 @@ public class Crupier implements Runnable {
                     }
 
                     if (!"*".equals(this.permutation_key)) {
+
                         per = perm_parts[2];
+
                         break;
+
+                    } else {
+
+                        this.permutation_key = null;
                     }
                 }
 
@@ -5162,7 +5172,7 @@ public class Crupier implements Runnable {
                     return null;
                 }
             } else {
-                datos = new String(Base64.decodeBase64(this.sqlRecoverGameLastDeck()), "UTF-8");
+                datos = new String(Base64.decodeBase64(last_deck), "UTF-8");
             }
 
             String[] partes = datos.split("\\|");

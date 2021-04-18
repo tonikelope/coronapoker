@@ -5068,25 +5068,15 @@ public class Crupier implements Runnable {
                 per += String.valueOf(p) + "|";
             }
 
-            if (areClientHumanActivePlayers()) {
+            ArrayList<Participant> humanos = getClientHumanActiveParticipants();
 
-                ArrayList<Participant> candidatos = new ArrayList<>();
+            if (!humanos.isEmpty()) {
 
-                for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-
-                    Participant p = entry.getValue();
-
-                    if (p != null && !p.isCpu() && nick2player.get(p.getNick()).isActivo()) {
-
-                        candidatos.add(p);
-                    }
-                }
-
-                Collections.shuffle(candidatos, Helpers.CSPRNG_GENERATOR);
+                Collections.shuffle(humanos, Helpers.CSPRNG_GENERATOR);
 
                 String enc_per = "";
 
-                for (Participant p : candidatos.subList(0, Math.min(PERMUTATION_COPY_PLAYERS, candidatos.size()))) {
+                for (Participant p : humanos.subList(0, Math.min(PERMUTATION_COPY_PLAYERS, humanos.size()))) {
                     enc_per += Base64.encodeBase64String(p.getNick().getBytes("UTF-8")) + "@" + p.getPermutation_key_hash() + "@" + Helpers.encryptString(per.substring(0, per.length() - 1), p.getPermutation_key(), null) + "#";
                 }
 
@@ -5102,14 +5092,14 @@ public class Crupier implements Runnable {
         }
     }
 
-    private boolean areClientHumanActivePlayers() {
+    private ArrayList<Participant> getClientHumanActiveParticipants() {
 
-        boolean humanos = false;
+        ArrayList<Participant> humanos = new ArrayList<>();
 
         for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
 
             if (entry.getValue() != null && !entry.getValue().isCpu() && nick2player.get(entry.getKey()).isActivo()) {
-                return true;
+                humanos.add(entry.getValue());
             }
         }
 
@@ -5119,8 +5109,12 @@ public class Crupier implements Runnable {
     private Integer[] recuperarPermutacion() {
 
         try {
+
             String datos;
-            if (areClientHumanActivePlayers()) {
+
+            String last_deck = this.sqlRecoverGameLastDeck();
+
+            if (last_deck.contains("#")) {
 
                 String[] perm_players = this.sqlRecoverGameLastDeck().split("#");
 

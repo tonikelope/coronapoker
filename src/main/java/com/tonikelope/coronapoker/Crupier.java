@@ -180,7 +180,7 @@ public class Crupier implements Runnable {
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; //2 players
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
-    public static final int PERMUTATION_COPY_PLAYERS = 3;
+    public static final int PERMUTATION_ENCRYPTION_PLAYERS = 2;
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
@@ -5076,7 +5076,7 @@ public class Crupier implements Runnable {
 
                 String enc_per = "";
 
-                for (Participant p : humanos.subList(0, Math.min(PERMUTATION_COPY_PLAYERS, humanos.size()))) {
+                for (Participant p : humanos.subList(0, Math.min(PERMUTATION_ENCRYPTION_PLAYERS, humanos.size()))) {
                     enc_per += Base64.encodeBase64String(p.getNick().getBytes("UTF-8")) + "@" + p.getPermutation_key_hash() + "@" + Helpers.encryptString(per.substring(0, per.length() - 1), p.getPermutation_key(), null) + "#";
                 }
 

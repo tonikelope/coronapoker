@@ -474,12 +474,12 @@
                           <Group type="102" alignment="1" attributes="0">
                               <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                               <Group type="103" groupAlignment="0" attributes="0">
-                                  <Component id="double_blinds_radio_manos" alignment="0" min="-2" max="-2" attributes="0"/>
-                                  <Component id="double_blinds_radio_minutos" alignment="0" min="-2" max="-2" attributes="0"/>
+                                  <Component id="double_blinds_radio_minutos" min="-2" max="-2" attributes="0"/>
+                                  <Component id="double_blinds_radio_manos" min="-2" max="-2" attributes="0"/>
                               </Group>
-                              <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                              <EmptySpace max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="0" max="-2" attributes="0">
-                                  <Component id="doblar_ciegas_spinner_minutos" pref="193" max="32767" attributes="0"/>
+                                  <Component id="doblar_ciegas_spinner_minutos" pref="209" max="32767" attributes="0"/>
                                   <Component id="doblar_ciegas_spinner_manos" max="32767" attributes="0"/>
                               </Group>
                           </Group>
@@ -493,17 +493,17 @@
                   <Group type="102" attributes="0">
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="doblar_checkbox" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace max="-2" attributes="0"/>
+                      <Group type="103" groupAlignment="3" attributes="0">
+                          <Component id="double_blinds_radio_manos" alignment="3" min="-2" max="-2" attributes="0"/>
+                          <Component id="doblar_ciegas_spinner_manos" alignment="3" min="-2" max="-2" attributes="0"/>
+                      </Group>
                       <EmptySpace type="unrelated" max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="3" attributes="0">
                           <Component id="double_blinds_radio_minutos" alignment="3" min="-2" max="-2" attributes="0"/>
                           <Component id="doblar_ciegas_spinner_minutos" alignment="3" min="-2" max="-2" attributes="0"/>
                       </Group>
-                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                      <Group type="103" groupAlignment="3" attributes="0">
-                          <Component id="double_blinds_radio_manos" alignment="3" min="-2" max="-2" attributes="0"/>
-                          <Component id="doblar_ciegas_spinner_manos" alignment="3" min="-2" max="-2" attributes="0"/>
-                      </Group>
-                      <EmptySpace max="32767" attributes="0"/>
+                      <EmptySpace max="-2" attributes="0"/>
                   </Group>
               </Group>
             </DimensionLayout>

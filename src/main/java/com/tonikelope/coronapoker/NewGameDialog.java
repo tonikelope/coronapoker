@@ -163,11 +163,11 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         manos_spinner.setEnabled(false);
 
-        double_blinds_radio_minutos.setSelected(true);
+        double_blinds_radio_manos.setSelected(true);
 
-        double_blinds_radio_manos.setSelected(false);
+        double_blinds_radio_minutos.setSelected(false);
 
-        doblar_ciegas_spinner_manos.setEnabled(false);
+        doblar_ciegas_spinner_minutos.setEnabled(false);
 
         if (partida_local) {
             upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "true")));
@@ -604,11 +604,11 @@ public class NewGameDialog extends javax.swing.JDialog {
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(double_blinds_radio_manos)
-                            .addComponent(double_blinds_radio_minutos))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                            .addComponent(double_blinds_radio_minutos)
+                            .addComponent(double_blinds_radio_manos))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.DEFAULT_SIZE, 193, Short.MAX_VALUE)
+                            .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.DEFAULT_SIZE, 209, Short.MAX_VALUE)
                             .addComponent(doblar_ciegas_spinner_manos))))
                 .addContainerGap())
         );
@@ -617,15 +617,15 @@ public class NewGameDialog extends javax.swing.JDialog {
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(doblar_checkbox)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(double_blinds_radio_manos)
+                    .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(double_blinds_radio_minutos)
                     .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(double_blinds_radio_manos)
-                    .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
 
         javax.swing.GroupLayout config_partida_panelLayout = new javax.swing.GroupLayout(config_partida_panel);
@@ -1061,11 +1061,27 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             this.ciegas_combobox.setEnabled(true);
 
-            this.double_blinds_radio_minutos.setEnabled(true);
-
-            this.doblar_ciegas_spinner_minutos.setEnabled(true);
-
             this.doblar_checkbox.setEnabled(true);
+
+            if (this.doblar_checkbox.isSelected()) {
+
+                this.double_blinds_radio_minutos.setEnabled(true);
+
+                this.double_blinds_radio_manos.setEnabled(true);
+
+                this.doblar_ciegas_spinner_manos.setEnabled(this.double_blinds_radio_manos.isSelected());
+
+                this.doblar_ciegas_spinner_minutos.setEnabled(this.double_blinds_radio_minutos.isSelected());
+
+            } else {
+                this.double_blinds_radio_minutos.setEnabled(false);
+
+                this.double_blinds_radio_manos.setEnabled(false);
+
+                this.doblar_ciegas_spinner_manos.setEnabled(false);
+
+                this.doblar_ciegas_spinner_minutos.setEnabled(false);
+            }
 
             this.nick.setEnabled(true);
         }

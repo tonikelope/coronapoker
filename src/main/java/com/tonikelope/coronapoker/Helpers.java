@@ -2617,6 +2617,7 @@ public class Helpers {
         public static JMenu BARAJAS_MENU = new JMenu("Barajas");
         public static JMenu TAPETES_MENU = new JMenu("Tapetes");
         public static JMenuItem EXIT_MENU;
+        public static JMenuItem MAX_HANDS_MENU;
         public static JCheckBoxMenuItem FULLSCREEN_MENU;
         public static JCheckBoxMenuItem SONIDOS_MENU;
         public static JCheckBoxMenuItem SONIDOS_COMENTARIOS_MENU;
@@ -2629,6 +2630,7 @@ public class Helpers {
         public static JCheckBoxMenuItem ANIMACION_MENU;
         public static JCheckBoxMenuItem CINEMATICAS_MENU;
         public static JCheckBoxMenuItem AUTO_ACTION_MENU;
+        public static JCheckBoxMenuItem LAST_HAND_MENU;
         public static JRadioButtonMenuItem TAPETE_VERDE;
         public static JRadioButtonMenuItem TAPETE_AZUL;
         public static JRadioButtonMenuItem TAPETE_ROJO;
@@ -2676,10 +2678,24 @@ public class Helpers {
                     }
                 };
 
-                Action exitAction = new AbstractAction("Salir") {
+                Action exitAction = new AbstractAction("SALIR") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getExit_menu().doClick();
+                    }
+                };
+
+                Action lastHandAction = new AbstractAction("Última mano") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getLast_hand_menu().doClick();
+                    }
+                };
+
+                Action maxHandsAction = new AbstractAction("Límite de manos") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getMax_hands_menu().doClick();
                     }
                 };
 
@@ -2905,6 +2921,11 @@ public class Helpers {
                 REBUY_NOW_MENU = new JCheckBoxMenuItem(rebuyNowAction);
                 REBUY_NOW_MENU.setSelected(false);
                 popup.add(REBUY_NOW_MENU);
+                popup.addSeparator();
+                LAST_HAND_MENU = new JCheckBoxMenuItem(lastHandAction);
+                popup.add(LAST_HAND_MENU);
+                MAX_HANDS_MENU = new JMenuItem(maxHandsAction);
+                popup.add(MAX_HANDS_MENU);
                 popup.addSeparator();
                 EXIT_MENU = new JMenuItem(exitAction);
                 popup.add(EXIT_MENU);

@@ -1326,6 +1326,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
         }
 
+        last_hand_menu.setSelected(false);
+
         rebuy_now_menu.setSelected(false);
 
         animacion_menu.setSelected(GameFrame.ANIMACION_REPARTIR);
@@ -1439,6 +1441,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.TapetePopupMenu.TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.equals("madera"));
 
+        Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(false);
+
+        if (!partida_local) {
+            last_hand_menu.setEnabled(false);
+            Helpers.TapetePopupMenu.LAST_HAND_MENU.setEnabled(false);
+            max_hands_menu.setEnabled(false);
+            Helpers.TapetePopupMenu.MAX_HANDS_MENU.setEnabled(false);
+        }
+
         if (!menu_cinematicas.isEnabled()) {
             Helpers.TapetePopupMenu.CINEMATICAS_MENU.setEnabled(false);
             Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(false);
@@ -1454,6 +1465,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         pack();
 
+    }
+
+    public JMenuItem getMax_hands_menu() {
+        return max_hands_menu;
     }
 
     public long getConta_tiempo_juego() {
@@ -1793,6 +1808,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         server_separator_menu = new javax.swing.JPopupMenu.Separator();
         full_screen_menu = new javax.swing.JMenuItem();
         jSeparator2 = new javax.swing.JPopupMenu.Separator();
+        last_hand_menu = new javax.swing.JCheckBoxMenuItem();
+        max_hands_menu = new javax.swing.JMenuItem();
+        jSeparator3 = new javax.swing.JPopupMenu.Separator();
         exit_menu = new javax.swing.JMenuItem();
         zoom_menu = new javax.swing.JMenu();
         zoom_menu_in = new javax.swing.JMenuItem();
@@ -1880,8 +1898,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         file_menu.add(full_screen_menu);
         file_menu.add(jSeparator2);
 
+        last_hand_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        last_hand_menu.setSelected(true);
+        last_hand_menu.setText("Última mano");
+        last_hand_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                last_hand_menuActionPerformed(evt);
+            }
+        });
+        file_menu.add(last_hand_menu);
+
+        max_hands_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        max_hands_menu.setText("Límite de manos");
+        max_hands_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                max_hands_menuActionPerformed(evt);
+            }
+        });
+        file_menu.add(max_hands_menu);
+        file_menu.add(jSeparator3);
+
         exit_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        exit_menu.setText("Salir (ALT+F4)");
+        exit_menu.setText("SALIR (ALT+F4)");
         exit_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 exit_menuActionPerformed(evt);
@@ -2731,6 +2769,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return rebuy_dialog;
     }
 
+    public JCheckBoxMenuItem getLast_hand_menu() {
+        return last_hand_menu;
+    }
+
     private void rebuy_now_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rebuy_now_menuActionPerformed
         // TODO add your handling code here:
 
@@ -2798,6 +2840,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     }//GEN-LAST:event_rebuy_now_menuActionPerformed
 
+    private void last_hand_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_last_hand_menuActionPerformed
+        // TODO add your handling code here:
+        GameFrame.getInstance().getTapete().getCommunityCards().hand_label_left_click();
+    }//GEN-LAST:event_last_hand_menuActionPerformed
+
+    private void max_hands_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_max_hands_menuActionPerformed
+        // TODO add your handling code here:
+        GameFrame.getInstance().getTapete().getCommunityCards().hand_label_right_click();
+    }//GEN-LAST:event_max_hands_menuActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
@@ -2813,11 +2865,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JMenu help_menu;
     private javax.swing.JPopupMenu.Separator jSeparator1;
     private javax.swing.JPopupMenu.Separator jSeparator2;
+    private javax.swing.JPopupMenu.Separator jSeparator3;
     private javax.swing.JPopupMenu.Separator jSeparator4;
     private javax.swing.JPopupMenu.Separator jSeparator6;
     private javax.swing.JPopupMenu.Separator jSeparator7;
     private javax.swing.JPopupMenu.Separator jSeparator8;
     private javax.swing.JMenuItem jugadas_menu;
+    private javax.swing.JCheckBoxMenuItem last_hand_menu;
+    private javax.swing.JMenuItem max_hands_menu;
     private javax.swing.JMenuBar menu_bar;
     private javax.swing.JMenu menu_barajas;
     private javax.swing.JCheckBoxMenuItem menu_cinematicas;

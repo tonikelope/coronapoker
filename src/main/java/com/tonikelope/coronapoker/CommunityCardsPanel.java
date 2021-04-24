@@ -27,6 +27,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     public static final int SOUND_ICON_WIDTH = 30;
 
     private volatile Color color_contadores = null;
+    private volatile int hand_label_click_type = 0;
 
     public JLabel getLast_hand_label() {
         return last_hand_label;
@@ -164,11 +165,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 tthis.getHand_label().setForeground(Color.BLACK);
                 tthis.getHand_label().setToolTipText(Translator.translate("ÚLTIMA MANO"));
                 tthis.getLast_hand_label().setVisible(true);
-
+                GameFrame.getInstance().getLast_hand_menu().setSelected(true);
+                Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(true);
             }
         });
 
         Helpers.playWavResource("misc/last_hand_on.wav");
+
     }
 
     public void last_hand_off() {
@@ -191,15 +194,33 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     tthis.getHand_label().setForeground(Color.WHITE);
                     tthis.getHand_label().setOpaque(true);
                 }
-
+                GameFrame.getInstance().getLast_hand_menu().setSelected(false);
+                Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(false);
             }
         });
 
         Helpers.playWavResource("misc/last_hand_off.wav");
+
     }
 
-    public void hand_label_click() {
-        hand_labelMouseClicked(null);
+    public void hand_label_left_click() {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                hand_label_click_type = 1;
+                hand_labelMouseClicked(null);
+            }
+        });
+    }
+
+    public void hand_label_right_click() {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                hand_label_click_type = 2;
+                hand_labelMouseClicked(null);
+            }
+        });
     }
 
     public JSpinner getHand_limit_spinner() {
@@ -479,7 +500,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (GameFrame.getInstance().isPartida_local() && tthis.getHand_label().isEnabled()) {
 
-            if (evt == null || SwingUtilities.isLeftMouseButton(evt)) {
+            if ((evt == null && hand_label_click_type == 1) || (evt != null && SwingUtilities.isLeftMouseButton(evt))) {
 
                 tthis.getHand_label().setEnabled(false);
 
@@ -509,9 +530,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 } else {
                     tthis.getHand_label().setEnabled(true);
+                    GameFrame.getInstance().getLast_hand_menu().setSelected(false);
+                    Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(false);
                 }
 
-            } else if (SwingUtilities.isRightMouseButton(evt)) {
+            } else if ((evt == null && hand_label_click_type == 2) || (evt != null && SwingUtilities.isRightMouseButton(evt))) {
 
                 click_max_hands();
 

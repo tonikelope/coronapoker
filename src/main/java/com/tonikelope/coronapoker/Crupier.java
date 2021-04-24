@@ -2105,7 +2105,7 @@ public class Crupier implements Runnable {
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    GameFrame.getInstance().getTapete().getCommunityCards().hand_label_click();
+                    GameFrame.getInstance().getTapete().getCommunityCards().hand_label_left_click();
                 }
             });
         }

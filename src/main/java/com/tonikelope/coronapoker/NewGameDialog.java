@@ -74,6 +74,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         update = true;
 
+        scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
+        scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
         url_panel.setVisible(false);
         nick_pass_panel.setVisible(false);
         config_partida_panel.setVisible(true);
@@ -156,6 +158,9 @@ public class NewGameDialog extends javax.swing.JDialog {
         initComponents();
 
         partida_local = loc;
+
+        scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
+        scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
         game_combo.setEnabled(false);
 
@@ -271,6 +276,10 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
+        if (this.getWidth() >= this.getParent().getWidth() || this.getHeight() >= this.getParent().getHeight()) {
+            setPreferredSize(new Dimension(this.getParent().getWidth(), this.getParent().getHeight()));
+        }
+
         pack();
 
         init = true;
@@ -353,6 +362,8 @@ public class NewGameDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        scroll_panel = new javax.swing.JScrollPane();
+        jPanel2 = new javax.swing.JPanel();
         vamos = new javax.swing.JButton();
         url_panel = new javax.swing.JPanel();
         server_port_puntos = new javax.swing.JLabel();
@@ -390,6 +401,9 @@ public class NewGameDialog extends javax.swing.JDialog {
         setTitle("CoronaPoker - Nueva timba");
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
         setMinimumSize(new java.awt.Dimension(533, 0));
+
+        scroll_panel.setBorder(null);
+        scroll_panel.setDoubleBuffered(true);
 
         vamos.setFont(new java.awt.Font("Dialog", 1, 48)); // NOI18N
         vamos.setText("¡VAMOS!");
@@ -766,23 +780,23 @@ public class NewGameDialog extends javax.swing.JDialog {
                     .addComponent(pass_text, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
+        jPanel2.setLayout(jPanel2Layout);
+        jPanel2Layout.setHorizontalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(nick_pass_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(url_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
+                .addGap(0, 0, 0))
         );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
+        jPanel2Layout.setVerticalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
                 .addComponent(url_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(config_partida_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -790,6 +804,25 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(vamos, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0))
+        );
+
+        scroll_panel.setViewportView(jPanel2);
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(scroll_panel)
+                .addContainerGap())
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(scroll_panel)
                 .addContainerGap())
         );
 
@@ -1182,6 +1215,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JComboBox<String> game_combo;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel jPanel2;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;
     private javax.swing.JTextField nick;
@@ -1194,6 +1228,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JLabel randomorg_label;
     private javax.swing.JCheckBox rebuy_checkbox;
     private javax.swing.JCheckBox recover_checkbox;
+    private javax.swing.JScrollPane scroll_panel;
     private javax.swing.JTextField server_ip_textfield;
     private javax.swing.JLabel server_port_puntos;
     private javax.swing.JTextField server_port_textfield;

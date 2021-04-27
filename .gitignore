@@ -30,6 +30,7 @@ buildNumber.properties
 # Package Files
 *.jar
 !coronaHMAC*.jar
+!coronaupdater.jar
 *.war
 *.ear
 *.zip

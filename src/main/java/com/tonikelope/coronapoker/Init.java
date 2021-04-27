@@ -21,8 +21,15 @@ import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
@@ -41,6 +48,7 @@ import javax.swing.Action;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JProgressBar;
 import javax.swing.KeyStroke;
 import javax.swing.UIManager;
 
@@ -147,6 +155,10 @@ public class Init extends javax.swing.JFrame {
 
     }
 
+    public JProgressBar getProgress_bar() {
+        return progress_bar;
+    }
+
     public JLabel getSound_icon() {
         return sound_icon;
     }
@@ -183,6 +195,7 @@ public class Init extends javax.swing.JFrame {
         jLabel6 = new javax.swing.JLabel();
         language_combobox = new javax.swing.JComboBox<>();
         jButton1 = new javax.swing.JButton();
+        progress_bar = new javax.swing.JProgressBar();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("CoronaPoker");
@@ -304,8 +317,9 @@ public class Init extends javax.swing.JFrame {
             corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(corona_init_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(corona_init_panelLayout.createSequentialGroup()
+                .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(progress_bar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, corona_init_panelLayout.createSequentialGroup()
                         .addComponent(krusty)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(pegi_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -316,7 +330,7 @@ public class Init extends javax.swing.JFrame {
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                    .addGroup(corona_init_panelLayout.createSequentialGroup()
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, corona_init_panelLayout.createSequentialGroup()
                         .addComponent(jLabel1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
@@ -345,6 +359,8 @@ public class Init extends javax.swing.JFrame {
                             .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                 .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(progress_bar, javax.swing.GroupLayout.PREFERRED_SIZE, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
 
@@ -360,9 +376,9 @@ public class Init extends javax.swing.JFrame {
         tapeteLayout.setVerticalGroup(
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
-                .addContainerGap(579, Short.MAX_VALUE)
+                .addContainerGap(569, Short.MAX_VALUE)
                 .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(579, Short.MAX_VALUE))
+                .addContainerGap(569, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -581,10 +597,15 @@ public class Init extends javax.swing.JFrame {
 
             Helpers.playLoopMp3Resource("misc/background_music.mp3");
 
+            Init ventana = new Init();
+
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    Init ventana = new Init();
+
+                    ventana.setEnabled(false);
+
+                    ventana.getProgress_bar().setIndeterminate(true);
 
                     Helpers.centrarJFrame(ventana, 0);
 
@@ -592,8 +613,86 @@ public class Init extends javax.swing.JFrame {
                 }
             });
 
+            final String new_version = Helpers.checkNewVersion(AboutDialog.UPDATE_URL);
+
+            if (new_version != null) {
+
+                if (Helpers.mostrarMensajeInformativoSINO(ventana, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿Quieres actualizar?") == 0) {
+
+                    try {
+
+                        downloadUpdater();
+
+                        String current_jar_path = new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
+
+                        String new_jar_path = current_jar_path.contains(AboutDialog.VERSION) ? current_jar_path.replaceAll(AboutDialog.VERSION, new_version) : current_jar_path;
+
+                        StringBuilder java_bin = new StringBuilder();
+
+                        java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+
+                        Runtime.getRuntime().exec(java_bin.append(" -jar ").append(System.getProperty("java.io.tmpdir") + "/coronaupdater.jar").append(" " + new_version + " " + current_jar_path + " " + new_jar_path).toString());
+
+                        System.exit(0);
+
+                    } catch (Exception ex) {
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                }
+            }
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    ventana.setEnabled(true);
+
+                    ventana.getProgress_bar().setIndeterminate(false);
+
+                    ventana.getProgress_bar().setVisible(false);
+                }
+            });
+
             antiScreensaver();
+
         }
+    }
+
+    private static void downloadUpdater() throws IOException {
+
+        HttpURLConnection con = null;
+
+        try {
+
+            URL url_api = new URL("https://github.com/tonikelope/coronapoker/raw/master/coronaupdater.jar");
+
+            con = (HttpURLConnection) url_api.openConnection();
+
+            con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
+
+            con.setUseCaches(false);
+
+            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/coronaupdater.jar"))) {
+
+                byte[] buffer = new byte[1024];
+
+                int reads;
+
+                while ((reads = bis.read(buffer)) != -1) {
+
+                    bfos.write(buffer, 0, reads);
+
+                }
+            }
+
+        } finally {
+
+            if (con != null) {
+                con.disconnect();
+            }
+        }
+
     }
 
     private static void antiScreensaver() {
@@ -644,6 +743,7 @@ public class Init extends javax.swing.JFrame {
     private javax.swing.JLabel krusty;
     private javax.swing.JComboBox<String> language_combobox;
     private javax.swing.JPanel pegi_panel;
+    private javax.swing.JProgressBar progress_bar;
     private javax.swing.JLabel sound_icon;
     private com.tonikelope.coronapoker.InitPanel tapete;
     // End of variables declaration//GEN-END:variables

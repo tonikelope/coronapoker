@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿Quieres actualizar?", "THERE IS A NEW CORONAPOKER VERSION. Update?"},
             {"(CONTINUANDO TIMBA ANTERIOR)", "(RESUMING PREVIOUS GAME)"},
             {"ERROR AL RECUPERAR LA MANO", "ERROR RECOVERING HAND"},
             {"ESTE JUGADOR TIENE PROBLEMAS DE CONEXIÓN", "THIS PLAYER HAS CONNECTION PROBLEMS"},

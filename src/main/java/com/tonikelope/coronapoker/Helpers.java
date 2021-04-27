@@ -33,6 +33,7 @@ import java.awt.event.KeyEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -40,7 +41,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -1029,21 +1029,17 @@ public class Helpers {
 
                             con.setUseCaches(false);
 
-                            try (InputStream is = con.getInputStream(); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+                            filename = Helpers.genRandomString(30);
 
-                                byte[] buffer = new byte[16];
+                            try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename))) {
+
+                                byte[] buffer = new byte[1024];
 
                                 int reads;
 
                                 while ((reads = is.read(buffer)) != -1) {
 
-                                    byte_res.write(buffer, 0, reads);
-                                }
-
-                                filename = Helpers.genRandomString(30);
-
-                                try (OutputStream outputStream = new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename)) {
-                                    byte_res.writeTo(outputStream);
+                                    bfos.write(buffer, 0, reads);
                                 }
 
                                 Helpers.GUIRun(new Runnable() {
@@ -1117,7 +1113,7 @@ public class Helpers {
 
             try (InputStream is = con.getInputStream(); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
 
-                byte[] buffer = new byte[16];
+                byte[] buffer = new byte[1024];
 
                 int reads;
 
@@ -1142,6 +1138,71 @@ public class Helpers {
         }
 
         return public_ip;
+    }
+
+    public static String findFirstRegex(String regex, String data, int group) {
+        Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
+
+        Matcher matcher = pattern.matcher(data);
+
+        return matcher.find() ? matcher.group(group) : null;
+    }
+
+    public static String checkNewVersion(String url) {
+
+        String new_version_major = null, new_version_minor = null, current_version_major = null, current_version_minor = null;
+
+        URL mb_url;
+
+        HttpURLConnection con = null;
+
+        try {
+
+            mb_url = new URL(url);
+
+            con = (HttpURLConnection) mb_url.openConnection();
+
+            con.setUseCaches(false);
+
+            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+
+                byte[] buffer = new byte[1024];
+
+                int reads;
+
+                while ((reads = bis.read(buffer)) != -1) {
+
+                    byte_res.write(buffer, 0, reads);
+                }
+
+                String latest_version_res = new String(byte_res.toByteArray(), "UTF-8");
+
+                String latest_version = findFirstRegex("releases\\/tag\\/v?([0-9]+\\.[0-9]+)", latest_version_res, 1);
+
+                new_version_major = findFirstRegex("([0-9]+)\\.[0-9]+", latest_version, 1);
+
+                new_version_minor = findFirstRegex("[0-9]+\\.([0-9]+)", latest_version, 1);
+
+                current_version_major = findFirstRegex("([0-9]+)\\.[0-9]+$", AboutDialog.VERSION, 1);
+
+                current_version_minor = findFirstRegex("[0-9]+\\.([0-9]+)$", AboutDialog.VERSION, 1);
+
+                if (new_version_major != null && (Integer.parseInt(current_version_major) < Integer.parseInt(new_version_major) || (Integer.parseInt(current_version_major) == Integer.parseInt(new_version_major) && Integer.parseInt(current_version_minor) < Integer.parseInt(new_version_minor)))) {
+
+                    return new_version_major + "." + new_version_minor;
+
+                }
+            }
+
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, ex.getMessage());
+        } finally {
+            if (con != null) {
+                con.disconnect();
+            }
+        }
+
+        return null;
     }
 
     public static Integer[] getPokerDeckPermutation(int method) {
@@ -1185,13 +1246,13 @@ public class Helpers {
 
                                     String output = null;
 
-                                    try (InputStream is = con.getInputStream(); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+                                    try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
 
-                                        byte[] buffer = new byte[16];
+                                        byte[] buffer = new byte[1024];
 
                                         int reads;
 
-                                        while ((reads = is.read(buffer)) != -1) {
+                                        while ((reads = bis.read(buffer)) != -1) {
 
                                             byte_res.write(buffer, 0, reads);
                                         }

@@ -2222,8 +2222,8 @@ public class Crupier implements Runnable {
                             recover_dialog.setVisible(false);
                             recover_dialog.dispose();
                             recover_dialog = null;
-                            GameFrame.getInstance().getFull_screen_menu().setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
-                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                            GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
 
                         }
                     });
@@ -2245,8 +2245,8 @@ public class Crupier implements Runnable {
                         recover_dialog.setVisible(false);
                         recover_dialog.dispose();
                         recover_dialog = null;
-                        GameFrame.getInstance().getFull_screen_menu().setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
-                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                        GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
 
                     }
                 });
@@ -5238,8 +5238,8 @@ public class Crupier implements Runnable {
                         recover_dialog.setVisible(false);
                         recover_dialog.dispose();
                         recover_dialog = null;
-                        GameFrame.getInstance().getFull_screen_menu().setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
-                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                        GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                     }
                 });
             }
@@ -6108,8 +6108,8 @@ public class Crupier implements Runnable {
                                     recover_dialog.setVisible(false);
                                     recover_dialog.dispose();
                                     recover_dialog = null;
-                                    GameFrame.getInstance().getFull_screen_menu().setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
-                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.MAC_NATIVE_FULLSCREEN);
+                                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                                 }
                             });
                         }

@@ -621,17 +621,26 @@ public class Init extends javax.swing.JFrame {
 
                     try {
 
-                        downloadUpdater();
-
                         String current_jar_path = new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
 
                         String new_jar_path = current_jar_path.contains(AboutDialog.VERSION) ? current_jar_path.replaceAll(AboutDialog.VERSION, new_version) : current_jar_path;
 
-                        StringBuilder java_bin = new StringBuilder();
+                        if (Files.isWritable(Paths.get(current_jar_path)) && Files.isWritable(Paths.get(new_jar_path))) {
 
-                        java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+                            downloadUpdater();
 
-                        Runtime.getRuntime().exec(java_bin.append(" -jar ").append(System.getProperty("java.io.tmpdir") + "/coronaupdater.jar").append(" " + new_version + " " + current_jar_path + " " + new_jar_path).toString());
+                            StringBuilder java_bin = new StringBuilder();
+
+                            java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+
+                            Runtime.getRuntime().exec(java_bin.append(" -jar ").append(System.getProperty("java.io.tmpdir") + "/coronaupdater.jar").append(" " + new_version + " " + current_jar_path + " " + new_jar_path).toString());
+
+                        } else {
+
+                            Helpers.mostrarMensajeError(ventana, "NO TENGO PERMISOS DE ESCRITURA.\n(TENDRÁS QUE DESCARGARTE LA ÚLTIMA VERSIÓN MANUALMENTE)");
+
+                            Helpers.openBrowserURLAndWait("https://github.com/tonikelope/coronapoker/releases/latest");
+                        }
 
                         System.exit(0);
 

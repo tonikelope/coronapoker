@@ -669,6 +669,16 @@ public class Helpers {
         });
     }
 
+    public static void openBrowserURLAndWait(final String url) {
+
+        try {
+            Desktop.getDesktop().browse(new URI(url));
+        } catch (URISyntaxException | IOException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex.getMessage());
+        }
+
+    }
+
     public static String toHexString(byte[] array) {
         return DatatypeConverter.printHexBinary(array);
     }

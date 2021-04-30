@@ -239,8 +239,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         double originalFrameHeight = tapete.getHeight();
 
-        GameFrame.getInstance().enableMacNativeFullScreen(GameFrame.getInstance());
-
+        //GameFrame.getInstance().enableMacNativeFullScreen(GameFrame.getInstance());
+        
         if (!Helpers.OSValidator.isMac() || !GameFrame.MAC_NATIVE_FULLSCREEN) {
 
             Helpers.GUIRun(new Runnable() {
@@ -262,60 +262,64 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             });
 
-            toggleMacNativeFullScreen(GameFrame.getInstance());
+            //toggleMacNativeFullScreen(GameFrame.getInstance());
         }
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                full_screen_menu.setEnabled(false);
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
-            }
-        });
+        if (!Helpers.OSValidator.isMac()) {
 
-        int t = 0;
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    full_screen_menu.setEnabled(false);
+                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
+                }
+            });
 
-        while (!full_screen && t < AUTO_ZOOM_TIMEOUT) {
+            int t = 0;
 
-            synchronized (full_screen_lock) {
-                try {
-                    full_screen_lock.wait(1000);
-                    t += 1000;
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+            while (!full_screen && t < AUTO_ZOOM_TIMEOUT) {
+
+                synchronized (full_screen_lock) {
+                    try {
+                        full_screen_lock.wait(1000);
+                        t += 1000;
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
             }
-        }
 
-        if (full_screen) {
+            if (full_screen) {
 
-            t = 0;
+                t = 0;
 
-            while (t < AUTO_ZOOM_TIMEOUT && originalFrameHeight == tapete.getHeight()) {
-                Helpers.pausar(GUI_ZOOM_WAIT);
-                t += GUI_ZOOM_WAIT;
-            }
-
-            if (!tapete.autoZoom()) {
-                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "AUTOZOOM TIMEOUT ERROR!");
-            }
-        }
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                if (!GameFrame.isRECOVER()) {
-                    full_screen_menu.setEnabled(true);
-                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                while (t < AUTO_ZOOM_TIMEOUT && originalFrameHeight == tapete.getHeight()) {
+                    Helpers.pausar(GUI_ZOOM_WAIT);
+                    t += GUI_ZOOM_WAIT;
                 }
 
-                zoom_menu_in.setEnabled(true);
-                zoom_menu_out.setEnabled(true);
-                zoom_menu_reset.setEnabled(true);
-
+                if (!tapete.autoZoom()) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "AUTOZOOM TIMEOUT ERROR!");
+                }
             }
-        });
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    if (!GameFrame.isRECOVER()) {
+                        full_screen_menu.setEnabled(true);
+                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                    }
+
+                    zoom_menu_in.setEnabled(true);
+                    zoom_menu_out.setEnabled(true);
+                    zoom_menu_reset.setEnabled(true);
+
+                }
+            });
+
+        }
     }
 
     public ConcurrentHashMap<String, String> getNick2avatar() {

@@ -1052,21 +1052,21 @@ public class Helpers {
                                     bfos.write(buffer, 0, reads);
                                 }
 
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        GameFrame.getInstance().getSonidos_menu().setEnabled(false);
-
-                                        nick_dialog.setVisible(true);
-                                    }
-                                });
-
-                                Helpers.muteAllExceptMp3Loops();
-
-                                Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
-
                             }
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    GameFrame.getInstance().getSonidos_menu().setEnabled(false);
+
+                                    nick_dialog.setVisible(true);
+                                }
+                            });
+
+                            Helpers.muteAllExceptMp3Loops();
+
+                            Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
 
                         } catch (Exception ex) {
 

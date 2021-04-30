@@ -663,8 +663,7 @@ public class Init extends javax.swing.JFrame {
                 }
             });
 
-            antiScreensaver();
-
+            //antiScreensaver();
         }
     }
 

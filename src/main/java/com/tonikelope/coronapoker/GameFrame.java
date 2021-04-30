@@ -241,7 +241,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         //GameFrame.getInstance().enableMacNativeFullScreen(GameFrame.getInstance());
         
-        if (!Helpers.OSValidator.isMac() || !GameFrame.MAC_NATIVE_FULLSCREEN) {
+        if (!Helpers.OSValidator.isMac()) {
 
             Helpers.GUIRun(new Runnable() {
                 @Override
@@ -259,6 +259,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 @Override
                 public void run() {
                     setVisible(true);
+                    full_screen_menu.setEnabled(false);
+                    menu_bar.setVisible(false);
                 }
             });
 

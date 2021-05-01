@@ -135,7 +135,7 @@ public class GameOverDialog extends javax.swing.JDialog {
         exit_now_button.setBackground(new java.awt.Color(255, 0, 0));
         exit_now_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         exit_now_button.setForeground(new java.awt.Color(255, 255, 255));
-        exit_now_button.setText("SALIR");
+        exit_now_button.setText("ESPECTADOR");
         exit_now_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         exit_now_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {

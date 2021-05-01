@@ -5,7 +5,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.Dimension;
 import java.awt.Image;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -17,7 +16,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "8.63";
+    public static final String VERSION = "8.64";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -61,10 +60,6 @@ public class AboutDialog extends javax.swing.JDialog {
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
-
-        if (this.getWidth() >= this.getParent().getWidth() || this.getHeight() >= this.getParent().getHeight()) {
-            setPreferredSize(new Dimension(this.getParent().getWidth(), this.getParent().getHeight()));
-        }
 
         pack();
 

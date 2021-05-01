@@ -192,7 +192,7 @@ public class Helpers {
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
-    public volatile static Boolean ctrlPressed = false;
+    public volatile static Boolean altPressed = false;
     public volatile static BasicPlayer TTS_PLAYER = null;
 
     public static boolean UPnPClose(int port) {
@@ -243,12 +243,12 @@ public class Helpers {
 
     public static void antiScreensaver() {
 
-        if (!Helpers.ctrlPressed) {
+        if (!Helpers.altPressed) {
             try {
                 Robot r = new Robot();
                 r.waitForIdle();
-                r.keyPress(KeyEvent.VK_CONTROL);
-                r.keyRelease(KeyEvent.VK_CONTROL);
+                r.keyPress(KeyEvent.VK_ALT);
+                r.keyRelease(KeyEvent.VK_ALT);
             } catch (AWTException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }

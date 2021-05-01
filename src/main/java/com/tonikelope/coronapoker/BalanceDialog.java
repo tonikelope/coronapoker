@@ -98,7 +98,7 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         pack();
 
-        setPreferredSize(new Dimension(getWidth(), Math.round(0.8f * getParent().getHeight())));
+        setPreferredSize(new Dimension(getWidth(), Math.round(0.9f * getParent().getHeight())));
 
         pack();
 
@@ -126,6 +126,7 @@ public class BalanceDialog extends javax.swing.JDialog {
         jScrollPane1 = new javax.swing.JScrollPane();
         jugadores = new javax.swing.JPanel();
         ok_button = new javax.swing.JButton();
+        ok_button1 = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setUndecorated(true);
@@ -148,20 +149,32 @@ public class BalanceDialog extends javax.swing.JDialog {
         jugadores.setBackground(new java.awt.Color(245, 245, 245));
         jugadores.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         jugadores.setFocusable(false);
-        jugadores.setPreferredSize(null);
         jugadores.setLayout(new java.awt.GridLayout(0, 1));
         jScrollPane1.setViewportView(jugadores);
 
         ok_button.setBackground(new java.awt.Color(0, 130, 0));
         ok_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         ok_button.setForeground(new java.awt.Color(255, 255, 255));
-        ok_button.setText("OK");
+        ok_button.setText("SALIR");
         ok_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         ok_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ok_button.setDoubleBuffered(true);
         ok_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 ok_buttonActionPerformed(evt);
+            }
+        });
+
+        ok_button1.setBackground(new java.awt.Color(255, 102, 51));
+        ok_button1.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        ok_button1.setForeground(new java.awt.Color(255, 255, 255));
+        ok_button1.setText("ESTADÍSTICAS");
+        ok_button1.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        ok_button1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        ok_button1.setDoubleBuffered(true);
+        ok_button1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                ok_button1ActionPerformed(evt);
             }
         });
 
@@ -172,16 +185,18 @@ public class BalanceDialog extends javax.swing.JDialog {
             .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jScrollPane1)
             .addComponent(ok_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(ok_button1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addComponent(title)
                 .addGap(0, 0, 0)
-                .addComponent(jScrollPane1)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 28, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
-                .addComponent(ok_button)
-                .addGap(0, 0, 0))
+                .addComponent(ok_button1)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(ok_button))
         );
 
         pack();
@@ -192,10 +207,20 @@ public class BalanceDialog extends javax.swing.JDialog {
         dispose();
     }//GEN-LAST:event_ok_buttonActionPerformed
 
+    private void ok_button1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ok_button1ActionPerformed
+        // TODO add your handling code here:
+        StatsDialog dialog = new StatsDialog(GameFrame.getInstance().getFrame(), true);
+
+        dialog.setLocationRelativeTo(this);
+
+        dialog.setVisible(true);
+    }//GEN-LAST:event_ok_button1ActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JPanel jugadores;
     private javax.swing.JButton ok_button;
+    private javax.swing.JButton ok_button1;
     private javax.swing.JLabel title;
     // End of variables declaration//GEN-END:variables
 }

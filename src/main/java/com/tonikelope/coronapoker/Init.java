@@ -67,7 +67,7 @@ public class Init extends javax.swing.JFrame {
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
-    public static final int ANTI_SCREENSAVER_DELAY = 55000; //Ms
+    public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
 
     private static volatile boolean force_close_dialog = false;
 
@@ -663,7 +663,9 @@ public class Init extends javax.swing.JFrame {
                 }
             });
 
-            //antiScreensaver();
+            if (!Helpers.OSValidator.isMac()) {
+                antiScreensaver();
+            }
         }
     }
 
@@ -711,14 +713,14 @@ public class Init extends javax.swing.JFrame {
 
                 switch (ke.getID()) {
                     case KeyEvent.KEY_PRESSED:
-                        if (ke.getKeyCode() == KeyEvent.VK_CONTROL) {
-                            Helpers.ctrlPressed = true;
+                        if (ke.getKeyCode() == KeyEvent.VK_ALT) {
+                            Helpers.altPressed = true;
                         }
                         break;
 
                     case KeyEvent.KEY_RELEASED:
-                        if (ke.getKeyCode() == KeyEvent.VK_CONTROL) {
-                            Helpers.ctrlPressed = false;
+                        if (ke.getKeyCode() == KeyEvent.VK_ALT) {
+                            Helpers.altPressed = false;
                         }
                         break;
                 }

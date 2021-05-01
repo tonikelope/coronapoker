@@ -170,7 +170,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     //--illegal-access=permit
     public void enableMacNativeFullScreen(Window window) {
 
-        if (Helpers.OSValidator.isMac()) {
+        if (Helpers.OSValidator.isMac() && !GameFrame.MAC_NATIVE_FULLSCREEN) {
 
             try {
 
@@ -237,91 +237,58 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void autoZoomFullScreen() {
 
-        double originalFrameHeight = tapete.getHeight();
-
-        //GameFrame.getInstance().enableMacNativeFullScreen(GameFrame.getInstance());
-        
-        if (!Helpers.OSValidator.isMac()) {
-
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    zoom_menu_in.setEnabled(false);
-                    zoom_menu_out.setEnabled(false);
-                    zoom_menu_reset.setEnabled(false);
-                    full_screen_menu.doClick();
-                }
-            });
-
-        } else {
+        if (Helpers.OSValidator.isMac()) {
 
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
                     setVisible(true);
-                    full_screen_menu.setEnabled(false);
-                    menu_bar.setVisible(false);
+                    GameFrame.getInstance().setEnabled(false);
                 }
             });
 
-            //toggleMacNativeFullScreen(GameFrame.getInstance());
+            Helpers.pausar(1000);
+
+            GameFrame.getInstance().enableMacNativeFullScreen(GameFrame.getInstance());
         }
 
-        if (!Helpers.OSValidator.isMac()) {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                GameFrame.getInstance().setEnabled(true);
+                full_screen_menu.doClick();
+                GameFrame.getInstance().setEnabled(false);
+            }
+        });
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    full_screen_menu.setEnabled(false);
-                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
-                }
-            });
+        int t = 0;
 
-            int t = 0;
+        while (!full_screen && t < AUTO_ZOOM_TIMEOUT) {
 
-            while (!full_screen && t < AUTO_ZOOM_TIMEOUT) {
-
-                synchronized (full_screen_lock) {
-                    try {
-                        full_screen_lock.wait(1000);
-                        t += 1000;
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    }
+            synchronized (full_screen_lock) {
+                try {
+                    full_screen_lock.wait(1000);
+                    t += 1000;
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-
-            if (full_screen) {
-
-                t = 0;
-
-                while (t < AUTO_ZOOM_TIMEOUT && originalFrameHeight == tapete.getHeight()) {
-                    Helpers.pausar(GUI_ZOOM_WAIT);
-                    t += GUI_ZOOM_WAIT;
-                }
-
-                if (!tapete.autoZoom()) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "AUTOZOOM TIMEOUT ERROR!");
-                }
-            }
-
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    if (!GameFrame.isRECOVER()) {
-                        full_screen_menu.setEnabled(true);
-                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                    }
-
-                    zoom_menu_in.setEnabled(true);
-                    zoom_menu_out.setEnabled(true);
-                    zoom_menu_reset.setEnabled(true);
-
-                }
-            });
-
         }
+
+        if (!tapete.autoZoom()) {
+            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "AUTOZOOM TIMEOUT ERROR!");
+        }
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                GameFrame.getInstance().setEnabled(true);
+                full_screen_menu.setEnabled(!GameFrame.isRECOVER());
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.isRECOVER());
+            }
+        });
+
     }
 
     public ConcurrentHashMap<String, String> getNick2avatar() {

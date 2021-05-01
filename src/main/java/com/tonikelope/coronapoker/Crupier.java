@@ -6717,7 +6717,7 @@ public class Crupier implements Runnable {
 
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
-                    if (rebuy_players.contains(jugador.getNickname()) && GameFrame.getInstance().getParticipantes().get(jugador.getNickname())!=null && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
+                    if (rebuy_players.contains(jugador.getNickname()) && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()) != null && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
 
                         int res = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname());
 

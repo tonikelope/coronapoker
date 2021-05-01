@@ -97,7 +97,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static volatile boolean RECOVER = false;
-    public static volatile boolean MAC_NATIVE_FULLSCREEN = false;
+    public static volatile Boolean MAC_NATIVE_FULLSCREEN = null;
     public static volatile boolean TTS_SERVER = true;
     public static volatile int RECOVER_ID = -1;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
@@ -170,7 +170,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     //--illegal-access=permit
     public void enableMacNativeFullScreen(Window window) {
 
-        if (Helpers.OSValidator.isMac() && !GameFrame.MAC_NATIVE_FULLSCREEN) {
+        if (Helpers.OSValidator.isMac() && GameFrame.MAC_NATIVE_FULLSCREEN == null) {
 
             try {
 
@@ -191,6 +191,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 @Override
                                 public void run() {
                                     menu_bar.setVisible(false);
+                                    full_screen_menu.setEnabled(true);
+                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                                     full_screen_menu.setSelected(true);
                                     Helpers.TapetePopupMenu.FULLSCREEN_MENU.setSelected(true);
                                     full_screen = true;
@@ -207,9 +209,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 @Override
                                 public void run() {
                                     menu_bar.setVisible(true);
+                                    full_screen_menu.setEnabled(true);
+                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                                     full_screen_menu.setSelected(false);
                                     Helpers.TapetePopupMenu.FULLSCREEN_MENU.setSelected(false);
-
                                     full_screen = false;
 
                                     synchronized (full_screen_lock) {
@@ -225,7 +228,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 });
 
                 addFullScreenListenerTo.invoke(null, window, Class.forName("com.apple.eawt.FullScreenListener").cast(proxyFullScreenListener));
-
                 GameFrame.MAC_NATIVE_FULLSCREEN = true;
 
             } catch (Exception e) {
@@ -239,6 +241,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (Helpers.OSValidator.isMac()) {
 
+            GameFrame.getInstance().enableMacNativeFullScreen(GameFrame.getInstance());
+
+            Helpers.pausar(500);
+
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
@@ -247,9 +253,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             });
 
-            Helpers.pausar(1000);
-
-            GameFrame.getInstance().enableMacNativeFullScreen(GameFrame.getInstance());
+            Helpers.pausar(500);
         }
 
         Helpers.GUIRun(new Runnable() {
@@ -2480,19 +2484,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void full_screen_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_full_screen_menuActionPerformed
         // TODO add your handling code here:
 
-        if (this.full_screen_menu.isEnabled() && !this.isGame_over_dialog()) {
+        if (full_screen_menu.isEnabled() && !isGame_over_dialog()) {
+
+            full_screen_menu.setEnabled(false);
+
+            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
 
             if (!Helpers.OSValidator.isMac() || !GameFrame.MAC_NATIVE_FULLSCREEN) {
 
-                this.full_screen_menu.setEnabled(false);
-
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setSelected(!this.full_screen);
-
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setSelected(!full_screen);
 
                 toggleFullScreen();
 
             } else {
+
                 toggleMacNativeFullScreen(GameFrame.getInstance());
             }
         }

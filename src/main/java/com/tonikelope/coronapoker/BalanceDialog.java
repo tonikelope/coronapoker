@@ -30,6 +30,8 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         initComponents();
 
+        ok_button.requestFocus();
+
         jScrollPane1.getVerticalScrollBar().setUnitIncrement(20);
 
         ArrayList<Object[]> ranking = new ArrayList<>();

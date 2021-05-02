@@ -243,8 +243,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameFrame.getInstance().enableMacNativeFullScreen(GameFrame.getInstance());
 
-            Helpers.pausar(500);
-
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
@@ -253,7 +251,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             });
 
-            Helpers.pausar(500);
+            Helpers.pausar(1000);
         }
 
         Helpers.GUIRun(new Runnable() {
@@ -279,7 +277,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
-        if (!tapete.autoZoom()) {
+        if (!tapete.autoZoom(false)) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "AUTOZOOM TIMEOUT ERROR!");
         }
 
@@ -480,6 +478,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
+    }
+
+    public JMenuItem getAuto_zoom_menu() {
+        return auto_zoom_menu;
     }
 
     public void cambiarBaraja() {
@@ -726,6 +728,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
                 zoom_menu_resetActionPerformed(e);
+            }
+        });
+
+        KeyStroke key_zoom_auto = KeyStroke.getKeyStroke(KeyEvent.VK_A, KeyEvent.CTRL_DOWN_MASK);
+        actionMap.put(key_zoom_auto, new AbstractAction("ZOOM-AUTO") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                auto_zoom_menuActionPerformed(e);
             }
         });
 
@@ -1819,6 +1829,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         zoom_menu_in = new javax.swing.JMenuItem();
         zoom_menu_out = new javax.swing.JMenuItem();
         zoom_menu_reset = new javax.swing.JMenuItem();
+        auto_zoom_menu = new javax.swing.JMenuItem();
         jSeparator6 = new javax.swing.JPopupMenu.Separator();
         compact_menu = new javax.swing.JCheckBoxMenuItem();
         opciones_menu = new javax.swing.JMenu();
@@ -1961,6 +1972,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
         zoom_menu.add(zoom_menu_reset);
+
+        auto_zoom_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        auto_zoom_menu.setText("AUTO-AJUSTE (CTRL+A)");
+        auto_zoom_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                auto_zoom_menuActionPerformed(evt);
+            }
+        });
+        zoom_menu.add(auto_zoom_menu);
         zoom_menu.add(jSeparator6);
 
         compact_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
@@ -2860,11 +2880,27 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.getInstance().getTapete().getCommunityCards().hand_label_right_click();
     }//GEN-LAST:event_max_hands_menuActionPerformed
 
+    private void auto_zoom_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_zoom_menuActionPerformed
+        // TODO add your handling code here:
+
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+
+                if (!tapete.autoZoom(false)) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "AUTOZOOM TIMEOUT ERROR!");
+                }
+
+            }
+        });
+    }//GEN-LAST:event_auto_zoom_menuActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
     private javax.swing.JCheckBoxMenuItem ascensor_menu;
     private javax.swing.JCheckBoxMenuItem auto_action_menu;
+    private javax.swing.JMenuItem auto_zoom_menu;
     private javax.swing.JMenuItem chat_menu;
     private javax.swing.JCheckBoxMenuItem compact_menu;
     private javax.swing.JCheckBoxMenuItem confirmar_menu;

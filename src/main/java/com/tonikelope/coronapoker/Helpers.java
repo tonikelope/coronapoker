@@ -2847,6 +2847,13 @@ public class Helpers {
                     }
                 };
 
+                Action zoomautoAction = new AbstractAction("AUTO AJUSTE ZOOM") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getAuto_zoom_menu().doClick();
+                    }
+                };
+
                 Action compactAction = new AbstractAction("Vista compacta") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -2935,6 +2942,7 @@ public class Helpers {
                 popup.add(zoominAction);
                 popup.add(zoomoutAction);
                 popup.add(zoomresetAction);
+                popup.add(zoomautoAction);
                 popup.addSeparator();
                 COMPACTA_MENU = new JCheckBoxMenuItem(compactAction);
                 COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA);

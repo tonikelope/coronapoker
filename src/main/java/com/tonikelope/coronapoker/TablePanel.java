@@ -164,7 +164,16 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
         }
     }
 
-    public boolean autoZoom() {
+    public boolean autoZoom(boolean reset) {
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                GameFrame.getInstance().getZoom_menu_reset().setEnabled(false);
+                GameFrame.getInstance().getZoom_menu_in().setEnabled(false);
+                GameFrame.getInstance().getZoom_menu_out().setEnabled(false);
+            }
+        });
 
         for (Player jugador : getPlayers()) {
 
@@ -180,7 +189,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                 double playerHeight = ((JPanel) jugador).getHeight();
                 double playerWidth = ((JPanel) jugador).getWidth();
 
-                if (GameFrame.getZoom_level() != GameFrame.DEFAULT_ZOOM_LEVEL) {
+                if (reset && (GameFrame.getZoom_level() != GameFrame.DEFAULT_ZOOM_LEVEL)) {
 
                     //RESET ZOOM
                     Helpers.GUIRun(new Runnable() {
@@ -203,6 +212,16 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                     }
 
                     if (playerHeight == ((JPanel) jugador).getHeight() || playerWidth == ((JPanel) jugador).getWidth()) {
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                GameFrame.getInstance().getZoom_menu_reset().setEnabled(true);
+                                GameFrame.getInstance().getZoom_menu_in().setEnabled(true);
+                                GameFrame.getInstance().getZoom_menu_out().setEnabled(true);
+                            }
+                        });
+
                         return false;
                     }
                 }
@@ -240,12 +259,31 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                         playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
                         playerRight = ((JPanel) jugador).getLocationOnScreen().getX() + ((JPanel) jugador).getWidth();
                     } else {
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                GameFrame.getInstance().getZoom_menu_reset().setEnabled(true);
+                                GameFrame.getInstance().getZoom_menu_in().setEnabled(true);
+                                GameFrame.getInstance().getZoom_menu_out().setEnabled(true);
+                            }
+                        });
+
                         return false;
                     }
                 }
             }
 
         }
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                GameFrame.getInstance().getZoom_menu_reset().setEnabled(true);
+                GameFrame.getInstance().getZoom_menu_in().setEnabled(true);
+                GameFrame.getInstance().getZoom_menu_out().setEnabled(true);
+            }
+        });
 
         return true;
 

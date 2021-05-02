@@ -6030,18 +6030,6 @@ public class Crupier implements Runnable {
             }
         });
 
-        if (GameFrame.getZoom_level() != 0) {
-            Helpers.GUIRunAndWait(new Runnable() {
-                @Override
-                public void run() {
-
-                    GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Restaurando zoom..."));
-                }
-            });
-            GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP);
-
-        }
-
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {

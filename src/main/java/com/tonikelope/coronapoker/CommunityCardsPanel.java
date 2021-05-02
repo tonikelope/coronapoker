@@ -8,6 +8,7 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -710,14 +711,30 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     // End of variables declaration//GEN-END:variables
 
     @Override
-    public void zoom(float factor) {
+    public void zoom(float factor, final ConcurrentLinkedQueue<String> notifier) {
+
+        final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+
         for (ZoomableInterface zoomeable : new ZoomableInterface[]{flop1, flop2, flop3, turn, river}) {
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-                    zoomeable.zoom(factor);
+                    zoomeable.zoom(factor, mynotifier);
+
                 }
             });
+        }
+
+        while (mynotifier.size() < 5) {
+
+            synchronized (mynotifier) {
+
+                try {
+                    mynotifier.wait(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         }
 
         int altura_sound = pot_label.getHeight();
@@ -740,5 +757,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) pot_label.getHeight() * 0.65)));
             }
         });
+
+        notifier.add(Thread.currentThread().getName());
+
+        synchronized (notifier) {
+
+            notifier.notifyAll();
+
+        }
     }
 }

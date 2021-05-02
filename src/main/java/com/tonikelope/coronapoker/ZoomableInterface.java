@@ -5,12 +5,14 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.util.concurrent.ConcurrentLinkedQueue;
+
 /**
  *
  * @author tonikelope
  */
 public interface ZoomableInterface {
 
-    public void zoom(float factor);
+    public void zoom(float factor, final ConcurrentLinkedQueue<String> notifier);
 
 }

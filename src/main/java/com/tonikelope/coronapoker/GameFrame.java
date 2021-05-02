@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.AbstractAction;
@@ -117,7 +118,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private final boolean partida_local;
     private final String nick_local;
 
-    private volatile ZoomableInterface[] zoomeables;
+    private volatile ZoomableInterface[] zoomables;
     private volatile long conta_tiempo_juego = 0L;
     private volatile boolean full_screen = false;
     private volatile boolean timba_pausada = false;
@@ -275,6 +276,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
+        }
+
+        if (GameFrame.getZoom_level() != 0) {
+            GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP, new ConcurrentLinkedQueue<>());
         }
 
         if (!tapete.autoZoom(false)) {
@@ -711,7 +716,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         actionMap.put(key_zoom_in, new AbstractAction("ZOOM-IN") {
             @Override
             public void actionPerformed(ActionEvent e) {
+
                 zoom_menu_inActionPerformed(e);
+
             }
         });
 
@@ -719,7 +726,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         actionMap.put(key_zoom_out, new AbstractAction("ZOOM-OUT") {
             @Override
             public void actionPerformed(ActionEvent e) {
+
                 zoom_menu_outActionPerformed(e);
+
             }
         });
 
@@ -727,7 +736,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         actionMap.put(key_zoom_reset, new AbstractAction("ZOOM-RESET") {
             @Override
             public void actionPerformed(ActionEvent e) {
+
                 zoom_menu_resetActionPerformed(e);
+
             }
         });
 
@@ -735,7 +746,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         actionMap.put(key_zoom_auto, new AbstractAction("ZOOM-AUTO") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                auto_zoom_menuActionPerformed(e);
+
+                if (auto_zoom_menu.isEnabled()) {
+                    auto_zoom_menuActionPerformed(e);
+                }
             }
         });
 
@@ -1027,24 +1041,39 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
     }
 
-    public void zoom(float factor) {
+    public void zoom(float factor, final ConcurrentLinkedQueue<String> notifier) {
 
-        for (ZoomableInterface zoomeable : zoomeables) {
+        final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+
+        for (ZoomableInterface zoomeable : zoomables) {
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-                    zoomeable.zoom(factor);
+                    zoomeable.zoom(factor, mynotifier);
+
                 }
             });
         }
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        while (mynotifier.size() < zoomables.length) {
 
-                zoom_menu.setEnabled(true);
+            synchronized (mynotifier) {
+
+                try {
+                    mynotifier.wait(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
-        });
+        }
+
+        notifier.add(Thread.currentThread().getName());
+
+        synchronized (notifier) {
+
+            notifier.notifyAll();
+
+        }
     }
 
     public void setTapeteBote(float bote, Float beneficio) {
@@ -1122,7 +1151,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     tapete = nuevo_tapete;
 
-                    zoomeables = new ZoomableInterface[]{tapete};
+                    zoomables = new ZoomableInterface[]{tapete};
 
                     frame.getContentPane().add(tapete);
 
@@ -1163,7 +1192,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     if (GameFrame.getZoom_level() != 0) {
 
-                        GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP);
+                        GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP, new ConcurrentLinkedQueue<>());
 
                     }
 
@@ -1290,7 +1319,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD) : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
 
-        zoomeables = new ZoomableInterface[]{tapete};
+        zoomables = new ZoomableInterface[]{tapete};
 
         jugadores = new ArrayList<>();
 
@@ -2266,7 +2295,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
-                zoom(1f + ZOOM_LEVEL * ZOOM_STEP);
+
+                final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+
+                zoom(1f + ZOOM_LEVEL * ZOOM_STEP, mynotifier);
 
                 if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
 
@@ -2280,6 +2312,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         }
                     });
                 }
+
+                while (mynotifier.size() < 1) {
+
+                    synchronized (mynotifier) {
+
+                        try {
+                            mynotifier.wait(1000);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                }
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+                        zoom_menu.setEnabled(true);
+                    }
+                });
 
             }
         });
@@ -2299,7 +2349,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-                    zoom(1f + ZOOM_LEVEL * ZOOM_STEP);
+
+                    final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+
+                    zoom(1f + ZOOM_LEVEL * ZOOM_STEP, mynotifier);
 
                     if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
 
@@ -2313,6 +2366,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             }
                         });
                     }
+
+                    while (mynotifier.size() < 1) {
+
+                        synchronized (mynotifier) {
+
+                            try {
+                                mynotifier.wait(1000);
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    }
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            zoom_menu.setEnabled(true);
+                        }
+                    });
+
                 }
             });
 
@@ -2334,7 +2406,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-                    zoom(1f + ZOOM_LEVEL * ZOOM_STEP);
+
+                    final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+
+                    zoom(1f + ZOOM_LEVEL * ZOOM_STEP, mynotifier);
                     if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
 
                         for (Card carta : jugadas_dialog.getCartas()) {
@@ -2347,6 +2422,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             }
                         });
                     }
+
+                    while (mynotifier.size() < 1) {
+
+                        synchronized (mynotifier) {
+
+                            try {
+                                mynotifier.wait(1000);
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    }
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            zoom_menu.setEnabled(true);
+                        }
+                    });
+
                 }
             });
 
@@ -2883,6 +2977,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void auto_zoom_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_zoom_menuActionPerformed
         // TODO add your handling code here:
 
+        auto_zoom_menu.setEnabled(false);
+
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
@@ -2890,6 +2986,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 if (!tapete.autoZoom(false)) {
                     Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "AUTOZOOM TIMEOUT ERROR!");
                 }
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+                        auto_zoom_menu.setEnabled(true);
+                    }
+                });
 
             }
         });

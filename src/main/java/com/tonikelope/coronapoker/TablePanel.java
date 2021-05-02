@@ -12,6 +12,7 @@ import java.awt.Graphics2D;
 import java.awt.TexturePaint;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -153,15 +154,41 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
     }// </editor-fold>//GEN-END:initComponents
 
     @Override
-    public void zoom(float factor) {
+    public void zoom(float factor, final ConcurrentLinkedQueue<String> notifier) {
+
+        final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+
         for (ZoomableInterface zoomeable : zoomables) {
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-                    zoomeable.zoom(factor);
+                    zoomeable.zoom(factor, mynotifier);
+
                 }
             });
         }
+
+        while (mynotifier.size() < zoomables.length) {
+
+            synchronized (mynotifier) {
+
+                try {
+                    mynotifier.wait(1000);
+
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
+        notifier.add(Thread.currentThread().getName());
+
+        synchronized (notifier) {
+
+            notifier.notifyAll();
+
+        }
+
     }
 
     public boolean autoZoom(boolean reset) {

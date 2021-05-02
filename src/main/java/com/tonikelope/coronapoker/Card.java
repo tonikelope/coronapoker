@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -455,9 +456,9 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
     }
 
     @Override
-    public void zoom(float factor) {
+    public void zoom(float factor, final ConcurrentLinkedQueue<String> notifier) {
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
                 setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
@@ -488,6 +489,14 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
             }
         });
+
+        notifier.add(Thread.currentThread().getName());
+
+        synchronized (notifier) {
+
+            notifier.notifyAll();
+
+        }
     }
 
     public String getValor() {

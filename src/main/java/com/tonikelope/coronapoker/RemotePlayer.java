@@ -11,6 +11,7 @@ import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -928,7 +929,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // End of variables declaration//GEN-END:variables
 
     @Override
-    public void zoom(float zoom_factor) {
+    public void zoom(float zoom_factor, final ConcurrentLinkedQueue<String> notifier) {
+
+        final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
 
         if (Helpers.float1DSecureCompare(0f, zoom_factor) < 0) {
 
@@ -942,8 +945,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
             });
 
-            playingCard1.zoom(zoom_factor);
-            playingCard2.zoom(zoom_factor);
+            playingCard1.zoom(zoom_factor, mynotifier);
+            playingCard2.zoom(zoom_factor, mynotifier);
+
+            while (mynotifier.size() < 2) {
+
+                synchronized (mynotifier) {
+
+                    try {
+                        mynotifier.wait(1000);
+
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
 
             int altura_avatar = avatar_panel.getHeight();
 
@@ -958,6 +974,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             setAvatar();
+
+        }
+
+        notifier.add(Thread.currentThread().getName());
+
+        synchronized (notifier) {
+
+            notifier.notifyAll();
 
         }
 

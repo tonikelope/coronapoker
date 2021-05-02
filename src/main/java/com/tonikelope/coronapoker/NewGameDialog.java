@@ -1118,6 +1118,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             this.nick.setEnabled(true);
         }
+
+        pack();
     }//GEN-LAST:event_recover_checkboxActionPerformed
 
     private void ciegas_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ciegas_comboboxActionPerformed
@@ -1157,6 +1159,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             this.nick.setEnabled(false);
         }
+
+        pack();
     }//GEN-LAST:event_game_comboItemStateChanged
 
     private void manos_checkboxItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_manos_checkboxItemStateChanged

@@ -100,7 +100,7 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         pack();
 
-        setPreferredSize(new Dimension(getWidth(), Math.round(0.9f * getParent().getHeight())));
+        setPreferredSize(new Dimension(Math.round(getWidth() * 1.10f), Math.round(0.9f * getParent().getHeight())));
 
         pack();
 

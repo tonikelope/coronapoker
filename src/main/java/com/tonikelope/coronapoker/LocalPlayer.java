@@ -1317,14 +1317,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_blind.setBackground(Color.white);
                         player_blind.setForeground(Color.black);
                         player_blind.setText(POSITIONS_LABELS[2]);
-                        player_name.setOpaque(false);
-                        player_name.setBackground(null);
-
-                        if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
-                            player_name.setForeground(Color.YELLOW);
-                        } else {
-                            player_name.setForeground(Color.WHITE);
-                        }
+                        player_name.setOpaque(true);
+                        player_name.setBackground(player_blind.getBackground());
+                        player_name.setForeground(player_blind.getForeground());
 
                     }
                 });

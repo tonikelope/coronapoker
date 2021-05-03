@@ -5663,6 +5663,7 @@ public class Crupier implements Runnable {
                 if (jugador != GameFrame.getInstance().getLocalPlayer() && !jugador.isExit() && jugador.isSpectator() && Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0 && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
 
                     this.remotePlayerQuit(jugador.getNickname());
+
                 }
             }
         }

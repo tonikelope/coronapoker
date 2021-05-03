@@ -273,14 +273,13 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             }
         });
 
-        Helpers.GUIRunAndWait(new Runnable() {
+        Helpers.GUIRun(new Runnable() {
             public void run() {
-
                 refreshCiega();
+
                 ciega_image.revalidate();
             }
         });
-
     }
 
     public void iniciarCarta() {
@@ -303,7 +302,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         this.desenfocada = false;
         this.valor = "";
         this.palo = "";
-        this.ciega = -1;
+        setCiega(-1, 1);
 
         Helpers.GUIRun(new Runnable() {
             public void run() {

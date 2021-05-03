@@ -1148,7 +1148,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             JFrame frame = getFrame();
 
-            Helpers.GUIRunAndWait(new Runnable() {
+            Helpers.GUIRun(new Runnable() {
                 public void run() {
                     frame.getContentPane().remove(tapete);
 
@@ -1195,11 +1195,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     if (GameFrame.getZoom_level() != 0) {
 
-                        GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP, null);
+                        Helpers.threadRun(new Runnable() {
+                            public void run() {
 
+                                GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP, null);
+
+                                Helpers.GUIRun(new Runnable() {
+                                    public void run() {
+
+                                        pack();
+                                    }
+                                });
+
+                            }
+                        });
+
+                    } else {
+
+                        pack();
                     }
-
-                    pack();
 
                 }
             });

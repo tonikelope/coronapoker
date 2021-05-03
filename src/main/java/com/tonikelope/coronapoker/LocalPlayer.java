@@ -1287,12 +1287,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         }
 
-        notifier.add(Thread.currentThread().getName());
+        if (notifier != null) {
 
-        synchronized (notifier) {
+            notifier.add(Thread.currentThread().getName());
 
-            notifier.notifyAll();
+            synchronized (notifier) {
 
+                notifier.notifyAll();
+
+            }
         }
 
     }

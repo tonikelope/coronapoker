@@ -490,12 +490,15 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
             }
         });
 
-        notifier.add(Thread.currentThread().getName());
+        if (notifier != null) {
 
-        synchronized (notifier) {
+            notifier.add(Thread.currentThread().getName());
 
-            notifier.notifyAll();
+            synchronized (notifier) {
 
+                notifier.notifyAll();
+
+            }
         }
     }
 

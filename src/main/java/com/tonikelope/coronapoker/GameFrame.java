@@ -279,7 +279,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         if (GameFrame.getZoom_level() != 0) {
-            GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP, new ConcurrentLinkedQueue<>());
+            GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP, null);
         }
 
         if (!tapete.autoZoom(false)) {
@@ -1067,12 +1067,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
-        notifier.add(Thread.currentThread().getName());
+        if (notifier != null) {
 
-        synchronized (notifier) {
+            notifier.add(Thread.currentThread().getName());
 
-            notifier.notifyAll();
+            synchronized (notifier) {
 
+                notifier.notifyAll();
+
+            }
         }
     }
 
@@ -1192,7 +1195,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     if (GameFrame.getZoom_level() != 0) {
 
-                        GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP, new ConcurrentLinkedQueue<>());
+                        GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP, null);
 
                     }
 

@@ -5,8 +5,10 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
+import java.awt.Point;
 import java.awt.event.MouseEvent;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -21,12 +23,16 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import javax.swing.JLabel;
+import javax.swing.JLayeredPane;
+import javax.swing.SwingConstants;
+import javax.swing.border.LineBorder;
 
 /**
  *
  * @author tonikelope
  */
-public class Card extends javax.swing.JPanel implements ZoomableInterface, Comparable {
+public class Card extends javax.swing.JLayeredPane implements ZoomableInterface, Comparable {
 
     public final static ConcurrentHashMap<String, Object[]> BARAJAS = new ConcurrentHashMap<>(Map.ofEntries(new HashMap.SimpleEntry<String, Object[]>("coronapoker", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<String, Object[]>("interstate60", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<String, Object[]>("goliat", new Object[]{1.345f, false, null})));
     public final static int DEFAULT_HEIGHT = 200;
@@ -49,6 +55,24 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
     private volatile boolean tapada = true;
     private volatile boolean desenfocada = false;
     private volatile boolean compactable = true;
+    private volatile JLabel ciega_image = null;
+    private volatile int ciega = -1;
+
+    public int getCiega() {
+        return ciega;
+    }
+
+    public void setCiega(int ciega) {
+        this.ciega = ciega;
+
+        if (this.ciega < 0) {
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    ciega_image.setVisible(false);
+                }
+            });
+        }
+    }
 
     public void setCompactable(boolean compactable) {
         this.compactable = compactable;
@@ -103,9 +127,15 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
      * Creates new form PlayingCard
      */
     public Card() {
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+                ciega_image = new JLabel("");
+                ciega_image.setOpaque(false);
+                ciega_image.setVisible(false);
+                add(ciega_image, JLayeredPane.POPUP_LAYER);
+                ciega_image.setSize(new Dimension(100, 100));
             }
         });
     }
@@ -183,42 +213,32 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
+
                 setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                 card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-            }
-        });
 
-        if (iniciada) {
+                if (isIniciada()) {
 
-            if (tapada) {
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
+                    if (isTapada()) {
+
                         card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
-                    }
-                });
 
-            } else {
+                    } else {
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
                         card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
+                        setCiega(-1);
+
                     }
-                });
-            }
-
-        } else {
-
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
+                } else {
                     card_image.setIcon(Card.IMAGEN_JOKER);
-                }
-            });
-        }
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+                }
+
+                refreshCiega();
+
                 card_image.revalidate();
 
+                ciega_image.revalidate();
             }
         });
 
@@ -233,7 +253,7 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 card_image.setIcon(Card.IMAGEN_TRASERA);
-
+                refreshCiega();
             }
         });
     }
@@ -244,11 +264,12 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
         this.desenfocada = false;
         this.valor = "";
         this.palo = "";
+        this.ciega = -1;
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 card_image.setIcon(Card.IMAGEN_JOKER);
-
+                refreshCiega();
             }
         });
     }
@@ -455,40 +476,43 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
     }
 
+    private void refreshCiega() {
+
+        String image = null;
+
+        if (this.ciega > 0) {
+
+            switch (this.ciega) {
+
+                case Player.DEALER:
+
+                    image = "/images/dealer.png";
+                    break;
+
+                case Player.BIG_BLIND:
+
+                    image = "/images/bb.png";
+                    break;
+
+                case Player.SMALL_BLIND:
+
+                    image = "/images/sb.png";
+                    break;
+            }
+
+            ciega_image.setSize(new Dimension(Math.round(card_image.getIcon().getIconWidth() * 0.75f), Math.round(card_image.getIcon().getIconWidth() * 0.75f)));
+            ciega_image.setIcon(new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(card_image.getIcon().getIconWidth() * 0.75f), Math.round(card_image.getIcon().getIconWidth() * 0.75f), Image.SCALE_SMOOTH)));
+            ciega_image.setLocation(new Point(card_image.getX(), card_image.getY()));
+            ciega_image.setVisible(true);
+        } else {
+            ciega_image.setVisible(false);
+        }
+    }
+
     @Override
     public void zoom(float factor, final ConcurrentLinkedQueue<String> notifier) {
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-
-                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-
-                if (isIniciada()) {
-
-                    if (isTapada()) {
-
-                        if (isDesenfocada()) {
-                            card_image.setIcon(Card.IMAGEN_TRASERA_B);
-                        } else {
-                            card_image.setIcon(Card.IMAGEN_TRASERA);
-                        }
-
-                    } else {
-
-                        if (isDesenfocada()) {
-                            card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg"));
-                        } else {
-                            card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg"));
-                        }
-
-                    }
-                } else {
-                    card_image.setIcon(Card.IMAGEN_JOKER);
-                }
-
-            }
-        });
+        this.refreshCard();
 
         if (notifier != null) {
 
@@ -542,7 +566,6 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
 
         card_image = new javax.swing.JLabel();
 
-        setOpaque(false);
         setPreferredSize(new java.awt.Dimension(148, 200));
 
         card_image.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -552,6 +575,8 @@ public class Card extends javax.swing.JPanel implements ZoomableInterface, Compa
                 card_imageMouseClicked(evt);
             }
         });
+
+        setLayer(card_image, javax.swing.JLayeredPane.DEFAULT_LAYER);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);

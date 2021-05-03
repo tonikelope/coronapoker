@@ -961,17 +961,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
             }
 
-            int altura_avatar = avatar_panel.getHeight();
-
             Helpers.zoomFonts(this, zoom_factor);
-
-            while (altura_avatar == avatar_panel.getHeight()) {
-                try {
-                    Thread.sleep(GameFrame.GUI_ZOOM_WAIT);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
 
             setAvatar();
 

@@ -467,6 +467,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setForeground(Color.BLACK);
 
                 player_pot.setText("----");
+
+                playingCard1.setCiega_visible(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("local_blind_chip", "true")));
             }
         });
     }
@@ -2135,6 +2137,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // TODO add your handling code here:
 
         this.playingCard1.setCiega_visible(!this.playingCard1.isCiega_visible());
+
+        Helpers.PROPERTIES.setProperty("local_blind_chip", String.valueOf(playingCard1.isCiega_visible()));
+
+        Helpers.savePropertiesFile();
 
         Helpers.playWavResource(this.playingCard1.isCiega_visible() ? "misc/button_on.wav" : "misc/button_off.wav");
     }//GEN-LAST:event_player_blindMouseClicked

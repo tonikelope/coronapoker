@@ -181,12 +181,15 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
             }
         }
 
-        notifier.add(Thread.currentThread().getName());
+        if (notifier != null) {
 
-        synchronized (notifier) {
+            notifier.add(Thread.currentThread().getName());
 
-            notifier.notifyAll();
+            synchronized (notifier) {
 
+                notifier.notifyAll();
+
+            }
         }
 
     }

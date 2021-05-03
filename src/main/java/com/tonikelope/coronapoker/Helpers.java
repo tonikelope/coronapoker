@@ -2416,7 +2416,7 @@ public class Helpers {
                 }
             }
 
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
                     Font old_font = component.getFont();
@@ -2424,6 +2424,10 @@ public class Helpers {
                     Font new_font = old_font.deriveFont(old_font.getStyle(), Math.round(font_reference_size * zoom_factor));
 
                     component.setFont(new_font);
+
+                    component.revalidate();
+
+                    component.repaint();
                 }
             });
         }
@@ -2454,7 +2458,7 @@ public class Helpers {
 
             if (Helpers.ORIGINAL_FONT_SIZE.containsKey(component)) {
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
                         Font old_font = component.getFont();
@@ -2464,6 +2468,10 @@ public class Helpers {
                             Font new_font = old_font.deriveFont(old_font.getStyle(), Math.round(Helpers.ORIGINAL_FONT_SIZE.get(component) * zoom_factor));
 
                             component.setFont(new_font);
+
+                            component.revalidate();
+
+                            component.repaint();
                         }
                     }
                 });

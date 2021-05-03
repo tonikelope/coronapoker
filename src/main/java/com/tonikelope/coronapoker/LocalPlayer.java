@@ -1272,18 +1272,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 }
             }
 
-            int altura_avatar = player_pot.getHeight();
-
             Helpers.zoomFonts(this, zoom_factor);
-
-            while (altura_avatar == player_pot.getHeight()) {
-
-                try {
-                    Thread.sleep(GameFrame.GUI_ZOOM_WAIT);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
 
             setAvatar();
 

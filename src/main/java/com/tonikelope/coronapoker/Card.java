@@ -6,6 +6,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.Point;
@@ -57,13 +58,42 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile boolean compactable = true;
     private volatile JLabel ciega_image = null;
     private volatile int ciega = -1;
+    private volatile int ciega_pos = 1;
+    private volatile boolean ciega_visible = true;
+
+    public boolean isCiega_visible() {
+        return ciega_visible;
+    }
+
+    public void setCiega_visible(boolean ciega_visible) {
+        this.ciega_visible = ciega_visible;
+
+        if (!this.ciega_visible) {
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    ciega_image.setVisible(false);
+                }
+            });
+        } else if (ciega > 0) {
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    ciega_image.setVisible(true);
+                }
+            });
+        }
+    }
+
+    public int getCiega_pos() {
+        return ciega_pos;
+    }
 
     public int getCiega() {
         return ciega;
     }
 
-    public void setCiega(int ciega) {
+    public void setCiega(int ciega, int pos) {
         this.ciega = ciega;
+        this.ciega_pos = pos;
 
         if (this.ciega < 0) {
             Helpers.GUIRun(new Runnable() {
@@ -132,6 +162,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             public void run() {
                 initComponents();
                 ciega_image = new JLabel("");
+                ciega_image.setDoubleBuffered(true);
+                ciega_image.setCursor(new Cursor(Cursor.HAND_CURSOR));
                 ciega_image.setOpaque(false);
                 ciega_image.setVisible(false);
                 add(ciega_image, JLayeredPane.POPUP_LAYER);
@@ -211,7 +243,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void refreshCard() {
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
                 setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
@@ -226,7 +258,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                     } else {
 
                         card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
-                        setCiega(-1);
+
+                        if (ciega_pos == 1) {
+                            setCiega(-1, 1);
+                        }
 
                     }
                 } else {
@@ -234,10 +269,14 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                 }
 
-                refreshCiega();
-
                 card_image.revalidate();
+            }
+        });
 
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+
+                refreshCiega();
                 ciega_image.revalidate();
             }
         });
@@ -502,8 +541,16 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
             ciega_image.setSize(new Dimension(Math.round(card_image.getIcon().getIconWidth() * 0.75f), Math.round(card_image.getIcon().getIconWidth() * 0.75f)));
             ciega_image.setIcon(new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(card_image.getIcon().getIconWidth() * 0.75f), Math.round(card_image.getIcon().getIconWidth() * 0.75f), Image.SCALE_SMOOTH)));
-            ciega_image.setLocation(new Point(card_image.getX(), card_image.getY()));
-            ciega_image.setVisible(true);
+
+            if (ciega_pos == 1) {
+                ciega_image.setLocation(new Point(card_image.getX(), card_image.getY()));
+            } else {
+                ciega_image.setLocation(new Point(card_image.getX(), card_image.getHeight() - ciega_image.getHeight()));
+            }
+
+            if (this.ciega_visible) {
+                ciega_image.setVisible(true);
+            }
         } else {
             ciega_image.setVisible(false);
         }

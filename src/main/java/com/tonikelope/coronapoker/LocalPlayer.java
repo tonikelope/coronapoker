@@ -1327,6 +1327,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
+                this.getPlayingCard1().setCiega(Player.DEALER, 2);
+
                 if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
                     if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                         setBet(crupier.getCiega_pequeña());
@@ -1357,6 +1359,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
+                this.getPlayingCard1().setCiega(Player.BIG_BLIND, 2);
+
                 if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0) {
                     setBet(crupier.getCiega_grande());
 
@@ -1382,6 +1386,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_name.setForeground(player_blind.getForeground());
                     }
                 });
+
+                this.getPlayingCard1().setCiega(Player.SMALL_BLIND, 2);
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                     setBet(crupier.getCiega_pequeña());
@@ -1410,6 +1416,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         }
                     }
                 });
+
+                this.getPlayingCard1().setCiega(-1, 2);
+
                 setBet(0f);
 
                 break;
@@ -1589,10 +1598,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_blind.setForeground(new java.awt.Color(255, 255, 255));
         player_blind.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_blind.setText("CP");
+        player_blind.setToolTipText("Click para mostrar/ocultar la ficha");
         player_blind.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_blind.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_blind.setDoubleBuffered(true);
         player_blind.setFocusable(false);
         player_blind.setOpaque(true);
+        player_blind.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                player_blindMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout jPanel5Layout = new javax.swing.GroupLayout(jPanel5);
         jPanel5.setLayout(jPanel5Layout);
@@ -1770,12 +1786,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (pre_pulsado == Player.FOLD) {
 
-                    Helpers.playWavResource("misc/auto_button_off.wav");
+                    Helpers.playWavResource("misc/button_off.wav");
 
                     this.desPrePulsarBoton(player_fold_button);
 
                 } else {
-                    Helpers.playWavResource("misc/auto_button_on.wav");
+                    Helpers.playWavResource("misc/button_on.wav");
 
                     this.desPrePulsarTodo();
 
@@ -1975,13 +1991,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (pre_pulsado == Player.CHECK) {
 
-                    Helpers.playWavResource("misc/auto_button_off.wav");
+                    Helpers.playWavResource("misc/button_off.wav");
 
                     this.desPrePulsarBoton(player_check_button);
 
                 } else {
 
-                    Helpers.playWavResource("misc/auto_button_on.wav");
+                    Helpers.playWavResource("misc/button_on.wav");
 
                     this.desPrePulsarTodo();
 
@@ -2114,6 +2130,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // TODO add your handling code here:
         GameFrame.getInstance().getRebuy_now_menu().doClick();
     }//GEN-LAST:event_player_stackMouseClicked
+
+    private void player_blindMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_blindMouseClicked
+        // TODO add your handling code here:
+
+        this.playingCard1.setCiega_visible(!this.playingCard1.isCiega_visible());
+
+        Helpers.playWavResource(this.playingCard1.isCiega_visible() ? "misc/button_on.wav" : "misc/button_off.wav");
+    }//GEN-LAST:event_player_blindMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;

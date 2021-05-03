@@ -648,7 +648,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 tthis.getPause_button().setBackground(Color.WHITE);
                 tthis.getPause_button().setForeground(new Color(255, 102, 0));
                 GameFrame.getInstance().getLocalPlayer().setAuto_pause(true);
-                Helpers.playWavResource("misc/auto_button_on.wav");
+                Helpers.playWavResource("misc/button_on.wav");
 
                 if (!GameFrame.getInstance().getLocalPlayer().isAuto_pause_warning()) {
                     GameFrame.getInstance().getLocalPlayer().setAuto_pause_warning(true);
@@ -659,7 +659,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 tthis.getPause_button().setBackground(new Color(255, 102, 0));
                 tthis.getPause_button().setForeground(Color.WHITE);
                 GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
-                Helpers.playWavResource("misc/auto_button_off.wav");
+                Helpers.playWavResource("misc/button_off.wav");
             }
         }
 

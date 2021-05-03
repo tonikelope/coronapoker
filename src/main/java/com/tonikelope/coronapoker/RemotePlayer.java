@@ -1077,7 +1077,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setCiega(Player.DEALER);
+                this.getPlayingCard1().setCiega(Player.DEALER, 1);
 
                 if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
                     if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
@@ -1108,7 +1108,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setCiega(Player.BIG_BLIND);
+                this.getPlayingCard1().setCiega(Player.BIG_BLIND, 1);
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0) {
                     setBet(crupier.getCiega_grande());
@@ -1136,7 +1136,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setCiega(Player.SMALL_BLIND);
+                this.getPlayingCard1().setCiega(Player.SMALL_BLIND, 1);
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                     setBet(crupier.getCiega_pequeña());
@@ -1166,7 +1166,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setCiega(-1);
+                this.getPlayingCard1().setCiega(-1, 1);
 
                 setBet(0f);
 

@@ -2921,7 +2921,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     crupier.rebuyNow(player.getNickname(), -1);
                     rebuy_now_menu.setEnabled(true);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
-                    Helpers.playWavResource("misc/auto_button_off.wav");
+                    Helpers.playWavResource("misc/button_off.wav");
                 }
             });
 
@@ -2950,7 +2950,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             crupier.rebuyNow(player.getNickname(), (int) rebuy_dialog.getRebuy_spinner().getValue());
                             rebuy_now_menu.setEnabled(true);
                             Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
-                            Helpers.playWavResource("misc/auto_button_on.wav");
+                            Helpers.playWavResource("misc/button_on.wav");
                             rebuy_dialog = null;
                         }
                     });

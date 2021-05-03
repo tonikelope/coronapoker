@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Click para mostrar/ocultar la ficha", "Click for show/hide chip"},
             {"AUTO AJUSTE ZOOM", "AUTO-FIT ZOOM"},
             {"AUTO-AJUSTE (CTRL+A)", "AUTO-FIT (CTRL+A)"},
             {"NO TENGO PERMISOS DE ESCRITURA.\n(TENDRÁS QUE DESCARGARTE LA ÚLTIMA VERSIÓN MANUALMENTE)", "I DO NOT HAVE WRITING PERMISSION.\n(YOU WILL HAVE TO DOWNLOAD THE LATEST VERSION MANUALLY)"},

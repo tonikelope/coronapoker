@@ -81,7 +81,9 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
@@ -159,6 +161,7 @@ import org.xml.sax.SAXException;
  */
 public class Helpers {
 
+    public static final ThreadPoolExecutor THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
     public static final float MASTER_VOLUME = 0.8f;
@@ -1222,7 +1225,7 @@ public class Helpers {
         switch (method) {
             case Helpers.TRNG:
 
-                FutureTask future = null;
+                Future future = null;
 
                 try {
 
@@ -2348,21 +2351,13 @@ public class Helpers {
 
     public static void threadRun(Runnable r) {
 
-        Thread hilo = new Thread(r);
-
-        hilo.start();
+        THREAD_POOL.submit(r);
 
     }
 
-    public static FutureTask futureRun(Callable c) {
+    public static Future futureRun(Callable c) {
 
-        FutureTask f = new FutureTask(c);
-
-        Thread hilo = new Thread(f);
-
-        hilo.start();
-
-        return f;
+        return THREAD_POOL.submit(c);
     }
 
     public static void loadOriginalFontSizes(final Component component) {
@@ -2393,25 +2388,44 @@ public class Helpers {
         }
     }
 
-    public static void zoomFonts(final Component component, final float zoom_factor, final int font_reference_size) {
+    public static void zoomFonts(final Component component, final float zoom_factor, final int font_reference_size, final ConcurrentLinkedQueue<String> notifier) {
 
         if (component != null) {
+
+            final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+
+            int threads = 0;
 
             if (component instanceof javax.swing.JMenu) {
 
                 for (Component child : ((javax.swing.JMenu) component).getMenuComponents()) {
                     if (child instanceof JMenuItem) {
 
-                        zoomFonts(child, zoom_factor, font_reference_size);
+                        threads++;
+
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                zoomFonts(child, zoom_factor, mynotifier);
+                            }
+                        });
                     }
                 }
 
             } else if (component instanceof Container) {
 
                 for (Component child : ((Container) component).getComponents()) {
+
                     if (child instanceof Container) {
 
-                        zoomFonts(child, zoom_factor, font_reference_size);
+                        threads++;
+
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                zoomFonts(child, zoom_factor, mynotifier);
+                            }
+                        });
                     }
                 }
             }
@@ -2430,28 +2444,70 @@ public class Helpers {
                     component.repaint();
                 }
             });
+
+            while (mynotifier.size() < threads) {
+
+                synchronized (mynotifier) {
+
+                    try {
+                        mynotifier.wait(1000);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+
+            if (notifier != null) {
+
+                notifier.add(Thread.currentThread().getName());
+
+                synchronized (notifier) {
+
+                    notifier.notifyAll();
+
+                }
+            }
         }
     }
 
-    public static void zoomFonts(final Component component, final float zoom_factor) {
+    public static void zoomFonts(final Component component, final float zoom_factor, final ConcurrentLinkedQueue<String> notifier) {
 
         if (component != null) {
+
+            final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+
+            int threads = 0;
 
             if (component instanceof javax.swing.JMenu) {
 
                 for (Component child : ((javax.swing.JMenu) component).getMenuComponents()) {
                     if (child instanceof JMenuItem) {
 
-                        zoomFonts(child, zoom_factor);
+                        threads++;
+
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                zoomFonts(child, zoom_factor, mynotifier);
+                            }
+                        });
                     }
                 }
 
             } else if (component instanceof Container) {
 
                 for (Component child : ((Container) component).getComponents()) {
+
                     if (child instanceof Container) {
 
-                        zoomFonts(child, zoom_factor);
+                        threads++;
+
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                zoomFonts(child, zoom_factor, mynotifier);
+                            }
+                        });
                     }
                 }
             }
@@ -2477,6 +2533,30 @@ public class Helpers {
                 });
 
             }
+
+            while (mynotifier.size() < threads) {
+
+                synchronized (mynotifier) {
+
+                    try {
+                        mynotifier.wait(1000);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+
+            if (notifier != null) {
+
+                notifier.add(Thread.currentThread().getName());
+
+                synchronized (notifier) {
+
+                    notifier.notifyAll();
+
+                }
+            }
+
         }
     }
 

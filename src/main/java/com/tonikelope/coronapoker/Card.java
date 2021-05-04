@@ -5,7 +5,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Image;
@@ -26,8 +25,6 @@ import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
-import javax.swing.SwingConstants;
-import javax.swing.border.LineBorder;
 
 /**
  *

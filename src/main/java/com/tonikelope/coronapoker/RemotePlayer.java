@@ -961,7 +961,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
             }
 
-            Helpers.zoomFonts(this, zoom_factor);
+            Helpers.zoomFonts(this, zoom_factor, null);
 
             setAvatar();
 

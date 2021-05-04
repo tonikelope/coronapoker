@@ -737,17 +737,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         }
 
-        int altura_sound = pot_label.getHeight();
-
-        Helpers.zoomFonts(this, factor);
-
-        while (altura_sound == pot_label.getHeight()) {
-            try {
-                Thread.sleep(GameFrame.GUI_ZOOM_WAIT);
-            } catch (InterruptedException ex) {
-                Logger.getLogger(CommunityCardsPanel.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
+        Helpers.zoomFonts(this, factor, null);
 
         Helpers.GUIRun(new Runnable() {
             @Override

@@ -246,7 +246,7 @@ public class Helpers {
 
     public static void antiScreensaver() {
 
-        if (!Helpers.altPressed) {
+        if (!Helpers.altPressed && (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen())) {
             try {
                 Robot r = new Robot();
                 r.waitForIdle();

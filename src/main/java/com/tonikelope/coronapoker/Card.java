@@ -240,47 +240,54 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void refreshCard() {
 
-        Helpers.GUIRunAndWait(new Runnable() {
+        Helpers.threadRun(new Runnable() {
             public void run() {
 
-                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
 
-                if (isIniciada()) {
+                        setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                        card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
 
-                    if (isTapada()) {
+                        if (isIniciada()) {
 
-                        card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
+                            if (isTapada()) {
 
-                    } else {
+                                card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
 
-                        card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
+                            } else {
 
-                        if (ciega_pos == 1) {
-                            setCiega(-1, 1);
+                                card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
+
+                                if (ciega_pos == 1) {
+                                    setCiega(-1, 1);
+                                }
+
+                            }
+                        } else {
+                            card_image.setIcon(Card.IMAGEN_JOKER);
+
                         }
 
+                        card_image.revalidate();
+
+                        card_image.repaint();
                     }
-                } else {
-                    card_image.setIcon(Card.IMAGEN_JOKER);
+                });
 
-                }
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+                        refreshCiega();
 
-                card_image.revalidate();
+                        ciega_image.revalidate();
 
-                card_image.repaint();
+                        ciega_image.repaint();
+                    }
+                });
+
             }
         });
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                refreshCiega();
-
-                ciega_image.revalidate();
-
-                ciega_image.repaint();
-            }
-        });
     }
 
     public void iniciarCarta() {

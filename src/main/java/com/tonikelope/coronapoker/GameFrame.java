@@ -743,17 +743,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_zoom_auto = KeyStroke.getKeyStroke(KeyEvent.VK_A, KeyEvent.CTRL_DOWN_MASK);
-        actionMap.put(key_zoom_auto, new AbstractAction("ZOOM-AUTO") {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-
-                if (auto_fit_zoom_menu.isEnabled()) {
-                    auto_fit_zoom_menuActionPerformed(e);
-                }
-            }
-        });
-
         KeyStroke key_sound = KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK);
         actionMap.put(key_sound, new AbstractAction("SOUND") {
             @Override
@@ -2015,7 +2004,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         auto_fit_zoom_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         auto_fit_zoom_menu.setSelected(true);
-        auto_fit_zoom_menu.setText("Auto ajustar (CTRL+A)");
+        auto_fit_zoom_menu.setText("Auto ajustar");
         auto_fit_zoom_menu.setDoubleBuffered(true);
         auto_fit_zoom_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {

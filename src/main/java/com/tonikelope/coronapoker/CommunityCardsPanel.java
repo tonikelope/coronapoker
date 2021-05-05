@@ -711,30 +711,20 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     // End of variables declaration//GEN-END:variables
 
     @Override
-    public void zoom(float factor, final ConcurrentLinkedQueue<String> notifier) {
+    public void zoom(float factor, final ConcurrentLinkedQueue<Long> notifier) {
 
-        final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+        final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
-        for (ZoomableInterface zoomeable : new ZoomableInterface[]{flop1, flop2, flop3, turn, river}) {
+        ZoomableInterface[] zoomables = new ZoomableInterface[]{flop1, flop2, flop3, turn, river};
+
+        for (ZoomableInterface zoomable : zoomables) {
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-                    zoomeable.zoom(factor, mynotifier);
+                    zoomable.zoom(factor, mynotifier);
 
                 }
             });
-        }
-
-        while (mynotifier.size() < 5) {
-
-            synchronized (mynotifier) {
-
-                try {
-                    mynotifier.wait(1000);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
         }
 
         Helpers.zoomFonts(this, factor, null);
@@ -748,9 +738,21 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
+        while (mynotifier.size() < zoomables.length) {
+
+            synchronized (mynotifier) {
+
+                try {
+                    mynotifier.wait(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getName());
+            notifier.add(Thread.currentThread().getId());
 
             synchronized (notifier) {
 

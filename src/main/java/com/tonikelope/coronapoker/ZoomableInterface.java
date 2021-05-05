@@ -13,6 +13,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public interface ZoomableInterface {
 
-    public void zoom(float factor, final ConcurrentLinkedQueue<String> notifier);
+    public void zoom(float factor, final ConcurrentLinkedQueue<Long> notifier);
 
 }

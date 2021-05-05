@@ -2349,9 +2349,9 @@ public class Helpers {
         } while (!ok);
     }
 
-    public static void threadRun(Runnable r) {
+    public static Future threadRun(Runnable r) {
 
-        THREAD_POOL.submit(r);
+        return THREAD_POOL.submit(r);
 
     }
 
@@ -2388,11 +2388,11 @@ public class Helpers {
         }
     }
 
-    public static void zoomFonts(final Component component, final float zoom_factor, final int font_reference_size, final ConcurrentLinkedQueue<String> notifier) {
+    public static void zoomFonts(final Component component, final float zoom_factor, final int font_reference_size, final ConcurrentLinkedQueue<Long> notifier) {
 
         if (component != null) {
 
-            final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+            final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
             int threads = 0;
 
@@ -2459,7 +2459,7 @@ public class Helpers {
 
             if (notifier != null) {
 
-                notifier.add(Thread.currentThread().getName());
+                notifier.add(Thread.currentThread().getId());
 
                 synchronized (notifier) {
 
@@ -2470,11 +2470,11 @@ public class Helpers {
         }
     }
 
-    public static void zoomFonts(final Component component, final float zoom_factor, final ConcurrentLinkedQueue<String> notifier) {
+    public static void zoomFonts(final Component component, final float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
 
         if (component != null) {
 
-            final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+            final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
             int threads = 0;
 
@@ -2548,7 +2548,7 @@ public class Helpers {
 
             if (notifier != null) {
 
-                notifier.add(Thread.currentThread().getName());
+                notifier.add(Thread.currentThread().getId());
 
                 synchronized (notifier) {
 
@@ -2790,6 +2790,7 @@ public class Helpers {
         public static JCheckBoxMenuItem CINEMATICAS_MENU;
         public static JCheckBoxMenuItem AUTO_ACTION_MENU;
         public static JCheckBoxMenuItem LAST_HAND_MENU;
+        public static JCheckBoxMenuItem AUTO_ZOOM_MENU;
         public static JRadioButtonMenuItem TAPETE_VERDE;
         public static JRadioButtonMenuItem TAPETE_AZUL;
         public static JRadioButtonMenuItem TAPETE_ROJO;
@@ -2935,10 +2936,10 @@ public class Helpers {
                     }
                 };
 
-                Action zoomautoAction = new AbstractAction("AUTO AJUSTE ZOOM") {
+                Action zoomautoAction = new AbstractAction("Auto ajustar zoom") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getAuto_zoom_menu().doClick();
+                        GameFrame.getInstance().getAuto_adjust_zoom_menu().doClick();
                     }
                 };
 
@@ -3022,29 +3023,38 @@ public class Helpers {
                 popup.add(chatAction);
                 popup.add(registroAction);
                 popup.add(jugadasAction);
+
                 popup.addSeparator();
+
                 FULLSCREEN_MENU = new JCheckBoxMenuItem(fullscreenAction);
                 FULLSCREEN_MENU.setSelected(GameFrame.getInstance().isFull_screen());
+                FULLSCREEN_MENU.setEnabled(true);
                 popup.add(FULLSCREEN_MENU);
+
                 popup.addSeparator();
+
                 popup.add(zoominAction);
                 popup.add(zoomoutAction);
                 popup.add(zoomresetAction);
-                popup.add(zoomautoAction);
+                AUTO_ZOOM_MENU = new JCheckBoxMenuItem(zoomautoAction);
+                AUTO_ZOOM_MENU.setSelected(GameFrame.AUTO_ZOOM);
+                popup.add(AUTO_ZOOM_MENU);
+
                 popup.addSeparator();
+
                 COMPACTA_MENU = new JCheckBoxMenuItem(compactAction);
                 COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA);
                 popup.add(COMPACTA_MENU);
+
                 popup.addSeparator();
+
                 SONIDOS_MENU = new JCheckBoxMenuItem(soundAction);
                 SONIDOS_MENU.setSelected(GameFrame.SONIDOS);
                 popup.add(SONIDOS_MENU);
-
                 SONIDOS_COMENTARIOS_MENU = new JCheckBoxMenuItem(comentariosAction);
                 SONIDOS_COMENTARIOS_MENU.setSelected(GameFrame.SONIDOS_CHORRA);
                 SONIDOS_COMENTARIOS_MENU.setEnabled(GameFrame.SONIDOS);
                 popup.add(SONIDOS_COMENTARIOS_MENU);
-
                 SONIDOS_MUSICA_MENU = new JCheckBoxMenuItem(musicaAction);
                 SONIDOS_MUSICA_MENU.setSelected(GameFrame.MUSICA_AMBIENTAL);
                 SONIDOS_MUSICA_MENU.setEnabled(GameFrame.SONIDOS);
@@ -3053,7 +3063,9 @@ public class Helpers {
                 SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
                 SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
                 popup.add(SONIDOS_TTS_MENU);
+
                 popup.addSeparator();
+
                 popup.add(shortcutsAction);
                 CONFIRM_MENU = new JCheckBoxMenuItem(confirmAction);
                 CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
@@ -3061,18 +3073,24 @@ public class Helpers {
                 AUTO_ACTION_MENU = new JCheckBoxMenuItem(autoactAction);
                 AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
                 popup.add(AUTO_ACTION_MENU);
+
                 popup.addSeparator();
+
                 CINEMATICAS_MENU = new JCheckBoxMenuItem(cinematicasAction);
                 CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
                 popup.add(CINEMATICAS_MENU);
                 ANIMACION_MENU = new JCheckBoxMenuItem(animacionAction);
                 ANIMACION_MENU.setSelected(GameFrame.ANIMACION_REPARTIR);
                 popup.add(ANIMACION_MENU);
+
                 popup.addSeparator();
+
                 RELOJ_MENU = new JCheckBoxMenuItem(relojAction);
                 RELOJ_MENU.setSelected(GameFrame.SHOW_CLOCK);
                 popup.add(RELOJ_MENU);
+
                 popup.addSeparator();
+
                 generarBarajasMenu();
                 popup.add(BARAJAS_MENU);
                 TAPETE_VERDE = new JRadioButtonMenuItem(tapeteVerdeAction);
@@ -3083,17 +3101,29 @@ public class Helpers {
                 TAPETES_MENU.add(TAPETE_AZUL);
                 TAPETES_MENU.add(TAPETE_ROJO);
                 TAPETES_MENU.add(TAPETE_MADERA);
+                TAPETE_VERDE.setSelected(GameFrame.COLOR_TAPETE.equals("verde"));
+                TAPETE_AZUL.setSelected(GameFrame.COLOR_TAPETE.equals("azul"));
+                TAPETE_ROJO.setSelected(GameFrame.COLOR_TAPETE.equals("rojo"));
+                TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.equals("madera"));
                 popup.add(TAPETES_MENU);
+
                 popup.addSeparator();
+
                 REBUY_NOW_MENU = new JCheckBoxMenuItem(rebuyNowAction);
                 REBUY_NOW_MENU.setSelected(false);
+                REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
                 popup.add(REBUY_NOW_MENU);
+
                 popup.addSeparator();
+
                 LAST_HAND_MENU = new JCheckBoxMenuItem(lastHandAction);
+                LAST_HAND_MENU.setSelected(false);
                 popup.add(LAST_HAND_MENU);
                 MAX_HANDS_MENU = new JMenuItem(maxHandsAction);
                 popup.add(MAX_HANDS_MENU);
+
                 popup.addSeparator();
+
                 EXIT_MENU = new JMenuItem(exitAction);
                 popup.add(EXIT_MENU);
 

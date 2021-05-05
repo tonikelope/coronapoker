@@ -703,7 +703,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         player_pot.setBackground(new java.awt.Color(255, 255, 255));
-        player_pot.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
+        player_pot.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
         player_pot.setText("----");
         player_pot.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         player_pot.setDoubleBuffered(true);
@@ -929,9 +929,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // End of variables declaration//GEN-END:variables
 
     @Override
-    public void zoom(float zoom_factor, final ConcurrentLinkedQueue<String> notifier) {
+    public void zoom(float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
 
-        final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+        final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
         if (Helpers.float1DSecureCompare(0f, zoom_factor) < 0) {
 
@@ -947,6 +947,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             playingCard1.zoom(zoom_factor, mynotifier);
             playingCard2.zoom(zoom_factor, mynotifier);
+            Helpers.zoomFonts(this, zoom_factor, null);
+            setAvatar();
 
             while (mynotifier.size() < 2) {
 
@@ -961,15 +963,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
             }
 
-            Helpers.zoomFonts(this, zoom_factor, null);
-
-            setAvatar();
-
         }
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getName());
+            notifier.add(Thread.currentThread().getId());
 
             synchronized (notifier) {
 

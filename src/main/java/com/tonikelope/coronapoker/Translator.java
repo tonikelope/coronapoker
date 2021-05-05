@@ -23,8 +23,8 @@ public class Translator {
 
         String[][] rosetta = {
             {"Click para mostrar/ocultar la ficha", "Click for show/hide chip"},
-            {"AUTO AJUSTE ZOOM", "AUTO-FIT ZOOM"},
-            {"AUTO-AJUSTE (CTRL+A)", "AUTO-FIT (CTRL+A)"},
+            {"Auto ajustar zoom", "Auto fit zoom"},
+            {"Auto ajustar (CTRL+A)", "Auto fit (CTRL+A)"},
             {"NO TENGO PERMISOS DE ESCRITURA.\n(TENDRÁS QUE DESCARGARTE LA ÚLTIMA VERSIÓN MANUALMENTE)", "I DO NOT HAVE WRITING PERMISSION.\n(YOU WILL HAVE TO DOWNLOAD THE LATEST VERSION MANUALLY)"},
             {"HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿Quieres actualizar?", "THERE IS A NEW CORONAPOKER VERSION. Update?"},
             {"(CONTINUANDO TIMBA ANTERIOR)", "(RESUMING PREVIOUS GAME)"},

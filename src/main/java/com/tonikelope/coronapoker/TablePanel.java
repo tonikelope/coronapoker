@@ -50,6 +50,22 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+
+                addComponentListener(new ComponentResizeEndListener() {
+
+                    @Override
+                    public void resizeTimedOut() {
+
+                        if (GameFrame.AUTO_ZOOM) {
+                            Helpers.threadRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    autoZoom(false);
+                                }
+                            });
+                        }
+                    }
+                });
             }
         });
     }
@@ -92,6 +108,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
+                revalidate();
                 repaint();
             }
         });
@@ -152,9 +169,9 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
     }// </editor-fold>//GEN-END:initComponents
 
     @Override
-    public void zoom(float factor, final ConcurrentLinkedQueue<String> notifier) {
+    public void zoom(float factor, final ConcurrentLinkedQueue<Long> notifier) {
 
-        final ConcurrentLinkedQueue<String> mynotifier = new ConcurrentLinkedQueue<>();
+        final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
         for (ZoomableInterface zoomeable : zoomables) {
             Helpers.threadRun(new Runnable() {
@@ -181,7 +198,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getName());
+            notifier.add(Thread.currentThread().getId());
 
             synchronized (notifier) {
 
@@ -192,7 +209,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
     }
 
-    public void autoZoom(boolean reset) {
+    public synchronized void autoZoom(boolean reset) {
 
         for (Player jugador : getPlayers()) {
 

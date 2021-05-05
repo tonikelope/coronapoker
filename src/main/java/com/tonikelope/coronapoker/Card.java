@@ -277,7 +277,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
-                        refreshCiega();
+                        updateCiega();
 
                         ciega_image.revalidate();
 
@@ -295,13 +295,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         this.iniciada = true;
         this.tapada = true;
         this.desenfocada = false;
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                card_image.setIcon(Card.IMAGEN_TRASERA);
-                refreshCiega();
-            }
-        });
+        refreshCard();
     }
 
     public void resetearCarta() {
@@ -311,13 +305,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         this.valor = "";
         this.palo = "";
         setCiega(-1, 1);
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                card_image.setIcon(Card.IMAGEN_JOKER);
-                refreshCiega();
-            }
-        });
+        refreshCard();
     }
 
     public static String collection2String(List<Card> cartas) {
@@ -522,7 +510,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     }
 
-    private void refreshCiega() {
+    private void updateCiega() {
 
         String image = null;
 

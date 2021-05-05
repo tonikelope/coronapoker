@@ -557,13 +557,13 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     }
 
     @Override
-    public void zoom(float factor, final ConcurrentLinkedQueue<String> notifier) {
+    public void zoom(float factor, final ConcurrentLinkedQueue<Long> notifier) {
 
         this.refreshCard();
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getName());
+            notifier.add(Thread.currentThread().getId());
 
             synchronized (notifier) {
 

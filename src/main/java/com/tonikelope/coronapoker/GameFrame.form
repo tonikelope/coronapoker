@@ -14,6 +14,7 @@
           <Properties>
             <Property name="mnemonic" type="int" value="105"/>
             <Property name="text" type="java.lang.String" value="Archivo"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="14" style="0"/>
             </Property>
@@ -108,6 +109,7 @@
         <Menu class="javax.swing.JMenu" name="zoom_menu">
           <Properties>
             <Property name="text" type="java.lang.String" value="Zoom"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="14" style="0"/>
             </Property>
@@ -119,6 +121,7 @@
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="Aumentar (CTRL++)"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="zoom_menu_inActionPerformed"/>
@@ -130,6 +133,7 @@
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="Reducir (CTRL+-)"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="zoom_menu_outActionPerformed"/>
@@ -141,23 +145,29 @@
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="Reset (CTRL+0)"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="zoom_menu_resetActionPerformed"/>
               </Events>
             </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="auto_zoom_menu">
+            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="auto_fit_zoom_menu">
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
-                <Property name="text" type="java.lang.String" value="AUTO-AJUSTE (CTRL+A)"/>
+                <Property name="selected" type="boolean" value="true"/>
+                <Property name="text" type="java.lang.String" value="Auto ajustar (CTRL+A)"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_zoom_menuActionPerformed"/>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_fit_zoom_menuActionPerformed"/>
               </Events>
             </MenuItem>
             <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator6">
+              <Properties>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+              </Properties>
             </MenuItem>
             <MenuItem class="javax.swing.JCheckBoxMenuItem" name="compact_menu">
               <Properties>
@@ -166,6 +176,7 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Vista compacta (ALT+X)"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="compact_menuActionPerformed"/>
@@ -176,6 +187,7 @@
         <Menu class="javax.swing.JMenu" name="opciones_menu">
           <Properties>
             <Property name="text" type="java.lang.String" value="Preferencias"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="14" style="0"/>
             </Property>
@@ -188,6 +200,7 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="SONIDOS (ALT+S)"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="sonidos_menuActionPerformed"/>
@@ -200,6 +213,7 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Sonidos de co&#xf1;a"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="sonidos_chorra_menuActionPerformed"/>
@@ -212,6 +226,7 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="M&#xfa;sica ambiental"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="ascensor_menuActionPerformed"/>
@@ -224,12 +239,16 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="TTS"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="tts_menuActionPerformed"/>
               </Events>
             </MenuItem>
             <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator1">
+              <Properties>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+              </Properties>
             </MenuItem>
             <MenuItem class="javax.swing.JCheckBoxMenuItem" name="confirmar_menu">
               <Properties>
@@ -238,6 +257,7 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Confirmar todas las acciones"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="confirmar_menuActionPerformed"/>
@@ -250,12 +270,16 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Botones AUTO"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_action_menuActionPerformed"/>
               </Events>
             </MenuItem>
             <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator7">
+              <Properties>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+              </Properties>
             </MenuItem>
             <MenuItem class="javax.swing.JCheckBoxMenuItem" name="menu_cinematicas">
               <Properties>
@@ -264,6 +288,7 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Cinem&#xe1;ticas"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_cinematicasActionPerformed"/>
@@ -276,12 +301,16 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Animaci&#xf3;n al repartir"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="animacion_menuActionPerformed"/>
               </Events>
             </MenuItem>
             <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator8">
+              <Properties>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+              </Properties>
             </MenuItem>
             <MenuItem class="javax.swing.JCheckBoxMenuItem" name="time_menu">
               <Properties>
@@ -290,16 +319,21 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Mostrar reloj (ALT+W)"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="time_menuActionPerformed"/>
               </Events>
             </MenuItem>
             <MenuItem class="javax.swing.JPopupMenu$Separator" name="decks_separator">
+              <Properties>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+              </Properties>
             </MenuItem>
             <Menu class="javax.swing.JMenu" name="menu_barajas">
               <Properties>
                 <Property name="text" type="java.lang.String" value="Barajas"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
@@ -308,6 +342,7 @@
             <Menu class="javax.swing.JMenu" name="menu_tapetes">
               <Properties>
                 <Property name="text" type="java.lang.String" value="Tapetes"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
@@ -320,6 +355,7 @@
                     </Property>
                     <Property name="selected" type="boolean" value="true"/>
                     <Property name="text" type="java.lang.String" value="Verde"/>
+                    <Property name="doubleBuffered" type="boolean" value="true"/>
                   </Properties>
                   <Events>
                     <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_verdeActionPerformed"/>
@@ -332,6 +368,7 @@
                     </Property>
                     <Property name="selected" type="boolean" value="true"/>
                     <Property name="text" type="java.lang.String" value="Azul"/>
+                    <Property name="doubleBuffered" type="boolean" value="true"/>
                   </Properties>
                   <Events>
                     <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_azulActionPerformed"/>
@@ -344,6 +381,7 @@
                     </Property>
                     <Property name="selected" type="boolean" value="true"/>
                     <Property name="text" type="java.lang.String" value="Rojo"/>
+                    <Property name="doubleBuffered" type="boolean" value="true"/>
                   </Properties>
                   <Events>
                     <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_rojoActionPerformed"/>
@@ -356,6 +394,7 @@
                     </Property>
                     <Property name="selected" type="boolean" value="true"/>
                     <Property name="text" type="java.lang.String" value="Sin tapete"/>
+                    <Property name="doubleBuffered" type="boolean" value="true"/>
                   </Properties>
                   <Events>
                     <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_maderaActionPerformed"/>
@@ -364,6 +403,9 @@
               </SubComponents>
             </Menu>
             <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator4">
+              <Properties>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+              </Properties>
             </MenuItem>
             <MenuItem class="javax.swing.JCheckBoxMenuItem" name="rebuy_now_menu">
               <Properties>
@@ -372,6 +414,7 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Recomprar (siguiente mano)"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="rebuy_now_menuActionPerformed"/>
@@ -382,6 +425,7 @@
         <Menu class="javax.swing.JMenu" name="help_menu">
           <Properties>
             <Property name="text" type="java.lang.String" value="Ayuda"/>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="14" style="0"/>
             </Property>
@@ -393,6 +437,7 @@
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="ATAJOS"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="shortcuts_menuActionPerformed"/>
@@ -404,6 +449,7 @@
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="Acerca de"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="acerca_menuActionPerformed"/>

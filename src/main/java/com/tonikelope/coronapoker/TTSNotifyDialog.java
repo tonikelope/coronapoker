@@ -122,7 +122,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         jPanel1.setBackground(new java.awt.Color(102, 102, 102));
 
-        message.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
+        message.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
         message.setForeground(new java.awt.Color(255, 255, 255));
         message.setText("TEXT");
         message.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));

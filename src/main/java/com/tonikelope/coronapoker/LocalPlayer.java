@@ -216,7 +216,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_pot.setText("----");
                     player_pot.setBackground(null);
                     player_pot.setEnabled(false);
-                    utg_textfield.setVisible(false);
+                    utg_icon.setVisible(false);
                     playingCard1.resetearCarta();
                     playingCard2.resetearCarta();
                     player_stack.setBackground(null);
@@ -460,7 +460,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_buyin.setText(String.valueOf(GameFrame.BUYIN));
 
-                utg_textfield.setVisible(false);
+                utg_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/utg.png")).getImage().getScaledInstance(41, 31, Image.SCALE_SMOOTH)));
+
+                utg_icon.setVisible(false);
 
                 player_pot.setBackground(Color.WHITE);
 
@@ -1170,7 +1172,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setEnabled(false);
 
-                utg_textfield.setVisible(false);
+                utg_icon.setVisible(false);
 
                 player_blind.setVisible(false);
 
@@ -1233,11 +1235,30 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    utg_textfield.setVisible(false);
+                    utg_icon.setVisible(false);
 
                 }
             });
         }
+    }
+
+    private void utgIconZoom() {
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                utg_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/utg.png")).getImage().getScaledInstance((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight(), Image.SCALE_SMOOTH)));
+
+                utg_icon.setPreferredSize(new Dimension((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight()));
+
+                utg_icon.revalidate();
+
+                utg_icon.repaint();
+
+                utg_icon.setVisible(utg);
+            }
+        });
     }
 
     @Override
@@ -1253,6 +1274,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * zoom_factor)));
                     setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
                     getAvatar().setVisible(false);
+                    utg_icon.setVisible(false);
                 }
             });
 
@@ -1260,6 +1282,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             playingCard2.zoom(zoom_factor, mynotifier);
             Helpers.zoomFonts(this, zoom_factor, null);
             setAvatar();
+            utgIconZoom();
 
             while (mynotifier.size() < 2) {
 
@@ -1433,9 +1456,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_pot = new javax.swing.JLabel();
         player_stack = new javax.swing.JLabel();
         player_buyin = new javax.swing.JLabel();
-        jPanel5 = new javax.swing.JPanel();
+        nick_panel = new javax.swing.JPanel();
         player_name = new javax.swing.JLabel();
-        utg_textfield = new javax.swing.JLabel();
+        utg_icon = new javax.swing.JLabel();
         player_blind = new javax.swing.JLabel();
         botonera = new javax.swing.JPanel();
         player_allin_button = new javax.swing.JButton();
@@ -1557,8 +1580,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
-        jPanel5.setFocusable(false);
-        jPanel5.setOpaque(false);
+        nick_panel.setFocusable(false);
+        nick_panel.setOpaque(false);
 
         player_name.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_name.setForeground(new java.awt.Color(255, 255, 255));
@@ -1572,14 +1595,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        utg_textfield.setBackground(new java.awt.Color(255, 204, 204));
-        utg_textfield.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        utg_textfield.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        utg_textfield.setText("UTG");
-        utg_textfield.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
-        utg_textfield.setDoubleBuffered(true);
-        utg_textfield.setFocusable(false);
-        utg_textfield.setOpaque(true);
+        utg_icon.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        utg_icon.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        utg_icon.setDoubleBuffered(true);
+        utg_icon.setFocusable(false);
 
         player_blind.setBackground(new java.awt.Color(51, 51, 255));
         player_blind.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
@@ -1598,24 +1617,24 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        javax.swing.GroupLayout jPanel5Layout = new javax.swing.GroupLayout(jPanel5);
-        jPanel5.setLayout(jPanel5Layout);
-        jPanel5Layout.setHorizontalGroup(
-            jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel5Layout.createSequentialGroup()
+        javax.swing.GroupLayout nick_panelLayout = new javax.swing.GroupLayout(nick_panel);
+        nick_panel.setLayout(nick_panelLayout);
+        nick_panelLayout.setHorizontalGroup(
+            nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(nick_panelLayout.createSequentialGroup()
                 .addComponent(player_name)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 49, Short.MAX_VALUE)
-                .addComponent(utg_textfield)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(utg_icon)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(player_blind))
         );
-        jPanel5Layout.setVerticalGroup(
-            jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel5Layout.createSequentialGroup()
+        nick_panelLayout.setVerticalGroup(
+            nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(nick_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(player_name)
-                    .addComponent(utg_textfield)
+                    .addComponent(utg_icon)
                     .addComponent(player_blind))
                 .addGap(0, 0, 0))
         );
@@ -1628,7 +1647,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addGap(0, 0, 0)
                 .addGroup(indicadores_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(avatar_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(nick_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(0, 0, 0))
         );
         indicadores_arribaLayout.setVerticalGroup(
@@ -1637,7 +1656,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addGap(0, 0, 0)
                 .addComponent(avatar_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(nick_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         botonera.setFocusable(false);
@@ -2137,7 +2156,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JSpinner bet_spinner;
     private javax.swing.JPanel botonera;
     private javax.swing.JPanel indicadores_arriba;
-    private javax.swing.JPanel jPanel5;
+    private javax.swing.JPanel nick_panel;
     private javax.swing.JPanel panel_cartas;
     private javax.swing.JLabel player_action;
     private javax.swing.JButton player_allin_button;
@@ -2152,7 +2171,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private com.tonikelope.coronapoker.Card playingCard1;
     private com.tonikelope.coronapoker.Card playingCard2;
     private javax.swing.JLabel timeout_label;
-    private javax.swing.JLabel utg_textfield;
+    private javax.swing.JLabel utg_icon;
     // End of variables declaration//GEN-END:variables
 
     @Override
@@ -2225,10 +2244,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                utg_textfield.setVisible(true);
-                utg_textfield.setText("UTG");
-                utg_textfield.setBackground(Color.PINK);
-                utg_textfield.setForeground(Color.BLACK);
+                utg_icon.setVisible(true);
 
             }
         });
@@ -2379,6 +2395,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
                     getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
                 }
+
+                getAvatar().revalidate();
+
+                getAvatar().repaint();
 
                 getAvatar().setVisible(true);
             }

@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Última mano", "Last hand"},
             {"Click para mostrar/ocultar la ficha", "Click for show/hide chip"},
             {"Auto ajustar zoom", "Auto fit zoom"},
             {"Auto ajustar", "Auto fit"},

@@ -44,6 +44,9 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private static volatile ImageIcon IMAGEN_TRASERA = null;
     private static volatile ImageIcon IMAGEN_TRASERA_B = null;
     private static volatile ImageIcon IMAGEN_JOKER = null;
+    private static volatile ImageIcon IMAGEN_BB = null;
+    private static volatile ImageIcon IMAGEN_SB = null;
+    private static volatile ImageIcon IMAGEN_DEALER = null;
     private static volatile List<String> CARTAS_SONIDO = null;
     private static volatile float CURRENT_ZOOM = 0f;
 
@@ -53,49 +56,49 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile boolean tapada = true;
     private volatile boolean desenfocada = false;
     private volatile boolean compactable = true;
-    private volatile JLabel ciega_image = null;
-    private volatile int ciega = -1;
-    private volatile int ciega_pos = 1;
-    private volatile boolean ciega_visible = true;
+    private volatile JLabel pos_chip_label = null;
+    private volatile int pos_chip = -1;
+    private volatile int pos_chip_location = 1;
+    private volatile boolean pos_chip_visible = true;
 
     public boolean isCiega_visible() {
-        return ciega_visible;
+        return pos_chip_visible;
     }
 
     public void setCiega_visible(boolean ciega_visible) {
-        this.ciega_visible = ciega_visible;
+        this.pos_chip_visible = ciega_visible;
 
-        if (!this.ciega_visible) {
+        if (!this.pos_chip_visible) {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    ciega_image.setVisible(false);
+                    pos_chip_label.setVisible(false);
                 }
             });
-        } else if (ciega > 0) {
+        } else if (pos_chip > 0) {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    ciega_image.setVisible(true);
+                    pos_chip_label.setVisible(true);
                 }
             });
         }
     }
 
-    public int getCiega_pos() {
-        return ciega_pos;
+    public int getPosChipLocation() {
+        return pos_chip_location;
     }
 
-    public int getCiega() {
-        return ciega;
+    public int getPosChip() {
+        return pos_chip;
     }
 
-    public void setCiega(int ciega, int pos) {
-        this.ciega = ciega;
-        this.ciega_pos = pos;
+    public void setPosChip(int pos, int location) {
+        this.pos_chip = pos;
+        this.pos_chip_location = location;
 
-        if (this.ciega < 0) {
+        if (this.pos_chip < 0) {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    ciega_image.setVisible(false);
+                    pos_chip_label.setVisible(false);
                 }
             });
         }
@@ -116,6 +119,9 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             IMAGEN_TRASERA = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
             IMAGEN_TRASERA_B = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera_b.jpg");
             IMAGEN_JOKER = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/joker.jpg");
+            IMAGEN_BB = createPositionChipImageIcon(Player.BIG_BLIND);
+            IMAGEN_SB = createPositionChipImageIcon(Player.SMALL_BLIND);
+            IMAGEN_DEALER = createPositionChipImageIcon(Player.DEALER);
 
             if (((Object[]) BARAJAS.get(GameFrame.BARAJA))[2] != null) {
                 CARTAS_SONIDO = Arrays.asList(((String) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[2]).split(" *, *"));
@@ -125,6 +131,32 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public static HashMap<String, String> getUNICODE_TABLE() {
         return UNICODE_TABLE;
+    }
+
+    private static ImageIcon createPositionChipImageIcon(int position) {
+
+        String image = "";
+
+        switch (position) {
+
+            case Player.DEALER:
+
+                image = "/images/dealer.png";
+                break;
+
+            case Player.BIG_BLIND:
+
+                image = "/images/bb.png";
+                break;
+
+            case Player.SMALL_BLIND:
+
+                image = "/images/sb.png";
+                break;
+        }
+
+        return new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.75f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.75f), Image.SCALE_SMOOTH));
+
     }
 
     private static ImageIcon createCardImageIcon(String path) {
@@ -158,13 +190,13 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
-                ciega_image = new JLabel("");
-                ciega_image.setDoubleBuffered(true);
-                ciega_image.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                ciega_image.setOpaque(false);
-                ciega_image.setVisible(false);
-                add(ciega_image, JLayeredPane.POPUP_LAYER);
-                ciega_image.setSize(new Dimension(100, 100));
+                pos_chip_label = new JLabel("");
+                pos_chip_label.setDoubleBuffered(true);
+                pos_chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                pos_chip_label.setOpaque(false);
+                pos_chip_label.setVisible(false);
+                add(pos_chip_label, JLayeredPane.POPUP_LAYER);
+                pos_chip_label.setSize(new Dimension(100, 100));
             }
         });
     }
@@ -259,8 +291,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                                 card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
 
-                                if (ciega_pos == 1) {
-                                    setCiega(-1, 1);
+                                if (pos_chip_location == 1) {
+                                    setPosChip(-1, 1);
                                 }
 
                             }
@@ -277,11 +309,11 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
-                        updateCiega();
+                        updatePositionChip();
 
-                        ciega_image.revalidate();
+                        pos_chip_label.revalidate();
 
-                        ciega_image.repaint();
+                        pos_chip_label.repaint();
                     }
                 });
 
@@ -304,7 +336,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         this.desenfocada = false;
         this.valor = "";
         this.palo = "";
-        setCiega(-1, 1);
+        setPosChip(-1, 1);
         refreshCard();
     }
 
@@ -510,44 +542,44 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     }
 
-    private void updateCiega() {
+    private void updatePositionChip() {
 
-        String image = null;
+        ImageIcon image = null;
 
-        if (this.ciega > 0) {
+        if (this.pos_chip > 0) {
 
-            switch (this.ciega) {
+            switch (this.pos_chip) {
 
                 case Player.DEALER:
 
-                    image = "/images/dealer.png";
+                    image = IMAGEN_DEALER;
                     break;
 
                 case Player.BIG_BLIND:
 
-                    image = "/images/bb.png";
+                    image = IMAGEN_BB;
                     break;
 
                 case Player.SMALL_BLIND:
 
-                    image = "/images/sb.png";
+                    image = IMAGEN_SB;
                     break;
             }
 
-            ciega_image.setSize(new Dimension(Math.round(card_image.getIcon().getIconWidth() * 0.75f), Math.round(card_image.getIcon().getIconWidth() * 0.75f)));
-            ciega_image.setIcon(new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(card_image.getIcon().getIconWidth() * 0.75f), Math.round(card_image.getIcon().getIconWidth() * 0.75f), Image.SCALE_SMOOTH)));
+            pos_chip_label.setSize(new Dimension(image.getIconWidth(), image.getIconHeight()));
+            pos_chip_label.setIcon(image);
 
-            if (ciega_pos == 1) {
-                ciega_image.setLocation(new Point(card_image.getX(), card_image.getY()));
+            if (pos_chip_location == 1) {
+                pos_chip_label.setLocation(new Point(card_image.getX(), card_image.getY()));
             } else {
-                ciega_image.setLocation(new Point(card_image.getX(), card_image.getHeight() - ciega_image.getHeight()));
+                pos_chip_label.setLocation(new Point(card_image.getX(), card_image.getHeight() - pos_chip_label.getHeight()));
             }
 
-            if (this.ciega_visible) {
-                ciega_image.setVisible(true);
+            if (this.pos_chip_visible) {
+                pos_chip_label.setVisible(true);
             }
         } else {
-            ciega_image.setVisible(false);
+            pos_chip_label.setVisible(false);
         }
     }
 

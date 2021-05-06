@@ -45,7 +45,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final Object pre_pulsar_lock = new Object();
 
     private volatile String nickname;
-
     private volatile int buyin = GameFrame.BUYIN;
     private volatile float stack = 0f;
     private volatile float bet = 0f;
@@ -470,7 +469,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_pot.setText("----");
 
-                playingCard1.setCiega_visible(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("local_blind_chip", "true")));
+                playingCard1.setCiega_visible(GameFrame.LOCAL_POSITION_CHIP);
             }
         });
     }
@@ -1248,7 +1247,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                utg_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/utg.png")).getImage().getScaledInstance((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight(), Image.SCALE_SMOOTH)));
+                utg_icon.setIcon(new ImageIcon(IMAGEN_UTG.getImage().getScaledInstance((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight(), Image.SCALE_SMOOTH)));
 
                 utg_icon.setPreferredSize(new Dimension((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight()));
 
@@ -1338,7 +1337,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setCiega(Player.DEALER, 2);
+                this.getPlayingCard1().setPosChip(Player.DEALER, 2);
 
                 if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
                     if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
@@ -1370,7 +1369,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setCiega(Player.BIG_BLIND, 2);
+                this.getPlayingCard1().setPosChip(Player.BIG_BLIND, 2);
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0) {
                     setBet(crupier.getCiega_grande());
@@ -1398,7 +1397,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setCiega(Player.SMALL_BLIND, 2);
+                this.getPlayingCard1().setPosChip(Player.SMALL_BLIND, 2);
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                     setBet(crupier.getCiega_pequeña());
@@ -1428,7 +1427,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setCiega(-1, 2);
+                this.getPlayingCard1().setPosChip(-1, 2);
 
                 setBet(0f);
 
@@ -2141,9 +2140,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_blindMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_blindMouseClicked
         // TODO add your handling code here:
 
-        this.playingCard1.setCiega_visible(!this.playingCard1.isCiega_visible());
+        GameFrame.LOCAL_POSITION_CHIP = !GameFrame.LOCAL_POSITION_CHIP;
 
-        Helpers.PROPERTIES.setProperty("local_blind_chip", String.valueOf(playingCard1.isCiega_visible()));
+        this.playingCard1.setCiega_visible(GameFrame.LOCAL_POSITION_CHIP);
+
+        Helpers.PROPERTIES.setProperty("local_pos_chip", String.valueOf(GameFrame.LOCAL_POSITION_CHIP));
 
         Helpers.savePropertiesFile();
 

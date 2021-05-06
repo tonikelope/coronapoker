@@ -1053,7 +1053,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         switch (pos) {
             case Player.DEALER:
 
-                this.getPlayingCard1().setCiega(Player.DEALER, 1);
+                this.getPlayingCard1().setPosChip(Player.DEALER, 1);
 
                 if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
                     if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
@@ -1072,7 +1072,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.BIG_BLIND:
 
-                this.getPlayingCard1().setCiega(Player.BIG_BLIND, 1);
+                this.getPlayingCard1().setPosChip(Player.BIG_BLIND, 1);
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0) {
                     setBet(crupier.getCiega_grande());
@@ -1088,7 +1088,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.SMALL_BLIND:
 
-                this.getPlayingCard1().setCiega(Player.SMALL_BLIND, 1);
+                this.getPlayingCard1().setPosChip(Player.SMALL_BLIND, 1);
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
                     setBet(crupier.getCiega_pequeña());
@@ -1118,7 +1118,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setCiega(-1, 1);
+                this.getPlayingCard1().setPosChip(-1, 1);
 
                 setBet(0f);
 
@@ -1386,7 +1386,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                utg_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/utg.png")).getImage().getScaledInstance((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight(), Image.SCALE_SMOOTH)));
+                utg_icon.setIcon(new ImageIcon(IMAGEN_UTG.getImage().getScaledInstance((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight(), Image.SCALE_SMOOTH)));
 
                 utg_icon.setPreferredSize(new Dimension((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight()));
 

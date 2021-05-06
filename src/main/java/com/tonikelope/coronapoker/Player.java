@@ -16,6 +16,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import javax.swing.ImageIcon;
+
 /**
  *
  * @author tonikelope
@@ -33,6 +35,8 @@ public interface Player {
     public static final int BIG_BLIND = 13;
 
     public static final int BORDER = 10;
+
+    public static final ImageIcon IMAGEN_UTG = new ImageIcon(Player.class.getResource("/images/utg.png"));
 
     public void ordenarCartas();
 

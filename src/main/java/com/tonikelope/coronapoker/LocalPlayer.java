@@ -545,6 +545,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
+    private void guardarColoresBotonesAccion() {
+        action_button_colors.clear();
+
+        action_button_colors.put(player_check_button, new Color[]{player_check_button.getBackground(), player_check_button.getForeground()});
+
+        action_button_colors.put(player_bet_button, new Color[]{player_bet_button.getBackground(), player_bet_button.getForeground()});
+
+        action_button_colors.put(player_allin_button, new Color[]{player_allin_button.getBackground(), player_allin_button.getForeground()});
+
+        action_button_colors.put(player_fold_button, new Color[]{player_fold_button.getBackground(), player_fold_button.getForeground()});
+
+    }
+
     public void esTuTurno() {
 
         turno = true;
@@ -612,11 +625,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             player_check_button.setText(Translator.translate("IR") + " (+" + Helpers.float2String(call_required) + ")");
                             player_check_button.setBackground(null);
                             player_check_button.setForeground(null);
-                            player_fold_button.setBackground(LocalPlayer.ACTIONS_COLORS[0][0]);
-                            player_fold_button.setForeground(LocalPlayer.ACTIONS_COLORS[0][1]);
+                            player_fold_button.setBackground(Color.DARK_GRAY);
+                            player_fold_button.setForeground(Color.WHITE);
                         }
 
                     }
+
+                    guardarColoresBotonesAccion();
 
                     if (crupier.puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0)
                             || (Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
@@ -1003,7 +1018,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if (b == boton) {
                         action_button_armed.put(b, true);
 
-                        b.setBackground(Color.BLUE);
+                        b.setBackground(new Color(120, 0, 184));
                         b.setForeground(Color.WHITE);
 
                     } else {

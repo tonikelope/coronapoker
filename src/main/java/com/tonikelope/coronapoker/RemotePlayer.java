@@ -5,7 +5,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import static com.tonikelope.coronapoker.LocalPlayer.POSITIONS_LABELS;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;

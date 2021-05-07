@@ -604,8 +604,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
                             player_check_button.setText("PASAR");
+                            player_check_button.setBackground(new Color(0, 130, 0));
+                            player_check_button.setForeground(Color.WHITE);
+                            player_fold_button.setBackground(Color.RED);
+                            player_fold_button.setForeground(Color.WHITE);
                         } else {
                             player_check_button.setText(Translator.translate("IR") + " (+" + Helpers.float2String(call_required) + ")");
+                            player_check_button.setBackground(null);
+                            player_check_button.setForeground(null);
+                            player_fold_button.setBackground(LocalPlayer.ACTIONS_COLORS[0][0]);
+                            player_fold_button.setForeground(LocalPlayer.ACTIONS_COLORS[0][1]);
                         }
 
                     }
@@ -1327,8 +1335,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     @Override
                     public void run() {
                         player_blind.setVisible(true);
-                        player_blind.setBackground(Color.white);
-                        player_blind.setForeground(Color.black);
+                        player_blind.setBackground(new Color(230, 229, 235));
+                        player_blind.setForeground(Color.BLACK);
                         player_blind.setText(POSITIONS_LABELS[2]);
                         player_name.setOpaque(true);
                         player_name.setBackground(player_blind.getBackground());
@@ -1360,7 +1368,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     @Override
                     public void run() {
                         player_blind.setVisible(true);
-                        player_blind.setBackground(Color.yellow);
+                        player_blind.setBackground(new Color(241, 185, 30));
                         player_blind.setForeground(Color.black);
                         player_blind.setText(POSITIONS_LABELS[1]);
                         player_name.setOpaque(true);
@@ -1388,7 +1396,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     @Override
                     public void run() {
                         player_blind.setVisible(true);
-                        player_blind.setBackground(Color.BLUE);
+                        player_blind.setBackground(new Color(24, 52, 178));
                         player_blind.setForeground(Color.white);
                         player_blind.setText(POSITIONS_LABELS[0]);
                         player_name.setOpaque(true);

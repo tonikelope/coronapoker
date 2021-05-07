@@ -99,8 +99,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     public int getPosChip() {
         return pos_chip;
     }
-    
-    public void resetPosChip(){
+
+    public void resetPosChip() {
         setPosChip(-1, 1);
     }
 
@@ -590,9 +590,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                 pos_chip_label.setLocation(new Point(card_image.getX(), card_image.getHeight() - pos_chip_label.getHeight()));
             }
 
-            if (this.pos_chip_visible) {
-                pos_chip_label.setVisible(true);
-            }
+            pos_chip_label.setVisible(this.pos_chip_visible && (pos_chip_location == 1 || GameFrame.LOCAL_POSITION_CHIP));
+
         } else {
             pos_chip_label.setVisible(false);
         }

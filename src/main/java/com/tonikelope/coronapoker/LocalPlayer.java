@@ -422,17 +422,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 initComponents();
 
                 border_color = ((LineBorder) getBorder()).getLineColor();
-
-                action_button_colors.put(player_check_button, new Color[]{player_check_button.getBackground(), player_check_button.getForeground()});
+                
                 action_button_armed.put(player_check_button, false);
 
-                action_button_colors.put(player_bet_button, new Color[]{player_bet_button.getBackground(), player_bet_button.getForeground()});
                 action_button_armed.put(player_bet_button, false);
 
-                action_button_colors.put(player_allin_button, new Color[]{player_allin_button.getBackground(), player_allin_button.getForeground()});
                 action_button_armed.put(player_allin_button, false);
 
-                action_button_colors.put(player_fold_button, new Color[]{player_fold_button.getBackground(), player_fold_button.getForeground()});
                 action_button_armed.put(player_fold_button, false);
 
                 timeout_label.setVisible(false);

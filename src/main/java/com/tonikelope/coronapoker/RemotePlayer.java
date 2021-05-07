@@ -5,6 +5,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import static com.tonikelope.coronapoker.LocalPlayer.POSITIONS_LABELS;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
@@ -1055,6 +1056,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         switch (pos) {
             case Player.DEALER:
 
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        player_name.setOpaque(true);
+                        player_name.setBackground(new Color(230, 229, 235));
+                        player_name.setForeground(Color.BLACK);
+                    }
+                });
+
                 this.getPlayingCard1().setPosChip(Player.DEALER, 1);
 
                 if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
@@ -1074,6 +1084,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.BIG_BLIND:
 
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        player_name.setOpaque(true);
+                        player_name.setBackground(new Color(241, 185, 30));
+                        player_name.setForeground(Color.BLACK);
+                    }
+                });
+
                 this.getPlayingCard1().setPosChip(Player.BIG_BLIND, 1);
 
                 if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0) {
@@ -1089,6 +1108,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 break;
             case Player.SMALL_BLIND:
+
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        player_name.setOpaque(true);
+                        player_name.setBackground(new Color(24, 52, 178));
+                        player_name.setForeground(Color.WHITE);
+                    }
+                });
 
                 this.getPlayingCard1().setPosChip(Player.SMALL_BLIND, 1);
 

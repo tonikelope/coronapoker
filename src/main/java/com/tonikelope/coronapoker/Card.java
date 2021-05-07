@@ -55,18 +55,27 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile boolean iniciada = false;
     private volatile boolean tapada = true;
     private volatile boolean desenfocada = false;
+    private volatile boolean visible_card = true;
     private volatile boolean compactable = true;
     private volatile JLabel pos_chip_label = null;
     private volatile int pos_chip = -1;
     private volatile int pos_chip_location = 1;
     private volatile boolean pos_chip_visible = true;
 
-    public boolean isCiega_visible() {
+    public boolean isVisible_card() {
+        return visible_card;
+    }
+
+    public void setVisible_card(boolean visible_card) {
+        this.visible_card = visible_card;
+    }
+
+    public boolean isPosChip_visible() {
         return pos_chip_visible;
     }
 
-    public void setCiega_visible(boolean ciega_visible) {
-        this.pos_chip_visible = ciega_visible;
+    public void setPosChip_visible(boolean chip_visible) {
+        this.pos_chip_visible = chip_visible;
 
         if (!this.pos_chip_visible) {
             Helpers.GUIRun(new Runnable() {
@@ -90,12 +99,17 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     public int getPosChip() {
         return pos_chip;
     }
+    
+    public void resetPosChip(){
+        setPosChip(-1, 1);
+    }
 
     public void setPosChip(int pos, int location) {
         this.pos_chip = pos;
         this.pos_chip_location = location;
 
         if (this.pos_chip < 0) {
+            this.pos_chip_visible = true;
             Helpers.GUIRun(new Runnable() {
                 public void run() {
                     pos_chip_label.setVisible(false);
@@ -291,15 +305,12 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                                 card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
 
-                                if (pos_chip_location == 1) {
-                                    setPosChip(-1, 1);
-                                }
-
                             }
                         } else {
                             card_image.setIcon(Card.IMAGEN_JOKER);
-
                         }
+
+                        card_image.setVisible(isVisible_card());
 
                         card_image.revalidate();
 
@@ -327,6 +338,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         this.iniciada = true;
         this.tapada = true;
         this.desenfocada = false;
+        this.visible_card = true;
         refreshCard();
     }
 
@@ -334,9 +346,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         this.iniciada = false;
         this.tapada = false;
         this.desenfocada = false;
+        this.visible_card = true;
         this.valor = "";
         this.palo = "";
-        setPosChip(-1, 1);
+        resetPosChip();
         refreshCard();
     }
 
@@ -504,6 +517,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             }
 
             this.tapada = false;
+
+            this.visible_card = true;
 
             this.refreshCard();
 

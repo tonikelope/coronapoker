@@ -469,7 +469,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_pot.setText("----");
 
-                playingCard1.setCiega_visible(GameFrame.LOCAL_POSITION_CHIP);
+                playingCard1.setPosChip_visible(GameFrame.LOCAL_POSITION_CHIP);
             }
         });
     }
@@ -1427,7 +1427,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setPosChip(-1, 2);
+                this.getPlayingCard1().resetPosChip();
 
                 setBet(0f);
 
@@ -2142,13 +2142,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         GameFrame.LOCAL_POSITION_CHIP = !GameFrame.LOCAL_POSITION_CHIP;
 
-        this.playingCard1.setCiega_visible(GameFrame.LOCAL_POSITION_CHIP);
+        this.playingCard1.setPosChip_visible(GameFrame.LOCAL_POSITION_CHIP);
 
         Helpers.PROPERTIES.setProperty("local_pos_chip", String.valueOf(GameFrame.LOCAL_POSITION_CHIP));
 
         Helpers.savePropertiesFile();
 
-        Helpers.playWavResource(this.playingCard1.isCiega_visible() ? "misc/button_on.wav" : "misc/button_off.wav");
+        Helpers.playWavResource(this.playingCard1.isPosChip_visible() ? "misc/button_on.wav" : "misc/button_off.wav");
     }//GEN-LAST:event_player_blindMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

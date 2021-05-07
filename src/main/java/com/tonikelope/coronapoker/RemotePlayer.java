@@ -448,7 +448,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         setDecision(Player.FOLD);
 
         playingCard1.desenfocar();
+        playingCard1.setVisible_card(false);
         playingCard2.desenfocar();
+        playingCard2.setVisible_card(false);
 
         finTurno();
     }
@@ -1118,7 +1120,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                this.getPlayingCard1().setPosChip(-1, 1);
+                this.getPlayingCard1().resetPosChip();
 
                 setBet(0f);
 
@@ -1472,8 +1474,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.playWavResource("misc/uncover.wav", false);
             }
 
+            getPlayingCard1().setPosChip_visible(false);
             getPlayingCard1().destapar(false);
-
+            getPlayingCard2().setPosChip_visible(false);
             getPlayingCard2().destapar(false);
         }
     }

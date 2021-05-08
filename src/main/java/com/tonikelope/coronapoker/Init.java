@@ -623,7 +623,7 @@ public class Init extends javax.swing.JFrame {
 
                         String current_jar_path = new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
 
-                        String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION+".jar", new_version+".jar");
+                        String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", new_version + ".jar");
 
                         downloadUpdater();
 

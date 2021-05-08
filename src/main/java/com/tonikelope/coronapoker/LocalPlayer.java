@@ -422,7 +422,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 initComponents();
 
                 border_color = ((LineBorder) getBorder()).getLineColor();
-                
+
                 action_button_armed.put(player_check_button, false);
 
                 action_button_armed.put(player_bet_button, false);
@@ -949,7 +949,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                Color[] colores = action_button_colors.get(boton);
+                Color[] colores;
+
+                if (boton == player_check_button) {
+                    colores = new Color[]{null, null};
+                } else if (boton == player_fold_button) {
+                    colores = new Color[]{Color.RED, Color.WHITE};
+                } else {
+                    colores = action_button_colors.get(boton);
+                }
 
                 boton.setBackground(colores[0]);
 
@@ -1052,9 +1060,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
+                    player_check_button.setBackground(null);
+                    player_check_button.setForeground(null);
                     player_check_button.setText(Translator.translate("[A] PASAR +CG"));
                     player_check_button.setEnabled(true);
 
+                    player_fold_button.setBackground(Color.RED);
+                    player_fold_button.setForeground(Color.WHITE);
                     player_fold_button.setText(Translator.translate("[A] NO IR"));
                     player_fold_button.setEnabled(true);
 
@@ -1082,17 +1094,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
-                    Color[] colores = action_button_colors.get(player_check_button);
-
-                    player_check_button.setBackground(colores[0]);
-                    player_check_button.setForeground(colores[1]);
                     player_check_button.setText(" ");
                     player_check_button.setEnabled(false);
 
-                    colores = action_button_colors.get(player_fold_button);
-
-                    player_fold_button.setBackground(colores[0]);
-                    player_fold_button.setForeground(colores[1]);
                     player_fold_button.setText(" ");
                     player_fold_button.setEnabled(false);
                 }

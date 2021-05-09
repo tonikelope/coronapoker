@@ -129,6 +129,7 @@ public class BalanceDialog extends javax.swing.JDialog {
         jugadores = new javax.swing.JPanel();
         ok_button = new javax.swing.JButton();
         ok_button1 = new javax.swing.JButton();
+        ok_button2 = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setUndecorated(true);
@@ -167,7 +168,7 @@ public class BalanceDialog extends javax.swing.JDialog {
             }
         });
 
-        ok_button1.setBackground(new java.awt.Color(255, 102, 51));
+        ok_button1.setBackground(new java.awt.Color(255, 153, 51));
         ok_button1.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         ok_button1.setForeground(new java.awt.Color(255, 255, 255));
         ok_button1.setText("ESTADÍSTICAS");
@@ -180,6 +181,17 @@ public class BalanceDialog extends javax.swing.JDialog {
             }
         });
 
+        ok_button2.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        ok_button2.setText("REGISTRO DE LA TIMBA");
+        ok_button2.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        ok_button2.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        ok_button2.setDoubleBuffered(true);
+        ok_button2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                ok_button2ActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -188,16 +200,19 @@ public class BalanceDialog extends javax.swing.JDialog {
             .addComponent(jScrollPane1)
             .addComponent(ok_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(ok_button1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(ok_button2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addComponent(title)
                 .addGap(0, 0, 0)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 28, Short.MAX_VALUE)
-                .addGap(0, 0, 0)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(ok_button2)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(ok_button1)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(ok_button))
         );
 
@@ -218,11 +233,19 @@ public class BalanceDialog extends javax.swing.JDialog {
         dialog.setVisible(true);
     }//GEN-LAST:event_ok_button1ActionPerformed
 
+    private void ok_button2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ok_button2ActionPerformed
+        // TODO add your handling code here:
+        GameFrame.getInstance().getRegistro_dialog().setLocationRelativeTo(this);
+        GameFrame.getInstance().getRegistro_dialog().setModal(true);
+        GameFrame.getInstance().getRegistro_dialog().setVisible(true);
+    }//GEN-LAST:event_ok_button2ActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JPanel jugadores;
     private javax.swing.JButton ok_button;
     private javax.swing.JButton ok_button1;
+    private javax.swing.JButton ok_button2;
     private javax.swing.JLabel title;
     // End of variables declaration//GEN-END:variables
 }

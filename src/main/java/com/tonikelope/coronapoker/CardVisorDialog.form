@@ -4,10 +4,8 @@
   <Properties>
     <Property name="defaultCloseOperation" type="int" value="2"/>
     <Property name="title" type="java.lang.String" value="Visor de cartas"/>
+    <Property name="autoRequestFocus" type="boolean" value="false"/>
     <Property name="focusCycleRoot" type="boolean" value="false"/>
-    <Property name="focusTraversalPolicy" type="java.awt.FocusTraversalPolicy" editor="org.netbeans.modules.form.ComponentChooserEditor">
-      <ComponentRef name="null"/>
-    </Property>
     <Property name="focusable" type="boolean" value="false"/>
     <Property name="focusableWindowState" type="boolean" value="false"/>
   </Properties>

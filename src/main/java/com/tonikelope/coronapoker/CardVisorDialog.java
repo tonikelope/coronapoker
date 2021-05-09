@@ -167,8 +167,8 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Visor de cartas");
+        setAutoRequestFocus(false);
         setFocusCycleRoot(false);
-        setFocusTraversalPolicy(null);
         setFocusable(false);
         setFocusableWindowState(false);
 

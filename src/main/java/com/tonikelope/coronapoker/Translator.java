@@ -22,6 +22,14 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"ESPACIO", "SPACE"},
+            {"MAYÚS", "SHIFT"},
+            {"ESCAPE", "SCAPE"},
+            {"PASAR / IR / MOSTRAR", "CHECK / CALL / SHOW"},
+            {"ARRIBA|ABAJO", "UP|DOWN"},
+            {"APOSTAR", "BET"},
+            {"NO IR", "FOLD"},
+            {"CHAT RÁPIDO", "FAST CHAT"},
             {"Última mano", "Last hand"},
             {"Click para mostrar/ocultar la ficha", "Click for show/hide chip"},
             {"Auto ajustar zoom", "Auto fit zoom"},

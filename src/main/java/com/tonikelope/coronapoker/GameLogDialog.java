@@ -31,6 +31,11 @@ public class GameLogDialog extends javax.swing.JDialog {
     private volatile String text = "";
     private volatile boolean auto_scroll = true;
     private volatile boolean utf8_cards = false;
+    private volatile boolean fin_transmision = false;
+
+    public void setFin_transmision(boolean fin_transmision) {
+        this.fin_transmision = fin_transmision;
+    }
 
     public boolean isAuto_scroll() {
         return auto_scroll;
@@ -115,20 +120,23 @@ public class GameLogDialog extends javax.swing.JDialog {
 
     public synchronized void print(String msg) {
 
-        String message = this.utf8_cards ? this.translateNormalCards2UTF8(Translator.translate(msg)) : Translator.translate(msg);
+        if (!this.fin_transmision) {
 
-        text += message + "\n\n";
+            String message = this.utf8_cards ? this.translateNormalCards2UTF8(Translator.translate(msg)) : Translator.translate(msg);
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+            text += message + "\n\n";
 
-                getTextArea().append(message + "\n\n");
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
 
-                if (auto_scroll) {
-                    getTextArea().setCaretPosition(getTextArea().getText().length());
+                    getTextArea().append(message + "\n\n");
+
+                    if (auto_scroll) {
+                        getTextArea().setCaretPosition(getTextArea().getText().length());
+                    }
                 }
-            }
-        });
+            });
+        }
 
     }
 

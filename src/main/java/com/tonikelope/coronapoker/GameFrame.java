@@ -1615,6 +1615,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     getRegistro().print(entry.getKey() + " " + ganancia_msg);
                 }
+
+                getRegistro().setFin_transmision(true);
             }
 
             String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";

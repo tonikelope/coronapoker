@@ -132,6 +132,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile TTSNotifyDialog nick_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
+    private volatile ShortcutsDialog shortcuts_dialog = null;
     private volatile FastChatDialog fastchat_dialog = null;
     private volatile RebuyNowDialog rebuy_dialog = null;
     private volatile GifAnimationDialog gif_dialog = null;
@@ -2807,7 +2808,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void shortcuts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_shortcuts_menuActionPerformed
         // TODO add your handling code here:
-        Helpers.mostrarMensajeInformativo(getFrame(), Translator.translate("PASAR/IR -> [ESPACIO]\n\nAPOSTAR -> [ENTER] (FLECHA ARRIBA/ABAJO PARA SUBIR/BAJAR APUESTA)\n\nALL IN -> [MAYUS + ENTER]\n\nNO IR -> [ESC]\n\nMOSTRAR CARTAS -> [ESPACIO]\n\nMENSAJE CHAT RÁPIDO -> [º]"));
+
+        if (shortcuts_dialog == null) {
+            shortcuts_dialog = new ShortcutsDialog(GameFrame.getInstance().getFrame(), false);
+            shortcuts_dialog.setLocation(GameFrame.getInstance().getFrame().getX() + GameFrame.getInstance().getFrame().getWidth() - shortcuts_dialog.getWidth(), GameFrame.getInstance().getFrame().getY() + GameFrame.getInstance().getFrame().getHeight() - shortcuts_dialog.getHeight());
+
+        }
+
+        shortcuts_dialog.setVisible(!shortcuts_dialog.isVisible());
 
     }//GEN-LAST:event_shortcuts_menuActionPerformed
 

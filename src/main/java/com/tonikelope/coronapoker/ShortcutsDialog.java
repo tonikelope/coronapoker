@@ -54,13 +54,11 @@ public class ShortcutsDialog extends javax.swing.JDialog {
         jLabel7 = new javax.swing.JLabel();
         jButton12 = new javax.swing.JButton();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Atajos");
         setAutoRequestFocus(false);
         setFocusCycleRoot(false);
         setFocusable(false);
         setFocusableWindowState(false);
-        setUndecorated(true);
         setResizable(false);
 
         jPanel1.setBackground(new java.awt.Color(255, 255, 255));

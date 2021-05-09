@@ -1514,6 +1514,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return conta_tiempo_juego;
     }
 
+    public GameLogDialog getRegistro_dialog() {
+        return registro_dialog;
+    }
+
     public void finTransmision(boolean partida_terminada) {
 
         synchronized (lock_fin) {
@@ -1544,6 +1548,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
+
+                    if (jugadas_dialog != null) {
+                        jugadas_dialog.setVisible(false);
+                    }
+
+                    if (shortcuts_dialog != null) {
+                        shortcuts_dialog.setVisible(false);
+                    }
+
+                    if (registro_dialog.isVisible()) {
+                        registro_dialog.setVisible(false);
+                    }
 
                     if (pausa_dialog != null) {
                         pausa_dialog.setVisible(false);
@@ -2812,11 +2828,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         if (shortcuts_dialog == null) {
             shortcuts_dialog = new ShortcutsDialog(GameFrame.getInstance().getFrame(), false);
             shortcuts_dialog.setLocation(GameFrame.getInstance().getFrame().getX() + GameFrame.getInstance().getFrame().getWidth() - shortcuts_dialog.getWidth(), GameFrame.getInstance().getFrame().getY() + GameFrame.getInstance().getFrame().getHeight() - shortcuts_dialog.getHeight());
-
+            shortcuts_dialog.setVisible(true);
+        } else {
+            shortcuts_dialog.setVisible(!shortcuts_dialog.isVisible());
         }
-
-        shortcuts_dialog.setVisible(!shortcuts_dialog.isVisible());
-
     }//GEN-LAST:event_shortcuts_menuActionPerformed
 
     private void tts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_tts_menuActionPerformed

@@ -75,6 +75,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile int response_counter = 0;
     private volatile boolean spectator_bb = false;
     private volatile Color border_color = null;
+    private volatile JLabel aux_player_stack = new JLabel();
 
     public boolean isTimeout() {
         return timeout;
@@ -2156,8 +2157,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void avatarMousePressed(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMousePressed
         // TODO add your handling code here:
-        player_stack.setText(String.valueOf(this.buyin));
 
+        aux_player_stack.setBackground(player_stack.getBackground());
+        aux_player_stack.setForeground(player_stack.getForeground());
+        aux_player_stack.setText(player_stack.getText());
+
+        player_stack.setText(String.valueOf(this.buyin));
         player_stack.setBackground(Color.GRAY);
         player_stack.setForeground(Color.WHITE);
 
@@ -2165,15 +2170,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void avatarMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseReleased
         // TODO add your handling code here:
-        player_stack.setText(Helpers.float2String(this.stack));
-
-        if (this.buyin > GameFrame.BUYIN) {
-            player_stack.setBackground(Color.CYAN);
-            player_stack.setForeground(Color.BLACK);
-        } else {
-            player_stack.setBackground(new Color(51, 153, 0));
-            player_stack.setForeground(Color.WHITE);
-        }
+        player_stack.setText(aux_player_stack.getText());
+        player_stack.setBackground(aux_player_stack.getBackground());
+        player_stack.setForeground(aux_player_stack.getForeground());
     }//GEN-LAST:event_avatarMouseReleased
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

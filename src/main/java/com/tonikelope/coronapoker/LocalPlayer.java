@@ -80,10 +80,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return timeout;
     }
 
-    public JLabel getPlayer_buyin() {
-        return player_buyin;
-    }
-
     public JSpinner getBet_spinner() {
         return bet_spinner;
     }
@@ -453,8 +449,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_blind.setVisible(false);
 
-                player_buyin.setText(String.valueOf(GameFrame.BUYIN));
-
                 utg_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/utg.png")).getImage().getScaledInstance(41, 31, Image.SCALE_SMOOTH)));
 
                 utg_icon.setVisible(false);
@@ -524,6 +518,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    public JLabel getPlayer_stack() {
+        return player_stack;
+    }
+
     public void reComprar(int cantidad) {
 
         this.stack += cantidad;
@@ -534,8 +532,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 player_stack.setText(Helpers.float2String(stack));
-                player_buyin.setText(String.valueOf(buyin));
-                player_buyin.setBackground(Color.cyan);
+                player_stack.setBackground(Color.CYAN);
+                player_stack.setForeground(Color.BLACK);
 
             }
         });
@@ -1157,10 +1155,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         pagar = 0f;
 
-        if (crupier.getRebuy_now().containsKey(nickname)) {
-            reComprar((Integer) crupier.getRebuy_now().get(nickname));
-        }
-
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
@@ -1210,6 +1204,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             }
         });
+
+        if (crupier.getRebuy_now().containsKey(nickname)) {
+            reComprar((Integer) crupier.getRebuy_now().get(nickname));
+        }
 
         if (this.nickname.equals(crupier.getBb_nick())) {
             this.setPosition(BIG_BLIND);
@@ -1477,7 +1475,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         timeout_label = new javax.swing.JLabel();
         player_pot = new javax.swing.JLabel();
         player_stack = new javax.swing.JLabel();
-        player_buyin = new javax.swing.JLabel();
         nick_panel = new javax.swing.JPanel();
         player_name = new javax.swing.JLabel();
         utg_icon = new javax.swing.JLabel();
@@ -1528,8 +1525,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         avatar_panel.setOpaque(false);
 
         avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_null.png"))); // NOI18N
+        avatar.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
+        avatar.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mousePressed(java.awt.event.MouseEvent evt) {
+                avatarMousePressed(evt);
+            }
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                avatarMouseReleased(evt);
+            }
+        });
 
         timeout_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
         timeout_label.setDoubleBuffered(true);
@@ -1546,7 +1552,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         player_stack.setForeground(new java.awt.Color(255, 255, 255));
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        player_stack.setText("10000.0");
+        player_stack.setText("1000");
         player_stack.setToolTipText("CLICK PARA RECOMPRAR");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1558,22 +1564,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        player_buyin.setBackground(new java.awt.Color(204, 204, 204));
-        player_buyin.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        player_buyin.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        player_buyin.setText("10");
-        player_buyin.setToolTipText("CLICK PARA RECOMPRAR");
-        player_buyin.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
-        player_buyin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        player_buyin.setDoubleBuffered(true);
-        player_buyin.setFocusable(false);
-        player_buyin.setOpaque(true);
-        player_buyin.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                player_buyinMouseClicked(evt);
-            }
-        });
-
         javax.swing.GroupLayout avatar_panelLayout = new javax.swing.GroupLayout(avatar_panel);
         avatar_panel.setLayout(avatar_panelLayout);
         avatar_panelLayout.setHorizontalGroup(
@@ -1582,11 +1572,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addComponent(avatar)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(player_stack)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(player_buyin)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeout_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(timeout_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(player_pot))
         );
         avatar_panelLayout.setVerticalGroup(
@@ -1594,11 +1582,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             .addComponent(avatar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(player_pot, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(avatar_panelLayout.createSequentialGroup()
-                .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(timeout_label)
-                    .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(player_stack)
-                        .addComponent(player_buyin)))
+                .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(player_stack)
+                    .addComponent(timeout_label))
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
@@ -1784,8 +1770,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     .addComponent(player_action, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(indicadores_arriba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(panel_cartas, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                            .addComponent(panel_cartas, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(indicadores_arriba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(botonera, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addContainerGap())
@@ -2149,12 +2135,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }//GEN-LAST:event_player_nameMouseClicked
 
-    private void player_buyinMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_buyinMouseClicked
-        // TODO add your handling code here:
-
-        GameFrame.getInstance().getRebuy_now_menu().doClick();
-    }//GEN-LAST:event_player_buyinMouseClicked
-
     private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
         GameFrame.getInstance().getRebuy_now_menu().doClick();
@@ -2174,6 +2154,28 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.playWavResource(this.playingCard1.isPosChip_visible() ? "misc/button_on.wav" : "misc/button_off.wav");
     }//GEN-LAST:event_player_blindMouseClicked
 
+    private void avatarMousePressed(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMousePressed
+        // TODO add your handling code here:
+        player_stack.setText(String.valueOf(this.buyin));
+
+        player_stack.setBackground(Color.GRAY);
+        player_stack.setForeground(Color.WHITE);
+
+    }//GEN-LAST:event_avatarMousePressed
+
+    private void avatarMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseReleased
+        // TODO add your handling code here:
+        player_stack.setText(Helpers.float2String(this.stack));
+
+        if (this.buyin > GameFrame.BUYIN) {
+            player_stack.setBackground(Color.CYAN);
+            player_stack.setForeground(Color.BLACK);
+        } else {
+            player_stack.setBackground(new Color(51, 153, 0));
+            player_stack.setForeground(Color.WHITE);
+        }
+    }//GEN-LAST:event_avatarMouseReleased
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;
     private javax.swing.JPanel avatar_panel;
@@ -2186,7 +2188,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JButton player_allin_button;
     private javax.swing.JButton player_bet_button;
     private javax.swing.JLabel player_blind;
-    private javax.swing.JLabel player_buyin;
     private javax.swing.JButton player_check_button;
     private javax.swing.JButton player_fold_button;
     private javax.swing.JLabel player_name;
@@ -2371,16 +2372,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setBuyin(int buyin) {
         this.buyin = buyin;
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                player_buyin.setText(String.valueOf(buyin));
-
-                if (buyin > GameFrame.BUYIN) {
-                    player_buyin.setBackground(Color.cyan);
-                }
-            }
-        });
 
     }
 

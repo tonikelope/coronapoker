@@ -76,6 +76,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public static final int MAX_PING_PONG_ERROR = 3;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
+    private static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_game_notifications", "true"));
     private static volatile WaitingRoomFrame THIS = null;
 
     private final Init ventana_inicio;
@@ -112,6 +113,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile boolean partida_empezando = false;
     private volatile String password = null;
     private volatile boolean exit = false;
+
+    public static boolean isCHAT_GAME_NOTIFICATIONS() {
+        return CHAT_GAME_NOTIFICATIONS;
+    }
 
     public boolean isChat_enabled() {
         return chat_enabled;
@@ -279,6 +284,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         initComponents();
 
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
+
+        chat_notifications.setSelected(CHAT_GAME_NOTIFICATIONS);
+        chat_notifications.setVisible(false);
 
         danger_server.setVisible(false);
 
@@ -1424,6 +1432,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                         Helpers.GUIRunAndWait(new Runnable() {
                                                             public void run() {
                                                                 new GameFrame(THIS, local_nick, false);
+                                                                chat_notifications.setVisible(true);
                                                             }
                                                         });
 
@@ -1940,7 +1949,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     chat.setCaretPosition(chat.getText().length());
                 }
 
-                if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive()) {
+                if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive() && isCHAT_GAME_NOTIFICATIONS()) {
 
                     Helpers.TTS_CHAT_QUEUE.add(new Object[]{nick, msg});
 
@@ -2144,6 +2153,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         game_info = new javax.swing.JLabel();
         danger_server = new javax.swing.JLabel();
         tts_warning = new javax.swing.JLabel();
+        chat_notifications = new javax.swing.JCheckBox();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -2392,6 +2402,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        chat_notifications.setText("Notificaciones durante el juego");
+        chat_notifications.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        chat_notifications.setDoubleBuffered(true);
+        chat_notifications.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                chat_notificationsActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -2406,7 +2425,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         .addComponent(avatar_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(chat_box))
-                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(chat_notifications, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -2416,7 +2436,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 146, Short.MAX_VALUE)
+                .addComponent(chat_notifications)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 125, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2633,6 +2655,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             Helpers.GUIRunAndWait(new Runnable() {
                                 public void run() {
                                     new GameFrame(THIS, local_nick, true);
+                                    chat_notifications.setVisible(true);
                                 }
                             });
 
@@ -2940,10 +2963,21 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     }//GEN-LAST:event_game_infoMouseClicked
 
+    private void chat_notificationsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_notificationsActionPerformed
+        // TODO add your handling code here:
+
+        CHAT_GAME_NOTIFICATIONS = chat_notifications.isSelected();
+
+        Helpers.PROPERTIES.setProperty("chat_game_notifications", String.valueOf(CHAT_GAME_NOTIFICATIONS));
+
+        Helpers.savePropertiesFile();
+    }//GEN-LAST:event_chat_notificationsActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
     private javax.swing.JTextArea chat;
     private javax.swing.JTextField chat_box;
+    private javax.swing.JCheckBox chat_notifications;
     private javax.swing.JList<String> conectados;
     private javax.swing.JLabel danger_server;
     private javax.swing.JButton empezar_timba;

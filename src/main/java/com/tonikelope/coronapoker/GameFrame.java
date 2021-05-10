@@ -2948,12 +2948,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (crupier.getRebuy_now().containsKey(player.getNickname())) {
 
-            player.getPlayer_buyin().setBackground(Helpers.float1DSecureCompare((float) GameFrame.BUYIN, player.getBuyin()) == 0 ? new Color(204, 204, 204) : Color.cyan);
-            player.getPlayer_buyin().setText(String.valueOf(player.getBuyin()));
-
             Helpers.threadRun(new Runnable() {
                 public void run() {
                     crupier.rebuyNow(player.getNickname(), -1);
+
+                    if (player.getBuyin() > GameFrame.BUYIN) {
+                        player.getPlayer_stack().setBackground(Color.CYAN);
+                        player.getPlayer_stack().setForeground(Color.BLACK);
+                    } else {
+                        player.getPlayer_stack().setBackground(new Color(51, 153, 0));
+                        player.getPlayer_stack().setForeground(Color.WHITE);
+                    }
+
+                    player.getPlayer_stack().setText(Helpers.float2String(player.getStack()));
                     rebuy_now_menu.setEnabled(true);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                     Helpers.playWavResource("misc/button_off.wav");
@@ -2977,8 +2984,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 rebuy_dialog.setVisible(true);
 
                 if (rebuy_dialog.isRebuy()) {
-                    player.getPlayer_buyin().setBackground(Color.YELLOW);
-                    player.getPlayer_buyin().setText(String.valueOf(player.getBuyin() + (int) rebuy_dialog.getRebuy_spinner().getValue()));
+                    player.getPlayer_stack().setBackground(Color.YELLOW);
+                    player.getPlayer_stack().setForeground(Color.BLACK);
+                    player.getPlayer_stack().setText(Helpers.float2String(player.getStack() + (int) rebuy_dialog.getRebuy_spinner().getValue()));
 
                     Helpers.threadRun(new Runnable() {
                         public void run() {

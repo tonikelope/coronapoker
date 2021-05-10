@@ -6665,12 +6665,6 @@ public class Crupier implements Runnable {
 
                         rebuy_now.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                GameFrame.getInstance().getLocalPlayer().getPlayer_buyin().setBackground(Helpers.float1DSecureCompare((float) GameFrame.BUYIN, GameFrame.getInstance().getLocalPlayer().getBuyin()) == 0 ? new Color(204, 204, 204) : Color.cyan);
-                                GameFrame.getInstance().getLocalPlayer().getPlayer_buyin().setText(String.valueOf(GameFrame.getInstance().getLocalPlayer().getBuyin()));
-                            }
-                        });
                     }
 
                     GameFrame.getInstance().getLocalPlayer().setSpectator(null);

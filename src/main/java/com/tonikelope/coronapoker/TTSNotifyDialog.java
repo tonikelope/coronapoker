@@ -22,7 +22,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
     /**
      * Creates new form NickTTSDialog
      */
-    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick) {
+    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, String msg) {
         super(parent, modal);
 
         this.player = nick;
@@ -31,7 +31,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
 
-        message.setText(nick);
+        message.setText("[" + nick + (msg != null ? "]: " + msg : "]"));
 
         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
 
@@ -109,8 +109,10 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
         sound_icon = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setAutoRequestFocus(false);
         setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         setFocusCycleRoot(false);
+        setFocusTraversalPolicy(null);
         setFocusable(false);
         setFocusableWindowState(false);
         setUndecorated(true);

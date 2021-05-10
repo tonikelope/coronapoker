@@ -75,6 +75,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int AUTO_ZOOM_TIMEOUT = 3000;
     public static final int GUI_ZOOM_WAIT = 250;
     public static final boolean TEST_MODE = false;
+    public static final int TTS_NO_SOUND_TIMEOUT = 3000;
 
     public static volatile float CIEGA_PEQUEÑA = 0.10f;
     public static volatile float CIEGA_GRANDE = 0.20f;
@@ -1803,7 +1804,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         Helpers.GUIRunAndWait(new Runnable() {
                             @Override
                             public void run() {
-                                nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
+                                nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]));
                                 nick_dialog.setLocation(nick_dialog.getParent().getLocation());
 
                             }
@@ -1813,7 +1814,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                             Helpers.TTS((String) tts[1], nick_dialog);
 
-                        } else if (GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                        } else if (!Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
@@ -1822,7 +1823,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 }
                             });
 
-                            Helpers.pausar(1000);
+                            Helpers.pausar(TTS_NO_SOUND_TIMEOUT);
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override

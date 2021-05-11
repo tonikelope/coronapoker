@@ -57,7 +57,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile int response_counter;
     private volatile boolean spectator_bb = false;
     private volatile Color border_color = null;
-    private volatile JLabel aux_player_stack = new JLabel();
+    private volatile boolean player_stack_click = false;
 
     public boolean isTimeout() {
         return timeout;
@@ -169,26 +169,28 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    public float getPagar() {
+    public synchronized float getPagar() {
         return pagar;
     }
 
-    public float getBote() {
+    public synchronized float getBote() {
         return bote;
     }
 
-    public void setStack(float stack) {
+    public synchronized void setStack(float stack) {
         this.stack = Helpers.floatClean1D(stack);
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                player_stack.setText(Helpers.float2String(stack));
+        if (!player_stack_click) {
+            Helpers.GUIRunAndWait(new Runnable() {
+                public void run() {
+                    player_stack.setText(Helpers.float2String(stack));
 
-            }
-        });
+                }
+            });
+        }
     }
 
-    public void setBet(float new_bet) {
+    public synchronized void setBet(float new_bet) {
 
         float old_bet = bet;
 
@@ -465,6 +467,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         setDecision(Player.CHECK);
 
         finTurno();
+
+    }
+
+    public synchronized float getEffectiveStack() {
+
+        return this.stack + this.bote + this.pagar;
 
     }
 
@@ -886,11 +894,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
-        if (aux_player_stack.isEnabled()) {
-            aux_player_stack.setEnabled(false);
-            aux_player_stack.setBackground(player_stack.getBackground());
-            aux_player_stack.setForeground(player_stack.getForeground());
-            aux_player_stack.setText(player_stack.getText());
+        if (!player_stack_click) {
+            player_stack_click = true;
 
             player_stack.setText(String.valueOf(this.buyin));
             player_stack.setBackground(Color.GRAY);
@@ -900,13 +905,39 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 public void run() {
                     Helpers.pausar(1500);
 
+                    float s = getStack();
+
+                    float e_s = getEffectiveStack();
+
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
 
-                            player_stack.setText(aux_player_stack.getText());
-                            player_stack.setBackground(aux_player_stack.getBackground());
-                            player_stack.setForeground(aux_player_stack.getForeground());
-                            aux_player_stack.setEnabled(true);
+                            if (Helpers.float1DSecureCompare(0f, e_s) == 0) {
+
+                                player_stack.setBackground(Color.RED);
+
+                                player_stack.setForeground(Color.WHITE);
+
+                                player_stack.setText(Helpers.float2String(0f));
+
+                            } else {
+
+                                if (buyin > GameFrame.BUYIN) {
+                                    player_stack.setBackground(Color.CYAN);
+
+                                    player_stack.setForeground(Color.BLACK);
+                                } else {
+
+                                    player_stack.setBackground(new Color(51, 153, 0));
+
+                                    player_stack.setForeground(Color.WHITE);
+                                }
+
+                                player_stack.setText(Helpers.float2String(s));
+                            }
+
+                            player_stack_click = false;
+
                         }
                     });
 
@@ -1017,7 +1048,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 playingCard1.desenfocar();
                 playingCard2.desenfocar();
 
-                if (Helpers.float1DSecureCompare(stack, 0f) == 0) {
+                if (Helpers.float1DSecureCompare(stack, 0f) == 0 && !player_stack_click) {
                     player_stack.setBackground(Color.RED);
                     player_stack.setForeground(Color.WHITE);
                 }
@@ -1160,7 +1191,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    public void reComprar(int cantidad) {
+    public synchronized void reComprar(int cantidad) {
 
         this.stack += cantidad;
         this.buyin += cantidad;
@@ -1169,16 +1200,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.playWavResource("misc/cash_register.wav");
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                player_stack.setText(Helpers.float2String(stack));
-                player_stack.setBackground(Color.CYAN);
-                player_stack.setForeground(Color.BLACK);
-            }
-        });
+        if (!player_stack_click) {
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    player_stack.setText(Helpers.float2String(stack));
+                    player_stack.setBackground(Color.CYAN);
+                    player_stack.setForeground(Color.BLACK);
+                }
+            });
+        }
     }
 
-    public float getStack() {
+    public synchronized float getStack() {
         return stack;
     }
 
@@ -1207,6 +1240,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         pagar = 0f;
 
+        if (crupier.getRebuy_now().containsKey(nickname)) {
+            reComprar((Integer) crupier.getRebuy_now().get(nickname));
+        }
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
@@ -1226,23 +1263,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_pot.setText("----");
 
-                if (buyin > GameFrame.BUYIN) {
-                    player_stack.setBackground(Color.CYAN);
+                if (!player_stack_click) {
+                    if (buyin > GameFrame.BUYIN) {
+                        player_stack.setBackground(Color.CYAN);
 
-                    player_stack.setForeground(Color.BLACK);
-                } else {
+                        player_stack.setForeground(Color.BLACK);
+                    } else {
 
-                    player_stack.setBackground(new Color(51, 153, 0));
+                        player_stack.setBackground(new Color(51, 153, 0));
 
-                    player_stack.setForeground(Color.WHITE);
+                        player_stack.setForeground(Color.WHITE);
+                    }
                 }
 
             }
         });
-
-        if (crupier.getRebuy_now().containsKey(nickname)) {
-            reComprar((Integer) crupier.getRebuy_now().get(nickname));
-        }
 
         if (this.nickname.equals(crupier.getBb_nick())) {
             this.setPosition(BIG_BLIND);
@@ -1486,7 +1521,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public void setPagar(float pagar) {
+    public synchronized void setPagar(float pagar) {
         this.pagar = pagar;
     }
 

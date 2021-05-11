@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"CLICK PARA VER SU BUYIN", "CLICK TO SHOW BUYIN"},
             {"Notificaciones durante el juego", "In-game notifications"},
             {"REGISTRO DE LA TIMBA", "GAME LOG"},
             {"ESPACIO", "SPACE"},

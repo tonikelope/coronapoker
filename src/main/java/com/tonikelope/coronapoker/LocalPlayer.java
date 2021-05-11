@@ -1564,7 +1564,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setForeground(new java.awt.Color(255, 255, 255));
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_stack.setText("1000");
-        player_stack.setToolTipText("CLICK PARA RECOMPRAR");
+        player_stack.setToolTipText("CLICK PARA VER SU BUYIN");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setFocusable(false);

@@ -684,6 +684,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
+        KeyStroke local_buyin = KeyStroke.getKeyStroke(KeyEvent.VK_S, 0);
+        actionMap.put(local_buyin, new AbstractAction("BUYIN") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                GameFrame.getInstance().getLocalPlayer().player_stack_click();
+            }
+        });
+
         KeyStroke key_pause = KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.ALT_DOWN_MASK);
         actionMap.put(key_pause, new AbstractAction("PAUSE") {
             @Override

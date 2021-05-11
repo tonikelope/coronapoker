@@ -913,7 +913,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
 
-                            if (Helpers.float1DSecureCompare(0f, e_s) == 0) {
+                            if (Helpers.float1DSecureCompare(0f, e_s) == 0 && !isSpectator()) {
 
                                 player_stack.setBackground(Color.RED);
 
@@ -1409,13 +1409,23 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     utg_icon.setVisible(false);
                     playingCard1.resetearCarta();
                     playingCard2.resetearCarta();
-                    player_stack.setBackground(null);
-                    player_stack.setEnabled(false);
+
                     player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                     player_action.setBackground(null);
                     player_action.setEnabled(false);
                     player_name.setOpaque(false);
                     player_name.setBackground(null);
+
+                    if (buyin > GameFrame.BUYIN) {
+                        player_stack.setBackground(Color.CYAN);
+
+                        player_stack.setForeground(Color.BLACK);
+                    } else {
+
+                        player_stack.setBackground(new Color(51, 153, 0));
+
+                        player_stack.setForeground(Color.WHITE);
+                    }
 
                     if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
                         player_name.setForeground(Color.YELLOW);

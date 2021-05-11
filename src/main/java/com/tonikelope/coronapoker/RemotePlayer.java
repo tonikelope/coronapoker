@@ -687,17 +687,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         avatar_panel.setOpaque(false);
 
         avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_null.png"))); // NOI18N
-        avatar.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
-        avatar.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mousePressed(java.awt.event.MouseEvent evt) {
-                avatarMousePressed(evt);
-            }
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                avatarMouseReleased(evt);
-            }
-        });
 
         timeout_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
         timeout_icon.setToolTipText("ESTE JUGADOR TIENE PROBLEMAS DE CONEXIÓN");
@@ -724,10 +715,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_stack.setText("1000");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
-        player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setDoubleBuffered(true);
         player_stack.setFocusable(false);
         player_stack.setOpaque(true);
+        player_stack.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                player_stackMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout avatar_panelLayout = new javax.swing.GroupLayout(avatar_panel);
         avatar_panel.setLayout(avatar_panelLayout);
@@ -888,25 +884,36 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }//GEN-LAST:event_player_nameMouseClicked
 
-    private void avatarMousePressed(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMousePressed
+    private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
-        aux_player_stack = new JLabel();
-        aux_player_stack.setBackground(player_stack.getBackground());
-        aux_player_stack.setForeground(player_stack.getForeground());
-        aux_player_stack.setText(player_stack.getText());
+        if (aux_player_stack.isEnabled()) {
+            aux_player_stack.setEnabled(false);
+            aux_player_stack.setBackground(player_stack.getBackground());
+            aux_player_stack.setForeground(player_stack.getForeground());
+            aux_player_stack.setText(player_stack.getText());
 
-        player_stack.setText(String.valueOf(this.buyin));
-        player_stack.setBackground(Color.GRAY);
-        player_stack.setForeground(Color.WHITE);
+            player_stack.setText(String.valueOf(this.buyin));
+            player_stack.setBackground(Color.GRAY);
+            player_stack.setForeground(Color.WHITE);
 
-    }//GEN-LAST:event_avatarMousePressed
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+                    Helpers.pausar(1500);
 
-    private void avatarMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseReleased
-        // TODO add your handling code here:
-        player_stack.setText(aux_player_stack.getText());
-        player_stack.setBackground(aux_player_stack.getBackground());
-        player_stack.setForeground(aux_player_stack.getForeground());
-    }//GEN-LAST:event_avatarMouseReleased
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            player_stack.setText(aux_player_stack.getText());
+                            player_stack.setBackground(aux_player_stack.getBackground());
+                            player_stack.setForeground(aux_player_stack.getForeground());
+                            aux_player_stack.setEnabled(true);
+                        }
+                    });
+
+                }
+            });
+        }
+    }//GEN-LAST:event_player_stackMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;
@@ -1219,9 +1226,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_pot.setText("----");
 
-                player_stack.setBackground(new Color(51, 153, 0));
+                if (buyin > GameFrame.BUYIN) {
+                    player_stack.setBackground(Color.CYAN);
 
-                player_stack.setForeground(Color.WHITE);
+                    player_stack.setForeground(Color.BLACK);
+                } else {
+
+                    player_stack.setBackground(new Color(51, 153, 0));
+
+                    player_stack.setForeground(Color.WHITE);
+                }
 
             }
         });

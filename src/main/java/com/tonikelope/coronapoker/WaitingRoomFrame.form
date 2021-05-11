@@ -61,7 +61,7 @@
               <EmptySpace type="unrelated" max="-2" attributes="0"/>
               <Component id="chat_notifications" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
-              <Component id="jScrollPane1" pref="125" max="32767" attributes="0"/>
+              <Component id="jScrollPane1" pref="145" max="32767" attributes="0"/>
               <EmptySpace type="unrelated" max="-2" attributes="0"/>
               <Group type="103" groupAlignment="0" max="-2" attributes="0">
                   <Component id="avatar_label" max="32767" attributes="0"/>

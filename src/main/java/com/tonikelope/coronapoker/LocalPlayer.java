@@ -1199,9 +1199,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_pot.setForeground(Color.BLACK);
 
-                player_stack.setBackground(new Color(51, 153, 0));
+                if (buyin > GameFrame.BUYIN) {
+                    player_stack.setBackground(Color.CYAN);
 
-                player_stack.setForeground(Color.WHITE);
+                    player_stack.setForeground(Color.BLACK);
+                } else {
+
+                    player_stack.setBackground(new Color(51, 153, 0));
+
+                    player_stack.setForeground(Color.WHITE);
+                }
 
             }
         });
@@ -1526,17 +1533,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         avatar_panel.setOpaque(false);
 
         avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_null.png"))); // NOI18N
-        avatar.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
-        avatar.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mousePressed(java.awt.event.MouseEvent evt) {
-                avatarMousePressed(evt);
-            }
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                avatarMouseReleased(evt);
-            }
-        });
 
         timeout_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
         timeout_label.setDoubleBuffered(true);
@@ -2138,7 +2136,38 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
-        GameFrame.getInstance().getRebuy_now_menu().doClick();
+        GameFrame.getInstance().getRebuy_now_menu().setEnabled(false);
+        Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(false);
+
+        if (aux_player_stack.isEnabled()) {
+            aux_player_stack.setEnabled(false);
+            aux_player_stack.setBackground(player_stack.getBackground());
+            aux_player_stack.setForeground(player_stack.getForeground());
+            aux_player_stack.setText(player_stack.getText());
+
+            player_stack.setText(String.valueOf(this.buyin));
+            player_stack.setBackground(Color.GRAY);
+            player_stack.setForeground(Color.WHITE);
+
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+                    Helpers.pausar(1500);
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            player_stack.setText(aux_player_stack.getText());
+                            player_stack.setBackground(aux_player_stack.getBackground());
+                            player_stack.setForeground(aux_player_stack.getForeground());
+                            aux_player_stack.setEnabled(true);
+                            GameFrame.getInstance().getRebuy_now_menu().setEnabled(true);
+                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                        }
+                    });
+
+                }
+            });
+        }
     }//GEN-LAST:event_player_stackMouseClicked
 
     private void player_blindMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_blindMouseClicked
@@ -2154,26 +2183,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.playWavResource(this.playingCard1.isPosChip_visible() ? "misc/button_on.wav" : "misc/button_off.wav");
     }//GEN-LAST:event_player_blindMouseClicked
-
-    private void avatarMousePressed(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMousePressed
-        // TODO add your handling code here:
-
-        aux_player_stack.setBackground(player_stack.getBackground());
-        aux_player_stack.setForeground(player_stack.getForeground());
-        aux_player_stack.setText(player_stack.getText());
-
-        player_stack.setText(String.valueOf(this.buyin));
-        player_stack.setBackground(Color.GRAY);
-        player_stack.setForeground(Color.WHITE);
-
-    }//GEN-LAST:event_avatarMousePressed
-
-    private void avatarMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseReleased
-        // TODO add your handling code here:
-        player_stack.setText(aux_player_stack.getText());
-        player_stack.setBackground(aux_player_stack.getBackground());
-        player_stack.setForeground(aux_player_stack.getForeground());
-    }//GEN-LAST:event_avatarMouseReleased
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;

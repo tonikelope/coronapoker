@@ -2195,10 +2195,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 player_stack.setText(Helpers.float2String(s));
                             }
 
-                            player_stack_click = false;
-
                         }
                     });
+
+                    player_stack_click = false;
 
                 }
             });

@@ -58,7 +58,7 @@ import javax.swing.UIManager;
  */
 public class Init extends javax.swing.JFrame {
 
-    public static final boolean DEV_MODE = false;
+    public static final boolean DEV_MODE = true;
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;

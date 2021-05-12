@@ -48,7 +48,6 @@ import javax.swing.Action;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JProgressBar;
 import javax.swing.KeyStroke;
 import javax.swing.UIManager;
 
@@ -153,10 +152,6 @@ public class Init extends javax.swing.JFrame {
 
         pack();
 
-    }
-
-    public JProgressBar getProgress_bar() {
-        return progress_bar;
     }
 
     public JLabel getSound_icon() {
@@ -605,7 +600,7 @@ public class Init extends javax.swing.JFrame {
 
                     ventana.setEnabled(false);
 
-                    ventana.getProgress_bar().setIndeterminate(true);
+                    ventana.progress_bar.setIndeterminate(true);
 
                     Helpers.centrarJFrame(ventana, 0);
 
@@ -648,9 +643,9 @@ public class Init extends javax.swing.JFrame {
 
                     ventana.setEnabled(true);
 
-                    ventana.getProgress_bar().setIndeterminate(false);
+                    ventana.progress_bar.setIndeterminate(false);
 
-                    ventana.getProgress_bar().setVisible(false);
+                    ventana.progress_bar.setVisible(false);
                 }
             });
 

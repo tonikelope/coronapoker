@@ -66,8 +66,9 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         return visible_card;
     }
 
-    public void setVisible_card(boolean visible_card) {
+    public void setVisibleCard(boolean visible_card) {
         this.visible_card = visible_card;
+        refreshCard();
     }
 
     public boolean isPosChip_visible() {

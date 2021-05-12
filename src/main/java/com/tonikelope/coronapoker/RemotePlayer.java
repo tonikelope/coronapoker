@@ -450,10 +450,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.FOLD);
 
-        playingCard1.desenfocar();
-        playingCard1.setVisible_card(false);
-        playingCard2.desenfocar();
-        playingCard2.setVisible_card(false);
+        playingCard1.setVisibleCard(false);
+        playingCard2.setVisibleCard(false);
 
         finTurno();
     }

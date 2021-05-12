@@ -343,6 +343,8 @@ public class NewGameDialog extends javax.swing.JDialog {
             if (rs.next()) {
                 ret = rs.getString("id_recover");
             }
+            
+            statement.close();
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);

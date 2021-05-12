@@ -1588,17 +1588,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 getRegistro().print(Translator.translate("FIN DE LA TIMBA -> ") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
 
-                PreparedStatement statement;
-
                 try {
-                    statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?");
+                    PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?");
                     statement.setQueryTimeout(30);
                     statement.setLong(1, System.currentTimeMillis());
                     statement.setLong(2, crupier.getSqlite_game_id());
                     statement.executeUpdate();
+                    statement.close();
                 } catch (SQLException ex) {
                     Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                } 
 
             }
 

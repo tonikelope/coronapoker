@@ -413,7 +413,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             statement.setString(2, Base64.encodeBase64String(this.local_client_permutation_key.getEncoded()));
 
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -445,7 +445,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
 
             statement.close();
-            
+
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -469,7 +469,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             statement.setString(1, this.local_client_permutation_key_hash);
 
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2599,7 +2599,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             }
                         }
                     }
-                    
+
                     statement.close();
 
                 } catch (SQLException | UnsupportedEncodingException ex) {

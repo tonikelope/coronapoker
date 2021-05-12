@@ -293,8 +293,8 @@ public class Helpers {
                 SQLITE = null;
             } catch (SQLException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-            } finally{
-                SQLITE=null;
+            } finally {
+                SQLITE = null;
             }
         }
     }
@@ -307,8 +307,8 @@ public class Helpers {
                 SQLITE = null;
             } catch (SQLException ex) {
                 Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-            } finally{
-                SQLITE=null;
+            } finally {
+                SQLITE = null;
             }
         }
     }
@@ -335,6 +335,8 @@ public class Helpers {
 
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
 
+            statement.close();
+
         } catch (SQLException | ClassNotFoundException ex) {
             Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -355,6 +357,7 @@ public class Helpers {
         try {
             Statement statement = Helpers.getSQLITE().createStatement();
             statement.execute("VACUUM");
+            statement.close();
 
         } catch (SQLException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);

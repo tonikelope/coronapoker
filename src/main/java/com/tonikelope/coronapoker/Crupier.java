@@ -2444,7 +2444,7 @@ public class Crupier implements Runnable {
             statement.setInt(8, current_player.getResponseTime());
 
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2505,9 +2505,8 @@ public class Crupier implements Runnable {
                 ret = true;
             }
 
-            
             statement.close();
-            
+
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -2531,7 +2530,7 @@ public class Crupier implements Runnable {
             statement.setBoolean(3, parguela);
 
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2560,7 +2559,7 @@ public class Crupier implements Runnable {
             statement.setString(5, jugador.getNickname());
 
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2587,7 +2586,7 @@ public class Crupier implements Runnable {
             statement.setString(4, jugador.getNickname());
 
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2622,7 +2621,7 @@ public class Crupier implements Runnable {
             statement.setFloat(8, Helpers.floatClean1D(jugador != null ? jugador.getPagar() - jugador.getBote() : 0f));
 
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2643,7 +2642,7 @@ public class Crupier implements Runnable {
             statement.setFloat(2, Helpers.floatClean1D(bote_tot));
             statement.setInt(3, this.sqlite_id_hand);
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2674,7 +2673,7 @@ public class Crupier implements Runnable {
             statement.setLong(1, GameFrame.getInstance().getConta_tiempo_juego());
             statement.setInt(2, this.sqlite_id_game);
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2723,7 +2722,7 @@ public class Crupier implements Runnable {
             statement.setString(2, cards);
             statement.setInt(3, this.sqlite_id_hand);
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2753,7 +2752,7 @@ public class Crupier implements Runnable {
             statement.setFloat(3, Helpers.floatClean1D(stack));
             statement.setInt(4, buyin);
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2774,7 +2773,7 @@ public class Crupier implements Runnable {
             statement.setInt(3, this.sqlite_id_hand);
             statement.setString(4, nick);
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2822,7 +2821,7 @@ public class Crupier implements Runnable {
             statement.executeUpdate();
 
             sqlite_id_game = statement.getGeneratedKeys().getInt(1);
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -2880,7 +2879,7 @@ public class Crupier implements Runnable {
             statement.executeUpdate();
 
             sqlite_id_hand = statement.getGeneratedKeys().getInt(1);
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -4861,7 +4860,7 @@ public class Crupier implements Runnable {
             statement.setString(1, deck);
             statement.setInt(2, this.sqlite_id_game);
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -4890,7 +4889,7 @@ public class Crupier implements Runnable {
             rs.next();
 
             ret = rs.getString("last_deck");
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -4920,7 +4919,7 @@ public class Crupier implements Runnable {
             rs.next();
 
             ret = rs.getString("players");
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -4946,7 +4945,7 @@ public class Crupier implements Runnable {
             statement.setInt(2, this.sqlite_id_game);
 
             statement.executeUpdate();
-            
+
             statement.close();
 
         } catch (SQLException ex) {
@@ -4978,7 +4977,7 @@ public class Crupier implements Runnable {
                 actions += Base64.encodeBase64String(rs.getString("player").getBytes("UTF-8")) + "#" + String.valueOf(rs.getInt("action")) + "#" + String.valueOf(rs.getFloat("bet")) + "@";
             }
             ret = actions;
-            
+
             statement.close();
 
             Logger.getLogger(Crupier.class.getName()).log(Level.INFO, actions);
@@ -5052,7 +5051,7 @@ public class Crupier implements Runnable {
             }
 
             map.put("balance", String.join("@", balance));
-            
+
             statement.close();
 
         } catch (SQLException | UnsupportedEncodingException ex) {
@@ -5091,7 +5090,7 @@ public class Crupier implements Runnable {
             map.put("bb", rs.getString("bb"));
 
             statement.close();
-            
+
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -6199,8 +6198,8 @@ public class Crupier implements Runnable {
                             });
 
                             GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, 0f);
-                            
-                            if(Helpers.float1DSecureCompare(0f, this.bote_total)<0){
+
+                            if (Helpers.float1DSecureCompare(0f, this.bote_total) < 0) {
                                 this.bote_sobrante += this.bote_total;
                             }
 
@@ -6232,7 +6231,7 @@ public class Crupier implements Runnable {
                             GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
 
                             this.bote_total = 0f;
-                            
+
                             this.bote_sobrante = 0f;
 
                             if (resisten.get(0) == GameFrame.getInstance().getLocalPlayer()) {
@@ -6514,7 +6513,7 @@ public class Crupier implements Runnable {
 
                                 GameFrame.getInstance().setTapeteBote(bote_tapete);
                             }
-                            
+
                             this.bote_sobrante = this.bote_total;
                         }
 

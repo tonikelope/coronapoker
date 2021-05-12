@@ -293,6 +293,8 @@ public class Helpers {
                 SQLITE = null;
             } catch (SQLException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            } finally{
+                SQLITE=null;
             }
         }
     }
@@ -305,6 +307,8 @@ public class Helpers {
                 SQLITE = null;
             } catch (SQLException ex) {
                 Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            } finally{
+                SQLITE=null;
             }
         }
     }

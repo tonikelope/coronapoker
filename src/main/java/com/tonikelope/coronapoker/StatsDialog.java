@@ -95,7 +95,12 @@ public class StatsDialog extends javax.swing.JDialog {
 
         cargando.setVisible(false);
 
-        loadGames();
+        Helpers.threadRun(new Runnable() {
+
+            public void run() {
+                loadGames();
+            }
+        });
 
         init = false;
     }
@@ -1268,97 +1273,92 @@ public class StatsDialog extends javax.swing.JDialog {
         cargando.setVisible(true);
         setEnabled(false);
         game_combo_blocked = true;
-        Helpers.threadRun(new Runnable() {
 
-            public void run() {
+        try {
+
+            Helpers.GUIRunAndWait(new Runnable() {
+                public void run() {
+                    game.clear();
+
+                    game_combo.removeAllItems();
+
+                    game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
+                }
+            });
+
+            PreparedStatement statement;
+
+            if (!game_combo_filter.getText().isBlank()) {
+
+                statement = Helpers.getSQLITE().prepareStatement("SELECT id,start,server FROM game WHERE (players LIKE ? or players LIKE ? or players LIKE ?) ORDER BY start DESC");
+                statement.setString(1, "%#" + Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")));
+                statement.setString(2, Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")) + "#%");
+                statement.setString(3, "%#" + Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")) + "#%");
+            } else {
+
+                statement = Helpers.getSQLITE().prepareStatement("SELECT id,start,server FROM game ORDER BY start DESC");
+            }
+
+            statement.setQueryTimeout(30);
+
+            ResultSet rs = statement.executeQuery();
+
+            int i = 0;
+
+            while (rs.next()) {
+
+                i++;
+                // read the result set
 
                 try {
+                    Timestamp ts = new Timestamp(rs.getLong("start"));
+                    DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+                    Date date = new Date(ts.getTime());
 
+                    HashMap<String, Object> map = new HashMap<>();
+                    map.put("id", rs.getInt("id"));
+                    game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
                     Helpers.GUIRunAndWait(new Runnable() {
                         public void run() {
-                            game.clear();
-
-                            game_combo.removeAllItems();
-
-                            game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
+                            try {
+                                game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
+                            } catch (SQLException ex) {
+                                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                            }
                         }
                     });
-
-                    PreparedStatement statement;
-
-                    if (!game_combo_filter.getText().isBlank()) {
-
-                        statement = Helpers.getSQLITE().prepareStatement("SELECT id,start,server FROM game WHERE (players LIKE ? or players LIKE ? or players LIKE ?) ORDER BY start DESC");
-                        statement.setString(1, "%#" + Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")));
-                        statement.setString(2, Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")) + "#%");
-                        statement.setString(3, "%#" + Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")) + "#%");
-                    } else {
-
-                        statement = Helpers.getSQLITE().prepareStatement("SELECT id,start,server FROM game ORDER BY start DESC");
-                    }
-
-                    statement.setQueryTimeout(30);
-
-                    ResultSet rs = statement.executeQuery();
-
-                    int i = 0;
-
-                    while (rs.next()) {
-
-                        i++;
-                        // read the result set
-
-                        try {
-                            Timestamp ts = new Timestamp(rs.getLong("start"));
-                            DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-                            Date date = new Date(ts.getTime());
-
-                            HashMap<String, Object> map = new HashMap<>();
-                            map.put("id", rs.getInt("id"));
-                            game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                public void run() {
-                                    try {
-                                        game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
-                                    } catch (SQLException ex) {
-                                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            });
-                        } catch (SQLException ex) {
-                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-
-                    }
-
-                    if (i == 0) {
-
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            public void run() {
-
-                                game_combo_filter.setBackground(Color.RED);
-
-                            }
-                        });
-                    }
-
-                    statement.close();
-
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                } finally {
-                    Helpers.devCloseSQLITE();
                 }
+
+            }
+
+            if (i == 0) {
 
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
-                        cargando.setVisible(false);
-                        setEnabled(true);
-                        game_combo_blocked = false;
+
+                        game_combo_filter.setBackground(Color.RED);
+
                     }
                 });
+            }
+
+            statement.close();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (UnsupportedEncodingException ex) {
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            Helpers.devCloseSQLITE();
+        }
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                cargando.setVisible(false);
+                setEnabled(true);
+                game_combo_blocked = false;
             }
         });
 
@@ -1990,22 +1990,43 @@ public class StatsDialog extends javax.swing.JDialog {
 
     private void delete_game_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_delete_game_buttonActionPerformed
         // TODO add your handling code here:
+
+        delete_game_button.setEnabled(false);
         if (Helpers.mostrarMensajeInformativoSINO(null, "¿ELIMINAR ESTA TIMBA?") == 0) {
-            if (deleteGame((int) game.get((String) game_combo.getSelectedItem()).get("id"))) {
-                loadGames();
+            Helpers.threadRun(new Runnable() {
 
-                Helpers.playWavResource("misc/toilet.wav", true);
+                public void run() {
+                    if (deleteGame((int) game.get((String) game_combo.getSelectedItem()).get("id"))) {
 
-                if (!game.isEmpty()) {
-                    game_combo.setSelectedIndex(1);
+                        Helpers.playWavResource("misc/toilet.wav", true);
+
+                        loadGames();
+
+                        if (!game.isEmpty()) {
+                            game_combo.setSelectedIndex(1);
+                        }
+
+                        Helpers.GUIRun(new Runnable() {
+
+                            public void run() {
+                                delete_game_button.setEnabled(true);
+                            }
+                        });
+                    }
                 }
-            }
+            });
         }
     }//GEN-LAST:event_delete_game_buttonActionPerformed
 
     private void game_combo_filterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_game_combo_filterActionPerformed
         // TODO add your handling code here:
-        loadGames();
+
+        Helpers.threadRun(new Runnable() {
+
+            public void run() {
+                loadGames();
+            }
+        });
 
         if (game_combo_filter.getText().isBlank()) {
             game_combo_filter.setBackground(null);

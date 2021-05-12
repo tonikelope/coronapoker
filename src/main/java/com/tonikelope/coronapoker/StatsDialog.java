@@ -143,7 +143,7 @@ public class StatsDialog extends javax.swing.JDialog {
                     } catch (SQLException ex) {
                         Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     } finally {
-                        Helpers.closeSQLITE();
+                        Helpers.devCloseSQLITE();
                     }
 
                 } else {
@@ -170,7 +170,7 @@ public class StatsDialog extends javax.swing.JDialog {
                     } catch (SQLException ex) {
                         Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     } finally {
-                        Helpers.closeSQLITE();
+                        Helpers.devCloseSQLITE();
                     }
                 }
 
@@ -372,7 +372,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 } finally {
-                    Helpers.closeSQLITE();
+                    Helpers.devCloseSQLITE();
                 }
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -491,7 +491,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 } finally {
-                    Helpers.closeSQLITE();
+                    Helpers.devCloseSQLITE();
                 }
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -683,7 +683,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 } finally {
-                    Helpers.closeSQLITE();
+                    Helpers.devCloseSQLITE();
                 }
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -764,7 +764,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 } finally {
-                    Helpers.closeSQLITE();
+                    Helpers.devCloseSQLITE();
                 }
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -900,7 +900,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 } finally {
-                    Helpers.closeSQLITE();
+                    Helpers.devCloseSQLITE();
                 }
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -941,7 +941,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 } finally {
-                    Helpers.closeSQLITE();
+                    Helpers.devCloseSQLITE();
                 }
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -1145,7 +1145,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 } finally {
-                    Helpers.closeSQLITE();
+                    Helpers.devCloseSQLITE();
                 }
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -1220,7 +1220,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 } finally {
-                    Helpers.closeSQLITE();
+                    Helpers.devCloseSQLITE();
                 }
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -1257,7 +1257,7 @@ public class StatsDialog extends javax.swing.JDialog {
         } catch (SQLException ex) {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            Helpers.closeSQLITE();
+            Helpers.devCloseSQLITE();
         }
 
         return false;
@@ -1349,7 +1349,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 } finally {
-                    Helpers.closeSQLITE();
+                    Helpers.devCloseSQLITE();
                 }
 
                 Helpers.GUIRunAndWait(new Runnable() {

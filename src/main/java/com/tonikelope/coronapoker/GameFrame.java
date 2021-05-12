@@ -1659,7 +1659,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Helpers.SQLITEVAC();
 
-            Helpers.forceCloseSQLITE();
+            Helpers.closeSQLITE();
 
             if (isPartida_local() && getSala_espera().isUpnp()) {
                 Helpers.UPnPClose(getSala_espera().getServer_port());

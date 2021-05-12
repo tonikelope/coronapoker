@@ -182,6 +182,7 @@ public class Helpers {
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     public static final ConcurrentLinkedQueue<String> TTS_BLOCKED_USERS = new ConcurrentLinkedQueue<>();
     public static final ConcurrentLinkedQueue<Object[]> TTS_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
+    public static final ConcurrentLinkedQueue<Long> SQLITE_THREADS_DEV = new ConcurrentLinkedQueue<>();
     public static final int MAX_TTS_LENGTH = 150;
     public static final int DECK_ELEMENTS = 52;
     public static final Object TTS_LOCK = new Object();
@@ -259,9 +260,13 @@ public class Helpers {
         }
     }
 
-    public static Connection getSQLITE() {
+    public synchronized static Connection getSQLITE() throws SQLException {
 
-        if (SQLITE != null) {
+        if (SQLITE != null && !SQLITE.isClosed()) {
+
+            if (DEV_MODE) {
+                Helpers.SQLITE_THREADS_DEV.add(Thread.currentThread().getId());
+            }
 
             return SQLITE;
 
@@ -275,6 +280,10 @@ public class Helpers {
 
                 SQLITE = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE, config.toProperties());
 
+                if (DEV_MODE) {
+                    Helpers.SQLITE_THREADS_DEV.add(Thread.currentThread().getId());
+                }
+
                 return SQLITE;
 
             } catch (SQLException ex) {
@@ -285,31 +294,41 @@ public class Helpers {
         }
     }
 
-    public static void closeSQLITE() {
+    public synchronized static void devCloseSQLITE() {
 
-        if (DEV_MODE && SQLITE != null) {
+        if (DEV_MODE && SQLITE != null && !Helpers.SQLITE_THREADS_DEV.isEmpty() && Helpers.SQLITE_THREADS_DEV.contains(Thread.currentThread().getId())) {
+
+            Helpers.SQLITE_THREADS_DEV.remove(Thread.currentThread().getId());
+
             try {
-                SQLITE.close();
-                SQLITE = null;
+                if (!SQLITE.isClosed() && Helpers.SQLITE_THREADS_DEV.isEmpty()) {
+                    SQLITE.close();
+                    SQLITE = null;
+                }
             } catch (SQLException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             } finally {
-                SQLITE = null;
+
+                if (Helpers.SQLITE_THREADS_DEV.isEmpty()) {
+                    SQLITE = null;
+                }
             }
         }
     }
 
-    public static void forceCloseSQLITE() {
+    public synchronized static void closeSQLITE() {
 
         if (SQLITE != null) {
             try {
-                SQLITE.close();
-                SQLITE = null;
+                if (!SQLITE.isClosed()) {
+                    SQLITE.close();
+                }
+
             } catch (SQLException ex) {
                 Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                SQLITE = null;
             }
+
+            SQLITE = null;
         }
     }
 
@@ -340,7 +359,7 @@ public class Helpers {
         } catch (SQLException | ClassNotFoundException ex) {
             Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            Helpers.closeSQLITE();
+            Helpers.devCloseSQLITE();
         }
     }
 
@@ -362,7 +381,7 @@ public class Helpers {
         } catch (SQLException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            Helpers.closeSQLITE();
+            Helpers.devCloseSQLITE();
         }
     }
 

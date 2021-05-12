@@ -419,7 +419,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            Helpers.closeSQLITE();
+            Helpers.devCloseSQLITE();
         }
 
     }
@@ -449,7 +449,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            Helpers.closeSQLITE();
+            Helpers.devCloseSQLITE();
         }
 
         return ret;
@@ -475,7 +475,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            Helpers.closeSQLITE();
+            Helpers.devCloseSQLITE();
         }
     }
 
@@ -2605,7 +2605,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 } catch (SQLException | UnsupportedEncodingException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 } finally {
-                    Helpers.closeSQLITE();
+                    Helpers.devCloseSQLITE();
                 }
             }
 

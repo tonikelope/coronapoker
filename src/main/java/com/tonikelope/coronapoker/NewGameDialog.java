@@ -322,7 +322,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         } catch (SQLException ex) {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            Helpers.closeSQLITE();
+            Helpers.devCloseSQLITE();
         }
 
     }
@@ -351,7 +351,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            Helpers.closeSQLITE();
+            Helpers.devCloseSQLITE();
         }
 
         return ret;

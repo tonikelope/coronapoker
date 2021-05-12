@@ -1597,7 +1597,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     statement.close();
                 } catch (SQLException ex) {
                     Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                } 
+                }
 
             }
 

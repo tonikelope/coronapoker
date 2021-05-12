@@ -317,6 +317,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             }
 
+            statement.close();
+
         } catch (SQLException ex) {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -343,7 +345,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             if (rs.next()) {
                 ret = rs.getString("id_recover");
             }
-            
+
             statement.close();
 
         } catch (SQLException ex) {

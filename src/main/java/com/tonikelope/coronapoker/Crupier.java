@@ -1764,9 +1764,9 @@ public class Crupier implements Runnable {
                 if (jugador != null) {
 
                     //Es un jugador conocido en esta timba
-                    jugador.setStack(Float.parseFloat(partes[1]));
-
                     jugador.setBuyin(Integer.parseInt(partes[2]));
+
+                    jugador.setStack(Float.parseFloat(partes[1]));
 
                     jugador.setBet(0f);
 

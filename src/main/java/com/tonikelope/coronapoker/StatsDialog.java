@@ -1992,6 +1992,7 @@ public class StatsDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
 
         delete_game_button.setEnabled(false);
+
         if (Helpers.mostrarMensajeInformativoSINO(null, "¿ELIMINAR ESTA TIMBA?") == 0) {
             Helpers.threadRun(new Runnable() {
 
@@ -2000,15 +2001,20 @@ public class StatsDialog extends javax.swing.JDialog {
 
                         Helpers.playWavResource("misc/toilet.wav", true);
 
-                        game_combo.removeItem(game_combo.getSelectedItem());
-
-                        if (!game.isEmpty()) {
-                            game_combo.setSelectedIndex(1);
-                        }
+                        game.remove((String) game_combo.getSelectedItem());
 
                         Helpers.GUIRun(new Runnable() {
 
                             public void run() {
+
+                                game_combo.removeItemAt(game_combo.getSelectedIndex());
+
+                                if (!game.isEmpty()) {
+                                    game_combo.setSelectedIndex(1);
+                                } else {
+                                    game_combo.setSelectedIndex(-1);
+                                }
+
                                 delete_game_button.setEnabled(true);
                             }
                         });

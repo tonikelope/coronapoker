@@ -2000,7 +2000,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                         Helpers.playWavResource("misc/toilet.wav", true);
 
-                        loadGames();
+                        game_combo.removeItem(game_combo.getSelectedItem());
 
                         if (!game.isEmpty()) {
                             game_combo.setSelectedIndex(1);

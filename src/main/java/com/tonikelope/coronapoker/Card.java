@@ -313,9 +313,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                         card_image.setVisible(isVisible_card());
 
-                        card_image.revalidate();
-
-                        card_image.repaint();
                     }
                 });
 
@@ -323,9 +320,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                     public void run() {
                         updatePositionChip();
 
-                        pos_chip_label.revalidate();
-
-                        pos_chip_label.repaint();
                     }
                 });
 

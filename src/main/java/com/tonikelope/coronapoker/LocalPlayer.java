@@ -1317,10 +1317,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 utg_icon.setPreferredSize(new Dimension((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight()));
 
-                utg_icon.revalidate();
-
-                utg_icon.repaint();
-
                 utg_icon.setVisible(utg);
             }
         });
@@ -2478,10 +2474,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
                     getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
                 }
-
-                getAvatar().revalidate();
-
-                getAvatar().repaint();
 
                 getAvatar().setVisible(true);
             }

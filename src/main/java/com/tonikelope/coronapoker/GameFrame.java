@@ -1527,6 +1527,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return registro_dialog;
     }
 
+    public HandGeneratorDialog getJugadas_dialog() {
+        return jugadas_dialog;
+    }
+
+    public ShortcutsDialog getShortcuts_dialog() {
+        return shortcuts_dialog;
+    }
+
     public void finTransmision(boolean partida_terminada) {
 
         synchronized (lock_fin) {

@@ -77,7 +77,6 @@ public class GameOverDialog extends javax.swing.JDialog {
             numbers.setIcon(new ImageIcon(getClass().getResource("/images/gameover/0.png")));
             pack();
         }
-
     }
 
     /**
@@ -96,6 +95,7 @@ public class GameOverDialog extends javax.swing.JDialog {
         exit_now_button = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        setModal(true);
         setUndecorated(true);
         setResizable(false);
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -202,6 +202,18 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         GameFrame.getInstance().getFastchat_dialog().setVisible(false);
 
+        if (GameFrame.getInstance().getRegistro_dialog() != null) {
+            GameFrame.getInstance().getRegistro_dialog().setVisible(false);
+        }
+
+        if (GameFrame.getInstance().getJugadas_dialog() != null) {
+            GameFrame.getInstance().getJugadas_dialog().setVisible(false);
+        }
+
+        if (GameFrame.getInstance().getShortcuts_dialog() != null) {
+            GameFrame.getInstance().getShortcuts_dialog().setVisible(false);
+        }
+
         continue_button.requestFocus();
 
         Helpers.threadRun(new Runnable() {
@@ -216,7 +228,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                     last_mp3_loop = null;
                 }
 
-                if (!direct_gameover) {
+                if (!direct_gameover && !continua) {
 
                     timer = new Timer(COUNTDOWN_PAUSE, new ActionListener() {
 
@@ -251,7 +263,6 @@ public class GameOverDialog extends javax.swing.JDialog {
                             public void run() {
                                 exit_now_button.setEnabled(false);
                                 continue_button.setEnabled(false);
-                                pack();
                             }
                         });
 
@@ -267,7 +278,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                         });
 
                     }
-                } else {
+                } else if (!continua) {
                     if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
                         Helpers.playWavResourceAndWait("misc/norebuy.wav");
                     }
@@ -318,7 +329,6 @@ public class GameOverDialog extends javax.swing.JDialog {
         this.timer.stop();
         exit_now_button.setEnabled(false);
         continue_button.setEnabled(false);
-        pack();
 
         Helpers.threadRun(new Runnable() {
             @Override

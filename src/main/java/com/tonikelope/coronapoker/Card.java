@@ -320,6 +320,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                     public void run() {
                         updatePositionChip();
 
+                        revalidate();
+
+                        repaint();
+
                     }
                 });
 

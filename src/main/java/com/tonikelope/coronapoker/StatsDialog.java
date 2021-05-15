@@ -7,7 +7,10 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Font;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -42,6 +45,7 @@ public class StatsDialog extends javax.swing.JDialog {
     private volatile String last_mp3_loop = null;
     private volatile boolean game_combo_blocked = false;
     private volatile boolean hand_combo_blocked = false;
+    private volatile boolean backup = false;
 
     /**
      * Creates new form Stats
@@ -2009,6 +2013,17 @@ public class StatsDialog extends javax.swing.JDialog {
             Helpers.threadRun(new Runnable() {
 
                 public void run() {
+
+                    if (!backup) {
+
+                        try {
+                            Files.copy(Paths.get(Init.SQL_FILE), Paths.get(Init.SQL_FILE + "_" + String.valueOf(System.currentTimeMillis()) + ".bak"));
+                            backup = true;
+                        } catch (IOException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+
                     if (deleteSelectedGame()) {
 
                         Helpers.playWavResource("misc/toilet.wav", true);

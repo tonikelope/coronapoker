@@ -1840,14 +1840,9 @@ public class Crupier implements Runnable {
             }
         }
 
-        if (this.getJugadoresActivos() < 2 && this.getJugadoresCalentando() > 0) {
+        if (this.getJugadoresActivos() < 2) {
 
-            for (Player jugador : GameFrame.getInstance().getJugadores()) {
-
-                if (jugador.isCalentando()) {
-                    jugador.unsetSpectator();
-                }
-            }
+            saltar_primera_mano = true;
 
         }
 
@@ -3359,7 +3354,7 @@ public class Crupier implements Runnable {
                         ok = true;
 
                         try {
-                            actions = (partes.length >= 4 && !partes[3].isEmpty()) ? new String(Base64.decodeBase64(partes[3]), "UTF-8") : "";
+                            actions = !"*".equals(partes[3]) ? new String(Base64.decodeBase64(partes[3]), "UTF-8") : "";
                         } catch (UnsupportedEncodingException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -3512,7 +3507,7 @@ public class Crupier implements Runnable {
 
             try {
 
-                String command = "GAME#" + String.valueOf(id) + "#ACTIONDATA#" + Base64.encodeBase64String(datos.getBytes("UTF-8"));
+                String command = "GAME#" + String.valueOf(id) + "#ACTIONDATA#" + ((datos == null || datos.isEmpty()) ? "*" : Base64.encodeBase64String(datos.getBytes("UTF-8")));
 
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
@@ -6096,7 +6091,7 @@ public class Crupier implements Runnable {
 
         while (!fin_de_la_transmision) {
 
-            if (getJugadoresActivos() > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
+            if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
 
                 if (this.NUEVA_MANO()) {
 

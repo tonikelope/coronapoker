@@ -1658,6 +1658,19 @@ public class Crupier implements Runnable {
 
     }
 
+    public int getJugadoresCalentando() {
+
+        int t = 0;
+
+        for (Player j : GameFrame.getInstance().getJugadores()) {
+            if (j.isCalentando()) {
+                t++;
+            }
+        }
+
+        return t;
+    }
+
     public int getJugadoresActivos() {
 
         int t = 0;
@@ -1825,6 +1838,17 @@ public class Crupier implements Runnable {
                 GameFrame.getInstance().getRegistro().print(jugador.getNickname() + Translator.translate(" se UNE a la TIMBA."));
 
             }
+        }
+
+        if (this.getJugadoresActivos() < 2 && this.getJugadoresCalentando() > 0) {
+
+            for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                if (jugador.isCalentando()) {
+                    jugador.unsetSpectator();
+                }
+            }
+
         }
 
         //RECUPERAMOS LAS POSICIONES DE LA MESA
@@ -2450,8 +2474,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
     }
@@ -2510,8 +2532,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
         return ret;
@@ -2536,8 +2556,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
     }
@@ -2565,8 +2583,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
     }
@@ -2592,8 +2608,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
     }
@@ -2627,8 +2641,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
     }
@@ -2648,8 +2660,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
         for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
@@ -2679,8 +2689,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
     }
 
@@ -2728,8 +2736,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
     }
@@ -2758,8 +2764,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
     }
 
@@ -2779,8 +2783,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
     }
 
@@ -2829,8 +2831,6 @@ public class Crupier implements Runnable {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
     }
@@ -2885,8 +2885,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
         if (this.conta_mano == 1) {
@@ -4865,8 +4863,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
     }
@@ -4894,8 +4890,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
         return ret;
@@ -4924,8 +4918,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
         return ret;
@@ -4950,8 +4942,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
     }
 
@@ -4984,8 +4974,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
         return ret;
@@ -5056,8 +5044,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
         return map;
@@ -5093,8 +5079,6 @@ public class Crupier implements Runnable {
 
         } catch (SQLException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
 
         return map;
@@ -5176,33 +5160,37 @@ public class Crupier implements Runnable {
 
                     Participant p = GameFrame.getInstance().getParticipantes().get(new String(Base64.decodeBase64(perm_parts[0]), "UTF-8"));
 
-                    String full_command = "GAME#" + String.valueOf(id) + "#PERMUTATIONKEY#" + perm_parts[1];
+                    if (p != null) {
 
-                    p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
+                        String full_command = "GAME#" + String.valueOf(id) + "#PERMUTATIONKEY#" + perm_parts[1];
 
-                    this.waitSyncConfirmations(id, pendientes);
+                        p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
 
-                    while (this.permutation_key == null) {
-                        synchronized (this.permutation_key_lock) {
+                        this.waitSyncConfirmations(id, pendientes);
 
-                            try {
-                                permutation_key_lock.wait(1000);
+                        while (this.permutation_key == null) {
+                            synchronized (this.permutation_key_lock) {
 
-                            } catch (InterruptedException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                try {
+                                    permutation_key_lock.wait(1000);
+
+                                } catch (InterruptedException ex) {
+                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
                         }
-                    }
 
-                    if (!"*".equals(this.permutation_key)) {
+                        if (!"*".equals(this.permutation_key)) {
 
-                        per = perm_parts[2];
+                            per = perm_parts[2];
 
-                        break;
+                            break;
 
-                    } else {
+                        } else {
 
-                        this.permutation_key = null;
+                            this.permutation_key = null;
+                        }
+
                     }
                 }
 

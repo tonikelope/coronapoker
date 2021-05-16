@@ -44,6 +44,8 @@ public interface Player {
 
     public int getResponseTime();
 
+    public boolean isCalentando();
+
     public boolean isActivo();
 
     public boolean isTurno();

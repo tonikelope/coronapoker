@@ -1529,6 +1529,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
+    public boolean isCalentando() {
+
+        return (spectator && Helpers.float1DSecureCompare(0f, stack) < 0);
+    }
+
+    @Override
     public boolean isActivo() {
         return (!exit && !spectator);
     }

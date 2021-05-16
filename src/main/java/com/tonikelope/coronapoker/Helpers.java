@@ -4,7 +4,6 @@ import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
-import static com.tonikelope.coronapoker.Init.DEV_MODE;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
 import static com.tonikelope.coronapoker.Init.SQLITE;
 import static com.tonikelope.coronapoker.Init.SQL_FILE;
@@ -264,10 +263,6 @@ public class Helpers {
 
         if (SQLITE != null && !SQLITE.isClosed()) {
 
-            if (DEV_MODE) {
-                Helpers.SQLITE_THREADS_DEV.add(Thread.currentThread().getId());
-            }
-
             return SQLITE;
 
         } else {
@@ -280,10 +275,6 @@ public class Helpers {
 
                 SQLITE = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE, config.toProperties());
 
-                if (DEV_MODE) {
-                    Helpers.SQLITE_THREADS_DEV.add(Thread.currentThread().getId());
-                }
-
                 return SQLITE;
 
             } catch (SQLException ex) {
@@ -291,28 +282,6 @@ public class Helpers {
             }
 
             return null;
-        }
-    }
-
-    public synchronized static void devCloseSQLITE() {
-
-        if (DEV_MODE && SQLITE != null && !Helpers.SQLITE_THREADS_DEV.isEmpty() && Helpers.SQLITE_THREADS_DEV.contains(Thread.currentThread().getId())) {
-
-            Helpers.SQLITE_THREADS_DEV.remove(Thread.currentThread().getId());
-
-            try {
-                if (!SQLITE.isClosed() && Helpers.SQLITE_THREADS_DEV.isEmpty()) {
-                    SQLITE.close();
-                    SQLITE = null;
-                }
-            } catch (SQLException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-
-                if (Helpers.SQLITE_THREADS_DEV.isEmpty()) {
-                    SQLITE = null;
-                }
-            }
         }
     }
 
@@ -358,8 +327,6 @@ public class Helpers {
 
         } catch (SQLException | ClassNotFoundException ex) {
             Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
     }
 
@@ -380,8 +347,6 @@ public class Helpers {
 
         } catch (SQLException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            Helpers.devCloseSQLITE();
         }
     }
 

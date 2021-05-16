@@ -4363,19 +4363,6 @@ public class Crupier implements Runnable {
         return (resisten.size() > 1 && fase < RIVER && getJugadoresActivos() > 1) ? rondaApuestas(fase + 1, resisten) : resisten;
     }
 
-    public int getTotalCalentando() {
-
-        int t = 0;
-
-        for (Player jugador : GameFrame.getInstance().getJugadores()) {
-            if (jugador.isSpectator() && !jugador.isExit() && Helpers.float1DSecureCompare(0f, jugador.getStack()) < 0) {
-                t++;
-            }
-        }
-
-        return t;
-    }
-
     private void sentarParticipantes() {
 
         String pivote = GameFrame.getInstance().getNick_local();
@@ -4784,7 +4771,7 @@ public class Crupier implements Runnable {
                 }
             }
 
-            if (!actuales.isEmpty()) {
+            if (!actuales.isEmpty() && !permutados.isEmpty()) {
 
                 HashMap<String, Object> map = this.sqlRecoverGamePositions();
 
@@ -4833,7 +4820,7 @@ public class Crupier implements Runnable {
                 permutados = permutados_aux;
             }
 
-            return permutados;
+            return permutados.isEmpty()?actuales:permutados;
 
         } catch (IOException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);

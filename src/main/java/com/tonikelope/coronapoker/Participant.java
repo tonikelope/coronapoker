@@ -308,7 +308,7 @@ public class Participant implements Runnable {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
 
                 //Mandamos el chat
-                sock.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat().getText().getBytes("UTF-8")), aes_k, hmac_k) + "\n").getBytes("UTF-8"));
+                sock.getOutputStream().write((Helpers.encryptCommand(Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat().getText().isEmpty() ? "*".getBytes("UTF-8") : WaitingRoomFrame.getInstance().getChat().getText().getBytes("UTF-8")), aes_k, hmac_k) + "\n").getBytes("UTF-8"));
 
                 this.socket = sock;
 

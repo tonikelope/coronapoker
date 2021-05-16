@@ -630,11 +630,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             if (recibido != null) {
 
-                                String chat_text;
+                                if (!"*".equals(recibido)) {
 
-                                chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
+                                    String chat_text;
 
-                                if (!"*".equals(chat_text)) {
+                                    chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
 
                                     Helpers.GUIRun(new Runnable() {
                                         public void run() {
@@ -642,6 +642,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             chat.setText(chat_text);
                                         }
                                     });
+
                                 }
 
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "HEMOS CONSEGUIDO RECONECTAR CORRECTAMENTE CON EL SERVIDOR");
@@ -1053,23 +1054,29 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         //Leemos el contenido del chat
                         recibido = readCommandFromServer();
 
-                        String chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
+                        if (!"*".equals(recibido)) {
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
+                            String chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
 
-                                chat.setText(chat_text);
-                            }
-                        });
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+
+                                    chat.setText(chat_text);
+                                }
+                            });
+                        }
 
                         //Leemos el enlace del videochat (si existe)
                         recibido = readCommandFromServer();
 
-                        String video_chat_link = new String(Base64.decodeBase64(recibido), "UTF-8");
+                        if (!"*".equals(recibido)) {
 
-                        if (video_chat_link.toLowerCase().startsWith("http")) {
+                            String video_chat_link = new String(Base64.decodeBase64(recibido), "UTF-8");
 
-                            setVideo_chat_link(video_chat_link);
+                            if (video_chat_link.toLowerCase().startsWith("http")) {
+
+                                setVideo_chat_link(video_chat_link);
+                            }
                         }
 
                         //Añadimos al servidor
@@ -1436,6 +1443,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             public void run() {
                                                                 new GameFrame(THIS, local_nick, false);
                                                                 chat_notifications.setVisible(true);
+
                                                             }
                                                         });
 
@@ -1746,10 +1754,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : ""), aes_key, hmac_key), client_socket);
 
                             //Mandamos el contenido del chat
-                            writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
+                            writeCommandFromServer(Helpers.encryptCommand(chat.getText().isEmpty() ? "*" : Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 
                             //Mandamos el link del videochat
-                            writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String((getVideo_chat_link() != null ? getVideo_chat_link() : "---").getBytes("UTF-8")), aes_key, hmac_key), client_socket);
+                            writeCommandFromServer(Helpers.encryptCommand(getVideo_chat_link() != null ? Base64.encodeBase64String(getVideo_chat_link().getBytes("UTF-8")) : "*", aes_key, hmac_key), client_socket);
 
                             synchronized (lock_new_client) {
 
@@ -2659,6 +2667,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 public void run() {
                                     new GameFrame(THIS, local_nick, true);
                                     chat_notifications.setVisible(true);
+
                                 }
                             });
 

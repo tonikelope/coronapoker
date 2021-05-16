@@ -3361,7 +3361,7 @@ public class Crupier implements Runnable {
                         ok = true;
 
                         try {
-                            actions = new String(Base64.decodeBase64(partes[3]), "UTF-8");
+                            actions = (partes.length >= 4 && !partes[3].isEmpty()) ? new String(Base64.decodeBase64(partes[3]), "UTF-8") : "";
                         } catch (UnsupportedEncodingException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -3369,7 +3369,6 @@ public class Crupier implements Runnable {
                     } else {
                         rejected.add(comando);
                     }
-
                 }
 
                 if (!rejected.isEmpty()) {

@@ -640,12 +640,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
 
-                                Helpers.GUIRun(new Runnable() {
-                                    public void run() {
+                                if (!"*".equals(chat_text)) {
 
-                                        chat.setText(chat_text);
-                                    }
-                                });
+                                    Helpers.GUIRun(new Runnable() {
+                                        public void run() {
+
+                                            chat.setText(chat_text);
+                                        }
+                                    });
+                                }
 
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "HEMOS CONSEGUIDO RECONECTAR CORRECTAMENTE CON EL SERVIDOR");
 
@@ -686,7 +689,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                         Helpers.GUIRun(new Runnable() {
                                             public void run() {
-                                                reconnect_dialog = new Reconnect2ServerDialog(GameFrame.getInstance() != null ? GameFrame.getInstance() : THIS, true, server_ip_port);
+                                                reconnect_dialog = new Reconnect2ServerDialog(GameFrame.getInstance() != null ? GameFrame.getInstance().getFrame() : THIS, true, server_ip_port);
                                                 reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
                                                 reconnect_dialog.setVisible(true);
 
@@ -1292,12 +1295,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                         exit = true;
 
                                                         if (!GameFrame.CINEMATICAS) {
-                                                            Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "EL SERVIDOR HA TERMINADO LA TIMBA");
+                                                            Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA TERMINADO LA TIMBA");
                                                         }
                                                         break;
 
                                                     default:
-
+                                                        
                                                         synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                             GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
                                                             GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();

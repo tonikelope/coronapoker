@@ -877,7 +877,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         // 0=yes, 1=no, 2=cancel
         if (GameFrame.getInstance().isPartida_local()) {
-            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "Este usuario tiene problemas de conexión que bloquean la partida. ¿Quieres expulsarlo?") == 0) {
+            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión que bloquean la partida. ¿Quieres expulsarlo?") == 0) {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
@@ -886,7 +886,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 });
             }
         } else {
-            Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "Este usuario tiene problemas de conexión que bloquean la partida.\n(El servidor decidirá si esperar a que se recupere o echarle).");
+            Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión que bloquean la partida.\n(El servidor decidirá si esperar a que se recupere o echarle).");
         }
     }//GEN-LAST:event_timeout_iconMouseClicked
 

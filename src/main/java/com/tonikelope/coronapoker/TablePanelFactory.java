@@ -98,6 +98,9 @@ public class TablePanelFactory {
                         nuevo_panel.getCommunityCards().getRandom_button().setVisible(panel.getCommunityCards().getRandom_button().isVisible());
                         nuevo_panel.getCommunityCards().getPause_button().setForeground(panel.getCommunityCards().getPause_button().getForeground());
                         nuevo_panel.getCommunityCards().getPause_button().setBackground(panel.getCommunityCards().getPause_button().getBackground());
+                        nuevo_panel.getCommunityCards().getTiempo_partida().setVisible(panel.getCommunityCards().getTiempo_partida().isVisible());
+                        nuevo_panel.getCommunityCards().getMax_hands_button().setVisible(nuevo_panel.getCommunityCards().getMax_hands_button().isVisible());
+                        nuevo_panel.getCommunityCards().getHand_limit_spinner().setVisible(nuevo_panel.getCommunityCards().getHand_limit_spinner().isVisible());
 
                         if (!GameFrame.getInstance().isPartida_local()) {
 

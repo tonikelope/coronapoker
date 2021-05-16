@@ -20,7 +20,6 @@ import com.tonikelope.coronapoker.Helpers.JTextFieldRegularPopupMenu;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.io.File;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -323,34 +322,6 @@ public class NewGameDialog extends javax.swing.JDialog {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-    }
-
-    private String sqlGetRecoverIdFromGameId(int id_game) {
-
-        String ret = null;
-
-        try {
-            String sql = "SELECT id_recover from recover where id_game=?";
-
-            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
-            statement.setQueryTimeout(30);
-
-            statement.setInt(1, id_game);
-
-            ResultSet rs = statement.executeQuery();
-
-            if (rs.next()) {
-                ret = rs.getString("id_recover");
-            }
-
-            statement.close();
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        return ret;
     }
 
     /**

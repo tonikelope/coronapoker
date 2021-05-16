@@ -184,6 +184,7 @@ public class Crupier implements Runnable {
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
+    public static final int NEW_HAND_READY_WAIT = 1000;
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -2077,7 +2078,7 @@ public class Crupier implements Runnable {
                     synchronized (lock_nueva_mano) {
 
                         try {
-                            lock_nueva_mano.wait(1000);
+                            lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
                         } catch (InterruptedException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }

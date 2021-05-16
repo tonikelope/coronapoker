@@ -181,7 +181,6 @@ public class Helpers {
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     public static final ConcurrentLinkedQueue<String> TTS_BLOCKED_USERS = new ConcurrentLinkedQueue<>();
     public static final ConcurrentLinkedQueue<Object[]> TTS_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
-    public static final ConcurrentLinkedQueue<Long> SQLITE_THREADS_DEV = new ConcurrentLinkedQueue<>();
     public static final int MAX_TTS_LENGTH = 150;
     public static final int DECK_ELEMENTS = 52;
     public static final Object TTS_LOCK = new Object();
@@ -207,11 +206,11 @@ public class Helpers {
 
             if ((ret = UPnP.closePortTCP(port))) {
 
-                Logger.getLogger(Init.class.getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP " + String.valueOf(port));
+                Logger.getLogger(Init.class.getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
 
             } else {
 
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, "ERROR al (Des)mapear por UPnP el puerto TCP " + String.valueOf(port));
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, "ERROR al (Des)mapear por UPnP el puerto TCP {0}", String.valueOf(port));
             }
         }
 
@@ -227,15 +226,15 @@ public class Helpers {
             if (!UPnP.isMappedTCP(port)) {
                 if (UPnP.openPortTCP(port)) {
 
-                    Logger.getLogger(Init.class.getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP " + String.valueOf(port));
+                    Logger.getLogger(Init.class.getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
 
                 } else {
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP " + String.valueOf(port));
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP {0}", String.valueOf(port));
                     upnp = false;
                 }
 
             } else {
-                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP " + String.valueOf(port));
+                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP {0}", String.valueOf(port));
             }
 
         } else {

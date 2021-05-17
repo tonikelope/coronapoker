@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Hay jugadores que no han confirmado la nueva mano. ¿CONTINUAMOS DE TODAS FORMAS?", "There are players who have not confirmed the new hand, SHALL WE CONTINUE ANYWAY?"},
             {"CLICK PARA VER SU BUYIN", "CLICK TO SHOW BUYIN"},
             {"Notificaciones durante el juego", "In-game notifications"},
             {"REGISTRO DE LA TIMBA", "GAME LOG"},

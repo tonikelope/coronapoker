@@ -39,7 +39,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile String nickname;
     private volatile float stack = 0f;
     private volatile int buyin = GameFrame.BUYIN;
-    private volatile Crupier crupier = null;
     private volatile float bet = 0f;
     private volatile int decision = Player.NODEC;
     private volatile boolean utg = false;
@@ -101,17 +100,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             this.bet = 0f;
 
-            if (this.nickname.equals(crupier.getBb_nick())) {
+            if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
                 this.setPosition(BIG_BLIND);
-            } else if (this.nickname.equals(crupier.getSb_nick())) {
+            } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
                 this.setPosition(SMALL_BLIND);
-            } else if (this.nickname.equals(crupier.getDealer_nick())) {
+            } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
                 this.setPosition(DEALER);
             } else {
                 this.setPosition(-1);
             }
 
-            if (this.nickname.equals(crupier.getUtg_nick())) {
+            if (this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
                 this.setUTG();
             } else {
                 this.disableUTG();
@@ -213,7 +212,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             setStack(stack - (bet - old_bet));
         }
 
-        crupier.getBote().addPlayer(this);
+        GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -237,11 +236,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void esTuTurno() {
         turno = true;
 
-        crupier.disableAllPlayersTimeout();
+        GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
 
         if (this.getDecision() == Player.NODEC) {
 
-            call_required = crupier.getApuesta_actual() - bet;
+            call_required = GameFrame.getInstance().getCrupier().getApuesta_actual() - bet;
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
@@ -282,11 +281,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         auto_action = new Timer(1000, new ActionListener() {
 
-                            long t = crupier.getTurno();
+                            long t = GameFrame.getInstance().getCrupier().getTurno();
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!crupier.isFin_de_la_transmision() && !crupier.isPlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == crupier.getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
+                                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isPlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == GameFrame.getInstance().getCrupier().getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
 
                                     response_counter--;
 
@@ -302,11 +301,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                             public void run() {
                                                 Helpers.playWavResourceAndWait("misc/timeout.wav");
 
-                                                if (auto_action.isRunning() && t == crupier.getTurno()) {
+                                                if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
 
                                                     GameFrame.getInstance().checkPause();
 
-                                                    if (auto_action.isRunning() && t == crupier.getTurno()) {
+                                                    if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
 
                                                         auto_action.stop();
                                                     }
@@ -388,8 +387,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        if (Helpers.float1DSecureCompare(crupier.getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0) {
-                            player_action.setText((crupier.getConta_raise() > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - crupier.getApuesta_actual()) + ")");
+                        if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
+                            player_action.setText((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
                         } else {
                             player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
                         }
@@ -472,7 +471,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.playWavResource("misc/check.wav");
 
-        setBet(crupier.getApuesta_actual());
+        setBet(GameFrame.getInstance().getCrupier().getApuesta_actual());
 
         setDecision(Player.CHECK);
 
@@ -494,7 +493,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.BET);
 
-        if (GameFrame.SONIDOS_CHORRA && crupier.getConta_raise() > 0 && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0) {
+        if (GameFrame.SONIDOS_CHORRA && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
             Helpers.playWavResource("misc/raise.wav");
         }
 
@@ -506,14 +505,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.playWavResource("misc/allin.wav");
 
-        crupier.setPlaying_cinematic(true);
+        GameFrame.getInstance().getCrupier().setPlaying_cinematic(true);
 
         Helpers.threadRun(new Runnable() {
 
             public void run() {
 
-                if (!crupier.remoteCinematicAllin()) {
-                    crupier.soundAllin();
+                if (!GameFrame.getInstance().getCrupier().remoteCinematicAllin()) {
+                    GameFrame.getInstance().getCrupier().soundAllin();
                 }
             }
         });
@@ -568,6 +567,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
      * Creates new form JugadorInvitadoView
      */
     public RemotePlayer() {
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
@@ -881,7 +881,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        crupier.remotePlayerQuit(nickname);
+                        GameFrame.getInstance().getCrupier().remotePlayerQuit(nickname);
                     }
                 });
             }
@@ -1112,9 +1112,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 this.getPlayingCard1().setPosChip(Player.DEALER, 1);
 
-                if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
-                    if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
-                        setBet(crupier.getCiega_pequeña());
+                if (GameFrame.getInstance().getCrupier().getDealer_nick().equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+                    if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
+                        setBet(GameFrame.getInstance().getCrupier().getCiega_pequeña());
 
                     } else {
 
@@ -1140,8 +1140,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 this.getPlayingCard1().setPosChip(Player.BIG_BLIND, 1);
 
-                if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0) {
-                    setBet(crupier.getCiega_grande());
+                if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0) {
+                    setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
 
                 } else {
 
@@ -1166,8 +1166,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 this.getPlayingCard1().setPosChip(Player.SMALL_BLIND, 1);
 
-                if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
-                    setBet(crupier.getCiega_pequeña());
+                if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
+                    setBet(GameFrame.getInstance().getCrupier().getCiega_pequeña());
 
                 } else {
 
@@ -1233,10 +1233,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void nuevaMano() {
 
-        if (this.crupier == null) {
-            this.crupier = GameFrame.getInstance().getCrupier();
-        }
-
         this.decision = Player.NODEC;
 
         this.winner = false;
@@ -1251,8 +1247,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         pagar = 0f;
 
-        if (crupier.getRebuy_now().containsKey(nickname)) {
-            reComprar((Integer) crupier.getRebuy_now().get(nickname));
+        if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
+            reComprar((Integer) GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname));
         }
 
         Helpers.GUIRunAndWait(new Runnable() {
@@ -1290,17 +1286,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        if (this.nickname.equals(crupier.getBb_nick())) {
+        if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
             this.setPosition(BIG_BLIND);
-        } else if (this.nickname.equals(crupier.getSb_nick())) {
+        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
             this.setPosition(SMALL_BLIND);
-        } else if (this.nickname.equals(crupier.getDealer_nick())) {
+        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
             this.setPosition(DEALER);
         } else {
             this.setPosition(-1);
         }
 
-        if (this.nickname.equals(crupier.getUtg_nick())) {
+        if (this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
             this.setUTG();
         } else {
             this.disableUTG();
@@ -1310,8 +1306,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             this.spectator_bb = false;
 
-            if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack + bet) < 0) {
-                setBet(crupier.getCiega_grande());
+            if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack + bet) < 0) {
+                setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
             } else {
 
                 //Vamos ALLIN

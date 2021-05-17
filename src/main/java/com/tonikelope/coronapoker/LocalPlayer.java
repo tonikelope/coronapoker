@@ -50,7 +50,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile float bet = 0f;
     private volatile boolean utg = false;
     private volatile int decision = Player.NODEC;
-    private volatile Crupier crupier = null;
     private volatile boolean spectator = false;
     private volatile float pagar = 0f;
     private volatile float bote = 0f;
@@ -527,7 +526,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             setStack(stack - (bet - old_bet));
         }
 
-        crupier.getBote().addPlayer(this);
+        GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -586,14 +585,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         turno = true;
 
-        crupier.disableAllPlayersTimeout();
+        GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
 
         if (this.getDecision() == Player.NODEC) {
             Helpers.playWavResource("misc/yourturn.wav");
 
-            call_required = Helpers.floatClean1D(crupier.getApuesta_actual() - bet);
+            call_required = Helpers.floatClean1D(GameFrame.getInstance().getCrupier().getApuesta_actual() - bet);
 
-            min_raise = Helpers.float1DSecureCompare(0f, crupier.getUltimo_raise()) < 0 ? crupier.getUltimo_raise() : Helpers.floatClean1D(crupier.getCiega_grande());
+            min_raise = Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getUltimo_raise()) < 0 ? GameFrame.getInstance().getCrupier().getUltimo_raise() : Helpers.floatClean1D(GameFrame.getInstance().getCrupier().getCiega_grande());
 
             desarmarBotonesAccion();
 
@@ -657,22 +656,22 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     guardarColoresBotonesAccion();
 
-                    if (crupier.puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0)
-                            || (Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
+                    if (GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
+                            || (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
 
                         //Actualizamos el spinner y el botón de apuestas
                         BigDecimal spinner_min;
                         BigDecimal spinner_max = new BigDecimal(stack - call_required).setScale(1, RoundingMode.HALF_UP);
 
-                        if (Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) == 0) {
-                            spinner_min = new BigDecimal(crupier.getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
+                        if (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
+                            spinner_min = new BigDecimal(GameFrame.getInstance().getCrupier().getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
                             player_bet_button.setEnabled(true);
                             player_bet_button.setText(Translator.translate("APOSTAR"));
 
                         } else {
                             spinner_min = new BigDecimal(min_raise).setScale(1, RoundingMode.HALF_UP);
                             player_bet_button.setEnabled(true);
-                            player_bet_button.setText(Translator.translate((crupier.getConta_raise() > 0 ? "RE" : "") + "SUBIR"));
+                            player_bet_button.setText(Translator.translate((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + "SUBIR"));
                         }
 
                         if (spinner_min.compareTo(spinner_max) < 0) {
@@ -720,7 +719,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     }
 
-                    if (crupier.puedenApostar(GameFrame.getInstance().getJugadores()) == 1 && Helpers.float1DSecureCompare(call_required, stack) < 0) {
+                    if (GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 && Helpers.float1DSecureCompare(call_required, stack) < 0) {
                         player_allin_button.setText(" ");
                         player_allin_button.setEnabled(false);
                     }
@@ -784,11 +783,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         auto_action = new Timer(1000, new ActionListener() {
 
-                            long t = crupier.getTurno();
+                            long t = GameFrame.getInstance().getCrupier().getTurno();
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!crupier.isFin_de_la_transmision() && !crupier.isPlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == crupier.getTurno()) {
+                                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isPlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
 
                                     response_counter--;
 
@@ -810,7 +809,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                 @Override
                                                 public void actionPerformed(ActionEvent ae) {
 
-                                                    if (!crupier.isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && hurryup_timer.isRunning() && t == crupier.getTurno()) {
+                                                    if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
                                                         if (player_action.getBackground() == Color.WHITE) {
                                                             setPlayerBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                                                             player_action.setBackground(Color.GRAY);
@@ -828,7 +827,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         }
                                     }
 
-                                    if (response_counter == 0 || crupier.getJugadoresActivos() < 2) {
+                                    if (response_counter == 0 || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
 
                                         Helpers.threadRun(new Runnable() {
                                             public void run() {
@@ -837,11 +836,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                     Helpers.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
                                                 }
 
-                                                if (auto_action.isRunning() && t == crupier.getTurno() && getDecision() == Player.NODEC) {
+                                                if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno() && getDecision() == Player.NODEC) {
 
                                                     GameFrame.getInstance().checkPause();
 
-                                                    if (auto_action.isRunning() && t == crupier.getTurno() && getDecision() == Player.NODEC) {
+                                                    if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno() && getDecision() == Player.NODEC) {
 
                                                         if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
 
@@ -895,7 +894,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 player_check_button.doClick();
                             }
 
-                        } else if (pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (crupier.getFase() == Crupier.PREFLOP && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), crupier.getCiega_grande()) == 0))) {
+                        } else if (pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getFase() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0))) {
 
                             player_check_button.doClick();
 
@@ -1083,7 +1082,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void activarPreBotones() {
 
-        if (!turno && decision != Player.FOLD && decision != Player.ALLIN && !crupier.isShow_time()) {
+        if (!turno && decision != Player.FOLD && decision != Player.ALLIN && !GameFrame.getInstance().getCrupier().isShow_time()) {
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
@@ -1142,17 +1141,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             this.bet = 0f;
 
-            if (this.nickname.equals(crupier.getBb_nick())) {
+            if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
                 this.setPosition(BIG_BLIND);
-            } else if (this.nickname.equals(crupier.getSb_nick())) {
+            } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
                 this.setPosition(SMALL_BLIND);
-            } else if (this.nickname.equals(crupier.getDealer_nick())) {
+            } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
                 this.setPosition(DEALER);
             } else {
                 this.setPosition(-1);
             }
 
-            if (this.nickname.equals(crupier.getUtg_nick())) {
+            if (this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
                 this.setUTG();
             } else {
                 this.disableUTG();
@@ -1164,10 +1163,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void nuevaMano() {
 
         desPrePulsarTodo();
-
-        if (this.crupier == null) {
-            this.crupier = GameFrame.getInstance().getCrupier();
-        }
 
         this.decision = Player.NODEC;
 
@@ -1185,8 +1180,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         pagar = 0f;
 
-        if (crupier.getRebuy_now().containsKey(nickname)) {
-            reComprar((Integer) crupier.getRebuy_now().get(nickname));
+        if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
+            reComprar((Integer) GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname));
         }
 
         Helpers.GUIRunAndWait(new Runnable() {
@@ -1248,17 +1243,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        if (this.nickname.equals(crupier.getBb_nick())) {
+        if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
             this.setPosition(BIG_BLIND);
-        } else if (this.nickname.equals(crupier.getSb_nick())) {
+        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
             this.setPosition(SMALL_BLIND);
-        } else if (this.nickname.equals(crupier.getDealer_nick())) {
+        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
             this.setPosition(DEALER);
         } else {
             this.setPosition(-1);
         }
 
-        if (this.nickname.equals(crupier.getUtg_nick())) {
+        if (this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
             this.setUTG();
         } else {
             this.disableUTG();
@@ -1267,8 +1262,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (this.spectator_bb) {
             this.spectator_bb = false;
 
-            if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack + bet) < 0) {
-                setBet(crupier.getCiega_grande());
+            if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack + bet) < 0) {
+                setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
 
             } else {
 
@@ -1401,9 +1396,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 this.getPlayingCard1().setPosChip(Player.DEALER, 2);
 
-                if (crupier.getDealer_nick().equals(crupier.getSb_nick())) {
-                    if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
-                        setBet(crupier.getCiega_pequeña());
+                if (GameFrame.getInstance().getCrupier().getDealer_nick().equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+                    if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
+                        setBet(GameFrame.getInstance().getCrupier().getCiega_pequeña());
 
                     } else {
 
@@ -1433,8 +1428,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 this.getPlayingCard1().setPosChip(Player.BIG_BLIND, 2);
 
-                if (Helpers.float1DSecureCompare(crupier.getCiega_grande(), stack) < 0) {
-                    setBet(crupier.getCiega_grande());
+                if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0) {
+                    setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
 
                 } else {
 
@@ -1461,8 +1456,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 this.getPlayingCard1().setPosChip(Player.SMALL_BLIND, 2);
 
-                if (Helpers.float1DSecureCompare(crupier.getCiega_pequeña(), stack) < 0) {
-                    setBet(crupier.getCiega_pequeña());
+                if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
+                    setBet(GameFrame.getInstance().getCrupier().getCiega_pequeña());
 
                 } else {
 
@@ -1867,7 +1862,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
-                        crupier.soundFold();
+                        GameFrame.getInstance().getCrupier().soundFold();
 
                         setDecision(Player.FOLD);
 
@@ -1894,7 +1889,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (player_allin_button.isEnabled()) {
 
-                if (boton_mostrar && crupier.isShow_time()) {
+                if (boton_mostrar && GameFrame.getInstance().getCrupier().isShow_time()) {
 
                     this.muestra = true;
 
@@ -1919,18 +1914,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.threadRun(new Runnable() {
                         public void run() {
 
-                            synchronized (crupier.getLock_mostrar()) {
-                                if (crupier.isShow_time()) {
+                            synchronized (GameFrame.getInstance().getCrupier().getLock_mostrar()) {
+                                if (GameFrame.getInstance().getCrupier().isShow_time()) {
 
                                     Helpers.threadRun(new Runnable() {
                                         @Override
                                         public void run() {
 
                                             if (GameFrame.getInstance().isPartida_local()) {
-                                                crupier.showAndBroadcastPlayerCards(nickname);
+                                                GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nickname);
                                             } else {
-                                                crupier.sendGAMECommandToServer("SHOWMYCARDS");
-                                                crupier.setTiempo_pausa(GameFrame.PAUSA_ENTRE_MANOS);
+                                                GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SHOWMYCARDS");
+                                                GameFrame.getInstance().getCrupier().setTiempo_pausa(GameFrame.PAUSA_ENTRE_MANOS);
                                             }
 
                                         }
@@ -1964,7 +1959,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                     }
 
-                                    if (!crupier.getPerdedores().containsKey(this)) {
+                                    if (!GameFrame.getInstance().getCrupier().getPerdedores().containsKey(this)) {
                                         GameFrame.getInstance().getRegistro().print(nickname + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
                                     }
 
@@ -1996,14 +1991,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             hurryup_timer.stop();
                         }
 
-                        crupier.setPlaying_cinematic(true);
+                        GameFrame.getInstance().getCrupier().setPlaying_cinematic(true);
 
                         Helpers.threadRun(new Runnable() {
 
                             public void run() {
 
-                                if (!crupier.localCinematicAllin()) {
-                                    crupier.soundAllin();
+                                if (!GameFrame.getInstance().getCrupier().localCinematicAllin()) {
+                                    GameFrame.getInstance().getCrupier().soundAllin();
                                 }
                             }
                         });
@@ -2056,7 +2051,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (pre_pulsado == Player.CHECK || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_check_button) || click_recuperacion) {
 
-                if (Helpers.float1DSecureCompare(this.stack - (crupier.getApuesta_actual() - this.bet), 0f) == 0) {
+                if (Helpers.float1DSecureCompare(this.stack - (GameFrame.getInstance().getCrupier().getApuesta_actual() - this.bet), 0f) == 0) {
                     player_allin_buttonActionPerformed(null);
                 } else {
 
@@ -2077,7 +2072,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.threadRun(new Runnable() {
                         public void run() {
 
-                            setBet(crupier.getApuesta_actual());
+                            setBet(GameFrame.getInstance().getCrupier().getApuesta_actual());
 
                             setDecision(Player.CHECK);
 
@@ -2137,7 +2132,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             setDecision(Player.BET);
 
-                            if (!crupier.isSincronizando_mano() && GameFrame.SONIDOS_CHORRA && crupier.getConta_raise() > 0 && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0) {
+                            if (!GameFrame.getInstance().getCrupier().isSincronizando_mano() && GameFrame.SONIDOS_CHORRA && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
                                 Helpers.playWavResource("misc/raise.wav");
                             }
 
@@ -2195,10 +2190,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                 player_stack.setText(Helpers.float2String(0f));
 
-                            } else if (crupier.getRebuy_now().containsKey(getNickname())) {
+                            } else if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
                                 player_stack.setBackground(Color.YELLOW);
                                 player_stack.setForeground(Color.BLACK);
-                                player_stack.setText(Helpers.float2String(stack + (int) crupier.getRebuy_now().get(getNickname())));
+                                player_stack.setText(Helpers.float2String(stack + (int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname())));
 
                             } else {
 
@@ -2362,8 +2357,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        if (Helpers.float1DSecureCompare(crupier.getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, crupier.getApuesta_actual()) < 0) {
-                            player_action.setText((crupier.getConta_raise() > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - crupier.getApuesta_actual()) + ")");
+                        if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
+                            player_action.setText((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
                         } else {
                             player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
                         }

@@ -1845,6 +1845,23 @@ public class Crupier implements Runnable {
 
             saltar_primera_mano = true;
 
+            if (this.getJugadoresActivos() + this.getJugadoresCalentando() < 2 && GameFrame.getInstance().getJugadores().size() >= 2) {
+
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                    if (jugador.isSpectator() && !jugador.isCalentando()) {
+
+                        jugador.setBuyin(jugador.getBuyin() + GameFrame.BUYIN);
+
+                        jugador.setStack(GameFrame.BUYIN);
+
+                        jugador.unsetSpectator();
+
+                    }
+                }
+
+            }
+
         }
 
         //RECUPERAMOS LAS POSICIONES DE LA MESA
@@ -4820,7 +4837,7 @@ public class Crupier implements Runnable {
                 permutados = permutados_aux;
             }
 
-            return permutados.isEmpty()?actuales:permutados;
+            return permutados.isEmpty() ? actuales : permutados;
 
         } catch (IOException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);

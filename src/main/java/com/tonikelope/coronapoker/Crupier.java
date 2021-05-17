@@ -2429,6 +2429,8 @@ public class Crupier implements Runnable {
             return true;
 
         } else {
+            
+            permutacion_recuperada = null;
 
             //Si la mano no se ha podido recuperar le devolvemos la pasta a las ciegas
             for (Player jugador : GameFrame.getInstance().getJugadores()) {

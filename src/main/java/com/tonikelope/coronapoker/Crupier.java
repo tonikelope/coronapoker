@@ -185,6 +185,7 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
+    public static final int NEW_HAND_READY_WAIT_TIMEOUT = 10000;
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -1855,8 +1856,9 @@ public class Crupier implements Runnable {
 
                         jugador.setStack(GameFrame.BUYIN);
 
-                        jugador.unsetSpectator();
-
+                        jugador.setSpectator(Translator.translate("CALENTANDO"));
+                        
+                        Helpers.playWavResource("misc/cash_register.wav");
                     }
                 }
 
@@ -2072,6 +2074,8 @@ public class Crupier implements Runnable {
 
             boolean ready;
 
+            int timeout = 0;
+
             do {
 
                 ready = true;
@@ -2084,7 +2088,11 @@ public class Crupier implements Runnable {
 
                         ready = false;
 
-                        break;
+                        if (timeout + NEW_HAND_READY_WAIT >= NEW_HAND_READY_WAIT_TIMEOUT) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, entry.getKey() + " -> NEW HAND CONFIRMATION NOT RECEIVED!");
+                        } else {
+                            break;
+                        }
 
                     }
 
@@ -2096,9 +2104,19 @@ public class Crupier implements Runnable {
 
                         try {
                             lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
+                            timeout += NEW_HAND_READY_WAIT;
                         } catch (InterruptedException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
+                    }
+
+                    if (timeout >= NEW_HAND_READY_WAIT_TIMEOUT
+                            && Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay jugadores que no han confirmado la nueva mano. ¿CONTINUAMOS DE TODAS FORMAS?") == 0) {
+
+                        ready = true;
+
+                    } else {
+                        timeout = 0;
                     }
 
                 }
@@ -2429,7 +2447,7 @@ public class Crupier implements Runnable {
             return true;
 
         } else {
-            
+
             permutacion_recuperada = null;
 
             //Si la mano no se ha podido recuperar le devolvemos la pasta a las ciegas

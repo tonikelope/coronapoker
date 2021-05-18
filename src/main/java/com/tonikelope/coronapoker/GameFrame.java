@@ -410,7 +410,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                if (!full_screen) {
+                full_screen = !full_screen;
+
+                if (full_screen) {
 
                     if (Helpers.OSValidator.isWindows()) {
                         setVisible(false);
@@ -482,8 +484,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 full_screen_menu.setEnabled(true);
                 Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-
-                full_screen = !full_screen;
 
                 synchronized (full_screen_lock) {
                     full_screen_lock.notifyAll();

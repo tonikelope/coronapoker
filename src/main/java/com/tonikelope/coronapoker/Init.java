@@ -16,9 +16,11 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.AWTException;
 import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
+import java.awt.Robot;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.io.BufferedInputStream;
@@ -67,15 +69,14 @@ public class Init extends javax.swing.JFrame {
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
-
-    private static volatile boolean force_close_dialog = false;
+    public static final int ANTI_SCREENSAVER_KEY = KeyEvent.VK_ALT;
+    public static volatile Boolean ANTI_SCREENSAVER_KEY_PRESSED = false;
+    private static volatile boolean FORCE_CLOSE_DIALOG = false;
 
     /**
      * Creates new form Inicio
      */
     public Init() {
-
-        Init tthis = this;
 
         initComponents();
 
@@ -83,20 +84,20 @@ public class Init extends javax.swing.JFrame {
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
-        KeyStroke force_exit = KeyStroke.getKeyStroke(KeyEvent.VK_K, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK);
+        KeyStroke force_exit = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK);
         actionMap.put(force_exit, new AbstractAction("FORCE_EXIT") {
             @Override
             public void actionPerformed(ActionEvent e) {
 
-                if (!force_close_dialog) {
+                if (!FORCE_CLOSE_DIALOG) {
 
-                    force_close_dialog = true;
+                    FORCE_CLOSE_DIALOG = true;
 
                     if (Helpers.mostrarMensajeInformativoSINO(null, "¿FORZAR CIERRE?") == 0) {
                         System.exit(1);
                     }
 
-                    force_close_dialog = false;
+                    FORCE_CLOSE_DIALOG = false;
                 }
             }
         });
@@ -148,7 +149,7 @@ public class Init extends javax.swing.JFrame {
             Helpers.unMuteAll();
 
         }
-        Helpers.updateFonts(tthis, Helpers.GUI_FONT, null);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         pack();
 
@@ -699,14 +700,14 @@ public class Init extends javax.swing.JFrame {
 
                 switch (ke.getID()) {
                     case KeyEvent.KEY_PRESSED:
-                        if (ke.getKeyCode() == KeyEvent.VK_ALT) {
-                            Helpers.altPressed = true;
+                        if (ke.getKeyCode() == ANTI_SCREENSAVER_KEY) {
+                            ANTI_SCREENSAVER_KEY_PRESSED = true;
                         }
                         break;
 
                     case KeyEvent.KEY_RELEASED:
-                        if (ke.getKeyCode() == KeyEvent.VK_ALT) {
-                            Helpers.altPressed = false;
+                        if (ke.getKeyCode() == ANTI_SCREENSAVER_KEY) {
+                            ANTI_SCREENSAVER_KEY_PRESSED = false;
                         }
                         break;
                 }
@@ -720,7 +721,16 @@ public class Init extends javax.swing.JFrame {
         screensaver.schedule(new TimerTask() {
             @Override
             public void run() {
-                Helpers.antiScreensaver();
+                if (!ANTI_SCREENSAVER_KEY_PRESSED && (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen())) {
+                    try {
+                        Robot r = new Robot();
+                        r.waitForIdle();
+                        r.keyPress(ANTI_SCREENSAVER_KEY);
+                        r.keyRelease(ANTI_SCREENSAVER_KEY);
+                    } catch (AWTException ex) {
+                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
             }
 
         }, ANTI_SCREENSAVER_DELAY, ANTI_SCREENSAVER_DELAY);

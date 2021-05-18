@@ -1,6 +1,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Image;
@@ -487,6 +488,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setText("----");
 
                 playingCard1.setPosChip_visible(GameFrame.LOCAL_POSITION_CHIP);
+
+                desactivarControles();
             }
         });
     }
@@ -946,14 +949,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 bet_spinner.setEnabled(false);
 
-                for (Map.Entry<JButton, Color[]> entry : action_button_colors.entrySet()) {
+                for (Component c : botonera.getComponents()) {
 
-                    JButton b = entry.getKey();
-                    b.setText(" ");
-                    b.setEnabled(false);
-
+                    if (c instanceof JButton) {
+                        ((JButton) c).setText(" ");
+                        c.setEnabled(false);
+                    }
                 }
-
             }
         });
 

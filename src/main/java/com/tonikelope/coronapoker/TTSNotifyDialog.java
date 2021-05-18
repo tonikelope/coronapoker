@@ -17,6 +17,8 @@ import javax.swing.ImageIcon;
  */
 public class TTSNotifyDialog extends javax.swing.JDialog {
 
+    public static final int SIZE = 80;
+
     private volatile String player = null;
 
     /**
@@ -29,7 +31,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(SIZE, SIZE, Image.SCALE_SMOOTH)));
 
         message.setText("[" + nick + (msg != null ? "]: " + msg : "]"));
 
@@ -37,20 +39,20 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
             if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
 
-                message.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                message.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(SIZE, SIZE, Image.SCALE_SMOOTH)));
             } else {
 
-                message.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                message.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(SIZE, SIZE, Image.SCALE_SMOOTH)));
             }
         } else {
 
             if (GameFrame.getInstance().getParticipantes().get(nick).getAvatar() != null) {
 
-                message.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                message.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath()).getImage().getScaledInstance(SIZE, SIZE, Image.SCALE_SMOOTH)));
 
             } else {
 
-                message.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+                message.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(SIZE, SIZE, Image.SCALE_SMOOTH)));
             }
 
         }
@@ -66,7 +68,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(!tts ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
+        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(!tts ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(SIZE, SIZE, Image.SCALE_SMOOTH)));
 
         message.setText(tts ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR");
 

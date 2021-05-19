@@ -2047,34 +2047,12 @@ public class Crupier implements Runnable {
         return bote_total;
     }
 
-    private boolean NUEVA_MANO() {
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setVisible(false);
-                GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(false);
-                GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
-
-                GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
-
-                if (!GameFrame.getInstance().isPartida_local()) {
-                    GameFrame.getInstance().getExit_menu().setEnabled(false);
-                    Helpers.TapetePopupMenu.EXIT_MENU.setEnabled(false);
-                }
-            }
-        });
-
-        this.sqlite_id_hand = -1;
-
-        this.conta_accion = 0;
+    private void readyForNextHand() {
 
         //SINCRONIZACIÓN DE LA MANO
-        //Esperamos a recibir el comando de confirmación de que están listos para una nueva mano
         if (GameFrame.getInstance().isPartida_local()) {
 
+            //Esperamos a recibir el comando de confirmación de que están listos para una nueva mano
             boolean ready;
 
             int timeout = 0;
@@ -2131,6 +2109,34 @@ public class Crupier implements Runnable {
             this.sendGAMECommandToServer("NEWHANDREADY#" + String.valueOf(this.conta_mano + 1));
 
         }
+
+    }
+
+    private boolean NUEVA_MANO() {
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setVisible(false);
+                GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(false);
+                GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
+
+                GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
+
+                if (!GameFrame.getInstance().isPartida_local()) {
+                    GameFrame.getInstance().getExit_menu().setEnabled(false);
+                    Helpers.TapetePopupMenu.EXIT_MENU.setEnabled(false);
+                }
+            }
+        });
+
+        readyForNextHand();
+
+        this.sqlite_id_hand = -1;
+
+        this.conta_accion = 0;
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 

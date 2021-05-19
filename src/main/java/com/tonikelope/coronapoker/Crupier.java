@@ -3266,14 +3266,6 @@ public class Crupier implements Runnable {
             //Esperamos confirmaciones
             this.waitSyncConfirmations(id, pendientes);
 
-            for (Player jugador : GameFrame.getInstance().getJugadores()) {
-
-                if (jugador.isExit() && pendientes.contains(jugador.getNickname())) {
-
-                    pendientes.remove(jugador.getNickname());
-                }
-            }
-
             if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
                 int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
@@ -3504,13 +3496,7 @@ public class Crupier implements Runnable {
 
                 //Esperamos confirmaciones
                 this.waitSyncConfirmations(id, pendientes);
-                for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
-                    if (jugador.isExit() && pendientes.contains(jugador.getNickname())) {
-
-                        pendientes.remove(jugador.getNickname());
-                    }
-                }
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
                     int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
@@ -3592,13 +3578,7 @@ public class Crupier implements Runnable {
 
                 //Esperamos confirmaciones
                 this.waitSyncConfirmations(id, pendientes);
-                for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
-                    if (jugador.isExit() && pendientes.contains(jugador.getNickname())) {
-
-                        pendientes.remove(jugador.getNickname());
-                    }
-                }
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
                     int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
@@ -3756,6 +3736,15 @@ public class Crupier implements Runnable {
 
                     try {
                         WaitingRoomFrame.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
+
+                        for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                            if (jugador.isExit() && pending.contains(jugador.getNickname())) {
+
+                                pending.remove(jugador.getNickname());
+                            }
+                        }
+
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                     }

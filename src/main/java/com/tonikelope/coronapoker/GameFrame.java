@@ -18,6 +18,8 @@ import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -50,7 +52,7 @@ import javax.swing.Timer;
  *
  * @author tonikelope
  */
-public final class GameFrame extends javax.swing.JFrame implements ZoomableInterface {
+public final class GameFrame extends javax.swing.JFrame implements ZoomableInterface, MouseWheelListener {
 
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;
@@ -139,6 +141,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile GifAnimationDialog gif_dialog = null;
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
+
+    @Override
+    public void mouseWheelMoved(MouseWheelEvent e) {
+        if (e.isControlDown()) {
+
+            if (e.getWheelRotation() < 0) {
+                zoom_menu_in.doClick();
+            } else {
+                zoom_menu_out.doClick();
+            }
+
+        } else {
+            getParent().dispatchEvent(e);
+        }
+    }
 
     public JCheckBoxMenuItem getAuto_adjust_zoom_menu() {
         return auto_fit_zoom_menu;
@@ -1503,6 +1520,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(false);
         }
 
+        addMouseWheelListener(this);
+
         Helpers.loadOriginalFontSizes(THIS);
 
         Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
@@ -2357,15 +2376,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         zoom_menu.setEnabled(false);
 
-        ZOOM_LEVEL++;
-
-        Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
-
-        Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
-
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
+
+                ZOOM_LEVEL++;
+
+                Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+
+                Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
 
                 zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
 
@@ -2404,12 +2423,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         zoom_menu.setEnabled(false);
 
         if (Helpers.float1DSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) < 0) {
-            ZOOM_LEVEL--;
-            Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
-            Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
+
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
+
+                    ZOOM_LEVEL--;
+
+                    Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+
+                    Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
 
                     zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
 
@@ -2447,15 +2470,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
 
         if (ZOOM_LEVEL != DEFAULT_ZOOM_LEVEL) {
-            zoom_menu.setEnabled(false);
 
-            ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL;
-
-            Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
-            Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
+
+                    zoom_menu.setEnabled(false);
+
+                    ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL;
+
+                    Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+                    Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
 
                     zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
                     if (jugadas_dialog != null && jugadas_dialog.isVisible()) {

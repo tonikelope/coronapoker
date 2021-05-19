@@ -185,7 +185,7 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
-    public static final int NEW_HAND_READY_WAIT_TIMEOUT = 10000;
+    public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -2101,16 +2101,13 @@ public class Crupier implements Runnable {
 
                     if (timeout >= NEW_HAND_READY_WAIT_TIMEOUT) {
 
-                        if (Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay jugadores que no han confirmado la nueva mano. ¿CONTINUAMOS DE TODAS FORMAS?") == 0) {
-                            ready = true;
-                        } else {
-                            timeout = 0;
-                        }
+                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "Hay jugadores que no han confirmado la nueva mano.");
+
                     }
 
                 }
 
-            } while (!ready);
+            } while (!ready && timeout < NEW_HAND_READY_WAIT_TIMEOUT);
 
         } else {
 

@@ -2940,7 +2940,7 @@ public class Helpers {
                     }
                 };
 
-                Action compactAction = new AbstractAction("Vista compacta") {
+                Action compactAction = new AbstractAction("VISTA COMPACTA") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getCompact_menu().doClick();

@@ -2411,10 +2411,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     zoom_menu.notifyAll();
                 }
 
+                Helpers.savePropertiesFile();
             }
         });
 
-        Helpers.savePropertiesFile();
     }//GEN-LAST:event_zoom_menu_inActionPerformed
 
     private void zoom_menu_outActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_outActionPerformed
@@ -2458,10 +2458,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     synchronized (zoom_menu) {
                         zoom_menu.notifyAll();
                     }
+
+                    Helpers.savePropertiesFile();
                 }
             });
 
-            Helpers.savePropertiesFile();
         }
 
     }//GEN-LAST:event_zoom_menu_outActionPerformed
@@ -2469,17 +2470,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void zoom_menu_resetActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_resetActionPerformed
         // TODO add your handling code here:
 
+        zoom_menu.setEnabled(false);
+
         if (ZOOM_LEVEL != DEFAULT_ZOOM_LEVEL) {
 
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
 
-                    zoom_menu.setEnabled(false);
-
                     ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL;
 
                     Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+
                     Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
 
                     zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
@@ -2513,10 +2515,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             }
                         });
                     }
+
+                    Helpers.savePropertiesFile();
                 }
             });
 
-            Helpers.savePropertiesFile();
         }
     }//GEN-LAST:event_zoom_menu_resetActionPerformed
 

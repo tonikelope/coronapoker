@@ -1823,6 +1823,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " CONECTADO");
                                     } else {
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " NO PUEDO CONECTAR CORRECTAMENTE (PARTIDA LLENA O EMPEZADA)");
                                         client_socket.close();
                                     }
 
@@ -1830,7 +1831,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 } finally {
                                     Helpers.GUIRunAndWait(new Runnable() {
                                         public void run() {
-                                            empezar_timba.setEnabled(true);
+                                            if (participantes.size() > 1) {
+                                                empezar_timba.setEnabled(true);
+                                            }
+
                                             game_info.setEnabled(true);
                                         }
                                     });
@@ -1841,6 +1845,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         }
 
                     } else {
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "BAD MAGIC BYTES FROM CLIENT!");
                         client_socket.close();
                     }
                 } catch (Exception ex) {

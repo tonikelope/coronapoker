@@ -2054,7 +2054,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         compact_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         compact_menu.setSelected(true);
-        compact_menu.setText("Vista compacta (ALT+X)");
+        compact_menu.setText("VISTA COMPACTA (ALT+X)");
         compact_menu.setDoubleBuffered(true);
         compact_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {

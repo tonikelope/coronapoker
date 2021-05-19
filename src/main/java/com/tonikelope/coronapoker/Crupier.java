@@ -2070,13 +2070,21 @@ public class Crupier implements Runnable {
                         ready = false;
 
                         if (timeout + NEW_HAND_READY_WAIT >= NEW_HAND_READY_WAIT_TIMEOUT) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, entry.getKey() + " -> NEW HAND CONFIRMATION NOT RECEIVED!");
+
+                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, p.getNick() + " -> NEW HAND CONFIRMATION NOT RECEIVED!");
+
+                            nick2player.get(p.getNick()).setTimeout(true);
+
+                            try {
+                                this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(p.getNick().getBytes("UTF-8")), p.getNick(), false);
+                            } catch (UnsupportedEncodingException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+
                         } else {
                             break;
                         }
-
                     }
-
                 }
 
                 if (!ready) {
@@ -2464,6 +2472,8 @@ public class Crupier implements Runnable {
                 }
             });
 
+            disableAllPlayersTimeout();
+
             return true;
 
         } else {
@@ -2489,6 +2499,8 @@ public class Crupier implements Runnable {
                     Helpers.TapetePopupMenu.EXIT_MENU.setEnabled(true);
                 }
             });
+
+            disableAllPlayersTimeout();
 
             return false;
 

@@ -2054,6 +2054,9 @@ public class Crupier implements Runnable {
             public void run() {
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setVisible(false);
+                GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(false);
+                GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
 
                 GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
 
@@ -2329,6 +2332,17 @@ public class Crupier implements Runnable {
             }
 
             this.bote_total += this.apuestas;
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setVisible(true);
+                    GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(true);
+                    GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(true);
+
+                }
+            });
 
             actualizarContadoresTapete();
 

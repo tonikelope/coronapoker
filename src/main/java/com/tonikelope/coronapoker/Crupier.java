@@ -2099,13 +2099,13 @@ public class Crupier implements Runnable {
                         }
                     }
 
-                    if (timeout >= NEW_HAND_READY_WAIT_TIMEOUT && Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay jugadores que no han confirmado la nueva mano. ¿CONTINUAMOS DE TODAS FORMAS?") == 0) {
+                    if (timeout >= NEW_HAND_READY_WAIT_TIMEOUT) {
 
-                        ready = true;
-
-                    } else {
-
-                        timeout = 0;
+                        if (Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay jugadores que no han confirmado la nueva mano. ¿CONTINUAMOS DE TODAS FORMAS?") == 0) {
+                            ready = true;
+                        } else {
+                            timeout = 0;
+                        }
                     }
 
                 }

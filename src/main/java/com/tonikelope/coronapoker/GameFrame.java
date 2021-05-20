@@ -144,6 +144,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     @Override
     public void mouseWheelMoved(MouseWheelEvent e) {
+        e.consume();
+
         if (e.isControlDown()) {
 
             if (e.getWheelRotation() < 0) {

@@ -185,7 +185,7 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
-    public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
+    public static final int NEW_HAND_READY_WAIT_TIMEOUT = 10000;
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -2071,7 +2071,7 @@ public class Crupier implements Runnable {
 
                         if (timeout + NEW_HAND_READY_WAIT >= NEW_HAND_READY_WAIT_TIMEOUT) {
 
-                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, p.getNick() + " -> NEW HAND CONFIRMATION NOT RECEIVED!");
+                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, p.getNick() + " -> NEW HAND (" + String.valueOf(this.conta_mano + 1) + ") CONFIRMATION NOT RECEIVED!");
 
                             nick2player.get(p.getNick()).setTimeout(true);
 
@@ -2101,7 +2101,7 @@ public class Crupier implements Runnable {
 
                     if (timeout >= NEW_HAND_READY_WAIT_TIMEOUT) {
 
-                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "Hay jugadores que no han confirmado la nueva mano.");
+                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO");
 
                     }
 

@@ -154,7 +154,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 zoom_menu_out.doClick();
             }
 
-        } else {
+        } else if (getParent() != null) {
             getParent().dispatchEvent(e);
         }
     }

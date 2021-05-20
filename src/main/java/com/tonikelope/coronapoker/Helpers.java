@@ -1004,7 +1004,7 @@ public class Helpers {
 
                         HttpURLConnection con = null;
 
-                        String filename = "";
+                        String filename = null;
 
                         try {
 
@@ -1029,41 +1029,53 @@ public class Helpers {
                                     bfos.write(buffer, 0, reads);
                                 }
 
+                            } catch (Exception ex) {
+
+                                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
+                                error = true;
+                                conta_service++;
                             }
 
-                            Helpers.threadRun(new Runnable() {
-                                @Override
-                                public void run() {
+                            if (!error) {
 
-                                    while (TTS_PLAYER == null || TTS_PLAYER.getStatus() != BasicPlayer.PLAYING) {
+                                Helpers.threadRun(new Runnable() {
+                                    @Override
+                                    public void run() {
 
-                                        synchronized (TTS_PLAYER_NOTIFIER) {
-                                            try {
-                                                TTS_PLAYER_NOTIFIER.wait(1000);
-                                            } catch (InterruptedException ex) {
-                                                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                        while (TTS_PLAYER == null || TTS_PLAYER.getStatus() != BasicPlayer.PLAYING) {
+
+                                            synchronized (TTS_PLAYER_NOTIFIER) {
+                                                try {
+                                                    TTS_PLAYER_NOTIFIER.wait(1000);
+                                                } catch (InterruptedException ex) {
+                                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                                }
                                             }
                                         }
+
+                                        Helpers.GUIRun(new Runnable() {
+                                            @Override
+                                            public void run() {
+
+                                                GameFrame.getInstance().getSonidos_menu().setEnabled(false);
+
+                                                nick_dialog.setVisible(true);
+                                            }
+                                        });
                                     }
+                                });
 
-                                    Helpers.GUIRun(new Runnable() {
-                                        @Override
-                                        public void run() {
+                                Helpers.muteAllExceptMp3Loops();
 
-                                            GameFrame.getInstance().getSonidos_menu().setEnabled(false);
+                                Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
 
-                                            nick_dialog.setVisible(true);
-                                        }
-                                    });
-                                }
-                            });
-                            Helpers.muteAllExceptMp3Loops();
-
-                            Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
+                            }
 
                         } catch (Exception ex) {
 
                             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
                             error = true;
                             conta_service++;
 
@@ -1084,7 +1096,7 @@ public class Helpers {
                                 }
                             });
 
-                            if (filename.length() > 0) {
+                            if (filename != null) {
                                 try {
                                     Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
                                 } catch (IOException ex) {

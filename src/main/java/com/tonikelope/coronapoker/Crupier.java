@@ -584,15 +584,25 @@ public class Crupier implements Runnable {
 
     public void setTiempo_pausa(int tiempo) {
 
-        this.tiempo_pausa = tiempo;
+        synchronized (lock_tiempo_pausa_barra) {
+            this.tiempo_pausa = tiempo;
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                GameFrame.getInstance().getBarra_tiempo().setMaximum(tiempo);
-                GameFrame.getInstance().getBarra_tiempo().setValue(tiempo);
-            }
-        });
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    GameFrame.getInstance().getBarra_tiempo().setMaximum(tiempo);
+                    GameFrame.getInstance().getBarra_tiempo().setValue(tiempo);
+                }
+            });
+        }
 
+    }
+
+    public int getTiempoPausa() {
+
+        synchronized (lock_tiempo_pausa_barra) {
+
+            return tiempo_pausa;
+        }
     }
 
     public long getTurno() {
@@ -5817,14 +5827,15 @@ public class Crupier implements Runnable {
 
         this.setTiempo_pausa(tiempo);
 
-        synchronized (lock_tiempo_pausa_barra) {
+        while (getTiempoPausa() > 0) {
 
-            while (this.tiempo_pausa > 0) {
-
+            synchronized (lock_tiempo_pausa_barra) {
                 try {
+                    int t = this.tiempo_pausa;
+
                     lock_tiempo_pausa_barra.wait(1000);
 
-                    if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()) {
+                    if (t == this.tiempo_pausa && !GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()) {
 
                         this.tiempo_pausa--;
 

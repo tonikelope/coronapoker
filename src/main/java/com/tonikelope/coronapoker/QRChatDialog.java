@@ -48,13 +48,11 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
 
         initComponents();
 
-        if (cboard_monitor) {
-            share_button.setEnabled(false);
-        } else {
-            share_button.setVisible(false);
-        }
+        share_button.setVisible(cboard_monitor);
 
         updateQR(link);
+
+        share_button.setEnabled(false);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
@@ -284,10 +282,16 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
 
             if (matcher.find()) {
 
-                link = matcher.group(0);
+                String new_link = matcher.group(0);
 
-                updateQR(link);
+                if (!new_link.equals(link)) {
+
+                    link = new_link;
+
+                    updateQR(link);
+                }
             }
+
         }
     }
 }

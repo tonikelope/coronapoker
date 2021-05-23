@@ -727,14 +727,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_visor_jugadas = KeyStroke.getKeyStroke(KeyEvent.VK_J, KeyEvent.ALT_DOWN_MASK);
-        actionMap.put(key_visor_jugadas, new AbstractAction("VISOR-JUGADAS") {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                jugadas_menu.doClick();
-            }
-        });
-
         KeyStroke compactCards = KeyStroke.getKeyStroke(KeyEvent.VK_X, KeyEvent.ALT_DOWN_MASK);
         actionMap.put(compactCards, new AbstractAction("COMPACT-CARDS") {
             @Override
@@ -1975,7 +1967,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         file_menu.add(registro_menu);
 
         jugadas_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        jugadas_menu.setText("Generador de jugadas (ALT+J)");
+        jugadas_menu.setText("Generador de jugadas");
         jugadas_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jugadas_menuActionPerformed(evt);

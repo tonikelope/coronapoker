@@ -2840,7 +2840,7 @@ public class Helpers {
 
                 popup = new JPopupMenu();
 
-                Action shortcutsAction = new AbstractAction("ATAJOS") {
+                Action shortcutsAction = new AbstractAction("Ver atajos") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getShortcuts_menu().doClick();
@@ -2966,7 +2966,7 @@ public class Helpers {
                     }
                 };
 
-                Action rebuyNowAction = new AbstractAction("Recomprar (siguiente mano)") {
+                Action rebuyNowAction = new AbstractAction("RECOMPRAR (siguiente mano)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getRebuy_now_menu().doClick();

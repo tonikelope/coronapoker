@@ -2847,7 +2847,7 @@ public class Helpers {
                     }
                 };
 
-                Action exitAction = new AbstractAction("SALIR") {
+                Action exitAction = new AbstractAction("SALIR (ALT+F4)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getExit_menu().doClick();
@@ -2868,7 +2868,7 @@ public class Helpers {
                     }
                 };
 
-                Action soundAction = new AbstractAction("SONIDOS") {
+                Action soundAction = new AbstractAction("SONIDOS (ALT+S)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getSonidos_menu().doClick();
@@ -2896,14 +2896,14 @@ public class Helpers {
                     }
                 };
 
-                Action chatAction = new AbstractAction("Ver chat") {
+                Action chatAction = new AbstractAction("Ver chat (ALT+C)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getChat_menu().doClick();
                     }
                 };
 
-                Action registroAction = new AbstractAction("Ver registro") {
+                Action registroAction = new AbstractAction("Ver registro (ALT+R)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getRegistro_menu().doClick();
@@ -2917,28 +2917,28 @@ public class Helpers {
                     }
                 };
 
-                Action fullscreenAction = new AbstractAction("PANTALLA COMPLETA") {
+                Action fullscreenAction = new AbstractAction("PANTALLA COMPLETA (ALT+F)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getFull_screen_menu().doClick();
                     }
                 };
 
-                Action zoominAction = new AbstractAction("Aumentar zoom") {
+                Action zoominAction = new AbstractAction("Aumentar zoom (CTRL++)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getZoom_menu_in().doClick();
                     }
                 };
 
-                Action zoomoutAction = new AbstractAction("Reducir zoom") {
+                Action zoomoutAction = new AbstractAction("Reducir zoom (CTRL+-)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getZoom_menu_out().doClick();
                     }
                 };
 
-                Action zoomresetAction = new AbstractAction("Reset zoom") {
+                Action zoomresetAction = new AbstractAction("Reset zoom (CTRL+0)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getZoom_menu_reset().doClick();
@@ -2952,14 +2952,14 @@ public class Helpers {
                     }
                 };
 
-                Action compactAction = new AbstractAction("VISTA COMPACTA") {
+                Action compactAction = new AbstractAction("VISTA COMPACTA (ALT+X)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getCompact_menu().doClick();
                     }
                 };
 
-                Action relojAction = new AbstractAction("Mostrar reloj") {
+                Action relojAction = new AbstractAction("Mostrar reloj (ALT+W)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getTime_menu().doClick();

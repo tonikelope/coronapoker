@@ -930,7 +930,7 @@ public class Helpers {
 
     }
 
-    public static void savePropertiesFile() {
+    public synchronized static void savePropertiesFile() {
 
         try {
             PROPERTIES.store(new FileOutputStream(PROPERTIES_FILE), null);

@@ -2269,7 +2269,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         help_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
 
         shortcuts_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        shortcuts_menu.setText("ATAJOS");
+        shortcuts_menu.setText("Ver atajos");
         shortcuts_menu.setDoubleBuffered(true);
         shortcuts_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {

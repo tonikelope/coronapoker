@@ -199,6 +199,7 @@ public class Crupier implements Runnable {
     private final Object lock_last_hand = new Object();
     private final Object lock_nueva_mano = new Object();
     private final Object lock_rebuynow = new Object();
+    private final Object lock_tiempo_pausa_barra = new Object();
     private final Object permutation_key_lock = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
@@ -304,7 +305,7 @@ public class Crupier implements Runnable {
         }
     }
 
-    public synchronized void setLast_hand(boolean last_hand) {
+    public void setLast_hand(boolean last_hand) {
         synchronized (lock_last_hand) {
             this.last_hand = last_hand;
         }
@@ -581,19 +582,8 @@ public class Crupier implements Runnable {
         return lock_contabilidad;
     }
 
-    public synchronized void decrementPausaBarra() {
+    public void setTiempo_pausa(int tiempo) {
 
-        tiempo_pausa--;
-
-    }
-
-    public synchronized int getTiempo_pausa() {
-
-        return tiempo_pausa;
-
-    }
-
-    public synchronized void setTiempo_pausa(int tiempo) {
         this.tiempo_pausa = tiempo;
 
         Helpers.GUIRun(new Runnable() {
@@ -602,6 +592,7 @@ public class Crupier implements Runnable {
                 GameFrame.getInstance().getBarra_tiempo().setValue(tiempo);
             }
         });
+
     }
 
     public long getTurno() {
@@ -5826,23 +5817,30 @@ public class Crupier implements Runnable {
 
         this.setTiempo_pausa(tiempo);
 
-        while (this.getTiempo_pausa() > 0) {
+        synchronized (lock_tiempo_pausa_barra) {
 
-            Helpers.pausar(1000);
+            while (this.tiempo_pausa > 0) {
 
-            if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()) {
+                try {
+                    lock_tiempo_pausa_barra.wait(1000);
 
-                this.decrementPausaBarra();
+                    if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()) {
 
-                final int val = this.getTiempo_pausa();
+                        this.tiempo_pausa--;
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        GameFrame.getInstance().getBarra_tiempo().setValue(val);
+                        int val = this.tiempo_pausa;
+
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+                                GameFrame.getInstance().getBarra_tiempo().setValue(val);
+                            }
+                        });
                     }
-                });
-            }
 
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         }
 
         Helpers.GUIRun(new Runnable() {
@@ -6587,6 +6585,7 @@ public class Crupier implements Runnable {
                         if (getJugadoresActivos() > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
 
                             this.pausaConBarra(GameFrame.PAUSA_ENTRE_MANOS);
+
                         }
 
                         synchronized (lock_mostrar) {

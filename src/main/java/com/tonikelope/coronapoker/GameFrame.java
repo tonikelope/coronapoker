@@ -2401,10 +2401,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 });
 
-                synchronized (zoom_menu) {
-                    zoom_menu.notifyAll();
-                }
-
                 Helpers.savePropertiesFile();
             }
         });
@@ -2448,10 +2444,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             zoom_menu.setEnabled(true);
                         }
                     });
-
-                    synchronized (zoom_menu) {
-                        zoom_menu.notifyAll();
-                    }
 
                     Helpers.savePropertiesFile();
                 }
@@ -2497,10 +2489,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             zoom_menu.setEnabled(true);
                         }
                     });
-
-                    synchronized (zoom_menu) {
-                        zoom_menu.notifyAll();
-                    }
 
                     if (GameFrame.AUTO_ZOOM) {
                         Helpers.threadRun(new Runnable() {

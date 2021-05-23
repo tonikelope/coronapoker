@@ -5831,11 +5831,9 @@ public class Crupier implements Runnable {
 
             synchronized (lock_tiempo_pausa_barra) {
                 try {
-                    int t = this.tiempo_pausa;
-
                     lock_tiempo_pausa_barra.wait(1000);
 
-                    if (t == this.tiempo_pausa && !GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()) {
+                    if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()) {
 
                         this.tiempo_pausa--;
 

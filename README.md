@@ -2,11 +2,46 @@
 <p align="center"><a href="https://adoptopenjdk.net/" target="_blank">JAVA</a> 11 or above is required.</p>
 
 
-### What is coronahmac.jar?
+### BUILDING CORONAPOKER from source:
 
-It is a small module that is loaded at game startup to mitigate any player (including the server) trying to cheat using a hacked version of the game. For obvious reasons the source code is not available.
-
-#### Installing coronaHMAC as Maven local package:
+#### Step 1 (install coronaHMAC as Maven local package):
 ```
 mvn install:install-file -Dfile=coronaHMAC_x.x.x.jar -DgroupId=com.tonikelope.coronahmac -DartifactId=coronahmac -Dversion=x.x.x -Dpackaging=jar
 ```
+
+#### Step 2 (build):
+```
+mvn clean install
+```
+
+#### EXTRA: building WITHOUT coronahmac dependency:
+
+##### Step 1 (edit pom.xml):
+###### Change MAIN CLASS:
+```
+<mainClass>com.tonikelope.coronahmac.M</mainClass>
+```
+to:
+
+```
+<mainClass>com.tonikelope.coronapoker.Init</mainClass>
+```
+
+###### Delete coronahmac dependency:
+```
+<dependency>
+   <groupId>com.tonikelope.coronahmac</groupId>
+   <artifactId>coronahmac</artifactId>
+   <version>1.1.24</version>
+</dependency>
+```
+
+##### Step 2 (build):
+```
+mvn clean install
+```
+
+### NOTE: What is coronahmac.jar?
+
+It is a small module that is loaded at game startup to mitigate any player (including the server) trying to cheat using a hacked version of the game. For obvious reasons the source code is not available.
+

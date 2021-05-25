@@ -2948,6 +2948,13 @@ public class Helpers {
                     }
                 };
 
+                Action rulesAction = new AbstractAction("Reglas de Robert") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getRobert_rules_menu().doClick();
+                    }
+                };
+
                 Action jugadasAction = new AbstractAction("Generador de jugadas") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -3171,7 +3178,12 @@ public class Helpers {
 
                 popup.addSeparator();
 
+                popup.add(new JMenuItem(rulesAction));
+
+                popup.addSeparator();
+
                 EXIT_MENU = new JMenuItem(exitAction);
+
                 popup.add(EXIT_MENU);
 
                 Helpers.updateFonts(popup, Helpers.GUI_FONT, 2);

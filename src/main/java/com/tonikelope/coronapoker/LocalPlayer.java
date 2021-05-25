@@ -1887,7 +1887,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_allin_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_player_allin_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (!GameFrame.getInstance().isTimba_pausada()) {
+        if (!GameFrame.getInstance().isTimba_pausada() || boton_mostrar) {
 
             if (player_allin_button.isEnabled()) {
 

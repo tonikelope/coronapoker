@@ -2,9 +2,9 @@
 <p align="center"><a href="https://adoptopenjdk.net/" target="_blank">JAVA</a> 11 or above is required.</p>
 
 
-### BUILDING CORONAPOKER from source:
+### BUILDING CORONAPOKER FROM SOURCE:
 
-#### Step 1 (install coronaHMAC as Maven local package):
+#### Step 1 (install coronahmac.jar as Maven local package):
 ```
 mvn install:install-file -Dfile=coronaHMAC_x.x.x.jar -DgroupId=com.tonikelope.coronahmac -DartifactId=coronahmac -Dversion=x.x.x -Dpackaging=jar
 ```
@@ -17,7 +17,7 @@ mvn clean install
 #### EXTRA: building WITHOUT coronahmac dependency:
 
 ##### Step 1 (edit pom.xml):
-###### Change MAIN CLASS:
+###### 1.1 Change MAIN CLASS:
 ```
 <mainClass>com.tonikelope.coronahmac.M</mainClass>
 ```
@@ -27,7 +27,7 @@ to:
 <mainClass>com.tonikelope.coronapoker.Init</mainClass>
 ```
 
-###### Delete coronahmac dependency:
+###### 1.2 Delete coronahmac dependency:
 ```
 <dependency>
    <groupId>com.tonikelope.coronahmac</groupId>

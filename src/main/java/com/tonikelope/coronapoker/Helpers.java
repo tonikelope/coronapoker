@@ -205,12 +205,14 @@ public class Helpers {
 
             CORONA_HMAC_J1 = null;
 
-            try {
-                PrintStream fileOut = new PrintStream(new File(Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
-                System.setOut(fileOut);
-                System.setErr(fileOut);
-            } catch (FileNotFoundException ex1) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex1);
+            if (!Init.DEV_MODE) {
+                try {
+                    PrintStream fileOut = new PrintStream(new File(Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
+                    System.setOut(fileOut);
+                    System.setErr(fileOut);
+                } catch (FileNotFoundException ex1) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex1);
+                }
             }
 
             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");

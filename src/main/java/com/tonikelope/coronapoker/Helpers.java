@@ -37,7 +37,9 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.HttpURLConnection;
@@ -191,9 +193,43 @@ public class Helpers {
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
-
     public volatile static BasicPlayer TTS_PLAYER = null;
     public volatile static Object TTS_PLAYER_NOTIFIER = new Object();
+    public volatile static Method CORONA_HMAC_J1;
+
+    static {
+
+        try {
+            CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
+        } catch (Exception ex) {
+
+            CORONA_HMAC_J1 = null;
+
+            try {
+                PrintStream fileOut = new PrintStream(new File(Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
+                System.setOut(fileOut);
+                System.setErr(fileOut);
+            } catch (FileNotFoundException ex1) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex1);
+            }
+
+            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
+        }
+    }
+
+    public static String coronaHMACJ1(byte[] a, byte[] b) {
+
+        if (CORONA_HMAC_J1 != null) {
+
+            try {
+                return (String) CORONA_HMAC_J1.invoke(null, a, b);
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return "*";
+    }
 
     public static boolean UPnPClose(int port) {
 

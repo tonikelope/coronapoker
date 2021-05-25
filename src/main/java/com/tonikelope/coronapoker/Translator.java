@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Reglas de Robert", "Robert's Rules"},
             {"HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO", "THERE PLAYERS WHO HAVE NOT CONFIRMED THE NEW HAND"},
             {"CLICK PARA VER SU BUYIN", "CLICK TO SHOW BUYIN"},
             {"Notificaciones durante el juego", "In-game notifications"},

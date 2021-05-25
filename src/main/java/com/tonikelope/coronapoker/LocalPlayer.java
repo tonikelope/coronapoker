@@ -531,7 +531,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
                 if (Helpers.float1DSecureCompare(0f, bote) < 0) {
@@ -659,7 +659,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     guardarColoresBotonesAccion();
 
-                    if (GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
+                    if (!nickname.equals(GameFrame.getInstance().getCrupier().getLast_raiser()) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
                             || (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
 
                         //Actualizamos el spinner y el botón de apuestas
@@ -722,7 +722,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     }
 
-                    if (GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 && Helpers.float1DSecureCompare(call_required, stack) < 0) {
+                    if (player_check_button.isEnabled() && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 && Helpers.float1DSecureCompare(call_required, stack) < 0) {
                         player_allin_button.setText(" ");
                         player_allin_button.setEnabled(false);
                     }
@@ -2008,9 +2008,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         Helpers.threadRun(new Runnable() {
                             public void run() {
 
-                                setBet(stack + bet);
-
                                 setDecision(Player.ALLIN);
+
+                                setBet(stack + bet);
 
                                 finTurno();
                             }
@@ -2343,7 +2343,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         switch (dec) {
             case Player.CHECK:
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
                         if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
@@ -2356,7 +2356,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 break;
             case Player.BET:
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
                         if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
@@ -2369,16 +2369,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 });
                 break;
             case Player.ALLIN:
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
                         setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (" + Helpers.float2String(bet + getStack()) + ")");
+                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (" + Helpers.float2String(stack) + ")");
                     }
                 });
                 break;
             default:
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
                         setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -2389,7 +2389,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 break;
         }
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
 

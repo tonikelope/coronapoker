@@ -228,7 +228,7 @@ public class Helpers {
             }
         }
 
-        return "*";
+        return "MjEvMTIvMTk4NA==";
     }
 
     public static boolean UPnPClose(int port) {

@@ -142,7 +142,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
 
-    public JMenu getRobert_rules_menu() {
+    public JMenuItem getRobert_rules_menu() {
         return robert_rules_menu;
     }
 
@@ -692,7 +692,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public JMenu getHelp_menu() {
-        return robert_rules_menu;
+        return help_menu;
     }
 
     public JMenu getOpciones_menu() {
@@ -937,7 +937,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 JFrame frame = GameFrame.getInstance().getFrame();
 
-                if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !robert_rules_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()))) {
+                if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()))) {
                     final Action a = actionMap.get(keyStroke);
                     final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
 
@@ -1931,9 +1931,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         menu_tapete_madera = new javax.swing.JRadioButtonMenuItem();
         jSeparator4 = new javax.swing.JPopupMenu.Separator();
         rebuy_now_menu = new javax.swing.JCheckBoxMenuItem();
-        robert_rules_menu = new javax.swing.JMenu();
+        help_menu = new javax.swing.JMenu();
         shortcuts_menu = new javax.swing.JMenuItem();
-        jMenuItem1 = new javax.swing.JMenuItem();
+        robert_rules_menu = new javax.swing.JMenuItem();
         acerca_menu = new javax.swing.JMenuItem();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -2269,9 +2269,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         menu_bar.add(opciones_menu);
 
-        robert_rules_menu.setText("Ayuda");
-        robert_rules_menu.setDoubleBuffered(true);
-        robert_rules_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        help_menu.setText("Ayuda");
+        help_menu.setDoubleBuffered(true);
+        help_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
 
         shortcuts_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         shortcuts_menu.setText("Ver atajos");
@@ -2281,16 +2281,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 shortcuts_menuActionPerformed(evt);
             }
         });
-        robert_rules_menu.add(shortcuts_menu);
+        help_menu.add(shortcuts_menu);
 
-        jMenuItem1.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        jMenuItem1.setText("Reglas de Robert");
-        jMenuItem1.addActionListener(new java.awt.event.ActionListener() {
+        robert_rules_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        robert_rules_menu.setText("Reglas de Robert");
+        robert_rules_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jMenuItem1ActionPerformed(evt);
+                robert_rules_menuActionPerformed(evt);
             }
         });
-        robert_rules_menu.add(jMenuItem1);
+        help_menu.add(robert_rules_menu);
 
         acerca_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         acerca_menu.setText("Acerca de");
@@ -2300,9 +2300,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 acerca_menuActionPerformed(evt);
             }
         });
-        robert_rules_menu.add(acerca_menu);
+        help_menu.add(acerca_menu);
 
-        menu_bar.add(robert_rules_menu);
+        menu_bar.add(help_menu);
 
         setJMenuBar(menu_bar);
 
@@ -3108,10 +3108,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.TapetePopupMenu.AUTO_ZOOM_MENU.setSelected(GameFrame.AUTO_ZOOM);
     }//GEN-LAST:event_auto_fit_zoom_menuActionPerformed
 
-    private void jMenuItem1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItem1ActionPerformed
+    private void robert_rules_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_robert_rules_menuActionPerformed
         // TODO add your handling code here:
         Helpers.openBrowserURL("https://github.com/tonikelope/coronapoker/raw/master/robert_rules.pdf");
-    }//GEN-LAST:event_jMenuItem1ActionPerformed
+    }//GEN-LAST:event_robert_rules_menuActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
@@ -3126,7 +3126,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JMenuItem exit_menu;
     private javax.swing.JMenu file_menu;
     private javax.swing.JMenuItem full_screen_menu;
-    private javax.swing.JMenuItem jMenuItem1;
+    private javax.swing.JMenu help_menu;
     private javax.swing.JPopupMenu.Separator jSeparator1;
     private javax.swing.JPopupMenu.Separator jSeparator2;
     private javax.swing.JPopupMenu.Separator jSeparator3;
@@ -3148,7 +3148,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JMenu opciones_menu;
     private javax.swing.JCheckBoxMenuItem rebuy_now_menu;
     private javax.swing.JMenuItem registro_menu;
-    private javax.swing.JMenu robert_rules_menu;
+    private javax.swing.JMenuItem robert_rules_menu;
     private javax.swing.JPopupMenu.Separator server_separator_menu;
     private javax.swing.JMenuItem shortcuts_menu;
     private javax.swing.JCheckBoxMenuItem sonidos_chorra_menu;

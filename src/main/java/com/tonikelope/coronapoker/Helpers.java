@@ -3074,6 +3074,9 @@ public class Helpers {
                     }
                 };
 
+                popup.add(new JMenuItem(rulesAction));
+                popup.addSeparator();
+
                 popup.add(chatAction);
                 popup.add(registroAction);
                 popup.add(jugadasAction);
@@ -3175,10 +3178,6 @@ public class Helpers {
                 popup.add(LAST_HAND_MENU);
                 MAX_HANDS_MENU = new JMenuItem(maxHandsAction);
                 popup.add(MAX_HANDS_MENU);
-
-                popup.addSeparator();
-
-                popup.add(new JMenuItem(rulesAction));
 
                 popup.addSeparator();
 

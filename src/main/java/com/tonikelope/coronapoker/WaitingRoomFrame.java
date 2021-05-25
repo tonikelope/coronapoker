@@ -16,7 +16,6 @@
  */
 package com.tonikelope.coronapoker;
 
-import com.tonikelope.coronahmac.M;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
@@ -933,7 +932,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         }
                     });
 
-                    String jar_hmac = M.J1(local_client_aes_key.getEncoded(), local_client_hmac_key.getEncoded());
+                    String jar_hmac = Helpers.coronaHMACJ1(local_client_aes_key.getEncoded(), local_client_hmac_key.getEncoded());
 
                     //Le mandamos nuestro nick + VERSION + AVATAR + password al server
                     writeCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + "@" + jar_hmac + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : "#*") + (password != null ? "#" + Base64.encodeBase64String(password.getBytes("UTF-8")) : "#*"), local_client_aes_key, local_client_hmac_key));
@@ -965,7 +964,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Helpers.mostrarMensajeError(THIS, "PASSWORD INCORRECTA");
                     } else if (partes[0].equals("NICKOK")) {
 
-                        String server_jar_hmac = M.J1(Base64.decodeBase64(jar_hmac), local_client_hmac_key.getEncoded());
+                        String server_jar_hmac = Helpers.coronaHMACJ1(Base64.decodeBase64(jar_hmac), local_client_hmac_key.getEncoded());
 
                         if (!server_jar_hmac.equals(partes[2])) {
 
@@ -1636,7 +1635,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
 
-                        String client_jar_hmac = M.J1(aes_key.getEncoded(), hmac_key.getEncoded());
+                        String client_jar_hmac = Helpers.coronaHMACJ1(aes_key.getEncoded(), hmac_key.getEncoded());
 
                         /* FIN INTERCAMBIO DE CLAVES */
                         //Leemos el nick del usuario
@@ -1737,7 +1736,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 client_avatar = null;
                             }
 
-                            String jar_hmac = M.J1(Base64.decodeBase64(client_jar_hmac), hmac_key.getEncoded());
+                            String jar_hmac = Helpers.coronaHMACJ1(Base64.decodeBase64(client_jar_hmac), hmac_key.getEncoded());
 
                             writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1") + "#" + jar_hmac + "#" + Base64.encodeBase64String(game_info.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 

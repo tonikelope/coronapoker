@@ -659,7 +659,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     guardarColoresBotonesAccion();
 
-                    if (!nickname.equals(GameFrame.getInstance().getCrupier().getLast_raiser()) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
+                    if ((GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
                             || (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
 
                         //Actualizamos el spinner y el botón de apuestas
@@ -720,9 +720,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             bet_spinner.setEnabled(false);
                         }
 
-                    }
-
-                    if (player_check_button.isEnabled() && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 && Helpers.float1DSecureCompare(call_required, stack) < 0) {
+                    } else if (player_check_button.isEnabled()) {
                         player_allin_button.setText(" ");
                         player_allin_button.setEnabled(false);
                     }

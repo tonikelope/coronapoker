@@ -720,7 +720,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             bet_spinner.setEnabled(false);
                         }
 
-                    } else if (player_check_button.isEnabled() && (GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname()))) {
+                    }
+
+                    if (player_check_button.isEnabled() && GameFrame.getInstance().getCrupier().getLast_aggressor() != null && nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) {
                         player_allin_button.setText(" ");
                         player_allin_button.setEnabled(false);
                     }
@@ -2374,7 +2376,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet + stack) < 0) {
                             player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(bet + stack - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
                         } else {
-                            player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (" + Helpers.float2String(stack) + ")");
+                            player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                         }
                     }
                 });

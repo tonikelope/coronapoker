@@ -213,7 +213,7 @@ public class Crupier implements Runnable {
     private volatile Integer[] permutacion_baraja = null;
     private volatile float apuesta_actual = 0f;
     private volatile float ultimo_raise = 0f;
-    private volatile float allin_partial_raise_acumulado = 0f;
+    private volatile float raise_parcial_acumulado_allin = 0f;
     private volatile int conta_raise = 0;
     private volatile int conta_bet = 0;
     private volatile float bote_sobrante = 0f;
@@ -254,7 +254,6 @@ public class Crupier implements Runnable {
     private volatile int tot_acciones_recuperadas = 0;
     private volatile Float beneficio_bote_principal = null;
     private volatile Integer[] permutacion_recuperada = null;
-    private volatile String last_raiser = null;
 
     public boolean isPlayerTimeout() {
 
@@ -2207,8 +2206,6 @@ public class Crupier implements Runnable {
 
         this.ultimo_raise = 0f;
 
-        this.last_raiser = null;
-
         this.conta_raise = 0;
 
         this.conta_bet = 0;
@@ -3926,8 +3923,8 @@ public class Crupier implements Runnable {
         return conta_raise;
     }
 
-    public String getLast_raiser() {
-        return last_raiser;
+    public Player getLast_aggressor() {
+        return last_aggressor;
     }
 
     private ArrayList<Player> rondaApuestas(int fase, ArrayList<Player> resisten) {
@@ -4035,8 +4032,6 @@ public class Crupier implements Runnable {
                 this.apuesta_actual = 0f;
 
                 this.ultimo_raise = 0f;
-
-                this.last_raiser = null;
 
                 this.conta_raise = 0;
 
@@ -4326,24 +4321,24 @@ public class Crupier implements Runnable {
 
                             if (decision == Player.BET || (decision == Player.ALLIN && Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) <= 0)) {
 
+                                boolean partial_raise = false;
+
                                 //El jugador actual subió la apuesta actual (o va ALLIN), así que hay que reiniciar la ronda de apuestas
                                 if (Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) < 0) {
 
                                     float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : Helpers.floatClean1D(getCiega_grande());
 
-                                    float current_raise = current_player.getBet() - this.apuesta_actual;
-
-                                    if (decision == Player.ALLIN) {
-                                        this.allin_partial_raise_acumulado += current_raise;
-                                        current_raise = this.allin_partial_raise_acumulado;
-                                    }
+                                    float current_raise = current_player.getBet() - this.apuesta_actual + this.raise_parcial_acumulado_allin;
 
                                     if (Helpers.float1DSecureCompare(min_raise, current_raise) <= 0) {
 
                                         this.ultimo_raise = current_raise;
-                                        this.allin_partial_raise_acumulado = 0f;
-                                        this.last_raiser = current_player.getNickname();
+                                        this.raise_parcial_acumulado_allin = 0f;
                                         this.conta_raise++;
+
+                                    } else if (decision == Player.ALLIN) {
+                                        partial_raise = true;
+                                        this.raise_parcial_acumulado_allin += current_player.getBet() - this.apuesta_actual;
                                     }
                                 }
 
@@ -4351,7 +4346,7 @@ public class Crupier implements Runnable {
 
                                 this.apuesta_actual = current_player.getBet();
 
-                                resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), current_player.getNickname());
+                                resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), partial_raise ? (this.last_aggressor != null ? this.last_aggressor.getNickname() : null) : current_player.getNickname());
 
                                 end_pos = conta_pos;
                             }

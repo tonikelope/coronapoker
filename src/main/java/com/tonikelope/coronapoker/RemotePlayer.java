@@ -402,7 +402,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     public void run() {
                         setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (" + Helpers.float2String(stack) + ")");
+                        if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet + stack) < 0) {
+                            player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(bet + stack - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
+                        } else {
+                            player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (" + Helpers.float2String(stack) + ")");
+                        }
                     }
                 });
                 break;
@@ -1119,8 +1123,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     } else {
 
                         //Vamos ALLIN
-                        setBet(stack);
                         setDecision(Player.ALLIN);
+                        setBet(stack);
                     }
                 } else {
                     setBet(0f);
@@ -1146,9 +1150,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 } else {
 
                     //Vamos ALLIN
-                    setBet(stack);
-
                     setDecision(Player.ALLIN);
+                    setBet(stack);
                 }
 
                 break;
@@ -1172,9 +1175,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 } else {
 
                     //Vamos ALLIN
-                    setBet(stack);
-
                     setDecision(Player.ALLIN);
+
+                    setBet(stack);
                 }
 
                 break;
@@ -1311,8 +1314,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             } else {
 
                 //Vamos ALLIN
-                setBet(stack);
                 setDecision(Player.ALLIN);
+                setBet(stack);
+
             }
 
         }

@@ -213,7 +213,7 @@ public class Crupier implements Runnable {
     private volatile Integer[] permutacion_baraja = null;
     private volatile float apuesta_actual = 0f;
     private volatile float ultimo_raise = 0f;
-    private volatile float raise_parcial_acumulado_allin = 0f;
+    private volatile float partial_raise_cum = 0f;
     private volatile int conta_raise = 0;
     private volatile int conta_bet = 0;
     private volatile float bote_sobrante = 0f;
@@ -2205,6 +2205,8 @@ public class Crupier implements Runnable {
         this.apuesta_actual = this.ciega_grande;
 
         this.ultimo_raise = 0f;
+
+        this.partial_raise_cum = 0f;
 
         this.conta_raise = 0;
 
@@ -4319,27 +4321,26 @@ public class Crupier implements Runnable {
 
                             this.bote_total += current_player.getBet() - old_player_bet;
 
-                            if (decision == Player.BET || (decision == Player.ALLIN && Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) <= 0)) {
+                            if (decision == Player.BET || (decision == Player.ALLIN && Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) < 0)) {
 
+                                //El jugador actual subió la apuesta actual
                                 boolean partial_raise = false;
 
-                                //El jugador actual subió la apuesta actual (o va ALLIN), así que hay que reiniciar la ronda de apuestas
-                                if (Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) < 0) {
+                                float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : Helpers.floatClean1D(getCiega_grande());
 
-                                    float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : Helpers.floatClean1D(getCiega_grande());
+                                float current_raise = current_player.getBet() - this.apuesta_actual + this.partial_raise_cum;
 
-                                    float current_raise = current_player.getBet() - this.apuesta_actual + this.raise_parcial_acumulado_allin;
+                                if (Helpers.float1DSecureCompare(min_raise, current_raise) <= 0) {
 
-                                    if (Helpers.float1DSecureCompare(min_raise, current_raise) <= 0) {
+                                    this.ultimo_raise = current_raise;
+                                    this.partial_raise_cum = 0f;
+                                    this.conta_raise++;
 
-                                        this.ultimo_raise = current_raise;
-                                        this.raise_parcial_acumulado_allin = 0f;
-                                        this.conta_raise++;
+                                } else if (decision == Player.ALLIN) {
 
-                                    } else if (decision == Player.ALLIN) {
-                                        partial_raise = true;
-                                        this.raise_parcial_acumulado_allin += current_player.getBet() - this.apuesta_actual;
-                                    }
+                                    //El jugador va ALL-IN y ha resubido pero NO lo suficiente para considerarlo una resubida
+                                    partial_raise = true;
+                                    this.partial_raise_cum += current_player.getBet() - this.apuesta_actual;
                                 }
 
                                 this.conta_bet++;

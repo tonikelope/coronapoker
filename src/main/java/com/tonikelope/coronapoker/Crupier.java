@@ -1251,7 +1251,7 @@ public class Crupier implements Runnable {
         GameFrame.getInstance().setTapeteMano(this.conta_mano);
     }
 
-    private void resetBetPlayerDecisions(ArrayList<Player> jugadores, String nick) {
+    private void resetBetPlayerDecisions(ArrayList<Player> jugadores, String nick, boolean partial_raise) {
 
         if (nick == null) {
             this.last_aggressor = null;
@@ -1261,7 +1261,7 @@ public class Crupier implements Runnable {
 
         for (Player jugador : jugadores) {
 
-            if (jugador.isActivo() && jugador.getDecision() != Player.FOLD && jugador.getDecision() != Player.ALLIN && (nick == null || !jugador.getNickname().equals(nick))) {
+            if (jugador.isActivo() && jugador.getDecision() != Player.FOLD && jugador.getDecision() != Player.ALLIN && (nick == null || partial_raise || !jugador.getNickname().equals(nick))) {
                 jugador.resetBetDecision();
             }
         }
@@ -4073,7 +4073,7 @@ public class Crupier implements Runnable {
 
             int decision;
 
-            resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), null);
+            resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), null, false);
 
             actualizarContadoresTapete();
 
@@ -4347,7 +4347,7 @@ public class Crupier implements Runnable {
 
                                 this.apuesta_actual = current_player.getBet();
 
-                                resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), partial_raise ? (this.last_aggressor != null ? this.last_aggressor.getNickname() : null) : current_player.getNickname());
+                                resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), partial_raise ? (this.last_aggressor != null ? this.last_aggressor.getNickname() : null) : current_player.getNickname(), partial_raise);
 
                                 end_pos = conta_pos;
                             }

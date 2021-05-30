@@ -254,6 +254,15 @@ public class Crupier implements Runnable {
     private volatile int tot_acciones_recuperadas = 0;
     private volatile Float beneficio_bote_principal = null;
     private volatile Integer[] permutacion_recuperada = null;
+    private volatile boolean showtime_pause = false;
+
+    public boolean isShowtime_pause() {
+        return showtime_pause;
+    }
+
+    public void setShowtime_pause(boolean showtime_pause) {
+        this.showtime_pause = showtime_pause;
+    }
 
     public boolean isPlayerTimeout() {
 
@@ -6619,6 +6628,7 @@ public class Crupier implements Runnable {
 
                         synchronized (lock_mostrar) {
                             this.show_time = false;
+                            this.showtime_pause = false;
                         }
 
                         GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();

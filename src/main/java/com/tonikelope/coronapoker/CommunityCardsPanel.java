@@ -615,19 +615,24 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         int pause_now = -2;
 
-        if (!(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
+        if (!(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && (GameFrame.getInstance().isPartida_local() || (GameFrame.getInstance().getCrupier().isShow_time() && !GameFrame.getInstance().getCrupier().isShowtime_pause())) && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
 
             pause_now = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿PAUSAR AHORA MISMO?");
-
         }
 
-        if (pause_now < 1 && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && ((GameFrame.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (GameFrame.getInstance().isPartida_local() && ((GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) || GameFrame.getInstance().isTimba_pausada() || pause_now == 0 || GameFrame.getInstance().getLocalPlayer().isSpectator())))) {
+        if (pause_now < 1 && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && ((!GameFrame.getInstance().isPartida_local() && pause_now == 0) || (GameFrame.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (GameFrame.getInstance().isPartida_local() && ((GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) || GameFrame.getInstance().isTimba_pausada() || pause_now == 0 || GameFrame.getInstance().getLocalPlayer().isSpectator())))) {
 
             tthis.getPause_button().setBackground(new Color(255, 102, 0));
             tthis.getPause_button().setForeground(Color.WHITE);
 
             if (!GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().isPartida_local()) {
-                GameFrame.getInstance().getLocalPlayer().setPause_counter(GameFrame.getInstance().getLocalPlayer().getPause_counter() - 1);
+
+                if (!GameFrame.getInstance().getCrupier().isShow_time()) {
+                    GameFrame.getInstance().getLocalPlayer().setPause_counter(GameFrame.getInstance().getLocalPlayer().getPause_counter() - 1);
+                } else {
+                    GameFrame.getInstance().getCrupier().setShowtime_pause(true);
+                }
+
                 tthis.getPause_button().setText(Translator.translate("PAUSAR") + " (" + GameFrame.getInstance().getLocalPlayer().getPause_counter() + ")");
             }
 

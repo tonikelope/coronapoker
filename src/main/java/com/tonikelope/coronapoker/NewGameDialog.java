@@ -19,6 +19,7 @@ package com.tonikelope.coronapoker;
 import com.tonikelope.coronapoker.Helpers.JTextFieldRegularPopupMenu;
 import java.awt.Dimension;
 import java.awt.Image;
+import java.awt.event.KeyEvent;
 import java.io.File;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -26,8 +27,10 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -61,6 +64,8 @@ public class NewGameDialog extends javax.swing.JDialog {
     private volatile File avatar = null;
     private volatile boolean update = false;
     private volatile boolean init = false;
+    private final static ConcurrentLinkedQueue<String> SERVER_HISTORY_QUEUE = loadServerHistory();
+    private volatile int conta_history = SERVER_HISTORY_QUEUE.isEmpty() ? 0 : SERVER_HISTORY_QUEUE.size() - 1;
 
     public boolean isDialog_ok() {
         return dialog_ok;
@@ -146,6 +151,35 @@ public class NewGameDialog extends javax.swing.JDialog {
         pack();
 
         init = true;
+    }
+
+    private static ConcurrentLinkedQueue<String> loadServerHistory() {
+
+        ConcurrentLinkedQueue<String> history = new ConcurrentLinkedQueue<>();
+
+        if (!GameFrame.SERVER_HISTORY.isBlank()) {
+
+            history.addAll(Arrays.asList(GameFrame.SERVER_HISTORY.split("@")));
+        }
+
+        return history;
+    }
+
+    private String getServerHistoryString() {
+
+        if (!SERVER_HISTORY_QUEUE.isEmpty()) {
+
+            String ret = "";
+
+            for (String s : SERVER_HISTORY_QUEUE) {
+
+                ret += s + "@";
+            }
+
+            return ret.substring(0, ret.length() - 1);
+        } else {
+            return "";
+        }
     }
 
     /**
@@ -406,9 +440,9 @@ public class NewGameDialog extends javax.swing.JDialog {
         server_ip_textfield.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
         server_ip_textfield.setText("localhost");
         server_ip_textfield.setDoubleBuffered(true);
-        server_ip_textfield.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                server_ip_textfieldActionPerformed(evt);
+        server_ip_textfield.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                server_ip_textfieldKeyReleased(evt);
             }
         });
 
@@ -857,6 +891,15 @@ public class NewGameDialog extends javax.swing.JDialog {
                 } else {
 
                     Helpers.PROPERTIES.setProperty("server_ip", this.server_ip_textfield.getText().trim());
+
+                    if (SERVER_HISTORY_QUEUE.contains(this.server_ip_textfield.getText().trim() + ":" + this.server_port_textfield.getText().trim())) {
+
+                        SERVER_HISTORY_QUEUE.remove(this.server_ip_textfield.getText().trim() + ":" + this.server_port_textfield.getText().trim());
+                    }
+
+                    SERVER_HISTORY_QUEUE.add(this.server_ip_textfield.getText().trim() + ":" + this.server_port_textfield.getText().trim());
+
+                    Helpers.PROPERTIES.setProperty("server_history", getServerHistoryString());
                 }
 
                 Helpers.PROPERTIES.setProperty(this.partida_local ? "local_port" : "server_port", this.server_port_textfield.getText().trim());
@@ -1140,11 +1183,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
     }//GEN-LAST:event_manos_checkboxItemStateChanged
 
-    private void server_ip_textfieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_server_ip_textfieldActionPerformed
-        // TODO add your handling code here:
-        vamos.doClick();
-    }//GEN-LAST:event_server_ip_textfieldActionPerformed
-
     private void server_port_textfieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_server_port_textfieldActionPerformed
         // TODO add your handling code here:
         vamos.doClick();
@@ -1174,6 +1212,39 @@ public class NewGameDialog extends javax.swing.JDialog {
             this.double_blinds_radio_manos.setSelected(true);
         }
     }//GEN-LAST:event_double_blinds_radio_manosActionPerformed
+
+    private void server_ip_textfieldKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_server_ip_textfieldKeyReleased
+        // TODO add your handling code here:
+
+        if (!SERVER_HISTORY_QUEUE.isEmpty()) {
+
+            if (evt.getKeyCode() == KeyEvent.VK_UP && conta_history <= SERVER_HISTORY_QUEUE.size() - 2) {
+
+                conta_history++;
+
+                String[] history = SERVER_HISTORY_QUEUE.toArray(new String[SERVER_HISTORY_QUEUE.size()]);
+
+                String[] parts = history[conta_history].split(":");
+
+                server_ip_textfield.setText(parts[0]);
+
+                server_port_textfield.setText(parts[1]);
+
+            } else if (evt.getKeyCode() == KeyEvent.VK_DOWN && conta_history >= 1) {
+
+                conta_history--;
+
+                String[] history = SERVER_HISTORY_QUEUE.toArray(new String[SERVER_HISTORY_QUEUE.size()]);
+
+                String[] parts = history[conta_history].split(":");
+
+                server_ip_textfield.setText(parts[0]);
+
+                server_port_textfield.setText(parts[1]);
+            }
+
+        }
+    }//GEN-LAST:event_server_ip_textfieldKeyReleased
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;

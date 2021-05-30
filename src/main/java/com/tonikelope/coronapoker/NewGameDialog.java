@@ -44,6 +44,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.AbstractDocument;
+import javax.swing.text.BadLocationException;
 
 /**
  *
@@ -440,6 +441,11 @@ public class NewGameDialog extends javax.swing.JDialog {
         server_ip_textfield.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
         server_ip_textfield.setText("localhost");
         server_ip_textfield.setDoubleBuffered(true);
+        server_ip_textfield.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                server_ip_textfieldActionPerformed(evt);
+            }
+        });
         server_ip_textfield.addKeyListener(new java.awt.event.KeyAdapter() {
             public void keyReleased(java.awt.event.KeyEvent evt) {
                 server_ip_textfieldKeyReleased(evt);
@@ -1228,7 +1234,12 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 server_ip_textfield.setText(parts[0]);
 
-                server_port_textfield.setText(parts[1]);
+                try {
+                    ((AbstractDocument) server_port_textfield.getDocument()).remove(0, ((AbstractDocument) server_port_textfield.getDocument()).getLength());
+                    ((AbstractDocument) server_port_textfield.getDocument()).insertString(0, parts[1], null);
+                } catch (BadLocationException ex) {
+                    Logger.getLogger(NewGameDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
 
             } else if (evt.getKeyCode() == KeyEvent.VK_DOWN && conta_history >= 1) {
 
@@ -1240,11 +1251,21 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 server_ip_textfield.setText(parts[0]);
 
-                server_port_textfield.setText(parts[1]);
+                try {
+                    ((AbstractDocument) server_port_textfield.getDocument()).remove(0, ((AbstractDocument) server_port_textfield.getDocument()).getLength());
+                    ((AbstractDocument) server_port_textfield.getDocument()).insertString(0, parts[1], null);
+                } catch (BadLocationException ex) {
+                    Logger.getLogger(NewGameDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
 
         }
     }//GEN-LAST:event_server_ip_textfieldKeyReleased
+
+    private void server_ip_textfieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_server_ip_textfieldActionPerformed
+        // TODO add your handling code here:
+        vamos.doClick();
+    }//GEN-LAST:event_server_ip_textfieldActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;

@@ -704,6 +704,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             visor.setLocationRelativeTo(visor.getParent());
 
             visor.setVisible(true);
+
         }
     }//GEN-LAST:event_card_imageMouseClicked
 

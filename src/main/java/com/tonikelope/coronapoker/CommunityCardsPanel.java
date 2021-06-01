@@ -615,9 +615,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         int pause_now = -2;
 
-        if (!(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && (GameFrame.getInstance().isPartida_local() || (GameFrame.getInstance().getCrupier().isShow_time() && !GameFrame.getInstance().getCrupier().isShowtime_pause())) && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
+        if (!GameFrame.getInstance().getCrupier().isIwtsth() && !(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && (GameFrame.getInstance().isPartida_local() || (GameFrame.getInstance().getCrupier().isShow_time() && !GameFrame.getInstance().getCrupier().isShowtime_pause())) && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
 
             pause_now = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿PAUSAR AHORA MISMO?");
+
+        } else if (GameFrame.getInstance().getCrupier().isIwtsth()) {
+
+            pause_now = 0;
         }
 
         if (pause_now < 1 && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && ((!GameFrame.getInstance().isPartida_local() && (pause_now == 0 || (GameFrame.getInstance().getCrupier().isShowtime_pause() && GameFrame.getInstance().isTimba_pausada()))) || (GameFrame.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (GameFrame.getInstance().isPartida_local() && ((GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) || GameFrame.getInstance().isTimba_pausada() || pause_now == 0 || GameFrame.getInstance().getLocalPlayer().isSpectator())))) {

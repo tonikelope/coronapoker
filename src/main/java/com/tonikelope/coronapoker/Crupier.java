@@ -186,6 +186,7 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 10000;
+    public static final int MAX_IWTSTH = 2;
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -203,6 +204,7 @@ public class Crupier implements Runnable {
     private final Object permutation_key_lock = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedQueue<Player> flop_players = new ConcurrentLinkedQueue<>();
 
     private volatile int conta_mano = 0;
     private volatile int conta_accion = 0;
@@ -255,6 +257,17 @@ public class Crupier implements Runnable {
     private volatile Float beneficio_bote_principal = null;
     private volatile Integer[] permutacion_recuperada = null;
     private volatile boolean showtime_pause = false;
+    private volatile int conta_iwtsth = 0;
+    private volatile boolean iwtsth = false;
+    private volatile boolean iwtsthing = false;
+
+    public boolean isIwtsthing() {
+        return iwtsthing;
+    }
+
+    public boolean isIwtsth() {
+        return iwtsth;
+    }
 
     public boolean isShowtime_pause() {
         return showtime_pause;
@@ -1297,7 +1310,7 @@ public class Crupier implements Runnable {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
-                if (jugador != GameFrame.getInstance().getLocalPlayer()) {
+                if (jugador != GameFrame.getInstance().getLocalPlayer() && jugador.getPlayingCard1().isTapada()) {
 
                     jugador.destaparCartas(true);
 
@@ -1330,9 +1343,11 @@ public class Crupier implements Runnable {
                     sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);
 
                     sqlUpdateShowdownHand(jugador, jugada);
-                }
 
-                setTiempo_pausa(GameFrame.TEST_MODE ? GameFrame.PAUSA_ENTRE_MANOS_TEST : GameFrame.PAUSA_ENTRE_MANOS);
+                    setTiempo_pausa(GameFrame.TEST_MODE ? GameFrame.PAUSA_ENTRE_MANOS_TEST : GameFrame.PAUSA_ENTRE_MANOS);
+                } else if (jugador == GameFrame.getInstance().getLocalPlayer()) {
+                    setTiempo_pausa(GameFrame.TEST_MODE ? GameFrame.PAUSA_ENTRE_MANOS_TEST : GameFrame.PAUSA_ENTRE_MANOS);
+                }
 
             }
         }
@@ -1354,45 +1369,49 @@ public class Crupier implements Runnable {
 
                 Player jugador = nick2player.get(nick);
 
-                String[] carta1_partes = carta1.split("_");
-                String[] carta2_partes = carta2.split("_");
+                if (jugador.getPlayingCard1().isTapada()) {
 
-                jugador.getPlayingCard1().actualizarValorPalo(carta1_partes[0], carta1_partes[1]);
-                jugador.getPlayingCard2().actualizarValorPalo(carta2_partes[0], carta2_partes[1]);
+                    String[] carta1_partes = carta1.split("_");
+                    String[] carta2_partes = carta2.split("_");
 
-                jugador.destaparCartas(true);
+                    jugador.getPlayingCard1().actualizarValorPalo(carta1_partes[0], carta1_partes[1]);
+                    jugador.getPlayingCard2().actualizarValorPalo(carta2_partes[0], carta2_partes[1]);
 
-                ArrayList<Card> cartas = new ArrayList<>();
+                    jugador.destaparCartas(true);
 
-                cartas.add(jugador.getPlayingCard1());
-                cartas.add(jugador.getPlayingCard2());
+                    ArrayList<Card> cartas = new ArrayList<>();
 
-                String lascartas = Card.collection2String(cartas);
+                    cartas.add(jugador.getPlayingCard1());
+                    cartas.add(jugador.getPlayingCard2());
 
-                for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+                    String lascartas = Card.collection2String(cartas);
 
-                    if (!carta_comun.isTapada()) {
-                        cartas.add(carta_comun);
+                    for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+
+                        if (!carta_comun.isTapada()) {
+                            cartas.add(carta_comun);
+                        }
                     }
+
+                    Hand jugada = new Hand(cartas);
+
+                    jugador.showCards(jugada.getName());
+
+                    if (GameFrame.SONIDOS_CHORRA && jugador.getDecision() == Player.FOLD) {
+                        Helpers.playWavResource("misc/showyourcards.wav", true);
+                    }
+
+                    if (!perdedores.containsKey(jugador)) {
+                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
+                    }
+
+                    sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);
+
+                    sqlUpdateShowdownHand(jugador, jugada);
+
+                    setTiempo_pausa(GameFrame.TEST_MODE ? GameFrame.PAUSA_ENTRE_MANOS_TEST : GameFrame.PAUSA_ENTRE_MANOS);
+
                 }
-
-                Hand jugada = new Hand(cartas);
-
-                jugador.showCards(jugada.getName());
-
-                if (GameFrame.SONIDOS_CHORRA && jugador.getDecision() == Player.FOLD) {
-                    Helpers.playWavResource("misc/showyourcards.wav", true);
-                }
-
-                if (!perdedores.containsKey(jugador)) {
-                    GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
-                }
-
-                sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);
-
-                sqlUpdateShowdownHand(jugador, jugada);
-
-                setTiempo_pausa(GameFrame.TEST_MODE ? GameFrame.PAUSA_ENTRE_MANOS_TEST : GameFrame.PAUSA_ENTRE_MANOS);
             }
 
         }
@@ -2128,6 +2147,122 @@ public class Crupier implements Runnable {
 
     }
 
+    public void IWTSTH(String iwtsther) {
+
+        if (isIwtsthEnabled() && !iwtsth) {
+
+            iwtsthing = true;
+
+            iwtsth = true;
+
+            conta_iwtsth++;
+
+            Helpers.threadRun(new Runnable() {
+
+                public void run() {
+
+                    synchronized (lock_mostrar) {
+
+                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")));
+
+                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+
+                        if (GameFrame.CINEMATICAS) {
+
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                public void run() {
+
+                                    gif_dialog.setVisible(true);
+                                }
+                            });
+                        }
+
+                        Helpers.pausar(500);
+
+                        Helpers.playWavResource("misc/iwtsth.wav");
+
+                        Helpers.pausar(2000);
+
+                        if (gif_dialog.isVisible()) {
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                public void run() {
+
+                                    gif_dialog.setVisible(false);
+
+                                }
+                            });
+                        }
+
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+
+                                if (!GameFrame.getInstance().isTimba_pausada()) {
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+                                }
+
+                            }
+                        });
+
+                        for (Player j : GameFrame.getInstance().getJugadores()) {
+
+                            if (GameFrame.getInstance().getLocalPlayer() != j) {
+
+                                RemotePlayer rp = (RemotePlayer) j;
+
+                                if (rp.isIwtsthCandidate()) {
+
+                                    rp.destaparCartas(true);
+
+                                    ArrayList<Card> cartas = new ArrayList<>();
+
+                                    cartas.add(rp.getPlayingCard1());
+                                    cartas.add(rp.getPlayingCard2());
+
+                                    String lascartas = Card.collection2String(cartas);
+
+                                    for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+
+                                        if (!carta_comun.isTapada()) {
+                                            cartas.add(carta_comun);
+                                        }
+                                    }
+
+                                    Hand jugada = new Hand(cartas);
+
+                                    rp.showCards(jugada.getName());
+
+                                    GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + rp.getNickname() + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
+
+                                    sqlNewShowcards(rp.getNickname(), rp.getDecision() == Player.FOLD);
+
+                                    sqlUpdateShowdownHand(rp, jugada);
+
+                                }
+
+                            }
+                        }
+
+                        iwtsthing = false;
+                    }
+                }
+            });
+
+        } else {
+
+            Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "LA REGLA \"IWTSTH\" NO ES UN DERECHO, ES UN PRIVILEGIO.\n(Habla con el encargado si piensas que ESTÁ TOTALMENTE JUSTIFICADO volver a utilizarla)");
+        }
+
+    }
+
+    public int getConta_iwtsth() {
+        return conta_iwtsth;
+    }
+
+    public boolean isIwtsthEnabled() {
+
+        return conta_iwtsth < MAX_IWTSTH && flop_players.contains(GameFrame.getInstance().getLocalPlayer());
+    }
+
     private boolean NUEVA_MANO() {
 
         Helpers.GUIRun(new Runnable() {
@@ -2149,6 +2284,8 @@ public class Crupier implements Runnable {
         });
 
         readyForNextHand();
+
+        this.iwtsth = false;
 
         this.sqlite_id_hand = -1;
 
@@ -3970,6 +4107,10 @@ public class Crupier implements Runnable {
 
                 switch (fase) {
                     case FLOP:
+
+                        flop_players.clear();
+
+                        flop_players.addAll(resisten);
                         comando = "FLOPCARDS#" + GameFrame.getInstance().getCartas_comunes()[0].toShortString() + "#" + GameFrame.getInstance().getCartas_comunes()[1].toShortString() + "#" + GameFrame.getInstance().getCartas_comunes()[2].toShortString();
 
                         Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop1().getValorNumerico() - 2, Bot.getCardSuit(GameFrame.getInstance().getFlop1())));
@@ -4001,6 +4142,11 @@ public class Crupier implements Runnable {
 
                 switch (fase) {
                     case FLOP:
+
+                        flop_players.clear();
+
+                        flop_players.addAll(resisten);
+
                         cartas = recibirFlop();
 
                         for (int i = 0; i < 3; i++) {
@@ -5862,7 +6008,7 @@ public class Crupier implements Runnable {
                 try {
                     lock_tiempo_pausa_barra.wait(1000);
 
-                    if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()) {
+                    if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision() && !isIwtsthing()) {
 
                         this.tiempo_pausa--;
 

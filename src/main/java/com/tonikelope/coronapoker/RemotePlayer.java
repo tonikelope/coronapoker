@@ -57,6 +57,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean spectator_bb = false;
     private volatile Color border_color = null;
     private volatile boolean player_stack_click = false;
+    private volatile String iwtsth_action_text = null;
 
     public boolean isTimeout() {
         return timeout;
@@ -835,10 +836,22 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_action.setText("ESCALERA DE COLOR");
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
+        player_action.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
         player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.getZoom_level() * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP())), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.getZoom_level() * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP()))));
         player_action.setOpaque(true);
+        player_action.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                player_actionMouseClicked(evt);
+            }
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                player_actionMouseEntered(evt);
+            }
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                player_actionMouseExited(evt);
+            }
+        });
 
         danger.setBackground(new java.awt.Color(255, 0, 0));
         danger.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
@@ -961,6 +974,32 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }//GEN-LAST:event_player_stackMouseClicked
 
+    private void player_actionMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseEntered
+        // TODO add your handling code here:
+        if (isIwtsthCandidate()) {
+            iwtsth_action_text = player_action.getText();
+            player_action.setText("IWTSTH (" + String.valueOf(Crupier.MAX_IWTSTH - GameFrame.getInstance().getCrupier().getConta_iwtsth()) + ")");
+        }
+    }//GEN-LAST:event_player_actionMouseEntered
+
+    private void player_actionMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseExited
+        // TODO add your handling code here:
+        if (iwtsth_action_text != null) {
+
+            player_action.setText(iwtsth_action_text);
+
+            iwtsth_action_text = null;
+        }
+    }//GEN-LAST:event_player_actionMouseExited
+
+    private void player_actionMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseClicked
+        // TODO add your handling code here:
+
+        if (isIwtsthCandidate()) {
+            GameFrame.getInstance().getCrupier().IWTSTH(GameFrame.getInstance().getLocalPlayer().getNickname());
+        }
+    }//GEN-LAST:event_player_actionMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;
     private javax.swing.JPanel avatar_panel;
@@ -977,6 +1016,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel timeout_icon;
     private javax.swing.JLabel utg_icon;
     // End of variables declaration//GEN-END:variables
+
+    public boolean isIwtsthCandidate() {
+        return isActivo() && getPlayingCard1().isVisible_card() && getPlayingCard1().isTapada() && getPlayingCard1().isDesenfocada();
+    }
 
     @Override
     public void zoom(float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {

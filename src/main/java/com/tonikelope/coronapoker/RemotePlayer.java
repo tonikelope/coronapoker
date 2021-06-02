@@ -836,7 +836,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_action.setText("ESCALERA DE COLOR");
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
-        player_action.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        player_action.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
         player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.getZoom_level() * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP())), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.getZoom_level() * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP()))));
@@ -976,27 +976,34 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_actionMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseEntered
         // TODO add your handling code here:
-        if (isIwtsthCandidate()) {
+        if (isIwtsthCandidate() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
             iwtsth_action_text = player_action.getText();
+            player_action.setCursor(new Cursor(Cursor.HAND_CURSOR));
             player_action.setText("IWTSTH (" + String.valueOf(Crupier.MAX_IWTSTH - GameFrame.getInstance().getCrupier().getConta_iwtsth()) + ")");
+            player_action.setBackground(Color.WHITE);
+            player_action.setForeground(Color.RED);
         }
     }//GEN-LAST:event_player_actionMouseEntered
 
     private void player_actionMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseExited
         // TODO add your handling code here:
         if (iwtsth_action_text != null) {
-
             player_action.setText(iwtsth_action_text);
-
+            player_action.setBackground(Color.RED);
+            player_action.setForeground(Color.WHITE);
             iwtsth_action_text = null;
         }
+
+        player_action.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
     }//GEN-LAST:event_player_actionMouseExited
 
     private void player_actionMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseClicked
         // TODO add your handling code here:
 
-        if (isIwtsthCandidate()) {
-            GameFrame.getInstance().getCrupier().IWTSTH(GameFrame.getInstance().getLocalPlayer().getNickname());
+        if (isIwtsthCandidate() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
+
+            GameFrame.getInstance().getCrupier().IWTSTH_REQUEST(GameFrame.getInstance().getLocalPlayer().getNickname());
+
         }
     }//GEN-LAST:event_player_actionMouseClicked
 

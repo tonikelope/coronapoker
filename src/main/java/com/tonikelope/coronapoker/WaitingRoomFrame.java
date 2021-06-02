@@ -1195,6 +1195,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                     case "PING":
                                                         break;
 
+                                                    case "IWTSTH":
+
+                                                        GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+
+                                                        break;
+
                                                     case "TIMEOUT":
 
                                                         Player jugador = GameFrame.getInstance().getCrupier().getNick2player().get(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));

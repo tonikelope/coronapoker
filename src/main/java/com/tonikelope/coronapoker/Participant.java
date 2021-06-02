@@ -573,6 +573,10 @@ public class Participant implements Runnable {
 
                                             break;
 
+                                        case "IWTSTH":
+                                            GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(nick);
+                                            break;
+
                                         case "REBUYNOW":
                                             GameFrame.getInstance().getCrupier().rebuyNow(nick, Integer.parseInt(partes_comando[3]));
                                             break;

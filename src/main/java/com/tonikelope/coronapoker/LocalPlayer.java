@@ -77,6 +77,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Color border_color = null;
     private volatile boolean player_stack_click = false;
 
+    public boolean isBotonMostrarActivado() {
+        return getPlayer_allin_button().isEnabled() && isBoton_mostrar();
+    }
+
     public boolean isTimeout() {
         return timeout;
     }

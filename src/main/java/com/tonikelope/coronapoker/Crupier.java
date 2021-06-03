@@ -186,18 +186,19 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 10000;
-    public static final int MAX_IWTSTH = 2;
+    public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones_locales_recuperadas = new ConcurrentLinkedQueue<>();
     private final ConcurrentHashMap<String, Integer> rebuy_now = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
     private final HashMap<String, Float[]> auditor = new HashMap<>();
     private final Object lock_apuestas = new Object();
     private final Object lock_contabilidad = new Object();
     private final Object lock_cinematics = new Object();
     private final Object lock_mostrar = new Object();
-    private final Object lock_iwtsth = new Object();
+    private final Object iwtsth_lock = new Object();
     private final Object lock_last_hand = new Object();
     private final Object lock_nueva_mano = new Object();
     private final Object lock_rebuynow = new Object();
@@ -257,9 +258,9 @@ public class Crupier implements Runnable {
     private volatile int tot_acciones_recuperadas = 0;
     private volatile Float beneficio_bote_principal = null;
     private volatile Integer[] permutacion_recuperada = null;
-    private volatile int conta_iwtsth = 0;
     private volatile boolean iwtsth = false;
     private volatile boolean iwtsthing = false;
+    private volatile Long last_iwtsth_rejected = null;
 
     public boolean isIwtsthing() {
         return iwtsthing;
@@ -2147,11 +2148,21 @@ public class Crupier implements Runnable {
 
             public void run() {
 
-                synchronized (lock_iwtsth) {
+                synchronized (iwtsth_lock) {
 
                     if (!iwtsth) {
 
                         iwtsth = true;
+
+                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && GameFrame.getInstance().getLocalPlayer().isLoser()) {
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                public void run() {
+
+                                    GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
+
+                                }
+                            });
+                        }
 
                         if (GameFrame.getInstance().isPartida_local()) {
 
@@ -2163,109 +2174,67 @@ public class Crupier implements Runnable {
 
                         }
 
-                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && GameFrame.getInstance().getLocalPlayer().isLoser()) {
-                            Helpers.GUIRun(new Runnable() {
+                        if (GameFrame.CINEMATICAS) {
+
+                            GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")));
+
+                            gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                public void run() {
+                                    gif_dialog.setVisible(true);
+                                }
+                            });
+
+                            Helpers.pausar(500);
+
+                            Helpers.playWavResource("misc/iwtsth.wav");
+
+                            Helpers.pausar(2000);
+
+                            Helpers.GUIRunAndWait(new Runnable() {
                                 public void run() {
 
-                                    GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().doClick();
+                                    gif_dialog.setVisible(false);
 
                                 }
                             });
+
+                        } else {
+                            Helpers.playWavResource("misc/iwtsth.wav");
                         }
 
-                        synchronized (lock_mostrar) {
+                        if (iwtsth_requests.containsKey(iwtsther)) {
+                            iwtsth_requests.put(iwtsther, (int) iwtsth_requests.get(iwtsther) + 1);
+                        } else {
+                            iwtsth_requests.put(iwtsther, 1);
+                        }
 
-                            if (GameFrame.CINEMATICAS) {
+                        int conta_iwtsth = (int) iwtsth_requests.get(iwtsther);
 
-                                GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")));
+                        GameFrame.getInstance().getRegistro().print(iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + ")");
 
-                                gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                        if (GameFrame.getInstance().isPartida_local()) {
 
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-                                        gif_dialog.setVisible(true);
-                                    }
-                                });
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                public void run() {
 
-                                Helpers.pausar(500);
-
-                                Helpers.playWavResource("misc/iwtsth.wav");
-
-                                Helpers.pausar(2000);
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-
-                                        gif_dialog.setVisible(false);
-
-                                    }
-                                });
-
-                            } else {
-                                Helpers.playWavResource("misc/iwtsth.wav");
-                            }
-
-                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther)) {
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-
-                                        if (!GameFrame.getInstance().isTimba_pausada()) {
-                                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
-                                        }
-
-                                    }
-                                });
-                            }
-
-                            for (Player j : GameFrame.getInstance().getJugadores()) {
-
-                                if (GameFrame.getInstance().getLocalPlayer() != j) {
-
-                                    RemotePlayer rp = (RemotePlayer) j;
-
-                                    if (rp.isIwtsthCandidate()) {
-
-                                        rp.destaparCartas(true);
-
-                                        ArrayList<Card> cartas = new ArrayList<>();
-
-                                        cartas.add(rp.getPlayingCard1());
-                                        cartas.add(rp.getPlayingCard2());
-
-                                        String lascartas = Card.collection2String(cartas);
-
-                                        for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
-
-                                            if (!carta_comun.isTapada()) {
-                                                cartas.add(carta_comun);
-                                            }
-                                        }
-
-                                        Hand jugada = new Hand(cartas);
-
-                                        rp.showCards(jugada.getName());
-
-                                        GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + rp.getNickname() + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
-
-                                        sqlNewShowcards(rp.getNickname(), rp.getDecision() == Player.FOLD);
-
-                                        sqlUpdateShowdownHand(rp, jugada);
-
+                                    if (!GameFrame.getInstance().isTimba_pausada()) {
+                                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
                                     }
 
                                 }
+                            });
+
+                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + Translator.translate(") ¿AUTORIZAMOS?")) == 0) {
+                                IWTSTH_SHOW(iwtsther, true);
+                            } else {
+                                IWTSTH_SHOW(iwtsther, false);
                             }
-
+                        } else {
+                            Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + ")");
                         }
-
-                        if (!GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther)) {
-                            Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), iwtsther + " HA USADO LA REGLA IWTSTH");
-                        }
-
                     }
-
-                    iwtsthing = false;
 
                 }
             }
@@ -2273,47 +2242,110 @@ public class Crupier implements Runnable {
 
     }
 
+    public void IWTSTH_SHOW(String iwtsther, boolean authorized) {
+
+        if (GameFrame.getInstance().isPartida_local()) {
+
+            try {
+                broadcastGAMECommandFromServer("IWTSTHSHOW#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")) + "#" + String.valueOf(authorized), iwtsther);
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
+
+        if (authorized) {
+
+            synchronized (lock_mostrar) {
+
+                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isLoser()) {
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
+                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().doClick();
+
+                        }
+                    });
+                }
+
+                for (Player j : GameFrame.getInstance().getJugadores()) {
+
+                    if (GameFrame.getInstance().getLocalPlayer() != j) {
+
+                        RemotePlayer rp = (RemotePlayer) j;
+
+                        if (rp.isIwtsthCandidate()) {
+
+                            rp.destaparCartas(true);
+
+                            ArrayList<Card> cartas = new ArrayList<>();
+
+                            cartas.add(rp.getPlayingCard1());
+                            cartas.add(rp.getPlayingCard2());
+
+                            String lascartas = Card.collection2String(cartas);
+
+                            for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+
+                                if (!carta_comun.isTapada()) {
+                                    cartas.add(carta_comun);
+                                }
+                            }
+
+                            Hand jugada = new Hand(cartas);
+
+                            rp.showCards(jugada.getName());
+
+                            GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + rp.getNickname() + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
+
+                            sqlNewShowcards(rp.getNickname(), rp.getDecision() == Player.FOLD);
+
+                            sqlUpdateShowdownHand(rp, jugada);
+
+                        }
+
+                    }
+                }
+
+            }
+
+        } else if (GameFrame.getInstance().getLocalPlayer().equals(iwtsther)) {
+
+            this.last_iwtsth_rejected = System.currentTimeMillis();
+
+            GameFrame.getInstance().getRegistro().print("EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH");
+
+            Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH");
+
+        } else {
+
+            GameFrame.getInstance().getRegistro().print(Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+
+            Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+        }
+
+        iwtsth = true;
+
+        iwtsthing = false;
+
+    }
+
     public void IWTSTH_REQUEST(String iwtsther) {
 
         iwtsthing = true;
 
-        if (isIWTSTH4LocalPlayerAuthorized()) {
+        if (!GameFrame.getInstance().isPartida_local()) {
 
-            conta_iwtsth++;
+            this.sendGAMECommandToServer("IWTSTH");
 
-            if (!GameFrame.getInstance().isPartida_local()) {
-
-                this.sendGAMECommandToServer("IWTSTH");
-            }
-
-            IWTSTH_HANDLER(iwtsther);
-
-        } else {
-
-            Helpers.GUIRunAndWait(new Runnable() {
-                public void run() {
-
-                    if (!GameFrame.getInstance().isTimba_pausada()) {
-                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
-                    }
-
-                }
-            });
-
-            Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "LA REGLA \"IWTSTH\" NO ES UN DERECHO, ES UN PRIVILEGIO (PARA INTENTAR DEMOSTRAR UNA PRESUNTA COLUSIÓN)\nSU USO PARA OBTENER INFORMACIÓN SOBRE EL ESTILO DE JUEGO DEL RESTO DE JUGADORES NO ESTÁ PERMITIDO Y SE \nCONSIDERA UN USO ABUSIVO\n\n(Habla con el encargado si piensas que ESTÁ TOTALMENTE JUSTIFICADO volver a utilizarla)");
-
-            iwtsthing = false;
         }
 
-    }
-
-    public int getConta_iwtsth() {
-        return conta_iwtsth;
+        IWTSTH_HANDLER(iwtsther);
     }
 
     public boolean isIWTSTH4LocalPlayerAuthorized() {
 
-        return conta_iwtsth < MAX_IWTSTH && flop_players.contains(GameFrame.getInstance().getLocalPlayer());
+        return (flop_players.contains(GameFrame.getInstance().getLocalPlayer()) && (this.last_iwtsth_rejected == null || System.currentTimeMillis() - this.last_iwtsth_rejected > IWTSTH_ANTI_FLOOD_TIME));
     }
 
     private boolean NUEVA_MANO() {

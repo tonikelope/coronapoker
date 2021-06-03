@@ -976,10 +976,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_actionMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseEntered
         // TODO add your handling code here:
-        if (isIwtsthCandidate() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
+        if (isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
             iwtsth_action_text = player_action.getText();
             player_action.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            player_action.setText("IWTSTH (" + String.valueOf(Crupier.MAX_IWTSTH - GameFrame.getInstance().getCrupier().getConta_iwtsth()) + ")");
+            player_action.setText("IWTSTH");
             player_action.setBackground(Color.WHITE);
             player_action.setForeground(Color.RED);
         }
@@ -1000,7 +1000,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void player_actionMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseClicked
         // TODO add your handling code here:
 
-        if (isIwtsthCandidate() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
+        if (isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
 
             GameFrame.getInstance().getCrupier().IWTSTH_REQUEST(GameFrame.getInstance().getLocalPlayer().getNickname());
 

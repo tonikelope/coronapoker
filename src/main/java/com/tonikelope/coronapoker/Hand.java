@@ -43,9 +43,9 @@ public class Hand {
     public static final int ESCALERA_COLOR = 9;
     public static final int ESCALERA_COLOR_REAL = 10;
 
-    public static int getHandValue(String name) {
+    public static int handNAME2HandVal(String name) {
 
-        int i = 0;
+        int i = 1;
 
         for (String s : NOMBRES_JUGADAS) {
 

@@ -22,6 +22,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"TIENES QUE ESPERAR ", "YOU MUST WAIT "},
+            {" PARA VOLVER A SOLICITAR IWTSTH", " TO REQUEST IWTSTH AGAIN"},
             {"EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ", "THE SERVER HAS DENIED THE IWTSTH REQUEST FROM "},
             {"EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH", "THE SERVER HAS DENIED YOUR IWTSTH REQUEST"},
             {") ¿AUTORIZAMOS?", ") WE AUTHORIZE?"},

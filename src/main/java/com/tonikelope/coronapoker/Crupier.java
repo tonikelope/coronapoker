@@ -2410,14 +2410,6 @@ public class Crupier implements Runnable {
 
             if (!GameFrame.getInstance().isPartida_local()) {
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-
-                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(false);
-
-                    }
-                });
-
                 this.sendGAMECommandToServer("IWTSTH");
 
             } else {
@@ -2451,10 +2443,6 @@ public class Crupier implements Runnable {
                 if (!GameFrame.getInstance().isPartida_local()) {
                     GameFrame.getInstance().getExit_menu().setEnabled(false);
                     Helpers.TapetePopupMenu.EXIT_MENU.setEnabled(false);
-
-                    if (iwtsthing_request && !iwtsthing) {
-                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
-                    }
                 }
             }
         });

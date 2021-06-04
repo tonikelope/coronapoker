@@ -976,7 +976,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_actionMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseEntered
         // TODO add your handling code here:
-        if (isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
+        if (isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsthing_request() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
             iwtsth_action_text = player_action.getText();
             player_action.setCursor(new Cursor(Cursor.HAND_CURSOR));
             player_action.setText("IWTSTH");
@@ -987,7 +987,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_actionMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseExited
         // TODO add your handling code here:
-        if (iwtsth_action_text != null && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
+        if (iwtsth_action_text != null && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsthing_request() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
             player_action.setText(iwtsth_action_text);
             player_action.setBackground(Color.RED);
             player_action.setForeground(Color.WHITE);
@@ -1000,7 +1000,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void player_actionMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseClicked
         // TODO add your handling code here:
 
-        if (isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
+        if (isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsthing_request() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
 
             player_actionMouseExited(evt);
             GameFrame.getInstance().getCrupier().IWTSTH_REQUEST(GameFrame.getInstance().getLocalPlayer().getNickname());

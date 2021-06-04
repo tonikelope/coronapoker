@@ -2156,7 +2156,7 @@ public class Crupier implements Runnable {
                         if (GameFrame.getInstance().isPartida_local()) {
 
                             try {
-                                broadcastGAMECommandFromServer("IWTSTH#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")), iwtsther);
+                                broadcastGAMECommandFromServer("IWTSTH#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")), null);
                             } catch (UnsupportedEncodingException ex) {
                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
@@ -2356,7 +2356,7 @@ public class Crupier implements Runnable {
         }
 
         if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
-            Helpers.GUIRunAndWait(new Runnable() {
+            Helpers.GUIRun(new Runnable() {
                 public void run() {
 
                     GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
@@ -2364,6 +2364,24 @@ public class Crupier implements Runnable {
                 }
             });
         }
+
+        if (!GameFrame.getInstance().isPartida_local()) {
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
+
+                }
+            });
+        }
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+
+                GameFrame.getInstance().getTapete().getCommunityCards().getBarra_tiempo().setIndeterminate(false);
+
+            }
+        });
 
         iwtsth = true;
 
@@ -2377,13 +2395,29 @@ public class Crupier implements Runnable {
 
             iwtsthing = true;
 
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+
+                    GameFrame.getInstance().getTapete().getCommunityCards().getBarra_tiempo().setIndeterminate(true);
+
+                }
+            });
+
             if (!GameFrame.getInstance().isPartida_local()) {
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+
+                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(false);
+
+                    }
+                });
 
                 this.sendGAMECommandToServer("IWTSTH");
 
+            } else {
+                IWTSTH_HANDLER(iwtsther);
             }
-
-            IWTSTH_HANDLER(iwtsther);
 
         } else {
             Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("TIENES QUE ESPERAR ") + Helpers.seconds2FullTime(Math.round(((float) (IWTSTH_ANTI_FLOOD_TIME - (System.currentTimeMillis() - this.last_iwtsth_rejected))) / 1000)) + Translator.translate(" PARA VOLVER A SOLICITAR IWTSTH"));

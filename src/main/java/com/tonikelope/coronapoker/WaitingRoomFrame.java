@@ -1197,13 +1197,21 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                     case "IWTSTH":
 
-                                                        GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                        if (!GameFrame.getInstance().getCrupier().isIwtsthing()) {
+
+                                                            GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+
+                                                        }
 
                                                         break;
 
                                                     case "IWTSTHSHOW":
 
-                                                        GameFrame.getInstance().getCrupier().IWTSTH_SHOW(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Boolean.parseBoolean(partes_comando[4]));
+                                                        if (GameFrame.getInstance().getCrupier().isIwtsthing()) {
+
+                                                            GameFrame.getInstance().getCrupier().IWTSTH_SHOW(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Boolean.parseBoolean(partes_comando[4]));
+
+                                                        }
 
                                                         break;
 

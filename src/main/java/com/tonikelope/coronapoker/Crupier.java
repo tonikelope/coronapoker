@@ -156,17 +156,6 @@ public class Crupier implements Runnable {
 
     }
 
-    public static final int CARTA_ALTA = 1;
-    public static final int PAREJA = 2;
-    public static final int DOBLE_PAREJA = 3;
-    public static final int TRIO = 4;
-    public static final int ESCALERA = 5;
-    public static final int ESCALERA_REAL = 6;
-    public static final int COLOR = 7;
-    public static final int FULL = 8;
-    public static final int POKER = 9;
-    public static final int ESCALERA_COLOR = 10;
-    public static final int ESCALERA_COLOR_REAL = 11;
     public static final int CARTAS_MAX = 5;
     public static final int CARTAS_ESCALERA = 5;
     public static final int CARTAS_COLOR = 5;
@@ -6867,7 +6856,7 @@ public class Crupier implements Runnable {
 
     public HashMap<Player, Hand> calcularGanadores(HashMap<Player, Hand> candidatos) {
 
-        int jugada_max = CARTA_ALTA;
+        int jugada_max = Hand.CARTA_ALTA;
 
         //Averiguamos la jugada máxima entre todos los jugadores
         for (Map.Entry<Player, Hand> entry : candidatos.entrySet()) {
@@ -6895,20 +6884,20 @@ public class Crupier implements Runnable {
 
             //Si hay varios con la jugada máxima intentamos desempatar
             switch (jugada_max) {
-                case ESCALERA_COLOR:
-                case ESCALERA:
+                case Hand.ESCALERA_COLOR:
+                case Hand.ESCALERA:
                     return desempatarEscalera(candidatos);
-                case POKER:
+                case Hand.POKER:
                     return desempatarRepetidas(candidatos, CARTAS_POKER);
-                case FULL:
+                case Hand.FULL:
                     return desempatarFull(candidatos);
-                case COLOR:
+                case Hand.COLOR:
                     return desempatarCartaAlta(candidatos, 0);
-                case TRIO:
+                case Hand.TRIO:
                     return desempatarRepetidas(candidatos, CARTAS_TRIO);
-                case DOBLE_PAREJA:
+                case Hand.DOBLE_PAREJA:
                     return desempatarDoblePareja(candidatos);
-                case PAREJA:
+                case Hand.PAREJA:
                     return desempatarRepetidas(candidatos, CARTAS_PAREJA);
                 default:
                     return desempatarCartaAlta(candidatos, 0);

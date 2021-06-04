@@ -987,7 +987,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_actionMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseExited
         // TODO add your handling code here:
-        if (iwtsth_action_text != null) {
+        if (iwtsth_action_text != null && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
             player_action.setText(iwtsth_action_text);
             player_action.setBackground(Color.RED);
             player_action.setForeground(Color.WHITE);
@@ -1002,6 +1002,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsth()) {
 
+            player_actionMouseExited(evt);
             GameFrame.getInstance().getCrupier().IWTSTH_REQUEST(GameFrame.getInstance().getLocalPlayer().getNickname());
 
         }
@@ -1303,6 +1304,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
             reComprar((Integer) GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname));
         }
+
+        iwtsth_action_text = null;
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
@@ -1628,4 +1631,5 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void setSpectatorBB(boolean bb) {
         this.spectator_bb = bb;
     }
+
 }

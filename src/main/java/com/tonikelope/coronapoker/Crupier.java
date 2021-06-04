@@ -2393,8 +2393,6 @@ public class Crupier implements Runnable {
 
         if (this.last_iwtsth_rejected == null || System.currentTimeMillis() - this.last_iwtsth_rejected > IWTSTH_ANTI_FLOOD_TIME) {
 
-            iwtsthing = true;
-
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
@@ -2452,6 +2450,8 @@ public class Crupier implements Runnable {
         readyForNextHand();
 
         this.iwtsth = false;
+
+        this.iwtsthing = false;
 
         this.sqlite_id_hand = -1;
 

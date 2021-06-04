@@ -2143,6 +2143,16 @@ public class Crupier implements Runnable {
 
                         iwtsth = true;
 
+                        if (GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado()) {
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                public void run() {
+
+                                    GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
+
+                                }
+                            });
+                        }
+
                         if (GameFrame.getInstance().isPartida_local()) {
 
                             try {
@@ -2247,23 +2257,13 @@ public class Crupier implements Runnable {
 
             synchronized (lock_mostrar) {
 
-                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && GameFrame.getInstance().getLocalPlayer().isLoser()) {
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        public void run() {
-
-                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().doClick();
-
-                        }
-                    });
-                }
-
                 for (Player j : GameFrame.getInstance().getJugadores()) {
 
                     if (GameFrame.getInstance().getLocalPlayer() != j) {
 
                         RemotePlayer rp = (RemotePlayer) j;
 
-                        if (rp.isIwtsthCandidate()) {
+                        if (rp.isIwtsthCandidate() && !rp.getNickname().equals(iwtsther)) {
 
                             rp.destaparCartas(true);
 
@@ -2298,6 +2298,17 @@ public class Crupier implements Runnable {
 
             }
 
+            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+
+                        GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
+                        GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().doClick();
+
+                    }
+                });
+            }
+
         } else if (!GameFrame.getInstance().isPartida_local()) {
 
             if (GameFrame.getInstance().getLocalPlayer().equals(iwtsther)) {
@@ -2315,6 +2326,16 @@ public class Crupier implements Runnable {
                 Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
             }
 
+        }
+
+        if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
+            Helpers.GUIRunAndWait(new Runnable() {
+                public void run() {
+
+                    GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
+
+                }
+            });
         }
 
         iwtsth = true;

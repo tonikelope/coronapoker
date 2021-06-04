@@ -2219,19 +2219,18 @@ public class Crupier implements Runnable {
                                 IWTSTH_SHOW(iwtsther, true);
                             } else {
                                 IWTSTH_SHOW(iwtsther, false);
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-
-                                        if (GameFrame.getInstance().isTimba_pausada()) {
-                                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
-                                        }
-
-                                    }
-                                });
                             }
-                        } else {
-                            Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + ")");
+
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                public void run() {
+
+                                    if (GameFrame.getInstance().isTimba_pausada()) {
+                                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+                                    }
+
+                                }
+                            });
+
                         }
                     }
 
@@ -2296,36 +2295,64 @@ public class Crupier implements Runnable {
                     }
                 }
 
+                setTiempo_pausa(GameFrame.TEST_MODE ? GameFrame.PAUSA_ENTRE_MANOS_TEST : GameFrame.PAUSA_ENTRE_MANOS);
             }
 
-            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
+            if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
 
                         GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
-                        GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().doClick();
+
+                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isLoser()) {
+                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().doClick();
+                        }
 
                     }
                 });
             }
 
-        } else if (!GameFrame.getInstance().isPartida_local()) {
+        } else {
 
-            if (GameFrame.getInstance().getLocalPlayer().equals(iwtsther)) {
+            GameFrame.getInstance().getRegistro().print(Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
 
-                this.last_iwtsth_rejected = System.currentTimeMillis();
+            if (GameFrame.CINEMATICAS) {
 
-                GameFrame.getInstance().getRegistro().print("EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH");
+                GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_rejected.gif")));
 
-                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH");
+                gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
 
-            } else {
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+                        gif_dialog.setVisible(true);
+                    }
+                });
 
-                GameFrame.getInstance().getRegistro().print(Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+                Helpers.pausar(4800);
 
-                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+
+                        gif_dialog.setVisible(false);
+
+                    }
+                });
+
             }
 
+            if (!GameFrame.getInstance().isPartida_local()) {
+
+                if (GameFrame.getInstance().getLocalPlayer().equals(iwtsther)) {
+
+                    this.last_iwtsth_rejected = System.currentTimeMillis();
+
+                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH");
+
+                } else if (!GameFrame.CINEMATICAS) {
+
+                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+                }
+            }
         }
 
         if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {

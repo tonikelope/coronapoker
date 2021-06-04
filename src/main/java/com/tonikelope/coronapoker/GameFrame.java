@@ -58,7 +58,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int DEFAULT_ZOOM_LEVEL = -2;
     public static final float MIN_BIG_BLIND = 0.20f;
     public static final float ZOOM_STEP = 0.05f;
-    public static final int PAUSA_ENTRE_MANOS = 8; //Segundos
+    public static final int PAUSA_ENTRE_MANOS = 9; //Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
     public static final int TIEMPO_PENSAR = 35; //Segundos
@@ -591,7 +591,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             if (this.timba_pausada) {
                 this.nick_pause = user != null ? user : this.getNick_local();
-                Helpers.playWavResource("misc/pause.wav");
+
+                if (!GameFrame.getInstance().getCrupier().isIwtsthing()) {
+                    Helpers.playWavResource("misc/pause.wav");
+                }
             } else {
                 this.nick_pause = null;
             }

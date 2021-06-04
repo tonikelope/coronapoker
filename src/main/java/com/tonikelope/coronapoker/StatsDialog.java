@@ -283,7 +283,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADA")), true);
 
-                    tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.getHandValue(o1), Hand.getHandValue(o2)));
+                    tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.handNAME2HandVal(o1), Hand.handNAME2HandVal(o2)));
 
                     if (Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIMBA")) != -1) {
 
@@ -1040,7 +1040,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("JUGADA")), true);
 
-                    tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.getHandValue(o1), Hand.getHandValue(o2)));
+                    tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.handNAME2HandVal(o1), Hand.handNAME2HandVal(o2)));
 
                     showdown_table.setRowSorter(tableRowSorter);
 

@@ -156,17 +156,6 @@ public class Crupier implements Runnable {
 
     }
 
-    public static final int CARTA_ALTA = 1;
-    public static final int PAREJA = 2;
-    public static final int DOBLE_PAREJA = 3;
-    public static final int TRIO = 4;
-    public static final int ESCALERA = 5;
-    public static final int ESCALERA_REAL = 6;
-    public static final int COLOR = 7;
-    public static final int FULL = 8;
-    public static final int POKER = 9;
-    public static final int ESCALERA_COLOR = 10;
-    public static final int ESCALERA_COLOR_REAL = 11;
     public static final int CARTAS_MAX = 5;
     public static final int CARTAS_ESCALERA = 5;
     public static final int CARTAS_COLOR = 5;
@@ -2154,16 +2143,6 @@ public class Crupier implements Runnable {
 
                         iwtsth = true;
 
-                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && GameFrame.getInstance().getLocalPlayer().isLoser()) {
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                public void run() {
-
-                                    GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
-
-                                }
-                            });
-                        }
-
                         if (GameFrame.getInstance().isPartida_local()) {
 
                             try {
@@ -2230,6 +2209,16 @@ public class Crupier implements Runnable {
                                 IWTSTH_SHOW(iwtsther, true);
                             } else {
                                 IWTSTH_SHOW(iwtsther, false);
+
+                                Helpers.GUIRunAndWait(new Runnable() {
+                                    public void run() {
+
+                                        if (GameFrame.getInstance().isTimba_pausada()) {
+                                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+                                        }
+
+                                    }
+                                });
                             }
                         } else {
                             Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + ")");
@@ -2258,10 +2247,10 @@ public class Crupier implements Runnable {
 
             synchronized (lock_mostrar) {
 
-                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isLoser()) {
-                    Helpers.GUIRun(new Runnable() {
+                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && GameFrame.getInstance().getLocalPlayer().isLoser()) {
+                    Helpers.GUIRunAndWait(new Runnable() {
                         public void run() {
-                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
+
                             GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().doClick();
 
                         }
@@ -2309,19 +2298,23 @@ public class Crupier implements Runnable {
 
             }
 
-        } else if (GameFrame.getInstance().getLocalPlayer().equals(iwtsther)) {
+        } else if (!GameFrame.getInstance().isPartida_local()) {
 
-            this.last_iwtsth_rejected = System.currentTimeMillis();
+            if (GameFrame.getInstance().getLocalPlayer().equals(iwtsther)) {
 
-            GameFrame.getInstance().getRegistro().print("EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH");
+                this.last_iwtsth_rejected = System.currentTimeMillis();
 
-            Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH");
+                GameFrame.getInstance().getRegistro().print("EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH");
 
-        } else {
+                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH");
 
-            GameFrame.getInstance().getRegistro().print(Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+            } else {
 
-            Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+                GameFrame.getInstance().getRegistro().print(Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+
+                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+            }
+
         }
 
         iwtsth = true;
@@ -2332,20 +2325,26 @@ public class Crupier implements Runnable {
 
     public void IWTSTH_REQUEST(String iwtsther) {
 
-        iwtsthing = true;
+        if (this.last_iwtsth_rejected == null || System.currentTimeMillis() - this.last_iwtsth_rejected > IWTSTH_ANTI_FLOOD_TIME) {
 
-        if (!GameFrame.getInstance().isPartida_local()) {
+            iwtsthing = true;
 
-            this.sendGAMECommandToServer("IWTSTH");
+            if (!GameFrame.getInstance().isPartida_local()) {
 
+                this.sendGAMECommandToServer("IWTSTH");
+
+            }
+
+            IWTSTH_HANDLER(iwtsther);
+
+        } else {
+            Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("TIENES QUE ESPERAR ") + Helpers.seconds2FullTime(Math.round(((float) (IWTSTH_ANTI_FLOOD_TIME - (System.currentTimeMillis() - this.last_iwtsth_rejected))) / 1000)) + Translator.translate(" PARA VOLVER A SOLICITAR IWTSTH"));
         }
-
-        IWTSTH_HANDLER(iwtsther);
     }
 
     public boolean isIWTSTH4LocalPlayerAuthorized() {
 
-        return (flop_players.contains(GameFrame.getInstance().getLocalPlayer()) && (this.last_iwtsth_rejected == null || System.currentTimeMillis() - this.last_iwtsth_rejected > IWTSTH_ANTI_FLOOD_TIME));
+        return flop_players.contains(GameFrame.getInstance().getLocalPlayer());
     }
 
     private boolean NUEVA_MANO() {
@@ -7097,7 +7096,7 @@ public class Crupier implements Runnable {
 
     public HashMap<Player, Hand> calcularGanadores(HashMap<Player, Hand> candidatos) {
 
-        int jugada_max = CARTA_ALTA;
+        int jugada_max = Hand.CARTA_ALTA;
 
         //Averiguamos la jugada máxima entre todos los jugadores
         for (Map.Entry<Player, Hand> entry : candidatos.entrySet()) {
@@ -7125,20 +7124,20 @@ public class Crupier implements Runnable {
 
             //Si hay varios con la jugada máxima intentamos desempatar
             switch (jugada_max) {
-                case ESCALERA_COLOR:
-                case ESCALERA:
+                case Hand.ESCALERA_COLOR:
+                case Hand.ESCALERA:
                     return desempatarEscalera(candidatos);
-                case POKER:
+                case Hand.POKER:
                     return desempatarRepetidas(candidatos, CARTAS_POKER);
-                case FULL:
+                case Hand.FULL:
                     return desempatarFull(candidatos);
-                case COLOR:
+                case Hand.COLOR:
                     return desempatarCartaAlta(candidatos, 0);
-                case TRIO:
+                case Hand.TRIO:
                     return desempatarRepetidas(candidatos, CARTAS_TRIO);
-                case DOBLE_PAREJA:
+                case Hand.DOBLE_PAREJA:
                     return desempatarDoblePareja(candidatos);
-                case PAREJA:
+                case Hand.PAREJA:
                     return desempatarRepetidas(candidatos, CARTAS_PAREJA);
                 default:
                     return desempatarCartaAlta(candidatos, 0);

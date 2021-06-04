@@ -574,7 +574,11 @@ public class Participant implements Runnable {
                                             break;
 
                                         case "IWTSTH":
-                                            GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(nick);
+
+                                            if (!GameFrame.getInstance().getCrupier().isIwtsthing()) {
+                                                GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(nick);
+                                            }
+
                                             break;
 
                                         case "REBUYNOW":

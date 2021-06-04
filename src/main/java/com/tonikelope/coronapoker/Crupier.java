@@ -249,6 +249,7 @@ public class Crupier implements Runnable {
     private volatile Integer[] permutacion_recuperada = null;
     private volatile boolean iwtsth = false;
     private volatile boolean iwtsthing = false;
+    private volatile boolean iwtsthing_request = false;
     private volatile Long last_iwtsth_rejected = null;
 
     public boolean isIwtsthing() {
@@ -2389,12 +2390,16 @@ public class Crupier implements Runnable {
 
     }
 
+    public boolean isIwtsthing_request() {
+        return iwtsthing_request;
+    }
+
     public void IWTSTH_REQUEST(String iwtsther) {
 
         if (this.last_iwtsth_rejected == null || System.currentTimeMillis() - this.last_iwtsth_rejected > IWTSTH_ANTI_FLOOD_TIME) {
-            
-            iwtsthing=true;
-            
+
+            iwtsthing_request = true;
+
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 
@@ -2434,6 +2439,7 @@ public class Crupier implements Runnable {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
+
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setVisible(false);
@@ -2445,6 +2451,10 @@ public class Crupier implements Runnable {
                 if (!GameFrame.getInstance().isPartida_local()) {
                     GameFrame.getInstance().getExit_menu().setEnabled(false);
                     Helpers.TapetePopupMenu.EXIT_MENU.setEnabled(false);
+
+                    if (iwtsthing_request && !iwtsthing) {
+                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
+                    }
                 }
             }
         });
@@ -2454,6 +2464,8 @@ public class Crupier implements Runnable {
         this.iwtsth = false;
 
         this.iwtsthing = false;
+
+        this.iwtsthing_request = false;
 
         this.sqlite_id_hand = -1;
 

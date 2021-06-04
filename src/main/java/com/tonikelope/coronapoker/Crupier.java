@@ -2392,7 +2392,9 @@ public class Crupier implements Runnable {
     public void IWTSTH_REQUEST(String iwtsther) {
 
         if (this.last_iwtsth_rejected == null || System.currentTimeMillis() - this.last_iwtsth_rejected > IWTSTH_ANTI_FLOOD_TIME) {
-
+            
+            iwtsthing=true;
+            
             Helpers.GUIRun(new Runnable() {
                 public void run() {
 

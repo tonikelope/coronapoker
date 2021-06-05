@@ -175,7 +175,7 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 10000;
-    public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes
+    public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -2144,15 +2144,17 @@ public class Crupier implements Runnable {
 
                         iwtsth = true;
 
-                        if (GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado()) {
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                public void run() {
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
 
+                                if (GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado()) {
                                     GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
-
                                 }
-                            });
-                        }
+
+                                GameFrame.getInstance().getTapete().getCommunityCards().getBarra_tiempo().setIndeterminate(true);
+
+                            }
+                        });
 
                         if (GameFrame.getInstance().isPartida_local()) {
 
@@ -2206,31 +2208,11 @@ public class Crupier implements Runnable {
 
                         if (GameFrame.getInstance().isPartida_local()) {
 
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                public void run() {
-
-                                    if (!GameFrame.getInstance().isTimba_pausada()) {
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
-                                    }
-
-                                }
-                            });
-
                             if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + Translator.translate(") ¿AUTORIZAMOS?")) == 0) {
                                 IWTSTH_SHOW(iwtsther, true);
                             } else {
                                 IWTSTH_SHOW(iwtsther, false);
                             }
-
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                public void run() {
-
-                                    if (GameFrame.getInstance().isTimba_pausada()) {
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
-                                    }
-
-                                }
-                            });
 
                         }
                     }
@@ -2246,7 +2228,7 @@ public class Crupier implements Runnable {
         if (GameFrame.getInstance().isPartida_local()) {
 
             try {
-                broadcastGAMECommandFromServer("IWTSTHSHOW#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")) + "#" + String.valueOf(authorized), iwtsther);
+                broadcastGAMECommandFromServer("IWTSTHSHOW#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")) + "#" + String.valueOf(authorized), null);
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -2319,7 +2301,7 @@ public class Crupier implements Runnable {
 
             if (GameFrame.CINEMATICAS) {
 
-                GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_rejected.gif")));
+                GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")));
 
                 gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
 

@@ -2342,6 +2342,10 @@ public class Crupier implements Runnable {
         });
 
         iwtsth = true;
+
+        iwtsthing = false;
+
+        iwtsthing_request = false;
     }
 
     public boolean isIwtsthing_request() {

@@ -2325,11 +2325,9 @@ public class Crupier implements Runnable {
 
             if (!GameFrame.getInstance().isPartida_local()) {
 
-                if (GameFrame.getInstance().getLocalPlayer().equals(iwtsther)) {
+                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther)) {
 
                     this.last_iwtsth_rejected = System.currentTimeMillis();
-
-                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA DENEGADO TU SOLICITUD IWTSTH");
 
                 } else if (!GameFrame.CINEMATICAS) {
 

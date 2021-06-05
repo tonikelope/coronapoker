@@ -175,7 +175,7 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 10000;
-    public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes
+    public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes BAN
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -2323,41 +2323,18 @@ public class Crupier implements Runnable {
 
             }
 
-            if (!GameFrame.getInstance().isPartida_local()) {
+            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther)) {
 
-                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther)) {
-
-                    this.last_iwtsth_rejected = System.currentTimeMillis();
-
-                } else if (!GameFrame.CINEMATICAS) {
-
-                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
-                }
+                this.last_iwtsth_rejected = System.currentTimeMillis();
             }
-        }
-
-        if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-
-                    GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
-
-                }
-            });
-        }
-
-        if (!GameFrame.getInstance().isPartida_local()) {
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-
-                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
-
-                }
-            });
         }
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
+
+                if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
+                    GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
+                }
 
                 GameFrame.getInstance().getTapete().getCommunityCards().getBarra_tiempo().setIndeterminate(false);
 
@@ -2365,9 +2342,6 @@ public class Crupier implements Runnable {
         });
 
         iwtsth = true;
-
-        iwtsthing = false;
-
     }
 
     public boolean isIwtsthing_request() {

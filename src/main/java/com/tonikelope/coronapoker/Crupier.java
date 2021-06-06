@@ -2143,8 +2143,8 @@ public class Crupier implements Runnable {
                     if (!iwtsth) {
 
                         iwtsth = true;
-                        
-                         if (iwtsth_requests.containsKey(iwtsther)) {
+
+                        if (iwtsth_requests.containsKey(iwtsther)) {
                             iwtsth_requests.put(iwtsther, (int) iwtsth_requests.get(iwtsther) + 1);
                         } else {
                             iwtsth_requests.put(iwtsther, 1);
@@ -2289,7 +2289,7 @@ public class Crupier implements Runnable {
 
                     cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard1());
                     cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard2());
-                    
+
                     String lascartas = Card.collection2String(cartas);
 
                     for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {

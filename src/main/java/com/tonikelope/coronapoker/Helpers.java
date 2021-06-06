@@ -2453,7 +2453,7 @@ public class Helpers {
                         Helpers.threadRun(new Runnable() {
                             @Override
                             public void run() {
-                                zoomFonts(child, zoom_factor, mynotifier);
+                                zoomFonts(child, zoom_factor, font_reference_size, mynotifier);
                             }
                         });
                     }
@@ -2470,7 +2470,7 @@ public class Helpers {
                         Helpers.threadRun(new Runnable() {
                             @Override
                             public void run() {
-                                zoomFonts(child, zoom_factor, mynotifier);
+                                zoomFonts(child, zoom_factor, font_reference_size, mynotifier);
                             }
                         });
                     }
@@ -2482,13 +2482,16 @@ public class Helpers {
                 public void run() {
                     Font old_font = component.getFont();
 
-                    Font new_font = old_font.deriveFont(old_font.getStyle(), Math.round(font_reference_size * zoom_factor));
+                    if (old_font != null) {
 
-                    component.setFont(new_font);
+                        Font new_font = old_font.deriveFont(old_font.getStyle(), Math.round(font_reference_size * zoom_factor));
 
-                    component.revalidate();
+                        component.setFont(new_font);
 
-                    component.repaint();
+                        component.revalidate();
+
+                        component.repaint();
+                    }
                 }
             });
 
@@ -2514,6 +2517,7 @@ public class Helpers {
 
                 }
             }
+
         }
     }
 
@@ -3074,9 +3078,6 @@ public class Helpers {
                     }
                 };
 
-                popup.add(new JMenuItem(rulesAction));
-                popup.addSeparator();
-
                 popup.add(chatAction);
                 popup.add(registroAction);
                 popup.add(jugadasAction);
@@ -3178,6 +3179,9 @@ public class Helpers {
                 popup.add(LAST_HAND_MENU);
                 MAX_HANDS_MENU = new JMenuItem(maxHandsAction);
                 popup.add(MAX_HANDS_MENU);
+
+                popup.addSeparator();
+                popup.add(new JMenuItem(rulesAction));
 
                 popup.addSeparator();
 

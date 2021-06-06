@@ -2143,6 +2143,16 @@ public class Crupier implements Runnable {
                     if (!iwtsth) {
 
                         iwtsth = true;
+                        
+                         if (iwtsth_requests.containsKey(iwtsther)) {
+                            iwtsth_requests.put(iwtsther, (int) iwtsth_requests.get(iwtsther) + 1);
+                        } else {
+                            iwtsth_requests.put(iwtsther, 1);
+                        }
+
+                        int conta_iwtsth = (int) iwtsth_requests.get(iwtsther);
+
+                        GameFrame.getInstance().getRegistro().print(iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + ")");
 
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
@@ -2195,16 +2205,6 @@ public class Crupier implements Runnable {
                         } else {
                             Helpers.playWavResource("misc/iwtsth.wav");
                         }
-
-                        if (iwtsth_requests.containsKey(iwtsther)) {
-                            iwtsth_requests.put(iwtsther, (int) iwtsth_requests.get(iwtsther) + 1);
-                        } else {
-                            iwtsth_requests.put(iwtsther, 1);
-                        }
-
-                        int conta_iwtsth = (int) iwtsth_requests.get(iwtsther);
-
-                        GameFrame.getInstance().getRegistro().print(iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + ")");
 
                         if (GameFrame.getInstance().isPartida_local()) {
 
@@ -2289,6 +2289,8 @@ public class Crupier implements Runnable {
 
                     cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard1());
                     cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard2());
+                    
+                    String lascartas = Card.collection2String(cartas);
 
                     for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
@@ -2299,12 +2301,10 @@ public class Crupier implements Runnable {
 
                     Hand jugada = new Hand(cartas);
 
-                    String lascartas = Card.collection2String(cartas);
-
                     Helpers.GUIRunAndWait(new Runnable() {
                         public void run() {
 
-                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
+                            GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
 
                             GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
 

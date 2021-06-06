@@ -2415,7 +2415,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
 
-                    shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                    Helpers.threadRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                        }
+                    });
 
                 }
 
@@ -2471,7 +2476,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
 
-                        shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                            }
+                        });
 
                     }
 
@@ -2528,7 +2538,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
 
-                        shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                            }
+                        });
 
                     }
 

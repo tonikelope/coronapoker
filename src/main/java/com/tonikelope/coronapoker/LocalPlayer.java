@@ -288,6 +288,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
+    public JLabel getPlayer_action() {
+        return player_action;
+    }
+
     public void setTimeout(boolean val) {
 
         if (this.timeout != val) {

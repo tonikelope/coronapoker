@@ -2311,7 +2311,7 @@ public class Crupier implements Runnable {
                     }
                 });
 
-                Helpers.pausar(4800);
+                Helpers.pausar(3000);
 
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {

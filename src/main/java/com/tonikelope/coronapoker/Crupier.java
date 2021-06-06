@@ -2282,26 +2282,29 @@ public class Crupier implements Runnable {
             }
 
             if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
 
-                        if (GameFrame.getInstance().getLocalPlayer().isLoser()) {
+                if (GameFrame.getInstance().getLocalPlayer().isLoser()) {
+
+                    ArrayList<Card> cartas = new ArrayList<>();
+
+                    cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard1());
+                    cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard2());
+
+                    for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+
+                        if (!carta_comun.isTapada()) {
+                            cartas.add(carta_comun);
+                        }
+                    }
+
+                    Hand jugada = new Hand(cartas);
+
+                    String lascartas = Card.collection2String(cartas);
+
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        public void run() {
 
                             GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
-
-                            ArrayList<Card> cartas = new ArrayList<>();
-
-                            cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard1());
-                            cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard2());
-
-                            for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
-
-                                if (!carta_comun.isTapada()) {
-                                    cartas.add(carta_comun);
-                                }
-                            }
-
-                            Hand jugada = new Hand(cartas);
 
                             GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
 
@@ -2309,12 +2312,19 @@ public class Crupier implements Runnable {
 
                             GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
 
-                        } else {
-                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
                         }
+                    });
 
-                    }
-                });
+                    GameFrame.getInstance().getLocalPlayer().setMuestra(true);
+
+                    GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
+
+                    sqlNewShowcards(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getDecision() == Player.FOLD);
+
+                    sqlUpdateShowdownHand(GameFrame.getInstance().getLocalPlayer(), jugada);
+
+                }
+
             }
 
         } else {

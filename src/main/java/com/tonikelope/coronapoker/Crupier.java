@@ -2245,7 +2245,7 @@ public class Crupier implements Runnable {
 
                         RemotePlayer rp = (RemotePlayer) j;
 
-                        if (rp.isIwtsthCandidate() && !rp.getNickname().equals(iwtsther)) {
+                        if (rp.isIwtsthCandidate()) {
 
                             rp.destaparCartas(true);
 
@@ -2285,10 +2285,32 @@ public class Crupier implements Runnable {
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
 
-                        GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
+                        if (GameFrame.getInstance().getLocalPlayer().isLoser()) {
 
-                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) && GameFrame.getInstance().getLocalPlayer().isLoser()) {
-                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().doClick();
+                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
+
+                            ArrayList<Card> cartas = new ArrayList<>();
+
+                            cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard1());
+                            cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard2());
+
+                            for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+
+                                if (!carta_comun.isTapada()) {
+                                    cartas.add(carta_comun);
+                                }
+                            }
+
+                            Hand jugada = new Hand(cartas);
+
+                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
+
+                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setBackground(new Color(51, 153, 255));
+
+                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
+
+                        } else {
+                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
                         }
 
                     }

@@ -1,5 +1,7 @@
 package com.tonikelope.coronapoker;
 
+import java.util.concurrent.ConcurrentLinkedQueue;
+
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
@@ -9,7 +11,7 @@ package com.tonikelope.coronapoker;
  *
  * @author tonikelope
  */
-public class ShortcutsDialog extends javax.swing.JDialog {
+public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInterface {
 
     /**
      * Creates new form ShortcutsDialog
@@ -18,7 +20,7 @@ public class ShortcutsDialog extends javax.swing.JDialog {
         super(parent, modal);
         initComponents();
         Helpers.setTranslatedTitle(this, getTitle());
-        Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
         pack();
     }
@@ -325,5 +327,17 @@ public class ShortcutsDialog extends javax.swing.JDialog {
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     // End of variables declaration//GEN-END:variables
+
+    @Override
+    public void zoom(float factor, ConcurrentLinkedQueue<Long> notifier) {
+        Helpers.zoomFonts(this, factor, null);
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                pack();
+            }
+        });
+    }
 
 }

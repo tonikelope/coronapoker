@@ -2413,6 +2413,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     });
                 }
 
+                if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
+
+                    shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+
+                }
+
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         zoom_menu.setEnabled(true);
@@ -2461,6 +2467,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 jugadas_dialog.pack();
                             }
                         });
+                    }
+
+                    if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
+
+                        shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+
                     }
 
                     Helpers.GUIRunAndWait(new Runnable() {
@@ -2512,6 +2524,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 jugadas_dialog.pack();
                             }
                         });
+                    }
+
+                    if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
+
+                        shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+
                     }
 
                     Helpers.GUIRunAndWait(new Runnable() {
@@ -2893,43 +2911,38 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             shortcuts_dialog = new ShortcutsDialog(GameFrame.getInstance().getFrame(), false);
 
-            shortcuts_dialog.setLocation(GameFrame.getInstance().getFrame().getX() + GameFrame.getInstance().getFrame().getWidth() - shortcuts_dialog.getWidth(), GameFrame.getInstance().getFrame().getY() + GameFrame.getInstance().getFrame().getHeight() - shortcuts_dialog.getHeight());
-
             Helpers.loadOriginalFontSizes(shortcuts_dialog);
 
-            shortcuts_dialog.setVisible(true);
+        }
+
+        if (!shortcuts_dialog.isVisible()) {
+
+            shortcuts_menu.setEnabled(false);
+
+            Helpers.threadRun(new Runnable() {
+                @Override
+                public void run() {
+                    Helpers.zoomFonts(shortcuts_dialog, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            shortcuts_dialog.pack();
+
+                            shortcuts_dialog.setLocation(GameFrame.getInstance().getFrame().getX() + GameFrame.getInstance().getFrame().getWidth() - shortcuts_dialog.getWidth(), GameFrame.getInstance().getFrame().getY() + GameFrame.getInstance().getFrame().getHeight() - shortcuts_dialog.getHeight());
+
+                            shortcuts_dialog.setVisible(true);
+
+                            shortcuts_menu.setEnabled(true);
+                        }
+                    });
+                }
+            });
 
         } else {
-
-            if (!shortcuts_dialog.isVisible()) {
-
-                shortcuts_menu.setEnabled(false);
-
-                Helpers.threadRun(new Runnable() {
-                    @Override
-                    public void run() {
-                        Helpers.zoomFonts(shortcuts_dialog, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
-
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
-                                shortcuts_dialog.pack();
-
-                                shortcuts_dialog.setLocation(GameFrame.getInstance().getFrame().getX() + GameFrame.getInstance().getFrame().getWidth() - shortcuts_dialog.getWidth(), GameFrame.getInstance().getFrame().getY() + GameFrame.getInstance().getFrame().getHeight() - shortcuts_dialog.getHeight());
-
-                                shortcuts_dialog.setVisible(true);
-
-                                shortcuts_menu.setEnabled(true);
-                            }
-                        });
-                    }
-                });
-
-            } else {
-                shortcuts_dialog.setVisible(false);
-            }
-
+            shortcuts_dialog.setVisible(false);
         }
+
     }//GEN-LAST:event_shortcuts_menuActionPerformed
 
     private void tts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_tts_menuActionPerformed

@@ -20,13 +20,13 @@ public class Bot {
     public static final org.alberta.poker.HandEvaluator HANDEVALUATOR = new org.alberta.poker.HandEvaluator();
     public static final org.alberta.poker.ai.HandPotential HANDPOTENTIAL = new org.alberta.poker.ai.HandPotential();
 
-    private RemotePlayer cpu_player = null;
-    private Crupier crupier = null;
-    private boolean semi_bluff = false;
-    private int slow_play = -1;
-    private org.alberta.poker.Card card1 = null;
-    private org.alberta.poker.Card card2 = null;
-    private int conta_call = 0;
+    private volatile RemotePlayer cpu_player = null;
+    private volatile Crupier crupier = null;
+    private volatile boolean semi_bluff = false;
+    private volatile int slow_play = -1;
+    private volatile org.alberta.poker.Card card1 = null;
+    private volatile org.alberta.poker.Card card2 = null;
+    private volatile int conta_call = 0;
 
     public Bot(RemotePlayer player) {
         cpu_player = player;
@@ -51,6 +51,35 @@ public class Bot {
 
         if (crupier.getFase() == Crupier.PREFLOP) {
             slow_play = -1;
+        }
+    }
+
+    public float getBetSize() {
+
+        if (crupier != null) {
+
+            float min_raise = Helpers.float1DSecureCompare(0f, crupier.getUltimo_raise()) < 0 ? crupier.getUltimo_raise() : crupier.getCiega_grande();
+
+            float b;
+
+            switch (crupier.getFase()) {
+                case Crupier.PREFLOP:
+                    b = Helpers.floatClean1D((3 + crupier.getLimp_count()) * crupier.getCiega_grande());
+                    break;
+                default:
+                    b = Helpers.floatClean1D(crupier.getBote_total() / 3);
+                    break;
+            }
+
+            if (Helpers.float1DSecureCompare(crupier.getApuesta_actual(), 0f) == 0) {
+                return (isSlow_play() && crupier.getFase() != Crupier.RIVER) ? crupier.getCiega_grande() : Math.max(crupier.getCiega_grande(), b);
+            } else {
+                return crupier.getApuesta_actual() + Math.max(min_raise, b);
+            }
+
+        } else {
+
+            return 0f;
         }
     }
 

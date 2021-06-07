@@ -251,6 +251,11 @@ public class Crupier implements Runnable {
     private volatile boolean iwtsthing = false;
     private volatile boolean iwtsthing_request = false;
     private volatile Long last_iwtsth_rejected = null;
+    private volatile int limp_count;
+
+    public int getLimp_count() {
+        return limp_count;
+    }
 
     public boolean isIwtsthing() {
         return iwtsthing;
@@ -4386,6 +4391,8 @@ public class Crupier implements Runnable {
 
             int decision;
 
+            limp_count = 0;
+
             resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), null, false);
 
             actualizarContadoresTapete();
@@ -4515,11 +4522,7 @@ public class Crupier implements Runnable {
 
                                 float call_required = getApuesta_actual() - current_player.getBet();
 
-                                float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : getCiega_grande();
-
                                 int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision(resisten.size() - 1);
-
-                                boolean slow_play = ((RemotePlayer) current_player).getBot().isSlow_play();
 
                                 action = new Object[]{decision_loki, 0f};
 
@@ -4544,28 +4547,9 @@ public class Crupier implements Runnable {
 
                                     case Player.BET:
 
-                                        float b;
+                                        float b = ((RemotePlayer) current_player).getBot().getBetSize();
 
-                                        if (Helpers.float1DSecureCompare(this.getApuesta_actual(), 0f) == 0) {
-
-                                            float bet;
-
-                                            if (fase == Crupier.PREFLOP) {
-                                                bet = (Helpers.CSPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande();
-                                            } else if (fase == Crupier.TURN) {
-                                                bet = Helpers.floatClean1D((this.getBote_total() * (Helpers.CSPRNG_GENERATOR.nextInt(1) + 1)) / 3);
-                                            } else {
-                                                bet = Helpers.floatClean1D((this.getBote_total() * (Helpers.CSPRNG_GENERATOR.nextInt(1) + 1)) / 5);
-                                            }
-
-                                            b = (slow_play && fase != Crupier.RIVER) ? this.getCiega_grande() : Math.max(this.getCiega_grande(), bet);
-
-                                        } else {
-
-                                            b = getApuesta_actual() + Math.max(min_raise, (Helpers.CSPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande());
-                                        }
-
-                                        if (Helpers.float1DSecureCompare(current_player.getStack() / 2, b - current_player.getBet()) <= 0) {
+                                        if (Helpers.float1DSecureCompare(current_player.getStack() * 0.75f, b - current_player.getBet()) <= 0) {
 
                                             action = new Object[]{Player.ALLIN, ""};
 
@@ -4672,7 +4656,12 @@ public class Crupier implements Runnable {
 
                                 resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), partial_raise ? (this.last_aggressor != null ? this.last_aggressor.getNickname() : null) : current_player.getNickname(), partial_raise);
 
+                                limp_count = 0;
+
                                 end_pos = conta_pos;
+
+                            } else if (Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
+                                limp_count++;
                             }
 
                         } else {

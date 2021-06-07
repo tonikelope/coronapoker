@@ -251,10 +251,10 @@ public class Crupier implements Runnable {
     private volatile boolean iwtsthing = false;
     private volatile boolean iwtsthing_request = false;
     private volatile Long last_iwtsth_rejected = null;
-    private volatile int limp_count;
+    private volatile int limpers;
 
-    public int getLimp_count() {
-        return limp_count;
+    public int getLimpersCount() {
+        return limpers;
     }
 
     public boolean isIwtsthing() {
@@ -4366,6 +4366,8 @@ public class Crupier implements Runnable {
             int conta_pos = 0;
 
             if (fase == PREFLOP) {
+                
+                limpers = 0;
 
                 while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.utg_nick)) {
                     conta_pos++;
@@ -4390,8 +4392,6 @@ public class Crupier implements Runnable {
             int end_pos = conta_pos;
 
             int decision;
-
-            limp_count = 0;
 
             resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), null, false);
 
@@ -4655,13 +4655,15 @@ public class Crupier implements Runnable {
                                 this.apuesta_actual = current_player.getBet();
 
                                 resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), partial_raise ? (this.last_aggressor != null ? this.last_aggressor.getNickname() : null) : current_player.getNickname(), partial_raise);
-
-                                limp_count = 0;
+                                
+                                if(fase == PREFLOP){
+                                    limpers = 0;
+                                }
 
                                 end_pos = conta_pos;
 
-                            } else if (Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
-                                limp_count++;
+                            } else if (fase==PREFLOP && Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
+                                limpers++;
                             }
 
                         } else {

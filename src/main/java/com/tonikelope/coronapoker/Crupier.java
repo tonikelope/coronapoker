@@ -4548,7 +4548,17 @@ public class Crupier implements Runnable {
 
                                         if (Helpers.float1DSecureCompare(this.getApuesta_actual(), 0f) == 0) {
 
-                                            b = (slow_play && fase != Crupier.RIVER) ? this.getCiega_grande() : (Helpers.CSPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande();
+                                            float bet;
+
+                                            if (fase == Crupier.PREFLOP) {
+                                                bet = (Helpers.CSPRNG_GENERATOR.nextInt(3) + 1) * this.getCiega_grande();
+                                            } else if (fase == Crupier.TURN) {
+                                                bet = Helpers.floatClean1D((this.getBote_total() * (Helpers.CSPRNG_GENERATOR.nextInt(1) + 1)) / 3);
+                                            } else {
+                                                bet = Helpers.floatClean1D((this.getBote_total() * (Helpers.CSPRNG_GENERATOR.nextInt(1) + 1)) / 5);
+                                            }
+
+                                            b = (slow_play && fase != Crupier.RIVER) ? this.getCiega_grande() : bet;
 
                                         } else {
 

@@ -23,17 +23,12 @@ public class Bot {
     private volatile RemotePlayer cpu_player = null;
     private volatile Crupier crupier = null;
     private volatile boolean semi_bluff = false;
-    private volatile int slow_play = -1;
     private volatile org.alberta.poker.Card card1 = null;
     private volatile org.alberta.poker.Card card2 = null;
     private volatile int conta_call = 0;
 
     public Bot(RemotePlayer player) {
         cpu_player = player;
-    }
-
-    public boolean isSlow_play() {
-        return (slow_play == 1);
     }
 
     //LLAMAR DESDE EL CRUPIER UNA VEZ REPARTIDAS LAS CARTAS AL JUGADOR
@@ -48,10 +43,6 @@ public class Bot {
 
         semi_bluff = false;
         conta_call = 0;
-
-        if (crupier.getFase() == Crupier.PREFLOP) {
-            slow_play = -1;
-        }
     }
 
     public float getBetSize() {
@@ -71,8 +62,8 @@ public class Bot {
                     break;
             }
 
-            if (Helpers.float1DSecureCompare(crupier.getApuesta_actual(), 0f) == 0) {
-                return (isSlow_play() && crupier.getFase() != Crupier.RIVER) ? crupier.getCiega_grande() : Math.max(crupier.getCiega_grande(), b);
+            if (Helpers.float1DSecureCompare(crupier.getApuesta_actual(), 0f) == 0 || (crupier.getFase() == Crupier.PREFLOP && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), crupier.getCiega_grande()) == 0)) {
+                return Math.max(crupier.getCiega_grande(), b);
             } else {
                 return crupier.getApuesta_actual() + Math.max(min_raise, b);
             }
@@ -228,16 +219,9 @@ public class Bot {
         //System.out.println(cpu_player.getNickname() + " " + Bot.BOT_COMMUNITY_CARDS.size() + "  (" + String.valueOf(opponents) + ")  " + strength + "  " + effectiveStrength + "  " + poseffectiveStrength);
         if (poseffectiveStrength >= 0.85f) {
 
-            if (!isSlow_play() && fase == Crupier.FLOP && Helpers.CSPRNG_GENERATOR.nextBoolean()) {
-
-                //Jugamos lenta el 50% de las veces
-                slow_play = 1;
-
-            }
-
             conta_call++;
 
-            return (crupier.getConta_bet() < Bot.MAX_CONTA_BET && (!isSlow_play() || (fase != Crupier.FLOP && crupier.getConta_bet() == 0))) ? Player.BET : Player.CHECK;
+            return (crupier.getConta_bet() < Bot.MAX_CONTA_BET) ? Player.BET : Player.CHECK;
 
         } else if (poseffectiveStrength >= 0.60f && !(effectiveStrength < 0.75f && fase == Crupier.RIVER && Helpers.float1DSecureCompare(cpu_player.getStack(), crupier.getApuesta_actual() - cpu_player.getBet()) <= 0)) {
 

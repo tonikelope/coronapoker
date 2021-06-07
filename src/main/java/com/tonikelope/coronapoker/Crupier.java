@@ -4366,7 +4366,7 @@ public class Crupier implements Runnable {
             int conta_pos = 0;
 
             if (fase == PREFLOP) {
-                
+
                 limpers = 0;
 
                 while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.utg_nick)) {
@@ -4655,14 +4655,14 @@ public class Crupier implements Runnable {
                                 this.apuesta_actual = current_player.getBet();
 
                                 resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), partial_raise ? (this.last_aggressor != null ? this.last_aggressor.getNickname() : null) : current_player.getNickname(), partial_raise);
-                                
-                                if(fase == PREFLOP){
+
+                                if (fase == PREFLOP) {
                                     limpers = 0;
                                 }
 
                                 end_pos = conta_pos;
 
-                            } else if (fase==PREFLOP && Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
+                            } else if (fase == PREFLOP && Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
                                 limpers++;
                             }
 

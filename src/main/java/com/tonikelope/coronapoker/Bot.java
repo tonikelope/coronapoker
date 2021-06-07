@@ -64,10 +64,10 @@ public class Bot {
 
             switch (crupier.getFase()) {
                 case Crupier.PREFLOP:
-                    b = Helpers.floatClean1D((3 + crupier.getLimp_count()) * crupier.getCiega_grande());
+                    b = Helpers.floatClean1D((3 + crupier.getLimpersCount()) * crupier.getCiega_grande()); //Classic
                     break;
                 default:
-                    b = Helpers.floatClean1D(crupier.getBote_total() / 3);
+                    b = Helpers.floatClean1D(crupier.getBote_total() / 3); //Gentle because we don't want a quick massacre
                     break;
             }
 

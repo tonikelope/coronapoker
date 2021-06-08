@@ -65,7 +65,7 @@ public class Bot {
             if (Helpers.float1DSecureCompare(crupier.getApuesta_actual(), 0f) == 0 || (crupier.getFase() == Crupier.PREFLOP && Helpers.float1DSecureCompare(crupier.getApuesta_actual(), crupier.getCiega_grande()) == 0)) {
                 return Math.max(crupier.getCiega_grande(), b);
             } else {
-                return crupier.getApuesta_actual() + Math.max(min_raise, b);
+                return Math.max(crupier.getApuesta_actual()+min_raise, b);
             }
 
         } else {

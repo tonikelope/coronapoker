@@ -1793,7 +1793,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
         player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
-        player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.getZoom_level() * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP())), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.getZoom_level() * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP()))));
+        player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP())), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.getZOOM_STEP()))));
         player_action.setOpaque(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);

@@ -220,7 +220,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
             if (playerBottom > tapeteBottom || playerRight > tapeteRight) {
 
-                if (reset && (GameFrame.getZoom_level() != GameFrame.DEFAULT_ZOOM_LEVEL)) {
+                if (reset && (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL)) {
 
                     //RESET ZOOM
                     Helpers.GUIRunAndWait(new Runnable() {

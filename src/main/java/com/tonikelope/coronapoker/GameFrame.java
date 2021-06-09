@@ -310,8 +310,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
-        if (GameFrame.getZoom_level() != 0) {
-            GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP, null);
+        if (GameFrame.ZOOM_LEVEL != 0) {
+            GameFrame.getInstance().zoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
         }
 
         if (GameFrame.AUTO_ZOOM) {
@@ -519,7 +519,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void cambiarBaraja() {
 
-        Card.updateCachedImages(1f + GameFrame.getZoom_level() * GameFrame.getZOOM_STEP(), true);
+        Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
 
         Helpers.playWavResource("misc/uncover.wav", false);
 
@@ -1039,10 +1039,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return tapete.getCommunityCards().getCartasComunes();
     }
 
-    public static int getZoom_level() {
-        return ZOOM_LEVEL;
-    }
-
     public void setTapeteMano(int mano) {
 
         Helpers.GUIRun(new Runnable() {
@@ -1213,12 +1209,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     Helpers.translateComponents(frame, false);
 
-                    if (GameFrame.getZoom_level() != 0) {
+                    if (GameFrame.ZOOM_LEVEL != 0) {
 
                         Helpers.threadRun(new Runnable() {
                             public void run() {
 
-                                GameFrame.getInstance().zoom(1f + GameFrame.getZoom_level() * GameFrame.ZOOM_STEP, null);
+                                GameFrame.getInstance().zoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {

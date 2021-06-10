@@ -1710,6 +1710,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 });
 
+                KeyStroke key_exit3 = KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0);
+                actionMap.put(key_exit3, new AbstractAction("EXIT3") {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        System.exit(0);
+                    }
+                });
+
                 KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 
                 if (GameFrame.key_event_dispatcher != null) {

@@ -2350,7 +2350,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         switch (dec) {
             case Player.CHECK:
 
-                Helpers.GUIRunAndWait(new Runnable() {
+                Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
                         if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
@@ -2363,7 +2363,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 break;
             case Player.BET:
-                Helpers.GUIRunAndWait(new Runnable() {
+                Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
                         if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
@@ -2376,7 +2376,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 });
                 break;
             case Player.ALLIN:
-                Helpers.GUIRunAndWait(new Runnable() {
+                Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
                         setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -2390,7 +2390,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 });
                 break;
             default:
-                Helpers.GUIRunAndWait(new Runnable() {
+                Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
                         setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -2401,7 +2401,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 break;
         }
 
-        Helpers.GUIRunAndWait(new Runnable() {
+        Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
 

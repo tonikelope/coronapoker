@@ -281,19 +281,19 @@ public class Bot {
 
     private float potOdds2() {
 
-        return (4 * GameFrame.getInstance().getCrupier().getCiega_grande()) / (GameFrame.getInstance().getCrupier().getBote_total() + GameFrame.getInstance().getCrupier().getApuestas() + 12 * GameFrame.getInstance().getCrupier().getCiega_grande());
+        return (4 * GameFrame.getInstance().getCrupier().getCiega_grande()) / (GameFrame.getInstance().getCrupier().getBote_total() + 12 * GameFrame.getInstance().getCrupier().getCiega_grande());
 
     }
 
     private float potOdds() {
 
-        return (GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) / (GameFrame.getInstance().getCrupier().getBote_total() + GameFrame.getInstance().getCrupier().getApuestas() + (GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()));
+        return (GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) / (GameFrame.getInstance().getCrupier().getBote_total() + (GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()));
 
     }
 
     private float showdownOdds(float cost) {
 
-        return ((GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) + cost) / (GameFrame.getInstance().getCrupier().getBote_total() + GameFrame.getInstance().getCrupier().getApuestas() + (GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) + 2 * cost);
+        return ((GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) + cost) / (GameFrame.getInstance().getCrupier().getBote_total() + (GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) + 2 * cost);
     }
 
     public static int getCardSuit(Card carta) {

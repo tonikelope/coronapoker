@@ -17,7 +17,7 @@ import javax.swing.ImageIcon;
  */
 public class TTSNotifyDialog extends javax.swing.JDialog {
 
-    public static final int SIZE = 90;
+    public static final int SIZE = 100;
 
     private volatile String player = null;
 

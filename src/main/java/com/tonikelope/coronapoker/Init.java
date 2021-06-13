@@ -627,7 +627,13 @@ public class Init extends javax.swing.JFrame {
 
                         java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
 
-                        Runtime.getRuntime().exec(java_bin.append(" -jar ").append(System.getProperty("java.io.tmpdir") + "/coronaupdater.jar").append(" " + new_version + " " + current_jar_path + " " + new_jar_path).toString());
+                        StringBuilder updater_jar = new StringBuilder();
+
+                        updater_jar.append(System.getProperty("java.io.tmpdir") + "/coronaupdater.jar");
+
+                        String[] cmdArr = {java_bin.toString(), "-jar", updater_jar.toString(), new_version, current_jar_path, new_jar_path};
+
+                        Runtime.getRuntime().exec(cmdArr);
 
                         System.exit(0);
 

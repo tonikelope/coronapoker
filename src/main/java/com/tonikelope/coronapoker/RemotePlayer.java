@@ -372,7 +372,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         switch (dec) {
             case Player.CHECK:
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
                         if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
@@ -385,7 +385,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 break;
             case Player.BET:
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
                         if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
@@ -398,7 +398,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 });
                 break;
             case Player.ALLIN:
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
                         setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -412,7 +412,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 });
                 break;
             default:
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
                         setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -423,7 +423,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
         }
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
 

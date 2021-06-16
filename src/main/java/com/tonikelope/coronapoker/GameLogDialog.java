@@ -53,7 +53,7 @@ public class GameLogDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        setSize(Math.round(0.7f * parent.getWidth()), Math.round(0.7f * parent.getHeight()));
+        setSize(Math.round(0.9f * parent.getWidth()), Math.round(0.7f * parent.getHeight()));
 
         Helpers.setTranslatedTitle(this, TITLE);
 

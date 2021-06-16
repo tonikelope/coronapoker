@@ -65,8 +65,7 @@ public class CardVisorDialog extends javax.swing.JDialog {
     public CardVisorDialog(java.awt.Frame parent, boolean modal, int carta, boolean buttons) {
         super(parent, modal);
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
+       
                 initComponents();
 
                 setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
@@ -86,8 +85,7 @@ public class CardVisorDialog extends javax.swing.JDialog {
                 scroll_panel.getViewport().addMouseListener(scrollListener);
 
                 showCard(carta);
-            }
-        });
+            
     }
 
     //Thanks -> https://stackoverflow.com/a/10245657

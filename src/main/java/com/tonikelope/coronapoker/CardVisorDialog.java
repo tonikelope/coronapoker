@@ -6,6 +6,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
@@ -42,7 +43,7 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
-        setSize(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight()));
+        setPreferredSize(new Dimension(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight())));
 
         valores.put("A", 1);
         valores.put("J", 11);
@@ -60,32 +61,35 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         showCard(carta);
 
+        pack();
+
     }
 
     public CardVisorDialog(java.awt.Frame parent, boolean modal, int carta, boolean buttons) {
         super(parent, modal);
 
-       
-                initComponents();
+        initComponents();
 
-                setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
+        setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
-                setSize(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight()));
+        setPreferredSize(new Dimension(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight())));
 
-                valores.put("A", 1);
-                valores.put("J", 11);
-                valores.put("Q", 12);
-                valores.put("K", 13);
+        valores.put("A", 1);
+        valores.put("J", 11);
+        valores.put("Q", 12);
+        valores.put("K", 13);
 
-                scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
-                scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
+        scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
+        scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
-                HandScrollListener scrollListener = new HandScrollListener(card);
-                scroll_panel.getViewport().addMouseMotionListener(scrollListener);
-                scroll_panel.getViewport().addMouseListener(scrollListener);
+        HandScrollListener scrollListener = new HandScrollListener(card);
+        scroll_panel.getViewport().addMouseMotionListener(scrollListener);
+        scroll_panel.getViewport().addMouseListener(scrollListener);
 
-                showCard(carta);
-            
+        showCard(carta);
+
+        pack();
+
     }
 
     //Thanks -> https://stackoverflow.com/a/10245657

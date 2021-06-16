@@ -1,5 +1,6 @@
 package com.tonikelope.coronapoker;
 
+import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,7 +54,7 @@ public class GameLogDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        setSize(Math.round(0.9f * parent.getWidth()), Math.round(0.7f * parent.getHeight()));
+        setPreferredSize(new Dimension(Math.round(0.7f * parent.getWidth()), Math.round(0.7f * parent.getHeight())));
 
         Helpers.setTranslatedTitle(this, TITLE);
 
@@ -66,6 +67,8 @@ public class GameLogDialog extends javax.swing.JDialog {
         Helpers.translateComponents(this, false);
 
         getTextArea().setText("[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n");
+
+        pack();
 
     }
 

@@ -464,6 +464,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         getContentPane().remove(GameFrame.getInstance().getTapete());
                         full_screen_frame = new WheelFrame();
                         full_screen_frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+                        full_screen_frame.addMouseWheelListener(full_screen_frame);
                         full_screen_frame.addWindowListener(new java.awt.event.WindowAdapter() {
                             @Override
                             public void windowClosing(java.awt.event.WindowEvent windowEvent) {

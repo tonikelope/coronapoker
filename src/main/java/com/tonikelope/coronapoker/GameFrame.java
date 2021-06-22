@@ -48,6 +48,27 @@ import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.Timer;
 
+class WheelFrame extends JFrame implements MouseWheelListener {
+
+    @Override
+    public void mouseWheelMoved(MouseWheelEvent e) {
+        e.consume();
+
+        if (e.isControlDown()) {
+
+            if (e.getWheelRotation() < 0) {
+                GameFrame.getInstance().getZoom_menu_in().doClick();
+            } else {
+                GameFrame.getInstance().getZoom_menu_out().doClick();
+            }
+
+        } else if (getParent() != null) {
+            getParent().dispatchEvent(e);
+        }
+    }
+
+}
+
 /**
  *
  * @author tonikelope
@@ -131,7 +152,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile String nick_pause = null;
     private volatile PauseDialog pausa_dialog = null;
     private volatile boolean game_over_dialog = false;
-    private volatile JFrame full_screen_frame = null;
+    private volatile WheelFrame full_screen_frame = null;
     private volatile AboutDialog about_dialog = null;
     private volatile TTSNotifyDialog nick_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
@@ -441,7 +462,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (Helpers.OSValidator.isWindows()) {
                         setVisible(false);
                         getContentPane().remove(GameFrame.getInstance().getTapete());
-                        full_screen_frame = new JFrame();
+                        full_screen_frame = new WheelFrame();
                         full_screen_frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
                         full_screen_frame.addWindowListener(new java.awt.event.WindowAdapter() {
                             @Override

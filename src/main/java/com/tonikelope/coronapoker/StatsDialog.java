@@ -584,13 +584,15 @@ public class StatsDialog extends javax.swing.JDialog {
 
                         rs = statement.executeQuery();
 
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            public void run() {
-                                res_table_warning.setText(Translator.translate("Nota: lo que se muestra es el balance general después de terminar la mano actual."));
+                        if (hand_combo.isVisible() && hand_combo.getSelectedIndex() > 0) {
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                public void run() {
+                                    res_table_warning.setText(Translator.translate("Nota: lo que se muestra es el balance general después de terminar la mano actual."));
 
-                                res_table_warning.setVisible(true);
-                            }
-                        });
+                                    res_table_warning.setVisible(true);
+                                }
+                            });
+                        }
 
                     } else if (game_combo.getSelectedIndex() > 0) {
 

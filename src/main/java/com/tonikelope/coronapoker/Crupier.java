@@ -6618,7 +6618,9 @@ public class Crupier implements Runnable {
 
                             procesarCartasResistencia(resisten, false);
 
-                            Helpers.pausar(GameFrame.PAUSA_ANTES_DE_SHOWDOWN * 1000);
+                            if (!this.destapar_resistencia) {
+                                Helpers.pausar(GameFrame.PAUSA_ANTES_DE_SHOWDOWN * 1000);
+                            }
 
                             if (this.bote.getSidePot() == null) {
 

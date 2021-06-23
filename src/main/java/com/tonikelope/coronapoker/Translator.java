@@ -114,7 +114,7 @@ public class Translator {
             {"Nota: EFECTIVIDAD = (ROI / MANOS_JUGADAS) si ROI >=0, si no, EFECTIVIDAD = (ROI x MANOS_JUGADAS) (la EFECTIVIDAD mínima es -1)", "Note: EFFECTIVENESS = (ROI / PLAYED_HANDS) if ROI >=0, otherwise EFFECTIVENESS = (ROI x PLAYED_HANDS) (minimum EFFECTIVENESS is -1)"},
             {"RENDIMIENTO DE LOS JUGADORES", "PLAYERS PERFORMANCE"},
             {"EFECTIVIDAD", "EFFECTIVENESS"},
-            {"Nota: se muestran el balance de la timba al TERMINAR la mano actual.", "Note: what is shown is the overall balance after finishing the current hand."},
+            {"Nota: lo que se muestra es el balance general después de terminar la mano actual.", "Note: what is shown is the overall balance after finishing the current hand."},
             {"% APUESTAS/SUBIDAS EN EL PREFLOP", "% PREFLOP BETS/RAISES"},
             {"% APUESTAS/SUBIDAS EN EL FLOP", "% FLOP BETS/RAISES"},
             {"% APUESTAS/SUBIDAS EN EL TURN", "% TURN BETS/RAISES"},

@@ -155,7 +155,7 @@ public class BalanceDialog extends javax.swing.JDialog {
         jugadores.setLayout(new java.awt.GridLayout(0, 1));
         jScrollPane1.setViewportView(jugadores);
 
-        ok_button.setBackground(new java.awt.Color(0, 130, 0));
+        ok_button.setBackground(new java.awt.Color(255, 0, 0));
         ok_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         ok_button.setForeground(new java.awt.Color(255, 255, 255));
         ok_button.setText("SALIR");

@@ -411,7 +411,9 @@ public class NewGameDialog extends javax.swing.JDialog {
         scroll_panel.setBorder(null);
         scroll_panel.setDoubleBuffered(true);
 
+        vamos.setBackground(new java.awt.Color(0, 130, 0));
         vamos.setFont(new java.awt.Font("Dialog", 1, 48)); // NOI18N
+        vamos.setForeground(new java.awt.Color(255, 255, 255));
         vamos.setText("¡VAMOS!");
         vamos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         vamos.setDoubleBuffered(true);

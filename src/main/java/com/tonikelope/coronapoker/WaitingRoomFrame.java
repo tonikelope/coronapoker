@@ -2334,7 +2334,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addComponent(kick_user))
         );
 
+        empezar_timba.setBackground(new java.awt.Color(0, 130, 0));
         empezar_timba.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        empezar_timba.setForeground(new java.awt.Color(255, 255, 255));
         empezar_timba.setText("EMPEZAR YA");
         empezar_timba.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         empezar_timba.setDoubleBuffered(true);

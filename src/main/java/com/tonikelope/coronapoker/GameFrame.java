@@ -109,7 +109,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int MANOS = -1;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "true"));
-    public static volatile boolean SONIDOS_TTS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_tts", "true"));
+    public static volatile boolean SONIDOS_TTS = true;
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
@@ -2975,10 +2975,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
 
         GameFrame.SONIDOS_TTS = this.tts_menu.isSelected();
-
-        Helpers.PROPERTIES.setProperty("sonidos_tts", String.valueOf(this.tts_menu.isSelected()));
-
-        Helpers.savePropertiesFile();
 
         Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
 

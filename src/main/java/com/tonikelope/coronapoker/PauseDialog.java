@@ -30,7 +30,7 @@ public class PauseDialog extends javax.swing.JDialog {
 
         pausa_label.setBackground(new Color(0, 0, 0, 0));
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
         Helpers.translateComponents(this, false);
 
@@ -82,7 +82,7 @@ public class PauseDialog extends javax.swing.JDialog {
 
         jPanel1.setBackground(new java.awt.Color(255, 102, 0));
 
-        pausa_label.setFont(new java.awt.Font("Dialog", 1, 48)); // NOI18N
+        pausa_label.setFont(new java.awt.Font("Dialog", 1, 52)); // NOI18N
         pausa_label.setForeground(new java.awt.Color(255, 255, 255));
         pausa_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         pausa_label.setText("TIMBA PAUSADA");

@@ -1814,6 +1814,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 registro_dialog = new GameLogDialog(GameFrame.getInstance(), false);
 
                 fastchat_dialog = new FastChatDialog(GameFrame.getInstance(), false);
+
             }
         });
 

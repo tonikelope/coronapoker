@@ -2302,7 +2302,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         conectados.setOpaque(false);
         panel_conectados.setViewportView(conectados);
 
+        kick_user.setBackground(new java.awt.Color(255, 0, 0));
         kick_user.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        kick_user.setForeground(new java.awt.Color(255, 255, 255));
         kick_user.setText("Expulsar jugador");
         kick_user.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         kick_user.setDoubleBuffered(true);
@@ -2452,7 +2454,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(chat_box))
                     .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(chat_notifications, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(chat_notifications)
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         layout.setVerticalGroup(

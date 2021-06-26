@@ -222,7 +222,7 @@ public class Init extends javax.swing.JFrame {
         create_button.setForeground(new java.awt.Color(102, 0, 204));
         create_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/crear.png"))); // NOI18N
         create_button.setText("CREAR TIMBA");
-        create_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 5, true));
+        create_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
         create_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         create_button.setDoubleBuffered(true);
         create_button.addActionListener(new java.awt.event.ActionListener() {
@@ -245,7 +245,7 @@ public class Init extends javax.swing.JFrame {
         join_button.setForeground(new java.awt.Color(102, 0, 204));
         join_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/unirme.png"))); // NOI18N
         join_button.setText("UNIRME A TIMBA");
-        join_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 5, true));
+        join_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
         join_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         join_button.setDoubleBuffered(true);
         join_button.addActionListener(new java.awt.event.ActionListener() {

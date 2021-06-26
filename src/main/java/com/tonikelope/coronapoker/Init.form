@@ -179,7 +179,7 @@
                 <Property name="text" type="java.lang.String" value="CREAR TIMBA"/>
                 <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
                   <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
-                    <LineBorder roundedCorners="true" thickness="5">
+                    <LineBorder roundedCorners="true" thickness="8">
                       <Color PropertyName="color" blue="0" green="66" red="ff" type="rgb"/>
                     </LineBorder>
                   </Border>
@@ -224,7 +224,7 @@
                 <Property name="text" type="java.lang.String" value="UNIRME A TIMBA"/>
                 <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
                   <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
-                    <LineBorder roundedCorners="true" thickness="5">
+                    <LineBorder roundedCorners="true" thickness="8">
                       <Color PropertyName="color" blue="0" green="66" red="ff" type="rgb"/>
                     </LineBorder>
                   </Border>

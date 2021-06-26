@@ -142,7 +142,9 @@ public class RebuyNowDialog extends javax.swing.JDialog {
         jLabel1.setDoubleBuffered(true);
         jLabel1.setFocusable(false);
 
+        ok_button.setBackground(new java.awt.Color(0, 130, 0));
         ok_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        ok_button.setForeground(new java.awt.Color(255, 255, 255));
         ok_button.setText("Aceptar");
         ok_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ok_button.setDoubleBuffered(true);

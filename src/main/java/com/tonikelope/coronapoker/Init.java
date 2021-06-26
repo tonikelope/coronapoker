@@ -217,11 +217,12 @@ public class Init extends javax.swing.JFrame {
         krusty.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/krusty.png"))); // NOI18N
         krusty.setToolTipText("Krusty sabe lo que se hace");
 
-        create_button.setBackground(new java.awt.Color(255, 102, 0));
+        create_button.setBackground(new java.awt.Color(255, 255, 255));
         create_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        create_button.setForeground(new java.awt.Color(255, 255, 255));
+        create_button.setForeground(new java.awt.Color(102, 0, 204));
         create_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/crear.png"))); // NOI18N
         create_button.setText("CREAR TIMBA");
+        create_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 5, true));
         create_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         create_button.setDoubleBuffered(true);
         create_button.addActionListener(new java.awt.event.ActionListener() {
@@ -239,11 +240,12 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
-        join_button.setBackground(new java.awt.Color(255, 102, 0));
+        join_button.setBackground(new java.awt.Color(255, 255, 255));
         join_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        join_button.setForeground(new java.awt.Color(255, 255, 255));
+        join_button.setForeground(new java.awt.Color(102, 0, 204));
         join_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/unirme.png"))); // NOI18N
         join_button.setText("UNIRME A TIMBA");
+        join_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 5, true));
         join_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         join_button.setDoubleBuffered(true);
         join_button.addActionListener(new java.awt.event.ActionListener() {

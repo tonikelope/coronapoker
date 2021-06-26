@@ -93,6 +93,85 @@ public class Participant implements Runnable {
         }
     }
 
+    private void runKeepAliveThread() {
+        //Cada X segundos mandamos un comando KEEP ALIVE al cliente
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+
+                while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+
+                    int ping = Helpers.CSPRNG_GENERATOR.nextInt();
+
+                    writeCommandFromServer("PING#" + String.valueOf(ping));
+                    if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                        synchronized (keep_alive_lock) {
+                            try {
+                                keep_alive_lock.wait(WaitingRoomFrame.PING_PONG_TIMEOUT);
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    }
+                    if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
+
+                        Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "{0} NO respondió al PING {1} {2}", new Object[]{nick, String.valueOf(ping), String.valueOf(pong)});
+
+                    }
+
+                }
+            }
+        });
+    }
+
+    private void runAsyncCommandQueueThread() {
+        //Creamos un hilo por cada participante para enviar comandos de juego con confirmación y no bloquear el servidor por si se conectan nuevos usuarios
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+
+                while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+
+                    while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !getAsync_command_queue().isEmpty()) {
+
+                        String command = getAsync_command_queue().peek();
+
+                        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+
+                        String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+
+                        ArrayList<String> pendientes = new ArrayList<>();
+
+                        pendientes.add(getNick());
+
+                        do {
+                            synchronized (getParticipant_socket_lock()) {
+
+                                writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()));
+                            }
+                            waitAsyncConfirmations(id, pendientes);
+
+                        } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
+
+                        getAsync_command_queue().poll();
+
+                    }
+
+                    if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                        synchronized (getAsync_command_queue()) {
+
+                            try {
+                                getAsync_command_queue().wait(ASYNC_COMMAND_QUEUE_WAIT);
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    }
+                }
+
+            }
+
+        });
+    }
+
     public boolean isUnsecure_player() {
         return unsecure_player;
     }
@@ -399,80 +478,9 @@ public class Participant implements Runnable {
 
         if (socket != null) {
 
-            //Cada X segundos mandamos un comando KEEP ALIVE al cliente
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+            runAsyncCommandQueueThread();
 
-                    while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-
-                        int ping = Helpers.CSPRNG_GENERATOR.nextInt();
-
-                        writeCommandFromServer("PING#" + String.valueOf(ping));
-                        if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                            synchronized (keep_alive_lock) {
-                                try {
-                                    keep_alive_lock.wait(WaitingRoomFrame.PING_PONG_TIMEOUT);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                            }
-                        }
-                        if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
-
-                            Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "{0} NO respondió al PING {1} {2}", new Object[]{nick, String.valueOf(ping), String.valueOf(pong)});
-
-                        }
-
-                    }
-                }
-            });
-
-            //Creamos un hilo por cada participante para enviar comandos de juego con confirmación y no bloquear el servidor por si se conectan nuevos usuarios
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-
-                    while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-
-                        while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !getAsync_command_queue().isEmpty()) {
-
-                            String command = getAsync_command_queue().peek();
-
-                            int id = Helpers.CSPRNG_GENERATOR.nextInt();
-
-                            String full_command = "GAME#" + String.valueOf(id) + "#" + command;
-
-                            ArrayList<String> pendientes = new ArrayList<>();
-
-                            pendientes.add(getNick());
-
-                            do {
-                                synchronized (getParticipant_socket_lock()) {
-
-                                    writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()));
-                                }
-                                waitAsyncConfirmations(id, pendientes);
-
-                            } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
-
-                            getAsync_command_queue().poll();
-
-                        }
-
-                        if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                            synchronized (getAsync_command_queue()) {
-
-                                try {
-                                    getAsync_command_queue().wait(ASYNC_COMMAND_QUEUE_WAIT);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                            }
-                        }
-                    }
-
-                }
-
-            });
+            runKeepAliveThread();
 
             String recibido = null;
             boolean timeout = false;

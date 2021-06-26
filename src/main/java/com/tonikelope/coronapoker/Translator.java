@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Recibiendo info del servidor...", "Reading server info..."},
             {"TIENES QUE ESPERAR ", "YOU MUST WAIT "},
             {" PARA VOLVER A SOLICITAR IWTSTH", " TO REQUEST IWTSTH AGAIN"},
             {"EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ", "THE SERVER HAS DENIED THE IWTSTH REQUEST FROM "},
@@ -334,6 +335,7 @@ public class Translator {
             {"Timba en curso", "Game in progress"},
             {" - Timba en curso (", " - Game in progress ("},
             {"Conectado", "Connected"},
+            {"CONECTADO", "CONNECTED"},
             {"TIMBA PAUSADA", "GAME PAUSED"},
             {"CONTINUAR", "RESUME"},
             {"PAUSAR", "PAUSE"},

@@ -928,7 +928,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
                             status.setText(Translator.translate("Chequeo de integridad..."));
-
                         }
                     });
 
@@ -991,7 +990,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
-
+                                status.setText(Translator.translate("Recibiendo info del servidor..."));
                                 game_info.setText(gameinfo_original);
                             }
                         });
@@ -1121,7 +1120,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
-                                status.setText(Translator.translate("Conectado"));
+                                status.setText(Translator.translate("CONECTADO"));
 
                             }
                         });
@@ -1790,23 +1789,23 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                         //Mandamos la lista de participantes actuales al nuevo participante
                                         if (participantes.size() > 2) {
                                             enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
-                                        }
 
-                                        //Mandamos el nuevo participante al resto de participantes
-                                        String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
+                                            //Mandamos el nuevo participante al resto de participantes
+                                            String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
 
-                                        if (client_avatar != null) {
+                                            if (client_avatar != null) {
 
-                                            byte[] avatar_b;
+                                                byte[] avatar_b;
 
-                                            try (FileInputStream is = new FileInputStream(client_avatar)) {
-                                                avatar_b = is.readAllBytes();
+                                                try (FileInputStream is = new FileInputStream(client_avatar)) {
+                                                    avatar_b = is.readAllBytes();
+                                                }
+
+                                                comando += "#" + Base64.encodeBase64String(avatar_b);
                                             }
 
-                                            comando += "#" + Base64.encodeBase64String(avatar_b);
+                                            broadcastASYNCGAMECommandFromServer(comando, participantes.get(client_nick));
                                         }
-
-                                        broadcastASYNCGAMECommandFromServer(comando, participantes.get(client_nick));
 
                                         Helpers.GUIRun(new Runnable() {
                                             public void run() {
@@ -1815,9 +1814,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             }
                                         });
 
-                                        if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                                            Helpers.playWavResource("misc/new_user.wav");
-                                        }
+                                        Helpers.playWavResource("misc/new_user.wav");
 
                                         if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
 
@@ -1834,7 +1831,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " CONECTADO");
                                     } else {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " NO PUEDO CONECTAR CORRECTAMENTE (PARTIDA LLENA O EMPEZADA)");
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " NO PUDO CONECTAR CORRECTAMENTE (PARTIDA LLENA O EMPEZADA)");
                                         client_socket.close();
                                     }
 

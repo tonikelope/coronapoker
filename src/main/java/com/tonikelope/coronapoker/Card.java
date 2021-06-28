@@ -591,6 +591,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
             pos_chip_label.setVisible(this.pos_chip_visible && (pos_chip_location == 1 || GameFrame.LOCAL_POSITION_CHIP));
 
+            pos_chip_label.setCursor(this.isVisible_card() ? new Cursor(Cursor.HAND_CURSOR) : new Cursor(Cursor.DEFAULT_CURSOR));
+
         } else {
             pos_chip_label.setVisible(false);
         }

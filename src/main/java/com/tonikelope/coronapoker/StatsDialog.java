@@ -1424,11 +1424,14 @@ public class StatsDialog extends javax.swing.JDialog {
             }
         });
 
+        title.setBackground(new java.awt.Color(255, 153, 51));
         title.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
+        title.setForeground(new java.awt.Color(255, 255, 255));
         title.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         title.setText("ESTADÍSTICAS");
         title.setDoubleBuffered(true);
         title.setFocusable(false);
+        title.setOpaque(true);
 
         scroll_stats_panel.setBorder(null);
         scroll_stats_panel.setDoubleBuffered(true);
@@ -1857,23 +1860,23 @@ public class StatsDialog extends javax.swing.JDialog {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(scroll_stats_panel)
                     .addComponent(cargando, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
+            .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
+                .addGap(0, 0, 0)
                 .addComponent(title)
                 .addGap(2, 2, 2)
                 .addComponent(cargando, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(scroll_stats_panel)
+                .addGap(18, 18, 18)
+                .addComponent(scroll_stats_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 1309, Short.MAX_VALUE)
                 .addContainerGap())
         );
 

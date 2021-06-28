@@ -69,25 +69,24 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         jPanel1.setBackground(new java.awt.Color(255, 255, 255));
         jPanel1.setFocusable(false);
 
-        jLabel2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel2.setText("=");
+        jLabel2.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        jLabel2.setText("=>");
         jLabel2.setDoubleBuffered(true);
         jLabel2.setFocusable(false);
 
-        jButton2.setBackground(new java.awt.Color(0, 0, 0));
         jButton2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jButton2.setForeground(new java.awt.Color(255, 255, 255));
         jButton2.setText("ALL IN");
         jButton2.setDoubleBuffered(true);
         jButton2.setFocusable(false);
 
+        jButton4.setBackground(new java.awt.Color(255, 255, 255));
         jButton4.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jButton4.setText("ESPACIO");
         jButton4.setDoubleBuffered(true);
         jButton4.setFocusable(false);
 
-        jLabel3.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel3.setText("=");
+        jLabel3.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        jLabel3.setText("=>");
         jLabel3.setDoubleBuffered(true);
         jLabel3.setFocusable(false);
 
@@ -96,46 +95,46 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         jButton5.setDoubleBuffered(true);
         jButton5.setFocusable(false);
 
+        jButton6.setBackground(new java.awt.Color(255, 255, 255));
         jButton6.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jButton6.setText("ENTER");
         jButton6.setDoubleBuffered(true);
         jButton6.setFocusable(false);
 
-        jLabel4.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel4.setText("=");
+        jLabel4.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        jLabel4.setText("=>");
         jLabel4.setDoubleBuffered(true);
         jLabel4.setFocusable(false);
 
-        jButton7.setBackground(java.awt.Color.orange);
         jButton7.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jButton7.setText("APOSTAR / SUBIR");
         jButton7.setDoubleBuffered(true);
         jButton7.setFocusable(false);
 
+        jButton8.setBackground(new java.awt.Color(255, 255, 255));
         jButton8.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jButton8.setText("ESCAPE");
         jButton8.setDoubleBuffered(true);
         jButton8.setFocusable(false);
 
-        jLabel5.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel5.setText("=");
+        jLabel5.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        jLabel5.setText("=>");
         jLabel5.setDoubleBuffered(true);
         jLabel5.setFocusable(false);
 
-        jButton9.setBackground(new java.awt.Color(102, 102, 102));
         jButton9.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jButton9.setForeground(new java.awt.Color(255, 255, 255));
         jButton9.setText("NO IR");
         jButton9.setDoubleBuffered(true);
         jButton9.setFocusable(false);
 
+        jButton10.setBackground(new java.awt.Color(255, 255, 255));
         jButton10.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jButton10.setText("º");
         jButton10.setDoubleBuffered(true);
         jButton10.setFocusable(false);
 
-        jLabel6.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel6.setText("=");
+        jLabel6.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        jLabel6.setText("=>");
         jLabel6.setDoubleBuffered(true);
         jLabel6.setFocusable(false);
 
@@ -147,6 +146,7 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         jPanel2.setFocusable(false);
         jPanel2.setOpaque(false);
 
+        jButton1.setBackground(new java.awt.Color(255, 255, 255));
         jButton1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jButton1.setText("MAYÚS");
         jButton1.setDoubleBuffered(true);
@@ -157,6 +157,7 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         jLabel1.setDoubleBuffered(true);
         jLabel1.setFocusable(false);
 
+        jButton3.setBackground(new java.awt.Color(255, 255, 255));
         jButton3.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jButton3.setText("ENTER");
         jButton3.setDoubleBuffered(true);
@@ -189,18 +190,20 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         jLabel7.setDoubleBuffered(true);
         jLabel7.setFocusable(false);
 
+        jButton12.setBackground(new java.awt.Color(255, 255, 255));
         jButton12.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jButton12.setText("ARRIBA|ABAJO");
         jButton12.setDoubleBuffered(true);
         jButton12.setFocusable(false);
 
+        jButton13.setBackground(new java.awt.Color(255, 255, 255));
         jButton13.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jButton13.setText("s");
         jButton13.setDoubleBuffered(true);
         jButton13.setFocusable(false);
 
-        jLabel8.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel8.setText("=");
+        jLabel8.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        jLabel8.setText("=>");
         jLabel8.setDoubleBuffered(true);
         jLabel8.setFocusable(false);
 
@@ -234,7 +237,7 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
                     .addComponent(jLabel6)
                     .addComponent(jLabel4)
                     .addComponent(jLabel3)
-                    .addComponent(jLabel8, javax.swing.GroupLayout.Alignment.TRAILING))
+                    .addComponent(jLabel8))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jButton14, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -249,10 +252,9 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(jButton4)
-                        .addComponent(jButton5))
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jButton4)
+                    .addComponent(jButton5)
                     .addComponent(jLabel3))
                 .addGap(18, 18, 18)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)

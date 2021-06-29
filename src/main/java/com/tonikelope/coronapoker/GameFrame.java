@@ -572,8 +572,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void vistaCompacta() {
 
-        Helpers.playWavResource("misc/uncover.wav", false);
-
         RemotePlayer[] players = tapete.getRemotePlayers();
 
         for (RemotePlayer jugador : players) {
@@ -2415,6 +2413,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         zoom_menu.setEnabled(false);
 
+        Helpers.playWavResource("misc/zoom_in.wav");
+
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
@@ -2468,6 +2468,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
 
         zoom_menu.setEnabled(false);
+
+        Helpers.playWavResource("misc/zoom_out.wav");
 
         if (Helpers.float1DSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) < 0) {
 
@@ -2528,6 +2530,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         zoom_menu.setEnabled(false);
 
         if (ZOOM_LEVEL != DEFAULT_ZOOM_LEVEL) {
+
+            Helpers.playWavResource("misc/zoom_reset.wav");
 
             Helpers.threadRun(new Runnable() {
                 @Override
@@ -2752,6 +2756,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 toggleMacNativeFullScreen(GameFrame.getInstance());
             }
+
+            GameFrame.getInstance().getFrame().requestFocus();
         }
 
     }//GEN-LAST:event_full_screen_menuActionPerformed
@@ -2759,6 +2765,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void compact_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_compact_menuActionPerformed
         // TODO add your handling code here:
         GameFrame.VISTA_COMPACTA = this.compact_menu.isSelected();
+
+        Helpers.playWavResource("misc/power_" + (GameFrame.VISTA_COMPACTA ? "down" : "up") + ".wav");
 
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(GameFrame.VISTA_COMPACTA));
 

@@ -65,7 +65,7 @@ public class StatsDialog extends javax.swing.JDialog {
         sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL RIVER"), this::subidasRiver);
 
         initComponents();
-        setSize(Math.round(0.9f * parent.getWidth()), Math.round(0.9f * parent.getHeight()));
+
         scroll_stats_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_stats_panel.getHorizontalScrollBar().setUnitIncrement(16);
         res_table_warning.setVisible(false);
@@ -1862,11 +1862,10 @@ public class StatsDialog extends javax.swing.JDialog {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(scroll_stats_panel)
-                    .addComponent(cargando, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(scroll_stats_panel)
                 .addContainerGap())
             .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(cargando, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)

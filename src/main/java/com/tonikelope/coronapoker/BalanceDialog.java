@@ -235,8 +235,14 @@ public class BalanceDialog extends javax.swing.JDialog {
 
     private void ok_button2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ok_button2ActionPerformed
         // TODO add your handling code here:
+        GameFrame.getInstance().getRegistro_dialog().setPreferredSize(new Dimension(Math.round(0.7f * GameFrame.getInstance().getFrame().getWidth()), Math.round(0.7f * GameFrame.getInstance().getFrame().getHeight())));
+
+        GameFrame.getInstance().getRegistro_dialog().pack();
+
         GameFrame.getInstance().getRegistro_dialog().setLocationRelativeTo(this);
+
         GameFrame.getInstance().getRegistro_dialog().setModal(true);
+
         GameFrame.getInstance().getRegistro_dialog().setVisible(true);
     }//GEN-LAST:event_ok_button2ActionPerformed
 

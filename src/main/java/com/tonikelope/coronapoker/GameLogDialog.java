@@ -1,6 +1,5 @@
 package com.tonikelope.coronapoker;
 
-import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,8 +52,6 @@ public class GameLogDialog extends javax.swing.JDialog {
         super(parent, modal);
 
         initComponents();
-
-        setPreferredSize(new Dimension(Math.round(0.7f * parent.getWidth()), Math.round(0.7f * parent.getHeight())));
 
         Helpers.setTranslatedTitle(this, TITLE);
 

@@ -100,10 +100,6 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         pack();
 
-        setPreferredSize(new Dimension(Math.round(getWidth() * 1.10f), Math.round(0.9f * getParent().getHeight())));
-
-        pack();
-
     }
 
     static class RankingComparator implements Comparator<Object[]> {
@@ -227,6 +223,10 @@ public class BalanceDialog extends javax.swing.JDialog {
     private void ok_button1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ok_button1ActionPerformed
         // TODO add your handling code here:
         StatsDialog dialog = new StatsDialog(GameFrame.getInstance().getFrame(), true);
+
+        dialog.setPreferredSize(new Dimension(Math.round(0.9f * GameFrame.getInstance().getFrame().getWidth()), Math.round(0.9f * GameFrame.getInstance().getFrame().getHeight())));
+
+        dialog.pack();
 
         dialog.setLocationRelativeTo(this);
 

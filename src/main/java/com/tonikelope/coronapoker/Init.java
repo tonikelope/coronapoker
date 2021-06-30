@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.AWTException;
+import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
@@ -488,6 +489,10 @@ public class Init extends javax.swing.JFrame {
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         // TODO add your handling code here:
         StatsDialog dialog = new StatsDialog(this, true);
+
+        dialog.setPreferredSize(new Dimension(Math.round(0.9f * this.getWidth()), Math.round(0.9f * this.getHeight())));
+
+        dialog.pack();
 
         dialog.setLocationRelativeTo(this);
 

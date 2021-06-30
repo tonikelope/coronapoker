@@ -1693,9 +1693,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
-                        BalanceDialog balance = new BalanceDialog(GameFrame.getInstance().getFrame(), true);
+                        BalanceDialog balance = new BalanceDialog(getFrame(), true);
 
-                        balance.setLocationRelativeTo(balance.getParent());
+                        balance.setPreferredSize(new Dimension(Math.round(balance.getWidth() * 1.10f), Math.round(0.9f * getFrame().getHeight())));
+
+                        balance.pack();
+
+                        balance.setLocationRelativeTo(getFrame());
 
                         balance.setVisible(true);
                     }
@@ -2594,6 +2598,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
 
         this.registro_dialog.setVisible(false);
+
+        this.registro_dialog.setPreferredSize(new Dimension(Math.round(0.7f * getFrame().getWidth()), Math.round(0.7f * getFrame().getHeight())));
+
+        this.registro_dialog.pack();
 
         this.registro_dialog.setLocationRelativeTo(getFrame());
 

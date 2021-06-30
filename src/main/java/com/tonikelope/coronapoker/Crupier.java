@@ -2568,7 +2568,6 @@ public class Crupier implements Runnable {
                 public void run() {
                     recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
                     recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
-                    recover_dialog.pack();
                     recover_dialog.setVisible(true);
 
                 }

@@ -1828,7 +1828,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             public void actionPerformed(ActionEvent ae) {
 
-                if (!crupier.isFin_de_la_transmision() && !crupier.isPlayerTimeout() && !crupier.isShow_time() && !crupier.isRebuy_time() && !isTimba_pausada() && !isRECOVER()) {
+                if (!crupier.isFin_de_la_transmision()) {
                     String tiempo_juego = Helpers.seconds2FullTime(++conta_tiempo_juego);
 
                     Helpers.GUIRun(new Runnable() {

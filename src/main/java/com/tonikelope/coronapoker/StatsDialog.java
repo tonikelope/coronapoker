@@ -1261,21 +1261,16 @@ public class StatsDialog extends javax.swing.JDialog {
     }
 
     private void loadGames() {
-        cargando.setVisible(true);
-        setEnabled(false);
-        game_combo_blocked = true;
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                cargando.setVisible(true);
+                setEnabled(false);
+                game_combo_blocked = true;
+            }
+        });
 
         try {
-
-            Helpers.GUIRunAndWait(new Runnable() {
-                public void run() {
-                    game.clear();
-
-                    game_combo.removeAllItems();
-
-                    game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
-                }
-            });
 
             PreparedStatement statement;
 
@@ -1294,52 +1289,51 @@ public class StatsDialog extends javax.swing.JDialog {
 
             ResultSet rs = statement.executeQuery();
 
-            int i = 0;
+            Helpers.GUIRunAndWait(new Runnable() {
+                public void run() {
 
-            while (rs.next()) {
+                    game.clear();
 
-                i++;
-                // read the result set
+                    game_combo.removeAllItems();
 
-                try {
-                    Timestamp ts = new Timestamp(rs.getLong("start"));
-                    DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-                    Date date = new Date(ts.getTime());
+                    game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
 
-                    HashMap<String, Object> map = new HashMap<>();
-                    map.put("id", rs.getInt("id"));
-                    game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        public void run() {
-                            try {
-                                game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
-                            } catch (SQLException ex) {
-                                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                            }
+                    try {
+                        int i = 0;
+
+                        while (rs.next()) {
+
+                            i++;
+                            // read the result set
+
+                            Timestamp ts = new Timestamp(rs.getLong("start"));
+                            DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+                            Date date = new Date(ts.getTime());
+
+                            HashMap<String, Object> map = new HashMap<>();
+                            map.put("id", rs.getInt("id"));
+                            game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
+
+                            game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
+
                         }
-                    });
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
 
-            }
+                        if (i == 0) {
 
-            if (i == 0) {
+                            game_combo_filter.setBackground(Color.RED);
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
+                        }
 
-                        game_combo_filter.setBackground(Color.RED);
-
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                });
-            }
+
+                }
+            });
 
             statement.close();
 
-        } catch (SQLException ex) {
-            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (UnsupportedEncodingException ex) {
+        } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
 

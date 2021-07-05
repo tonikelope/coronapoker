@@ -703,6 +703,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
             }
 
+            Helpers.playWavResource("misc/card_visor.wav");
+
             visor.setLocationRelativeTo(visor.getParent());
 
             visor.setVisible(true);

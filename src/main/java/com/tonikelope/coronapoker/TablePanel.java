@@ -105,7 +105,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
     public void refresh() {
 
         Helpers.playWavResource("misc/mat.wav");
-        
+
         tp = null;
 
         Helpers.GUIRun(new Runnable() {

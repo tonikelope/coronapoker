@@ -2225,7 +2225,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        new_bot_button.setBackground(new java.awt.Color(51, 51, 51));
         new_bot_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        new_bot_button.setForeground(new java.awt.Color(255, 255, 255));
         new_bot_button.setText("AÑADIR BOT");
         new_bot_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         new_bot_button.setDoubleBuffered(true);
@@ -2273,7 +2275,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        video_chat_button.setBackground(new java.awt.Color(102, 153, 255));
         video_chat_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        video_chat_button.setForeground(new java.awt.Color(255, 255, 255));
         video_chat_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/duo.png"))); // NOI18N
         video_chat_button.setText("Videollamada");
         video_chat_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -2393,7 +2397,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(game_info)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(new_bot_button)
+                        .addComponent(new_bot_button, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(video_chat_button)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -2468,7 +2472,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 145, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 140, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)

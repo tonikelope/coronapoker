@@ -227,11 +227,14 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                         String[] partes = c.split("_");
 
-                                        Card carta = new Card();
+                                        if (partes.length == 2) {
 
-                                        carta.actualizarValorPalo(partes[0], partes[1]);
+                                            Card carta = new Card();
 
-                                        cartas.add(carta);
+                                            carta.actualizarValorPalo(partes[0], partes[1]);
+
+                                            cartas.add(carta);
+                                        }
                                     }
 
                                     Card.sortCollection(cartas);
@@ -247,11 +250,14 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                         String[] partes = c.split("_");
 
-                                        Card carta = new Card();
+                                        if (partes.length == 2) {
 
-                                        carta.actualizarValorPalo(partes[0], partes[1]);
+                                            Card carta = new Card();
 
-                                        cartas.add(carta);
+                                            carta.actualizarValorPalo(partes[0], partes[1]);
+
+                                            cartas.add(carta);
+                                        }
                                     }
 
                                 }

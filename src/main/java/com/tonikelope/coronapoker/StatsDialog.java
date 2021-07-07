@@ -192,105 +192,96 @@ public class StatsDialog extends javax.swing.JDialog {
     }
 
     private void mejoresJugadasResult(ResultSet rs) {
-        Helpers.GUIRunAndWait(new Runnable() {
 
-            public void run() {
-                try {
-                    DefaultTableModel tableModel = new DefaultTableModel();
+        try {
+            DefaultTableModel tableModel = new DefaultTableModel();
 
-                    ResultSetMetaData metaData = rs.getMetaData();
+            ResultSetMetaData metaData = rs.getMetaData();
 
-                    int columnCount = metaData.getColumnCount();
+            int columnCount = metaData.getColumnCount();
 
-                    for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-                        tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
-                    }
+            for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
+            }
 
-                    Object[] row = new Object[columnCount];
+            Object[] row = new Object[columnCount];
 
-                    while (rs.next()) {
+            while (rs.next()) {
 
-                        for (int i = 0; i < columnCount; i++) {
-                            row[i] = rs.getObject(i + 1);
+                for (int i = 0; i < columnCount; i++) {
+                    row[i] = rs.getObject(i + 1);
 
-                            if (tableModel.getColumnName(i).equals(Translator.translate("TIMBA"))) {
-                                String timestamp = rs.getString("TIMBA").replaceAll("^.+\\|([0-9]+)$", "$1");
-                                String server = rs.getString("TIMBA").replaceAll("^(.+)\\|[0-9]+$", "$1");
-                                Timestamp ts = new Timestamp(Long.parseLong(timestamp));
-                                DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-                                Date date = new Date(ts.getTime());
-                                row[i] = server + " @ " + timeZoneFormat.format(date);
-                            } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_RECIBIDAS"))) {
-                                ArrayList<Card> cartas = new ArrayList<>();
-                                if (row[i] != null) {
-                                    for (String c : ((String) row[i]).split("#")) {
+                    if (tableModel.getColumnName(i).equals(Translator.translate("TIMBA"))) {
+                        String timestamp = rs.getString("TIMBA").replaceAll("^.+\\|([0-9]+)$", "$1");
+                        String server = rs.getString("TIMBA").replaceAll("^(.+)\\|[0-9]+$", "$1");
+                        Timestamp ts = new Timestamp(Long.parseLong(timestamp));
+                        DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+                        Date date = new Date(ts.getTime());
+                        row[i] = server + " @ " + timeZoneFormat.format(date);
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_RECIBIDAS"))) {
+                        ArrayList<Card> cartas = new ArrayList<>();
+                        if (row[i] != null) {
+                            for (String c : ((String) row[i]).split("#")) {
 
-                                        String[] partes = c.split("_");
+                                String[] partes = c.split("_");
 
-                                        if (partes.length == 2) {
+                                if (partes.length == 2) {
 
-                                            Card carta = new Card();
+                                    Card carta = new Card();
 
-                                            carta.actualizarValorPalo(partes[0], partes[1]);
+                                    carta.actualizarValorPalo(partes[0], partes[1], false);
 
-                                            cartas.add(carta);
-                                        }
-                                    }
-
-                                    Card.sortCollection(cartas);
+                                    cartas.add(carta);
                                 }
-
-                                row[i] = row[i] != null ? Card.collection2String(cartas) : "";
-
-                            } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_JUGADA"))) {
-
-                                ArrayList<Card> cartas = new ArrayList<>();
-                                if (row[i] != null) {
-                                    for (String c : ((String) row[i]).split("#")) {
-
-                                        String[] partes = c.split("_");
-
-                                        if (partes.length == 2) {
-
-                                            Card carta = new Card();
-
-                                            carta.actualizarValorPalo(partes[0], partes[1]);
-
-                                            cartas.add(carta);
-                                        }
-                                    }
-
-                                }
-
-                                row[i] = row[i] != null ? Card.collection2String(cartas) : "";
-                            } else if (tableModel.getColumnName(i).equals(Translator.translate("JUGADA"))) {
-                                row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "";
                             }
+
+                            Card.sortCollection(cartas);
                         }
 
-                        tableModel.addRow(row);
+                        row[i] = row[i] != null ? Card.collection2String(cartas) : "*****";
+
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_JUGADA"))) {
+
+                        ArrayList<Card> cartas = new ArrayList<>();
+                        if (row[i] != null) {
+                            for (String c : ((String) row[i]).split("#")) {
+
+                                String[] partes = c.split("_");
+
+                                if (partes.length == 2) {
+
+                                    Card carta = new Card();
+
+                                    carta.actualizarValorPalo(partes[0], partes[1], false);
+
+                                    cartas.add(carta);
+                                }
+                            }
+
+                        }
+
+                        row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("JUGADA"))) {
+                        row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "-----";
                     }
+                }
 
+                tableModel.addRow(row);
+            }
+
+            Helpers.GUIRunAndWait(new Runnable() {
+
+                public void run() {
                     res_table.setModel(tableModel);
-
                     TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
-
                     Helpers.disableSortAllColumns(res_table, tableRowSorter);
-
                     tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
-
                     tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANO")), true);
-
                     tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANO")), (Comparator<Integer>) (o1, o2) -> o1.compareTo(o2));
-
                     tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BENEFICIO")), true);
-
                     tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BENEFICIO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
-
                     tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADA")), true);
-
                     tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.handNAME2HandVal(o1), Hand.handNAME2HandVal(o2)));
-
                     if (Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIMBA")) != -1) {
 
                         tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIMBA")), true);
@@ -305,14 +296,12 @@ public class StatsDialog extends javax.swing.JDialog {
                         });
                     }
                     res_table.setRowSorter(tableRowSorter);
-
                     table_panel.setVisible(true);
-
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
-            }
-        });
+            });
+        } catch (SQLException ex) {
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+        }
 
     }
 
@@ -882,7 +871,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                         Card carta = new Card();
 
-                                        carta.actualizarValorPalo(partes[0], partes[1]);
+                                        carta.actualizarValorPalo(partes[0], partes[1], false);
 
                                         cartas.add(carta);
                                     }
@@ -991,7 +980,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                         Card carta = new Card();
 
-                                        carta.actualizarValorPalo(partes[0], partes[1]);
+                                        carta.actualizarValorPalo(partes[0], partes[1], false);
 
                                         cartas.add(carta);
                                     }
@@ -999,7 +988,7 @@ public class StatsDialog extends javax.swing.JDialog {
                                     Card.sortCollection(cartas);
                                 }
 
-                                row[i] = row[i] != null ? Card.collection2String(cartas) : "";
+                                row[i] = row[i] != null ? Card.collection2String(cartas) : "*****";
 
                             } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS_JUGADA"))) {
 
@@ -1012,15 +1001,15 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                         Card carta = new Card();
 
-                                        carta.actualizarValorPalo(partes[0], partes[1]);
+                                        carta.actualizarValorPalo(partes[0], partes[1], false);
 
                                         cartas.add(carta);
                                     }
                                 }
 
-                                row[i] = row[i] != null ? Card.collection2String(cartas) : "";
+                                row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
                             } else if (tableModel.getColumnName(i).equals(Translator.translate("JUGADA"))) {
-                                row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "";
+                                row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "-----";
                             }
                         }
 

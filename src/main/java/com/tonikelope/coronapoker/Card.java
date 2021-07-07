@@ -441,17 +441,31 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void actualizarValorPalo(String valor, String palo) {
 
+        actualizarValorPalo(valor, palo, true);
+    }
+
+    public void actualizarValorPalo(String valor, String palo, boolean refresh) {
         this.valor = valor.toUpperCase().trim();
         this.palo = palo.toUpperCase().trim();
-        this.refreshCard();
+
+        if (refresh) {
+            this.refreshCard();
+        }
     }
 
     public void actualizarValorPaloEnfoque(String valor, String palo, boolean desenfocada) {
 
+        actualizarValorPaloEnfoque(valor, palo, desenfocada, true);
+    }
+
+    public void actualizarValorPaloEnfoque(String valor, String palo, boolean desenfocada, boolean refresh) {
         this.valor = valor.toUpperCase().trim();
         this.palo = palo.toUpperCase().trim();
         this.desenfocada = desenfocada;
-        this.refreshCard();
+
+        if (refresh) {
+            this.refreshCard();
+        }
     }
 
     public void actualizarConValorNumerico(int value) {

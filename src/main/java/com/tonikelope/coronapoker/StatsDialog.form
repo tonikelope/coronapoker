@@ -30,7 +30,7 @@
       <Group type="103" groupAlignment="0" attributes="0">
           <Group type="102" alignment="1" attributes="0">
               <EmptySpace max="-2" attributes="0"/>
-              <Component id="scroll_stats_panel" max="32767" attributes="0"/>
+              <Component id="scroll_stats_panel" pref="1156" max="32767" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
           </Group>
           <Component id="title" alignment="0" max="32767" attributes="0"/>
@@ -158,37 +158,23 @@
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="0" attributes="0">
                                   <Group type="103" groupAlignment="1" max="-2" attributes="0">
+                                      <Component id="game_blinds_double_label" alignment="0" max="32767" attributes="0"/>
                                       <Component id="game_blinds_label" alignment="0" max="32767" attributes="0"/>
-                                      <Component id="game_buyin_label" alignment="0" pref="146" max="32767" attributes="0"/>
-                                  </Group>
-                                  <EmptySpace max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="0" attributes="0">
-                                      <Component id="game_buyin_val" max="32767" attributes="0"/>
-                                      <Component id="game_blinds_val" max="32767" attributes="0"/>
-                                  </Group>
-                              </Group>
-                              <Group type="102" alignment="0" attributes="0">
-                                  <Group type="103" groupAlignment="1" max="-2" attributes="0">
+                                      <Component id="game_buyin_label" alignment="0" max="32767" attributes="0"/>
+                                      <Component id="game_hand_label" max="32767" attributes="0"/>
+                                      <Component id="game_playtime_label" max="32767" attributes="0"/>
+                                      <Component id="game_players_label" max="32767" attributes="0"/>
                                       <Component id="game_rebuy_label" alignment="0" max="32767" attributes="0"/>
-                                      <Component id="game_blinds_double_label" alignment="0" pref="146" max="32767" attributes="0"/>
                                   </Group>
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Group type="103" groupAlignment="0" attributes="0">
-                                      <Component id="game_blinds_double_val" max="32767" attributes="0"/>
-                                      <Component id="game_rebuy_val" max="32767" attributes="0"/>
-                                  </Group>
-                              </Group>
-                              <Group type="102" alignment="0" attributes="0">
-                                  <Group type="103" groupAlignment="1" max="-2" attributes="0">
-                                      <Component id="game_playtime_label" alignment="0" max="32767" attributes="0"/>
-                                      <Component id="game_players_label" alignment="0" max="32767" attributes="0"/>
-                                      <Component id="game_hand_label" alignment="0" pref="146" max="32767" attributes="0"/>
-                                  </Group>
-                                  <EmptySpace max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="0" attributes="0">
-                                      <Component id="game_hand_val" pref="888" max="32767" attributes="0"/>
-                                      <Component id="game_players_val" max="32767" attributes="0"/>
+                                      <Component id="game_players_val" alignment="0" max="32767" attributes="0"/>
+                                      <Component id="game_hand_val" alignment="0" max="32767" attributes="0"/>
                                       <Component id="game_playtime_val" alignment="0" max="32767" attributes="0"/>
+                                      <Component id="game_buyin_val" alignment="0" max="32767" attributes="0"/>
+                                      <Component id="game_blinds_val" alignment="0" max="32767" attributes="0"/>
+                                      <Component id="game_blinds_double_val" alignment="0" pref="931" max="32767" attributes="0"/>
+                                      <Component id="game_rebuy_val" max="32767" attributes="0"/>
                                   </Group>
                               </Group>
                               <Group type="102" alignment="1" attributes="0">
@@ -213,7 +199,7 @@
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="3" attributes="0">
                               <Component id="game_hand_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                              <Component id="game_hand_val" alignment="3" min="-2" max="-2" attributes="0"/>
+                              <Component id="game_hand_val" alignment="3" min="-2" pref="19" max="-2" attributes="0"/>
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="3" attributes="0">
@@ -287,7 +273,7 @@
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                       <Font name="Dialog" size="16" style="1"/>
                     </Property>
-                    <Property name="text" type="java.lang.String" value="Doblar ciegas:"/>
+                    <Property name="text" type="java.lang.String" value="Incrementar ciegas:"/>
                     <Property name="doubleBuffered" type="boolean" value="true"/>
                   </Properties>
                 </Component>
@@ -419,7 +405,7 @@
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
-                              <Component id="showdown_panel" max="32767" attributes="0"/>
+                              <Component id="showdown_panel" pref="1115" max="32767" attributes="0"/>
                               <Group type="102" attributes="0">
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Component id="hand_blinds_label" alignment="0" min="-2" pref="146" max="-2" attributes="0"/>

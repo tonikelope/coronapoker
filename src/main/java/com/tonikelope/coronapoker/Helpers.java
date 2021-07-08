@@ -2643,7 +2643,12 @@ public class Helpers {
 
         //Get all column names from meta data and add columns to table model
         for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-            tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
+
+            if (metaData.getColumnLabel(columnIndex).equals("TIEMPO")) {
+                tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex).replace("_", " ")) + " " + Translator.translate("(SEGUNDOS)"));
+            } else {
+                tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex).replace("_", " ")));
+            }
         }
 
         //Create array of Objects with size of column count from meta data

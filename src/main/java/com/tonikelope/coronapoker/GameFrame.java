@@ -1929,8 +1929,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         registro_menu = new javax.swing.JMenuItem();
         jugadas_menu = new javax.swing.JMenuItem();
         server_separator_menu = new javax.swing.JPopupMenu.Separator();
-        full_screen_menu = new javax.swing.JMenuItem();
-        jSeparator2 = new javax.swing.JPopupMenu.Separator();
         last_hand_menu = new javax.swing.JCheckBoxMenuItem();
         max_hands_menu = new javax.swing.JMenuItem();
         jSeparator3 = new javax.swing.JPopupMenu.Separator();
@@ -1942,6 +1940,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         auto_fit_zoom_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator6 = new javax.swing.JPopupMenu.Separator();
         compact_menu = new javax.swing.JCheckBoxMenuItem();
+        jSeparator5 = new javax.swing.JPopupMenu.Separator();
+        full_screen_menu = new javax.swing.JMenuItem();
         opciones_menu = new javax.swing.JMenu();
         sonidos_menu = new javax.swing.JCheckBoxMenuItem();
         sonidos_chorra_menu = new javax.swing.JCheckBoxMenuItem();
@@ -2013,16 +2013,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
         file_menu.add(jugadas_menu);
         file_menu.add(server_separator_menu);
-
-        full_screen_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        full_screen_menu.setText("PANTALLA COMPLETA (ALT+F)");
-        full_screen_menu.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                full_screen_menuActionPerformed(evt);
-            }
-        });
-        file_menu.add(full_screen_menu);
-        file_menu.add(jSeparator2);
 
         last_hand_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         last_hand_menu.setSelected(true);
@@ -2113,6 +2103,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
         zoom_menu.add(compact_menu);
+        zoom_menu.add(jSeparator5);
+
+        full_screen_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        full_screen_menu.setText("PANTALLA COMPLETA (ALT+F)");
+        full_screen_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                full_screen_menuActionPerformed(evt);
+            }
+        });
+        zoom_menu.add(full_screen_menu);
 
         menu_bar.add(zoom_menu);
 
@@ -3218,9 +3218,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JMenuItem full_screen_menu;
     private javax.swing.JMenu help_menu;
     private javax.swing.JPopupMenu.Separator jSeparator1;
-    private javax.swing.JPopupMenu.Separator jSeparator2;
     private javax.swing.JPopupMenu.Separator jSeparator3;
     private javax.swing.JPopupMenu.Separator jSeparator4;
+    private javax.swing.JPopupMenu.Separator jSeparator5;
     private javax.swing.JPopupMenu.Separator jSeparator6;
     private javax.swing.JPopupMenu.Separator jSeparator7;
     private javax.swing.JPopupMenu.Separator jSeparator8;

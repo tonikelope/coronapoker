@@ -55,19 +55,6 @@
             </MenuItem>
             <MenuItem class="javax.swing.JPopupMenu$Separator" name="server_separator_menu">
             </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="full_screen_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="PANTALLA COMPLETA (ALT+F)"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="full_screen_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator2">
-            </MenuItem>
             <MenuItem class="javax.swing.JCheckBoxMenuItem" name="last_hand_menu">
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
@@ -180,6 +167,19 @@
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="compact_menuActionPerformed"/>
+              </Events>
+            </MenuItem>
+            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator5">
+            </MenuItem>
+            <MenuItem class="javax.swing.JMenuItem" name="full_screen_menu">
+              <Properties>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                  <Font name="Dialog" size="14" style="0"/>
+                </Property>
+                <Property name="text" type="java.lang.String" value="PANTALLA COMPLETA (ALT+F)"/>
+              </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="full_screen_menuActionPerformed"/>
               </Events>
             </MenuItem>
           </SubComponents>

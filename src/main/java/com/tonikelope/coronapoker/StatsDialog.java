@@ -9,6 +9,7 @@ import java.awt.Color;
 import java.awt.Font;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.PreparedStatement;
@@ -47,6 +48,7 @@ public class StatsDialog extends javax.swing.JDialog {
     private volatile boolean game_combo_blocked = false;
     private volatile boolean hand_combo_blocked = false;
     private volatile boolean backup = false;
+    private volatile Font original_dialog_font;
 
     /**
      * Creates new form Stats
@@ -88,11 +90,12 @@ public class StatsDialog extends javax.swing.JDialog {
             stats_combo.addItem(entry.getKey());
         }
 
-        Font original_dialog_font = res_table.getFont();
+        original_dialog_font = res_table.getFont();
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         res_table.setFont(original_dialog_font);
         showdown_table.setFont(original_dialog_font);
         hand_comcards_val.setFont(original_dialog_font);
+        game_textarea.setFont(original_dialog_font);
         Helpers.translateComponents(this, false);
         setTitle(Translator.translate(getTitle()));
         stats_combo.setSelectedIndex(-1);
@@ -1532,7 +1535,7 @@ public class StatsDialog extends javax.swing.JDialog {
         game_textarea.setEditable(false);
         game_textarea.setBackground(new java.awt.Color(102, 102, 102));
         game_textarea.setColumns(20);
-        game_textarea.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        game_textarea.setFont(new java.awt.Font("DejaVu Sans", 0, 16)); // NOI18N
         game_textarea.setForeground(new java.awt.Color(255, 255, 255));
         game_textarea.setRows(5);
         game_textarea.setDoubleBuffered(true);
@@ -1579,7 +1582,7 @@ public class StatsDialog extends javax.swing.JDialog {
                     .addComponent(delete_game_button)
                     .addComponent(log_game_button))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(game_textarea_scrollpane, javax.swing.GroupLayout.PREFERRED_SIZE, 304, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(game_textarea_scrollpane, javax.swing.GroupLayout.PREFERRED_SIZE, 480, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(game_playtime_label)
@@ -2109,7 +2112,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
             try {
 
-                String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + fecha + ".log"));
+                String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + fecha + ".log"), StandardCharsets.UTF_8);
 
                 game_textarea.setText(log);
 

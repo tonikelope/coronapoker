@@ -28,7 +28,11 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -128,6 +132,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile Boolean MAC_NATIVE_FULLSCREEN = null;
     public static volatile boolean TTS_SERVER = true;
     public static volatile int RECOVER_ID = -1;
+    public static volatile long GAME_START_TIMESTAMP;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
     private static volatile GameFrame THIS = null;
 
@@ -1672,7 +1677,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 getRegistro().setFin_transmision(true);
             }
 
-            String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
+            Timestamp ts = new Timestamp(GAME_START_TIMESTAMP);
+            DateFormat timeZoneFormat = new SimpleDateFormat("dd_MM_yyyy__HH_mm_ss");
+            Date date = new Date(ts.getTime());
+            String fecha = timeZoneFormat.format(date);
+
+            String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + fecha + ".log";
 
             try {
                 Files.writeString(Paths.get(log_file), getRegistro().getText());
@@ -1680,7 +1690,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
             }
 
-            String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
+            String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + fecha + ".log";
 
             try {
                 Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());

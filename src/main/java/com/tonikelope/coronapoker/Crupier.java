@@ -5361,7 +5361,7 @@ public class Crupier implements Runnable {
 
         try {
 
-            String sql = "select hand.id as hand_id, hand.end as hand_end, hand.preflop_players as preflop_players, server, start, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, blinds_time_type, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
+            String sql = "select hand.id as hand_id, hand.end as hand_end, hand.preflop_players as preflop_players, server, game.start, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, blinds_time_type, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -5378,7 +5378,7 @@ public class Crupier implements Runnable {
             rs.next();
 
             map = new HashMap<>();
-            map.put("start", rs.getInt("start"));
+            map.put("start", rs.getLong("start"));
             map.put("hand_id", rs.getInt("hand_id"));
             map.put("hand_end", rs.getLong("hand_end"));
             map.put("server", rs.getString("server"));

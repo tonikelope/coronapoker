@@ -16,11 +16,12 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "10.6";
+    public static final String VERSION = "10.7";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
     private volatile String last_mp3_loop = null;
+    private volatile int c = 0;
 
     /**
      * Creates new form About
@@ -123,7 +124,13 @@ public class AboutDialog extends javax.swing.JDialog {
         dedicado.setDoubleBuffered(true);
 
         jvm.setText(Helpers.getSystemInfo());
+        jvm.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         jvm.setDoubleBuffered(true);
+        jvm.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                jvmMouseClicked(evt);
+            }
+        });
 
         jLabel3.setText("Jn 8:32");
         jLabel3.setDoubleBuffered(true);
@@ -291,6 +298,14 @@ public class AboutDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         Helpers.openBrowserURL("https://github.com/tonikelope/coronapoker/raw/master/robert_rules.pdf");
     }//GEN-LAST:event_jLabel12MouseClicked
+
+    private void jvmMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jvmMouseClicked
+        // TODO add your handling code here:
+        if (++c >= 5) {
+            Huevos.carpediem(this);
+            c = 0;
+        }
+    }//GEN-LAST:event_jvmMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel dedicado;

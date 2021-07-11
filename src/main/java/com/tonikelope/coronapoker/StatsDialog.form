@@ -174,7 +174,7 @@
                                       <Component id="game_playtime_val" alignment="0" max="32767" attributes="0"/>
                                       <Component id="game_buyin_val" alignment="0" max="32767" attributes="0"/>
                                       <Component id="game_blinds_val" alignment="0" max="32767" attributes="0"/>
-                                      <Component id="game_blinds_double_val" alignment="0" pref="931" max="32767" attributes="0"/>
+                                      <Component id="game_blinds_double_val" alignment="0" pref="954" max="32767" attributes="0"/>
                                       <Component id="game_rebuy_val" max="32767" attributes="0"/>
                                   </Group>
                               </Group>
@@ -281,7 +281,7 @@
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                       <Font name="Dialog" size="16" style="1"/>
                     </Property>
-                    <Property name="text" type="java.lang.String" value="Incrementar ciegas:"/>
+                    <Property name="text" type="java.lang.String" value="Aumentar ciegas:"/>
                     <Property name="doubleBuffered" type="boolean" value="true"/>
                   </Properties>
                 </Component>

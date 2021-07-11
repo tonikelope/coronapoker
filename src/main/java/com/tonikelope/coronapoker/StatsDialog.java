@@ -1472,7 +1472,7 @@ public class StatsDialog extends javax.swing.JDialog {
         game_blinds_label.setDoubleBuffered(true);
 
         game_blinds_double_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        game_blinds_double_label.setText("Incrementar ciegas:");
+        game_blinds_double_label.setText("Aumentar ciegas:");
         game_blinds_double_label.setDoubleBuffered(true);
 
         game_rebuy_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
@@ -1565,7 +1565,7 @@ public class StatsDialog extends javax.swing.JDialog {
                             .addComponent(game_playtime_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(game_buyin_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(game_blinds_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_blinds_double_val, javax.swing.GroupLayout.DEFAULT_SIZE, 931, Short.MAX_VALUE)
+                            .addComponent(game_blinds_double_val, javax.swing.GroupLayout.DEFAULT_SIZE, 954, Short.MAX_VALUE)
                             .addComponent(game_rebuy_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, game_data_panelLayout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)

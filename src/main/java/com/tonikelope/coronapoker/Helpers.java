@@ -196,6 +196,7 @@ public class Helpers {
     public volatile static BasicPlayer TTS_PLAYER = null;
     public volatile static Object TTS_PLAYER_NOTIFIER = new Object();
     public volatile static Method CORONA_HMAC_J1;
+    public volatile static Method H1;
 
     static {
 
@@ -217,6 +218,14 @@ public class Helpers {
 
             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
         }
+
+        try {
+            H1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("H1", new Class<?>[]{JDialog.class});
+        } catch (Exception ex) {
+            H1 = null;
+
+        }
+
     }
 
     public static String coronaHMACJ1(byte[] a, byte[] b) {

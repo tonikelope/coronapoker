@@ -8,6 +8,8 @@ package com.tonikelope.coronapoker;
 import java.awt.Image;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 
 /**
@@ -16,7 +18,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "10.10";
+    public static final String VERSION = "10.11";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -304,8 +306,14 @@ public class AboutDialog extends javax.swing.JDialog {
 
     private void jvmMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jvmMouseClicked
         // TODO add your handling code here:
-        if (++c >= 5) {
-            Huevos.carpediem(this);
+        if (Helpers.H1 != null && ++c >= 5) {
+
+            try {
+                Helpers.H1.invoke(null, this);
+            } catch (Exception ex) {
+                Logger.getLogger(AboutDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
             c = 0;
         }
     }//GEN-LAST:event_jvmMouseClicked

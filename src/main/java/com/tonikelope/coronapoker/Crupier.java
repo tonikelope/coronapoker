@@ -1807,12 +1807,7 @@ public class Crupier implements Runnable {
 
                     this.auditor.put(name, new Float[]{Float.parseFloat(partes[1]), Float.parseFloat(partes[2])});
 
-                    if (!((String) map.get("preflop_players")).contains(partes[0]) && Helpers.float1DSecureCompare(0f, jugador.getStack()) < 0) {
-
-                        //El jugador no estuvo en la mano anterior (pero no porque fuera espectador), así que en esta tiene que entrar de espectador
-                        jugador.setSpectator(Translator.translate("CALENTANDO"));
-
-                    } else if (Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
+                    if (Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
 
                         jugador.setSpectator(null);
                     }

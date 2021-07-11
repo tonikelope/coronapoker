@@ -54,6 +54,7 @@ public class Translator {
             {"Este usuario tiene problemas de conexión que bloquean la partida.\n(El servidor decidirá si esperar a que se recupere o echarle).", "This user has connection problems that block the game.\n(The server will decide whether to wait for him to recover or kick him/her out)."},
             {"CLICK IZQ: ÚLTIMA MANO / CLICK DCHO: LÍMITE DE MANOS", "LEFT CLICK: LAST HAND / RIGHT CLICK: HANDS LIMIT"},
             {"Aumentar ciegas", "Increase blinds"},
+            {"Aumentar ciegas:", "Increase blinds:"},
             {"Minutos:", "Minutes:"},
             {"Manos:", "Hands:"},
             {"Límite de manos:", "Hands limit:"},

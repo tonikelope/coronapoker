@@ -10,6 +10,7 @@ import java.awt.Graphics2D;
 import java.awt.TexturePaint;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -126,7 +127,12 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                 super.paintComponent(g);
 
                 if (tp == null) {
-                    BufferedImage tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+                    BufferedImage tile;
+                    if (GameFrame.COLOR_TAPETE.equals("*")) {
+                        tile = ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d")));
+                    } else {
+                        tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+                    }
 
                     Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
 

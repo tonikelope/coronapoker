@@ -168,6 +168,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile GifAnimationDialog gif_dialog = null;
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
+    private volatile int rojo_counter = 0;
+    private volatile int interstate60_counter = 0;
 
     public JMenuItem getRobert_rules_menu() {
         return robert_rules_menu;
@@ -1328,6 +1330,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 @Override
                 public void actionPerformed(ActionEvent e) {
 
+                    if (GameFrame.BARAJA.equals("interstate60") && menu_item.getText().equals("interstate60")) {
+                        interstate60_counter++;
+                    } else {
+                        interstate60_counter = 1;
+                    }
+
                     GameFrame.BARAJA = menu_item.getText();
 
                     Helpers.PROPERTIES.setProperty("baraja", menu_item.getText());
@@ -1348,6 +1356,40 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     Helpers.threadRun(new Runnable() {
                         public void run() {
                             cambiarBaraja();
+
+                            if (Helpers.H2 != null && GameFrame.BARAJA.equals("interstate60") && interstate60_counter >= 5) {
+
+                                interstate60_counter = 0;
+
+                                Helpers.GUIRun(new Runnable() {
+                                    public void run() {
+                                        try {
+                                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon((byte[]) Helpers.H2.invoke(null, "e")));
+                                            gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                                            gif_dialog.setVisible(true);
+                                        } catch (Exception ex) {
+                                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+
+                                    }
+                                });
+                                Helpers.threadRun(new Runnable() {
+
+                                    public void run() {
+                                        Helpers.pausar(12000);
+
+                                        Helpers.GUIRun(new Runnable() {
+                                            public void run() {
+
+                                                gif_dialog.dispose();
+
+                                            }
+                                        });
+                                    }
+                                });
+
+                            }
+
                         }
                     });
                 }
@@ -2897,27 +2939,99 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void menu_tapete_rojoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_rojoActionPerformed
         // TODO add your handling code here:
-        GameFrame.COLOR_TAPETE = "rojo";
 
-        Helpers.PROPERTIES.setProperty("color_tapete", "rojo");
+        if (Helpers.H2 != null && rojo_counter >= 4) {
+            GameFrame.COLOR_TAPETE = "*";
 
-        Helpers.savePropertiesFile();
+            for (Component c : menu_tapetes.getMenuComponents()) {
+                ((JRadioButtonMenuItem) c).setEnabled(false);
+            }
 
-        for (Component c : this.menu_tapetes.getMenuComponents()) {
-            ((JRadioButtonMenuItem) c).setSelected(false);
+            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                ((JRadioButtonMenuItem) c).setEnabled(false);
+            }
+
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            for (Component c : menu_tapetes.getMenuComponents()) {
+                                ((JRadioButtonMenuItem) c).setSelected(false);
+                            }
+
+                            menu_tapete_rojo.setSelected(true);
+
+                            tapete.refresh();
+
+                            cambiarColorContadoresTapete(Color.WHITE);
+
+                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                                ((JRadioButtonMenuItem) c).setSelected(false);
+                            }
+
+                            Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(true);
+
+                            for (Component c : menu_tapetes.getMenuComponents()) {
+                                ((JRadioButtonMenuItem) c).setEnabled(true);
+                            }
+
+                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                                ((JRadioButtonMenuItem) c).setEnabled(true);
+                            }
+
+                        }
+                    });
+
+                    rojo_counter = 0;
+                }
+            });
+
+        } else if (!GameFrame.COLOR_TAPETE.equals("*")) {
+
+            if (GameFrame.COLOR_TAPETE.equals("rojo")) {
+                rojo_counter++;
+            } else {
+                rojo_counter = 1;
+            }
+
+            GameFrame.COLOR_TAPETE = "rojo";
+
+            Helpers.PROPERTIES.setProperty("color_tapete", "rojo");
+
+            Helpers.savePropertiesFile();
+
+            for (Component c : this.menu_tapetes.getMenuComponents()) {
+                ((JRadioButtonMenuItem) c).setSelected(false);
+            }
+
+            this.menu_tapete_rojo.setSelected(true);
+
+            tapete.refresh();
+
+            cambiarColorContadoresTapete(new Color(255, 204, 51));
+
+            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                ((JRadioButtonMenuItem) c).setSelected(false);
+            }
+
+            Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(true);
+
+        } else {
+            for (Component c : this.menu_tapetes.getMenuComponents()) {
+                ((JRadioButtonMenuItem) c).setSelected(false);
+            }
+
+            this.menu_tapete_rojo.setSelected(true);
+
+            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                ((JRadioButtonMenuItem) c).setSelected(false);
+            }
+
+            Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(true);
         }
 
-        this.menu_tapete_rojo.setSelected(true);
-
-        tapete.refresh();
-
-        cambiarColorContadoresTapete(new Color(255, 204, 51));
-
-        for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-            ((JRadioButtonMenuItem) c).setSelected(false);
-        }
-
-        Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(true);
     }//GEN-LAST:event_menu_tapete_rojoActionPerformed
 
     private void menu_tapete_maderaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_maderaActionPerformed

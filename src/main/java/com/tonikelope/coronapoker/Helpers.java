@@ -197,6 +197,8 @@ public class Helpers {
     public volatile static Object TTS_PLAYER_NOTIFIER = new Object();
     public volatile static Method CORONA_HMAC_J1;
     public volatile static Method H1;
+    public volatile static Method H2;
+    public volatile static Method H3;
 
     static {
 
@@ -221,9 +223,11 @@ public class Helpers {
 
         try {
             H1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("H1", new Class<?>[]{JDialog.class});
+            H2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("H2", new Class<?>[]{String.class});
         } catch (Exception ex) {
             H1 = null;
-
+            H2 = null;
+            H3 = null;
         }
 
     }

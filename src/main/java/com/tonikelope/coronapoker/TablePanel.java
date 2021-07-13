@@ -7,6 +7,7 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.TexturePaint;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
@@ -62,6 +63,19 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                                 @Override
                                 public void run() {
                                     autoZoom(false);
+                                }
+                            });
+                        }
+
+                        if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                            tp = null;
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    revalidate();
+                                    repaint();
+
                                 }
                             });
                         }
@@ -128,8 +142,8 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
                 if (tp == null) {
                     BufferedImage tile;
-                    if (GameFrame.COLOR_TAPETE.equals("*")) {
-                        tile = ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d")));
+                    if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                        tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))).getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
                     } else {
                         tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
                     }

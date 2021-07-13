@@ -516,8 +516,10 @@ public class Init extends javax.swing.JFrame {
     private void krustyMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_krustyMouseClicked
         // TODO add your handling code here:
 
-        if (Helpers.H2 != null && ++k >= 5) {
-            
+        Helpers.playWavResource("misc/krusty.wav");
+
+        if (Helpers.H2 != null && ++k == 5) {
+
             JFrame tthis = this;
 
             Helpers.GUIRun(new Runnable() {

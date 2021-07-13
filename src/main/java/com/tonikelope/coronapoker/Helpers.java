@@ -222,7 +222,7 @@ public class Helpers {
         }
 
         try {
-            H1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("H1", new Class<?>[]{JDialog.class});
+            H1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("H1", new Class<?>[]{JDialog.class, String.class});
             H2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("H2", new Class<?>[]{String.class});
         } catch (Exception ex) {
             H1 = null;

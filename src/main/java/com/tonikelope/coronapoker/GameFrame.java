@@ -170,7 +170,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
     private volatile int tapete_counter = 0;
-    private volatile int interstate60_counter = 0;
+    private volatile int i60_c = 0;
 
     public JMenuItem getRobert_rules_menu() {
         return robert_rules_menu;
@@ -1332,9 +1332,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 public void actionPerformed(ActionEvent e) {
 
                     if (GameFrame.BARAJA.equals("interstate60") && menu_item.getText().equals("interstate60")) {
-                        interstate60_counter++;
+                        i60_c++;
                     } else {
-                        interstate60_counter = 1;
+                        i60_c = 1;
                     }
 
                     GameFrame.BARAJA = menu_item.getText();
@@ -1358,9 +1358,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         public void run() {
                             cambiarBaraja();
 
-                            if (Helpers.H2 != null && GameFrame.BARAJA.equals("interstate60") && interstate60_counter >= 5) {
+                            if (Helpers.H2 != null && GameFrame.BARAJA.equals("interstate60") && i60_c == 5) {
 
-                                interstate60_counter = 0;
+                                i60_c = 0;
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
@@ -2900,7 +2900,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_verdeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_verdeActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.H2 != null && tapete_counter >= 4 && GameFrame.COLOR_TAPETE.equals("verde")) {
+        if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("verde")) {
             GameFrame.COLOR_TAPETE = "verde*";
 
             for (Component c : menu_tapetes.getMenuComponents()) {
@@ -2995,7 +2995,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_azulActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_azulActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.H2 != null && tapete_counter >= 4 && GameFrame.COLOR_TAPETE.equals("azul")) {
+        if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("azul")) {
             GameFrame.COLOR_TAPETE = "azul*";
 
             for (Component c : menu_tapetes.getMenuComponents()) {
@@ -3091,7 +3091,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_rojoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_rojoActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.H2 != null && tapete_counter >= 4 && GameFrame.COLOR_TAPETE.equals("rojo")) {
+        if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("rojo")) {
             GameFrame.COLOR_TAPETE = "rojo*";
 
             for (Component c : menu_tapetes.getMenuComponents()) {
@@ -3188,7 +3188,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_maderaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_maderaActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.H2 != null && tapete_counter >= 4 && GameFrame.COLOR_TAPETE.equals("madera")) {
+        if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("madera")) {
             GameFrame.COLOR_TAPETE = "madera*";
 
             for (Component c : menu_tapetes.getMenuComponents()) {

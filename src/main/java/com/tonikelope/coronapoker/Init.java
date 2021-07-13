@@ -73,6 +73,8 @@ public class Init extends javax.swing.JFrame {
     public static final int ANTI_SCREENSAVER_KEY = KeyEvent.VK_ALT;
     public static volatile Boolean ANTI_SCREENSAVER_KEY_PRESSED = false;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
+    private volatile int k = 0;
+    private volatile GifAnimationDialog gif_dialog = null;
 
     /**
      * Creates new form Inicio
@@ -217,6 +219,12 @@ public class Init extends javax.swing.JFrame {
 
         krusty.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/krusty.png"))); // NOI18N
         krusty.setToolTipText("Krusty sabe lo que se hace");
+        krusty.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        krusty.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                krustyMouseClicked(evt);
+            }
+        });
 
         create_button.setBackground(new java.awt.Color(255, 255, 255));
         create_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
@@ -504,6 +512,45 @@ public class Init extends javax.swing.JFrame {
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
     }//GEN-LAST:event_formComponentShown
+
+    private void krustyMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_krustyMouseClicked
+        // TODO add your handling code here:
+
+        if (Helpers.H2 != null && ++k >= 5) {
+            
+            JFrame tthis = this;
+
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    try {
+                        gif_dialog = new GifAnimationDialog(tthis, false, new ImageIcon((byte[]) Helpers.H2.invoke(null, "f")));
+                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                        gif_dialog.setVisible(true);
+                    } catch (Exception ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                }
+            });
+            Helpers.threadRun(new Runnable() {
+
+                public void run() {
+                    Helpers.pausar(5500);
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            gif_dialog.dispose();
+
+                        }
+                    });
+                }
+            });
+
+            k = 0;
+        }
+
+    }//GEN-LAST:event_krustyMouseClicked
 
     /**
      * @param args the command line arguments

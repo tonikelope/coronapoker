@@ -11,6 +11,7 @@ import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import javax.swing.SwingUtilities;
 
 /**
  *
@@ -18,7 +19,7 @@ import javax.swing.ImageIcon;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "10.16";
+    public static final String VERSION = "10.17";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -312,10 +313,10 @@ public class AboutDialog extends javax.swing.JDialog {
 
     private void jvmMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jvmMouseClicked
         // TODO add your handling code here:
-        if (Helpers.H1 != null && ++c >= 5) {
+        if (Helpers.H1 != null && ++c == 5) {
 
             try {
-                Helpers.H1.invoke(null, this);
+                Helpers.H1.invoke(null, this, SwingUtilities.isLeftMouseButton(evt) ? "c" : "g");
             } catch (Exception ex) {
                 Logger.getLogger(AboutDialog.class.getName()).log(Level.SEVERE, null, ex);
             }

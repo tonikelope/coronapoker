@@ -339,21 +339,27 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
-        if (GameFrame.ZOOM_LEVEL != 0) {
-            GameFrame.getInstance().zoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
-        }
-
-        if (GameFrame.AUTO_ZOOM) {
-            tapete.autoZoom(false);
-        }
-
-        Helpers.GUIRun(new Runnable() {
+        Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
 
-                GameFrame.getInstance().setEnabled(true);
-                full_screen_menu.setEnabled(!GameFrame.isRECOVER());
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.isRECOVER());
+                if (GameFrame.ZOOM_LEVEL != 0) {
+                    GameFrame.getInstance().zoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
+                }
+
+                if (GameFrame.AUTO_ZOOM) {
+                    tapete.autoZoom(false);
+                }
+
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        GameFrame.getInstance().setEnabled(true);
+                        full_screen_menu.setEnabled(!GameFrame.isRECOVER());
+                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.isRECOVER());
+                    }
+                });
             }
         });
 

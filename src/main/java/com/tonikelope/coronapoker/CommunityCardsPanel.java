@@ -29,6 +29,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     private volatile Color color_contadores = null;
     private volatile int hand_label_click_type = 0;
+    private volatile boolean ready = false;
 
     public JLabel getLast_hand_label() {
         return last_hand_label;
@@ -145,6 +146,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                         sound_icon.setPreferredSize(new Dimension(pot_label.getHeight(), pot_label.getHeight()));
                         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
                         panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) pot_label.getHeight() * 0.65)));
+                        ready = true;
                     }
                 });
             }
@@ -717,6 +719,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     @Override
     public void zoom(float factor, final ConcurrentLinkedQueue<Long> notifier) {
+
+        while (!ready) {
+            Helpers.pausar(125);
+        }
 
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 

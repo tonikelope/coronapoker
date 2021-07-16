@@ -1284,16 +1284,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
             PreparedStatement statement;
 
-            if (!game_combo_filter.getText().isBlank()) {
-
-                statement = Helpers.getSQLITE().prepareStatement("SELECT id,start,server FROM game WHERE (players LIKE ? or players LIKE ? or players LIKE ?) ORDER BY start DESC");
-                statement.setString(1, "%#" + Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")));
-                statement.setString(2, Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")) + "#%");
-                statement.setString(3, "%#" + Base64.encodeBase64String(game_combo_filter.getText().trim().getBytes("UTF-8")) + "#%");
-            } else {
-
-                statement = Helpers.getSQLITE().prepareStatement("SELECT id,start,server FROM game ORDER BY start DESC");
-            }
+            statement = Helpers.getSQLITE().prepareStatement("SELECT * FROM game ORDER BY start DESC");
 
             statement.setQueryTimeout(30);
 
@@ -1308,25 +1299,52 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
 
+                    String filtro = null;
+
+                    if (!game_combo_filter.getText().isBlank()) {
+                        filtro = game_combo_filter.getText().trim().toUpperCase();
+                    }
+
                     try {
                         int i = 0;
 
                         while (rs.next()) {
 
-                            i++;
-                            // read the result set
+                            boolean ok = false;
 
-                            Timestamp ts = new Timestamp(rs.getLong("start"));
-                            DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-                            Date date = new Date(ts.getTime());
+                            if (filtro != null) {
 
-                            HashMap<String, Object> map = new HashMap<>();
-                            map.put("id", rs.getInt("id"));
-                            map.put("start_timestamp", rs.getLong("start"));
-                            game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
+                                String players[] = rs.getString("players").split("#");
 
-                            game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
+                                ArrayList<String> decoded_players = new ArrayList<>();
 
+                                for (String p : players) {
+
+                                    decoded_players.add(new String(Base64.decodeBase64(p), "UTF-8").trim().toUpperCase());
+                                }
+
+                                ok = decoded_players.contains(filtro);
+
+                            } else {
+                                ok = true;
+                            }
+
+                            if (ok) {
+
+                                i++;
+                                // read the result set
+
+                                Timestamp ts = new Timestamp(rs.getLong("start"));
+                                DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+                                Date date = new Date(ts.getTime());
+
+                                HashMap<String, Object> map = new HashMap<>();
+                                map.put("id", rs.getInt("id"));
+                                map.put("start_timestamp", rs.getLong("start"));
+                                game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
+
+                                game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
+                            }
                         }
 
                         if (i == 0) {
@@ -1337,6 +1355,8 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     } catch (SQLException ex) {
                         Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
                 }
@@ -1344,7 +1364,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
             statement.close();
 
-        } catch (SQLException | UnsupportedEncodingException ex) {
+        } catch (SQLException ex) {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
 

@@ -1444,7 +1444,7 @@ public class StatsDialog extends javax.swing.JDialog {
         scroll_stats_panel.setBorder(null);
         scroll_stats_panel.setDoubleBuffered(true);
 
-        game_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        game_combo.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         game_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         game_combo.setDoubleBuffered(true);
         game_combo.addItemListener(new java.awt.event.ItemListener() {
@@ -1512,6 +1512,7 @@ public class StatsDialog extends javax.swing.JDialog {
         game_playtime_val.setDoubleBuffered(true);
 
         delete_game_button.setBackground(new java.awt.Color(255, 0, 0));
+        delete_game_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         delete_game_button.setForeground(new java.awt.Color(255, 255, 255));
         delete_game_button.setText("ELIMINAR TIMBA");
         delete_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1522,6 +1523,7 @@ public class StatsDialog extends javax.swing.JDialog {
         });
 
         log_game_button.setBackground(new java.awt.Color(102, 102, 102));
+        log_game_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         log_game_button.setForeground(new java.awt.Color(255, 255, 255));
         log_game_button.setText("REGISTRO DE LA TIMBA");
         log_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1833,7 +1835,7 @@ public class StatsDialog extends javax.swing.JDialog {
         res_table_warning.setText("Nota:");
         res_table_warning.setDoubleBuffered(true);
 
-        game_combo_filter.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        game_combo_filter.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         game_combo_filter.setToolTipText("Listar sólo timbas donde participó este jugador");
         game_combo_filter.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {

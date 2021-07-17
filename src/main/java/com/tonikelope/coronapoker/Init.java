@@ -525,27 +525,12 @@ public class Init extends javax.swing.JFrame {
             Helpers.GUIRun(new Runnable() {
                 public void run() {
                     try {
-                        gif_dialog = new GifAnimationDialog(tthis, false, new ImageIcon((byte[]) Helpers.H2.invoke(null, "f")));
+                        gif_dialog = new GifAnimationDialog(tthis, true, new ImageIcon((byte[]) Helpers.H2.invoke(null, "f")), 5500);
                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                         gif_dialog.setVisible(true);
                     } catch (Exception ex) {
                         Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
-                }
-            });
-            Helpers.threadRun(new Runnable() {
-
-                public void run() {
-                    Helpers.pausar(5500);
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            gif_dialog.dispose();
-
-                        }
-                    });
                 }
             });
 

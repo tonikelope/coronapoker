@@ -19,43 +19,53 @@ public class GifAnimationDialog extends javax.swing.JDialog {
      * Creates new form GifAnimation
      */
     public GifAnimationDialog(java.awt.Frame parent, boolean modal, ImageIcon icon) {
+        this(parent, modal, icon, null);
+
+    }
+
+    /**
+     * Creates new form GifAnimation
+     */
+    public GifAnimationDialog(java.awt.Frame parent, boolean modal, ImageIcon icon, Integer timeout) {
         super(parent, modal);
-
         initComponents();
-
         int height, width;
-
         if (icon.getImage().getHeight(null) > icon.getImage().getWidth(null)) {
-            height = Math.round(0.6f * parent.getHeight());
+            height = Math.round(0.7f * parent.getHeight());
         } else {
-            height = Math.round(0.4f * parent.getHeight());
+            height = Math.round(0.5f * parent.getHeight());
         }
-
         width = Math.round(((float) icon.getImage().getWidth(null) * height) / icon.getImage().getHeight(null));
-
         if (width > Math.round(parent.getWidth() * 0.8f)) {
-
             int i = 1;
-
             int original = width;
-
             while (width > Math.round(parent.getWidth() * 0.8f)) {
                 width = Math.round(original * (100 - i * 0.1f));
                 i++;
             }
-
             height = Math.round(height * (100 - (i - 1) * 0.1f));
-
         }
-
         gif.setIcon(new ImageIcon(icon.getImage().getScaledInstance(width, height, Image.SCALE_DEFAULT)));
-
         gif.setPreferredSize(new Dimension(width, height));
-
         setPreferredSize(new Dimension(width, height));
-
         pack();
 
+        if (timeout != null) {
+            Helpers.threadRun(new Runnable() {
+
+                public void run() {
+                    Helpers.pausar(timeout);
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            dispose();
+
+                        }
+                    });
+                }
+            });
+        }
     }
 
     /**

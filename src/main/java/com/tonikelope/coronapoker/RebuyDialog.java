@@ -12,7 +12,7 @@ import javax.swing.SpinnerNumberModel;
  *
  * @author tonikelope
  */
-public class RebuyNowDialog extends javax.swing.JDialog {
+public class RebuyDialog extends javax.swing.JDialog {
 
     private volatile boolean rebuy = false;
     private volatile boolean touched = false;
@@ -64,7 +64,7 @@ public class RebuyNowDialog extends javax.swing.JDialog {
     /**
      * Creates new form RebuyNowDialog
      */
-    public RebuyNowDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout) {
+    public RebuyDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout) {
         super(parent, modal);
 
         initComponents();
@@ -186,8 +186,9 @@ public class RebuyNowDialog extends javax.swing.JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(ok_button)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addGap(18, 18, 18)
                         .addComponent(cancel_button))
                     .addComponent(rebuy_spinner, javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(jLabel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)

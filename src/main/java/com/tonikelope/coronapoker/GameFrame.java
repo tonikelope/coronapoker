@@ -165,7 +165,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile GameLogDialog registro_dialog = null;
     private volatile ShortcutsDialog shortcuts_dialog = null;
     private volatile FastChatDialog fastchat_dialog = null;
-    private volatile RebuyNowDialog rebuy_dialog = null;
+    private volatile RebuyDialog rebuy_dialog = null;
     private volatile GifAnimationDialog gif_dialog = null;
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
@@ -1365,7 +1365,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
                                         try {
-                                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon((byte[]) Helpers.H2.invoke(null, "e")));
+                                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon((byte[]) Helpers.H2.invoke(null, "e")), 12000);
 
                                             gif_dialog.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
@@ -1384,21 +1384,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     }
                                 });
-                                Helpers.threadRun(new Runnable() {
-
-                                    public void run() {
-                                        Helpers.pausar(12000);
-
-                                        Helpers.GUIRun(new Runnable() {
-                                            public void run() {
-
-                                                gif_dialog.dispose();
-
-                                            }
-                                        });
-                                    }
-                                });
-
                             }
 
                         }
@@ -3421,7 +3406,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }//GEN-LAST:event_tts_menuActionPerformed
 
-    public RebuyNowDialog getRebuy_dialog() {
+    public RebuyDialog getRebuy_dialog() {
         return rebuy_dialog;
     }
 
@@ -3471,7 +3456,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
             } else {
 
-                rebuy_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, true, -1);
+                rebuy_dialog = new RebuyDialog(GameFrame.getInstance().getFrame(), true, true, -1);
 
                 rebuy_dialog.setLocationRelativeTo(rebuy_dialog.getParent());
 

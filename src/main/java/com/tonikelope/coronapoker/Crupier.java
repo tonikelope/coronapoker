@@ -2180,12 +2180,11 @@ public class Crupier implements Runnable {
 
                         if (GameFrame.CINEMATICAS) {
 
-                            GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")));
-
-                            gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-
                             Helpers.GUIRunAndWait(new Runnable() {
                                 public void run() {
+                                    GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), 2500);
+
+                                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                     gif_dialog.setVisible(true);
                                 }
                             });
@@ -2193,16 +2192,6 @@ public class Crupier implements Runnable {
                             Helpers.pausar(500);
 
                             Helpers.playWavResource("misc/iwtsth.wav");
-
-                            Helpers.pausar(2000);
-
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                public void run() {
-
-                                    gif_dialog.setVisible(false);
-
-                                }
-                            });
 
                         } else {
                             Helpers.playWavResource("misc/iwtsth.wav");
@@ -2335,23 +2324,12 @@ public class Crupier implements Runnable {
 
             if (GameFrame.CINEMATICAS) {
 
-                GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")));
-
-                gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
+                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), 3000);
+
+                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                         gif_dialog.setVisible(true);
-                    }
-                });
-
-                Helpers.pausar(3000);
-
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
-
-                        gif_dialog.setVisible(false);
-
                     }
                 });
 

@@ -22,9 +22,9 @@ public class GameOverDialog extends javax.swing.JDialog {
     private volatile boolean continua = false;
     private volatile String last_mp3_loop = null;
     private volatile boolean direct_gameover = false;
-    private volatile RebuyNowDialog buyin_dialog = null;
+    private volatile RebuyDialog buyin_dialog = null;
 
-    public RebuyNowDialog getBuyin_dialog() {
+    public RebuyDialog getBuyin_dialog() {
         return buyin_dialog;
     }
 
@@ -317,7 +317,7 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         dispose();
 
-        buyin_dialog = new RebuyNowDialog(GameFrame.getInstance().getFrame(), true, false, 10);
+        buyin_dialog = new RebuyDialog(GameFrame.getInstance().getFrame(), true, false, 10);
 
         buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
 

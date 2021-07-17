@@ -1195,13 +1195,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.bet = 0f;
 
+        if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
+
+            int rebuy = (Integer) GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname);
+
+            GameFrame.getInstance().getCrupier().getRebuy_now().remove(nickname);
+
+            reComprar(rebuy);
+
+        }
+
         setStack(stack + pagar);
 
         pagar = 0f;
-
-        if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
-            reComprar((Integer) GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname));
-        }
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {

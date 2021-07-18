@@ -1127,7 +1127,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                tapete.getCommunityCards().getPot_label().setText(Translator.translate("Bote: ") + Helpers.float2String(bote) + (beneficio != null ? " (" + Helpers.float2String(beneficio) + ")" : ""));
+                tapete.getCommunityCards().getPot_label().setText(Translator.translate("BOTE: ") + Helpers.float2String(bote) + (beneficio != null ? " (" + Helpers.float2String(beneficio) + ")" : ""));
             }
         });
     }
@@ -1136,7 +1136,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                tapete.getCommunityCards().getPot_label().setText(Translator.translate("Bote: ") + bote);
+                tapete.getCommunityCards().getPot_label().setText(Translator.translate("BOTE: ") + bote);
             }
         });
     }

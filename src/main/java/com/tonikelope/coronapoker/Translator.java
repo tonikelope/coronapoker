@@ -287,7 +287,7 @@ public class Translator {
             {"Recompra automática", "Auto rebuy"},
             {"Ayuda", "Help"},
             {"Acerca de", "About"},
-            {"Bote: ", "Pot: "},
+            {"BOTE: ", "POT: "},
             {"Mano: ", "Hand: "},
             {"Apuestas: ", "Bets: "},
             {"Ciegas: ", "Blinds: "},

@@ -268,7 +268,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         pot_label.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
         pot_label.setForeground(new java.awt.Color(153, 204, 0));
-        pot_label.setText("Bote:");
+        pot_label.setText("BOTE:");
         pot_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
         pot_label.setDoubleBuffered(true);
         pot_label.setFocusable(false);

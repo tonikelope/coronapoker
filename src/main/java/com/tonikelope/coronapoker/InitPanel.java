@@ -24,6 +24,8 @@ import javax.imageio.ImageIO;
 public class InitPanel extends javax.swing.JPanel {
 
     protected volatile TexturePaint tp = null;
+    protected volatile boolean invalidate = false;
+    protected final Object paint_lock = new Object();
 
     /**
      * Creates new form InitPanel
@@ -61,62 +63,111 @@ public class InitPanel extends javax.swing.JPanel {
 
                 initComponents();
 
-                addComponentListener(new ComponentResizeEndListener() {
+            }
+        });
 
-                    @Override
-                    public void resizeTimedOut() {
+        addComponentListener(new ComponentResizeEndListener() {
 
-                        if (GameFrame.COLOR_TAPETE.endsWith("*")) {
-                            tp = null;
+            @Override
+            public void resizeTimedOut() {
 
-                            revalidate();
-                            repaint();
+                if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                    invalidate = true;
 
-                        }
-                    }
-                });
+                    revalidate();
+                    repaint();
 
+                }
             }
         });
     }
 
     @Override
     protected void paintComponent(Graphics g) {
-
         boolean ok = false;
 
         do {
             try {
                 super.paintComponent(g);
 
-                if (tp == null) {
-                    BufferedImage tile;
-                    if (GameFrame.COLOR_TAPETE.endsWith("*")) {
-                        tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))).getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
-                    } else {
-                        try {
+                if (invalidate || tp == null) {
 
-                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+                    Helpers.threadRun(new Runnable() {
+                        public void run() {
 
-                        } catch (Exception ex) {
+                            synchronized (paint_lock) {
 
-                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                                if (invalidate) {
+                                    BufferedImage tile = null;
+
+                                    if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                                        try {
+                                            tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))).getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
+                                        } catch (Exception ex) {
+                                            Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+                                    } else {
+                                        try {
+
+                                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+
+                                        } catch (Exception ex) {
+
+                                            try {
+                                                tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                                            } catch (IOException ex1) {
+                                                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
+
+                                    tp = new TexturePaint(tile, tr);
+
+                                    invalidate = false;
+
+                                    Helpers.GUIRun(new Runnable() {
+                                        public void run() {
+                                            revalidate();
+                                            repaint();
+
+                                        }
+                                    });
+                                } else {
+                                    Helpers.GUIRun(new Runnable() {
+                                        public void run() {
+                                            revalidate();
+                                            repaint();
+
+                                        }
+                                    });
+                                }
+                            }
                         }
+                    });
+
+                    if (tp != null) {
+
+                        Graphics2D g2 = (Graphics2D) g;
+
+                        g2.setPaint(tp);
+
+                        g2.fill(getBounds());
                     }
 
-                    Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
+                    ok = true;
 
-                    tp = new TexturePaint(tile, tr);
+                } else if (tp != null) {
 
+                    Graphics2D g2 = (Graphics2D) g;
+
+                    g2.setPaint(tp);
+
+                    g2.fill(getBounds());
+
+                    ok = true;
                 }
-
-                Graphics2D g2 = (Graphics2D) g;
-
-                g2.setPaint(tp);
-
-                g2.fill(getBounds());
-
-                ok = true;
 
             } catch (Exception ex) {
                 Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);

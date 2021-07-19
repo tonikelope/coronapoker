@@ -27,11 +27,17 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
     protected volatile TexturePaint tp = null;
 
+    protected volatile boolean repainting = false;
+
     protected volatile RemotePlayer[] remotePlayers;
 
     protected volatile Player[] players;
 
     protected volatile ZoomableInterface[] zoomables;
+
+    protected volatile boolean invalidate = false;
+
+    protected final Object paint_lock = new Object();
 
     public RemotePlayer[] getRemotePlayers() {
         return remotePlayers;
@@ -81,30 +87,30 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+            }
+        });
 
-                addComponentListener(new ComponentResizeEndListener() {
+        addComponentListener(new ComponentResizeEndListener() {
 
-                    @Override
-                    public void resizeTimedOut() {
+            @Override
+            public void resizeTimedOut() {
 
-                        if (GameFrame.AUTO_ZOOM) {
-                            Helpers.threadRun(new Runnable() {
-                                @Override
-                                public void run() {
-                                    autoZoom(false);
-                                }
-                            });
+                if (GameFrame.AUTO_ZOOM) {
+                    Helpers.threadRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            autoZoom(false);
                         }
+                    });
+                }
 
-                        if (GameFrame.COLOR_TAPETE.endsWith("*")) {
-                            tp = null;
+                if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                    invalidate = true;
 
-                            revalidate();
-                            repaint();
+                    revalidate();
+                    repaint();
 
-                        }
-                    }
-                });
+                }
             }
         });
     }
@@ -145,7 +151,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
         Helpers.playWavResource("misc/mat.wav");
 
-        tp = null;
+        invalidate = true;
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -157,40 +163,90 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
     @Override
     protected void paintComponent(Graphics g) {
-
         boolean ok = false;
 
         do {
             try {
                 super.paintComponent(g);
 
-                if (tp == null) {
-                    BufferedImage tile;
-                    if (GameFrame.COLOR_TAPETE.endsWith("*")) {
-                        tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))).getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
-                    } else {
-                        try {
+                if (invalidate || tp == null) {
 
-                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+                    Helpers.threadRun(new Runnable() {
+                        public void run() {
 
-                        } catch (Exception ex) {
+                            synchronized (paint_lock) {
 
-                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                                if (invalidate) {
+                                    BufferedImage tile = null;
+
+                                    if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                                        try {
+                                            tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))).getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
+                                        } catch (Exception ex) {
+                                            Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+                                    } else {
+                                        try {
+
+                                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+
+                                        } catch (Exception ex) {
+
+                                            try {
+                                                tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                                            } catch (IOException ex1) {
+                                                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
+
+                                    tp = new TexturePaint(tile, tr);
+
+                                    invalidate = false;
+
+                                    Helpers.GUIRun(new Runnable() {
+                                        public void run() {
+                                            revalidate();
+                                            repaint();
+
+                                        }
+                                    });
+                                } else {
+                                    Helpers.GUIRun(new Runnable() {
+                                        public void run() {
+                                            revalidate();
+                                            repaint();
+
+                                        }
+                                    });
+                                }
+                            }
                         }
+                    });
+
+                    if (tp != null) {
+
+                        Graphics2D g2 = (Graphics2D) g;
+
+                        g2.setPaint(tp);
+
+                        g2.fill(getBounds());
                     }
 
-                    Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
+                    ok = true;
 
-                    tp = new TexturePaint(tile, tr);
+                } else if (tp != null) {
+
+                    Graphics2D g2 = (Graphics2D) g;
+
+                    g2.setPaint(tp);
+
+                    g2.fill(getBounds());
+
+                    ok = true;
                 }
-
-                Graphics2D g2 = (Graphics2D) g;
-
-                g2.setPaint(tp);
-
-                g2.fill(getBounds());
-
-                ok = true;
 
             } catch (Exception ex) {
                 Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);

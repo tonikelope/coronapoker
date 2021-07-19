@@ -1501,31 +1501,34 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
-        menu_tapete_verde.setSelected(GameFrame.COLOR_TAPETE.equals("verde"));
+        menu_tapete_verde.setSelected(false);
+        menu_tapete_azul.setSelected(false);
+        menu_tapete_rojo.setSelected(false);
+        menu_tapete_madera.setSelected(false);
 
-        menu_tapete_azul.setSelected(GameFrame.COLOR_TAPETE.equals("azul"));
+        if (GameFrame.COLOR_TAPETE.startsWith("verde")) {
 
-        menu_tapete_rojo.setSelected(GameFrame.COLOR_TAPETE.equals("rojo"));
+            menu_tapete_verde.setSelected(true);
 
-        menu_tapete_madera.setSelected(GameFrame.COLOR_TAPETE.equals("madera"));
+            cambiarColorContadoresTapete(GameFrame.COLOR_TAPETE.endsWith("*") ? Color.WHITE : new Color(153, 204, 0));
 
-        switch (GameFrame.COLOR_TAPETE) {
+        } else if (GameFrame.COLOR_TAPETE.startsWith("azul")) {
 
-            case "verde":
-                cambiarColorContadoresTapete(new Color(153, 204, 0));
-                break;
+            menu_tapete_azul.setSelected(true);
 
-            case "azul":
-                cambiarColorContadoresTapete(new Color(102, 204, 255));
-                break;
+            cambiarColorContadoresTapete(GameFrame.COLOR_TAPETE.endsWith("*") ? Color.WHITE : new Color(102, 204, 255));
 
-            case "rojo":
-                cambiarColorContadoresTapete(new Color(255, 204, 51));
-                break;
+        } else if (GameFrame.COLOR_TAPETE.startsWith("rojo")) {
 
-            case "madera":
-                cambiarColorContadoresTapete(Color.WHITE);
-                break;
+            menu_tapete_rojo.setSelected(true);
+
+            cambiarColorContadoresTapete(GameFrame.COLOR_TAPETE.endsWith("*") ? Color.WHITE : new Color(255, 204, 51));
+
+        } else if (GameFrame.COLOR_TAPETE.startsWith("madera")) {
+
+            menu_tapete_madera.setSelected(true);
+
+            cambiarColorContadoresTapete(Color.WHITE);
         }
 
         if (!isPartida_local()) {
@@ -2888,6 +2891,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("verde")) {
             GameFrame.COLOR_TAPETE = "verde*";
 
+            Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
+
+            Helpers.savePropertiesFile();
+
             for (Component c : menu_tapetes.getMenuComponents()) {
                 ((JRadioButtonMenuItem) c).setEnabled(false);
             }
@@ -2941,7 +2948,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameFrame.COLOR_TAPETE = "verde";
 
-            Helpers.PROPERTIES.setProperty("color_tapete", "verde");
+            Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
 
             Helpers.savePropertiesFile();
 
@@ -2982,6 +2989,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("azul")) {
             GameFrame.COLOR_TAPETE = "azul*";
+
+            Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
+
+            Helpers.savePropertiesFile();
 
             for (Component c : menu_tapetes.getMenuComponents()) {
                 ((JRadioButtonMenuItem) c).setEnabled(false);
@@ -3038,7 +3049,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameFrame.COLOR_TAPETE = "azul";
 
-            Helpers.PROPERTIES.setProperty("color_tapete", "azul");
+            Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
 
             Helpers.savePropertiesFile();
 
@@ -3078,6 +3089,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("rojo")) {
             GameFrame.COLOR_TAPETE = "rojo*";
+
+            Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
+
+            Helpers.savePropertiesFile();
 
             for (Component c : menu_tapetes.getMenuComponents()) {
                 ((JRadioButtonMenuItem) c).setEnabled(false);
@@ -3134,7 +3149,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameFrame.COLOR_TAPETE = "rojo";
 
-            Helpers.PROPERTIES.setProperty("color_tapete", "rojo");
+            Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
 
             Helpers.savePropertiesFile();
 
@@ -3175,6 +3190,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("madera")) {
             GameFrame.COLOR_TAPETE = "madera*";
+
+            Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
+
+            Helpers.savePropertiesFile();
 
             for (Component c : menu_tapetes.getMenuComponents()) {
                 ((JRadioButtonMenuItem) c).setEnabled(false);
@@ -3231,7 +3250,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameFrame.COLOR_TAPETE = "madera";
 
-            Helpers.PROPERTIES.setProperty("color_tapete", "madera");
+            Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
 
             Helpers.savePropertiesFile();
 

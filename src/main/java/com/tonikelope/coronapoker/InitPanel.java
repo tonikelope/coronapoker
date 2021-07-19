@@ -7,9 +7,11 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.TexturePaint;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,11 +29,53 @@ public class InitPanel extends javax.swing.JPanel {
      * Creates new form InitPanel
      */
     public InitPanel() {
+        BufferedImage tile = null;
+        if (GameFrame.COLOR_TAPETE.endsWith("*") && Helpers.H2 != null) {
+
+            try {
+                tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))));
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } else {
+            try {
+
+                tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+
+            } catch (Exception ex) {
+
+                try {
+                    tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                } catch (IOException ex1) {
+                    Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex1);
+                }
+            }
+        }
+
+        Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
+        tp = new TexturePaint(tile, tr);
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
                 initComponents();
+
+                addComponentListener(new ComponentResizeEndListener() {
+
+                    @Override
+                    public void resizeTimedOut() {
+
+                        if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                            tp = null;
+
+                            revalidate();
+                            repaint();
+
+                        }
+                    }
+                });
+
             }
         });
     }
@@ -46,12 +90,24 @@ public class InitPanel extends javax.swing.JPanel {
                 super.paintComponent(g);
 
                 if (tp == null) {
+                    BufferedImage tile;
+                    if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                        tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))).getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
+                    } else {
+                        try {
 
-                    BufferedImage tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + Helpers.PROPERTIES.getProperty("color_tapete", "verde") + ".jpg"));
+                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+
+                        } catch (Exception ex) {
+
+                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                        }
+                    }
 
                     Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
 
                     tp = new TexturePaint(tile, tr);
+
                 }
 
                 Graphics2D g2 = (Graphics2D) g;
@@ -62,8 +118,8 @@ public class InitPanel extends javax.swing.JPanel {
 
                 ok = true;
 
-            } catch (IOException ex) {
-                Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (Exception ex) {
+                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         } while (!ok);

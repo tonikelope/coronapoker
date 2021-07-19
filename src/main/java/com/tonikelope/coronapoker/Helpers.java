@@ -229,7 +229,6 @@ public class Helpers {
             H2 = null;
             H3 = null;
         }
-
     }
 
     public static String coronaHMACJ1(byte[] a, byte[] b) {
@@ -3201,10 +3200,10 @@ public class Helpers {
                 TAPETES_MENU.add(TAPETE_AZUL);
                 TAPETES_MENU.add(TAPETE_ROJO);
                 TAPETES_MENU.add(TAPETE_MADERA);
-                TAPETE_VERDE.setSelected(GameFrame.COLOR_TAPETE.equals("verde"));
-                TAPETE_AZUL.setSelected(GameFrame.COLOR_TAPETE.equals("azul"));
-                TAPETE_ROJO.setSelected(GameFrame.COLOR_TAPETE.equals("rojo"));
-                TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.equals("madera"));
+                TAPETE_VERDE.setSelected(GameFrame.COLOR_TAPETE.startsWith("verde"));
+                TAPETE_AZUL.setSelected(GameFrame.COLOR_TAPETE.startsWith("azul"));
+                TAPETE_ROJO.setSelected(GameFrame.COLOR_TAPETE.startsWith("rojo"));
+                TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.startsWith("madera"));
                 popup.add(TAPETES_MENU);
 
                 popup.addSeparator();

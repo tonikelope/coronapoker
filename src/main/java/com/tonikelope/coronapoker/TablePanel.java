@@ -12,6 +12,7 @@ import java.awt.TexturePaint;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -49,6 +50,34 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
      */
     public TablePanel() {
 
+        BufferedImage tile = null;
+
+        if (GameFrame.COLOR_TAPETE.endsWith("*") && Helpers.H2 != null) {
+
+            try {
+                tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))));
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } else {
+            try {
+
+                tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+
+            } catch (Exception ex) {
+
+                try {
+                    tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                } catch (IOException ex1) {
+                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
+                }
+            }
+        }
+
+        Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
+        tp = new TexturePaint(tile, tr);
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
@@ -69,15 +98,10 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
                         if (GameFrame.COLOR_TAPETE.endsWith("*")) {
                             tp = null;
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
 
-                                    revalidate();
-                                    repaint();
+                            revalidate();
+                            repaint();
 
-                                }
-                            });
                         }
                     }
                 });
@@ -145,7 +169,14 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                     if (GameFrame.COLOR_TAPETE.endsWith("*")) {
                         tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))).getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
                     } else {
-                        tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+                        try {
+
+                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+
+                        } catch (Exception ex) {
+
+                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                        }
                     }
 
                     Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());

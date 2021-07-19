@@ -1225,6 +1225,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         case "madera":
                             cambiarColorContadoresTapete(Color.WHITE);
                             break;
+
+                        default:
+                            cambiarColorContadoresTapete(Color.WHITE);
+                            break;
                     }
 
                     Helpers.TapetePopupMenu.addTo(tapete);

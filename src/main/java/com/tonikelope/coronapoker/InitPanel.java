@@ -84,9 +84,11 @@ public class InitPanel extends javax.swing.JPanel {
 
     @Override
     protected void paintComponent(Graphics g) {
+
         boolean ok = false;
 
         do {
+
             try {
                 super.paintComponent(g);
 
@@ -97,53 +99,45 @@ public class InitPanel extends javax.swing.JPanel {
 
                             synchronized (paint_lock) {
 
-                                if (invalidate) {
-                                    BufferedImage tile = null;
+                                BufferedImage tile = null;
 
-                                    if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                                if (GameFrame.COLOR_TAPETE.endsWith("*") && Helpers.H2 != null) {
+                                    try {
+                                        tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))).getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                } else {
+                                    try {
+
+                                        tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+
+                                    } catch (Exception ex) {
+
                                         try {
-                                            tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))).getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
-                                        } catch (Exception ex) {
-                                            Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
-                                    } else {
-                                        try {
-
-                                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
-
-                                        } catch (Exception ex) {
-
-                                            try {
-                                                tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
-                                            } catch (IOException ex1) {
-                                                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
-                                            }
+                                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                                        } catch (IOException ex1) {
+                                            Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
                                         }
                                     }
-
-                                    Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
-
-                                    tp = new TexturePaint(tile, tr);
-
-                                    invalidate = false;
-
-                                    Helpers.GUIRun(new Runnable() {
-                                        public void run() {
-                                            revalidate();
-                                            repaint();
-
-                                        }
-                                    });
-                                } else {
-                                    Helpers.GUIRun(new Runnable() {
-                                        public void run() {
-                                            revalidate();
-                                            repaint();
-
-                                        }
-                                    });
                                 }
+
+                                Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
+
+                                tp = new TexturePaint(tile, tr);
+
+                                invalidate = false;
+
+                                Helpers.GUIRun(new Runnable() {
+                                    public void run() {
+                                        revalidate();
+                                        repaint();
+
+                                    }
+                                });
+
                             }
+
                         }
                     });
 

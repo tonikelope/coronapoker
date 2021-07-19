@@ -262,6 +262,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     synchronized (full_screen_lock) {
                                         full_screen_lock.notifyAll();
                                     }
+
+                                    GameFrame.getInstance().getFrame().requestFocus();
                                 }
                             });
 
@@ -280,6 +282,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     synchronized (full_screen_lock) {
                                         full_screen_lock.notifyAll();
                                     }
+
+                                    GameFrame.getInstance().getFrame().requestFocus();
                                 }
                             });
                         }
@@ -542,6 +546,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 synchronized (full_screen_lock) {
                     full_screen_lock.notifyAll();
                 }
+
+                GameFrame.getInstance().getFrame().requestFocus();
             }
         });
 
@@ -2819,8 +2825,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 toggleMacNativeFullScreen(GameFrame.getInstance());
             }
-
-            GameFrame.getInstance().getFrame().requestFocus();
         }
 
     }//GEN-LAST:event_full_screen_menuActionPerformed

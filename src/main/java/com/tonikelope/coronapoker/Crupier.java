@@ -2404,7 +2404,7 @@ public class Crupier implements Runnable {
 
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setVisible(false);
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText(" "); //Para que se mantenga la anchura de la fila del bote
                 GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(false);
                 GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
 
@@ -2635,7 +2635,6 @@ public class Crupier implements Runnable {
                 @Override
                 public void run() {
 
-                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setVisible(true);
                     GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(true);
                     GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(true);
 

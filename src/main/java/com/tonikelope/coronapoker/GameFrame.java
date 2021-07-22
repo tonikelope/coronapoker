@@ -1368,14 +1368,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         public void run() {
                             cambiarBaraja();
 
-                            if (Helpers.H2 != null && GameFrame.BARAJA.equals("interstate60") && i60_c == 5) {
+                            if (Helpers.M2 != null && GameFrame.BARAJA.equals("interstate60") && i60_c == 5) {
 
                                 i60_c = 0;
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
                                         try {
-                                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon((byte[]) Helpers.H2.invoke(null, "e")), 12000);
+                                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon((byte[]) Helpers.M2.invoke(null, "e")), 12000);
 
                                             gif_dialog.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
@@ -2896,7 +2896,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_verdeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_verdeActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("verde")) {
+        if (Helpers.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("verde")) {
             GameFrame.COLOR_TAPETE = "verde*";
 
             Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
@@ -2995,7 +2995,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_azulActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_azulActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("azul")) {
+        if (Helpers.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("azul")) {
             GameFrame.COLOR_TAPETE = "azul*";
 
             Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
@@ -3095,7 +3095,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_rojoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_rojoActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("rojo")) {
+        if (Helpers.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("rojo")) {
             GameFrame.COLOR_TAPETE = "rojo*";
 
             Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
@@ -3196,7 +3196,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_maderaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_maderaActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.H2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("madera")) {
+        if (Helpers.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("madera")) {
             GameFrame.COLOR_TAPETE = "madera*";
 
             Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);

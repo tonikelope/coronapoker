@@ -518,14 +518,14 @@ public class Init extends javax.swing.JFrame {
 
         Helpers.playWavResource("misc/krusty.wav");
 
-        if (Helpers.H2 != null && ++k == 5) {
+        if (Helpers.M2 != null && ++k == 5) {
 
             JFrame tthis = this;
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
                     try {
-                        gif_dialog = new GifAnimationDialog(tthis, true, new ImageIcon((byte[]) Helpers.H2.invoke(null, "f")), 5500);
+                        gif_dialog = new GifAnimationDialog(tthis, true, new ImageIcon((byte[]) Helpers.M2.invoke(null, "f")), 5500);
                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                         gif_dialog.setVisible(true);
                     } catch (Exception ex) {

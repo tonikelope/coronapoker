@@ -11,7 +11,6 @@ import java.awt.Image;
 import java.awt.TexturePaint;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
@@ -57,11 +56,10 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
     public TablePanel() {
 
         BufferedImage tile = null;
-
-        if (GameFrame.COLOR_TAPETE.endsWith("*") && Helpers.H2 != null) {
+        if (GameFrame.COLOR_TAPETE.endsWith("*") && Helpers.I1 != null) {
 
             try {
-                tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))));
+                tile = Helpers.toBufferedImage(Helpers.I1);
 
             } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -76,7 +74,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                 try {
                     tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
                 } catch (IOException ex1) {
-                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
+                    Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex1);
                 }
             }
         }
@@ -180,9 +178,9 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
 
                                 BufferedImage tile = null;
 
-                                if (GameFrame.COLOR_TAPETE.endsWith("*") && Helpers.H2 != null) {
+                                if (GameFrame.COLOR_TAPETE.endsWith("*") && Helpers.I1 != null) {
                                     try {
-                                        tile = Helpers.toBufferedImage(ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.H2.invoke(null, "d"))).getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
+                                        tile = Helpers.toBufferedImage(Helpers.I1.getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
                                     } catch (Exception ex) {
                                         Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
                                     }

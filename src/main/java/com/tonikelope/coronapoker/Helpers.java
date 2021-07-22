@@ -30,6 +30,7 @@ import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -95,6 +96,7 @@ import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.imageio.ImageIO;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
@@ -195,18 +197,17 @@ public class Helpers {
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
     public volatile static BasicPlayer TTS_PLAYER = null;
     public volatile static Object TTS_PLAYER_NOTIFIER = new Object();
-    public volatile static Method CORONA_HMAC_J1;
-    public volatile static Method H1;
-    public volatile static Method H2;
-    public volatile static Method H3;
+    public volatile static Method CORONA_HMAC_J1 = null;
+    public volatile static Method M1 = null;
+    public volatile static Method M2 = null;
+    public volatile static Method M3 = null;
+    public volatile static Image I1 = null;
 
     static {
 
         try {
             CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
         } catch (Exception ex) {
-
-            CORONA_HMAC_J1 = null;
 
             if (!Init.DEV_MODE) {
                 try {
@@ -222,12 +223,22 @@ public class Helpers {
         }
 
         try {
-            H1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("H1", new Class<?>[]{JDialog.class, String.class});
-            H2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("H2", new Class<?>[]{String.class});
+
+            M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});
+
+            M2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M2", new Class<?>[]{String.class});
+
+            try {
+
+                I1 = ImageIO.read(new ByteArrayInputStream((byte[]) Helpers.M2.invoke(null, "d")));
+
+            } catch (Exception ex) {
+
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
         } catch (Exception ex) {
-            H1 = null;
-            H2 = null;
-            H3 = null;
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 

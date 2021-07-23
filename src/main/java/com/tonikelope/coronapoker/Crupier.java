@@ -2192,10 +2192,10 @@ public class Crupier implements Runnable {
 
                             Helpers.pausar(500);
 
-                            Helpers.playWavResource("misc/iwtsth.wav");
+                            Helpers.playWavResourceAndWait("misc/iwtsth.wav");
 
                         } else {
-                            Helpers.playWavResource("misc/iwtsth.wav");
+                            Helpers.playWavResourceAndWait("misc/iwtsth.wav");
                         }
 
                         if (GameFrame.getInstance().isPartida_local()) {

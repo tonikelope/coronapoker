@@ -3130,23 +3130,37 @@ public class Helpers {
                     }
                 };
 
-                popup.add(chatAction);
-                popup.add(registroAction);
-                popup.add(jugadasAction);
+                JMenuItem chat = new JMenuItem(chatAction);
+                chat.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat.png")));
+                popup.add(chat);
+                JMenuItem log = new JMenuItem(registroAction);
+                log.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/log.png")));
+                popup.add(log);
+                JMenuItem jugadas = new JMenuItem(jugadasAction);
+                jugadas.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/games.png")));
+                popup.add(jugadas);
 
                 popup.addSeparator();
 
                 FULLSCREEN_MENU = new JCheckBoxMenuItem(fullscreenAction);
+                FULLSCREEN_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/full_screen.png")));
                 FULLSCREEN_MENU.setSelected(GameFrame.getInstance().isFull_screen());
                 FULLSCREEN_MENU.setEnabled(true);
                 popup.add(FULLSCREEN_MENU);
 
                 popup.addSeparator();
 
-                popup.add(zoominAction);
-                popup.add(zoomoutAction);
-                popup.add(zoomresetAction);
+                JMenuItem zoom_in = new JMenuItem(zoominAction);
+                zoom_in.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_in.png")));
+                popup.add(zoom_in);
+                JMenuItem zoom_out = new JMenuItem(zoomoutAction);
+                zoom_out.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_out.png")));
+                popup.add(zoom_out);
+                JMenuItem zoom_reset = new JMenuItem(zoomresetAction);
+                zoom_reset.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_reset.png")));
+                popup.add(zoom_reset);
                 AUTO_ZOOM_MENU = new JCheckBoxMenuItem(zoomautoAction);
+                AUTO_ZOOM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_auto.png")));
                 AUTO_ZOOM_MENU.setSelected(GameFrame.AUTO_ZOOM);
                 popup.add(AUTO_ZOOM_MENU);
 
@@ -3154,12 +3168,14 @@ public class Helpers {
 
                 COMPACTA_MENU = new JCheckBoxMenuItem(compactAction);
                 COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA);
+                COMPACTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tiny.png")));
                 popup.add(COMPACTA_MENU);
 
                 popup.addSeparator();
 
                 SONIDOS_MENU = new JCheckBoxMenuItem(soundAction);
                 SONIDOS_MENU.setSelected(GameFrame.SONIDOS);
+                SONIDOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
                 popup.add(SONIDOS_MENU);
                 SONIDOS_COMENTARIOS_MENU = new JCheckBoxMenuItem(comentariosAction);
                 SONIDOS_COMENTARIOS_MENU.setSelected(GameFrame.SONIDOS_CHORRA);
@@ -3178,6 +3194,7 @@ public class Helpers {
 
                 popup.add(shortcutsAction);
                 CONFIRM_MENU = new JCheckBoxMenuItem(confirmAction);
+                CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/confirmation.png")));
                 CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
                 popup.add(CONFIRM_MENU);
                 AUTO_ACTION_MENU = new JCheckBoxMenuItem(autoactAction);
@@ -3187,6 +3204,7 @@ public class Helpers {
                 popup.addSeparator();
 
                 CINEMATICAS_MENU = new JCheckBoxMenuItem(cinematicasAction);
+                CINEMATICAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/video.png")));
                 CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
                 popup.add(CINEMATICAS_MENU);
                 ANIMACION_MENU = new JCheckBoxMenuItem(animacionAction);
@@ -3196,6 +3214,7 @@ public class Helpers {
                 popup.addSeparator();
 
                 RELOJ_MENU = new JCheckBoxMenuItem(relojAction);
+                RELOJ_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/clock.png")));
                 RELOJ_MENU.setSelected(GameFrame.SHOW_CLOCK);
                 popup.add(RELOJ_MENU);
 
@@ -3220,6 +3239,7 @@ public class Helpers {
                 popup.addSeparator();
 
                 REBUY_NOW_MENU = new JCheckBoxMenuItem(rebuyNowAction);
+                REBUY_NOW_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/rebuy.png")));
                 REBUY_NOW_MENU.setSelected(false);
                 REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
                 popup.add(REBUY_NOW_MENU);
@@ -3227,6 +3247,8 @@ public class Helpers {
                 popup.addSeparator();
 
                 LAST_HAND_MENU = new JCheckBoxMenuItem(lastHandAction);
+                LAST_HAND_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/last_hand.png")));
+
                 LAST_HAND_MENU.setSelected(false);
                 popup.add(LAST_HAND_MENU);
                 MAX_HANDS_MENU = new JMenuItem(maxHandsAction);
@@ -3238,6 +3260,8 @@ public class Helpers {
                 popup.addSeparator();
 
                 EXIT_MENU = new JMenuItem(exitAction);
+
+                EXIT_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));
 
                 popup.add(EXIT_MENU);
 

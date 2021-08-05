@@ -1319,6 +1319,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             });
         }
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                sonidos_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
+
+                if (Helpers.TapetePopupMenu.SONIDOS_MENU != null) {
+                    Helpers.TapetePopupMenu.SONIDOS_MENU.setIcon(new javax.swing.ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
+                }
+            }
+        });
     }
 
     public JCheckBoxMenuItem getCompact_menu() {
@@ -2044,10 +2055,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         file_menu.setMnemonic('i');
         file_menu.setText("Archivo");
+        file_menu.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         file_menu.setDoubleBuffered(true);
         file_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
 
         chat_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        chat_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/chat.png"))); // NOI18N
         chat_menu.setText("Ver chat (ALT+C)");
         chat_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2057,6 +2070,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         file_menu.add(chat_menu);
 
         registro_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        registro_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/log.png"))); // NOI18N
         registro_menu.setText("Ver registro (ALT+R)");
         registro_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2066,6 +2080,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         file_menu.add(registro_menu);
 
         jugadas_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        jugadas_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/games.png"))); // NOI18N
         jugadas_menu.setText("Generador de jugadas");
         jugadas_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2078,6 +2093,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         last_hand_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         last_hand_menu.setSelected(true);
         last_hand_menu.setText("Última mano");
+        last_hand_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/last_hand.png"))); // NOI18N
         last_hand_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 last_hand_menuActionPerformed(evt);
@@ -2096,6 +2112,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         file_menu.add(jSeparator3);
 
         exit_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        exit_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/close.png"))); // NOI18N
         exit_menu.setText("SALIR (ALT+F4)");
         exit_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2111,6 +2128,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         zoom_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
 
         zoom_menu_in.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        zoom_menu_in.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/zoom_in.png"))); // NOI18N
         zoom_menu_in.setText("Aumentar (CTRL++)");
         zoom_menu_in.setDoubleBuffered(true);
         zoom_menu_in.addActionListener(new java.awt.event.ActionListener() {
@@ -2121,6 +2139,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         zoom_menu.add(zoom_menu_in);
 
         zoom_menu_out.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        zoom_menu_out.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/zoom_out.png"))); // NOI18N
         zoom_menu_out.setText("Reducir (CTRL+-)");
         zoom_menu_out.setDoubleBuffered(true);
         zoom_menu_out.addActionListener(new java.awt.event.ActionListener() {
@@ -2131,6 +2150,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         zoom_menu.add(zoom_menu_out);
 
         zoom_menu_reset.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        zoom_menu_reset.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/zoom_reset.png"))); // NOI18N
         zoom_menu_reset.setText("Reset (CTRL+0)");
         zoom_menu_reset.setDoubleBuffered(true);
         zoom_menu_reset.addActionListener(new java.awt.event.ActionListener() {
@@ -2144,6 +2164,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         auto_fit_zoom_menu.setSelected(true);
         auto_fit_zoom_menu.setText("Auto ajustar");
         auto_fit_zoom_menu.setDoubleBuffered(true);
+        auto_fit_zoom_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/zoom_auto.png"))); // NOI18N
         auto_fit_zoom_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 auto_fit_zoom_menuActionPerformed(evt);
@@ -2158,6 +2179,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         compact_menu.setSelected(true);
         compact_menu.setText("VISTA COMPACTA (ALT+X)");
         compact_menu.setDoubleBuffered(true);
+        compact_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/tiny.png"))); // NOI18N
         compact_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 compact_menuActionPerformed(evt);
@@ -2167,6 +2189,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         zoom_menu.add(jSeparator5);
 
         full_screen_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        full_screen_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/full_screen.png"))); // NOI18N
         full_screen_menu.setText("PANTALLA COMPLETA (ALT+F)");
         full_screen_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2185,6 +2208,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         sonidos_menu.setSelected(true);
         sonidos_menu.setText("SONIDOS (ALT+S)");
         sonidos_menu.setDoubleBuffered(true);
+        sonidos_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png"))); // NOI18N
         sonidos_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 sonidos_menuActionPerformed(evt);
@@ -2232,6 +2256,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         confirmar_menu.setSelected(true);
         confirmar_menu.setText("Confirmar todas las acciones");
         confirmar_menu.setDoubleBuffered(true);
+        confirmar_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/confirmation.png"))); // NOI18N
         confirmar_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 confirmar_menuActionPerformed(evt);
@@ -2257,6 +2282,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         menu_cinematicas.setSelected(true);
         menu_cinematicas.setText("Cinemáticas");
         menu_cinematicas.setDoubleBuffered(true);
+        menu_cinematicas.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/video.png"))); // NOI18N
         menu_cinematicas.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 menu_cinematicasActionPerformed(evt);
@@ -2282,6 +2308,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         time_menu.setSelected(true);
         time_menu.setText("Mostrar reloj (ALT+W)");
         time_menu.setDoubleBuffered(true);
+        time_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/clock.png"))); // NOI18N
         time_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 time_menuActionPerformed(evt);
@@ -2352,8 +2379,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         rebuy_now_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         rebuy_now_menu.setSelected(true);
-        rebuy_now_menu.setText("Recomprar (siguiente mano)");
+        rebuy_now_menu.setText("RECOMPRAR (siguiente mano)");
         rebuy_now_menu.setDoubleBuffered(true);
+        rebuy_now_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rebuy.png"))); // NOI18N
         rebuy_now_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 rebuy_now_menuActionPerformed(evt);
@@ -2592,9 +2620,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void zoom_menu_resetActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_resetActionPerformed
         // TODO add your handling code here:
 
-        zoom_menu.setEnabled(false);
-
         if (ZOOM_LEVEL != DEFAULT_ZOOM_LEVEL) {
+
+            zoom_menu.setEnabled(false);
 
             Helpers.playWavResource("misc/zoom_reset.wav");
 

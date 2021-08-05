@@ -14,6 +14,9 @@
           <Properties>
             <Property name="mnemonic" type="int" value="105"/>
             <Property name="text" type="java.lang.String" value="Archivo"/>
+            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+              <Color id="Cursor Por defecto"/>
+            </Property>
             <Property name="doubleBuffered" type="boolean" value="true"/>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="14" style="0"/>
@@ -24,6 +27,9 @@
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
+                </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/chat.png"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="Ver chat (ALT+C)"/>
               </Properties>
@@ -36,6 +42,9 @@
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/log.png"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="Ver registro (ALT+R)"/>
               </Properties>
               <Events>
@@ -46,6 +55,9 @@
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
+                </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/games.png"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="Generador de jugadas"/>
               </Properties>
@@ -62,6 +74,9 @@
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="&#xda;ltima mano"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/last_hand.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="last_hand_menuActionPerformed"/>
@@ -85,6 +100,9 @@
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/close.png"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="SALIR (ALT+F4)"/>
               </Properties>
               <Events>
@@ -107,6 +125,9 @@
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/zoom_in.png"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="Aumentar (CTRL++)"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
@@ -119,6 +140,9 @@
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/zoom_out.png"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="Reducir (CTRL+-)"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
@@ -130,6 +154,9 @@
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
+                </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/zoom_reset.png"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="Reset (CTRL+0)"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
@@ -146,6 +173,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Auto ajustar"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/zoom_auto.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_fit_zoom_menuActionPerformed"/>
@@ -164,6 +194,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="VISTA COMPACTA (ALT+X)"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/tiny.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="compact_menuActionPerformed"/>
@@ -175,6 +208,9 @@
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
+                </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/full_screen.png"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="PANTALLA COMPLETA (ALT+F)"/>
               </Properties>
@@ -201,6 +237,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="SONIDOS (ALT+S)"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/sound.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="sonidos_menuActionPerformed"/>
@@ -258,6 +297,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Confirmar todas las acciones"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/confirmation.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="confirmar_menuActionPerformed"/>
@@ -289,6 +331,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Cinem&#xe1;ticas"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/video.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_cinematicasActionPerformed"/>
@@ -320,6 +365,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Mostrar reloj (ALT+W)"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/clock.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="time_menuActionPerformed"/>
@@ -413,8 +461,11 @@
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
                 <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="Recomprar (siguiente mano)"/>
+                <Property name="text" type="java.lang.String" value="RECOMPRAR (siguiente mano)"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/rebuy.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="rebuy_now_menuActionPerformed"/>

@@ -87,6 +87,9 @@
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/meter.png"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="L&#xed;mite de manos"/>
               </Properties>
               <Events>
@@ -253,6 +256,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Sonidos de co&#xf1;a"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/joke.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="sonidos_chorra_menuActionPerformed"/>
@@ -266,6 +272,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="M&#xfa;sica ambiental"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/music.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="ascensor_menuActionPerformed"/>
@@ -279,6 +288,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="TTS"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/voice.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="tts_menuActionPerformed"/>
@@ -313,6 +325,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Botones AUTO"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/auto.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_action_menuActionPerformed"/>
@@ -347,6 +362,9 @@
                 <Property name="selected" type="boolean" value="true"/>
                 <Property name="text" type="java.lang.String" value="Animaci&#xf3;n al repartir"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/dealer.png"/>
+                </Property>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="animacion_menuActionPerformed"/>
@@ -380,6 +398,9 @@
             </MenuItem>
             <Menu class="javax.swing.JMenu" name="menu_barajas">
               <Properties>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/pica_roja.png"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="Barajas"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
@@ -389,6 +410,9 @@
             </Menu>
             <Menu class="javax.swing.JMenu" name="menu_tapetes">
               <Properties>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/tapetes.png"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="Tapetes"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
@@ -487,6 +511,9 @@
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/keyboard.png"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="Ver atajos"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
@@ -499,6 +526,9 @@
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
                 </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/book.png"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="Reglas de Robert"/>
               </Properties>
               <Events>
@@ -509,6 +539,9 @@
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="14" style="0"/>
+                </Property>
+                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                  <Image iconType="3" name="/images/menu/corona.png"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="Acerca de"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>

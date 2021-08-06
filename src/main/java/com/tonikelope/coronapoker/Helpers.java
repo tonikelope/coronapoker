@@ -2926,6 +2926,7 @@ public class Helpers {
 
                 BARAJAS_MENU.add(menu_item);
             }
+
         }
 
         public static void addTo(TablePanel tapete) {
@@ -3178,26 +3179,32 @@ public class Helpers {
                 SONIDOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
                 popup.add(SONIDOS_MENU);
                 SONIDOS_COMENTARIOS_MENU = new JCheckBoxMenuItem(comentariosAction);
+                SONIDOS_COMENTARIOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/joke.png")));
                 SONIDOS_COMENTARIOS_MENU.setSelected(GameFrame.SONIDOS_CHORRA);
                 SONIDOS_COMENTARIOS_MENU.setEnabled(GameFrame.SONIDOS);
                 popup.add(SONIDOS_COMENTARIOS_MENU);
                 SONIDOS_MUSICA_MENU = new JCheckBoxMenuItem(musicaAction);
+                SONIDOS_MUSICA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/music.png")));
                 SONIDOS_MUSICA_MENU.setSelected(GameFrame.MUSICA_AMBIENTAL);
                 SONIDOS_MUSICA_MENU.setEnabled(GameFrame.SONIDOS);
                 popup.add(SONIDOS_MUSICA_MENU);
                 SONIDOS_TTS_MENU = new JCheckBoxMenuItem(TTSAction);
+                SONIDOS_TTS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/voice.png")));
                 SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
                 SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
                 popup.add(SONIDOS_TTS_MENU);
 
                 popup.addSeparator();
 
-                popup.add(shortcutsAction);
+                JMenuItem shortcuts = new JMenuItem(shortcutsAction);
+                shortcuts.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/keyboard.png")));
+                popup.add(shortcuts);
                 CONFIRM_MENU = new JCheckBoxMenuItem(confirmAction);
                 CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/confirmation.png")));
                 CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
                 popup.add(CONFIRM_MENU);
                 AUTO_ACTION_MENU = new JCheckBoxMenuItem(autoactAction);
+                AUTO_ACTION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
                 AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
                 popup.add(AUTO_ACTION_MENU);
 
@@ -3208,6 +3215,7 @@ public class Helpers {
                 CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
                 popup.add(CINEMATICAS_MENU);
                 ANIMACION_MENU = new JCheckBoxMenuItem(animacionAction);
+                ANIMACION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
                 ANIMACION_MENU.setSelected(GameFrame.ANIMACION_REPARTIR);
                 popup.add(ANIMACION_MENU);
 
@@ -3221,6 +3229,7 @@ public class Helpers {
                 popup.addSeparator();
 
                 generarBarajasMenu();
+                BARAJAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/pica_roja.png")));
                 popup.add(BARAJAS_MENU);
                 TAPETE_VERDE = new JRadioButtonMenuItem(tapeteVerdeAction);
                 TAPETE_AZUL = new JRadioButtonMenuItem(tapeteAzulAction);
@@ -3234,6 +3243,7 @@ public class Helpers {
                 TAPETE_AZUL.setSelected(GameFrame.COLOR_TAPETE.startsWith("azul"));
                 TAPETE_ROJO.setSelected(GameFrame.COLOR_TAPETE.startsWith("rojo"));
                 TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.startsWith("madera"));
+                TAPETES_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tapetes.png")));
                 popup.add(TAPETES_MENU);
 
                 popup.addSeparator();
@@ -3252,10 +3262,13 @@ public class Helpers {
                 LAST_HAND_MENU.setSelected(false);
                 popup.add(LAST_HAND_MENU);
                 MAX_HANDS_MENU = new JMenuItem(maxHandsAction);
+                MAX_HANDS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/meter.png")));
                 popup.add(MAX_HANDS_MENU);
 
                 popup.addSeparator();
-                popup.add(new JMenuItem(rulesAction));
+                JMenuItem rules = new JMenuItem(rulesAction);
+                rules.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/book.png")));
+                popup.add(rules);
 
                 popup.addSeparator();
 

@@ -2102,6 +2102,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         file_menu.add(last_hand_menu);
 
         max_hands_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        max_hands_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png"))); // NOI18N
         max_hands_menu.setText("Límite de manos");
         max_hands_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2220,6 +2221,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         sonidos_chorra_menu.setSelected(true);
         sonidos_chorra_menu.setText("Sonidos de coña");
         sonidos_chorra_menu.setDoubleBuffered(true);
+        sonidos_chorra_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/joke.png"))); // NOI18N
         sonidos_chorra_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 sonidos_chorra_menuActionPerformed(evt);
@@ -2231,6 +2233,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         ascensor_menu.setSelected(true);
         ascensor_menu.setText("Música ambiental");
         ascensor_menu.setDoubleBuffered(true);
+        ascensor_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/music.png"))); // NOI18N
         ascensor_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 ascensor_menuActionPerformed(evt);
@@ -2242,6 +2245,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         tts_menu.setSelected(true);
         tts_menu.setText("TTS");
         tts_menu.setDoubleBuffered(true);
+        tts_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/voice.png"))); // NOI18N
         tts_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 tts_menuActionPerformed(evt);
@@ -2268,6 +2272,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         auto_action_menu.setSelected(true);
         auto_action_menu.setText("Botones AUTO");
         auto_action_menu.setDoubleBuffered(true);
+        auto_action_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/auto.png"))); // NOI18N
         auto_action_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 auto_action_menuActionPerformed(evt);
@@ -2294,6 +2299,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         animacion_menu.setSelected(true);
         animacion_menu.setText("Animación al repartir");
         animacion_menu.setDoubleBuffered(true);
+        animacion_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/dealer.png"))); // NOI18N
         animacion_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 animacion_menuActionPerformed(evt);
@@ -2319,11 +2325,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         decks_separator.setDoubleBuffered(true);
         opciones_menu.add(decks_separator);
 
+        menu_barajas.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/pica_roja.png"))); // NOI18N
         menu_barajas.setText("Barajas");
         menu_barajas.setDoubleBuffered(true);
         menu_barajas.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         opciones_menu.add(menu_barajas);
 
+        menu_tapetes.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/tapetes.png"))); // NOI18N
         menu_tapetes.setText("Tapetes");
         menu_tapetes.setDoubleBuffered(true);
         menu_tapetes.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
@@ -2396,6 +2404,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         help_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
 
         shortcuts_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        shortcuts_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/keyboard.png"))); // NOI18N
         shortcuts_menu.setText("Ver atajos");
         shortcuts_menu.setDoubleBuffered(true);
         shortcuts_menu.addActionListener(new java.awt.event.ActionListener() {
@@ -2406,6 +2415,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         help_menu.add(shortcuts_menu);
 
         robert_rules_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        robert_rules_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/book.png"))); // NOI18N
         robert_rules_menu.setText("Reglas de Robert");
         robert_rules_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2415,6 +2425,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         help_menu.add(robert_rules_menu);
 
         acerca_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        acerca_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/corona.png"))); // NOI18N
         acerca_menu.setText("Acerca de");
         acerca_menu.setDoubleBuffered(true);
         acerca_menu.addActionListener(new java.awt.event.ActionListener() {

@@ -253,6 +253,7 @@ public class Crupier implements Runnable {
     private volatile boolean iwtsthing_request = false;
     private volatile Long last_iwtsth_rejected = null;
     private volatile int limpers;
+    private volatile int game_recovered = 0;
 
     public int getLimpersCount() {
         return limpers;
@@ -1041,10 +1042,23 @@ public class Crupier implements Runnable {
 
             GameFrame.getInstance().getRegistro().print(status);
 
-            GameFrame.getInstance().getRegistro().print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: " + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum) + " / INDIVISIBLE: " + Helpers.float2String(this.bote_sobrante));
-
             if (Helpers.float1DSecureCompare(Helpers.floatClean1D(stack_sum) + Helpers.floatClean1D(this.bote_sobrante), buyin_sum) != 0) {
-                GameFrame.getInstance().getRegistro().print("¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN");
+
+                if (this.game_recovered == 1 && Helpers.float1DSecureCompare(0f, this.bote_sobrante) <= 0) {
+
+                    this.game_recovered = 2;
+
+                    //CORREGIMOS EL BOTE SOBRANTE DESAPARECIDO AL RECUPERAR LA PARTIDA
+                    this.bote_sobrante = Helpers.floatClean1D(Helpers.floatClean1D(buyin_sum) - Helpers.floatClean1D(stack_sum));
+                    this.bote_total = this.bote_sobrante;
+
+                    GameFrame.getInstance().getRegistro().print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: " + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum) + " / INDIVISIBLE: " + Helpers.float2String(this.bote_sobrante));
+                } else {
+                    GameFrame.getInstance().getRegistro().print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: " + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum) + " / INDIVISIBLE: " + Helpers.float2String(this.bote_sobrante));
+                    GameFrame.getInstance().getRegistro().print("¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN");
+                }
+            } else {
+                GameFrame.getInstance().getRegistro().print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: " + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum) + " / INDIVISIBLE: " + Helpers.float2String(this.bote_sobrante));
             }
         }
     }
@@ -2612,6 +2626,8 @@ public class Crupier implements Runnable {
             this.update_game_seats = true;
 
             GameFrame.setRECOVER(false);
+
+            this.game_recovered = 1;
         }
 
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {

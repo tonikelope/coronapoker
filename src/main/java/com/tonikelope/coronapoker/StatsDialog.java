@@ -1341,9 +1341,10 @@ public class StatsDialog extends javax.swing.JDialog {
                                 HashMap<String, Object> map = new HashMap<>();
                                 map.put("id", rs.getInt("id"));
                                 map.put("start_timestamp", rs.getLong("start"));
-                                game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
 
-                                game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
+                                String game_length = Helpers.seconds2FullTime(rs.getLong("play_time"));
+                                game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length, map);
+                                game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length);
                             }
                         }
 

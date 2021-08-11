@@ -133,6 +133,6 @@ Desktop.ini
 # Recycle Bin used on file shares
 $RECYCLE.BIN/
 
-#MegaBasterd DB
+
 *.db
 /src/main/java/com/tonikelope/coronapoker/Huevos.java

@@ -22,6 +22,11 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Deshacer", "Undo"},
+            {"Copiar", "Copy"},
+            {"Cortar", "Cut"},
+            {"Pegar", "Paste"},
+            {"Seleccionar todo", "Select all"},
             {"Recibiendo info del servidor...", "Reading server info..."},
             {"TIENES QUE ESPERAR ", "YOU MUST WAIT "},
             {" PARA VOLVER A SOLICITAR IWTSTH", " TO REQUEST IWTSTH AGAIN"},

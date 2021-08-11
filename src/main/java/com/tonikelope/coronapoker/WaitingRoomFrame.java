@@ -2349,7 +2349,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        tot_conectados.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        tot_conectados.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         tot_conectados.setForeground(new java.awt.Color(0, 102, 255));
         tot_conectados.setText("0/10");
 

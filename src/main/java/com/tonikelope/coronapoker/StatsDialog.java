@@ -232,9 +232,9 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                 if (partes.length == 2) {
 
-                                    Card carta = new Card();
+                                    Card carta = new Card(false);
 
-                                    carta.actualizarValorPalo(partes[0], partes[1], false);
+                                    carta.actualizarValorPalo(partes[0], partes[1]);
 
                                     cartas.add(carta);
                                 }
@@ -255,9 +255,9 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                 if (partes.length == 2) {
 
-                                    Card carta = new Card();
+                                    Card carta = new Card(false);
 
-                                    carta.actualizarValorPalo(partes[0], partes[1], false);
+                                    carta.actualizarValorPalo(partes[0], partes[1]);
 
                                     cartas.add(carta);
                                 }
@@ -884,9 +884,9 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                         String[] partes = c.split("_");
 
-                                        Card carta = new Card();
+                                        Card carta = new Card(false);
 
-                                        carta.actualizarValorPalo(partes[0], partes[1], false);
+                                        carta.actualizarValorPalo(partes[0], partes[1]);
 
                                         cartas.add(carta);
                                     }
@@ -993,9 +993,9 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                         String[] partes = c.split("_");
 
-                                        Card carta = new Card();
+                                        Card carta = new Card(false);
 
-                                        carta.actualizarValorPalo(partes[0], partes[1], false);
+                                        carta.actualizarValorPalo(partes[0], partes[1]);
 
                                         cartas.add(carta);
                                     }
@@ -1014,9 +1014,9 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                         String[] partes = c.split("_");
 
-                                        Card carta = new Card();
+                                        Card carta = new Card(false);
 
-                                        carta.actualizarValorPalo(partes[0], partes[1], false);
+                                        carta.actualizarValorPalo(partes[0], partes[1]);
 
                                         cartas.add(carta);
                                     }

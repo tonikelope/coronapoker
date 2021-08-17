@@ -61,6 +61,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile int pos_chip = -1;
     private volatile int pos_chip_location = 1;
     private volatile boolean pos_chip_visible = true;
+    private volatile boolean gui = true;
 
     public boolean isVisible_card() {
         return visible_card;
@@ -200,8 +201,29 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     /**
      * Creates new form PlayingCard
      */
-    public Card() {
+    public Card(boolean gui) {
 
+        this.gui = gui;
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                initComponents();
+
+                if (gui) {
+                    pos_chip_label = new JLabel("");
+                    pos_chip_label.setDoubleBuffered(true);
+                    pos_chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                    pos_chip_label.setOpaque(false);
+                    pos_chip_label.setVisible(false);
+                    add(pos_chip_label, JLayeredPane.POPUP_LAYER);
+                    pos_chip_label.setSize(new Dimension(100, 100));
+                }
+            }
+        });
+
+    }
+
+    public Card() {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
@@ -287,49 +309,51 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void refreshCard() {
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        if (this.gui) {
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
+            Helpers.threadRun(new Runnable() {
+                public void run() {
 
-                        setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                        card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        public void run() {
 
-                        if (isIniciada()) {
+                            setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                            card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
 
-                            if (isTapada()) {
+                            if (isIniciada()) {
 
-                                card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
+                                if (isTapada()) {
 
+                                    card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
+
+                                } else {
+
+                                    card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
+
+                                }
                             } else {
-
-                                card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
-
+                                card_image.setIcon(Card.IMAGEN_JOKER);
                             }
-                        } else {
-                            card_image.setIcon(Card.IMAGEN_JOKER);
+
+                            card_image.setVisible(isVisible_card());
+
                         }
+                    });
 
-                        card_image.setVisible(isVisible_card());
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            updatePositionChip();
 
-                    }
-                });
+                            revalidate();
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        updatePositionChip();
+                            repaint();
 
-                        revalidate();
+                        }
+                    });
 
-                        repaint();
-
-                    }
-                });
-
-            }
-        });
-
+                }
+            });
+        }
     }
 
     public void iniciarCarta() {
@@ -421,10 +445,14 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void iniciarConValorPalo(String valor, String palo) {
 
+        iniciarConValorPalo(valor, palo, true);
+    }
+
+    public void iniciarConValorPalo(String valor, String palo, boolean tapada) {
         this.valor = valor.toUpperCase().trim();
         this.palo = palo.toUpperCase().trim();
         this.iniciada = true;
-        this.tapada = true;
+        this.tapada = tapada;
         this.desenfocada = false;
         this.refreshCard();
     }

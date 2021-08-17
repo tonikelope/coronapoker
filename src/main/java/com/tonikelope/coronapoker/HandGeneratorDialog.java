@@ -133,7 +133,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 if (!valores.contains(s)) {
                     valores.add(s);
-                    Card carta = new Card();
+                    Card carta = new Card(false);
                     carta.iniciarConValorNumerico(s);
                     posible.add(carta);
                 }
@@ -153,8 +153,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (Card carta : posible) {
 
-            cartas[i].iniciarConValorPalo(carta.getValor(), carta.getPalo());
-            cartas[i].destapar(false);
+            cartas[i].iniciarConValorPalo(carta.getValor(), carta.getPalo(), false);
             i++;
         }
 
@@ -177,7 +176,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         int valor_pareja1 = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
 
         for (int i = 0; i < PALOS.length; i++) {
-            Card carta = new Card();
+            Card carta = new Card(false);
             carta.iniciarConValorPalo(VALORES[valor_pareja1], PALOS[i]);
             pareja1.add(carta);
         }
@@ -188,8 +187,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (int i = 0; i < Crupier.CARTAS_PAREJA; i++) {
 
-            cartas[i].iniciarConValorPalo(pareja1.get(i).getValor(), pareja1.get(i).getPalo());
-            cartas[i].destapar(false);
+            cartas[i].iniciarConValorPalo(pareja1.get(i).getValor(), pareja1.get(i).getPalo(), false);
         }
 
     }
@@ -226,7 +224,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         ArrayList<Card> pareja1 = new ArrayList<>();
 
         for (int i = 0; i < PALOS.length; i++) {
-            Card carta = new Card();
+            Card carta = new Card(false);
             carta.iniciarConValorPalo(VALORES[valor_pareja1], PALOS[i]);
             pareja1.add(carta);
         }
@@ -237,14 +235,13 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (int i = 0; i < Crupier.CARTAS_PAREJA; i++) {
 
-            cartas[i].iniciarConValorPalo(pareja1.get(i).getValor(), pareja1.get(i).getPalo());
-            cartas[i].destapar(false);
+            cartas[i].iniciarConValorPalo(pareja1.get(i).getValor(), pareja1.get(i).getPalo(), false);
         }
 
         ArrayList<Card> pareja2 = new ArrayList<>();
 
         for (int i = 0; i < PALOS.length; i++) {
-            Card carta = new Card();
+            Card carta = new Card(false);
             carta.iniciarConValorPalo(VALORES[valor_pareja2], PALOS[i]);
             pareja2.add(carta);
         }
@@ -255,8 +252,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (int i = 0; i < Crupier.CARTAS_PAREJA; i++) {
 
-            cartas[2 + i].iniciarConValorPalo(pareja2.get(i).getValor(), pareja2.get(i).getPalo());
-            cartas[2 + i].destapar(false);
+            cartas[2 + i].iniciarConValorPalo(pareja2.get(i).getValor(), pareja2.get(i).getPalo(), false);
         }
 
     }
@@ -278,7 +274,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         int valor_trio = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
 
         for (int i = 0; i < PALOS.length; i++) {
-            Card carta = new Card();
+            Card carta = new Card(false);
             carta.iniciarConValorPalo(VALORES[valor_trio], PALOS[i]);
             trio.add(carta);
         }
@@ -289,8 +285,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (int i = 0; i < Crupier.CARTAS_TRIO; i++) {
 
-            cartas[i].iniciarConValorPalo(trio.get(i).getValor(), trio.get(i).getPalo());
-            cartas[i].destapar(false);
+            cartas[i].iniciarConValorPalo(trio.get(i).getValor(), trio.get(i).getPalo(), false);
+
         }
 
     }
@@ -316,7 +312,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
             for (int i = 0; i < Crupier.CARTAS_ESCALERA; i++) {
 
-                Card carta = new Card();
+                Card carta = new Card(false);
 
                 carta.iniciarConValorPalo(VALORES[valor + i], PALOS[Helpers.CSPRNG_GENERATOR.nextInt(PALOS.length)]);
 
@@ -329,8 +325,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (Card carta : escalera) {
 
-            cartas[i].iniciarConValorPalo(carta.getValor(), carta.getPalo());
-            cartas[i].destapar(false);
+            cartas[i].iniciarConValorPalo(carta.getValor(), carta.getPalo(), false);
             i++;
 
         }
@@ -366,7 +361,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
                 int i = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
 
                 if (!valores.contains(i)) {
-                    Card carta = new Card();
+                    Card carta = new Card(false);
 
                     carta.iniciarConValorPalo(VALORES[i], PALOS[palo]);
 
@@ -384,8 +379,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (Card carta : color) {
 
-            cartas[i].iniciarConValorPalo(carta.getValor(), carta.getPalo());
-            cartas[i].destapar(false);
+            cartas[i].iniciarConValorPalo(carta.getValor(), carta.getPalo(), false);
+
             i++;
         }
 
@@ -408,7 +403,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         int valor_trio = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1);
 
         for (int i = 0; i < PALOS.length; i++) {
-            Card carta = new Card();
+            Card carta = new Card(false);
             carta.iniciarConValorPalo(VALORES[valor_trio], PALOS[i]);
             trio.add(carta);
         }
@@ -419,8 +414,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (int i = 0; i < Crupier.CARTAS_TRIO; i++) {
 
-            cartas[i].iniciarConValorPalo(trio.get(i).getValor(), trio.get(i).getPalo());
-            cartas[i].destapar(false);
+            cartas[i].iniciarConValorPalo(trio.get(i).getValor(), trio.get(i).getPalo(), false);
+
         }
 
         ArrayList<Card> pareja = new ArrayList<>();
@@ -432,7 +427,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         }
 
         for (int i = 0; i < PALOS.length; i++) {
-            Card carta = new Card();
+            Card carta = new Card(false);
             carta.iniciarConValorPalo(VALORES[valor_pareja], PALOS[i]);
             pareja.add(carta);
         }
@@ -443,8 +438,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (int i = 0; i < Crupier.CARTAS_PAREJA; i++) {
 
-            cartas[3 + i].iniciarConValorPalo(pareja.get(i).getValor(), pareja.get(i).getPalo());
-            cartas[3 + i].destapar(false);
+            cartas[3 + i].iniciarConValorPalo(pareja.get(i).getValor(), pareja.get(i).getPalo(), false);
+
         }
 
     }
@@ -467,8 +462,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (int i = 0; i < Crupier.CARTAS_POKER; i++, palo++) {
 
-            cartas[i].iniciarConValorPalo(VALORES[valor], PALOS[palo]);
-            cartas[i].destapar(false);
+            cartas[i].iniciarConValorPalo(VALORES[valor], PALOS[palo], false);
+
         }
 
     }
@@ -491,8 +486,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (int i = 0; i < Crupier.CARTAS_ESCALERA; i++, valor++) {
 
-            cartas[i].iniciarConValorPalo(VALORES[valor], PALOS[palo]);
-            cartas[i].destapar(false);
+            cartas[i].iniciarConValorPalo(VALORES[valor], PALOS[palo], false);
+
         }
 
     }
@@ -514,8 +509,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         for (int i = 0; i < Crupier.CARTAS_ESCALERA; i++) {
 
-            cartas[i].iniciarConValorPalo(VALORES[valor + i], PALOS[palo]);
-            cartas[i].destapar(false);
+            cartas[i].iniciarConValorPalo(VALORES[valor + i], PALOS[palo], false);
+
         }
 
     }

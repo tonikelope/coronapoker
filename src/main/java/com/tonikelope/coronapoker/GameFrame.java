@@ -101,7 +101,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int PEPILLO_COUNTER_MAX = 5;
     public static final int PAUSE_COUNTER_MAX = 3;
     public static final int AUTO_ZOOM_TIMEOUT = 3000;
-    public static final int GUI_ZOOM_WAIT = 125;
+    public static final int GUI_ZOOM_WAIT = 250;
     public static final boolean TEST_MODE = false;
     public static final int TTS_NO_SOUND_TIMEOUT = 3000;
 

@@ -760,7 +760,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
         }
 
-        Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+        do {
+            h = blinds_label.getHeight();
+            Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+        } while (h != blinds_label.getHeight());
 
         ImageIcon soundIcon = new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(blinds_label.getHeight(), blinds_label.getHeight(), Image.SCALE_SMOOTH));
 

@@ -314,27 +314,29 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
+                    ImageIcon img;
+
+                    if (isIniciada()) {
+
+                        if (isTapada()) {
+
+                            img = isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA;
+
+                        } else {
+
+                            img = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg"));
+
+                        }
+                    } else {
+                        img = Card.IMAGEN_JOKER;
+                    }
+
                     Helpers.GUIRunAndWait(new Runnable() {
                         public void run() {
 
                             setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                             card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-
-                            if (isIniciada()) {
-
-                                if (isTapada()) {
-
-                                    card_image.setIcon(isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA);
-
-                                } else {
-
-                                    card_image.setIcon(createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg")));
-
-                                }
-                            } else {
-                                card_image.setIcon(Card.IMAGEN_JOKER);
-                            }
-
+                            card_image.setIcon(img);
                             card_image.setVisible(isVisible_card());
 
                         }

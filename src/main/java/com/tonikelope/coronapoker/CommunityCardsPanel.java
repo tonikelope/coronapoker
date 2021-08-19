@@ -752,13 +752,23 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             });
         }
 
+        int h = blinds_label.getHeight();
+
         Helpers.zoomFonts(this, factor, null);
+
+        while (blinds_label.getHeight() == h) {
+            Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+        }
+
+        Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+
+        ImageIcon soundIcon = new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(blinds_label.getHeight(), blinds_label.getHeight(), Image.SCALE_SMOOTH));
 
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
                 sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
-                sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(blinds_label.getHeight(), blinds_label.getHeight(), Image.SCALE_SMOOTH)));
+                sound_icon.setIcon(soundIcon);
                 panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
             }
         });

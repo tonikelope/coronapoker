@@ -1348,11 +1348,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (emoji != null) {
 
+            ImageIcon icon = new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/" + emoji + ".png")).getImage().getScaledInstance(Math.round(0.9f * player_action.getHeight()), Math.round(0.9f * player_action.getHeight()), Image.SCALE_SMOOTH));
+
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
 
-                    player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/" + emoji + ".png")).getImage().getScaledInstance(Math.round(0.9f * player_action.getHeight()), Math.round(0.9f * player_action.getHeight()), Image.SCALE_SMOOTH)));
+                    player_action.setIcon(icon);
 
                 }
             });
@@ -1363,11 +1365,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void utgIconZoom() {
 
+        ImageIcon icon = new ImageIcon(IMAGEN_UTG.getImage().getScaledInstance((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight(), Image.SCALE_SMOOTH));
+
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
 
-                utg_icon.setIcon(new ImageIcon(IMAGEN_UTG.getImage().getScaledInstance((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight(), Image.SCALE_SMOOTH)));
+                utg_icon.setIcon(icon);
 
                 utg_icon.setPreferredSize(new Dimension((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight()));
 
@@ -1396,7 +1400,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             playingCard1.zoom(zoom_factor, mynotifier);
             playingCard2.zoom(zoom_factor, mynotifier);
+
+            int h = player_pot.getHeight();
+
             Helpers.zoomFonts(this, zoom_factor, null);
+
+            while (player_pot.getHeight() == h) {
+                Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+            }
+
+            Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+
             setAvatar();
             utgIconZoom();
             emojiZoom();
@@ -2533,21 +2547,25 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void setAvatar() {
 
+        int h = player_pot.getHeight();
+
+        ImageIcon avatar;
+
+        if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
+
+            avatar = new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH));
+        } else {
+
+            avatar = new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH));
+        }
+
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
 
-                while (avatar_panel.getHeight() == 0) {
-                    Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
-                }
+                getAvatar().setPreferredSize(new Dimension(h, h));
 
-                if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
-                    getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-                    getAvatar().setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-                } else {
-                    getAvatar().setPreferredSize(new Dimension(avatar_panel.getHeight(), avatar_panel.getHeight()));
-                    getAvatar().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(avatar_panel.getHeight(), avatar_panel.getHeight(), Image.SCALE_SMOOTH)));
-                }
+                getAvatar().setIcon(avatar);
 
                 getAvatar().setVisible(true);
             }

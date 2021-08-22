@@ -664,6 +664,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_allin_button.setText("ALL IN");
 
                     player_allin_button.setEnabled(true);
+                    
+                    player_allin_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/glasses.png")).getImage().getScaledInstance(Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()), Image.SCALE_SMOOTH)));
 
                     player_fold_button.setText("NO IR");
 
@@ -780,8 +782,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 || ((GameFrame.getInstance().getCrupier().getLast_aggressor() != null && nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())))) && Helpers.float1DSecureCompare(call_required, stack) < 0) {
                         player_allin_button.setText(" ");
                         player_allin_button.setEnabled(false);
-                    } else {
-                        player_allin_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/glasses.png")).getImage().getScaledInstance(Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()), Image.SCALE_SMOOTH)));
+                        player_allin_button.setIcon(null);
                     }
 
                     GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
@@ -1264,25 +1265,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 desactivar_boton_mostrar();
 
-                player_check_button.setText(" ");
-
-                player_check_button.setEnabled(false);
-
-                player_bet_button.setText(" ");
-
-                player_bet_button.setEnabled(false);
-
-                bet_spinner.setValue(new BigDecimal(0));
-
-                bet_spinner.setEnabled(false);
-
-                player_allin_button.setText(" ");
-
-                player_allin_button.setEnabled(false);
-
-                player_fold_button.setText(" ");
-
-                player_fold_button.setEnabled(false);
+                desactivarControles();
 
                 player_action.setText(" ");
 

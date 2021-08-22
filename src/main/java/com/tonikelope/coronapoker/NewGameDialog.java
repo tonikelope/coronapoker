@@ -149,6 +149,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         Helpers.setTranslatedTitle(this, "Actualizar timba");
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
+
         pack();
 
         init = true;
@@ -313,6 +314,8 @@ public class NewGameDialog extends javax.swing.JDialog {
         if (this.getWidth() >= this.getParent().getWidth() || this.getHeight() >= this.getParent().getHeight()) {
             setPreferredSize(new Dimension(this.getParent().getWidth(), this.getParent().getHeight()));
         }
+
+        vamos.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/vamos.png")).getImage().getScaledInstance(Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f), Image.SCALE_SMOOTH)));
 
         pack();
 

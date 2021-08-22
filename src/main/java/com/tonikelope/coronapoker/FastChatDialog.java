@@ -7,6 +7,8 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Image;
+import javax.swing.ImageIcon;
 import javax.swing.JTextField;
 
 /**
@@ -26,6 +28,8 @@ public class FastChatDialog extends javax.swing.JDialog {
         initComponents();
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+        icono.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/chat.png")).getImage().getScaledInstance(chat_box.getHeight(), chat_box.getHeight(), Image.SCALE_SMOOTH)));
 
         pack();
 
@@ -63,6 +67,7 @@ public class FastChatDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         chat_box = new javax.swing.JTextField();
+        icono = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setUndecorated(true);
@@ -89,15 +94,24 @@ public class FastChatDialog extends javax.swing.JDialog {
             }
         });
 
+        icono.setDoubleBuffered(true);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(chat_box, javax.swing.GroupLayout.DEFAULT_SIZE, 800, Short.MAX_VALUE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addGap(0, 0, Short.MAX_VALUE)
+                .addComponent(icono)
+                .addGap(0, 0, 0)
+                .addComponent(chat_box, javax.swing.GroupLayout.PREFERRED_SIZE, 821, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(chat_box)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(icono)
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         pack();
@@ -217,5 +231,6 @@ public class FastChatDialog extends javax.swing.JDialog {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextField chat_box;
+    private javax.swing.JLabel icono;
     // End of variables declaration//GEN-END:variables
 }

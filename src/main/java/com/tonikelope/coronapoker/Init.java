@@ -154,6 +154,8 @@ public class Init extends javax.swing.JFrame {
         }
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
+        stats_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/stats.png")).getImage().getScaledInstance(stats_button.getHeight(), stats_button.getHeight(), Image.SCALE_SMOOTH)));
+
         pack();
 
     }
@@ -193,7 +195,7 @@ public class Init extends javax.swing.JFrame {
         jLabel2 = new javax.swing.JLabel();
         jLabel6 = new javax.swing.JLabel();
         language_combobox = new javax.swing.JComboBox<>();
-        jButton1 = new javax.swing.JButton();
+        stats_button = new javax.swing.JButton();
         progress_bar = new javax.swing.JProgressBar();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
@@ -312,15 +314,15 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
-        jButton1.setBackground(new java.awt.Color(255, 153, 51));
-        jButton1.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        jButton1.setForeground(new java.awt.Color(255, 255, 255));
-        jButton1.setText("ESTADÍSTICAS");
-        jButton1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        jButton1.setDoubleBuffered(true);
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
+        stats_button.setBackground(new java.awt.Color(255, 153, 51));
+        stats_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        stats_button.setForeground(new java.awt.Color(255, 255, 255));
+        stats_button.setText("ESTADÍSTICAS");
+        stats_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        stats_button.setDoubleBuffered(true);
+        stats_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
+                stats_buttonActionPerformed(evt);
             }
         });
 
@@ -342,7 +344,7 @@ public class Init extends javax.swing.JFrame {
                                 .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                            .addComponent(stats_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, corona_init_panelLayout.createSequentialGroup()
                         .addComponent(jLabel1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -367,7 +369,7 @@ public class Init extends javax.swing.JFrame {
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                         .addComponent(pegi_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGroup(corona_init_panelLayout.createSequentialGroup()
-                            .addComponent(jButton1)
+                            .addComponent(stats_button)
                             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                 .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -494,7 +496,7 @@ public class Init extends javax.swing.JFrame {
         Locale.setDefault(Locale.Category.FORMAT, Locale.ENGLISH);
     }//GEN-LAST:event_language_comboboxActionPerformed
 
-    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+    private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
         // TODO add your handling code here:
         StatsDialog dialog = new StatsDialog(this, true);
 
@@ -505,7 +507,7 @@ public class Init extends javax.swing.JFrame {
         dialog.setLocationRelativeTo(this);
 
         dialog.setVisible(true);
-    }//GEN-LAST:event_jButton1ActionPerformed
+    }//GEN-LAST:event_stats_buttonActionPerformed
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
@@ -792,7 +794,6 @@ public class Init extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel corona_init_panel;
     private javax.swing.JButton create_button;
-    private javax.swing.JButton jButton1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
@@ -804,6 +805,7 @@ public class Init extends javax.swing.JFrame {
     private javax.swing.JPanel pegi_panel;
     private javax.swing.JProgressBar progress_bar;
     private javax.swing.JLabel sound_icon;
+    private javax.swing.JButton stats_button;
     private com.tonikelope.coronapoker.InitPanel tapete;
     // End of variables declaration//GEN-END:variables
 }

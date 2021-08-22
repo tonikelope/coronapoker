@@ -19,6 +19,8 @@ import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.io.IOException;
@@ -1861,6 +1863,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
                             gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon);
+
+                            gif_dialog.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                            gif_dialog.addMouseListener(new MouseAdapter() {
+                                @Override
+                                public void mouseClicked(MouseEvent e) {
+                                    {
+                                        System.exit(0);
+                                    }
+                                }
+                            });
+
                             gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                             gif_dialog.setVisible(true);
                         }

@@ -664,7 +664,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_allin_button.setText("ALL IN");
 
                     player_allin_button.setEnabled(true);
-                    
+
                     player_allin_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/glasses.png")).getImage().getScaledInstance(Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()), Image.SCALE_SMOOTH)));
 
                     player_fold_button.setText("NO IR");

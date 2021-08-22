@@ -384,6 +384,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         Helpers.translateComponents(this, false);
 
+        empezar_timba.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/start.png")).getImage().getScaledInstance(Math.round(empezar_timba.getHeight() * 0.8f), Math.round(empezar_timba.getHeight() * 0.8f), Image.SCALE_SMOOTH)));
+
+        kick_user.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/kick.png")).getImage().getScaledInstance(kick_user.getHeight(), kick_user.getHeight(), Image.SCALE_SMOOTH)));
+
         pack();
 
         Helpers.muteLoopMp3("misc/background_music.mp3");

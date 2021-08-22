@@ -98,6 +98,12 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
+        ok_button2.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/log.png")).getImage().getScaledInstance(ok_button2.getHeight(), ok_button2.getHeight(), Image.SCALE_SMOOTH)));
+
+        ok_button1.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/stats.png")).getImage().getScaledInstance(ok_button1.getHeight(), ok_button1.getHeight(), Image.SCALE_SMOOTH)));
+
+        ok_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/exit.png")).getImage().getScaledInstance(ok_button.getHeight(), ok_button.getHeight(), Image.SCALE_SMOOTH)));
+
         pack();
 
     }

@@ -148,7 +148,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(blinds_label.getHeight(), blinds_label.getHeight(), Image.SCALE_SMOOTH)));
                         panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
                         pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
-                        pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/hucha.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+                        pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
                         ready = true;
 
                     }
@@ -790,7 +790,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 sound_icon.setVisible(true);
                 panel_barra.setVisible(true);
                 pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
-                pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/hucha.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+                pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
             }
         });
 

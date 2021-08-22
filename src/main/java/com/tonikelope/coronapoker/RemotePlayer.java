@@ -58,7 +58,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Color border_color = null;
     private volatile boolean player_stack_click = false;
     private volatile String iwtsth_action_text = null;
-    private volatile String emoji = null;
+    private volatile String player_action_emoji = null;
 
     public boolean isTimeout() {
         return timeout;
@@ -261,7 +261,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/thinking.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
 
-                    emoji = "thinking";
+                    player_action_emoji = "thinking";
 
                     player_action.setBackground(null);
 
@@ -387,7 +387,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         }
 
                         player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/up.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
-                        emoji = "up";
+                        player_action_emoji = "up";
                     }
                 });
 
@@ -401,8 +401,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         } else {
                             player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
                         }
-                        player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/glasses.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
-                        emoji = "glasses";
+                        player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/bet.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
+                        player_action_emoji = "glasses";
                     }
                 });
                 break;
@@ -418,7 +418,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                         }
                         player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/glasses.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
-                        emoji = "glasses";
+                        player_action_emoji = "glasses";
                     }
                 });
                 break;
@@ -431,7 +431,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_action.setText(ACTIONS_LABELS[dec - 1][0]);
 
                         player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/down.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
-                        emoji = "down";
+                        player_action_emoji = "down";
                     }
                 });
                 break;
@@ -607,7 +607,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setIcon(null);
 
-                emoji = null;
+                player_action_emoji = null;
 
                 utg_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/utg.png")).getImage().getScaledInstance(41, 31, Image.SCALE_SMOOTH)));
 
@@ -1127,8 +1127,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setForeground(Color.BLACK);
                 player_action.setText(msg);
                 player_action.setEnabled(true);
-                player_action.setIcon(null);
-                emoji = null;
+                player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/happy.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
+                player_action_emoji = "happy";
             }
         });
     }
@@ -1147,8 +1147,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setText(msg);
                 player_action.setEnabled(true);
 
-                player_action.setIcon(null);
-                emoji = null;
+                player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/cry.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
+                player_action_emoji = "cry";
 
                 playingCard1.desenfocar();
                 playingCard2.desenfocar();
@@ -1359,7 +1359,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setIcon(null);
 
-                emoji = null;
+                player_action_emoji = null;
 
                 utg_icon.setVisible(false);
 
@@ -1433,7 +1433,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setIcon(null);
 
-                emoji = null;
+                player_action_emoji = null;
 
             }
         });
@@ -1508,7 +1508,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             this.spectator = true;
             this.bote = 0f;
 
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
                     setPlayerBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -1520,11 +1520,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     playingCard1.resetearCarta();
                     playingCard2.resetearCarta();
 
+                    player_action.setEnabled(true);
                     player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                     player_action.setBackground(null);
-                    player_action.setEnabled(false);
                     player_action.setIcon(null);
-                    emoji = null;
+                    player_action.setForeground(Color.GRAY);
                     player_name.setOpaque(false);
                     player_name.setBackground(null);
 
@@ -1546,6 +1546,26 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 }
             });
+
+            Helpers.threadRun(new Runnable() {
+                @Override
+                public void run() {
+                    while (player_action.getHeight() == 0) {
+                        Helpers.pausar(125);
+                    }
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/ghost.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
+                            player_action_emoji = "ghost";
+
+                        }
+                    });
+                }
+            });
+
         }
     }
 
@@ -1561,15 +1581,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setEnabled(true);
                 player_stack.setEnabled(true);
                 player_action.setText(" ");
+                player_action.setIcon(null);
             }
         });
     }
 
     private void emojiZoom() {
 
-        if (emoji != null) {
+        if (player_action_emoji != null) {
 
-            ImageIcon icon = new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/" + emoji + ".png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH));
+            ImageIcon icon = new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/" + player_action_emoji + ".png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH));
 
             Helpers.GUIRun(new Runnable() {
                 @Override

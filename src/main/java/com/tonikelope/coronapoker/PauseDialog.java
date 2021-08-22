@@ -6,8 +6,10 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
+import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import javax.swing.ImageIcon;
 import javax.swing.Timer;
 
 /**
@@ -33,6 +35,8 @@ public class PauseDialog extends javax.swing.JDialog {
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
         Helpers.translateComponents(this, false);
+
+        pausa_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(getHeight(), getHeight(), Image.SCALE_SMOOTH)));
 
         pack();
 

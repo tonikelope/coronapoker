@@ -130,6 +130,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 random_button.setVisible(false);
                 hand_limit_spinner.setVisible(false);
                 max_hands_button.setVisible(false);
+
             }
         });
 
@@ -146,7 +147,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                         sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
                         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(blinds_label.getHeight(), blinds_label.getHeight(), Image.SCALE_SMOOTH)));
                         panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
+                        pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
+                        pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/hucha.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
                         ready = true;
+
                     }
                 });
             }
@@ -268,7 +272,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         pot_label.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
         pot_label.setForeground(new java.awt.Color(153, 204, 0));
-        pot_label.setText("BOTE:");
+        pot_label.setText(" ");
         pot_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
         pot_label.setDoubleBuffered(true);
         pot_label.setFocusable(false);
@@ -757,6 +761,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             public void run() {
                 sound_icon.setVisible(false);
                 panel_barra.setVisible(false);
+                pause_button.setIcon(null);
+                pot_label.setIcon(null);
             }
         });
 
@@ -783,6 +789,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
                 sound_icon.setVisible(true);
                 panel_barra.setVisible(true);
+                pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
+                pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/hucha.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
             }
         });
 

@@ -49,7 +49,8 @@ public class Crupier implements Runnable {
                 {"training_day.gif", 2000L},
                 {"wallstreet.gif", 1500L},
                 {"casinoroyale.gif", 4550L},
-                {"joker.gif", 3200L}
+                {"joker.gif", 3200L},
+                {"cards.gif", 2800L}
             });
 
     public static volatile Map.Entry<String, Object[][]> ALLIN_CINEMATICS_MOD = null;

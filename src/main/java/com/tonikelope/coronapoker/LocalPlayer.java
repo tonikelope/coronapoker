@@ -76,7 +76,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean spectator_bb = false;
     private volatile Color border_color = null;
     private volatile boolean player_stack_click = false;
-    private volatile String emoji = null;
+    private volatile String player_action_emoji = null;
 
     public boolean isBotonMostrarActivado() {
         return getPlayer_allin_button().isEnabled() && isBoton_mostrar();
@@ -208,7 +208,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             desactivarControles();
 
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
                     setPlayerBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -220,11 +220,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     utg_icon.setVisible(false);
                     playingCard1.resetearCarta();
                     playingCard2.resetearCarta();
+                    player_action.setEnabled(true);
                     player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                     player_action.setBackground(null);
-                    player_action.setEnabled(false);
                     player_action.setIcon(null);
-                    emoji = null;
+                    player_action.setForeground(Color.GRAY);
                     player_name.setOpaque(false);
                     player_name.setBackground(null);
 
@@ -255,6 +255,26 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 }
             });
+
+            Helpers.threadRun(new Runnable() {
+                @Override
+                public void run() {
+                    while (player_action.getHeight() == 0) {
+                        Helpers.pausar(125);
+                    }
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/ghost.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
+                            player_action_emoji = "ghost";
+
+                        }
+                    });
+                }
+            });
+
         }
     }
 
@@ -270,6 +290,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setEnabled(true);
                 player_stack.setEnabled(true);
                 player_action.setText(" ");
+                player_action.setIcon(null);
                 GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
             }
         });
@@ -495,7 +516,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setIcon(null);
 
-                emoji = null;
+                player_action_emoji = null;
 
                 player_action.setEnabled(false);
 
@@ -648,6 +669,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_fold_button.setEnabled(true);
 
+                    player_fold_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/down.png")).getImage().getScaledInstance(Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()), Image.SCALE_SMOOTH)));
+
                     player_action.setBackground(Color.WHITE);
 
                     player_action.setForeground(Color.BLACK);
@@ -656,7 +679,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/thinking.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
 
-                    emoji = "thinking";
+                    player_action_emoji = "thinking";
 
                     player_action.setText("HABLAS TÚ");
 
@@ -668,6 +691,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if (Helpers.float1DSecureCompare(call_required, stack) < 0) {
 
                         player_check_button.setEnabled(true);
+
+                        player_check_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/up.png")).getImage().getScaledInstance(Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()), Image.SCALE_SMOOTH)));
 
                         if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
                             player_check_button.setText("PASAR");
@@ -693,6 +718,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         //Actualizamos el spinner y el botón de apuestas
                         BigDecimal spinner_min;
                         BigDecimal spinner_max = new BigDecimal(stack - call_required).setScale(1, RoundingMode.HALF_UP);
+
+                        player_bet_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/bet.png")).getImage().getScaledInstance(Math.round(0.6f * player_bet_button.getHeight()), Math.round(0.6f * player_bet_button.getHeight()), Image.SCALE_SMOOTH)));
 
                         if (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
                             spinner_min = new BigDecimal(GameFrame.getInstance().getCrupier().getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
@@ -753,6 +780,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 || ((GameFrame.getInstance().getCrupier().getLast_aggressor() != null && nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())))) && Helpers.float1DSecureCompare(call_required, stack) < 0) {
                         player_allin_button.setText(" ");
                         player_allin_button.setEnabled(false);
+                    } else {
+                        player_allin_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/glasses.png")).getImage().getScaledInstance(Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()), Image.SCALE_SMOOTH)));
                     }
 
                     GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
@@ -982,6 +1011,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if (c instanceof JButton) {
                         ((JButton) c).setText(" ");
                         c.setEnabled(false);
+                        ((JButton) c).setIcon(null);
                     }
                 }
             }
@@ -1108,7 +1138,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setEnabled(false);
                 player_action.setIcon(null);
 
-                emoji = null;
+                player_action_emoji = null;
             }
         });
     }
@@ -1124,11 +1154,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_check_button.setForeground(null);
                     player_check_button.setText(Translator.translate("[A] PASAR +CG"));
                     player_check_button.setEnabled(true);
+                    player_check_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/up.png")).getImage().getScaledInstance(Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()), Image.SCALE_SMOOTH)));
 
                     player_fold_button.setBackground(Color.RED);
                     player_fold_button.setForeground(Color.WHITE);
                     player_fold_button.setText(Translator.translate("[A] NO IR"));
                     player_fold_button.setEnabled(true);
+                    player_fold_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/down.png")).getImage().getScaledInstance(Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()), Image.SCALE_SMOOTH)));
 
                     if (pre_pulsado != Player.NODEC) {
 
@@ -1156,9 +1188,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_check_button.setText(" ");
                     player_check_button.setEnabled(false);
+                    player_check_button.setIcon(null);
 
                     player_fold_button.setText(" ");
                     player_fold_button.setEnabled(false);
+                    player_fold_button.setIcon(null);
                 }
             });
         }
@@ -1258,7 +1292,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setIcon(null);
 
-                emoji = null;
+                player_action_emoji = null;
 
                 utg_icon.setVisible(false);
 
@@ -1346,9 +1380,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void emojiZoom() {
 
-        if (emoji != null) {
+        if (player_action_emoji != null) {
 
-            ImageIcon icon = new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/" + emoji + ".png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH));
+            ImageIcon icon = new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/" + player_action_emoji + ".png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH));
 
             Helpers.GUIRun(new Runnable() {
                 @Override
@@ -1360,6 +1394,28 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             });
 
         }
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                if (player_check_button.isEnabled()) {
+                    player_check_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/up.png")).getImage().getScaledInstance(Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()), Image.SCALE_SMOOTH)));
+                }
+                if (player_bet_button.isEnabled()) {
+                    player_bet_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/bet.png")).getImage().getScaledInstance(Math.round(0.6f * player_bet_button.getHeight()), Math.round(0.6f * player_bet_button.getHeight()), Image.SCALE_SMOOTH)));
+                }
+
+                if (player_allin_button.isEnabled()) {
+                    player_allin_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/glasses.png")).getImage().getScaledInstance(Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()), Image.SCALE_SMOOTH)));
+                }
+
+                if (player_fold_button.isEnabled()) {
+
+                    player_fold_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/down.png")).getImage().getScaledInstance(Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()), Image.SCALE_SMOOTH)));
+                }
+            }
+        });
 
     }
 
@@ -1395,6 +1451,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
                     getAvatar().setVisible(false);
                     utg_icon.setVisible(false);
+
+                    player_check_button.setIcon(null);
+
+                    player_bet_button.setIcon(null);
+
+                    player_allin_button.setIcon(null);
+
+                    player_fold_button.setIcon(null);
+
                 }
             });
 
@@ -2349,8 +2414,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setBackground(Color.GREEN);
                 player_action.setForeground(Color.BLACK);
                 player_action.setText(msg);
-                player_action.setIcon(null);
-                emoji = null;
+                player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/happy.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
+                player_action_emoji = "happy";
 
             }
         });
@@ -2369,8 +2434,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setBackground(Color.RED);
                 player_action.setForeground(Color.WHITE);
                 player_action.setText(msg);
-                player_action.setIcon(null);
-                emoji = null;
+                player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/cry.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
+                player_action_emoji = "cry";
 
                 playingCard1.desenfocar();
                 playingCard2.desenfocar();
@@ -2433,7 +2498,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         }
 
                         player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/up.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
-                        emoji = "up";
+                        player_action_emoji = "up";
                     }
                 });
 
@@ -2447,8 +2512,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         } else {
                             player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
                         }
-                        player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/glasses.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
-                        emoji = "glasses";
+                        player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/bet.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
+                        player_action_emoji = "glasses";
                     }
                 });
                 break;
@@ -2464,7 +2529,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                         }
                         player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/glasses.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
-                        emoji = "glasses";
+                        player_action_emoji = "glasses";
                     }
                 });
                 break;
@@ -2477,7 +2542,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_action.setText(ACTIONS_LABELS[dec - 1][0]);
 
                         player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/down.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
-                        emoji = "down";
+                        player_action_emoji = "down";
                     }
                 });
                 break;

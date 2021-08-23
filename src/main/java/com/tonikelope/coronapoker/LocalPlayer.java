@@ -260,23 +260,27 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 }
             });
 
-            Helpers.threadRun(new Runnable() {
-                @Override
-                public void run() {
-                    while (player_name.getHeight() == 0) {
-                        Helpers.pausar(125);
-                    }
+            if (Helpers.float1DSecureCompare(0f, stack + pagar + bote) == 0) {
 
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/skull.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
-
+                Helpers.threadRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        while (player_name.getHeight() == 0) {
+                            Helpers.pausar(125);
                         }
-                    });
-                }
-            });
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/skull.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+
+                            }
+                        });
+                    }
+                });
+
+            }
 
         }
     }
@@ -1370,7 +1374,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    private void emojiZoom() {
+    private void actionIconZoom() {
 
         if (player_action_emoji != null) {
 
@@ -1422,7 +1426,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                if (Helpers.float1DSecureCompare(0f, stack + pagar) == 0) {
+                if (Helpers.float1DSecureCompare(0f, stack + pagar + bote) == 0) {
                     player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/skull.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
                 } else if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
                     player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/bb.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
@@ -1437,7 +1441,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void utgIconZoom() {
 
-        ImageIcon icon = new ImageIcon(IMAGEN_UTG.getImage().getScaledInstance((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight(), Image.SCALE_SMOOTH));
+        ImageIcon icon = new ImageIcon(IMAGEN_UTG.getImage().getScaledInstance((int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight(), Image.SCALE_SMOOTH));
 
         Helpers.GUIRun(new Runnable() {
             @Override
@@ -1445,7 +1449,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 utg_icon.setIcon(icon);
 
-                utg_icon.setPreferredSize(new Dimension((int) Math.round(nick_panel.getHeight() * (480f / 360f)), nick_panel.getHeight()));
+                utg_icon.setPreferredSize(new Dimension((int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight()));
 
                 utg_icon.setVisible(utg);
             }
@@ -1499,7 +1503,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             setAvatar();
             utgIconZoom();
-            emojiZoom();
+            actionIconZoom();
             buttonIconZoom();
             nickIconZoom();
 

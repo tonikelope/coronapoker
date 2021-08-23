@@ -189,6 +189,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_allin_button.setText(Translator.translate("MOSTRAR"));
 
                 }
+                player_allin_button.setIcon(null);
                 player_allin_button.setForeground(Color.WHITE);
                 player_allin_button.setBackground(new Color(51, 153, 255));
                 player_allin_button.setEnabled(true);

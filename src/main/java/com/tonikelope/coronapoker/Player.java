@@ -52,6 +52,8 @@ public interface Player {
 
     public void resetBote();
 
+    public void checkGameOver();
+
     public void showCards(String jugada);
 
     public int getBuyin();

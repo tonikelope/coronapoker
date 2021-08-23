@@ -44,7 +44,7 @@ public class FastChatDialog extends javax.swing.JDialog {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
-                chat_box.setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
+                chat_panel.setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
 
                 setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
 
@@ -66,11 +66,14 @@ public class FastChatDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        chat_panel = new javax.swing.JPanel();
         chat_box = new javax.swing.JTextField();
         icono = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setUndecorated(true);
+
+        chat_panel.setBackground(new java.awt.Color(255, 255, 255));
 
         chat_box.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
         chat_box.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -96,22 +99,39 @@ public class FastChatDialog extends javax.swing.JDialog {
 
         icono.setDoubleBuffered(true);
 
+        javax.swing.GroupLayout chat_panelLayout = new javax.swing.GroupLayout(chat_panel);
+        chat_panel.setLayout(chat_panelLayout);
+        chat_panelLayout.setHorizontalGroup(
+            chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(chat_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(icono)
+                .addGap(0, 0, 0)
+                .addComponent(chat_box))
+        );
+        chat_panelLayout.setVerticalGroup(
+            chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(chat_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(chat_box, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(chat_panelLayout.createSequentialGroup()
+                        .addComponent(icono)
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addGap(0, 0, 0))
+        );
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
-                .addComponent(icono)
                 .addGap(0, 0, 0)
-                .addComponent(chat_box, javax.swing.GroupLayout.PREFERRED_SIZE, 821, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addComponent(chat_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(chat_box)
-            .addGroup(layout.createSequentialGroup()
-                .addComponent(icono)
-                .addGap(0, 0, Short.MAX_VALUE))
+            .addComponent(chat_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         );
 
         pack();
@@ -231,6 +251,7 @@ public class FastChatDialog extends javax.swing.JDialog {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextField chat_box;
+    private javax.swing.JPanel chat_panel;
     private javax.swing.JLabel icono;
     // End of variables declaration//GEN-END:variables
 }

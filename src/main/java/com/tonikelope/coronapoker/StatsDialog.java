@@ -1539,6 +1539,7 @@ public class StatsDialog extends javax.swing.JDialog {
         delete_game_button.setBackground(new java.awt.Color(255, 0, 0));
         delete_game_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         delete_game_button.setForeground(new java.awt.Color(255, 255, 255));
+        delete_game_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/remove.png"))); // NOI18N
         delete_game_button.setText("ELIMINAR TIMBA");
         delete_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         delete_game_button.addActionListener(new java.awt.event.ActionListener() {
@@ -1550,6 +1551,7 @@ public class StatsDialog extends javax.swing.JDialog {
         log_game_button.setBackground(new java.awt.Color(102, 102, 102));
         log_game_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         log_game_button.setForeground(new java.awt.Color(255, 255, 255));
+        log_game_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/log2.png"))); // NOI18N
         log_game_button.setText("REGISTRO DE LA TIMBA");
         log_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         log_game_button.setDoubleBuffered(true);

@@ -3263,7 +3263,7 @@ public class Helpers {
                 popup.addSeparator();
 
                 generarBarajasMenu();
-                BARAJAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/pica_roja.png")));
+                BARAJAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
                 popup.add(BARAJAS_MENU);
                 TAPETE_VERDE = new JRadioButtonMenuItem(tapeteVerdeAction);
                 TAPETE_AZUL = new JRadioButtonMenuItem(tapeteAzulAction);

@@ -399,7 +399,7 @@
             <Menu class="javax.swing.JMenu" name="menu_barajas">
               <Properties>
                 <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/pica_roja.png"/>
+                  <Image iconType="3" name="/images/menu/baraja.png"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="Barajas"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>

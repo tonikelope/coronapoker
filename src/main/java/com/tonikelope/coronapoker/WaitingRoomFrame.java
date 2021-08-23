@@ -2232,6 +2232,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         new_bot_button.setBackground(new java.awt.Color(51, 51, 51));
         new_bot_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         new_bot_button.setForeground(new java.awt.Color(255, 255, 255));
+        new_bot_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/robot.png"))); // NOI18N
         new_bot_button.setText("AÑADIR BOT");
         new_bot_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         new_bot_button.setDoubleBuffered(true);

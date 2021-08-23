@@ -2339,7 +2339,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         decks_separator.setDoubleBuffered(true);
         opciones_menu.add(decks_separator);
 
-        menu_barajas.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/pica_roja.png"))); // NOI18N
+        menu_barajas.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png"))); // NOI18N
         menu_barajas.setText("Barajas");
         menu_barajas.setDoubleBuffered(true);
         menu_barajas.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N

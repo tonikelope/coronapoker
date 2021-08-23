@@ -6914,6 +6914,7 @@ public class Crupier implements Runnable {
 
                         for (Player jugador : GameFrame.getInstance().getJugadores()) {
                             jugador.resetBote();
+                            jugador.checkGameOver();
                         }
                     }
 

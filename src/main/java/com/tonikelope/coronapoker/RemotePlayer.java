@@ -591,6 +591,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 initComponents();
 
+                setOpaque(false);
+
+                setBackground(null);
+
                 border_color = ((LineBorder) getBorder()).getLineColor();
 
                 danger.setVisible(false);
@@ -728,8 +732,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         avatar_panel.setOpaque(false);
 
         avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_null.png"))); // NOI18N
+        avatar.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
+        avatar.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                avatarMouseClicked(evt);
+            }
+        });
 
         timeout_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
         timeout_icon.setToolTipText("ESTE JUGADOR TIENE PROBLEMAS DE CONEXIÓN");
@@ -743,9 +753,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         player_pot.setBackground(new java.awt.Color(255, 255, 255));
-        player_pot.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
+        player_pot.setFont(new java.awt.Font("Dialog", 1, 32)); // NOI18N
         player_pot.setText("----");
-        player_pot.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        player_pot.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_pot.setDoubleBuffered(true);
         player_pot.setFocusable(false);
         player_pot.setOpaque(true);
@@ -798,13 +808,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setForeground(new java.awt.Color(255, 255, 255));
         player_name.setText("123456789012345");
         player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_name.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
-        player_name.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                player_nameMouseClicked(evt);
-            }
-        });
 
         utg_icon.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         utg_icon.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -925,19 +931,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }//GEN-LAST:event_timeout_iconMouseClicked
 
-    private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
-        // TODO add your handling code here:
-
-        if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(player_name.getText()).isCpu()) {
-
-            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance().getFrame(), true, player_name.getText(), GameFrame.getInstance().getParticipantes().get(player_name.getText()).getAes_key());
-
-            identicon.setLocationRelativeTo(GameFrame.getInstance().getFrame());
-
-            identicon.setVisible(true);
-        }
-    }//GEN-LAST:event_player_nameMouseClicked
-
     private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
         if (!player_stack_click) {
@@ -1026,6 +1019,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }//GEN-LAST:event_player_actionMouseClicked
 
+    private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
+        // TODO add your handling code here:
+        if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(player_name.getText()).isCpu()) {
+
+            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance().getFrame(), true, player_name.getText(), GameFrame.getInstance().getParticipantes().get(player_name.getText()).getAes_key());
+
+            identicon.setLocationRelativeTo(GameFrame.getInstance().getFrame());
+
+            identicon.setVisible(true);
+        }
+    }//GEN-LAST:event_avatarMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;
     private javax.swing.JPanel avatar_panel;
@@ -1065,6 +1070,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     getAvatar().setVisible(false);
 
                     utg_icon.setVisible(false);
+
+                    player_name.setIcon(null);
                 }
             });
 
@@ -1087,6 +1094,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             setAvatar();
             utgIconZoom();
             emojiZoom();
+            nickIconZoom();
 
             while (mynotifier.size() < 2) {
 
@@ -1198,9 +1206,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        player_name.setOpaque(true);
-                        player_name.setBackground(new Color(230, 229, 235));
-                        player_name.setForeground(Color.BLACK);
+
+                        player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/dealer.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
                     }
                 });
 
@@ -1226,9 +1233,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-                        player_name.setOpaque(true);
-                        player_name.setBackground(new Color(241, 185, 30));
-                        player_name.setForeground(Color.BLACK);
+
+                        player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/bb.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
                     }
                 });
 
@@ -1251,9 +1257,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     @Override
                     public void run() {
 
-                        player_name.setOpaque(true);
-                        player_name.setBackground(new Color(24, 52, 178));
-                        player_name.setForeground(Color.WHITE);
+                        player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/sb.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
                     }
                 });
 
@@ -1283,6 +1287,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         } else {
                             player_name.setForeground(Color.WHITE);
                         }
+
+                        player_name.setIcon(null);
                     }
                 });
 
@@ -1349,7 +1355,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
+                setOpaque(false);
+
+                setBackground(null);
+
                 setPlayerBorder(new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+
+                player_name.setIcon(null);
 
                 player_action.setText(" ");
 
@@ -1511,6 +1523,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
+                    setOpaque(false);
+                    setBackground(null);
                     setPlayerBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                     player_pot.setText("----");
@@ -1524,9 +1538,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                     player_action.setBackground(null);
                     player_action.setIcon(null);
+                    player_action_emoji = null;
                     player_action.setForeground(Color.GRAY);
                     player_name.setOpaque(false);
                     player_name.setBackground(null);
+                    player_name.setIcon(null);
 
                     if (buyin > GameFrame.BUYIN) {
                         player_stack.setBackground(Color.CYAN);
@@ -1550,7 +1566,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-                    while (player_action.getHeight() == 0) {
+                    while (player_name.getHeight() == 0) {
                         Helpers.pausar(125);
                     }
 
@@ -1558,8 +1574,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         @Override
                         public void run() {
 
-                            player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/ghost.png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)));
-                            player_action_emoji = "ghost";
+                            player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/skull.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
 
                         }
                     });
@@ -1576,7 +1591,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
                 setPlayerBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-
+                player_name.setIcon(null);
                 player_pot.setVisible(true);
                 player_pot.setEnabled(true);
                 player_stack.setEnabled(true);
@@ -1602,7 +1617,24 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             });
 
         }
+    }
 
+    private void nickIconZoom() {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                if (Helpers.float1DSecureCompare(0f, stack + pagar) == 0) {
+
+                    player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/skull.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+                } else if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
+                    player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/bb.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+                } else if (nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+                    player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/sb.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+                } else if (nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
+                    player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/dealer.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+                }
+            }
+        });
     }
 
     private void utgIconZoom() {
@@ -1724,6 +1756,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void setSpectatorBB(boolean bb) {
         this.spectator_bb = bb;
+    }
+
+    @Override
+    public void checkGameOver() {
+        if (Helpers.float1DSecureCompare(0f, stack + pagar) == 0) {
+            player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/skull.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+
+            setOpaque(true);
+            setBackground(Color.RED);
+        }
     }
 
 }

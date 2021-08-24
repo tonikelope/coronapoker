@@ -124,7 +124,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         this.compactable = compactable;
     }
 
-    public static void updateCachedImages(float zoom, boolean force) {
+    public static synchronized void updateCachedImages(float zoom, boolean force) {
 
         if (force || CURRENT_ZOOM != zoom) {
 
@@ -338,18 +338,16 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                             card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                             card_image.setIcon(img);
                             card_image.setVisible(isVisible_card());
-
+                            card_image.revalidate();
+                            card_image.repaint();
                         }
                     });
 
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
                             updatePositionChip();
-
                             revalidate();
-
                             repaint();
-
                         }
                     });
 
@@ -632,6 +630,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         } else {
             pos_chip_label.setVisible(false);
         }
+
+        pos_chip_label.revalidate();
+
+        pos_chip_label.repaint();
     }
 
     @Override

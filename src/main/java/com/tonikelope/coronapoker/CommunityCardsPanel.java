@@ -8,6 +8,8 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -18,6 +20,7 @@ import javax.swing.JProgressBar;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 /**
  *
@@ -30,6 +33,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private volatile Color color_contadores = null;
     private volatile int hand_label_click_type = 0;
     private volatile boolean ready = false;
+    private volatile Timer icon_zoom_timer = null;
 
     public JLabel getLast_hand_label() {
         return last_hand_label;
@@ -155,6 +159,18 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 });
             }
         });
+
+        icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+
+                zoomIcons();
+
+            }
+        });
+
+        icon_zoom_timer.setRepeats(false);
 
     }
 
@@ -735,11 +751,33 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private com.tonikelope.coronapoker.Card turn;
     // End of variables declaration//GEN-END:variables
 
+    private void zoomIcons() {
+
+        sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
+        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(blinds_label.getHeight(), blinds_label.getHeight(), Image.SCALE_SMOOTH)));
+        panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
+        sound_icon.setVisible(true);
+        panel_barra.setVisible(true);
+        pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
+        pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+        icon_zoom_timer.stop();
+
+    }
+
     @Override
-    public void zoom(float factor, final ConcurrentLinkedQueue<Long> notifier) {
+    public void zoom(float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+                if (icon_zoom_timer.isRunning()) {
+                    icon_zoom_timer.stop();
+                }
+            }
+        });
 
         while (!ready) {
-            Helpers.pausar(125);
+            Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
         }
 
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
@@ -750,13 +788,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-                    zoomable.zoom(factor, mynotifier);
+                    zoomable.zoom(zoom_factor, mynotifier);
 
                 }
             });
         }
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
                 sound_icon.setVisible(false);
@@ -766,31 +804,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
-        int h = blinds_label.getHeight();
+        Helpers.zoomFonts(this, zoom_factor, null);
 
-        Helpers.zoomFonts(this, factor, null);
-
-        while (blinds_label.getHeight() == h) {
-            Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
-        }
-
-        do {
-            h = blinds_label.getHeight();
-            Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
-        } while (h != blinds_label.getHeight());
-
-        ImageIcon soundIcon = new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(blinds_label.getHeight(), blinds_label.getHeight(), Image.SCALE_SMOOTH));
-
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
-                sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
-                sound_icon.setIcon(soundIcon);
-                panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
-                sound_icon.setVisible(true);
-                panel_barra.setVisible(true);
-                pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
-                pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+                if (icon_zoom_timer.isRunning()) {
+                    icon_zoom_timer.restart();
+                } else {
+                    icon_zoom_timer.start();
+                }
             }
         });
 

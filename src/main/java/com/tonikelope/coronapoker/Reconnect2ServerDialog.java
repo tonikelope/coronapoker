@@ -5,6 +5,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Image;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
@@ -73,6 +75,9 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         barra.setIndeterminate(true);
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
+        yes.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/plug.png")).getImage().getScaledInstance(yes.getHeight(), yes.getHeight(), Image.SCALE_SMOOTH)));
+        exit_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/exit.png")).getImage().getScaledInstance(exit_button.getHeight(), exit_button.getHeight(), Image.SCALE_SMOOTH)));
+
         pack();
 
     }
@@ -112,8 +117,8 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         ip_port.setText("tonikelope.noestasinvitado.com:23456");
         ip_port.setDoubleBuffered(true);
 
-        yes.setBackground(new java.awt.Color(0, 204, 51));
-        yes.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        yes.setBackground(new java.awt.Color(0, 153, 51));
+        yes.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         yes.setForeground(new java.awt.Color(255, 255, 255));
         yes.setText("RECONECTAR");
         yes.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -132,6 +137,7 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         status2.setDoubleBuffered(true);
 
         exit_button.setBackground(new java.awt.Color(255, 0, 0));
+        exit_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         exit_button.setForeground(new java.awt.Color(255, 255, 255));
         exit_button.setText("SALIR DEL JUEGO");
         exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));

@@ -137,6 +137,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int RECOVER_ID = -1;
     public static volatile long GAME_START_TIMESTAMP;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
+    private static final Object ZOOM_LOCK = new Object();
+
     private static volatile GameFrame THIS = null;
 
     public static GameFrame getInstance() {
@@ -462,6 +464,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public JCheckBoxMenuItem getConfirmar_menu() {
         return confirmar_menu;
+    }
+
+    private void incrementZoom() {
+
+        synchronized (ZOOM_LOCK) {
+            ZOOM_LEVEL++;
+        }
+    }
+
+    private void decrementZoom() {
+        synchronized (ZOOM_LOCK) {
+            ZOOM_LEVEL--;
+        }
     }
 
     public void toggleFullScreen() {
@@ -2529,15 +2544,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void zoom_menu_inActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_inActionPerformed
         // TODO add your handling code here:
 
-        zoom_menu.setEnabled(false);
-
         Helpers.playWavResource("misc/zoom_in.wav");
 
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
 
-                ZOOM_LEVEL++;
+                incrementZoom();
 
                 Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
 
@@ -2564,12 +2577,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 }
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
-                        zoom_menu.setEnabled(true);
-                    }
-                });
-
                 synchronized (zoom_menu) {
 
                     zoom_menu.notifyAll();
@@ -2585,8 +2592,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void zoom_menu_outActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_outActionPerformed
         // TODO add your handling code here:
 
-        zoom_menu.setEnabled(false);
-
         Helpers.playWavResource("misc/zoom_out.wav");
 
         if (Helpers.float1DSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) < 0) {
@@ -2595,7 +2600,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 @Override
                 public void run() {
 
-                    ZOOM_LEVEL--;
+                    decrementZoom();
 
                     Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
 
@@ -2622,12 +2627,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     }
 
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        public void run() {
-                            zoom_menu.setEnabled(true);
-                        }
-                    });
-
                     synchronized (zoom_menu) {
 
                         zoom_menu.notifyAll();
@@ -2646,8 +2645,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
 
         if (ZOOM_LEVEL != DEFAULT_ZOOM_LEVEL) {
-
-            zoom_menu.setEnabled(false);
 
             Helpers.playWavResource("misc/zoom_reset.wav");
 
@@ -2680,12 +2677,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
 
                     }
-
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        public void run() {
-                            zoom_menu.setEnabled(true);
-                        }
-                    });
 
                     synchronized (zoom_menu) {
 

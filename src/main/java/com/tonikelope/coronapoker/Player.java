@@ -122,4 +122,6 @@ public interface Player {
 
     public boolean isTimeout();
 
+    public void setPlayerActionIcon(String icon);
+
 }

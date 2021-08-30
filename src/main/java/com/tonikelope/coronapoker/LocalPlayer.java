@@ -1356,7 +1356,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public synchronized float getEffectiveStack() {
 
-        return this.stack + this.bote + this.pagar;
+        return Helpers.floatClean1D(this.stack) + Helpers.floatClean1D(this.bote) + Helpers.floatClean1D(this.pagar);
 
     }
 
@@ -2693,7 +2693,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void checkGameOver() {
-        if (isActivo() && Helpers.float1DSecureCompare(0f, stack + pagar) == 0) {
+        if (isActivo() && Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0) {
             setPlayerActionIcon("skull");
 
             setOpaque(true);

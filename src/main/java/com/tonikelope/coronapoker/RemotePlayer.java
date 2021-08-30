@@ -60,6 +60,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile String iwtsth_action_text = null;
     private volatile String player_action_emoji = null;
     private volatile Timer icon_zoom_timer = null;
+    private final Object zoom_lock = new Object();
 
     public boolean isTimeout() {
         return timeout;
@@ -621,6 +622,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void actionPerformed(ActionEvent ae) {
 
+                icon_zoom_timer.stop();
                 zoomIcons();
 
             }
@@ -1047,12 +1049,26 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void zoomIcons() {
 
-        setAvatar();
-        utgIconZoom();
-        actionIconZoom();
-        nickIconZoom();
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
 
-        icon_zoom_timer.stop();
+                synchronized (zoom_lock) {
+
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            setAvatar();
+                            utgIconZoom();
+                            actionIconZoom();
+                            nickIconZoom();
+
+                        }
+                    });
+                }
+            }
+        });
     }
 
     @Override
@@ -1090,7 +1106,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             playingCard1.zoom(zoom_factor, mynotifier);
             playingCard2.zoom(zoom_factor, mynotifier);
 
-            Helpers.zoomFonts(this, zoom_factor, null);
+            synchronized (zoom_lock) {
+
+                Helpers.zoomFonts(this, zoom_factor, null);
+
+            }
 
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override

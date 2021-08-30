@@ -44,6 +44,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final ConcurrentHashMap<JButton, Color[]> action_button_colors = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<JButton, Boolean> action_button_armed = new ConcurrentHashMap<>();
     private final Object pre_pulsar_lock = new Object();
+    private final Object zoom_lock = new Object();
 
     private volatile String nickname;
     private volatile int buyin = GameFrame.BUYIN;
@@ -549,6 +550,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void actionPerformed(ActionEvent ae) {
 
+                icon_zoom_timer.stop();
                 zoomIcons();
 
             }
@@ -1447,13 +1449,27 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void zoomIcons() {
 
-        setAvatar();
-        utgIconZoom();
-        actionIconZoom();
-        buttonIconZoom();
-        nickIconZoom();
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
 
-        icon_zoom_timer.stop();
+                synchronized (zoom_lock) {
+
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            setAvatar();
+                            utgIconZoom();
+                            actionIconZoom();
+                            buttonIconZoom();
+                            nickIconZoom();
+
+                        }
+                    });
+                }
+            }
+        });
     }
 
     @Override
@@ -1497,7 +1513,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             playingCard1.zoom(zoom_factor, mynotifier);
             playingCard2.zoom(zoom_factor, mynotifier);
 
-            Helpers.zoomFonts(this, zoom_factor, null);
+            synchronized (zoom_lock) {
+
+                Helpers.zoomFonts(this, zoom_factor, null);
+
+            }
 
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override

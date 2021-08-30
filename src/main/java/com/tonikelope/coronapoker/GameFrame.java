@@ -2687,7 +2687,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (GameFrame.AUTO_ZOOM) {
                         Helpers.threadRun(new Runnable() {
                             public void run() {
+
+                                Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
                                 tapete.autoZoom(false);
+
                             }
                         });
                     }

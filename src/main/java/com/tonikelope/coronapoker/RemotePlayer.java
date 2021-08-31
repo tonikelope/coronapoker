@@ -1587,13 +1587,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             Helpers.pausar(125);
                         }
 
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
-                                setPlayerActionIcon("ghost");
+                        setPlayerActionIcon("ghost");
 
-                            }
-                        });
                     }
                 });
 
@@ -1768,10 +1763,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void checkGameOver() {
         if (isActivo() && Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0) {
-            setPlayerActionIcon("skull");
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    setPlayerActionIcon("skull");
+                    setOpaque(true);
+                    setBackground(Color.RED);
+                }
+            });
 
-            setOpaque(true);
-            setBackground(Color.RED);
         }
     }
 

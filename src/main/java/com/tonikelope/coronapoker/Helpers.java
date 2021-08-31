@@ -1252,6 +1252,8 @@ public class Helpers {
 
         String new_version_major = null, new_version_minor = null, current_version_major = null, current_version_minor = null;
 
+        String ret = null;
+
         URL mb_url;
 
         HttpURLConnection con = null;
@@ -1289,7 +1291,11 @@ public class Helpers {
 
                 if (new_version_major != null && (Integer.parseInt(current_version_major) < Integer.parseInt(new_version_major) || (Integer.parseInt(current_version_major) == Integer.parseInt(new_version_major) && Integer.parseInt(current_version_minor) < Integer.parseInt(new_version_minor)))) {
 
-                    return new_version_major + "." + new_version_minor;
+                    ret = new_version_major + "." + new_version_minor;
+
+                } else {
+
+                    ret = "";
 
                 }
             }
@@ -1302,7 +1308,7 @@ public class Helpers {
             }
         }
 
-        return null;
+        return ret;
     }
 
     public static Integer[] getPokerDeckPermutation(int method) {

@@ -6878,6 +6878,12 @@ public class Crupier implements Runnable {
                             this.bote_sobrante = this.bote_total;
                         }
 
+                        for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                            if (carta.isTapada()) {
+                                carta.desenfocar();
+                            }
+                        }
+
                         this.bote_total = 0f;
 
                         if (!GameFrame.TEST_MODE && !resisten.contains(GameFrame.getInstance().getLocalPlayer())) {

@@ -660,7 +660,7 @@ public class Init extends javax.swing.JFrame {
 
             final String new_version = Helpers.checkNewVersion(AboutDialog.UPDATE_URL);
 
-            if (new_version != null) {
+            if (new_version != null && !new_version.isBlank()) {
 
                 if (Helpers.mostrarMensajeInformativoSINO(ventana, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿Quieres actualizar?") == 0) {
 
@@ -691,6 +691,9 @@ public class Init extends javax.swing.JFrame {
                     }
 
                 }
+
+            } else if (new_version == null) {
+                Helpers.mostrarMensajeError(ventana, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿TIENES CONEXIÓN A INTERNET?");
             }
 
             Helpers.GUIRun(new Runnable() {

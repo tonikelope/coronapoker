@@ -335,21 +335,15 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                         public void run() {
 
                             setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                            card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                            card_image.setPreferredSize(getSize());
                             card_image.setIcon(img);
                             card_image.setVisible(isVisible_card());
-                            card_image.revalidate();
-                            card_image.repaint();
-                        }
-                    });
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-                            updatePositionChip();
                             revalidate();
                             repaint();
                         }
                     });
+
+                    updatePositionChip();
 
                 }
             });
@@ -592,48 +586,54 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     private void updatePositionChip() {
 
-        ImageIcon image = null;
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
 
-        if (this.pos_chip > 0) {
+                ImageIcon image = null;
 
-            switch (this.pos_chip) {
+                if (pos_chip > 0) {
 
-                case Player.DEALER:
+                    switch (pos_chip) {
 
-                    image = IMAGEN_DEALER;
-                    break;
+                        case Player.DEALER:
 
-                case Player.BIG_BLIND:
+                            image = IMAGEN_DEALER;
+                            break;
 
-                    image = IMAGEN_BB;
-                    break;
+                        case Player.BIG_BLIND:
 
-                case Player.SMALL_BLIND:
+                            image = IMAGEN_BB;
+                            break;
 
-                    image = IMAGEN_SB;
-                    break;
+                        case Player.SMALL_BLIND:
+
+                            image = IMAGEN_SB;
+                            break;
+                    }
+
+                    pos_chip_label.setSize(new Dimension(image.getIconWidth(), image.getIconHeight()));
+                    pos_chip_label.setIcon(image);
+
+                    if (pos_chip_location == 1) {
+                        pos_chip_label.setLocation(new Point(card_image.getX(), card_image.getY()));
+                    } else {
+                        pos_chip_label.setLocation(new Point(card_image.getX(), card_image.getHeight() - pos_chip_label.getHeight()));
+                    }
+
+                    pos_chip_label.setVisible(pos_chip_visible && (pos_chip_location == 1 || GameFrame.LOCAL_POSITION_CHIP));
+
+                    pos_chip_label.setCursor(isVisible_card() ? new Cursor(Cursor.HAND_CURSOR) : new Cursor(Cursor.DEFAULT_CURSOR));
+
+                } else {
+                    pos_chip_label.setVisible(false);
+                }
+
+                revalidate();
+                repaint();
+
             }
+        });
 
-            pos_chip_label.setSize(new Dimension(image.getIconWidth(), image.getIconHeight()));
-            pos_chip_label.setIcon(image);
-
-            if (pos_chip_location == 1) {
-                pos_chip_label.setLocation(new Point(card_image.getX(), card_image.getY()));
-            } else {
-                pos_chip_label.setLocation(new Point(card_image.getX(), card_image.getHeight() - pos_chip_label.getHeight()));
-            }
-
-            pos_chip_label.setVisible(this.pos_chip_visible && (pos_chip_location == 1 || GameFrame.LOCAL_POSITION_CHIP));
-
-            pos_chip_label.setCursor(this.isVisible_card() ? new Cursor(Cursor.HAND_CURSOR) : new Cursor(Cursor.DEFAULT_CURSOR));
-
-        } else {
-            pos_chip_label.setVisible(false);
-        }
-
-        pos_chip_label.revalidate();
-
-        pos_chip_label.repaint();
     }
 
     @Override

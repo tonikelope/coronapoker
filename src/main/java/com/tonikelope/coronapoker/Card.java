@@ -333,13 +333,12 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                     Helpers.GUIRunAndWait(new Runnable() {
                         public void run() {
-
-                            setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                            card_image.setPreferredSize(getSize());
+                            card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                             card_image.setIcon(img);
                             card_image.setVisible(isVisible_card());
+                            card_image.revalidate();
+                            setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                             revalidate();
-                            repaint();
                         }
                     });
 
@@ -628,7 +627,12 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                     pos_chip_label.setVisible(false);
                 }
 
+                pos_chip_label.revalidate();
+
+                card_image.revalidate();
+
                 revalidate();
+
                 repaint();
 
             }

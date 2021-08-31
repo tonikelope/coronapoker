@@ -374,6 +374,8 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                     playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
                     playerRight = ((JPanel) jugador).getLocationOnScreen().getX() + ((JPanel) jugador).getWidth();
 
+                    Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+
                 }
             }
 

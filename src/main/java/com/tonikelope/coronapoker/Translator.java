@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"FALLO DE CONEXIÓN", "CONNECTION ERROR"},
             {"NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿TIENES CONEXIÓN A INTERNET?", "NOT BEEN ABLE TO CHECK FOR NEW RELEASE. DO YOU HAVE INTERNET CONNECTION?"},
             {"Deshacer", "Undo"},
             {"Copiar", "Copy"},

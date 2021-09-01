@@ -1748,7 +1748,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!isTimeout() || "timeout".equals(icon) || icon == null) {
 
-            if (!"timeout".equals(icon) && icon != null) {
+            if (!"timeout".equals(icon)) {
                 player_action_icon = icon;
             }
 

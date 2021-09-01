@@ -556,16 +556,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 public void run() {
 
                     if (val) {
-
                         setPlayerBorder(Color.MAGENTA, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                         setBackground(Color.MAGENTA);
                         setOpaque(true);
+                        player_action.setEnabled(true);
                         setPlayerActionIcon("timeout");
                     } else {
                         setPlayerBorder(border_color != null ? border_color : new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                         setBackground(null);
                         setOpaque(false);
-                        setPlayerActionIcon(null);
+                        setPlayerActionIcon(player_action_icon);
                     }
 
                 }
@@ -1746,7 +1746,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void setPlayerActionIcon(String icon) {
 
         if (!isTimeout() || icon == null) {
-            player_action_icon = icon;
+
+            if (!"timeout".equals(icon) && icon != null) {
+                player_action_icon = icon;
+            }
 
             Helpers.GUIRun(new Runnable() {
                 @Override

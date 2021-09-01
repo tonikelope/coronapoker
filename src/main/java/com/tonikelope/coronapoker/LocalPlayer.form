@@ -148,8 +148,6 @@
                       <EmptySpace type="unrelated" max="-2" attributes="0"/>
                       <Component id="player_stack" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="32767" attributes="0"/>
-                      <Component id="timeout_label" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
                       <Component id="player_pot" min="-2" max="-2" attributes="0"/>
                   </Group>
               </Group>
@@ -159,10 +157,7 @@
                   <Component id="avatar" alignment="0" max="32767" attributes="0"/>
                   <Component id="player_pot" alignment="0" max="32767" attributes="0"/>
                   <Group type="102" attributes="0">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="player_stack" min="-2" max="-2" attributes="0"/>
-                          <Component id="timeout_label" alignment="0" min="-2" max="-2" attributes="0"/>
-                      </Group>
+                      <Component id="player_stack" min="-2" max="-2" attributes="0"/>
                       <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                   </Group>
               </Group>
@@ -183,15 +178,6 @@
               <Events>
                 <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="avatarMouseClicked"/>
               </Events>
-            </Component>
-            <Component class="javax.swing.JLabel" name="timeout_label">
-              <Properties>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/timeout.png"/>
-                </Property>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="focusable" type="boolean" value="false"/>
-              </Properties>
             </Component>
             <Component class="javax.swing.JLabel" name="player_pot">
               <Properties>

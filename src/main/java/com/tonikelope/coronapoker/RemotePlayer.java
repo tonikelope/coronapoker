@@ -552,7 +552,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (this.timeout != val) {
 
-            Helpers.GUIRunAndWait(new Runnable() {
+            this.timeout = val;
+
+            Helpers.GUIRun(new Runnable() {
                 public void run() {
 
                     if (val) {
@@ -577,7 +579,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.playWavResource("misc/yahoo.wav");
             }
 
-            this.timeout = val;
         }
 
     }
@@ -1745,7 +1746,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void setPlayerActionIcon(String icon) {
 
-        if (!isTimeout() || icon == null) {
+        if (!isTimeout() || "timeout".equals(icon) || icon == null) {
 
             if (!"timeout".equals(icon) && icon != null) {
                 player_action_icon = icon;

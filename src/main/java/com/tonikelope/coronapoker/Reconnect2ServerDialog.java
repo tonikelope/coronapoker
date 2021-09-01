@@ -75,7 +75,7 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         barra.setIndeterminate(true);
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
-        yes.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/plug.png")).getImage().getScaledInstance(yes.getHeight(), yes.getHeight(), Image.SCALE_SMOOTH)));
+        yes.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/plug.png")).getImage().getScaledInstance(yes.getHeight(), yes.getHeight(), Image.SCALE_SMOOTH)));
         exit_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/exit.png")).getImage().getScaledInstance(exit_button.getHeight(), exit_button.getHeight(), Image.SCALE_SMOOTH)));
 
         pack();

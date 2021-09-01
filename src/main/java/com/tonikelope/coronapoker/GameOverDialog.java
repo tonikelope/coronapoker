@@ -51,7 +51,7 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
-        exit_now_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/ghost.png")).getImage().getScaledInstance(exit_now_button.getHeight(), exit_now_button.getHeight(), Image.SCALE_SMOOTH)));
+        exit_now_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/ghost.png")).getImage().getScaledInstance(exit_now_button.getHeight(), exit_now_button.getHeight(), Image.SCALE_SMOOTH)));
 
         pack();
 

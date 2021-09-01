@@ -58,7 +58,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Color border_color = null;
     private volatile boolean player_stack_click = false;
     private volatile String iwtsth_action_text = null;
-    private volatile String player_action_emoji = null;
+    private volatile String player_action_icon = null;
     private volatile Timer icon_zoom_timer = null;
     private final Object zoom_lock = new Object();
 
@@ -556,14 +556,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    timeout_icon.setVisible(val);
 
                     if (val) {
 
                         setPlayerBorder(Color.MAGENTA, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                        setBackground(Color.MAGENTA);
+                        setOpaque(true);
+                        setPlayerActionIcon("timeout");
                     } else {
                         setPlayerBorder(border_color != null ? border_color : new java.awt.Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-
+                        setBackground(null);
+                        setOpaque(false);
+                        setPlayerActionIcon(null);
                     }
 
                 }
@@ -594,8 +598,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 border_color = ((LineBorder) getBorder()).getLineColor();
 
                 danger.setVisible(false);
-
-                timeout_icon.setVisible(false);
 
                 player_pot.setText("----");
 
@@ -694,7 +696,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         indicadores_arriba = new javax.swing.JPanel();
         avatar_panel = new javax.swing.JPanel();
         avatar = new javax.swing.JLabel();
-        timeout_icon = new javax.swing.JLabel();
         player_pot = new javax.swing.JLabel();
         player_stack = new javax.swing.JLabel();
         nick_panel = new javax.swing.JPanel();
@@ -749,17 +750,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        timeout_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/timeout.png"))); // NOI18N
-        timeout_icon.setToolTipText("ESTE JUGADOR TIENE PROBLEMAS DE CONEXIÓN");
-        timeout_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        timeout_icon.setDoubleBuffered(true);
-        timeout_icon.setFocusable(false);
-        timeout_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                timeout_iconMouseClicked(evt);
-            }
-        });
-
         player_pot.setBackground(new java.awt.Color(255, 255, 255));
         player_pot.setFont(new java.awt.Font("Dialog", 1, 32)); // NOI18N
         player_pot.setText("----");
@@ -794,8 +784,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(player_stack)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(timeout_icon)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(player_pot))
         );
         avatar_panelLayout.setVerticalGroup(
@@ -803,9 +791,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             .addComponent(avatar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(player_pot, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(avatar_panelLayout.createSequentialGroup()
-                .addGroup(avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(player_stack)
-                    .addComponent(timeout_icon))
+                .addComponent(player_stack)
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
@@ -921,24 +907,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         );
     }// </editor-fold>//GEN-END:initComponents
 
-    private void timeout_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_timeout_iconMouseClicked
-        // TODO add your handling code here:
-
-        // 0=yes, 1=no, 2=cancel
-        if (GameFrame.getInstance().isPartida_local()) {
-            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión que bloquean la partida. ¿Quieres expulsarlo?") == 0) {
-
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        GameFrame.getInstance().getCrupier().remotePlayerQuit(nickname);
-                    }
-                });
-            }
-        } else {
-            Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión que bloquean la partida.\n(El servidor decidirá si esperar a que se recupere o echarle).");
-        }
-    }//GEN-LAST:event_timeout_iconMouseClicked
-
     private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
         if (!player_stack_click) {
@@ -1039,7 +1007,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel player_stack;
     private com.tonikelope.coronapoker.Card playingCard1;
     private com.tonikelope.coronapoker.Card playingCard2;
-    private javax.swing.JLabel timeout_icon;
     private javax.swing.JLabel utg_icon;
     // End of variables declaration//GEN-END:variables
 
@@ -1616,9 +1583,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void actionIconZoom() {
 
-        if (player_action_emoji != null) {
+        if (player_action_icon != null) {
 
-            setPlayerActionIcon(player_action_emoji);
+            setPlayerActionIcon(player_action_icon);
 
         }
     }
@@ -1777,14 +1744,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void setPlayerActionIcon(String icon) {
-        player_action_emoji = icon;
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/" + player_action_emoji + ".png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
-            }
-        });
+        if (!isTimeout()) {
+            player_action_icon = icon;
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/action/" + player_action_icon + ".png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
+                }
+            });
+        }
     }
 
 }

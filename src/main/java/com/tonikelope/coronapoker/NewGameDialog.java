@@ -315,7 +315,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             setPreferredSize(new Dimension(this.getParent().getWidth(), this.getParent().getHeight()));
         }
 
-        vamos.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/emoji/vamos.png")).getImage().getScaledInstance(Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f), Image.SCALE_SMOOTH)));
+        vamos.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/vamos.png")).getImage().getScaledInstance(Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f), Image.SCALE_SMOOTH)));
 
         pack();
 

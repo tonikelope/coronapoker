@@ -322,9 +322,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (this.timeout != val) {
 
-            this.timeout = val;
-
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
 
                     if (val) {
@@ -348,6 +346,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.playWavResource("misc/network_error.wav");
             }
+
+            this.timeout = val;
         }
 
     }
@@ -2697,7 +2697,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void setPlayerActionIcon(String icon) {
 
-        if (!isTimeout()) {
+        if (!isTimeout() || icon == null) {
             player_action_icon = icon;
 
             Helpers.GUIRun(new Runnable() {

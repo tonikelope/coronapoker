@@ -1754,7 +1754,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/action/" + player_action_icon + ".png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
+                    player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/action/" + icon + ".png")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
                 }
             });
         }

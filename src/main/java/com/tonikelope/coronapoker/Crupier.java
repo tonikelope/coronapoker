@@ -4540,22 +4540,33 @@ public class Crupier implements Runnable {
 
                                     case Player.BET:
 
-                                        float b = ((RemotePlayer) current_player).getBot().getBetSize();
-
-                                        if (Helpers.float1DSecureCompare(current_player.getStack() * 0.75f, b - current_player.getBet()) <= 0) {
+                                        if (Helpers.float1DSecureCompare(current_player.getStack(), call_required) <= 0) {
 
                                             action = new Object[]{Player.ALLIN, ""};
-
                                         } else {
 
-                                            action = new Object[]{Player.BET, b};
+                                            float b = ((RemotePlayer) current_player).getBot().getBetSize();
+
+                                            if (Helpers.float1DSecureCompare(current_player.getStack() * 0.75f, b - current_player.getBet()) <= 0) {
+
+                                                action = new Object[]{Player.ALLIN, ""};
+
+                                            } else if (puedenApostar(GameFrame.getInstance().getJugadores()) <= 1) {
+
+                                                action = new Object[]{Player.CHECK, 0f};
+
+                                            } else {
+
+                                                action = new Object[]{Player.BET, b};
+
+                                            }
 
                                         }
 
                                         break;
                                 }
 
-                                Helpers.pausar((Helpers.CSPRNG_GENERATOR.nextInt(2) + 1) * 1000);
+                                Helpers.pausar(2000);
                             }
                         }
 

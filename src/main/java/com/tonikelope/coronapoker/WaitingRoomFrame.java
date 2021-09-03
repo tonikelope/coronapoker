@@ -2843,7 +2843,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         do {
                             conta_bot++;
 
-                            bot_nick = "CoronaBot$" + String.valueOf(conta_bot);
+                            bot_nick = "CoronaBot|" + String.valueOf(conta_bot);
 
                         } while (participantes.get(bot_nick) != null);
 

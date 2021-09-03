@@ -16,6 +16,7 @@ public class Bot {
 
     public static final String PALOS = "TDCP";
     public static final int MAX_CONTA_BET = 2;
+    public static final int BOT_THINK_TIME = 1500;
     public static final org.alberta.poker.Hand BOT_COMMUNITY_CARDS = new org.alberta.poker.Hand();
     public static final org.alberta.poker.HandEvaluator HANDEVALUATOR = new org.alberta.poker.HandEvaluator();
     public static final org.alberta.poker.ai.HandPotential HANDPOTENTIAL = new org.alberta.poker.ai.HandPotential();

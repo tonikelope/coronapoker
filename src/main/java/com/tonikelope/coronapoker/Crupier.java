@@ -4570,7 +4570,9 @@ public class Crupier implements Runnable {
 
                                 long bot_elapsed_time = System.currentTimeMillis() - start;
 
-                                Helpers.pausar(Bot.BOT_THINK_TIME - bot_elapsed_time);
+                                if(Bot.BOT_THINK_TIME - bot_elapsed_time > 0L){
+                                    Helpers.pausar(Bot.BOT_THINK_TIME - bot_elapsed_time);
+                                }
                             }
                         }
 

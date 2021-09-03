@@ -4513,6 +4513,8 @@ public class Crupier implements Runnable {
 
                             if (!this.isSincronizando_mano() || (action = siguienteAccionLocalRecuperada(current_player.getNickname())) == null) {
 
+                                long start = System.currentTimeMillis();
+
                                 float call_required = getApuesta_actual() - current_player.getBet();
 
                                 int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision(resisten.size() - 1);
@@ -4566,7 +4568,9 @@ public class Crupier implements Runnable {
                                         break;
                                 }
 
-                                Helpers.pausar(2000);
+                                long bot_elapsed_time = System.currentTimeMillis() - start;
+
+                                Helpers.pausar(Bot.BOT_THINK_TIME - bot_elapsed_time);
                             }
                         }
 

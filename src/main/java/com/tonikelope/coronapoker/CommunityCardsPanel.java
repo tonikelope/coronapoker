@@ -154,6 +154,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                         panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
                         pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
                         pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+                        bet_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(bet_label.getHeight(), bet_label.getHeight(), Image.SCALE_SMOOTH)));
                         ready = true;
 
                     }
@@ -771,6 +772,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                             panel_barra.setVisible(true);
                             pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
                             pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+                            bet_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(bet_label.getHeight(), bet_label.getHeight(), Image.SCALE_SMOOTH)));
 
                         }
                     });
@@ -818,6 +820,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 panel_barra.setVisible(false);
                 pause_button.setIcon(null);
                 pot_label.setIcon(null);
+                bet_label.setIcon(null);
             }
         });
 

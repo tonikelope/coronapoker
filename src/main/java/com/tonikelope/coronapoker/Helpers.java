@@ -1069,15 +1069,11 @@ public class Helpers {
                     if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                         tts_services = new String[]{
                             "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=__TTS__",
-                            "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=es-ES_LauraVoice&download=true&accept=audio%2Fmp3",
-                            "https://texttospeech.responsivevoice.org/v1/text:synthesize?text=__TTS__&lang=es&engine=g1&name=&pitch=0.5&rate=0.5&volume=1&key=uu8DEkxz&gender=female"
-                        };
+                            "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=es-ES_LauraVoice&download=true&accept=audio%2Fmp3",};
                     } else {
                         tts_services = new String[]{
                             "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=en&q=__TTS__",
-                            "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=en-US_AllisonVoice&download=true&accept=audio%2Fmp3",
-                            "https://texttospeech.responsivevoice.org/v1/text:synthesize?text=__TTS__&lang=en&engine=g1&name=&pitch=0.5&rate=0.5&volume=1&key=uu8DEkxz&gender=female"
-                        };
+                            "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=en-US_AllisonVoice&download=true&accept=audio%2Fmp3",};
                     }
 
                     boolean error;

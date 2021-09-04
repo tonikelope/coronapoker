@@ -2544,7 +2544,11 @@ public class Crupier implements Runnable {
             @Override
             public void run() {
                 GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
+                GameFrame.getInstance().getRebuy_now_menu().setBackground(null);
+                GameFrame.getInstance().getRebuy_now_menu().setOpaque(false);
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
             }
         });
 
@@ -4570,7 +4574,7 @@ public class Crupier implements Runnable {
 
                                 long bot_elapsed_time = System.currentTimeMillis() - start;
 
-                                if(Bot.BOT_THINK_TIME - bot_elapsed_time > 0L){
+                                if (Bot.BOT_THINK_TIME - bot_elapsed_time > 0L) {
                                     Helpers.pausar(Bot.BOT_THINK_TIME - bot_elapsed_time);
                                 }
                             }

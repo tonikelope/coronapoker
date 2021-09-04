@@ -55,7 +55,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile boolean iniciada = false;
     private volatile boolean tapada = true;
     private volatile boolean desenfocada = false;
-    private volatile boolean visible_card = true;
+    private volatile boolean visible_card = false;
     private volatile boolean compactable = true;
     private volatile JLabel pos_chip_label = null;
     private volatile int pos_chip = -1;
@@ -351,18 +351,26 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void iniciarCarta() {
 
+        iniciarCarta(true);
+    }
+
+    public void iniciarCarta(boolean visible) {
         this.iniciada = true;
         this.tapada = true;
         this.desenfocada = false;
-        this.visible_card = true;
+        this.visible_card = visible;
         refreshCard();
     }
 
     public void resetearCarta() {
+        resetearCarta(true);
+    }
+
+    public void resetearCarta(boolean visible) {
         this.iniciada = false;
         this.tapada = false;
         this.desenfocada = false;
-        this.visible_card = true;
+        this.visible_card = visible;
         this.valor = "";
         this.palo = "";
         resetPosChip();

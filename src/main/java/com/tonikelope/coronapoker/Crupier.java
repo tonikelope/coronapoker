@@ -2460,14 +2460,14 @@ public class Crupier implements Runnable {
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
             if (jugador.isActivo()) {
-                jugador.getPlayingCard1().resetearCarta();
-                jugador.getPlayingCard2().resetearCarta();
+                jugador.getPlayingCard1().resetearCarta(false);
+                jugador.getPlayingCard2().resetearCarta(false);
             }
 
         }
 
         for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
-            carta.resetearCarta();
+            carta.resetearCarta(false);
         }
 
         this.conta_mano++;

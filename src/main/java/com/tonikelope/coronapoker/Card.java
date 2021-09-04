@@ -342,7 +342,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                         }
                     });
 
-                    updatePositionChip();
+                    updatePositionChip((GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT);
 
                 }
             });
@@ -591,7 +591,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     }
 
-    private void updatePositionChip() {
+    private void updatePositionChip(int card_height) {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -624,7 +624,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                     if (pos_chip_location == 1) {
                         pos_chip_label.setLocation(new Point(card_image.getX(), card_image.getY()));
                     } else {
-                        pos_chip_label.setLocation(new Point(card_image.getX(), card_image.getHeight() - pos_chip_label.getHeight()));
+                        pos_chip_label.setLocation(new Point(card_image.getX(), card_height - pos_chip_label.getHeight()));
                     }
 
                     pos_chip_label.setVisible(pos_chip_visible && (pos_chip_location == 1 || GameFrame.LOCAL_POSITION_CHIP));

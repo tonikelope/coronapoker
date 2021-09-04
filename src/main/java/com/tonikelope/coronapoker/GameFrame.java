@@ -3505,17 +3505,27 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 public void run() {
                     crupier.rebuyNow(player.getNickname(), -1);
 
-                    if (player.getBuyin() > GameFrame.BUYIN) {
-                        player.getPlayer_stack().setBackground(Color.CYAN);
-                        player.getPlayer_stack().setForeground(Color.BLACK);
-                    } else {
-                        player.getPlayer_stack().setBackground(new Color(51, 153, 0));
-                        player.getPlayer_stack().setForeground(Color.WHITE);
-                    }
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
 
-                    player.getPlayer_stack().setText(Helpers.float2String(player.getStack()));
-                    rebuy_now_menu.setEnabled(true);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                            if (player.getBuyin() > GameFrame.BUYIN) {
+                                player.getPlayer_stack().setBackground(Color.CYAN);
+                                player.getPlayer_stack().setForeground(Color.BLACK);
+                            } else {
+                                player.getPlayer_stack().setBackground(new Color(51, 153, 0));
+                                player.getPlayer_stack().setForeground(Color.WHITE);
+                            }
+
+                            player.getPlayer_stack().setText(Helpers.float2String(player.getStack()));
+                            rebuy_now_menu.setEnabled(true);
+                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                            rebuy_now_menu.setBackground(null);
+                            rebuy_now_menu.setOpaque(false);
+                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
+                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
+                        }
+                    });
+
                     Helpers.playWavResource("misc/button_off.wav");
                 }
             });
@@ -3540,14 +3550,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     player.getPlayer_stack().setBackground(Color.YELLOW);
                     player.getPlayer_stack().setForeground(Color.BLACK);
                     player.getPlayer_stack().setText(Helpers.float2String(player.getStack() + (int) rebuy_dialog.getRebuy_spinner().getValue()));
+                    this.rebuy_now_menu.setBackground(Color.YELLOW);
+                    this.rebuy_now_menu.setOpaque(true);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(Color.YELLOW);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(true);
 
                     Helpers.threadRun(new Runnable() {
                         public void run() {
                             crupier.rebuyNow(player.getNickname(), (int) rebuy_dialog.getRebuy_spinner().getValue());
-                            rebuy_now_menu.setEnabled(true);
-                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+                                    rebuy_now_menu.setEnabled(true);
+                                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                                    rebuy_dialog = null;
+                                }
+                            });
                             Helpers.playWavResource("misc/button_on.wav");
-                            rebuy_dialog = null;
+
                         }
                     });
                 } else {
@@ -3555,6 +3574,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     rebuy_now_menu.setSelected(false);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+                    this.rebuy_now_menu.setBackground(null);
+                    this.rebuy_now_menu.setOpaque(false);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
                     rebuy_dialog = null;
                 }
             }

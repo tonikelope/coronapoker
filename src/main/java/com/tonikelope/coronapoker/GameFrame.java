@@ -1215,7 +1215,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             JFrame frame = getFrame();
 
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
                     frame.getContentPane().remove(tapete);
 
@@ -1288,6 +1288,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 }
             });
+
+            crupier.actualizarContadoresTapete();
         }
     }
 

@@ -154,7 +154,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                         panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
                         pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
                         pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
-                        bet_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(bet_label.getHeight(), bet_label.getHeight(), Image.SCALE_SMOOTH)));
+                        bet_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
                         ready = true;
 
                     }
@@ -298,21 +298,21 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         bet_label.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
         bet_label.setForeground(new java.awt.Color(153, 204, 0));
-        bet_label.setText("---------");
+        bet_label.setText(" ");
         bet_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         bet_label.setDoubleBuffered(true);
         bet_label.setFocusable(false);
 
         blinds_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         blinds_label.setForeground(new java.awt.Color(153, 204, 0));
-        blinds_label.setText("Ciegas:");
+        blinds_label.setText(" ");
         blinds_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         blinds_label.setDoubleBuffered(true);
         blinds_label.setFocusable(false);
 
         hand_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         hand_label.setForeground(new java.awt.Color(153, 204, 0));
-        hand_label.setText("Mano:");
+        hand_label.setText(" ");
         hand_label.setToolTipText("CLICK IZQ: ÚLTIMA MANO / CLICK DCHO: LÍMITE DE MANOS");
         hand_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -772,7 +772,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                             panel_barra.setVisible(true);
                             pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
                             pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
-                            bet_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(bet_label.getHeight(), bet_label.getHeight(), Image.SCALE_SMOOTH)));
+                            bet_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
 
                         }
                     });

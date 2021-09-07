@@ -147,13 +147,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (!this.exit) {
             this.exit = true;
 
-            if (auto_action != null) {
-                auto_action.stop();
-            }
-
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
+
+                    if (auto_action != null) {
+                        auto_action.stop();
+                    }
 
                     setPlayerBorder(new Color(204, 204, 204), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
@@ -277,7 +277,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             if (!GameFrame.TEST_MODE) {
 
                 //Tiempo máximo para pensar
-                Helpers.threadRun(new Runnable() {
+                Helpers.GUIRun(new Runnable() {
                     public void run() {
 
                         response_counter = GameFrame.TIEMPO_PENSAR;
@@ -308,15 +308,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                             public void run() {
                                                 Helpers.playWavResourceAndWait("misc/timeout.wav");
 
-                                                if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                                                GameFrame.getInstance().checkPause();
 
-                                                    GameFrame.getInstance().checkPause();
+                                                Helpers.GUIRun(new Runnable() {
+                                                    public void run() {
 
-                                                    if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                                                        if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
 
-                                                        auto_action.stop();
+                                                            auto_action.stop();
+                                                        }
                                                     }
-                                                }
+                                                });
+
                                             }
                                         });
 
@@ -340,15 +343,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setDecisionFromRemotePlayer(int decision, float bet) {
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
+                if (auto_action != null) {
+                    auto_action.stop();
+                }
+
             }
         });
-
-        if (auto_action != null) {
-            auto_action.stop();
-        }
 
         this.decision = decision;
 
@@ -618,21 +621,22 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setBackground(Color.WHITE);
 
                 player_pot.setForeground(Color.BLACK);
+
+                icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
+
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+
+                        icon_zoom_timer.stop();
+                        zoomIcons();
+
+                    }
+                });
+
+                icon_zoom_timer.setRepeats(false);
+                icon_zoom_timer.setCoalesce(false);
             }
         });
-
-        icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent ae) {
-
-                icon_zoom_timer.stop();
-                zoomIcons();
-
-            }
-        });
-
-        icon_zoom_timer.setRepeats(false);
 
     }
 
@@ -1043,54 +1047,50 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void zoom(float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-                if (icon_zoom_timer.isRunning()) {
-                    icon_zoom_timer.stop();
-                }
-            }
-        });
-
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
         if (Helpers.float1DSecureCompare(0f, zoom_factor) < 0) {
-
-            Helpers.GUIRunAndWait(new Runnable() {
-                @Override
-                public void run() {
-                    player_action.setIcon(null);
-
-                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
-
-                    setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
-                    getAvatar().setVisible(false);
-
-                    utg_icon.setVisible(false);
-
-                    player_name.setIcon(null);
-                }
-            });
 
             playingCard1.zoom(zoom_factor, mynotifier);
             playingCard2.zoom(zoom_factor, mynotifier);
 
             synchronized (zoom_lock) {
 
+                Helpers.GUIRunAndWait(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        if (icon_zoom_timer.isRunning()) {
+                            icon_zoom_timer.stop();
+                        }
+
+                        player_action.setIcon(null);
+
+                        player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
+
+                        setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
+                        getAvatar().setVisible(false);
+
+                        utg_icon.setVisible(false);
+
+                        player_name.setIcon(null);
+                    }
+                });
+
                 Helpers.zoomFonts(this, zoom_factor, null);
 
-            }
-
-            Helpers.GUIRunAndWait(new Runnable() {
-                @Override
-                public void run() {
-                    if (icon_zoom_timer.isRunning()) {
-                        icon_zoom_timer.restart();
-                    } else {
-                        icon_zoom_timer.start();
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (icon_zoom_timer.isRunning()) {
+                            icon_zoom_timer.restart();
+                        } else {
+                            icon_zoom_timer.start();
+                        }
                     }
-                }
-            });
+                });
+
+            }
 
             while (mynotifier.size() < 2) {
 

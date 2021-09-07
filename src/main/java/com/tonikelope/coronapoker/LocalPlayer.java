@@ -541,21 +541,22 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 playingCard1.setPosChip_visible(GameFrame.LOCAL_POSITION_CHIP);
 
                 desactivarControles();
+
+                icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
+
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+
+                        icon_zoom_timer.stop();
+                        zoomIcons();
+
+                    }
+                });
+
+                icon_zoom_timer.setRepeats(false);
+                icon_zoom_timer.setCoalesce(false);
             }
         });
-
-        icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent ae) {
-
-                icon_zoom_timer.stop();
-                zoomIcons();
-
-            }
-        });
-
-        icon_zoom_timer.setRepeats(false);
 
     }
 
@@ -851,7 +852,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             } else {
 
                 //Tiempo máximo para pensar
-                Helpers.threadRun(new Runnable() {
+                Helpers.GUIRun(new Runnable() {
                     public void run() {
 
                         response_counter = GameFrame.TIEMPO_PENSAR;
@@ -915,36 +916,31 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                     Helpers.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
                                                 }
 
-                                                if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno() && getDecision() == Player.NODEC) {
+                                                GameFrame.getInstance().checkPause();
 
-                                                    GameFrame.getInstance().checkPause();
+                                                Helpers.GUIRun(new Runnable() {
+                                                    public void run() {
 
-                                                    if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno() && getDecision() == Player.NODEC) {
+                                                        if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno() && getDecision() == Player.NODEC) {
 
-                                                        if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
+                                                            if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
 
-                                                            Helpers.GUIRun(new Runnable() {
-                                                                public void run() {
-                                                                    //Pasamos automáticamente 
-                                                                    action_button_armed.put(player_check_button, true);
-                                                                    player_check_button.doClick();
-                                                                }
-                                                            });
+                                                                //Pasamos automáticamente 
+                                                                action_button_armed.put(player_check_button, true);
+                                                                player_check_button.doClick();
 
-                                                        } else {
+                                                            } else {
 
-                                                            Helpers.GUIRun(new Runnable() {
-                                                                public void run() {
+                                                                //Nos tiramos automáticamente
+                                                                action_button_armed.put(player_fold_button, true);
+                                                                player_fold_button.doClick();
 
-                                                                    //Nos tiramos automáticamente
-                                                                    action_button_armed.put(player_fold_button, true);
-                                                                    player_fold_button.doClick();
-                                                                }
-                                                            });
+                                                            }
+
                                                         }
-
                                                     }
-                                                }
+                                                });
+
                                             }
                                         });
 
@@ -1474,60 +1470,56 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void zoom(float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-                if (icon_zoom_timer.isRunning()) {
-                    icon_zoom_timer.stop();
-                }
-            }
-        });
-
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
         if (Helpers.float1DSecureCompare(0f, zoom_factor) < 0) {
-
-            Helpers.GUIRunAndWait(new Runnable() {
-                @Override
-                public void run() {
-                    player_action.setIcon(null);
-                    player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * zoom_factor)));
-                    setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
-                    getAvatar().setVisible(false);
-                    utg_icon.setVisible(false);
-
-                    player_check_button.setIcon(null);
-
-                    player_bet_button.setIcon(null);
-
-                    player_allin_button.setIcon(null);
-
-                    player_fold_button.setIcon(null);
-
-                    player_name.setIcon(null);
-
-                }
-            });
 
             playingCard1.zoom(zoom_factor, mynotifier);
             playingCard2.zoom(zoom_factor, mynotifier);
 
             synchronized (zoom_lock) {
 
+                Helpers.GUIRunAndWait(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        if (icon_zoom_timer.isRunning()) {
+                            icon_zoom_timer.stop();
+                        }
+
+                        player_action.setIcon(null);
+                        player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * zoom_factor)));
+                        setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
+                        getAvatar().setVisible(false);
+                        utg_icon.setVisible(false);
+
+                        player_check_button.setIcon(null);
+
+                        player_bet_button.setIcon(null);
+
+                        player_allin_button.setIcon(null);
+
+                        player_fold_button.setIcon(null);
+
+                        player_name.setIcon(null);
+
+                    }
+                });
+
                 Helpers.zoomFonts(this, zoom_factor, null);
 
-            }
-
-            Helpers.GUIRunAndWait(new Runnable() {
-                @Override
-                public void run() {
-                    if (icon_zoom_timer.isRunning()) {
-                        icon_zoom_timer.restart();
-                    } else {
-                        icon_zoom_timer.start();
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (icon_zoom_timer.isRunning()) {
+                            icon_zoom_timer.restart();
+                        } else {
+                            icon_zoom_timer.start();
+                        }
                     }
-                }
-            });
+                });
+
+            }
 
             while (mynotifier.size() < 2) {
 

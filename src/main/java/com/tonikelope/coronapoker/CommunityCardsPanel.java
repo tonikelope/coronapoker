@@ -135,7 +135,19 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 random_button.setVisible(false);
                 hand_limit_spinner.setVisible(false);
                 max_hands_button.setVisible(false);
+                icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
 
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+
+                        icon_zoom_timer.stop();
+                        zoomIcons();
+
+                    }
+                });
+
+                icon_zoom_timer.setRepeats(false);
+                icon_zoom_timer.setCoalesce(false);
             }
         });
 
@@ -161,19 +173,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 });
             }
         });
-
-        icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent ae) {
-
-                icon_zoom_timer.stop();
-                zoomIcons();
-
-            }
-        });
-
-        icon_zoom_timer.setRepeats(false);
 
     }
 
@@ -786,15 +785,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     @Override
     public void zoom(float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-                if (icon_zoom_timer.isRunning()) {
-                    icon_zoom_timer.stop();
-                }
-            }
-        });
-
         while (!ready) {
             Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
         }
@@ -813,33 +803,37 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             });
         }
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-                sound_icon.setVisible(false);
-                panel_barra.setVisible(false);
-                pause_button.setIcon(null);
-                pot_label.setIcon(null);
-                bet_label.setIcon(null);
-            }
-        });
-
         synchronized (zoom_lock) {
+
+            Helpers.GUIRunAndWait(new Runnable() {
+                @Override
+                public void run() {
+
+                    if (icon_zoom_timer.isRunning()) {
+                        icon_zoom_timer.stop();
+                    }
+
+                    sound_icon.setVisible(false);
+                    panel_barra.setVisible(false);
+                    pause_button.setIcon(null);
+                    pot_label.setIcon(null);
+                    bet_label.setIcon(null);
+                }
+            });
 
             Helpers.zoomFonts(this, zoom_factor, null);
 
-        }
-
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-                if (icon_zoom_timer.isRunning()) {
-                    icon_zoom_timer.restart();
-                } else {
-                    icon_zoom_timer.start();
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    if (icon_zoom_timer.isRunning()) {
+                        icon_zoom_timer.restart();
+                    } else {
+                        icon_zoom_timer.start();
+                    }
                 }
-            }
-        });
+            });
+        }
 
         while (mynotifier.size() < zoomables.length) {
 

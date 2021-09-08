@@ -902,7 +902,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 Helpers.playWavResource("misc/allin.wav");
 
-                String elnick = this.nick.getText().trim();
+                String elnick = this.nick.getText().trim().replaceAll("\\$", "");
 
                 Helpers.PROPERTIES.setProperty("nick", elnick);
 

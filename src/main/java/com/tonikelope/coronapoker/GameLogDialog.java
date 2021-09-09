@@ -98,11 +98,11 @@ public class GameLogDialog extends javax.swing.JDialog {
 
                     String lajugada = this.utf8_cards ? this.translateNormalCards2UTF8(jugada.toString()) : jugada.toString();
 
-                    this.text = this.text.replaceAll(perdedor.getNickname() + " +[(]---[)] +(\\w+ .+)", perdedor.getNickname() + " (" + lascartas + ") $1 -> " + lajugada);
+                    this.text = this.text.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)] +(\\w+ .+)", perdedor.getNickname().replace("$", "\\$") + " (" + lascartas + ") $1 -> " + lajugada);
 
                 } else {
 
-                    this.text = this.text.replaceAll(perdedor.getNickname() + " +[(]---[)]", perdedor.getNickname() + " (***)");
+                    this.text = this.text.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)]", perdedor.getNickname().replace("$", "\\$") + " (***)");
 
                 }
             }

@@ -25,6 +25,8 @@ import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
 
 /**
  *
@@ -759,6 +761,22 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
             visor.setVisible(true);
 
+        } else if (evt.getButton() == MouseEvent.BUTTON3) {
+
+            JMenu menu_barajas = GameFrame.getInstance().getMenu_barajas();
+
+            if (menu_barajas.getItemCount() > 1) {
+
+                int m = 0;
+
+                while (m < menu_barajas.getItemCount() && !menu_barajas.getItem(m).getText().equals(GameFrame.BARAJA)) {
+                    m++;
+                }
+
+                m = (m + 1) % menu_barajas.getItemCount();
+
+                menu_barajas.getItem(m).doClick();
+            }
         }
     }//GEN-LAST:event_card_imageMouseClicked
 

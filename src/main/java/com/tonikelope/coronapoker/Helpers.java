@@ -1052,7 +1052,7 @@ public class Helpers {
 
         try {
 
-            URL url_api = new URL(url.replace("__TTS__", URLEncoder.encode(text, "UTF-8")));
+            URL url_api = new URL(url.replace("__TTS__", URLEncoder.encode(URLEncoder.encode(text, "UTF-8").replace("+", "%20"))));
 
             con = (HttpURLConnection) url_api.openConnection();
 
@@ -1119,7 +1119,7 @@ public class Helpers {
 
             if (mensaje != null && !"".equals(mensaje)) {
 
-                String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿<>]", "").replaceAll("([a-záéíóúñü@&,:;!?¡¿<>])\\1{2,}", "$1").replaceAll(" {2,}", " ");
+                String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿<>]", "").replaceAll(" {2,}", " ");
 
                 if (!"".equals(limpio) && limpio.length() <= Helpers.MAX_TTS_LENGTH) {
 

@@ -284,6 +284,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
 
+        tts_warning.setVisible(false);
         chat_notifications.setSelected(CHAT_GAME_NOTIFICATIONS);
         chat_notifications.setVisible(false);
 
@@ -1457,6 +1458,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             public void run() {
                                                                 new GameFrame(THIS, local_nick, false);
                                                                 chat_notifications.setVisible(true);
+                                                                tts_warning.setVisible(true);
+                                                                pack();
 
                                                             }
                                                         });
@@ -2477,14 +2480,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 140, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 154, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(chat_box))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(tts_warning)
-                .addContainerGap())
+                .addGap(6, 6, 6))
         );
 
         pack();
@@ -2695,6 +2698,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 public void run() {
                                     new GameFrame(THIS, local_nick, true);
                                     chat_notifications.setVisible(true);
+                                    tts_warning.setVisible(true);
+                                    pack();
 
                                 }
                             });

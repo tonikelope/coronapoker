@@ -48,6 +48,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.CodeSource;
@@ -1041,6 +1042,77 @@ public class Helpers {
         return df.format(currentDate);
     }
 
+    private static boolean googleTranslatorTTSBASE64(String text, String lang, String filename) {
+
+        String url = "https://www.google.com/async/translate_tts?client=firefox-b-d&yv=3&ttsp=tl:" + lang + ",txt:__TTS__,spd:1&async=_fmt:jspb";
+
+        HttpURLConnection con = null;
+
+        boolean error = false;
+
+        try {
+
+            URL url_api = new URL(url.replace("__TTS__", URLEncoder.encode(text, "UTF-8")));
+
+            con = (HttpURLConnection) url_api.openConnection();
+
+            con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
+
+            con.setUseCaches(false);
+
+            try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"))) {
+
+                byte[] buffer = new byte[1024];
+
+                int reads;
+
+                while ((reads = is.read(buffer)) != -1) {
+
+                    bfos.write(buffer, 0, reads);
+                }
+
+            } catch (Exception ex) {
+
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
+
+            }
+
+            String mp3_b64 = new String(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt")), StandardCharsets.UTF_8);
+
+            Pattern pattern = Pattern.compile("\\[\"([^\\[\\]\"]+)\"\\]");
+
+            Matcher matcher = pattern.matcher(mp3_b64);
+
+            if (matcher.find()) {
+                System.out.println(matcher.group(1));
+                Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename), Base64.decodeBase64(matcher.group(1)));
+            } else {
+                error = true;
+            }
+
+        } catch (Exception ex) {
+            error = true;
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
+
+        } finally {
+
+            if (con != null) {
+                con.disconnect();
+            }
+
+            try {
+                Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"));
+            } catch (IOException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return error;
+
+    }
+
     public static void TTS(String mensaje, TTSNotifyDialog nick_dialog) {
 
         synchronized (TTS_LOCK) {
@@ -1051,63 +1123,150 @@ public class Helpers {
 
                 if (!"".equals(limpio) && limpio.length() <= Helpers.MAX_TTS_LENGTH) {
 
-                    /* ¡¡OJO CON LO QUE SE DICE POR EL CHAT QUE ESTOS SON SERVICIOS EXTERNOS!! 
-                   
-                    https://responsivevoice.org/ <script src='https://code.responsivevoice.org/1.7.0/responsivevoice.js?source=wp-plugin&#038;key=uu8DEkxz&#038;ver=5.3.6'></script>
-                    https://texttospeech.responsivevoice.org/v1/text:synthesize?text="+URLEncoder.encode(msj)+"&lang=es&engine=g1&name=&pitch=0.5&rate=0.5&volume=1&key=uu8DEkxz&gender=female
-                    
-                    http://texttospeechrobot.com/ https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text="+URLEncoder.encode(msj)+"&voice=es-ES_EnriqueVoice&download=true&accept=audio%2Fmp3
-                    
-                    https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=Hola%20qu%C3%A9%20tal%3F&voice=es-ES_LauraVoice&download=true&accept=audio%2Fmp3
-                    
-                    https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=Hello%2C%20how%20are%20you%3F&voice=en-US_AllisonVoice&download=true&accept=audio%2Fmp3
-
+                    /* ¡¡OJO CON LO QUE SE DICE POR EL CHAT QUE ESTOS SON SERVICIOS EXTERNOS!!
                     VEREMOS LO QUE DURAN...
                      */
-                    String[] tts_services;
+                    String filename = Helpers.genRandomString(30);
 
-                    if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
-                        tts_services = new String[]{
-                            "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=__TTS__",
-                            "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=es-ES_LauraVoice&download=true&accept=audio%2Fmp3",};
+                    if (!googleTranslatorTTSBASE64(limpio, GameFrame.DEFAULT_LANGUAGE.toLowerCase(), filename)) {
+
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                while (TTS_PLAYER == null || TTS_PLAYER.getStatus() != BasicPlayer.PLAYING) {
+
+                                    synchronized (TTS_PLAYER_NOTIFIER) {
+                                        try {
+                                            TTS_PLAYER_NOTIFIER.wait(1000);
+                                        } catch (InterruptedException ex) {
+                                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+                                    }
+                                }
+
+                                Helpers.GUIRun(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        GameFrame.getInstance().getSonidos_menu().setEnabled(false);
+
+                                        nick_dialog.setVisible(true);
+                                    }
+                                });
+                            }
+                        });
+
+                        Helpers.muteAllExceptMp3Loops();
+
+                        Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
+
+                        Helpers.unMuteAll();
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                GameFrame.getInstance().getSonidos_menu().setEnabled(true);
+                                nick_dialog.setVisible(false);
+                            }
+                        });
+
+                        if (filename != null) {
+                            try {
+                                Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
+
+                            } catch (IOException ex) {
+                                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+
                     } else {
-                        tts_services = new String[]{
-                            "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=en&q=__TTS__",
-                            "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=en-US_AllisonVoice&download=true&accept=audio%2Fmp3",};
-                    }
+                        String[] tts_services;
 
-                    boolean error;
+                        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                            tts_services = new String[]{
+                                "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=__TTS__",
+                                "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=es-ES_LauraVoice&download=true&accept=audio%2Fmp3",};
+                        } else {
+                            tts_services = new String[]{
+                                "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=en&q=__TTS__",
+                                "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=en-US_AllisonVoice&download=true&accept=audio%2Fmp3",};
+                        }
 
-                    int conta_service = 0;
+                        boolean error;
 
-                    do {
-                        error = false;
+                        int conta_service = 0;
 
-                        HttpURLConnection con = null;
+                        do {
+                            error = false;
 
-                        String filename = null;
+                            HttpURLConnection con = null;
 
-                        try {
+                            try {
 
-                            URL url_api = new URL(tts_services[conta_service].replace("__TTS__", URLEncoder.encode(limpio, "UTF-8")));
+                                URL url_api = new URL(tts_services[conta_service].replace("__TTS__", URLEncoder.encode(limpio, "UTF-8")));
 
-                            con = (HttpURLConnection) url_api.openConnection();
+                                con = (HttpURLConnection) url_api.openConnection();
 
-                            con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
+                                con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
 
-                            con.setUseCaches(false);
+                                con.setUseCaches(false);
 
-                            filename = Helpers.genRandomString(30);
+                                filename = Helpers.genRandomString(30);
 
-                            try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename))) {
+                                try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename))) {
 
-                                byte[] buffer = new byte[1024];
+                                    byte[] buffer = new byte[1024];
 
-                                int reads;
+                                    int reads;
 
-                                while ((reads = is.read(buffer)) != -1) {
+                                    while ((reads = is.read(buffer)) != -1) {
 
-                                    bfos.write(buffer, 0, reads);
+                                        bfos.write(buffer, 0, reads);
+                                    }
+
+                                } catch (Exception ex) {
+
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
+                                    error = true;
+                                    conta_service++;
+                                }
+
+                                if (!error) {
+
+                                    Helpers.threadRun(new Runnable() {
+                                        @Override
+                                        public void run() {
+
+                                            while (TTS_PLAYER == null || TTS_PLAYER.getStatus() != BasicPlayer.PLAYING) {
+
+                                                synchronized (TTS_PLAYER_NOTIFIER) {
+                                                    try {
+                                                        TTS_PLAYER_NOTIFIER.wait(1000);
+                                                    } catch (InterruptedException ex) {
+                                                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                                    }
+                                                }
+                                            }
+
+                                            Helpers.GUIRun(new Runnable() {
+                                                @Override
+                                                public void run() {
+
+                                                    GameFrame.getInstance().getSonidos_menu().setEnabled(false);
+
+                                                    nick_dialog.setVisible(true);
+                                                }
+                                            });
+                                        }
+                                    });
+
+                                    Helpers.muteAllExceptMp3Loops();
+
+                                    Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
+
                                 }
 
                             } catch (Exception ex) {
@@ -1116,77 +1275,35 @@ public class Helpers {
                                 Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
                                 error = true;
                                 conta_service++;
-                            }
 
-                            if (!error) {
+                            } finally {
 
-                                Helpers.threadRun(new Runnable() {
+                                if (con != null) {
+                                    con.disconnect();
+                                }
+
+                                Helpers.unMuteAll();
+
+                                Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
 
-                                        while (TTS_PLAYER == null || TTS_PLAYER.getStatus() != BasicPlayer.PLAYING) {
-
-                                            synchronized (TTS_PLAYER_NOTIFIER) {
-                                                try {
-                                                    TTS_PLAYER_NOTIFIER.wait(1000);
-                                                } catch (InterruptedException ex) {
-                                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                                                }
-                                            }
-                                        }
-
-                                        Helpers.GUIRun(new Runnable() {
-                                            @Override
-                                            public void run() {
-
-                                                GameFrame.getInstance().getSonidos_menu().setEnabled(false);
-
-                                                nick_dialog.setVisible(true);
-                                            }
-                                        });
+                                        GameFrame.getInstance().getSonidos_menu().setEnabled(true);
+                                        nick_dialog.setVisible(false);
                                     }
                                 });
 
-                                Helpers.muteAllExceptMp3Loops();
-
-                                Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
-
-                            }
-
-                        } catch (Exception ex) {
-
-                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
-                            error = true;
-                            conta_service++;
-
-                        } finally {
-
-                            if (con != null) {
-                                con.disconnect();
-                            }
-
-                            Helpers.unMuteAll();
-
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
-
-                                    GameFrame.getInstance().getSonidos_menu().setEnabled(true);
-                                    nick_dialog.setVisible(false);
-                                }
-                            });
-
-                            if (filename != null) {
-                                try {
-                                    Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
-                                } catch (IOException ex) {
-                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                if (filename != null) {
+                                    try {
+                                        Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
+                                    } catch (IOException ex) {
+                                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
                                 }
                             }
-                        }
 
-                    } while (error && conta_service < tts_services.length);
+                        } while (error && conta_service < tts_services.length);
+                    }
 
                 }
 
@@ -2775,7 +2892,7 @@ public class Helpers {
             Action undoAction = new AbstractAction(Translator.translate("Deshacer")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
-                    if (undoManager.canUndo()) {
+                    if (undoManager.canUndo() && txtField.isEditable()) {
                         undoManager.undo();
                     } else {
                     }
@@ -2845,7 +2962,7 @@ public class Helpers {
             Action undoAction = new AbstractAction(Translator.translate("Deshacer")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
-                    if (undoManager.canUndo()) {
+                    if (undoManager.canUndo() && txtArea.isEditable()) {
                         undoManager.undo();
                     } else {
                     }

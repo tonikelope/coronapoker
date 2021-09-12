@@ -1109,7 +1109,7 @@ public class Helpers {
             }
         }
 
-        return error;
+        return !error;
 
     }
 
@@ -1128,7 +1128,7 @@ public class Helpers {
                      */
                     String filename = Helpers.genRandomString(30);
 
-                    if (!googleTranslatorTTSBASE64(limpio, GameFrame.DEFAULT_LANGUAGE.toLowerCase(), filename)) {
+                    if (googleTranslatorTTSBASE64(limpio, GameFrame.DEFAULT_LANGUAGE.toLowerCase(), filename)) {
 
                         Helpers.threadRun(new Runnable() {
                             @Override

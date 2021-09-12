@@ -108,6 +108,8 @@ public class StatsDialog extends javax.swing.JDialog {
 
         cargando.setVisible(false);
 
+        purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
+
         Helpers.threadRun(new Runnable() {
 
             public void run() {
@@ -786,6 +788,8 @@ public class StatsDialog extends javax.swing.JDialog {
                         setEnabled(true);
                         game_data_panel.setVisible(true);
                         game_combo_blocked = false;
+                        purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
+
                     }
                 });
 
@@ -1241,6 +1245,65 @@ public class StatsDialog extends javax.swing.JDialog {
 
     }
 
+    private boolean deleteAllGames() {
+
+        if (game_combo.getItemCount() > 1) {
+
+            String[] ids = new String[game_combo.getItemCount() - 1];
+
+            Helpers.GUIRunAndWait(new Runnable() {
+                public void run() {
+
+                    cargando.setVisible(true);
+
+                    setEnabled(false);
+
+                    for (int i = 1; i <= ids.length; i++) {
+
+                        ids[i - 1] = String.valueOf((int) game.get((String) game_combo.getItemAt(i)).get("id"));
+
+                    }
+
+                    while (game_combo.getItemCount() > 1) {
+                        game_combo.removeItemAt(game_combo.getItemCount() - 1);
+                    }
+
+                }
+            });
+
+            try {
+
+                String sql = "DELETE FROM game WHERE id in (" + String.join(",", ids) + ")";
+
+                Statement statement = Helpers.getSQLITE().createStatement();
+
+                statement.setQueryTimeout(30);
+
+                statement.executeUpdate(sql);
+
+                statement.close();
+
+            } catch (SQLException ex) {
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            Helpers.GUIRunAndWait(new Runnable() {
+                public void run() {
+
+                    cargando.setVisible(false);
+
+                    setEnabled(true);
+
+                }
+            });
+
+            return true;
+
+        }
+
+        return false;
+    }
+
     private boolean deleteSelectedGame() {
 
         if (game.get((String) game_combo.getSelectedItem()) != null) {
@@ -1259,7 +1322,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                 statement.setInt(1, id_game);
 
-                statement.execute();
+                statement.executeUpdate();
 
                 statement.close();
 
@@ -1358,6 +1421,8 @@ public class StatsDialog extends javax.swing.JDialog {
 
                         }
 
+                        purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
+
                     } catch (SQLException ex) {
                         Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     } catch (UnsupportedEncodingException ex) {
@@ -1444,13 +1509,17 @@ public class StatsDialog extends javax.swing.JDialog {
         res_table = new javax.swing.JTable();
         res_table_warning = new javax.swing.JLabel();
         game_combo_filter = new javax.swing.JTextField();
+        purge_games_button = new javax.swing.JButton();
         cargando = new javax.swing.JProgressBar();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("Lo que no son cuentas, son cuentos");
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosed(java.awt.event.WindowEvent evt) {
                 formWindowClosed(evt);
+            }
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
             }
             public void windowOpened(java.awt.event.WindowEvent evt) {
                 formWindowOpened(evt);
@@ -1555,6 +1624,7 @@ public class StatsDialog extends javax.swing.JDialog {
         log_game_button.setText("REGISTRO DE LA TIMBA");
         log_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         log_game_button.setDoubleBuffered(true);
+        log_game_button.setPreferredSize(new java.awt.Dimension(242, 34));
         log_game_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 log_game_buttonActionPerformed(evt);
@@ -1598,7 +1668,7 @@ public class StatsDialog extends javax.swing.JDialog {
                             .addComponent(game_rebuy_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, game_data_panelLayout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
-                        .addComponent(log_game_button)
+                        .addComponent(log_game_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(18, 18, 18)
                         .addComponent(delete_game_button)))
                 .addContainerGap())
@@ -1609,7 +1679,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 .addContainerGap()
                 .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(delete_game_button)
-                    .addComponent(log_game_button))
+                    .addComponent(log_game_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(game_textarea_scrollpane, javax.swing.GroupLayout.PREFERRED_SIZE, 480, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1864,9 +1934,23 @@ public class StatsDialog extends javax.swing.JDialog {
 
         game_combo_filter.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         game_combo_filter.setToolTipText("Listar sólo timbas donde participó este jugador");
+        game_combo_filter.setPreferredSize(new java.awt.Dimension(5, 3));
         game_combo_filter.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 game_combo_filterActionPerformed(evt);
+            }
+        });
+
+        purge_games_button.setBackground(new java.awt.Color(0, 0, 0));
+        purge_games_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        purge_games_button.setForeground(new java.awt.Color(255, 255, 255));
+        purge_games_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/remove.png"))); // NOI18N
+        purge_games_button.setText("PURGAR");
+        purge_games_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        purge_games_button.setDoubleBuffered(true);
+        purge_games_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                purge_games_button_buttonActionPerformed(evt);
             }
         });
 
@@ -1874,18 +1958,22 @@ public class StatsDialog extends javax.swing.JDialog {
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(game_combo_filter, javax.swing.GroupLayout.PREFERRED_SIZE, 200, javax.swing.GroupLayout.PREFERRED_SIZE))
             .addComponent(hand_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(stats_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(table_panel)
             .addComponent(game_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(hand_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(res_table_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(jPanel2Layout.createSequentialGroup()
+                        .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(game_combo_filter, javax.swing.GroupLayout.PREFERRED_SIZE, 200, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(purge_games_button))
+                    .addGroup(jPanel2Layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(res_table_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         jPanel2Layout.setVerticalGroup(
@@ -1894,7 +1982,8 @@ public class StatsDialog extends javax.swing.JDialog {
                 .addGap(0, 0, 0)
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(game_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(game_combo_filter, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(game_combo_filter, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(purge_games_button))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(game_data_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -2160,6 +2249,66 @@ public class StatsDialog extends javax.swing.JDialog {
         game_data_panel.repaint();
     }//GEN-LAST:event_log_game_buttonActionPerformed
 
+    private void purge_games_button_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_purge_games_button_buttonActionPerformed
+        // TODO add your handling code here:
+        purge_games_button.setEnabled(false);
+
+        if (Helpers.mostrarMensajeInformativoSINO(null, Translator.translate("¿SEGURO QUE QUIERES ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ -> [") + game_combo_filter.getText() + "]?") == 0) {
+            Helpers.threadRun(new Runnable() {
+
+                public void run() {
+
+                    if (!backup) {
+
+                        try {
+                            Files.copy(Paths.get(Init.SQL_FILE), Paths.get(Init.SQL_FILE + "_" + String.valueOf(System.currentTimeMillis()) + ".bak"));
+                            backup = true;
+                        } catch (IOException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+
+                    if (deleteAllGames()) {
+
+                        Helpers.playWavResource("misc/toilet.wav", true);
+
+                        Helpers.GUIRun(new Runnable() {
+
+                            public void run() {
+
+                                game_data_panel.setVisible(false);
+                            }
+                        });
+
+                        loadGames();
+
+                        Helpers.GUIRun(new Runnable() {
+
+                            public void run() {
+
+                                if (!game.isEmpty()) {
+                                    game_combo.setSelectedIndex(1);
+                                }
+
+                                delete_game_button.setEnabled(true);
+                            }
+                        });
+                    }
+                }
+            });
+        } else {
+            purge_games_button.setEnabled(true);
+        }
+    }//GEN-LAST:event_purge_games_button_buttonActionPerformed
+
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        // TODO add your handling code here:
+
+        if (isEnabled() && !cargando.isVisible()) {
+            dispose();
+        }
+    }//GEN-LAST:event_formWindowClosing
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar cargando;
     private javax.swing.JButton delete_game_button;
@@ -2206,6 +2355,7 @@ public class StatsDialog extends javax.swing.JDialog {
     private javax.swing.JLabel hand_turn_players_val;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JButton log_game_button;
+    private javax.swing.JButton purge_games_button;
     private javax.swing.JTable res_table;
     private javax.swing.JLabel res_table_warning;
     private javax.swing.JScrollPane scroll_stats_panel;

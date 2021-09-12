@@ -22,6 +22,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿SEGURO QUE QUIERES ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ -> [", "ARE YOU SURE YOU WANT TO DELETE ALL THE GAMES IN WHICH HE/SHE TOOK PART -> ["},
+            {"PURGAR", "PURGE"},
             {"SE PIRA", "LEAVES"},
             {"FALLO DE CONEXIÓN", "CONNECTION ERROR"},
             {"NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿TIENES CONEXIÓN A INTERNET?", "NOT BEEN ABLE TO CHECK FOR NEW RELEASE. DO YOU HAVE INTERNET CONNECTION?"},

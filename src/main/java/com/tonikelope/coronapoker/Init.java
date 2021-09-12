@@ -85,6 +85,8 @@ public class Init extends javax.swing.JFrame {
 
         setTitle(Init.WINDOW_TITLE);
 
+        JFrame tthis = this;
+
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
         KeyStroke force_exit = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK);
@@ -96,7 +98,7 @@ public class Init extends javax.swing.JFrame {
 
                     FORCE_CLOSE_DIALOG = true;
 
-                    if (Helpers.mostrarMensajeInformativoSINO(null, "¿FORZAR CIERRE?") == 0) {
+                    if (Helpers.mostrarMensajeInformativoSINO(tthis, "¿FORZAR CIERRE?") == 0) {
                         System.exit(1);
                     }
 

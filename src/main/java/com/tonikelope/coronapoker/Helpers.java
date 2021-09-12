@@ -1085,7 +1085,6 @@ public class Helpers {
             Matcher matcher = pattern.matcher(mp3_b64);
 
             if (matcher.find()) {
-                System.out.println(matcher.group(1));
                 Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename), Base64.decodeBase64(matcher.group(1)));
             } else {
                 error = true;
@@ -1123,13 +1122,85 @@ public class Helpers {
 
                 if (!"".equals(limpio) && limpio.length() <= Helpers.MAX_TTS_LENGTH) {
 
-                    /* ¡¡OJO CON LO QUE SE DICE POR EL CHAT QUE ESTOS SON SERVICIOS EXTERNOS!!
-                    VEREMOS LO QUE DURAN...
-                     */
+                    //¡¡OJO CON LO QUE SE DICE POR EL CHAT QUE ESTOS SON SERVICIOS EXTERNOS!! VEREMOS LO QUE DURAN...
                     String filename = Helpers.genRandomString(30);
 
-                    if (googleTranslatorTTSBASE64(limpio, GameFrame.DEFAULT_LANGUAGE.toLowerCase(), filename)) {
+                    if (!googleTranslatorTTSBASE64(limpio, GameFrame.DEFAULT_LANGUAGE.toLowerCase(), filename)) {
 
+                        String[] tts_mp3bin_services;
+
+                        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                            tts_mp3bin_services = new String[]{
+                                "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=__TTS__",
+                                "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=es-ES_LauraVoice&download=true&accept=audio%2Fmp3",};
+                        } else {
+                            tts_mp3bin_services = new String[]{
+                                "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=en&q=__TTS__",
+                                "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=en-US_AllisonVoice&download=true&accept=audio%2Fmp3",};
+                        }
+
+                        boolean error;
+
+                        int conta_service = 0;
+
+                        do {
+                            error = false;
+
+                            HttpURLConnection con = null;
+
+                            try {
+
+                                URL url_api = new URL(tts_mp3bin_services[conta_service].replace("__TTS__", URLEncoder.encode(limpio, "UTF-8")));
+
+                                con = (HttpURLConnection) url_api.openConnection();
+
+                                con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
+
+                                con.setUseCaches(false);
+
+                                filename = Helpers.genRandomString(30);
+
+                                try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename))) {
+
+                                    byte[] buffer = new byte[1024];
+
+                                    int reads;
+
+                                    while ((reads = is.read(buffer)) != -1) {
+
+                                        bfos.write(buffer, 0, reads);
+                                    }
+
+                                } catch (Exception ex) {
+
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
+                                    error = true;
+                                    conta_service++;
+                                }
+
+                            } catch (Exception ex) {
+
+                                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
+                                error = true;
+                                conta_service++;
+
+                            } finally {
+
+                                if (con != null) {
+                                    con.disconnect();
+                                }
+
+                                if (error) {
+                                    filename = null;
+                                }
+                            }
+
+                        } while (error && conta_service < tts_mp3bin_services.length);
+                    }
+
+                    if (filename != null) {
                         Helpers.threadRun(new Runnable() {
                             @Override
                             public void run() {
@@ -1172,137 +1243,13 @@ public class Helpers {
                             }
                         });
 
-                        if (filename != null) {
-                            try {
-                                Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
+                        try {
+                            Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
 
-                            } catch (IOException ex) {
-                                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                            }
+                        } catch (IOException ex) {
+                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
-                    } else {
-                        String[] tts_services;
-
-                        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
-                            tts_services = new String[]{
-                                "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=__TTS__",
-                                "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=es-ES_LauraVoice&download=true&accept=audio%2Fmp3",};
-                        } else {
-                            tts_services = new String[]{
-                                "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=en&q=__TTS__",
-                                "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=en-US_AllisonVoice&download=true&accept=audio%2Fmp3",};
-                        }
-
-                        boolean error;
-
-                        int conta_service = 0;
-
-                        do {
-                            error = false;
-
-                            HttpURLConnection con = null;
-
-                            try {
-
-                                URL url_api = new URL(tts_services[conta_service].replace("__TTS__", URLEncoder.encode(limpio, "UTF-8")));
-
-                                con = (HttpURLConnection) url_api.openConnection();
-
-                                con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
-
-                                con.setUseCaches(false);
-
-                                filename = Helpers.genRandomString(30);
-
-                                try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename))) {
-
-                                    byte[] buffer = new byte[1024];
-
-                                    int reads;
-
-                                    while ((reads = is.read(buffer)) != -1) {
-
-                                        bfos.write(buffer, 0, reads);
-                                    }
-
-                                } catch (Exception ex) {
-
-                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                                    Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
-                                    error = true;
-                                    conta_service++;
-                                }
-
-                                if (!error) {
-
-                                    Helpers.threadRun(new Runnable() {
-                                        @Override
-                                        public void run() {
-
-                                            while (TTS_PLAYER == null || TTS_PLAYER.getStatus() != BasicPlayer.PLAYING) {
-
-                                                synchronized (TTS_PLAYER_NOTIFIER) {
-                                                    try {
-                                                        TTS_PLAYER_NOTIFIER.wait(1000);
-                                                    } catch (InterruptedException ex) {
-                                                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                                                    }
-                                                }
-                                            }
-
-                                            Helpers.GUIRun(new Runnable() {
-                                                @Override
-                                                public void run() {
-
-                                                    GameFrame.getInstance().getSonidos_menu().setEnabled(false);
-
-                                                    nick_dialog.setVisible(true);
-                                                }
-                                            });
-                                        }
-                                    });
-
-                                    Helpers.muteAllExceptMp3Loops();
-
-                                    Helpers.playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
-
-                                }
-
-                            } catch (Exception ex) {
-
-                                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
-                                error = true;
-                                conta_service++;
-
-                            } finally {
-
-                                if (con != null) {
-                                    con.disconnect();
-                                }
-
-                                Helpers.unMuteAll();
-
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        GameFrame.getInstance().getSonidos_menu().setEnabled(true);
-                                        nick_dialog.setVisible(false);
-                                    }
-                                });
-
-                                if (filename != null) {
-                                    try {
-                                        Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
-                                    } catch (IOException ex) {
-                                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            }
-
-                        } while (error && conta_service < tts_services.length);
                     }
 
                 }

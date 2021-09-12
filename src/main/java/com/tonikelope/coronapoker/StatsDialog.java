@@ -2136,7 +2136,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
         delete_game_button.setEnabled(false);
 
-        if (Helpers.mostrarMensajeInformativoSINO(null, "¿ELIMINAR ESTA TIMBA?") == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO((JFrame) this.getParent(), "¿ELIMINAR ESTA TIMBA?") == 0) {
             Helpers.threadRun(new Runnable() {
 
                 public void run() {
@@ -2253,7 +2253,7 @@ public class StatsDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         purge_games_button.setEnabled(false);
 
-        if (Helpers.mostrarMensajeInformativoSINO(null, Translator.translate("¿SEGURO QUE QUIERES ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ -> [") + game_combo_filter.getText() + "]?") == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO((JFrame) this.getParent(), Translator.translate("¿SEGURO QUE QUIERES ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ -> [") + game_combo_filter.getText() + "]?") == 0) {
             Helpers.threadRun(new Runnable() {
 
                 public void run() {

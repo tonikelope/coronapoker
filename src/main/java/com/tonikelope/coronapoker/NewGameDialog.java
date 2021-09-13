@@ -524,11 +524,9 @@ public class NewGameDialog extends javax.swing.JDialog {
         manos_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
         manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        jPanel1.setBackground(new java.awt.Color(102, 102, 102));
         jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
         doblar_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        doblar_checkbox.setForeground(new java.awt.Color(255, 255, 255));
         doblar_checkbox.setText("Aumentar ciegas");
         doblar_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         doblar_checkbox.setDoubleBuffered(true);
@@ -545,7 +543,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         doblar_ciegas_spinner_minutos.setDoubleBuffered(true);
 
         double_blinds_radio_minutos.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        double_blinds_radio_minutos.setForeground(new java.awt.Color(255, 255, 255));
         double_blinds_radio_minutos.setText("Minutos:");
         double_blinds_radio_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         double_blinds_radio_minutos.setDoubleBuffered(true);
@@ -557,7 +554,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         });
 
         double_blinds_radio_manos.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        double_blinds_radio_manos.setForeground(new java.awt.Color(255, 255, 255));
         double_blinds_radio_manos.setText("Manos:");
         double_blinds_radio_manos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         double_blinds_radio_manos.setDoubleBuffered(true);
@@ -610,22 +606,18 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addContainerGap())
         );
 
-        jPanel3.setBackground(new java.awt.Color(102, 102, 102));
         jPanel3.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
         ciegas_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        ciegas_label.setForeground(new java.awt.Color(255, 255, 255));
         ciegas_label.setText("Ciegas iniciales:");
         ciegas_label.setDoubleBuffered(true);
 
         buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        buyin_label.setForeground(new java.awt.Color(255, 255, 255));
         buyin_label.setText("Compra inicial (10 a 100 ciegas grandes):");
         buyin_label.setToolTipText("[10-100] ciegas grandes");
         buyin_label.setDoubleBuffered(true);
 
         rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        rebuy_checkbox.setForeground(new java.awt.Color(255, 255, 255));
         rebuy_checkbox.setText("Permitir recomprar");
         rebuy_checkbox.setToolTipText("Si algún jugador se queda sin fichas");
         rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -688,7 +680,6 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addContainerGap())
         );
 
-        jPanel4.setBackground(new java.awt.Color(204, 204, 204));
         jPanel4.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
         randomorg_label.setFont(new java.awt.Font("Dialog", 3, 16)); // NOI18N

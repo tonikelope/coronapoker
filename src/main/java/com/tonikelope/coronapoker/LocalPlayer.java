@@ -974,7 +974,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             player_check_button.doClick();
 
                         } else {
+
                             desPrePulsarTodo();
+
+                            player_check_button.setBackground(null);
+                            player_check_button.setForeground(null);
+                            player_fold_button.setBackground(Color.DARK_GRAY);
+                            player_fold_button.setForeground(Color.WHITE);
                         }
                     }
 
@@ -1025,8 +1031,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (c instanceof JButton) {
                         ((JButton) c).setText(" ");
-                        c.setEnabled(false);
                         ((JButton) c).setIcon(null);
+                        c.setEnabled(false);
                     }
                 }
             }
@@ -1056,7 +1062,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if (boton == player_check_button) {
                     colores = new Color[]{null, null};
                 } else if (boton == player_fold_button) {
-                    colores = new Color[]{Color.RED, Color.WHITE};
+                    colores = new Color[]{null, null};
                 } else {
                     colores = action_button_colors.get(boton);
                 }
@@ -1165,13 +1171,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_check_button.setBackground(null);
                     player_check_button.setForeground(null);
-                    player_check_button.setText(Translator.translate("[A] PASAR +CG"));
+                    player_check_button.setText("[AUTO](+BB)");
                     player_check_button.setEnabled(true);
                     player_check_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/up.png")).getImage().getScaledInstance(Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()), Image.SCALE_SMOOTH)));
 
-                    player_fold_button.setBackground(Color.RED);
-                    player_fold_button.setForeground(Color.WHITE);
-                    player_fold_button.setText(Translator.translate("[A] NO IR"));
+                    player_fold_button.setBackground(null);
+                    player_fold_button.setForeground(null);
+                    player_fold_button.setText("[AUTO]");
                     player_fold_button.setEnabled(true);
                     player_fold_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/down.png")).getImage().getScaledInstance(Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()), Image.SCALE_SMOOTH)));
 
@@ -1200,12 +1206,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 public void run() {
 
                     player_check_button.setText(" ");
-                    player_check_button.setEnabled(false);
                     player_check_button.setIcon(null);
+                    player_check_button.setEnabled(false);
 
                     player_fold_button.setText(" ");
-                    player_fold_button.setEnabled(false);
                     player_fold_button.setIcon(null);
+                    player_fold_button.setEnabled(false);
+
                 }
             });
         }

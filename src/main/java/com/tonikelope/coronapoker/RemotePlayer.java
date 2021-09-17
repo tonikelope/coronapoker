@@ -466,10 +466,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.playWavResource("misc/fold.wav");
 
-        setDecision(Player.FOLD);
-
         playingCard1.setVisibleCard(false);
         playingCard2.setVisibleCard(false);
+
+        setDecision(Player.FOLD);
 
         finTurno();
     }

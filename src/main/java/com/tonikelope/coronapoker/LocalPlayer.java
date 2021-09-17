@@ -1978,6 +1978,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.playWavResource("misc/fold.wav");
 
+                playingCard1.desenfocar();
+                playingCard2.desenfocar();
+
                 desactivarControles();
 
                 GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
@@ -1996,9 +1999,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         GameFrame.getInstance().getCrupier().soundFold();
 
                         setDecision(Player.FOLD);
-
-                        playingCard1.desenfocar();
-                        playingCard2.desenfocar();
 
                         finTurno();
                     }

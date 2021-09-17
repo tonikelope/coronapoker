@@ -124,4 +124,6 @@ public interface Player {
 
     public void setPlayerActionIcon(String icon);
 
+    public void hidePlayerActionIcon();
+
 }

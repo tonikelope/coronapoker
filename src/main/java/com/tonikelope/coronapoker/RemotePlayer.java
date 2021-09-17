@@ -1043,7 +1043,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             icon_zoom_timer.stop();
                         }
 
-                        player_action.setIcon(null);
+                        hidePlayerActionIcon();
 
                         player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
 
@@ -1066,6 +1066,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         } else {
                             icon_zoom_timer.start();
                         }
+
                     }
                 });
 
@@ -1516,10 +1517,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.GUIRun(new Runnable() {
                         @Override
                         public void run() {
-                            setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                             player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
-                            revalidate();
-                            repaint();
+                            setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
+
                         }
                     });
 
@@ -1538,8 +1538,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setForeground(Color.LIGHT_GRAY);
                 player_action.setBackground(new Color(204, 204, 204, 75));
                 setPlayerActionIcon(null);
-                revalidate();
-                repaint();
 
             }
         });
@@ -1733,9 +1731,22 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 @Override
                 public void run() {
                     player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/" + icon)).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
+                    revalidate();
+                    repaint();
                 }
             });
         }
+    }
+
+    public void hidePlayerActionIcon() {
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                player_action.setIcon(null);
+            }
+        });
+
     }
 
 }

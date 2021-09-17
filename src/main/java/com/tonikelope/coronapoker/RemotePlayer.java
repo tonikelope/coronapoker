@@ -227,8 +227,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_pot.setText(Helpers.float2String(bote));
 
                 } else {
-                    player_pot.setBackground(Color.WHITE);
-                    player_pot.setForeground(Color.BLACK);
+
                     player_pot.setText("----");
 
                 }
@@ -251,10 +250,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 public void run() {
 
                     setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-
-                    player_pot.setBackground(Color.WHITE);
-
-                    player_pot.setForeground(Color.BLACK);
 
                     player_action.setBackground(new Color(204, 204, 204, 75));
 
@@ -438,13 +433,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
 
                 player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
-
-                player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
-
                 player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
 
-                player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
-
+                if (dec == Player.ALLIN || dec == Player.FOLD) {
+                    player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                }
             }
         });
     }
@@ -607,10 +600,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 utg_icon.setVisible(false);
 
-                player_pot.setBackground(Color.WHITE);
-
-                player_pot.setForeground(Color.BLACK);
-
                 icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
 
                     @Override
@@ -745,8 +734,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        player_pot.setBackground(new java.awt.Color(255, 255, 255));
+        player_pot.setBackground(new Color(204,204,204,75));
         player_pot.setFont(new java.awt.Font("Dialog", 1, 32)); // NOI18N
+        player_pot.setForeground(new java.awt.Color(255, 255, 255));
         player_pot.setText("----");
         player_pot.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_pot.setDoubleBuffered(true);
@@ -1168,15 +1158,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setPosition(int pos) {
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                player_pot.setBackground(Color.WHITE);
-                player_pot.setForeground(Color.black);
-            }
-        });
-
         switch (pos) {
             case Player.DEALER:
 
@@ -1344,11 +1325,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 utg_icon.setVisible(false);
 
-                player_pot.setBackground(Color.WHITE);
-
-                player_pot.setForeground(Color.BLACK);
-
                 player_pot.setText("----");
+
+                player_pot.setBackground(new Color(204, 204, 204, 75));
+
+                player_pot.setForeground(Color.WHITE);
 
                 if (!player_stack_click) {
                     if (buyin > GameFrame.BUYIN) {
@@ -1483,7 +1464,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                     player_pot.setText("----");
-                    player_pot.setBackground(null);
+
                     player_pot.setEnabled(false);
                     utg_icon.setVisible(false);
                     playingCard1.resetearCarta();

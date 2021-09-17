@@ -259,29 +259,25 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 }
             });
 
-            if (Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0) {
-
-                Helpers.threadRun(new Runnable() {
-                    @Override
-                    public void run() {
-                        while (player_name.getHeight() == 0) {
-                            Helpers.pausar(125);
-                        }
-
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
-                                setPlayerActionIcon("action/ghost.png");
-                                player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
-                                revalidate();
-                                repaint();
-                            }
-                        });
-
+            Helpers.threadRun(new Runnable() {
+                @Override
+                public void run() {
+                    while (player_name.getHeight() == 0) {
+                        Helpers.pausar(125);
                     }
-                });
 
-            }
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
+                            player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
+                            revalidate();
+                            repaint();
+                        }
+                    });
+
+                }
+            });
 
         }
     }
@@ -294,12 +290,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                 player_name.setIcon(null);
-                player_pot.setVisible(true);
-                player_pot.setEnabled(true);
                 player_stack.setEnabled(true);
-                player_action.setText(" ");
-                player_action.setIcon(null);
                 GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
+                disablePlayerAction();
             }
         });
     }
@@ -1137,12 +1130,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void resetBetDecision() {
         this.decision = Player.NODEC;
 
-        disablePlayerAction();
-
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-
+                disablePlayerAction();
                 player_pot.setBackground(new Color(204, 204, 204, 75));
                 player_pot.setForeground(Color.WHITE);
 
@@ -1241,6 +1232,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
 
                 player_action.setText(" ");
+                player_action.setForeground(Color.LIGHT_GRAY);
                 player_action.setBackground(new Color(204, 204, 204, 75));
                 setPlayerActionIcon(null);
                 revalidate();

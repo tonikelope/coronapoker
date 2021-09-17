@@ -77,7 +77,7 @@ public class RebuyDialog extends javax.swing.JDialog {
         ((JSpinner.DefaultEditor) rebuy_spinner.getEditor()).getTextField().setEditable(false);
 
         if (!cancel) {
-            cancel_button.setEnabled(false);
+            cancel_button.setVisible(false);
         }
 
         ok_button.requestFocus();

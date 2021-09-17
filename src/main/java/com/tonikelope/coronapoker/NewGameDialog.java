@@ -900,6 +900,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         if (update) {
 
+            vamos.setEnabled(false);
+
             if (this.manos_checkbox.isSelected()) {
 
                 GameFrame.MANOS = (int) this.manos_spinner.getValue();
@@ -937,9 +939,13 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             setVisible(false);
 
+            vamos.setEnabled(true);
+
         } else {
 
             if (!this.nick.getText().trim().isEmpty() && !this.server_ip_textfield.getText().trim().isEmpty() && !this.server_port_textfield.getText().trim().isEmpty()) {
+
+                vamos.setEnabled(false);
 
                 Helpers.playWavResource("misc/allin.wav");
 
@@ -1024,6 +1030,8 @@ public class NewGameDialog extends javax.swing.JDialog {
                 espera.setLocationRelativeTo(this);
 
                 setVisible(false);
+
+                vamos.setEnabled(true);
 
                 espera.setVisible(true);
 

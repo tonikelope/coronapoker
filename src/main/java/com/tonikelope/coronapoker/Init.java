@@ -426,11 +426,11 @@ public class Init extends javax.swing.JFrame {
         } else {
             setVisible(false);
         }
-
     }//GEN-LAST:event_create_buttonActionPerformed
 
     private void join_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_join_buttonActionPerformed
         // TODO add your handling code here:
+
         NewGameDialog dialog = new NewGameDialog(this, true, false);
 
         dialog.setLocationRelativeTo(dialog.getParent());

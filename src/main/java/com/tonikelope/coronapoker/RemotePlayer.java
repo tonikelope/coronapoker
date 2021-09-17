@@ -32,7 +32,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public static final String[] POSITIONS_LABELS_ES = new String[]{"CP", "CG", "DE"};
     public static final String[] POSITIONS_LABELS_EN = new String[]{"SB", "BB", "DE"};
     public static volatile String[] POSITIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? POSITIONS_LABELS_ES : POSITIONS_LABELS_EN;
-    public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.ORANGE, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
+    public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 200;
     public static final int MIN_ACTION_HEIGHT = 45;
 
@@ -435,9 +435,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
                 player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
 
-                if (dec == Player.ALLIN || dec == Player.FOLD) {
-                    player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
-                }
+                player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
+
             }
         });
     }
@@ -1386,6 +1386,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         disablePlayerAction();
 
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                player_pot.setBackground(new Color(204, 204, 204, 75));
+                player_pot.setForeground(Color.WHITE);
+
+            }
+        });
+
     }
 
     public void disableUTG() {
@@ -1464,16 +1474,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                     player_pot.setText("----");
-
-                    player_pot.setEnabled(false);
+                    player_pot.setForeground(Color.white);
+                    player_pot.setBackground(new Color(204, 204, 204, 75));
                     utg_icon.setVisible(false);
                     playingCard1.resetearCarta();
                     playingCard2.resetearCarta();
 
-                    player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
-                    player_action.setBackground(null);
-                    setPlayerActionIcon(null);
-                    player_action.setForeground(Color.GRAY);
+                    disablePlayerAction();
+
                     player_name.setOpaque(false);
                     player_name.setBackground(null);
                     player_name.setIcon(null);
@@ -1494,6 +1502,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     } else {
                         player_name.setForeground(Color.WHITE);
                     }
+
                 }
             });
 
@@ -1506,7 +1515,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             Helpers.pausar(125);
                         }
 
-                        setPlayerActionIcon("action/ghost.png");
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                setPlayerActionIcon("action/ghost.png");
+                                player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
+                                revalidate();
+                                repaint();
+                            }
+                        });
 
                     }
                 });

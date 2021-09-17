@@ -256,9 +256,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_pot.setForeground(Color.BLACK);
 
-                    player_action.setBackground(Color.WHITE);
+                    player_action.setBackground(new Color(204, 204, 204, 75));
 
-                    player_action.setForeground(Color.BLACK);
+                    player_action.setForeground(Color.LIGHT_GRAY);
 
                     player_action.setText(Translator.translate("PENSANDO"));
 
@@ -456,7 +456,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                if (decision != Player.ALLIN) {
+                if (decision != Player.ALLIN && decision != Player.FOLD) {
                     setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                 }
 

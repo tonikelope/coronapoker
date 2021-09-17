@@ -685,9 +685,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_fold_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/down.png")).getImage().getScaledInstance(Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()), Image.SCALE_SMOOTH)));
 
-                    player_action.setBackground(Color.WHITE);
+                    player_action.setBackground(new Color(204, 204, 204, 75));
 
-                    player_action.setForeground(Color.BLACK);
+                    player_action.setForeground(Color.WHITE);
 
                     setPlayerActionIcon("action/thinking.png");
 
@@ -885,8 +885,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                             player_action.setForeground(Color.WHITE);
                                                         } else {
                                                             setPlayerBorder(orig_color, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-                                                            player_action.setBackground(Color.WHITE);
-                                                            player_action.setForeground(Color.BLACK);
+                                                            player_action.setBackground(new Color(204, 204, 204, 75));
+                                                            player_action.setForeground(Color.WHITE);
                                                         }
                                                     }
                                                 }
@@ -990,7 +990,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                if (decision != Player.ALLIN) {
+                if (decision != Player.ALLIN && decision != Player.FOLD) {
                     setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                 }
 

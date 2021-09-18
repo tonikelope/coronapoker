@@ -580,17 +580,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         for (Player jugador : players) {
 
-            jugador.getPlayingCard1().refreshCard(false);
-            jugador.getPlayingCard2().refreshCard(false);
+            jugador.getPlayingCard1().invalidateImagePrecache();
+            jugador.getPlayingCard1().refreshCard();
+
+            jugador.getPlayingCard2().invalidateImagePrecache();
+            jugador.getPlayingCard2().refreshCard();
         }
 
         for (Card carta : this.tapete.getCommunityCards().getCartasComunes()) {
-            carta.refreshCard(false);
+            carta.invalidateImagePrecache();
+            carta.refreshCard();
         }
 
         if (this.jugadas_dialog != null && this.jugadas_dialog.isVisible()) {
             for (Card carta : this.jugadas_dialog.getCartas()) {
-                carta.refreshCard(false);
+                carta.invalidateImagePrecache();
+                carta.refreshCard();
             }
 
             Helpers.GUIRun(new Runnable() {
@@ -2563,7 +2568,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
 
                     for (Card carta : jugadas_dialog.getCartas()) {
-                        carta.refreshCard(false);
+                        carta.invalidateImagePrecache();
+                        carta.refreshCard();
                     }
 
                     Helpers.GUIRun(new Runnable() {
@@ -2613,7 +2619,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
 
                         for (Card carta : jugadas_dialog.getCartas()) {
-                            carta.refreshCard(false);
+                            carta.invalidateImagePrecache();
+                            carta.refreshCard();
                         }
 
                         Helpers.GUIRun(new Runnable() {
@@ -2664,7 +2671,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
 
                         for (Card carta : jugadas_dialog.getCartas()) {
-                            carta.refreshCard(false);
+                            carta.invalidateImagePrecache();
+                            carta.refreshCard();
                         }
 
                         Helpers.GUIRun(new Runnable() {

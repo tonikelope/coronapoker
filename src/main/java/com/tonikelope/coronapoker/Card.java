@@ -312,6 +312,14 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     }
 
+    public void invalidateImagePrecache() {
+
+        synchronized (image_precache_lock) {
+            this.image = null;
+            this.image_b = null;
+        }
+    }
+
     public void refreshCard() {
 
         refreshCard(true);
@@ -432,8 +440,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             this.tapada = true;
             this.desenfocada = false;
             this.visible_card = visible;
-            this.image = null;
-            this.image_b = null;
+            invalidateImagePrecache();
         }
         refreshCard();
     }
@@ -451,8 +458,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             this.visible_card = visible;
             this.valor = "";
             this.palo = "";
-            this.image = null;
-            this.image_b = null;
+            invalidateImagePrecache();
         }
 
         resetPosChip();
@@ -536,8 +542,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         synchronized (image_precache_lock) {
             this.valor = valor.toUpperCase().trim();
             this.palo = palo.toUpperCase().trim();
-            this.image = null;
-            this.image_b = null;
+            invalidateImagePrecache();
             this.iniciada = true;
             this.tapada = tapada;
             this.desenfocada = false;
@@ -552,8 +557,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             this.iniciada = false;
             this.tapada = true;
             this.desenfocada = false;
-            this.image = null;
-            this.image_b = null;
+            invalidateImagePrecache();
         }
         this.refreshCard();
     }
@@ -562,8 +566,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         synchronized (image_precache_lock) {
             this.valor = valor.toUpperCase().trim();
             this.palo = palo.toUpperCase().trim();
-            this.image = null;
-            this.image_b = null;
+            invalidateImagePrecache();
         }
         this.refreshCard();
     }
@@ -578,8 +581,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             this.valor = valor.toUpperCase().trim();
             this.palo = palo.toUpperCase().trim();
             this.desenfocada = desenfocada;
-            this.image = null;
-            this.image_b = null;
+            invalidateImagePrecache();
         }
 
         if (refresh) {

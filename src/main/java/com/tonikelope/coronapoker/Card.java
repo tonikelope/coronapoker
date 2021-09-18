@@ -64,6 +64,9 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile int pos_chip_location = 1;
     private volatile boolean pos_chip_visible = true;
     private volatile boolean gui = true;
+    private volatile ImageIcon image = null;
+    private volatile ImageIcon image_b = null;
+    private final Object image_precache_lock = new Object();
 
     public boolean isVisible_card() {
         return visible_card;
@@ -311,6 +314,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void refreshCard() {
 
+        refreshCard(true);
+    }
+
+    public void refreshCard(boolean pre_cache) {
         if (this.gui) {
 
             Helpers.threadRun(new Runnable() {
@@ -318,19 +325,49 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                     ImageIcon img;
 
-                    if (isIniciada()) {
+                    synchronized (image_precache_lock) {
 
-                        if (isTapada()) {
+                        if (isIniciada()) {
 
-                            img = isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA;
+                            if (isTapada()) {
 
+                                img = isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA;
+
+                            } else {
+
+                                if (!pre_cache) {
+
+                                    image = null;
+                                    image_b = null;
+
+                                }
+
+                                if (!isDesenfocada()) {
+
+                                    if (image != null) {
+                                        img = image;
+                                    } else {
+                                        img = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
+                                        image = img;
+
+                                    }
+
+                                } else {
+
+                                    if (image_b != null) {
+                                        img = image_b;
+                                    } else {
+                                        img = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg");
+                                        image_b = img;
+
+                                    }
+                                }
+
+                            }
                         } else {
-
-                            img = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + (isDesenfocada() ? "_b.jpg" : ".jpg"));
-
+                            img = Card.IMAGEN_JOKER;
                         }
-                    } else {
-                        img = Card.IMAGEN_JOKER;
+
                     }
 
                     Helpers.GUIRun(new Runnable() {
@@ -344,9 +381,43 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                             repaint();
                         }
                     });
+
+                    if (pre_cache) {
+
+                        updateImagePreloadCache();
+                    }
                 }
             });
         }
+    }
+
+    public void updateImagePreloadCache() {
+
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+
+                synchronized (image_precache_lock) {
+                    try {
+
+                        if (isIniciada()) {
+
+                            if (image == null) {
+                                image = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
+                            }
+
+                            if (image_b == null) {
+                                image_b = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg");
+                            }
+
+                        }
+
+                    } catch (Exception e) {
+                        Logger.getLogger(Card.class.getName()).log(Level.WARNING, "ERROR UPDATING CARD IMAGE PRECACHE");
+                    }
+
+                }
+            }
+        });
     }
 
     public void iniciarCarta() {
@@ -355,10 +426,15 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     }
 
     public void iniciarCarta(boolean visible) {
-        this.iniciada = true;
-        this.tapada = true;
-        this.desenfocada = false;
-        this.visible_card = visible;
+
+        synchronized (image_precache_lock) {
+            this.iniciada = true;
+            this.tapada = true;
+            this.desenfocada = false;
+            this.visible_card = visible;
+            this.image = null;
+            this.image_b = null;
+        }
         refreshCard();
     }
 
@@ -367,12 +443,18 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     }
 
     public void resetearCarta(boolean visible) {
-        this.iniciada = false;
-        this.tapada = false;
-        this.desenfocada = false;
-        this.visible_card = visible;
-        this.valor = "";
-        this.palo = "";
+
+        synchronized (image_precache_lock) {
+            this.iniciada = false;
+            this.tapada = false;
+            this.desenfocada = false;
+            this.visible_card = visible;
+            this.valor = "";
+            this.palo = "";
+            this.image = null;
+            this.image_b = null;
+        }
+
         resetPosChip();
         refreshCard();
     }
@@ -450,27 +532,39 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     }
 
     public void iniciarConValorPalo(String valor, String palo, boolean tapada) {
-        this.valor = valor.toUpperCase().trim();
-        this.palo = palo.toUpperCase().trim();
-        this.iniciada = true;
-        this.tapada = tapada;
-        this.desenfocada = false;
+
+        synchronized (image_precache_lock) {
+            this.valor = valor.toUpperCase().trim();
+            this.palo = palo.toUpperCase().trim();
+            this.image = null;
+            this.image_b = null;
+            this.iniciada = true;
+            this.tapada = tapada;
+            this.desenfocada = false;
+        }
         this.refreshCard();
     }
 
     public void preIniciarConValorPalo(String valor, String palo) {
-
-        this.valor = valor.toUpperCase().trim();
-        this.palo = palo.toUpperCase().trim();
-        this.iniciada = false;
-        this.tapada = true;
-        this.desenfocada = false;
+        synchronized (image_precache_lock) {
+            this.valor = valor.toUpperCase().trim();
+            this.palo = palo.toUpperCase().trim();
+            this.iniciada = false;
+            this.tapada = true;
+            this.desenfocada = false;
+            this.image = null;
+            this.image_b = null;
+        }
         this.refreshCard();
     }
 
     public void actualizarValorPalo(String valor, String palo) {
-        this.valor = valor.toUpperCase().trim();
-        this.palo = palo.toUpperCase().trim();
+        synchronized (image_precache_lock) {
+            this.valor = valor.toUpperCase().trim();
+            this.palo = palo.toUpperCase().trim();
+            this.image = null;
+            this.image_b = null;
+        }
         this.refreshCard();
     }
 
@@ -480,9 +574,13 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     }
 
     public void actualizarValorPaloEnfoque(String valor, String palo, boolean desenfocada, boolean refresh) {
-        this.valor = valor.toUpperCase().trim();
-        this.palo = palo.toUpperCase().trim();
-        this.desenfocada = desenfocada;
+        synchronized (image_precache_lock) {
+            this.valor = valor.toUpperCase().trim();
+            this.palo = palo.toUpperCase().trim();
+            this.desenfocada = desenfocada;
+            this.image = null;
+            this.image_b = null;
+        }
 
         if (refresh) {
             this.refreshCard();
@@ -637,18 +735,23 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     @Override
     public void zoom(float factor, final ConcurrentLinkedQueue<Long> notifier) {
 
-        this.refreshCard();
+        Helpers.threadRun(new Runnable() {
+            public void run() {
 
-        if (notifier != null) {
+                refreshCard(false);
 
-            notifier.add(Thread.currentThread().getId());
+                if (notifier != null) {
 
-            synchronized (notifier) {
+                    notifier.add(Thread.currentThread().getId());
 
-                notifier.notifyAll();
+                    synchronized (notifier) {
 
+                        notifier.notifyAll();
+
+                    }
+                }
             }
-        }
+        });
     }
 
     public String getValor() {

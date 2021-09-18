@@ -142,7 +142,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                         icon_zoom_timer.stop();
                         zoomIcons();
-
+                        flop1.updateImagePreloadCache();
+                        flop2.updateImagePreloadCache();
+                        flop3.updateImagePreloadCache();
+                        turn.updateImagePreloadCache();
+                        river.updateImagePreloadCache();
                     }
                 });
 

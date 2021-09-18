@@ -580,17 +580,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         for (Player jugador : players) {
 
-            jugador.getPlayingCard1().refreshCard();
-            jugador.getPlayingCard2().refreshCard();
+            jugador.getPlayingCard1().refreshCard(false);
+            jugador.getPlayingCard2().refreshCard(false);
         }
 
         for (Card carta : this.tapete.getCommunityCards().getCartasComunes()) {
-            carta.refreshCard();
+            carta.refreshCard(false);
         }
 
         if (this.jugadas_dialog != null && this.jugadas_dialog.isVisible()) {
             for (Card carta : this.jugadas_dialog.getCartas()) {
-                carta.refreshCard();
+                carta.refreshCard(false);
             }
 
             Helpers.GUIRun(new Runnable() {
@@ -2563,7 +2563,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
 
                     for (Card carta : jugadas_dialog.getCartas()) {
-                        carta.refreshCard();
+                        carta.refreshCard(false);
                     }
 
                     Helpers.GUIRun(new Runnable() {
@@ -2613,7 +2613,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
 
                         for (Card carta : jugadas_dialog.getCartas()) {
-                            carta.refreshCard();
+                            carta.refreshCard(false);
                         }
 
                         Helpers.GUIRun(new Runnable() {
@@ -2664,7 +2664,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
 
                         for (Card carta : jugadas_dialog.getCartas()) {
-                            carta.refreshCard();
+                            carta.refreshCard(false);
                         }
 
                         Helpers.GUIRun(new Runnable() {

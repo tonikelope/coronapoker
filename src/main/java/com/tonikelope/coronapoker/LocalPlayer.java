@@ -535,6 +535,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         icon_zoom_timer.stop();
                         zoomIcons();
+                        playingCard1.updateImagePreloadCache();
+                        playingCard2.updateImagePreloadCache();
 
                     }
                 });

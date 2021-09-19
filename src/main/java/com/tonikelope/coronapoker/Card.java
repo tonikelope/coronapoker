@@ -312,14 +312,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     }
 
-    public void invalidateImagePrecache() {
-
-        synchronized (image_precache_lock) {
-            this.image = null;
-            this.image_b = null;
-        }
-    }
-
     public void refreshCard() {
 
         refreshCard(true);
@@ -335,6 +327,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                     synchronized (image_precache_lock) {
 
+                        if (!pre_cache) {
+                            invalidateImagePrecache();
+                        }
+
                         if (isIniciada()) {
 
                             if (isTapada()) {
@@ -342,13 +338,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                                 img = isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA;
 
                             } else {
-
-                                if (!pre_cache) {
-
-                                    image = null;
-                                    image_b = null;
-
-                                }
 
                                 if (!isDesenfocada()) {
 
@@ -396,6 +385,14 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                     }
                 }
             });
+        }
+    }
+
+    public void invalidateImagePrecache() {
+
+        synchronized (image_precache_lock) {
+            this.image = null;
+            this.image_b = null;
         }
     }
 

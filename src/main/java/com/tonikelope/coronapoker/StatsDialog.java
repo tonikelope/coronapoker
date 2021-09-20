@@ -743,7 +743,9 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                 String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
-                                log_game_button.setVisible(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + fecha + ".log")));
+                                log_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + fecha + ".log")));
+
+                                chat_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + fecha + ".log"))>0L);
 
                                 game_playtime_val.setText((rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")");
 
@@ -1480,6 +1482,7 @@ public class StatsDialog extends javax.swing.JDialog {
         log_game_button = new javax.swing.JButton();
         game_textarea_scrollpane = new javax.swing.JScrollPane();
         game_textarea = new javax.swing.JTextArea();
+        chat_game_button = new javax.swing.JButton();
         hand_combo = new javax.swing.JComboBox<>();
         hand_data_panel = new javax.swing.JPanel();
         hand_blinds_label = new javax.swing.JLabel();
@@ -1640,6 +1643,18 @@ public class StatsDialog extends javax.swing.JDialog {
         game_textarea.setDoubleBuffered(true);
         game_textarea_scrollpane.setViewportView(game_textarea);
 
+        chat_game_button.setBackground(new java.awt.Color(0, 102, 153));
+        chat_game_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        chat_game_button.setForeground(new java.awt.Color(255, 255, 255));
+        chat_game_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/chat.png"))); // NOI18N
+        chat_game_button.setText("CHAT DE LA TIMBA");
+        chat_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        chat_game_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                chat_game_buttonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout game_data_panelLayout = new javax.swing.GroupLayout(game_data_panel);
         game_data_panel.setLayout(game_data_panelLayout);
         game_data_panelLayout.setHorizontalGroup(
@@ -1670,6 +1685,8 @@ public class StatsDialog extends javax.swing.JDialog {
                         .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(log_game_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(18, 18, 18)
+                        .addComponent(chat_game_button)
+                        .addGap(18, 18, 18)
                         .addComponent(delete_game_button)))
                 .addContainerGap())
         );
@@ -1679,7 +1696,8 @@ public class StatsDialog extends javax.swing.JDialog {
                 .addContainerGap()
                 .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(delete_game_button)
-                    .addComponent(log_game_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(log_game_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(chat_game_button))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(game_textarea_scrollpane, javax.swing.GroupLayout.PREFERRED_SIZE, 480, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -2218,9 +2236,11 @@ public class StatsDialog extends javax.swing.JDialog {
     private void log_game_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_log_game_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (game_textarea_scrollpane.isVisible()) {
+        if (game_textarea_scrollpane.isVisible() && game_textarea.getBackground() == log_game_button.getBackground()) {
             game_textarea_scrollpane.setVisible(false);
         } else {
+
+            game_textarea.setBackground(log_game_button.getBackground());
 
             String item = (String) game_combo.getSelectedItem();
 
@@ -2309,8 +2329,44 @@ public class StatsDialog extends javax.swing.JDialog {
         }
     }//GEN-LAST:event_formWindowClosing
 
+    private void chat_game_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_game_buttonActionPerformed
+        // TODO add your handling code here:
+        if (game_textarea_scrollpane.isVisible() && game_textarea.getBackground() == chat_game_button.getBackground()) {
+            game_textarea_scrollpane.setVisible(false);
+        } else {
+
+            game_textarea.setBackground(chat_game_button.getBackground());
+
+            String item = (String) game_combo.getSelectedItem();
+
+            String[] parts = item.split("@");
+
+            String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
+
+            try {
+
+                String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + fecha + ".log"), StandardCharsets.UTF_8);
+
+                game_textarea.setText(log.replaceAll("\n", "\n\n"));
+
+                game_textarea_scrollpane.setVisible(true);
+
+                game_textarea.setCaretPosition(0);
+
+            } catch (IOException ex) {
+                Helpers.mostrarMensajeError((JFrame) this.getParent(), Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + fecha + ".log");
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        game_data_panel.revalidate();
+
+        game_data_panel.repaint();
+    }//GEN-LAST:event_chat_game_buttonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar cargando;
+    private javax.swing.JButton chat_game_button;
     private javax.swing.JButton delete_game_button;
     private javax.swing.JLabel game_blinds_double_label;
     private javax.swing.JLabel game_blinds_double_val;

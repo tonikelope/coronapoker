@@ -1768,7 +1768,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Date date = new Date(ts.getTime());
             String fecha = timeZoneFormat.format(date);
 
-            String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + fecha + ".log";
+            String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
 
             try {
                 Files.writeString(Paths.get(log_file), getRegistro().getText());
@@ -1776,7 +1776,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
             }
 
-            String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + fecha + ".log";
+            String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
 
             try {
                 Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());

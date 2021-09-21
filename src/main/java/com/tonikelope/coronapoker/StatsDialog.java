@@ -743,9 +743,9 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                 String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
-                                log_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + fecha + ".log")));
+                                log_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log")));
 
-                                chat_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + fecha + ".log"))>0L);
+                                chat_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) > 0L);
 
                                 game_playtime_val.setText((rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")");
 
@@ -2250,7 +2250,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
             try {
 
-                String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + fecha + ".log"), StandardCharsets.UTF_8);
+                String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8);
 
                 game_textarea.setText(log);
 
@@ -2259,7 +2259,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 game_textarea.setCaretPosition(0);
 
             } catch (IOException ex) {
-                Helpers.mostrarMensajeError((JFrame) this.getParent(), Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + fecha + ".log");
+                Helpers.mostrarMensajeError((JFrame) this.getParent(), Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log");
                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -2345,7 +2345,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
             try {
 
-                String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + fecha + ".log"), StandardCharsets.UTF_8);
+                String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8);
 
                 game_textarea.setText(log.replaceAll("\n", "\n\n"));
 
@@ -2354,7 +2354,7 @@ public class StatsDialog extends javax.swing.JDialog {
                 game_textarea.setCaretPosition(0);
 
             } catch (IOException ex) {
-                Helpers.mostrarMensajeError((JFrame) this.getParent(), Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + fecha + ".log");
+                Helpers.mostrarMensajeError((JFrame) this.getParent(), Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log");
                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
         }

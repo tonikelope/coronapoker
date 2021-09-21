@@ -84,6 +84,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         url_panel.setVisible(false);
         nick_pass_panel.setVisible(false);
         config_partida_panel.setVisible(true);
+        this.random_panel.setVisible(false);
         this.random_combobox.setVisible(false);
         this.random_label.setVisible(false);
         this.randomorg_apikey.setVisible(false);
@@ -396,7 +397,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         rebuy_checkbox = new javax.swing.JCheckBox();
         buyin_spinner = new javax.swing.JSpinner();
         ciegas_combobox = new javax.swing.JComboBox<>();
-        jPanel4 = new javax.swing.JPanel();
+        random_panel = new javax.swing.JPanel();
         randomorg_label = new javax.swing.JLabel();
         random_label = new javax.swing.JLabel();
         randomorg_apikey = new javax.swing.JTextField();
@@ -680,7 +681,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addContainerGap())
         );
 
-        jPanel4.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
+        random_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
         randomorg_label.setFont(new java.awt.Font("Dialog", 3, 16)); // NOI18N
         randomorg_label.setText("API KEY (opcional):");
@@ -705,30 +706,30 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
-        javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
-        jPanel4.setLayout(jPanel4Layout);
-        jPanel4Layout.setHorizontalGroup(
-            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel4Layout.createSequentialGroup()
+        javax.swing.GroupLayout random_panelLayout = new javax.swing.GroupLayout(random_panel);
+        random_panel.setLayout(random_panelLayout);
+        random_panelLayout.setHorizontalGroup(
+            random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(random_panelLayout.createSequentialGroup()
                 .addGap(12, 12, 12)
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(randomorg_label)
                     .addComponent(random_label, javax.swing.GroupLayout.PREFERRED_SIZE, 305, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(random_combobox, javax.swing.GroupLayout.Alignment.LEADING, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(randomorg_apikey))
                 .addContainerGap())
         );
-        jPanel4Layout.setVerticalGroup(
-            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel4Layout.createSequentialGroup()
+        random_panelLayout.setVerticalGroup(
+            random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(random_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(random_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(random_label))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(randomorg_label)
                     .addComponent(randomorg_apikey, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap())
@@ -751,7 +752,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                         .addGap(69, 69, 69)
                         .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jPanel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(random_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         config_partida_panelLayout.setVerticalGroup(
@@ -766,7 +767,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addGap(18, 18, 18)
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(random_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(manos_checkbox)
@@ -1352,7 +1353,6 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
-    private javax.swing.JPanel jPanel4;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;
     private javax.swing.JTextField nick;
@@ -1361,6 +1361,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JLabel password;
     private javax.swing.JComboBox<String> random_combobox;
     private javax.swing.JLabel random_label;
+    private javax.swing.JPanel random_panel;
     private javax.swing.JTextField randomorg_apikey;
     private javax.swing.JLabel randomorg_label;
     private javax.swing.JCheckBox rebuy_checkbox;

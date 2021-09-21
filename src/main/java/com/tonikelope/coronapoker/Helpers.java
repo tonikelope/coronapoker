@@ -3378,7 +3378,7 @@ public class Helpers {
 
                 popup.add(EXIT_MENU);
 
-                Helpers.updateFonts(popup, Helpers.GUI_FONT, 2);
+                Helpers.updateFonts(popup, Helpers.GUI_FONT, 1.15f);
             }
 
             tapete.setComponentPopupMenu(popup);

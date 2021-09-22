@@ -76,6 +76,7 @@ public class StatsDialog extends javax.swing.JDialog {
         res_table_warning.setVisible(false);
         showdown_panel.setVisible(false);
         game_textarea_scrollpane.setVisible(false);
+        Helpers.JTextFieldRegularPopupMenu.addTo(game_textarea);
         table_panel.setVisible(false);
         hand_data_panel.setVisible(false);
         hand_combo.addItem(Translator.translate("TODAS LAS MANOS"));

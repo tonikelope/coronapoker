@@ -1776,12 +1776,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
             }
 
-            String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
+            if (!this.getSala_espera().getChat().getText().isEmpty()) {
 
-            try {
-                Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());
-            } catch (IOException ex1) {
-                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
+                String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
+
+                try {
+                    Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());
+                } catch (IOException ex1) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
+                }
             }
 
             if (partida_terminada) {

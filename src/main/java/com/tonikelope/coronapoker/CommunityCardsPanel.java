@@ -294,7 +294,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         pot_label.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
         pot_label.setForeground(new java.awt.Color(153, 204, 0));
-        pot_label.setText(" ");
+        pot_label.setText("BOTE");
         pot_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
         pot_label.setDoubleBuffered(true);
         pot_label.setFocusable(false);
@@ -488,9 +488,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addComponent(hand_label))
             .addComponent(panel_barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(last_hand_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(layout.createSequentialGroup()
-                .addComponent(cards_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, Short.MAX_VALUE))
+            .addComponent(cards_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)

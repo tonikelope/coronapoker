@@ -2172,7 +2172,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     if (deleteSelectedGame()) {
 
-                        Helpers.playWavResource("misc/toilet.wav", true);
+                        Helpers.playWavResource("misc/toilet.wav");
 
                         Helpers.GUIRun(new Runnable() {
 
@@ -2291,7 +2291,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     if (deleteAllGames()) {
 
-                        Helpers.playWavResource("misc/toilet.wav", true);
+                        Helpers.playWavResource("misc/toilet.wav");
 
                         Helpers.GUIRun(new Runnable() {
 

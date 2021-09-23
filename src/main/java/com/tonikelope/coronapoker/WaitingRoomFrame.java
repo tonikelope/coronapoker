@@ -2061,7 +2061,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (this.participantes.containsKey(nick)) {
 
-            Helpers.playWavResource("misc/toilet.wav", true);
+            Helpers.playWavResource("misc/toilet.wav");
 
             participantes.remove(nick);
 

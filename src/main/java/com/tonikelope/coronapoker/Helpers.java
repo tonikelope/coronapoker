@@ -1880,46 +1880,25 @@ public class Helpers {
             if ((sound_stream = getSoundInputStream(sound)) != null) {
                 try (final BufferedInputStream bis = new BufferedInputStream(sound_stream); final Clip clip = AudioSystem.getClip()) {
 
-                    if (WAVS_RESOURCES.containsKey(sound) && force_close) {
+                    ConcurrentLinkedQueue<Clip> list = new ConcurrentLinkedQueue<>();
+                    list.add(clip);
+                    WAVS_RESOURCES.putIfAbsent(sound, list);
 
-                        synchronized (WAVS_RESOURCES.get(sound)) {
+                    synchronized (WAVS_RESOURCES.get(sound)) {
+
+                        if (force_close) {
 
                             for (Clip c : WAVS_RESOURCES.get(sound)) {
+
                                 c.stop();
+
                             }
 
                             WAVS_RESOURCES.get(sound).clear();
-
-                            WAVS_RESOURCES.get(sound).add(clip);
-
-                            clip.open(AudioSystem.getAudioInputStream(bis));
-                            FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-                            if (!GameFrame.SONIDOS || MUTED_ALL) {
-                                gainControl.setValue(gainControl.getMinimum());
-                            } else {
-                                float dB = (float) Math.log10(getSoundVolume(sound)) * 20.0f;
-                                gainControl.setValue(dB);
-                            }
-                            clip.loop(Clip.LOOP_CONTINUOUSLY);
                         }
 
-                        Helpers.pausar(clip.getMicrosecondLength() / 1000);
-
-                        if (WAVS_RESOURCES.containsKey(sound) && WAVS_RESOURCES.get(sound).contains(clip)) {
-                            WAVS_RESOURCES.get(sound).remove(clip);
-                            clip.stop();
-                        }
-
-                        return true;
-
-                    } else {
-
-                        if (WAVS_RESOURCES.containsKey(sound)) {
+                        if (!WAVS_RESOURCES.get(sound).contains(clip)) {
                             WAVS_RESOURCES.get(sound).add(clip);
-                        } else {
-                            ConcurrentLinkedQueue<Clip> list = new ConcurrentLinkedQueue<>();
-                            WAVS_RESOURCES.put(sound, list);
-                            list.add(clip);
                         }
 
                         clip.open(AudioSystem.getAudioInputStream(bis));
@@ -1931,16 +1910,17 @@ public class Helpers {
                             gainControl.setValue(dB);
                         }
                         clip.loop(Clip.LOOP_CONTINUOUSLY);
-                        Helpers.pausar(clip.getMicrosecondLength() / 1000);
-
-                        if (WAVS_RESOURCES.containsKey(sound) && WAVS_RESOURCES.get(sound).contains(clip)) {
-                            WAVS_RESOURCES.get(sound).remove(clip);
-                            clip.stop();
-                        }
-
-                        return true;
-
                     }
+
+                    Helpers.pausar(clip.getMicrosecondLength() / 1000);
+
+                    clip.stop();
+
+                    if (WAVS_RESOURCES.containsKey(sound) && WAVS_RESOURCES.get(sound).contains(clip)) {
+                        WAVS_RESOURCES.get(sound).remove(clip);
+                    }
+
+                    return true;
 
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);

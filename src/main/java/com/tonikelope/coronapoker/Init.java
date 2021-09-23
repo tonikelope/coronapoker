@@ -641,7 +641,6 @@ public class Init extends javax.swing.JFrame {
             Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
 
             Helpers.playWavResource("misc/init.wav");
-
             Helpers.playLoopMp3Resource("misc/background_music.mp3");
 
             Init ventana = new Init();
@@ -713,6 +712,7 @@ public class Init extends javax.swing.JFrame {
             if (!Helpers.OSValidator.isMac()) {
                 antiScreensaver();
             }
+
         }
     }
 

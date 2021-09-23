@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"CHAT DE LA TIMBA", "GAME CHAT"},
             {"¿SEGURO QUE QUIERES ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ -> [", "ARE YOU SURE YOU WANT TO DELETE ALL THE GAMES IN WHICH HE/SHE TOOK PART -> ["},
             {"PURGAR", "PURGE"},
             {"SE PIRA", "LEAVES"},

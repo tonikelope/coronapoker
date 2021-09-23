@@ -1337,7 +1337,7 @@ public class Crupier implements Runnable {
                     jugador.showCards(jugada.getName());
 
                     if (GameFrame.SONIDOS_CHORRA && jugador.getDecision() == Player.FOLD) {
-                        Helpers.playWavResource("misc/showyourcards.wav", true);
+                        Helpers.playWavResource("misc/showyourcards.wav");
                     }
 
                     if (!perdedores.containsKey(jugador)) {
@@ -1402,7 +1402,7 @@ public class Crupier implements Runnable {
                     jugador.showCards(jugada.getName());
 
                     if (GameFrame.SONIDOS_CHORRA && jugador.getDecision() == Player.FOLD) {
-                        Helpers.playWavResource("misc/showyourcards.wav", true);
+                        Helpers.playWavResource("misc/showyourcards.wav");
                     }
 
                     if (!perdedores.containsKey(jugador)) {
@@ -6261,7 +6261,7 @@ public class Crupier implements Runnable {
                         if (GameFrame.SONIDOS_CHORRA && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
                             if (jugador_actual.getDecision() == Player.ALLIN) {
-                                Helpers.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav", true);
+                                Helpers.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
                             } else {
                                 this.soundWinner(jugada.getVal(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
                             }
@@ -6325,7 +6325,7 @@ public class Crupier implements Runnable {
                         if (GameFrame.SONIDOS_CHORRA && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
                             if (jugador_actual.getDecision() == Player.ALLIN) {
-                                Helpers.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav", true);
+                                Helpers.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
                             } else {
                                 this.soundWinner(jugada.getVal(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
                             }

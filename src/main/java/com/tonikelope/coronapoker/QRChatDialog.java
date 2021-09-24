@@ -156,7 +156,7 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
         share_button.setBackground(new java.awt.Color(26, 115, 232));
         share_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         share_button.setForeground(new java.awt.Color(255, 255, 255));
-        share_button.setText("COMPARTIR CON EL RESTO DE JUGADORES");
+        share_button.setText("COMPARTIR");
         share_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         share_button.setDoubleBuffered(true);
         share_button.setFocusable(false);
@@ -175,7 +175,7 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(close_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(qr_status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(share_button, javax.swing.GroupLayout.DEFAULT_SIZE, 488, Short.MAX_VALUE)
+                    .addComponent(share_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(icon_label, javax.swing.GroupLayout.PREFERRED_SIZE, 300, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -193,7 +193,7 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
                 .addComponent(share_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(close_button)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());

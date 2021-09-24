@@ -56,7 +56,7 @@
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Component id="close_button" alignment="1" max="32767" attributes="0"/>
                       <Component id="qr_status" alignment="0" max="32767" attributes="0"/>
-                      <Component id="share_button" pref="488" max="32767" attributes="0"/>
+                      <Component id="share_button" max="32767" attributes="0"/>
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                           <Component id="icon_label" min="-2" pref="300" max="-2" attributes="0"/>
@@ -78,7 +78,7 @@
                   <Component id="share_button" min="-2" max="-2" attributes="0"/>
                   <EmptySpace type="unrelated" max="-2" attributes="0"/>
                   <Component id="close_button" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace max="32767" attributes="0"/>
+                  <EmptySpace max="-2" attributes="0"/>
               </Group>
           </Group>
         </DimensionLayout>
@@ -151,7 +151,7 @@
             <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
               <Color blue="ff" green="ff" red="ff" type="rgb"/>
             </Property>
-            <Property name="text" type="java.lang.String" value="COMPARTIR CON EL RESTO DE JUGADORES"/>
+            <Property name="text" type="java.lang.String" value="COMPARTIR"/>
             <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
               <Color id="Cursor de Mano"/>
             </Property>

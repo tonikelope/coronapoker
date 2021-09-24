@@ -504,19 +504,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 action_button_armed.put(player_fold_button, false);
 
-                player_check_button.setEnabled(false);
-
-                bet_spinner.setValue(new BigDecimal(0));
-
-                bet_spinner.setEnabled(false);
-
-                player_bet_button.setEnabled(false);
-
-                player_allin_button.setEnabled(false);
-
-                player_fold_button.setEnabled(false);
-
                 disablePlayerAction();
+
+                desactivarControles();
 
                 utg_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/utg.png")).getImage().getScaledInstance(41, 31, Image.SCALE_SMOOTH)));
 
@@ -525,8 +515,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setText("----");
 
                 playingCard1.setPosChip_visible(GameFrame.LOCAL_POSITION_CHIP);
-
-                desactivarControles();
 
                 icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
 
@@ -656,18 +644,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 public void run() {
 
                     setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-
-                    player_check_button.setEnabled(false);
-
-                    player_check_button.setText(" ");
-
-                    bet_spinner.setValue(new BigDecimal(0));
-
-                    bet_spinner.setEnabled(false);
-
-                    player_bet_button.setEnabled(false);
-
-                    player_bet_button.setText(" ");
 
                     player_allin_button.setText("ALL IN");
 
@@ -1001,7 +977,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void desactivarControles() {
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
                 bet_spinner.setValue(new BigDecimal(0));
@@ -1016,10 +992,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         c.setEnabled(false);
                     }
                 }
+
+                desarmarBotonesAccion();
             }
         });
 
-        desarmarBotonesAccion();
     }
 
     public void desPrePulsarTodo() {
@@ -1034,7 +1011,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void desPrePulsarBoton(JButton boton) {
         pre_pulsado = Player.NODEC;
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
 
@@ -1060,7 +1037,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void prePulsarBoton(JButton boton, int dec) {
         pre_pulsado = dec;
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
 
@@ -1073,7 +1050,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void desarmarBotonesAccion() {
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
                 for (Map.Entry<JButton, Color[]> entry : action_button_colors.entrySet()) {
@@ -1098,7 +1075,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void armarBoton(JButton boton) {
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
 
@@ -1147,7 +1124,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!turno && decision != Player.FOLD && decision != Player.ALLIN && !GameFrame.getInstance().getCrupier().isShow_time()) {
 
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
 
                     player_check_button.setBackground(null);
@@ -1181,10 +1158,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!turno) {
 
-            this.desPrePulsarTodo();
-
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
+
+                    desPrePulsarTodo();
 
                     player_check_button.setText(" ");
                     player_check_button.setIcon(null);

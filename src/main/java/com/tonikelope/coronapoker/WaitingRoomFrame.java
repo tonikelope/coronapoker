@@ -59,6 +59,7 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
 import org.apache.commons.codec.binary.Base64;
 
@@ -848,6 +849,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     }
 
+    public JProgressBar getBarra() {
+        return barra;
+    }
+
     private void cliente() {
 
         booting = true;
@@ -1433,8 +1438,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             public void run() {
                                                                 sound_icon.setVisible(false);
                                                                 status.setText(Translator.translate("Inicializando timba..."));
-                                                                barra.setVisible(true);
                                                                 barra.setIndeterminate(true);
+                                                                barra.setVisible(true);
+
                                                             }
                                                         });
 
@@ -1462,7 +1468,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 new GameFrame(THIS, local_nick, false);
                                                                 chat_notifications.setVisible(true);
                                                                 tts_warning.setVisible(true);
-                                                                barra.setVisible(false);
                                                                 pack();
 
                                                             }
@@ -2665,8 +2670,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 this.kick_user.setVisible(false);
                 this.sound_icon.setVisible(false);
                 this.status.setText(Translator.translate("Inicializando timba..."));
-                this.barra.setVisible(true);
                 this.barra.setIndeterminate(true);
+                this.barra.setVisible(true);
                 pack();
 
                 Helpers.threadRun(new Runnable() {
@@ -2708,7 +2713,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     new GameFrame(THIS, local_nick, true);
                                     chat_notifications.setVisible(true);
                                     tts_warning.setVisible(true);
-                                    barra.setVisible(false);
                                     pack();
 
                                 }

@@ -61,10 +61,10 @@
               <Component id="danger_server" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
               <Component id="jPanel1" min="-2" max="-2" attributes="0"/>
-              <EmptySpace type="unrelated" max="-2" attributes="0"/>
+              <EmptySpace max="-2" attributes="0"/>
               <Component id="chat_notifications" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
-              <Component id="jScrollPane1" pref="154" max="32767" attributes="0"/>
+              <Component id="jScrollPane1" pref="140" max="32767" attributes="0"/>
               <EmptySpace type="unrelated" max="-2" attributes="0"/>
               <Group type="103" groupAlignment="0" max="-2" attributes="0">
                   <Component id="avatar_label" max="32767" attributes="0"/>
@@ -149,6 +149,7 @@
                   <Component id="jPanel2" max="32767" attributes="0"/>
               </Group>
               <Component id="empezar_timba" max="32767" attributes="0"/>
+              <Component id="barra" alignment="0" max="32767" attributes="0"/>
           </Group>
         </DimensionLayout>
         <DimensionLayout dim="1">
@@ -181,7 +182,8 @@
                   </Group>
                   <EmptySpace type="unrelated" max="-2" attributes="0"/>
                   <Component id="empezar_timba" min="-2" pref="60" max="-2" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                  <EmptySpace max="32767" attributes="0"/>
+                  <Component id="barra" min="-2" max="-2" attributes="0"/>
               </Group>
           </Group>
         </DimensionLayout>
@@ -448,6 +450,8 @@
           <Events>
             <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_infoMouseClicked"/>
           </Events>
+        </Component>
+        <Component class="javax.swing.JProgressBar" name="barra">
         </Component>
       </SubComponents>
     </Container>

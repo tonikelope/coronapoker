@@ -284,6 +284,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
 
+        barra.setVisible(false);
         tts_warning.setVisible(false);
         chat_notifications.setSelected(CHAT_GAME_NOTIFICATIONS);
         chat_notifications.setVisible(false);
@@ -1432,6 +1433,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             public void run() {
                                                                 sound_icon.setVisible(false);
                                                                 status.setText(Translator.translate("Inicializando timba..."));
+                                                                barra.setVisible(true);
+                                                                barra.setIndeterminate(true);
                                                             }
                                                         });
 
@@ -1459,6 +1462,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 new GameFrame(THIS, local_nick, false);
                                                                 chat_notifications.setVisible(true);
                                                                 tts_warning.setVisible(true);
+                                                                barra.setVisible(false);
                                                                 pack();
 
                                                             }
@@ -2182,6 +2186,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         empezar_timba = new javax.swing.JButton();
         tot_conectados = new javax.swing.JLabel();
         game_info = new javax.swing.JLabel();
+        barra = new javax.swing.JProgressBar();
         danger_server = new javax.swing.JLabel();
         tts_warning = new javax.swing.JLabel();
         chat_notifications = new javax.swing.JCheckBox();
@@ -2392,6 +2397,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addComponent(empezar_timba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2419,7 +2425,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, 0))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
 
         danger_server.setBackground(new java.awt.Color(255, 0, 0));
@@ -2477,10 +2484,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addComponent(danger_server)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 154, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 140, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2658,6 +2665,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 this.kick_user.setVisible(false);
                 this.sound_icon.setVisible(false);
                 this.status.setText(Translator.translate("Inicializando timba..."));
+                this.barra.setVisible(true);
+                this.barra.setIndeterminate(true);
                 pack();
 
                 Helpers.threadRun(new Runnable() {
@@ -2699,6 +2708,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     new GameFrame(THIS, local_nick, true);
                                     chat_notifications.setVisible(true);
                                     tts_warning.setVisible(true);
+                                    barra.setVisible(false);
                                     pack();
 
                                 }
@@ -3020,6 +3030,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
+    private javax.swing.JProgressBar barra;
     private javax.swing.JTextArea chat;
     private javax.swing.JTextField chat_box;
     private javax.swing.JCheckBox chat_notifications;

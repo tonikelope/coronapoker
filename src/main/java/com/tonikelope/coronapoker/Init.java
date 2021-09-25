@@ -87,7 +87,7 @@ public class Init extends javax.swing.JFrame {
 
         JFrame tthis = this;
 
-        update_bar.setIndeterminate(true);
+        update_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/gears.gif")).getImage().getScaledInstance(64, 64, Image.SCALE_DEFAULT)));
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
@@ -203,7 +203,6 @@ public class Init extends javax.swing.JFrame {
         jLabel6 = new javax.swing.JLabel();
         language_combobox = new javax.swing.JComboBox<>();
         stats_button = new javax.swing.JButton();
-        update_bar = new javax.swing.JProgressBar();
         update_label = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
@@ -334,7 +333,7 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
-        update_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        update_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         update_label.setForeground(new java.awt.Color(255, 255, 255));
         update_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         update_label.setText("COMPROBANDO ACTUALIZACIÓN...");
@@ -346,7 +345,6 @@ public class Init extends javax.swing.JFrame {
             .addGroup(corona_init_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(update_bar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, corona_init_panelLayout.createSequentialGroup()
                         .addComponent(krusty)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -388,9 +386,7 @@ public class Init extends javax.swing.JFrame {
                             .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                 .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(update_bar, javax.swing.GroupLayout.PREFERRED_SIZE, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGap(18, 18, 18)
                 .addComponent(update_label))
         );
 
@@ -720,8 +716,6 @@ public class Init extends javax.swing.JFrame {
 
                     ventana.setEnabled(true);
 
-                    ventana.update_bar.setVisible(false);
-
                     ventana.update_label.setVisible(false);
                 }
             });
@@ -828,7 +822,6 @@ public class Init extends javax.swing.JFrame {
     private javax.swing.JLabel sound_icon;
     private javax.swing.JButton stats_button;
     private com.tonikelope.coronapoker.InitPanel tapete;
-    private javax.swing.JProgressBar update_bar;
     private javax.swing.JLabel update_label;
     // End of variables declaration//GEN-END:variables
 }

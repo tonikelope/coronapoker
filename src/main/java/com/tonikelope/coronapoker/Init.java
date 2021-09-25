@@ -87,6 +87,8 @@ public class Init extends javax.swing.JFrame {
 
         JFrame tthis = this;
 
+        update_bar.setIndeterminate(true);
+
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
         KeyStroke force_exit = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK);
@@ -154,9 +156,12 @@ public class Init extends javax.swing.JFrame {
             Helpers.unMuteAll();
 
         }
+
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         stats_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/stats.png")).getImage().getScaledInstance(stats_button.getHeight(), stats_button.getHeight(), Image.SCALE_SMOOTH)));
+
+        setEnabled(false);
 
         pack();
 
@@ -198,7 +203,8 @@ public class Init extends javax.swing.JFrame {
         jLabel6 = new javax.swing.JLabel();
         language_combobox = new javax.swing.JComboBox<>();
         stats_button = new javax.swing.JButton();
-        progress_bar = new javax.swing.JProgressBar();
+        update_bar = new javax.swing.JProgressBar();
+        update_label = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("CoronaPoker");
@@ -328,6 +334,11 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
+        update_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        update_label.setForeground(new java.awt.Color(255, 255, 255));
+        update_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        update_label.setText("COMPROBANDO ACTUALIZACIÓN...");
+
         javax.swing.GroupLayout corona_init_panelLayout = new javax.swing.GroupLayout(corona_init_panel);
         corona_init_panel.setLayout(corona_init_panelLayout);
         corona_init_panelLayout.setHorizontalGroup(
@@ -335,7 +346,7 @@ public class Init extends javax.swing.JFrame {
             .addGroup(corona_init_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(progress_bar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(update_bar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, corona_init_panelLayout.createSequentialGroup()
                         .addComponent(krusty)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -352,7 +363,8 @@ public class Init extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(join_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, 315, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                            .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, 315, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addComponent(update_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         corona_init_panelLayout.setVerticalGroup(
@@ -377,8 +389,9 @@ public class Init extends javax.swing.JFrame {
                                 .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(progress_bar, javax.swing.GroupLayout.PREFERRED_SIZE, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
+                .addComponent(update_bar, javax.swing.GroupLayout.PREFERRED_SIZE, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(update_label))
         );
 
         javax.swing.GroupLayout tapeteLayout = new javax.swing.GroupLayout(tapete);
@@ -393,9 +406,9 @@ public class Init extends javax.swing.JFrame {
         tapeteLayout.setVerticalGroup(
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
-                .addContainerGap(569, Short.MAX_VALUE)
+                .addContainerGap(565, Short.MAX_VALUE)
                 .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(569, Short.MAX_VALUE))
+                .addContainerGap(564, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -649,10 +662,6 @@ public class Init extends javax.swing.JFrame {
                 @Override
                 public void run() {
 
-                    ventana.setEnabled(false);
-
-                    ventana.progress_bar.setIndeterminate(true);
-
                     Helpers.centrarJFrame(ventana, 0);
 
                     ventana.setVisible(true);
@@ -663,7 +672,15 @@ public class Init extends javax.swing.JFrame {
 
             if (new_version != null && !new_version.isBlank()) {
 
-                if (Helpers.mostrarMensajeInformativoSINO(ventana, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿Quieres actualizar?") == 0) {
+                if (Helpers.mostrarMensajeInformativoSINO(ventana, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?") == 0) {
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            ventana.update_label.setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
+                        }
+                    });
 
                     try {
 
@@ -703,9 +720,9 @@ public class Init extends javax.swing.JFrame {
 
                     ventana.setEnabled(true);
 
-                    ventana.progress_bar.setIndeterminate(false);
+                    ventana.update_bar.setVisible(false);
 
-                    ventana.progress_bar.setVisible(false);
+                    ventana.update_label.setVisible(false);
                 }
             });
 
@@ -808,9 +825,10 @@ public class Init extends javax.swing.JFrame {
     private javax.swing.JLabel krusty;
     private javax.swing.JComboBox<String> language_combobox;
     private javax.swing.JPanel pegi_panel;
-    private javax.swing.JProgressBar progress_bar;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JButton stats_button;
     private com.tonikelope.coronapoker.InitPanel tapete;
+    private javax.swing.JProgressBar update_bar;
+    private javax.swing.JLabel update_label;
     // End of variables declaration//GEN-END:variables
 }

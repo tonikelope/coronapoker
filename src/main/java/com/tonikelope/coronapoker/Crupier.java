@@ -6466,7 +6466,10 @@ public class Crupier implements Runnable {
             public void run() {
 
                 GameFrame.getInstance().getSala_espera().setVisible(false);
+                GameFrame.getInstance().getSala_espera().getTts_warning().setVisible(true);
+                GameFrame.getInstance().getSala_espera().getChat_notifications().setVisible(true);
                 GameFrame.getInstance().getSala_espera().getBarra().setVisible(false);
+                GameFrame.getInstance().getSala_espera().pack();
             }
         });
 

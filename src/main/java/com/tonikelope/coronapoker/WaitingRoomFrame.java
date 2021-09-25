@@ -58,6 +58,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
@@ -89,6 +90,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final boolean server;
     private final String local_nick;
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<Long> client_threads = new ConcurrentLinkedQueue<>();
     private volatile ServerSocket server_socket = null;
     private volatile SecretKeySpec local_client_aes_key = null;
     private volatile SecretKeySpec local_client_hmac_key = null;
@@ -113,6 +115,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile boolean partida_empezando = false;
     private volatile String password = null;
     private volatile boolean exit = false;
+
+    public JCheckBox getChat_notifications() {
+        return chat_notifications;
+    }
+
+    public JLabel getTts_warning() {
+        return tts_warning;
+    }
 
     public static boolean isCHAT_GAME_NOTIFICATIONS() {
         return CHAT_GAME_NOTIFICATIONS;
@@ -857,6 +867,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         booting = true;
 
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+
+                barra.setIndeterminate(true);
+                barra.setVisible(true);
+
+            }
+        });
+
         Helpers.threadRun(new Runnable() {
 
             public void run() {
@@ -1132,6 +1151,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
                                 status.setText(Translator.translate("CONECTADO"));
+
+                                barra.setVisible(false);
 
                             }
                         });
@@ -1432,10 +1453,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                         break;
 
                                                     case "INIT":
-                                                        setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
 
                                                         Helpers.GUIRun(new Runnable() {
                                                             public void run() {
+                                                                setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                                                                 sound_icon.setVisible(false);
                                                                 status.setText(Translator.translate("Inicializando timba..."));
                                                                 barra.setIndeterminate(true);
@@ -1466,10 +1487,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                         Helpers.GUIRunAndWait(new Runnable() {
                                                             public void run() {
                                                                 new GameFrame(THIS, local_nick, false);
-                                                                chat_notifications.setVisible(true);
-                                                                tts_warning.setVisible(true);
-                                                                pack();
-
                                                             }
                                                         });
 
@@ -1606,6 +1623,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             public void run() {
 
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "Un cliente intenta conectar...");
+
+                client_threads.add(Thread.currentThread().getId());
 
                 String recibido;
 
@@ -1875,6 +1894,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 } catch (Exception ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
+
+                client_threads.remove(Thread.currentThread().getId());
 
             }
         });
@@ -2711,9 +2732,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             Helpers.GUIRunAndWait(new Runnable() {
                                 public void run() {
                                     new GameFrame(THIS, local_nick, true);
-                                    chat_notifications.setVisible(true);
-                                    tts_warning.setVisible(true);
-                                    pack();
 
                                 }
                             });
@@ -2732,63 +2750,66 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
 
-        if (!booting) {
+        if (!barra.isVisible()) {
 
-            if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+            if (!booting && client_threads.isEmpty()) {
 
-                if (exit || reconnecting) {
+                if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                    if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
-                        System.exit(1);
-                    }
+                    if (exit || reconnecting) {
 
-                } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES SALIR AHORA?") == 0) {
+                        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+                            System.exit(1);
+                        }
 
-                    exit = true;
+                    } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES SALIR AHORA?") == 0) {
 
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
+                        exit = true;
 
-                            if (isServer()) {
+                        Helpers.threadRun(new Runnable() {
+                            public void run() {
 
-                                participantes.entrySet().forEach((entry) -> {
+                                if (isServer()) {
 
-                                    Participant p = entry.getValue();
+                                    participantes.entrySet().forEach((entry) -> {
 
-                                    if (p != null) {
+                                        Participant p = entry.getValue();
 
-                                        p.exitAndCloseSocket();
+                                        if (p != null) {
+
+                                            p.exitAndCloseSocket();
+                                        }
+
+                                    });
+
+                                    if (getServer_socket() != null) {
+                                        try {
+                                            getServer_socket().close();
+                                        } catch (Exception ex) {
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
                                     }
 
-                                });
+                                } else if (local_client_socket != null && !reconnecting) {
 
-                                if (getServer_socket() != null) {
                                     try {
-                                        getServer_socket().close();
+                                        writeCommandToServer(Helpers.encryptCommand("EXIT", getLocal_client_aes_key(), getLocal_client_hmac_key()));
+                                        local_client_socket.close();
                                     } catch (Exception ex) {
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                                     }
                                 }
-
-                            } else if (local_client_socket != null && !reconnecting) {
-
-                                try {
-                                    writeCommandToServer(Helpers.encryptCommand("EXIT", getLocal_client_aes_key(), getLocal_client_hmac_key()));
-                                    local_client_socket.close();
-                                } catch (Exception ex) {
-                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                }
                             }
-                        }
-                    });
+                        });
+                    }
+
+                } else {
+                    setVisible(false);
                 }
 
-            } else {
-                setVisible(false);
+            } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+                System.exit(1);
             }
-
-        } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
-            System.exit(1);
         }
     }//GEN-LAST:event_formWindowClosing
 

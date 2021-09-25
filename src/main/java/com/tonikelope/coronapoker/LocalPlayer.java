@@ -209,11 +209,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             this.spectator = true;
             this.bote = 0f;
 
-            desactivarControles();
-
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
+                    desactivarControles();
                     setOpaque(false);
                     setBackground(null);
                     setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -224,9 +223,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     utg_icon.setVisible(false);
                     playingCard1.resetearCarta();
                     playingCard2.resetearCarta();
-
-                    disablePlayerAction();
-
                     player_name.setOpaque(false);
                     player_name.setBackground(null);
                     player_name.setIcon(null);
@@ -255,6 +251,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if (!GameFrame.getInstance().isPartida_local()) {
                         GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(false);
                     }
+
+                    disablePlayerAction();
 
                 }
             });
@@ -1111,9 +1109,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                disablePlayerAction();
+
                 player_pot.setBackground(new Color(204, 204, 204, 75));
                 player_pot.setForeground(Color.WHITE);
+
+                disablePlayerAction();
 
             }
         });
@@ -1264,8 +1264,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 desactivarControles();
 
-                disablePlayerAction();
-
                 utg_icon.setVisible(false);
 
                 player_pot.setText("----");
@@ -1286,6 +1284,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_stack.setForeground(Color.WHITE);
                     }
                 }
+
+                disablePlayerAction();
 
             }
         });

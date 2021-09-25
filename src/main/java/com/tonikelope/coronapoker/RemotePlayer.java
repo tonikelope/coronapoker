@@ -1325,8 +1325,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_name.setIcon(null);
 
-                disablePlayerAction();
-
                 utg_icon.setVisible(false);
 
                 player_pot.setText("----");
@@ -1334,6 +1332,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setBackground(new Color(204, 204, 204, 75));
 
                 player_pot.setForeground(Color.WHITE);
+
+                disablePlayerAction();
 
                 if (!player_stack_click) {
                     if (buyin > GameFrame.BUYIN) {
@@ -1392,10 +1392,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                disablePlayerAction();
-
                 player_pot.setBackground(new Color(204, 204, 204, 75));
                 player_pot.setForeground(Color.WHITE);
+
+                disablePlayerAction();
 
             }
         });
@@ -1484,8 +1484,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     playingCard1.resetearCarta();
                     playingCard2.resetearCarta();
 
-                    disablePlayerAction();
-
                     player_name.setOpaque(false);
                     player_name.setBackground(null);
                     player_name.setIcon(null);
@@ -1506,6 +1504,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     } else {
                         player_name.setForeground(Color.WHITE);
                     }
+
+                    disablePlayerAction();
 
                 }
             });

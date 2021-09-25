@@ -296,6 +296,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
 
         barra.setVisible(false);
+        barra.setIndeterminate(true);
         tts_warning.setVisible(false);
         chat_notifications.setSelected(CHAT_GAME_NOTIFICATIONS);
         chat_notifications.setVisible(false);
@@ -870,7 +871,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                barra.setIndeterminate(true);
                 barra.setVisible(true);
 
             }
@@ -1151,7 +1151,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
                                 status.setText(Translator.translate("CONECTADO"));
-
                                 barra.setVisible(false);
 
                             }
@@ -1459,7 +1458,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                                                                 sound_icon.setVisible(false);
                                                                 status.setText(Translator.translate("Inicializando timba..."));
-                                                                barra.setIndeterminate(true);
                                                                 barra.setVisible(true);
 
                                                             }
@@ -2691,9 +2689,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 this.kick_user.setVisible(false);
                 this.sound_icon.setVisible(false);
                 this.status.setText(Translator.translate("Inicializando timba..."));
-                this.barra.setIndeterminate(true);
                 this.barra.setVisible(true);
-                pack();
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {

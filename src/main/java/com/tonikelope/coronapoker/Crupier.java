@@ -6449,23 +6449,14 @@ public class Crupier implements Runnable {
             @Override
             public void run() {
 
-                GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Preparando mesa..."));
-            }
-        });
-
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-
-                GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Timba en curso"));
+                GameFrame.getInstance().getSala_espera().setVisible(false);
             }
         });
 
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-
-                GameFrame.getInstance().getSala_espera().setVisible(false);
+                GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Timba en curso"));
                 GameFrame.getInstance().getSala_espera().getTts_warning().setVisible(true);
                 GameFrame.getInstance().getSala_espera().getChat_notifications().setVisible(true);
                 GameFrame.getInstance().getSala_espera().getBarra().setVisible(false);

@@ -1386,14 +1386,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void resetBetDecision() {
+        int old_dec = this.decision;
+
         this.decision = Player.NODEC;
 
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
 
-                player_pot.setBackground(new Color(204, 204, 204, 75));
-                player_pot.setForeground(Color.WHITE);
+                if (old_dec != Player.BET || Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
+                    player_pot.setBackground(new Color(204, 204, 204, 75));
+                    player_pot.setForeground(Color.WHITE);
+                }
 
                 disablePlayerAction();
 

@@ -176,7 +176,7 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
-    public static final int NEW_HAND_READY_WAIT_TIMEOUT = 10000;
+    public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes BAN
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
@@ -2100,7 +2100,7 @@ public class Crupier implements Runnable {
 
                         ready = false;
 
-                        if (timeout + NEW_HAND_READY_WAIT >= NEW_HAND_READY_WAIT_TIMEOUT) {
+                        if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
 
                             Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, p.getNick() + " -> NEW HAND (" + String.valueOf(this.conta_mano + 1) + ") CONFIRMATION NOT RECEIVED!");
 
@@ -2120,25 +2120,28 @@ public class Crupier implements Runnable {
 
                 if (!ready) {
 
-                    synchronized (lock_nueva_mano) {
+                    timeout += NEW_HAND_READY_WAIT;
 
-                        try {
-                            lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
-                            timeout += NEW_HAND_READY_WAIT;
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    if (timeout <= NEW_HAND_READY_WAIT_TIMEOUT) {
+                        synchronized (lock_nueva_mano) {
+
+                            try {
+                                lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
                         }
+                    } else {
+                        Helpers.threadRun(new Runnable() {
+
+                            public void run() {
+                                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO");
+                            }
+                        });
                     }
-
-                    if (timeout >= NEW_HAND_READY_WAIT_TIMEOUT) {
-
-                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO");
-
-                    }
-
                 }
 
-            } while (!ready && timeout < NEW_HAND_READY_WAIT_TIMEOUT);
+            } while (!ready && timeout <= NEW_HAND_READY_WAIT_TIMEOUT);
 
         } else {
 
@@ -2420,7 +2423,7 @@ public class Crupier implements Runnable {
 
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText(" "); //Para que se mantenga la anchura de la fila del bote
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText("---"); //Para que se mantenga la altura de la fila del bote
                 GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(false);
                 GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
 

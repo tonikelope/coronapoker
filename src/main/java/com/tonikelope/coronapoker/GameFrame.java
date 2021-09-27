@@ -46,7 +46,9 @@ import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ImageIcon;
 import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JLayer;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JProgressBar;
@@ -154,6 +156,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private final Crupier crupier;
     private final boolean partida_local;
     private final String nick_local;
+    private final BrightnessLayerUI capa_brillo = new BrightnessLayerUI();
 
     private volatile ZoomableInterface[] zoomables;
     private volatile long conta_tiempo_juego = 0L;
@@ -175,6 +178,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile Timer tiempo_juego;
     private volatile int tapete_counter = 0;
     private volatile int i60_c = 0;
+    private volatile JLayer<JComponent> frame_layer = null;
+
+    public BrightnessLayerUI getCapa_brillo() {
+        return capa_brillo;
+    }
 
     public JMenuItem getRobert_rules_menu() {
         return robert_rules_menu;
@@ -490,7 +498,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     if (Helpers.OSValidator.isWindows()) {
                         setVisible(false);
-                        getContentPane().remove(GameFrame.getInstance().getTapete());
+                        getContentPane().remove(frame_layer);
                         full_screen_frame = new WheelFrame();
                         full_screen_frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
                         full_screen_frame.addMouseWheelListener(full_screen_frame);
@@ -502,7 +510,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         });
                         full_screen_frame.setTitle(GameFrame.getInstance().getTitle());
                         full_screen_frame.setUndecorated(true);
-                        full_screen_frame.getContentPane().add(GameFrame.getInstance().getTapete());
+                        frame_layer = new JLayer<>(GameFrame.getInstance().getTapete(), capa_brillo);
+                        full_screen_frame.getContentPane().add(frame_layer);
                         full_screen_frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
                         full_screen_frame.setVisible(true);
 
@@ -533,7 +542,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         full_screen_frame.dispose();
                         full_screen_frame = null;
 
-                        GameFrame.getInstance().getContentPane().add(GameFrame.getInstance().getTapete());
+                        frame_layer = new JLayer<>(GameFrame.getInstance().getTapete(), capa_brillo);
+                        GameFrame.getInstance().getContentPane().add(frame_layer);
                         GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
                         GameFrame.getInstance().setVisible(true);
 
@@ -1228,7 +1238,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     zoomables = new ZoomableInterface[]{tapete};
 
-                    frame.getContentPane().add(tapete);
+                    frame_layer = new JLayer<>(tapete, capa_brillo);
+
+                    frame.getContentPane().add(frame_layer);
 
                     GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
 
@@ -1494,7 +1506,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Timba en curso (") + nicklocal + ")");
 
-        getContentPane().add(tapete);
+        frame_layer = new JLayer<>(tapete, capa_brillo);
+
+        getContentPane().add(frame_layer);
 
         rebuy_now_menu.setEnabled(GameFrame.REBUY);
 

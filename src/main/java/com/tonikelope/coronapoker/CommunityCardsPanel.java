@@ -288,6 +288,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         random_button = new javax.swing.JButton();
         hand_limit_spinner = new javax.swing.JSpinner();
         max_hands_button = new javax.swing.JButton();
+        lights_button = new javax.swing.JButton();
 
         setFocusable(false);
         setOpaque(false);
@@ -462,6 +463,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
+        lights_button.setBackground(new java.awt.Color(255, 255, 204));
+        lights_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        lights_button.setText("LUCES ON");
+        lights_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lights_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                lights_buttonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -478,6 +489,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addComponent(pause_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(random_button)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lights_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(tiempo_partida)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -511,7 +524,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                                 .addComponent(random_button)
                                 .addComponent(hand_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(tiempo_partida)
-                                .addComponent(max_hands_button)))
+                                .addComponent(max_hands_button)
+                                .addComponent(lights_button)))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(panel_barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
@@ -737,6 +751,29 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     }//GEN-LAST:event_max_hands_buttonActionPerformed
 
+    private void lights_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_lights_buttonActionPerformed
+        // TODO add your handling code here:
+        if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
+
+            Helpers.playWavResource("misc/button_off.wav");
+            GameFrame.getInstance().getCapa_brillo().setBrightness(0.4f);
+            lights_button.setText(Translator.translate("LUCES OFF"));
+            lights_button.setBackground(new Color(0, 0, 0, 50));
+            lights_button.setForeground(Color.WHITE);
+
+        } else {
+
+            Helpers.playWavResource("misc/button_on.wav");
+            GameFrame.getInstance().getCapa_brillo().setBrightness(0f);
+            lights_button.setText(Translator.translate("LUCES ON"));
+            lights_button.setBackground(new Color(255, 255, 204));
+            lights_button.setForeground(null);
+
+        }
+
+        GameFrame.getInstance().getTapete().repaint();
+    }//GEN-LAST:event_lights_buttonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra_tiempo;
     private javax.swing.JLabel bet_label;
@@ -748,6 +785,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private javax.swing.JLabel hand_label;
     private javax.swing.JSpinner hand_limit_spinner;
     private javax.swing.JLabel last_hand_label;
+    private javax.swing.JButton lights_button;
     private javax.swing.JButton max_hands_button;
     private javax.swing.JPanel panel_barra;
     private javax.swing.JButton pause_button;

@@ -636,10 +636,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             min_raise = Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getUltimo_raise()) < 0 ? GameFrame.getInstance().getCrupier().getUltimo_raise() : Helpers.floatClean1D(GameFrame.getInstance().getCrupier().getCiega_grande());
 
-            desarmarBotonesAccion();
-
             Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
+
+                    desarmarBotonesAccion();
 
                     setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
@@ -765,50 +765,41 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.translateComponents(player_action, false);
 
                     setPlayerActionIcon("action/thinking.png");
-                }
-            });
 
-            if (auto_pause) {
-                GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
-                GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
-            }
+                    if (GameFrame.TEST_MODE) {
 
-            if (GameFrame.TEST_MODE) {
-
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-
-                        Helpers.pausar(GameFrame.TEST_MODE_PAUSE);
-
-                        ArrayList<JButton> botones = new ArrayList<>(Arrays.asList(new JButton[]{player_check_button, player_bet_button, player_allin_button, player_fold_button}));
-
-                        Iterator<JButton> iterator = botones.iterator();
-
-                        Helpers.GUIRunAndWait(new Runnable() {
+                        Helpers.threadRun(new Runnable() {
                             public void run() {
 
-                                while (iterator.hasNext()) {
-                                    JButton boton = iterator.next();
+                                Helpers.pausar(GameFrame.TEST_MODE_PAUSE);
 
-                                    if (!boton.isEnabled()) {
-                                        iterator.remove();
+                                ArrayList<JButton> botones = new ArrayList<>(Arrays.asList(new JButton[]{player_check_button, player_bet_button, player_allin_button, player_fold_button}));
+
+                                Iterator<JButton> iterator = botones.iterator();
+
+                                Helpers.GUIRunAndWait(new Runnable() {
+                                    public void run() {
+
+                                        while (iterator.hasNext()) {
+                                            JButton boton = iterator.next();
+
+                                            if (!boton.isEnabled()) {
+                                                iterator.remove();
+                                            }
+                                        }
+
+                                        int eleccion = Helpers.CSPRNG_GENERATOR.nextInt(botones.size());
+
+                                        botones.get(eleccion).doClick();
                                     }
-                                }
+                                });
 
-                                int eleccion = Helpers.CSPRNG_GENERATOR.nextInt(botones.size());
-
-                                botones.get(eleccion).doClick();
                             }
                         });
 
-                    }
-                });
-            } else {
+                    } else {
 
-                //Tiempo máximo para pensar
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
-
+                        //Tiempo máximo para pensar
                         response_counter = GameFrame.TIEMPO_PENSAR;
 
                         if (auto_action != null) {
@@ -909,7 +900,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         auto_action.start();
 
-                        if (GameFrame.AUTO_ACTION_BUTTONS && pre_pulsado != Player.NODEC) {
+                        if (!auto_pause && GameFrame.AUTO_ACTION_BUTTONS && pre_pulsado != Player.NODEC) {
 
                             if (pre_pulsado == Player.FOLD) {
 
@@ -935,13 +926,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         }
 
+                        if (auto_pause) {
+                            GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
+                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+                        }
+
                         revalidate();
                         repaint();
 
                     }
-                });
 
-            }
+                }
+            });
 
         } else {
 

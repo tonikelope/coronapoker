@@ -91,8 +91,7 @@ public class Init extends javax.swing.JFrame {
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
-        KeyStroke force_exit = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK);
-        actionMap.put(force_exit, new AbstractAction("FORCE_EXIT") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK), new AbstractAction("FORCE_EXIT") {
             @Override
             public void actionPerformed(ActionEvent e) {
 

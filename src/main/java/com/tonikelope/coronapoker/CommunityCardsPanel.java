@@ -36,6 +36,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private volatile Timer icon_zoom_timer = null;
     private final Object zoom_lock = new Object();
 
+    public JButton getLights_button() {
+        return lights_button;
+    }
+
     public JLabel getLast_hand_label() {
         return last_hand_label;
     }
@@ -756,9 +760,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
             Helpers.playWavResource("misc/button_off.wav");
-            GameFrame.getInstance().getCapa_brillo().setBrightness(0.4f);
+            GameFrame.getInstance().getCapa_brillo().setBrightness(0.3f);
             lights_button.setText(Translator.translate("LUCES OFF"));
-            lights_button.setBackground(new Color(0, 0, 0, 50));
+            lights_button.setBackground(new Color(102, 102, 102));
             lights_button.setForeground(Color.WHITE);
 
         } else {

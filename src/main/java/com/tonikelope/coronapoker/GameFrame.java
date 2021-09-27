@@ -777,40 +777,42 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
-        KeyStroke local_buyin = KeyStroke.getKeyStroke(KeyEvent.VK_S, 0);
-        actionMap.put(local_buyin, new AbstractAction("BUYIN") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0), new AbstractAction("BUYIN") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 GameFrame.getInstance().getLocalPlayer().player_stack_click();
             }
         });
 
-        KeyStroke key_pause = KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.ALT_DOWN_MASK);
-        actionMap.put(key_pause, new AbstractAction("PAUSE") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.ALT_DOWN_MASK), new AbstractAction("PAUSE") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
             }
         });
 
-        KeyStroke key_full_screen = KeyStroke.getKeyStroke(KeyEvent.VK_F, KeyEvent.ALT_DOWN_MASK);
-        actionMap.put(key_full_screen, new AbstractAction("FULL-SCREEN") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.ALT_DOWN_MASK), new AbstractAction("LIGHTS") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                GameFrame.getInstance().getTapete().getCommunityCards().getLights_button().doClick();
+            }
+        });
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, KeyEvent.ALT_DOWN_MASK), new AbstractAction("FULL-SCREEN") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 full_screen_menuActionPerformed(e);
             }
         });
 
-        KeyStroke compactCards = KeyStroke.getKeyStroke(KeyEvent.VK_X, KeyEvent.ALT_DOWN_MASK);
-        actionMap.put(compactCards, new AbstractAction("COMPACT-CARDS") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, KeyEvent.ALT_DOWN_MASK), new AbstractAction("COMPACT-CARDS") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 compact_menu.doClick();
             }
         });
 
-        KeyStroke key_zoom_in = KeyStroke.getKeyStroke(KeyEvent.VK_PLUS, KeyEvent.CTRL_DOWN_MASK);
-        actionMap.put(key_zoom_in, new AbstractAction("ZOOM-IN") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_PLUS, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("ZOOM-IN") {
             @Override
             public void actionPerformed(ActionEvent e) {
 
@@ -819,8 +821,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_zoom_out = KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, KeyEvent.CTRL_DOWN_MASK);
-        actionMap.put(key_zoom_out, new AbstractAction("ZOOM-OUT") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("ZOOM-OUT") {
             @Override
             public void actionPerformed(ActionEvent e) {
 
@@ -829,8 +830,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_zoom_reset = KeyStroke.getKeyStroke(KeyEvent.VK_0, KeyEvent.CTRL_DOWN_MASK);
-        actionMap.put(key_zoom_reset, new AbstractAction("ZOOM-RESET") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_0, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("ZOOM-RESET") {
             @Override
             public void actionPerformed(ActionEvent e) {
 
@@ -839,24 +839,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_sound = KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK);
-        actionMap.put(key_sound, new AbstractAction("SOUND") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK), new AbstractAction("SOUND") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 sonidos_menu.doClick();
             }
         });
 
-        KeyStroke key_chat = KeyStroke.getKeyStroke(KeyEvent.VK_C, KeyEvent.ALT_DOWN_MASK);
-        actionMap.put(key_chat, new AbstractAction("CHAT") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, KeyEvent.ALT_DOWN_MASK), new AbstractAction("CHAT") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 chat_menuActionPerformed(e);
             }
         });
 
-        KeyStroke key_fast_chat = KeyStroke.getKeyStroke('º');
-        actionMap.put(key_fast_chat, new AbstractAction("FASTCHAT") {
+        actionMap.put(KeyStroke.getKeyStroke('º'), new AbstractAction("FASTCHAT") {
             @Override
             public void actionPerformed(ActionEvent e) {
 
@@ -869,24 +866,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_registro = KeyStroke.getKeyStroke(KeyEvent.VK_R, KeyEvent.ALT_DOWN_MASK);
-        actionMap.put(key_registro, new AbstractAction("REGISTRO") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_R, KeyEvent.ALT_DOWN_MASK), new AbstractAction("REGISTRO") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 registro_menuActionPerformed(e);
             }
         });
 
-        KeyStroke key_time = KeyStroke.getKeyStroke(KeyEvent.VK_W, KeyEvent.ALT_DOWN_MASK);
-        actionMap.put(key_time, new AbstractAction("RELOJ") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, KeyEvent.ALT_DOWN_MASK), new AbstractAction("RELOJ") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 time_menu.doClick();
             }
         });
 
-        KeyStroke key_fold = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
-        actionMap.put(key_fold, new AbstractAction("FOLD-BUTTON") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), new AbstractAction("FOLD-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
@@ -895,8 +889,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_check = KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0);
-        actionMap.put(key_check, new AbstractAction("CHECK-BUTTON") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), new AbstractAction("CHECK-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
@@ -910,8 +903,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_bet = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
-        actionMap.put(key_bet, new AbstractAction("BET-BUTTON") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), new AbstractAction("BET-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
@@ -920,8 +912,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_allin = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.SHIFT_DOWN_MASK);
-        actionMap.put(key_allin, new AbstractAction("ALLIN-BUTTON") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("ALLIN-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano() && !GameFrame.getInstance().getLocalPlayer().isBoton_mostrar()) {
@@ -930,8 +921,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_bet_left = KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0);
-        actionMap.put(key_bet_left, new AbstractAction("BET-LEFT") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), new AbstractAction("BET-LEFT") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
@@ -948,8 +938,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_bet_down = KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0);
-        actionMap.put(key_bet_down, new AbstractAction("BET-DOWN") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), new AbstractAction("BET-DOWN") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
@@ -963,8 +952,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_bet_right = KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0);
-        actionMap.put(key_bet_right, new AbstractAction("BET-RIGHT") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), new AbstractAction("BET-RIGHT") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
@@ -978,8 +966,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        KeyStroke key_bet_up = KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0);
-        actionMap.put(key_bet_up, new AbstractAction("BET-UP") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), new AbstractAction("BET-UP") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
@@ -1831,24 +1818,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
-                KeyStroke key_exit = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
-                actionMap.put(key_exit, new AbstractAction("EXIT") {
+                actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), new AbstractAction("EXIT") {
                     @Override
                     public void actionPerformed(ActionEvent e) {
                         System.exit(0);
                     }
                 });
 
-                KeyStroke key_exit2 = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
-                actionMap.put(key_exit2, new AbstractAction("EXIT2") {
+                actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), new AbstractAction("EXIT2") {
                     @Override
                     public void actionPerformed(ActionEvent e) {
                         System.exit(0);
                     }
                 });
 
-                KeyStroke key_exit3 = KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0);
-                actionMap.put(key_exit3, new AbstractAction("EXIT3") {
+                actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), new AbstractAction("EXIT3") {
                     @Override
                     public void actionPerformed(ActionEvent e) {
                         System.exit(0);

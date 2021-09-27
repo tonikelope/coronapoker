@@ -130,7 +130,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
-    public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "true"));
+    public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "false"));
     public static volatile boolean LOCAL_POSITION_CHIP = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("local_pos_chip", "true"));
     public static volatile String SERVER_HISTORY = Helpers.PROPERTIES.getProperty("server_history", "");
     public static volatile boolean RECOVER = false;

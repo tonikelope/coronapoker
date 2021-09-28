@@ -31,28 +31,28 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+        tts_panel.getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
 
-        message.setText("[" + nick + (msg != null ? "]: " + msg : "]"));
+        tts_panel.getMessage().setText("[" + nick + (msg != null ? "]: " + msg : "]"));
 
         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
 
             if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
 
-                message.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+                tts_panel.getMessage().setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
             } else {
 
-                message.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+                tts_panel.getMessage().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
             }
         } else {
 
             if (GameFrame.getInstance().getParticipantes().get(nick).getAvatar() != null) {
 
-                message.setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath()).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+                tts_panel.getMessage().setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath()).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
 
             } else {
 
-                message.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+                tts_panel.getMessage().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
             }
 
         }
@@ -68,11 +68,11 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(!tts ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+        tts_panel.getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(!tts ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
 
-        message.setText(tts ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR");
+        tts_panel.getMessage().setText(tts ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR");
 
-        jPanel1.setBackground(tts ? new Color(102, 102, 102) : Color.RED);
+        tts_panel.setBackground(tts ? new Color(102, 102, 102) : Color.RED);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
@@ -106,9 +106,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jPanel1 = new javax.swing.JPanel();
-        message = new javax.swing.JLabel();
-        sound_icon = new javax.swing.JLabel();
+        tts_panel = new com.tonikelope.coronapoker.TTSNotifyPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setAutoRequestFocus(false);
@@ -123,45 +121,15 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
             }
         });
 
-        jPanel1.setBackground(new java.awt.Color(102, 102, 102));
-
-        message.setFont(new java.awt.Font("Dialog", 1, 32)); // NOI18N
-        message.setForeground(new java.awt.Color(255, 255, 255));
-        message.setText("TEXT");
-        message.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        message.setDoubleBuffered(true);
-        message.setFocusable(false);
-
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(sound_icon)
-                .addGap(0, 0, 0)
-                .addComponent(message, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGap(0, 0, 0))
-        );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(message, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(0, 0, 0))
-        );
-
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(tts_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(tts_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();
@@ -188,8 +156,6 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_formMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JLabel message;
-    private javax.swing.JLabel sound_icon;
+    private com.tonikelope.coronapoker.TTSNotifyPanel tts_panel;
     // End of variables declaration//GEN-END:variables
 }

@@ -44,7 +44,21 @@ public class FastChatDialog extends javax.swing.JDialog {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
+                if (GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f) {
+                    chat_panel.setBackground(Color.DARK_GRAY);
+                    chat_box.setBackground(Color.DARK_GRAY);
+                    chat_box.setForeground(Color.WHITE);
+                } else {
+                    chat_panel.setBackground(Color.WHITE);
+                    chat_box.setForeground(null);
+                    chat_box.setBackground(null);
+                }
+
                 chat_panel.setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
+
+                chat_panel.revalidate();
+
+                chat_panel.repaint();
 
                 setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
 
@@ -190,15 +204,24 @@ public class FastChatDialog extends javax.swing.JDialog {
 
             if (chat_box.getText().length() <= Helpers.MAX_TTS_LENGTH) {
 
-                if (chat_box.getBackground() != Color.WHITE) {
-                    chat_box.setBackground(Color.WHITE);
+                if (chat_box.getBackground() != Color.WHITE || chat_box.getBackground() != Color.DARK_GRAY) {
+                    if (GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f) {
+                        chat_panel.setBackground(Color.DARK_GRAY);
+                        chat_box.setBackground(Color.DARK_GRAY);
+                        chat_box.setForeground(Color.WHITE);
+                    } else {
+                        chat_panel.setBackground(Color.WHITE);
+                        chat_box.setForeground(null);
+                        chat_box.setBackground(null);
+                    }
                 }
 
-            } else {
-                if (chat_box.getBackground() != Color.YELLOW) {
-                    chat_box.setBackground(Color.YELLOW);
-                }
+            } else if (chat_box.getBackground() != Color.YELLOW) {
+                chat_box.setBackground(Color.YELLOW);
             }
+
+            chat_panel.revalidate();
+            chat_panel.repaint();
         }
     }//GEN-LAST:event_chat_boxKeyPressed
 
@@ -246,6 +269,18 @@ public class FastChatDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         if (!this.isVisible()) {
             GameFrame.getInstance().getFastchat_dialog().getChat_box().grabFocus();
+        } else {
+            if (GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f) {
+                chat_panel.setBackground(Color.DARK_GRAY);
+                chat_box.setBackground(Color.DARK_GRAY);
+                chat_box.setForeground(Color.WHITE);
+            } else {
+                chat_panel.setBackground(Color.WHITE);
+                chat_box.setForeground(null);
+                chat_box.setBackground(null);
+            }
+            chat_panel.revalidate();
+            chat_panel.repaint();
         }
     }//GEN-LAST:event_chat_boxFocusGained
 

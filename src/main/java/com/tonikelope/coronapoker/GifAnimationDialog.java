@@ -6,7 +6,6 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Dimension;
-import java.awt.Image;
 import javax.swing.ImageIcon;
 
 /**
@@ -45,9 +44,11 @@ public class GifAnimationDialog extends javax.swing.JDialog {
             }
             height = Math.round(height * (100 - (i - 1) * 0.1f));
         }
-        gif.setIcon(new ImageIcon(icon.getImage().getScaledInstance(width, height, Image.SCALE_DEFAULT)));
-        gif.setPreferredSize(new Dimension(width, height));
+
+        gif_panel.setGifIcon(icon, width, height);
+
         setPreferredSize(new Dimension(width, height));
+
         pack();
 
         if (timeout != null) {
@@ -77,34 +78,34 @@ public class GifAnimationDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        gif = new javax.swing.JLabel();
+        gif_panel = new com.tonikelope.coronapoker.GifPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setFocusCycleRoot(false);
-        setFocusTraversalPolicy(null);
         setFocusable(false);
         setFocusableWindowState(false);
         setUndecorated(true);
         setResizable(false);
 
-        gif.setDoubleBuffered(true);
-        gif.setFocusable(false);
-
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(gif, javax.swing.GroupLayout.DEFAULT_SIZE, 506, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(gif_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(gif, javax.swing.GroupLayout.DEFAULT_SIZE, 406, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(gif_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JLabel gif;
+    private com.tonikelope.coronapoker.GifPanel gif_panel;
     // End of variables declaration//GEN-END:variables
 }

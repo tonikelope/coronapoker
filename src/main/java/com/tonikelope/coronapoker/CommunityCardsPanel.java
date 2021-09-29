@@ -471,6 +471,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         lights_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         lights_button.setText("LUCES ON");
         lights_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lights_button.setDoubleBuffered(true);
+        lights_button.setFocusable(false);
         lights_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 lights_buttonActionPerformed(evt);

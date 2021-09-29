@@ -1219,7 +1219,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
-                    frame.getContentPane().remove(tapete);
+                    frame.getContentPane().remove(frame_layer);
 
                     tapete = nuevo_tapete;
 

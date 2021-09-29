@@ -759,6 +759,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     private void lights_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_lights_buttonActionPerformed
         // TODO add your handling code here:
+
         if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
             Helpers.playWavResource("misc/button_off.wav");
@@ -776,6 +777,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             lights_button.setForeground(null);
 
         }
+
+        GameFrame.getInstance().getFastchat_dialog().refreshLightButton();
 
         GameFrame.getInstance().getTapete().repaint();
     }//GEN-LAST:event_lights_buttonActionPerformed

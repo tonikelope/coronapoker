@@ -125,7 +125,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
     public static volatile boolean VISTA_COMPACTA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("vista_compacta", "true")) && !TEST_MODE;
-    public static volatile boolean ANIMACION_REPARTIR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "false"));
+    public static volatile boolean ANIMACION_REPARTIR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
     public static volatile boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
@@ -179,6 +179,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile int tapete_counter = 0;
     private volatile int i60_c = 0;
     private volatile JLayer<JComponent> frame_layer = null;
+    private volatile boolean retry = false;
+
+    public static synchronized void resetInstance() {
+        THIS = null;
+    }
 
     public BrightnessLayerUI getCapa_brillo() {
         return capa_brillo;
@@ -1681,6 +1686,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Helpers.muteAllWav();
 
+            Helpers.stopAllWavResources();
+
             GameFrame.getInstance().getTapete().hideALL();
 
             if (this.getLocalPlayer().getAuto_action() != null) {
@@ -1793,6 +1800,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
+
                         BalanceDialog balance = new BalanceDialog(getFrame(), true);
 
                         balance.setPreferredSize(new Dimension(Math.round(balance.getWidth() * 1.10f), Math.round(0.9f * getFrame().getHeight())));
@@ -1802,6 +1810,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         balance.setLocationRelativeTo(getFrame());
 
                         balance.setVisible(true);
+
+                        retry = balance.isRetry();
                     }
                 });
             }
@@ -1814,103 +1824,153 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.UPnPClose(getSala_espera().getServer_port());
             }
 
-            if (partida_terminada && GameFrame.CINEMATICAS) {
+            if (retry) {
+                RETRY();
+            } else {
+                BYEBYE(partida_terminada);
+            }
+        }
+    }
 
-                HashMap<KeyStroke, Action> actionMap = new HashMap<>();
+    private void BYEBYE(boolean partida_terminada) {
 
-                actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), new AbstractAction("EXIT") {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        System.exit(0);
-                    }
-                });
+        if (partida_terminada && GameFrame.CINEMATICAS) {
 
-                actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), new AbstractAction("EXIT2") {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        System.exit(0);
-                    }
-                });
+            HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
-                actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), new AbstractAction("EXIT3") {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        System.exit(0);
-                    }
-                });
-
-                KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-
-                if (GameFrame.key_event_dispatcher != null) {
-                    kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
+            actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), new AbstractAction("EXIT") {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    System.exit(0);
                 }
+            });
 
-                GameFrame.key_event_dispatcher = new KeyEventDispatcher() {
-
-                    @Override
-                    public boolean dispatchKeyEvent(KeyEvent e) {
-                        KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-
-                        if (actionMap.containsKey(keyStroke)) {
-                            final Action a = actionMap.get(keyStroke);
-                            final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
-
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
-                                    a.actionPerformed(ae);
-                                }
-                            });
-
-                            return true;
-                        }
-
-                        return false;
-                    }
-                };
-
-                kfm.addKeyEventDispatcher(GameFrame.key_event_dispatcher);
-
-                final ImageIcon icon;
-
-                if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif"))) {
-                    icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif");
-                } else if (getClass().getResource("/cinematics/misc/end.gif") != null) {
-                    icon = new ImageIcon(getClass().getResource("/cinematics/misc/end.gif"));
-                } else {
-                    icon = null;
+            actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), new AbstractAction("EXIT2") {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    System.exit(0);
                 }
+            });
 
-                if (icon != null) {
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon);
-
-                            gif_dialog.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-                            gif_dialog.addMouseListener(new MouseAdapter() {
-                                @Override
-                                public void mouseClicked(MouseEvent e) {
-                                    {
-                                        System.exit(0);
-                                    }
-                                }
-                            });
-
-                            gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                            gif_dialog.setVisible(true);
-                        }
-                    });
+            actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), new AbstractAction("EXIT3") {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    System.exit(0);
                 }
+            });
 
-                Helpers.muteAllLoopMp3();
+            KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 
-                Helpers.playWavResourceAndWait("misc/end.wav");
+            if (GameFrame.key_event_dispatcher != null) {
+                kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
             }
 
-            System.exit(0); //No hay otra
+            GameFrame.key_event_dispatcher = new KeyEventDispatcher() {
+
+                @Override
+                public boolean dispatchKeyEvent(KeyEvent e) {
+                    KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
+
+                    if (actionMap.containsKey(keyStroke)) {
+                        final Action a = actionMap.get(keyStroke);
+                        final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                a.actionPerformed(ae);
+                            }
+                        });
+
+                        return true;
+                    }
+
+                    return false;
+                }
+            };
+
+            kfm.addKeyEventDispatcher(GameFrame.key_event_dispatcher);
+
+            final ImageIcon icon;
+
+            if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif"))) {
+                icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif");
+            } else if (getClass().getResource("/cinematics/misc/end.gif") != null) {
+                icon = new ImageIcon(getClass().getResource("/cinematics/misc/end.gif"));
+            } else {
+                icon = null;
+            }
+
+            if (icon != null) {
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon);
+
+                        gif_dialog.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                        gif_dialog.addMouseListener(new MouseAdapter() {
+                            @Override
+                            public void mouseClicked(MouseEvent e) {
+                                {
+                                    System.exit(0);
+                                }
+                            }
+                        });
+
+                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                        gif_dialog.setVisible(true);
+                    }
+                });
+            }
+
+            Helpers.muteAllLoopMp3();
+
+            Helpers.playWavResourceAndWait("misc/end.wav", true, true);
         }
+
+        System.exit(0);
+    }
+
+    private void RETRY() {
+
+        WaitingRoomFrame.getInstance().setExit(true);
+
+        if (WaitingRoomFrame.getInstance().isServer()) {
+            WaitingRoomFrame.getInstance().closeServerSocket();
+        } else {
+            WaitingRoomFrame.getInstance().closeClientSocket();
+        }
+
+        WaitingRoomFrame.getInstance().dispose();
+
+        WaitingRoomFrame.resetInstance();
+
+        dispose();
+
+        GameFrame.resetInstance();
+
+        Helpers.stopAllCurrentLoopMp3Resource();
+
+        Helpers.stopAllWavResources();
+
+        if (!GameFrame.SONIDOS) {
+
+            Helpers.muteAll();
+
+        } else {
+
+            Helpers.unMuteAll();
+
+        }
+
+        Helpers.playLoopMp3Resource("misc/background_music.mp3");
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                Init.VENTANA_INICIO.setVisible(true);
+            }
+        });
     }
 
     public Timer getTiempo_juego() {

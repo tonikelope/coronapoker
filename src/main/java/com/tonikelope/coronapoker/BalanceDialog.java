@@ -22,6 +22,12 @@ import javax.swing.JLabel;
  */
 public class BalanceDialog extends javax.swing.JDialog {
 
+    private volatile boolean retry = false;
+
+    public boolean isRetry() {
+        return retry;
+    }
+
     /**
      * Creates new form BalanceDialog
      */
@@ -30,7 +36,7 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        ok_button.requestFocus();
+        exit_button.requestFocus();
 
         jScrollPane1.getVerticalScrollBar().setUnitIncrement(20);
 
@@ -98,11 +104,13 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
-        ok_button2.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/log.png")).getImage().getScaledInstance(ok_button2.getHeight(), ok_button2.getHeight(), Image.SCALE_SMOOTH)));
+        log_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/log.png")).getImage().getScaledInstance(log_button.getHeight(), log_button.getHeight(), Image.SCALE_SMOOTH)));
 
-        ok_button1.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/stats.png")).getImage().getScaledInstance(ok_button1.getHeight(), ok_button1.getHeight(), Image.SCALE_SMOOTH)));
+        stats_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/stats.png")).getImage().getScaledInstance(stats_button.getHeight(), stats_button.getHeight(), Image.SCALE_SMOOTH)));
 
-        ok_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/exit.png")).getImage().getScaledInstance(ok_button.getHeight(), ok_button.getHeight(), Image.SCALE_SMOOTH)));
+        exit_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/exit.png")).getImage().getScaledInstance(exit_button.getHeight(), exit_button.getHeight(), Image.SCALE_SMOOTH)));
+
+        retry_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/start.png")).getImage().getScaledInstance(retry_button.getHeight(), retry_button.getHeight(), Image.SCALE_SMOOTH)));
 
         pack();
 
@@ -129,9 +137,10 @@ public class BalanceDialog extends javax.swing.JDialog {
         title = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         jugadores = new javax.swing.JPanel();
-        ok_button = new javax.swing.JButton();
-        ok_button1 = new javax.swing.JButton();
-        ok_button2 = new javax.swing.JButton();
+        exit_button = new javax.swing.JButton();
+        stats_button = new javax.swing.JButton();
+        log_button = new javax.swing.JButton();
+        retry_button = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setUndecorated(true);
@@ -157,40 +166,53 @@ public class BalanceDialog extends javax.swing.JDialog {
         jugadores.setLayout(new java.awt.GridLayout(0, 1));
         jScrollPane1.setViewportView(jugadores);
 
-        ok_button.setBackground(new java.awt.Color(255, 0, 0));
-        ok_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        ok_button.setForeground(new java.awt.Color(255, 255, 255));
-        ok_button.setText("SALIR");
-        ok_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        ok_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        ok_button.setDoubleBuffered(true);
-        ok_button.addActionListener(new java.awt.event.ActionListener() {
+        exit_button.setBackground(new java.awt.Color(255, 0, 0));
+        exit_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        exit_button.setForeground(new java.awt.Color(255, 255, 255));
+        exit_button.setText("SALIR");
+        exit_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        exit_button.setDoubleBuffered(true);
+        exit_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ok_buttonActionPerformed(evt);
+                exit_buttonActionPerformed(evt);
             }
         });
 
-        ok_button1.setBackground(new java.awt.Color(255, 153, 51));
-        ok_button1.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        ok_button1.setForeground(new java.awt.Color(255, 255, 255));
-        ok_button1.setText("ESTADÍSTICAS");
-        ok_button1.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        ok_button1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        ok_button1.setDoubleBuffered(true);
-        ok_button1.addActionListener(new java.awt.event.ActionListener() {
+        stats_button.setBackground(new java.awt.Color(255, 153, 51));
+        stats_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        stats_button.setForeground(new java.awt.Color(255, 255, 255));
+        stats_button.setText("ESTADÍSTICAS");
+        stats_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        stats_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        stats_button.setDoubleBuffered(true);
+        stats_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ok_button1ActionPerformed(evt);
+                stats_buttonActionPerformed(evt);
             }
         });
 
-        ok_button2.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        ok_button2.setText("REGISTRO DE LA TIMBA");
-        ok_button2.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        ok_button2.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        ok_button2.setDoubleBuffered(true);
-        ok_button2.addActionListener(new java.awt.event.ActionListener() {
+        log_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        log_button.setText("REGISTRO DE LA TIMBA");
+        log_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        log_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        log_button.setDoubleBuffered(true);
+        log_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ok_button2ActionPerformed(evt);
+                log_buttonActionPerformed(evt);
+            }
+        });
+
+        retry_button.setBackground(new java.awt.Color(0, 153, 255));
+        retry_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        retry_button.setForeground(new java.awt.Color(255, 255, 255));
+        retry_button.setText("OTRA TIMBA");
+        retry_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        retry_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        retry_button.setDoubleBuffered(true);
+        retry_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                retry_buttonActionPerformed(evt);
             }
         });
 
@@ -200,9 +222,12 @@ public class BalanceDialog extends javax.swing.JDialog {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jScrollPane1)
-            .addComponent(ok_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(ok_button1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(ok_button2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(retry_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addComponent(stats_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(log_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -211,22 +236,24 @@ public class BalanceDialog extends javax.swing.JDialog {
                 .addGap(0, 0, 0)
                 .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(ok_button2)
+                .addComponent(log_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(ok_button1)
+                .addComponent(stats_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(ok_button))
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(exit_button)
+                    .addComponent(retry_button)))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void ok_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ok_buttonActionPerformed
+    private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
         // TODO add your handling code here:
         dispose();
-    }//GEN-LAST:event_ok_buttonActionPerformed
+    }//GEN-LAST:event_exit_buttonActionPerformed
 
-    private void ok_button1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ok_button1ActionPerformed
+    private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
         // TODO add your handling code here:
         StatsDialog dialog = new StatsDialog(GameFrame.getInstance().getFrame(), true);
 
@@ -237,9 +264,9 @@ public class BalanceDialog extends javax.swing.JDialog {
         dialog.setLocationRelativeTo(this);
 
         dialog.setVisible(true);
-    }//GEN-LAST:event_ok_button1ActionPerformed
+    }//GEN-LAST:event_stats_buttonActionPerformed
 
-    private void ok_button2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ok_button2ActionPerformed
+    private void log_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_log_buttonActionPerformed
         // TODO add your handling code here:
         GameFrame.getInstance().getRegistro_dialog().setPreferredSize(new Dimension(Math.round(0.7f * GameFrame.getInstance().getFrame().getWidth()), Math.round(0.7f * GameFrame.getInstance().getFrame().getHeight())));
 
@@ -250,14 +277,21 @@ public class BalanceDialog extends javax.swing.JDialog {
         GameFrame.getInstance().getRegistro_dialog().setModal(true);
 
         GameFrame.getInstance().getRegistro_dialog().setVisible(true);
-    }//GEN-LAST:event_ok_button2ActionPerformed
+    }//GEN-LAST:event_log_buttonActionPerformed
+
+    private void retry_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_retry_buttonActionPerformed
+        // TODO add your handling code here:
+        retry = true;
+        dispose();
+    }//GEN-LAST:event_retry_buttonActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton exit_button;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JPanel jugadores;
-    private javax.swing.JButton ok_button;
-    private javax.swing.JButton ok_button1;
-    private javax.swing.JButton ok_button2;
+    private javax.swing.JButton log_button;
+    private javax.swing.JButton retry_button;
+    private javax.swing.JButton stats_button;
     private javax.swing.JLabel title;
     // End of variables declaration//GEN-END:variables
 }

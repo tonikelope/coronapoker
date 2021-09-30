@@ -72,6 +72,7 @@ public class Init extends javax.swing.JFrame {
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final int ANTI_SCREENSAVER_KEY = KeyEvent.VK_ALT;
     public static volatile Boolean ANTI_SCREENSAVER_KEY_PRESSED = false;
+    public static volatile Init VENTANA_INICIO = null;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private volatile int k = 0;
     private volatile GifAnimationDialog gif_dialog = null;
@@ -652,6 +653,8 @@ public class Init extends javax.swing.JFrame {
             Helpers.playLoopMp3Resource("misc/background_music.mp3");
 
             Init ventana = new Init();
+
+            VENTANA_INICIO = ventana;
 
             Helpers.GUIRun(new Runnable() {
                 @Override

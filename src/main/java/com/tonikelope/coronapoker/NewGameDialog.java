@@ -1026,7 +1026,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 this.dialog_ok = true;
 
-                WaitingRoomFrame espera = new WaitingRoomFrame((Init) getParent(), partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()), upnp_checkbox.isSelected());
+                WaitingRoomFrame espera = new WaitingRoomFrame(partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()), upnp_checkbox.isSelected());
 
                 espera.setLocationRelativeTo(this);
 

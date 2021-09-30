@@ -182,6 +182,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean retry = false;
 
     public static synchronized void resetInstance() {
+        THIS.dispose();
         THIS = null;
     }
 
@@ -1934,43 +1935,49 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void RETRY() {
 
-        WaitingRoomFrame.getInstance().setExit(true);
-
-        if (WaitingRoomFrame.getInstance().isServer()) {
-            WaitingRoomFrame.getInstance().closeServerSocket();
-        } else {
-            WaitingRoomFrame.getInstance().closeClientSocket();
-        }
-
-        WaitingRoomFrame.getInstance().dispose();
-
-        WaitingRoomFrame.resetInstance();
-
-        dispose();
-
-        GameFrame.resetInstance();
-
-        Helpers.stopAllCurrentLoopMp3Resource();
-
-        Helpers.stopAllWavResources();
-
-        if (!GameFrame.SONIDOS) {
-
-            Helpers.muteAll();
-
-        } else {
-
-            Helpers.unMuteAll();
-
-        }
-
-        Helpers.playLoopMp3Resource("misc/background_music.mp3");
-
-        Helpers.GUIRunAndWait(new Runnable() {
+        new Thread(new Runnable() {
             public void run() {
-                Init.VENTANA_INICIO.setVisible(true);
+
+                Helpers.stopAllCurrentLoopMp3Resource();
+
+                Helpers.stopAllWavResources();
+
+                WaitingRoomFrame.getInstance().setExit(true);
+
+                if (WaitingRoomFrame.getInstance().isServer()) {
+                    WaitingRoomFrame.getInstance().closeServerSocket();
+                } else {
+                    WaitingRoomFrame.getInstance().closeClientSocket();
+                }
+
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+                        WaitingRoomFrame.resetInstance();
+                        GameFrame.resetInstance();
+                    }
+                });
+
+                Helpers.SHUTDOWN_THREAD_POOL();
+
+                if (!GameFrame.SONIDOS) {
+
+                    Helpers.muteAll();
+
+                } else {
+
+                    Helpers.unMuteAll();
+
+                }
+
+                Helpers.playLoopMp3Resource("misc/background_music.mp3");
+
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+                        Init.VENTANA_INICIO.setVisible(true);
+                    }
+                });
             }
-        });
+        }).start();
     }
 
     public Timer getTiempo_juego() {

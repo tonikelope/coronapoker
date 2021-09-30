@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -162,7 +163,7 @@ import org.xml.sax.SAXException;
  */
 public class Helpers {
 
-    public static final ThreadPoolExecutor THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+    public static volatile ThreadPoolExecutor THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
     public static final float MASTER_VOLUME = 0.8f;
@@ -257,6 +258,15 @@ public class Helpers {
         }
 
         return "MjEvMTIvMTk4NA==";
+    }
+
+    public static void SHUTDOWN_THREAD_POOL() {
+
+        THREAD_POOL.shutdown();
+
+        THREAD_POOL.shutdownNow();
+
+        THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
     }
 
     public static boolean UPnPClose(int port) {
@@ -2465,44 +2475,26 @@ public class Helpers {
 
     public static void GUIRun(Runnable r) {
 
-        boolean ok;
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(r);
+        } else {
+            r.run();
+        }
 
-        do {
-            ok = true;
-
-            try {
-                if (!SwingUtilities.isEventDispatchThread()) {
-                    SwingUtilities.invokeLater(r);
-                } else {
-                    r.run();
-                }
-            } catch (Exception ex) {
-                ok = false;
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                Helpers.pausar(250);
-            }
-
-        } while (!ok);
     }
 
     public static void GUIRunAndWait(Runnable r) {
 
-        boolean ok;
-
-        do {
-            ok = true;
-            try {
-                if (!SwingUtilities.isEventDispatchThread()) {
-                    SwingUtilities.invokeAndWait(r);
-                } else {
-                    r.run();
-                }
-            } catch (Exception ex) {
-                ok = false;
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                Helpers.pausar(250);
+        try {
+            if (!SwingUtilities.isEventDispatchThread()) {
+                SwingUtilities.invokeAndWait(r);
+            } else {
+                r.run();
             }
-        } while (!ok);
+        } catch (InterruptedException | InvocationTargetException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
     }
 
     public static Future threadRun(Runnable r) {

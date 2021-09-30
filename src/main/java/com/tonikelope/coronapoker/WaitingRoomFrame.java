@@ -143,7 +143,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
     }
 
-    public static synchronized void resetInstance() {
+    public static void resetInstance() {
+        THIS.dispose();
         THIS = null;
     }
 

@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -77,10 +78,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public static final int MAX_PING_PONG_ERROR = 3;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
-    private static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_game_notifications", "true"));
+    public static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_game_notifications", "true"));
     private static volatile WaitingRoomFrame THIS = null;
 
-    private final Init ventana_inicio;
     private final File local_avatar;
     private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
     private final Object local_client_socket_lock = new Object();
@@ -116,16 +116,43 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile String password = null;
     private volatile boolean exit = false;
 
+    public void setExit(boolean exit) {
+        this.exit = exit;
+    }
+
+    public void closeServerSocket() {
+
+        if (server_socket != null) {
+            try {
+                server_socket.close();
+            } catch (Exception ex) {
+                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+    }
+
+    public void closeClientSocket() {
+
+        if (local_client_socket != null) {
+            try {
+                local_client_socket.close();
+            } catch (Exception ex) {
+                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    public static synchronized void resetInstance() {
+        THIS = null;
+    }
+
     public JCheckBox getChat_notifications() {
         return chat_notifications;
     }
 
     public JLabel getTts_warning() {
         return tts_warning;
-    }
-
-    public static boolean isCHAT_GAME_NOTIFICATIONS() {
-        return CHAT_GAME_NOTIFICATIONS;
     }
 
     public boolean isChat_enabled() {
@@ -281,10 +308,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     /**
      * Creates new form SalaEspera
      */
-    public WaitingRoomFrame(Init ventana_ini, boolean local, String nick, String servidor_ip_port, File avatar, String pass, boolean use_upnp) {
+    public WaitingRoomFrame(boolean local, String nick, String servidor_ip_port, File avatar, String pass, boolean use_upnp) {
         THIS = this;
         upnp = use_upnp;
-        ventana_inicio = ventana_ini;
         server = local;
         local_nick = nick;
         server_ip_port = servidor_ip_port;
@@ -1565,7 +1591,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
 
-                        ventana_inicio.setVisible(true);
+                        Init.VENTANA_INICIO.setVisible(true);
 
                         dispose();
                     }
@@ -1954,7 +1980,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         booting = false;
 
-                        server_socket = new ServerSocket(server_port);
+                        server_socket = new ServerSocket();
+
+                        server_socket.setReuseAddress(true);
+
+                        server_socket.bind(new InetSocketAddress(server_port));
 
                         while (!server_socket.isClosed()) {
 
@@ -1983,7 +2013,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
 
-                        ventana_inicio.setVisible(true);
+                        Init.VENTANA_INICIO.setVisible(true);
 
                         dispose();
                     }
@@ -2008,7 +2038,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     chat.setCaretPosition(chat.getText().length());
                 }
 
-                if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive() && isCHAT_GAME_NOTIFICATIONS()) {
+                if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive() && WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
 
                     Helpers.TTS_CHAT_QUEUE.add(new Object[]{nick, msg});
 
@@ -2755,6 +2785,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     if (exit || reconnecting) {
 
                         if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+                            exit = true;
+                            Helpers.savePropertiesFile();
                             System.exit(1);
                         }
 
@@ -2778,13 +2810,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                     });
 
-                                    if (getServer_socket() != null) {
-                                        try {
-                                            getServer_socket().close();
-                                        } catch (Exception ex) {
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
-                                    }
+                                    closeServerSocket();
 
                                 } else if (local_client_socket != null && !reconnecting) {
 
@@ -2804,6 +2830,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 }
 
             } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+                exit = true;
+                Helpers.savePropertiesFile();
                 System.exit(1);
             }
         }
@@ -2826,11 +2854,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         } else {
 
-            Helpers.MUTED_ALL = false;
-
-            Helpers.unmuteLoopMp3("misc/waiting_room.mp3");
-
-            Helpers.unmuteAllWav();
+            Helpers.unMuteAll();
 
         }
     }//GEN-LAST:event_sound_iconMouseClicked

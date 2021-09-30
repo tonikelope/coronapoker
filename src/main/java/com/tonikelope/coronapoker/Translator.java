@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"OTRA TIMBA", "RETRY"},
             {"LUCES ON", "LIGHTS ON"},
             {"LUCES OFF", "LIGHTS OFF"},
             {"PREPARANDO ACTUALIZACIÓN...", "PREPARING UPDATE..."},

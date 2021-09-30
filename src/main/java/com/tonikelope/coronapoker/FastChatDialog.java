@@ -174,7 +174,7 @@ public class FastChatDialog extends javax.swing.JDialog {
 
             setVisible(false);
 
-            if (WaitingRoomFrame.isCHAT_GAME_NOTIFICATIONS()) {
+            if (WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
 
                 Helpers.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), mensaje});
 

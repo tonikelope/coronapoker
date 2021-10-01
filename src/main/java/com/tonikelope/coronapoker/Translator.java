@@ -22,6 +22,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Click para copiar enlace", "Click to copy link"},
+            {"¡ENLACE COPIADO EN EL PORTAPAPELES!", "LINK COPIED TO CLIPBOARD!"},
             {"OTRA TIMBA", "RETRY"},
             {"LUCES ON", "LIGHTS ON"},
             {"LUCES OFF", "LIGHTS OFF"},
@@ -48,7 +50,7 @@ public class Translator {
             {"Reglas de Robert", "Robert's Rules"},
             {"HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO", "THERE PLAYERS WHO HAVE NOT CONFIRMED THE NEW HAND"},
             {"CLICK PARA VER SU BUYIN", "CLICK TO SHOW BUYIN"},
-            {"Notificaciones durante el juego", "In-game notifications"},
+            {"Notificaciones del chat durante el juego", "In-game chat notifications"},
             {"REGISTRO DE LA TIMBA", "GAME LOG"},
             {"ESPACIO", "SPACE"},
             {"MAYÚS", "SHIFT"},

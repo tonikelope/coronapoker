@@ -164,6 +164,7 @@ import org.xml.sax.SAXException;
 public class Helpers {
 
     public static volatile ThreadPoolExecutor THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+    public static final int THREAD_POOL_SHUTDOWN_TIMEOUT = 5;
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
     public static final float MASTER_VOLUME = 0.8f;
@@ -264,9 +265,14 @@ public class Helpers {
 
         THREAD_POOL.shutdown();
 
+        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "FORCING THREAD-POOL SHUTDOWN (you can ignore interrupted exceptions, if any)");
+
         THREAD_POOL.shutdownNow();
 
         THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+
+        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "NEW THREAD-POOL CREATED. LET'S GO!");
+
     }
 
     public static boolean UPnPClose(int port) {

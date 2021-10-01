@@ -35,21 +35,30 @@ public class FastChatDialog extends javax.swing.JDialog {
 
     }
 
-    public void refreshLightButton() {
+    public void refreshColors() {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                if (GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f) {
-                    chat_panel.setBackground(Color.DARK_GRAY);
-                    chat_box.setBackground(Color.DARK_GRAY);
-                    chat_box.setForeground(Color.WHITE);
+
+                if (chat_box.getText().length() <= Helpers.MAX_TTS_LENGTH) {
+
+                    if (GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f) {
+                        chat_panel.setBackground(Color.DARK_GRAY);
+                        chat_box.setBackground(Color.DARK_GRAY);
+                        chat_box.setForeground(Color.WHITE);
+                    } else {
+                        chat_panel.setBackground(Color.WHITE);
+                        chat_box.setForeground(null);
+                        chat_box.setBackground(null);
+                    }
+
                 } else {
-                    chat_panel.setBackground(Color.WHITE);
+
+                    chat_box.setBackground(Color.YELLOW);
+                    chat_panel.setBackground(Color.YELLOW);
                     chat_box.setForeground(null);
-                    chat_box.setBackground(null);
                 }
 
-                chat_panel.revalidate();
                 chat_panel.repaint();
             }
         });
@@ -66,7 +75,7 @@ public class FastChatDialog extends javax.swing.JDialog {
 
                 chat_panel.setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
 
-                refreshLightButton();
+                refreshColors();
 
                 setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
 
@@ -213,13 +222,11 @@ public class FastChatDialog extends javax.swing.JDialog {
             if (chat_box.getText().length() <= Helpers.MAX_TTS_LENGTH) {
 
                 if (chat_box.getBackground() != Color.WHITE || chat_box.getBackground() != Color.DARK_GRAY) {
-                    refreshLightButton();
+                    refreshColors();
                 }
 
             } else if (chat_box.getBackground() != Color.YELLOW) {
-                chat_box.setBackground(Color.YELLOW);
-                chat_panel.revalidate();
-                chat_panel.repaint();
+                refreshColors();
             }
         }
     }//GEN-LAST:event_chat_boxKeyPressed
@@ -269,7 +276,7 @@ public class FastChatDialog extends javax.swing.JDialog {
         if (!this.isVisible()) {
             GameFrame.getInstance().getFastchat_dialog().getChat_box().grabFocus();
         } else {
-            refreshLightButton();
+            refreshColors();
         }
     }//GEN-LAST:event_chat_boxFocusGained
 

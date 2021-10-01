@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.ImageIcon;
+import javax.swing.JFrame;
 
 /**
  *
@@ -79,6 +80,8 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
 
                         qr_status.setText(link);
 
+                        qr_status.setToolTipText(Translator.translate("Click para copiar enlace"));
+
                         share_button.setEnabled(true);
 
                         ImageIcon icon = new ImageIcon(MatrixToImageWriter.toBufferedImage(bitMatrix));
@@ -86,6 +89,12 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
                         icon_label.setIcon(icon);
 
                         pack();
+
+                        if (isVisible()) {
+                            setVisible(false);
+                            setLocationRelativeTo(getParent());
+                            setVisible(true);
+                        }
 
                     }
                 });
@@ -145,7 +154,6 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
         qr_status.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         qr_status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         qr_status.setText("Monitorizando portapapeles...");
-        qr_status.setToolTipText("Click para abrir navegador");
         qr_status.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         qr_status.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -236,10 +244,16 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
         // TODO add your handling code here:
 
         if (this.link != null) {
-            Helpers.openBrowserURL(this.link);
 
-            if (!cboard_monitor) {
-                dispose();
+            if (cboard_monitor) {
+                Helpers.CLIPBOARD_SPY.detachObserver(this);
+            }
+
+            Helpers.copyTextToClipboard(this.link);
+            Helpers.mostrarMensajeInformativo((JFrame) getParent(), "¡ENLACE COPIADO EN EL PORTAPAPELES!");
+
+            if (cboard_monitor) {
+                Helpers.CLIPBOARD_SPY.attachObserver(this);
             }
 
         } else if (cboard_monitor) {
@@ -251,11 +265,11 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
         // TODO add your handling code here:
 
         if (this.link != null) {
-            Helpers.openBrowserURL(this.link);
 
-            if (!cboard_monitor) {
-                dispose();
-            }
+            Helpers.copyTextToClipboard(this.link);
+
+            Helpers.mostrarMensajeInformativo((JFrame) getParent(), "¡ENLACE COPIADO EN EL PORTAPAPELES!");
+
         } else if (cboard_monitor) {
             Helpers.openBrowserURL("https://duo.google.com");
         }

@@ -2504,7 +2504,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        chat_notifications.setText("Notificaciones durante el juego");
+        chat_notifications.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        chat_notifications.setText("Notificaciones del chat durante el juego");
         chat_notifications.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         chat_notifications.setDoubleBuffered(true);
         chat_notifications.addActionListener(new java.awt.event.ActionListener() {
@@ -2528,9 +2529,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(chat_box))
                     .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(chat_notifications)
-                        .addGap(0, 0, Short.MAX_VALUE)))
+                    .addComponent(chat_notifications, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -2542,7 +2541,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 140, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 136, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)

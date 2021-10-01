@@ -146,6 +146,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
             if (((Object[]) BARAJAS.get(GameFrame.BARAJA))[2] != null) {
                 CARTAS_SONIDO = Arrays.asList(((String) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[2]).split(" *, *"));
+            } else {
+                CARTAS_SONIDO = null;
             }
         }
     }

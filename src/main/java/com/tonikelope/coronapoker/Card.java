@@ -26,7 +26,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.JMenu;
-import javax.swing.JMenuItem;
 
 /**
  *
@@ -406,7 +405,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                 synchronized (image_precache_lock) {
                     try {
 
-                        if (isIniciada()) {
+                        if (isIniciada() && !"".equals(valor)) {
 
                             if (image == null) {
                                 image = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
@@ -415,7 +414,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                             if (image_b == null) {
                                 image_b = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg");
                             }
-
                         }
 
                     } catch (Exception ex) {

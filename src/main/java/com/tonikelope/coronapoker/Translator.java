@@ -22,6 +22,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Este usuario tiene problemas de conexión. ¿LO SACAMOS DE LA TIMBA?", "This user is having connection problems. THROW OUT?"},
             {"Click para copiar enlace", "Click to copy link"},
             {"¡ENLACE COPIADO EN EL PORTAPAPELES!", "LINK COPIED TO CLIPBOARD!"},
             {"OTRA TIMBA", "RETRY"},

@@ -418,7 +418,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                         }
 
-                    } catch (Exception e) {
+                    } catch (Exception ex) {
+                        Logger.getLogger(Card.class.getName()).log(Level.SEVERE, null, ex);
                         Logger.getLogger(Card.class.getName()).log(Level.WARNING, "ERROR UPDATING CARD IMAGE PRECACHE");
                     }
 

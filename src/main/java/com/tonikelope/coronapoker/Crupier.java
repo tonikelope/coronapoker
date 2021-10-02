@@ -268,7 +268,7 @@ public class Crupier implements Runnable {
         return iwtsth;
     }
 
-    public boolean isPlayerTimeout() {
+    public boolean isSomePlayerTimeout() {
 
         for (Player j : GameFrame.getInstance().getJugadores()) {
             if (j.isTimeout()) {

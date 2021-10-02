@@ -645,7 +645,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(nickname).isCpu()) {
 
-                    player_name.setToolTipText("CLICK -> AES-KEY");
+                    avatar.setToolTipText("CLICK -> AES-KEY");
+                    avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
                     player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
                 } else if (!GameFrame.getInstance().isPartida_local()) {

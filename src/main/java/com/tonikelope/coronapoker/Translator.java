@@ -348,7 +348,7 @@ public class Translator {
             {"COMIENZA LA TIMBA -> ", "GAME STARTS -> "},
             {" - REGISTRO DE LA TIMBA]", " - GAME LOG]"},
             {"REGISTRO DE LA TIMBA", "GAME LOG"},
-            {"EMPEZAR YA", "START NOW"},
+            {"¡A JUGAR!", "START NOW"},
             {"Expulsar jugador", "Kick user"},
             {"Conectando...", "Connecting..."},
             {"Esperando jugadores...", "Waiting for players..."},

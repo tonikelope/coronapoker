@@ -2408,7 +2408,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         empezar_timba.setBackground(new java.awt.Color(0, 130, 0));
         empezar_timba.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         empezar_timba.setForeground(new java.awt.Color(255, 255, 255));
-        empezar_timba.setText("EMPEZAR YA");
+        empezar_timba.setText("¡A JUGAR!");
         empezar_timba.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         empezar_timba.setDoubleBuffered(true);
         empezar_timba.addActionListener(new java.awt.event.ActionListener() {
@@ -2504,10 +2504,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        chat_notifications.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        chat_notifications.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         chat_notifications.setText("Notificaciones del chat durante el juego");
         chat_notifications.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         chat_notifications.setDoubleBuffered(true);
+        chat_notifications.setOpaque(false);
         chat_notifications.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 chat_notificationsActionPerformed(evt);
@@ -2541,7 +2542,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 136, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 138, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)

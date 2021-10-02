@@ -67,6 +67,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile ImageIcon image_b = null;
     private final Object image_precache_lock = new Object();
 
+    public boolean isIniciadaConValor(){
+        return this.isIniciada() && !"".equals(this.valor) && !"".equals(this.palo);
+    }
+    
     public boolean isVisible_card() {
         return visible_card;
     }
@@ -405,7 +409,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                 synchronized (image_precache_lock) {
                     try {
 
-                        if (isIniciada() && !"".equals(valor)) {
+                        if (isIniciadaConValor()) {
 
                             if (image == null) {
                                 image = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
@@ -642,7 +646,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void destapar(boolean sound) {
 
-        if (!"".equals(this.valor) && this.tapada) {
+        if (isIniciadaConValor() && this.tapada) {
 
             if (sound) {
                 Helpers.playWavResource("misc/uncover.wav", false);

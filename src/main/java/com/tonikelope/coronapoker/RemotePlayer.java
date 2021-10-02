@@ -146,6 +146,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!this.exit) {
             this.exit = true;
+            this.timeout = false;
 
             Helpers.GUIRun(new Runnable() {
                 @Override
@@ -283,7 +284,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isPlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == GameFrame.getInstance().getCrupier().getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
+                                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == GameFrame.getInstance().getCrupier().getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
 
                                     response_counter--;
 
@@ -796,6 +797,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
+        player_name.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                player_nameMouseClicked(evt);
+            }
+        });
 
         utg_icon.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         utg_icon.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -984,6 +990,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             identicon.setVisible(true);
         }
     }//GEN-LAST:event_avatarMouseClicked
+
+    private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
+        // TODO add your handling code here:
+
+        if (GameFrame.getInstance().isPartida_local() && this.timeout && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
+
+            GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nickname);
+
+        }
+
+    }//GEN-LAST:event_player_nameMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;

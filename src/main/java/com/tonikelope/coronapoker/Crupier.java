@@ -4219,15 +4219,17 @@ public class Crupier implements Runnable {
 
         Helpers.pausar(1000);
 
+        GameFrame.getInstance().checkPause();
+
         switch (fase) {
             case FLOP:
-                flop();
+                destaparFlop();
                 break;
             case TURN:
-                turn();
+                destaparTurn();
                 break;
             case RIVER:
-                river();
+                destaparRiver();
                 break;
             default:
                 break;
@@ -5871,7 +5873,7 @@ public class Crupier implements Runnable {
         return ciega_pequeña;
     }
 
-    public void flop() {
+    public void destaparFlop() {
 
         GameFrame.getInstance().getFlop1().destapar();
 
@@ -5879,11 +5881,15 @@ public class Crupier implements Runnable {
 
         Helpers.pausar(1000);
 
+        GameFrame.getInstance().checkPause();
+
         GameFrame.getInstance().getFlop2().destapar();
 
         GameFrame.getInstance().getFlop2().checkSpecialCardSound();
 
         Helpers.pausar(1000);
+
+        GameFrame.getInstance().checkPause();
 
         GameFrame.getInstance().getFlop3().destapar();
 
@@ -5900,7 +5906,7 @@ public class Crupier implements Runnable {
         GameFrame.getInstance().getRegistro().print("FLOP -> " + Card.collection2String(flop));
     }
 
-    public void turn() {
+    public void destaparTurn() {
 
         GameFrame.getInstance().getTurn().destapar();
 
@@ -5909,7 +5915,7 @@ public class Crupier implements Runnable {
         GameFrame.getInstance().getRegistro().print("TURN -> " + GameFrame.getInstance().getTurn());
     }
 
-    public void river() {
+    public void destaparRiver() {
 
         GameFrame.getInstance().getRiver().destapar();
 

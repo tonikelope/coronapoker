@@ -77,6 +77,10 @@ public class Init extends javax.swing.JFrame {
     private volatile int k = 0;
     private volatile GifAnimationDialog gif_dialog = null;
 
+    public InitPanel getTapete() {
+        return tapete;
+    }
+
     /**
      * Creates new form Inicio
      */

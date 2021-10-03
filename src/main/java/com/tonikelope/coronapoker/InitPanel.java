@@ -81,6 +81,18 @@ public class InitPanel extends javax.swing.JPanel {
         });
     }
 
+    public void refresh() {
+
+        this.invalidate = true;
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                revalidate();
+                repaint();
+            }
+        });
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
 

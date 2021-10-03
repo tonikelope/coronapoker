@@ -1952,6 +1952,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     public void run() {
                         WaitingRoomFrame.resetInstance();
                         GameFrame.resetInstance();
+
                     }
                 });
 
@@ -1971,6 +1972,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
+                        Init.VENTANA_INICIO.getTapete().refresh();
                         Init.VENTANA_INICIO.setVisible(true);
                     }
                 });

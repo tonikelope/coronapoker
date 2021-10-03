@@ -1371,7 +1371,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                     String filtro = null;
 
-                    if (!game_combo_filter.getText().isBlank()) {
+                    if (!game_combo_filter.getText().isBlank() && game_combo_filter.getBackground() != Color.RED) {
                         filtro = game_combo_filter.getText().trim().toUpperCase();
                     }
 
@@ -1418,7 +1418,7 @@ public class StatsDialog extends javax.swing.JDialog {
                             }
                         }
 
-                        if (i == 0) {
+                        if (filtro != null && i == 0) {
 
                             game_combo_filter.setBackground(Color.RED);
 
@@ -1462,7 +1462,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
         title = new javax.swing.JLabel();
         scroll_stats_panel = new javax.swing.JScrollPane();
-        jPanel2 = new javax.swing.JPanel();
+        stats_panel = new javax.swing.JPanel();
         game_combo = new javax.swing.JComboBox<>();
         game_data_panel = new javax.swing.JPanel();
         game_hand_label = new javax.swing.JLabel();
@@ -1486,7 +1486,7 @@ public class StatsDialog extends javax.swing.JDialog {
         chat_game_button = new javax.swing.JButton();
         game_combo_filter = new javax.swing.JTextField();
         purge_games_button = new javax.swing.JButton();
-        jPanel1 = new javax.swing.JPanel();
+        hands_panel = new javax.swing.JPanel();
         hand_combo = new javax.swing.JComboBox<>();
         hand_data_panel = new javax.swing.JPanel();
         hand_blinds_label = new javax.swing.JLabel();
@@ -1755,7 +1755,7 @@ public class StatsDialog extends javax.swing.JDialog {
             }
         });
 
-        jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
+        hands_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
         hand_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1976,13 +1976,13 @@ public class StatsDialog extends javax.swing.JDialog {
         res_table_warning.setText("Nota:");
         res_table_warning.setDoubleBuffered(true);
 
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
+        javax.swing.GroupLayout hands_panelLayout = new javax.swing.GroupLayout(hands_panel);
+        hands_panel.setLayout(hands_panelLayout);
+        hands_panelLayout.setHorizontalGroup(
+            hands_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(hands_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(hands_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(hand_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(stats_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(table_panel)
@@ -1990,9 +1990,9 @@ public class StatsDialog extends javax.swing.JDialog {
                     .addComponent(res_table_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
+        hands_panelLayout.setVerticalGroup(
+            hands_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(hands_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(hand_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -2006,35 +2006,35 @@ public class StatsDialog extends javax.swing.JDialog {
                 .addContainerGap())
         );
 
-        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
-        jPanel2.setLayout(jPanel2Layout);
-        jPanel2Layout.setHorizontalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        javax.swing.GroupLayout stats_panelLayout = new javax.swing.GroupLayout(stats_panel);
+        stats_panel.setLayout(stats_panelLayout);
+        stats_panelLayout.setHorizontalGroup(
+            stats_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(game_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(jPanel2Layout.createSequentialGroup()
+            .addGroup(stats_panelLayout.createSequentialGroup()
                 .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(game_combo_filter, javax.swing.GroupLayout.PREFERRED_SIZE, 200, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(purge_games_button)
                 .addContainerGap())
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(hands_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
-        jPanel2Layout.setVerticalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
+        stats_panelLayout.setVerticalGroup(
+            stats_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(stats_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(stats_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(game_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(game_combo_filter, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(purge_games_button))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(game_data_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(hands_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        scroll_stats_panel.setViewportView(jPanel2);
+        scroll_stats_panel.setViewportView(stats_panel);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -2233,7 +2233,7 @@ public class StatsDialog extends javax.swing.JDialog {
             public void run() {
                 loadGames();
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
 
                     public void run() {
                         game_combo.setSelectedIndex(0);
@@ -2244,6 +2244,24 @@ public class StatsDialog extends javax.swing.JDialog {
                         game_data_panel.setVisible(false);
                     }
                 });
+
+                if (!game_combo_filter.getText().isBlank() && game_combo.getItemCount() == 1) {
+                    loadGames();
+
+                    Helpers.GUIRunAndWait(new Runnable() {
+
+                        public void run() {
+                            game_combo.setSelectedIndex(0);
+                            hand_combo.setVisible(false);
+                            stats_combo.setSelectedIndex(-1);
+                            table_panel.setVisible(false);
+                            res_table_warning.setVisible(false);
+                            game_data_panel.setVisible(false);
+                        }
+                    });
+
+                    Helpers.mostrarMensajeError((JFrame) getParent(), "NO HAY TIMBAS EN LAS CUALES HAYA PARTICIPADO ESE JUGADOR");
+                }
 
             }
         });
@@ -2290,7 +2308,7 @@ public class StatsDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         purge_games_button.setEnabled(false);
 
-        if (Helpers.mostrarMensajeInformativoSINO((JFrame) this.getParent(), Translator.translate("¿SEGURO QUE QUIERES ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ -> [") + game_combo_filter.getText() + "]?") == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO((JFrame) this.getParent(), Translator.translate("¿SEGURO QUE QUIERES ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR?")) == 0) {
             Helpers.threadRun(new Runnable() {
 
                 public void run() {
@@ -2309,10 +2327,22 @@ public class StatsDialog extends javax.swing.JDialog {
 
                         Helpers.playWavResource("misc/toilet.wav");
 
-                        Helpers.GUIRun(new Runnable() {
+                        Helpers.GUIRunAndWait(new Runnable() {
 
                             public void run() {
+                                game_combo_filter.setBackground(Color.BLACK);
+                                game_combo_filter.setForeground(Color.WHITE);
+                            }
+                        });
 
+                        Helpers.mostrarMensajeInformativo((JFrame) getParent(), "SE HAN BORRADO TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR");
+
+                        Helpers.GUIRunAndWait(new Runnable() {
+
+                            public void run() {
+                                game_combo_filter.setText("");
+                                game_combo_filter.setBackground(null);
+                                game_combo_filter.setForeground(null);
                                 game_data_panel.setVisible(false);
                             }
                         });
@@ -2323,9 +2353,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                             public void run() {
 
-                                if (!game.isEmpty()) {
-                                    game_combo.setSelectedIndex(1);
-                                }
+                                game_combo.setSelectedIndex(0);
 
                                 delete_game_button.setEnabled(true);
                             }
@@ -2426,8 +2454,7 @@ public class StatsDialog extends javax.swing.JDialog {
     private javax.swing.JLabel hand_time_val;
     private javax.swing.JLabel hand_turn_players_label;
     private javax.swing.JLabel hand_turn_players_val;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel2;
+    private javax.swing.JPanel hands_panel;
     private javax.swing.JButton log_game_button;
     private javax.swing.JButton purge_games_button;
     private javax.swing.JTable res_table;
@@ -2436,6 +2463,7 @@ public class StatsDialog extends javax.swing.JDialog {
     private javax.swing.JScrollPane showdown_panel;
     private javax.swing.JTable showdown_table;
     private javax.swing.JComboBox<String> stats_combo;
+    private javax.swing.JPanel stats_panel;
     private javax.swing.JScrollPane table_panel;
     private javax.swing.JLabel title;
     // End of variables declaration//GEN-END:variables

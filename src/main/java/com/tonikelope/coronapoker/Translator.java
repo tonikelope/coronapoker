@@ -22,6 +22,9 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿SEGURO QUE QUIERES ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR?", "ARE YOU SURE YOU WANT TO DELETE ALL THE GAMES IN WHICH THAT PLAYER PARTICIPATED?"},
+            {"SE HAN BORRADO TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR", "ALL THE GAMES IN WHICH THAT PLAYER PARTICIPATED HAVE BEEN DELETED"},
+            {"NO HAY TIMBAS EN LAS CUALES HAYA PARTICIPADO ESE JUGADOR", "THERE ARE NO GAMES IN WHICH THIS PLAYER HAS PARTICIPATED"},
             {"Este usuario tiene problemas de conexión. ¿LO SACAMOS DE LA TIMBA?", "This user is having connection problems. THROW OUT?"},
             {"Click para copiar enlace", "Click to copy link"},
             {"¡ENLACE COPIADO EN EL PORTAPAPELES!", "LINK COPIED TO CLIPBOARD!"},

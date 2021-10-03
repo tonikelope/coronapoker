@@ -67,10 +67,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile ImageIcon image_b = null;
     private final Object image_precache_lock = new Object();
 
-    public boolean isIniciadaConValor(){
+    public boolean isIniciadaConValor() {
         return this.isIniciada() && !"".equals(this.valor) && !"".equals(this.palo);
     }
-    
+
     public boolean isVisible_card() {
         return visible_card;
     }

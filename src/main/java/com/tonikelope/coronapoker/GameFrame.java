@@ -1685,8 +1685,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             }
 
-            Helpers.muteAllWav();
-
             Helpers.stopAllWavResources();
 
             GameFrame.getInstance().getTapete().hideALL();

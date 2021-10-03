@@ -3335,6 +3335,7 @@ public class Crupier implements Runnable {
         j = pivote;
 
         do {
+            GameFrame.getInstance().checkPause();
 
             Player jugador = GameFrame.getInstance().getJugadores().get(j);
 
@@ -3390,6 +3391,7 @@ public class Crupier implements Runnable {
         } while (j != pivote);
 
         do {
+            GameFrame.getInstance().checkPause();
 
             Player jugador = GameFrame.getInstance().getJugadores().get(j);
 
@@ -3445,6 +3447,8 @@ public class Crupier implements Runnable {
         } while (j != pivote);
 
         for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+
+            GameFrame.getInstance().checkPause();
 
             if (carta == GameFrame.getInstance().getFlop1() || carta == GameFrame.getInstance().getTurn() || carta == GameFrame.getInstance().getRiver()) {
 

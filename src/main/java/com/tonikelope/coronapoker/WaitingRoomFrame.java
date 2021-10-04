@@ -183,7 +183,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public void setVideo_chat_link(String video_chat_link) {
 
         if (!server && (this.video_chat_link == null || !this.video_chat_link.equals(video_chat_link))) {
-            Helpers.playWavResource("misc/chat_alert.wav");
+            Audio.playWavResource("misc/chat_alert.wav");
         }
 
         this.video_chat_link = video_chat_link;
@@ -431,9 +431,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         pack();
 
-        Helpers.muteLoopMp3("misc/background_music.mp3");
+        Audio.muteLoopMp3("misc/background_music.mp3");
 
-        Helpers.playLoopMp3Resource("misc/waiting_room.mp3");
+        Audio.playLoopMp3Resource("misc/waiting_room.mp3");
 
         if (server) {
             servidor();
@@ -785,7 +785,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 }
 
                 if (ok_rec) {
-                    Helpers.playWavResource("misc/yahoo.wav");
+                    Audio.playWavResource("misc/yahoo.wav");
                 }
 
                 this.reconnecting = false;
@@ -988,7 +988,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         }
                     });
 
-                    String jar_hmac = Helpers.coronaHMACJ1(local_client_aes_key.getEncoded(), local_client_hmac_key.getEncoded());
+                    String jar_hmac = Init.coronaHMACJ1(local_client_aes_key.getEncoded(), local_client_hmac_key.getEncoded());
 
                     //Le mandamos nuestro nick + VERSION + AVATAR + password al server
                     writeCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + "@" + jar_hmac + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : "#*") + (password != null ? "#" + Base64.encodeBase64String(password.getBytes("UTF-8")) : "#*"), local_client_aes_key, local_client_hmac_key));
@@ -1020,7 +1020,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Helpers.mostrarMensajeError(THIS, "PASSWORD INCORRECTA");
                     } else if (partes[0].equals("NICKOK")) {
 
-                        String server_jar_hmac = Helpers.coronaHMACJ1(Base64.decodeBase64(jar_hmac), local_client_hmac_key.getEncoded());
+                        String server_jar_hmac = Init.coronaHMACJ1(Base64.decodeBase64(jar_hmac), local_client_hmac_key.getEncoded());
 
                         if (!server_jar_hmac.equals(partes[2])) {
 
@@ -1228,7 +1228,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                         exit = true;
 
-                                        Helpers.playWavResource("loser/payaso.wav");
+                                        Audio.playWavResource("loser/payaso.wav");
 
                                         Helpers.mostrarMensajeInformativo(THIS, "¡A LA PUTA CALLE!");
 
@@ -1402,9 +1402,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             });
 
                                                             if (gameinfo_original.equals(ginfo)) {
-                                                                Helpers.playWavResource("misc/last_hand_off.wav");
+                                                                Audio.playWavResource("misc/last_hand_off.wav");
                                                             } else {
-                                                                Helpers.playWavResource("misc/last_hand_on.wav");
+                                                                Audio.playWavResource("misc/last_hand_on.wav");
                                                             }
                                                         }
 
@@ -1418,7 +1418,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                         break;
 
                                                     case "NEWUSER":
-                                                        Helpers.playWavResource("misc/new_user.wav");
+                                                        Audio.playWavResource("misc/new_user.wav");
 
                                                         String nick = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
 
@@ -1598,9 +1598,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     }
                 });
 
-                Helpers.stopLoopMp3("misc/waiting_room.mp3");
+                Audio.stopLoopMp3("misc/waiting_room.mp3");
 
-                Helpers.unmuteLoopMp3("misc/background_music.mp3");
+                Audio.unmuteLoopMp3("misc/background_music.mp3");
             }
         });
     }
@@ -1706,7 +1706,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
 
-                        String client_jar_hmac = Helpers.coronaHMACJ1(aes_key.getEncoded(), hmac_key.getEncoded());
+                        String client_jar_hmac = Init.coronaHMACJ1(aes_key.getEncoded(), hmac_key.getEncoded());
 
                         /* FIN INTERCAMBIO DE CLAVES */
                         //Leemos el nick del usuario
@@ -1741,7 +1741,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     //Es un usuario intentado reconectar
                                     if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {
 
-                                        Helpers.playWavResource("misc/yahoo.wav");
+                                        Audio.playWavResource("misc/yahoo.wav");
 
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
                                     } else {
@@ -1807,7 +1807,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 client_avatar = null;
                             }
 
-                            String jar_hmac = Helpers.coronaHMACJ1(Base64.decodeBase64(client_jar_hmac), hmac_key.getEncoded());
+                            String jar_hmac = Init.coronaHMACJ1(Base64.decodeBase64(client_jar_hmac), hmac_key.getEncoded());
 
                             writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1") + "#" + jar_hmac + "#" + Base64.encodeBase64String(game_info.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 
@@ -1874,7 +1874,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             }
                                         });
 
-                                        Helpers.playWavResource("misc/new_user.wav");
+                                        Audio.playWavResource("misc/new_user.wav");
 
                                         if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
 
@@ -2020,9 +2020,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     }
                 });
 
-                Helpers.stopLoopMp3("misc/waiting_room.mp3");
+                Audio.stopLoopMp3("misc/waiting_room.mp3");
 
-                Helpers.unmuteLoopMp3("misc/background_music.mp3");
+                Audio.unmuteLoopMp3("misc/background_music.mp3");
 
             }
         });
@@ -2041,10 +2041,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive() && WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
 
-                    Helpers.TTS_CHAT_QUEUE.add(new Object[]{nick, msg});
+                    Audio.TTS_CHAT_QUEUE.add(new Object[]{nick, msg});
 
-                    synchronized (Helpers.TTS_CHAT_QUEUE) {
-                        Helpers.TTS_CHAT_QUEUE.notifyAll();
+                    synchronized (Audio.TTS_CHAT_QUEUE) {
+                        Audio.TTS_CHAT_QUEUE.notifyAll();
                     }
 
                 }
@@ -2120,7 +2120,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (this.participantes.containsKey(nick)) {
 
-            Helpers.playWavResource("misc/toilet.wav");
+            Audio.playWavResource("misc/toilet.wav");
 
             participantes.remove(nick);
 
@@ -2851,11 +2851,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (!GameFrame.SONIDOS) {
 
-            Helpers.muteAll();
+            Audio.muteAll();
 
         } else {
 
-            Helpers.unMuteAll();
+            Audio.unmuteAll();
 
         }
     }//GEN-LAST:event_sound_iconMouseClicked
@@ -2891,7 +2891,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             new_bot_button.setEnabled(false);
 
-            Helpers.playWavResource("misc/laser.wav");
+            Audio.playWavResource("misc/laser.wav");
 
             Helpers.threadRun(new Runnable() {
                 public void run() {

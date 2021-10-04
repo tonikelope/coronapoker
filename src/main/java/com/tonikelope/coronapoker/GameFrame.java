@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -590,7 +601,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
 
-        Helpers.playWavResource("misc/uncover.wav", false);
+        Audio.playWavResource("misc/uncover.wav", false);
 
         Player[] players = tapete.getPlayers();
 
@@ -665,7 +676,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 this.nick_pause = user != null ? user : this.getNick_local();
 
                 if (!GameFrame.getInstance().getCrupier().isIwtsthing()) {
-                    Helpers.playWavResource("misc/pause.wav");
+                    Audio.playWavResource("misc/pause.wav");
                 }
             } else {
                 this.nick_pause = null;
@@ -1408,14 +1419,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         public void run() {
                             cambiarBaraja();
 
-                            if (Helpers.M2 != null && GameFrame.BARAJA.equals("interstate60") && i60_c == 5) {
+                            if (Init.M2 != null && GameFrame.BARAJA.equals("interstate60") && i60_c == 5) {
 
                                 i60_c = 0;
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
                                         try {
-                                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon((byte[]) Helpers.M2.invoke(null, "e")), 12000);
+                                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon((byte[]) Init.M2.invoke(null, "e")), 12000);
 
                                             gif_dialog.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
@@ -1676,16 +1687,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             getCrupier().setFin_de_la_transmision(true);
 
-            if (Helpers.TTS_PLAYER != null) {
+            if (Audio.TTS_PLAYER != null) {
                 try {
                     // TODO add your handling code here:
-                    Helpers.TTS_PLAYER.stop();
+                    Audio.TTS_PLAYER.stop();
                 } catch (Exception ex) {
                     Logger.getLogger(TTSNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 
-            Helpers.stopAllWavResources();
+            Audio.stopAllWavResources();
 
             GameFrame.getInstance().getTapete().hideALL();
 
@@ -1923,9 +1934,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 });
             }
 
-            Helpers.muteAllLoopMp3();
+            Audio.muteAllLoopMp3();
 
-            Helpers.playWavResourceAndWait("misc/end.wav", true, true);
+            Audio.playWavResourceAndWait("misc/end.wav", true, true);
         }
 
         System.exit(0);
@@ -1936,9 +1947,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         new Thread(new Runnable() {
             public void run() {
 
-                Helpers.stopAllCurrentLoopMp3Resource();
+                Audio.stopAllCurrentLoopMp3Resource();
 
-                Helpers.stopAllWavResources();
+                Audio.stopAllWavResources();
 
                 WaitingRoomFrame.getInstance().setExit(true);
 
@@ -1960,15 +1971,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (!GameFrame.SONIDOS) {
 
-                    Helpers.muteAll();
+                    Audio.muteAll();
 
                 } else {
 
-                    Helpers.unMuteAll();
+                    Audio.unmuteAll();
 
                 }
 
-                Helpers.playLoopMp3Resource("misc/background_music.mp3");
+                Audio.playLoopMp3Resource("misc/background_music.mp3");
 
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
@@ -2042,24 +2053,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 while (!crupier.isFin_de_la_transmision()) {
 
-                    while (!Helpers.TTS_CHAT_QUEUE.isEmpty()) {
+                    while (!Audio.TTS_CHAT_QUEUE.isEmpty()) {
 
-                        Object[] tts = Helpers.TTS_CHAT_QUEUE.poll();
+                        Object[] tts = Audio.TTS_CHAT_QUEUE.poll();
 
                         Helpers.GUIRunAndWait(new Runnable() {
                             @Override
                             public void run() {
-                                nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]));
+                                nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]));
                                 nick_dialog.setLocation(nick_dialog.getParent().getLocation());
 
                             }
                         });
 
-                        if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                        if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
-                            Helpers.TTS((String) tts[1], nick_dialog);
+                            Audio.TTS((String) tts[1], nick_dialog);
 
-                        } else if (!Helpers.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                        } else if (!Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
@@ -2079,10 +2090,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         }
                     }
 
-                    synchronized (Helpers.TTS_CHAT_QUEUE) {
+                    synchronized (Audio.TTS_CHAT_QUEUE) {
 
                         try {
-                            Helpers.TTS_CHAT_QUEUE.wait(1000);
+                            Audio.TTS_CHAT_QUEUE.wait(1000);
                         } catch (InterruptedException ex) {
                             Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -2623,7 +2634,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void zoom_menu_inActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_inActionPerformed
         // TODO add your handling code here:
 
-        Helpers.playWavResource("misc/zoom_in.wav");
+        Audio.playWavResource("misc/zoom_in.wav");
 
         Helpers.threadRun(new Runnable() {
             @Override
@@ -2672,7 +2683,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void zoom_menu_outActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_outActionPerformed
         // TODO add your handling code here:
 
-        Helpers.playWavResource("misc/zoom_out.wav");
+        Audio.playWavResource("misc/zoom_out.wav");
 
         if (Helpers.float1DSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) < 0) {
 
@@ -2727,7 +2738,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (ZOOM_LEVEL != DEFAULT_ZOOM_LEVEL) {
 
-            Helpers.playWavResource("misc/zoom_reset.wav");
+            Audio.playWavResource("misc/zoom_reset.wav");
 
             Helpers.threadRun(new Runnable() {
                 @Override
@@ -2833,11 +2844,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (!GameFrame.SONIDOS) {
 
-            Helpers.muteAll();
+            Audio.muteAll();
 
         } else {
 
-            Helpers.unMuteAll();
+            Audio.unmuteAll();
         }
 
         Helpers.TapetePopupMenu.SONIDOS_MENU.setSelected(GameFrame.SONIDOS);
@@ -2889,9 +2900,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.savePropertiesFile();
 
         if (this.ascensor_menu.isSelected()) {
-            Helpers.unmuteLoopMp3("misc/background_music.mp3");
+            Audio.unmuteLoopMp3("misc/background_music.mp3");
         } else {
-            Helpers.muteLoopMp3("misc/background_music.mp3");
+            Audio.muteLoopMp3("misc/background_music.mp3");
         }
 
         Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setSelected(GameFrame.MUSICA_AMBIENTAL);
@@ -2962,7 +2973,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
         GameFrame.VISTA_COMPACTA = this.compact_menu.isSelected();
 
-        Helpers.playWavResource("misc/power_" + (GameFrame.VISTA_COMPACTA ? "down" : "up") + ".wav");
+        Audio.playWavResource("misc/power_" + (GameFrame.VISTA_COMPACTA ? "down" : "up") + ".wav");
 
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(GameFrame.VISTA_COMPACTA));
 
@@ -3025,7 +3036,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_verdeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_verdeActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("verde")) {
+        if (Init.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("verde")) {
             GameFrame.COLOR_TAPETE = "verde*";
 
             Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
@@ -3124,7 +3135,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_azulActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_azulActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("azul")) {
+        if (Init.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("azul")) {
             GameFrame.COLOR_TAPETE = "azul*";
 
             Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
@@ -3224,7 +3235,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_rojoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_rojoActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("rojo")) {
+        if (Init.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("rojo")) {
             GameFrame.COLOR_TAPETE = "rojo*";
 
             Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
@@ -3325,7 +3336,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_tapete_maderaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_tapete_maderaActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("madera")) {
+        if (Init.M2 != null && tapete_counter == 4 && GameFrame.COLOR_TAPETE.equals("madera")) {
             GameFrame.COLOR_TAPETE = "madera*";
 
             Helpers.PROPERTIES.setProperty("color_tapete", GameFrame.COLOR_TAPETE);
@@ -3485,7 +3496,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (GameFrame.SONIDOS_TTS) {
 
-            Helpers.TTS_BLOCKED_USERS.clear();
+            Audio.TTS_BLOCKED_USERS.clear();
 
             if (!GameFrame.TTS_SERVER && GameFrame.getInstance().isPartida_local()) {
 
@@ -3608,7 +3619,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         }
                     });
 
-                    Helpers.playWavResource("misc/button_off.wav");
+                    Audio.playWavResource("misc/button_off.wav");
                 }
             });
 
@@ -3647,7 +3658,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     rebuy_dialog = null;
                                 }
                             });
-                            Helpers.playWavResource("misc/button_on.wav");
+                            Audio.playWavResource("misc/button_on.wav");
 
                         }
                     });

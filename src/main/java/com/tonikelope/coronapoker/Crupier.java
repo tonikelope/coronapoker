@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -646,7 +657,7 @@ public class Crupier implements Runnable {
 
                         public void run() {
 
-                            if (Helpers.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
+                            if (Audio.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
 
                                 if (GameFrame.getInstance().isPartida_local()) {
 
@@ -667,7 +678,7 @@ public class Crupier implements Runnable {
                     });
                 } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null) {
 
-                    Helpers.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
+                    Audio.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
 
                 }
 
@@ -707,7 +718,7 @@ public class Crupier implements Runnable {
 
                         public void run() {
 
-                            if (Helpers.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
+                            if (Audio.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
 
                                 playing_cinematic = false;
                                 synchronized (lock_cinematics) {
@@ -902,7 +913,7 @@ public class Crupier implements Runnable {
 
         if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
 
-            Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD) : Map.ofEntries(Crupier.ALLIN_SOUNDS.get(GameFrame.LANGUAGE)));
+            Audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_SOUNDS_MOD) : Map.ofEntries(Crupier.ALLIN_SOUNDS.get(GameFrame.LANGUAGE)));
 
         }
 
@@ -913,7 +924,7 @@ public class Crupier implements Runnable {
             this.fold_sound_playing = true;
             Helpers.threadRun(new Runnable() {
                 public void run() {
-                    Helpers.playRandomWavResourceAndWait(Init.MOD != null ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD) : Map.ofEntries(Crupier.FOLD_SOUNDS.get(GameFrame.LANGUAGE)));
+                    Audio.playRandomWavResourceAndWait(Init.MOD != null ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD) : Map.ofEntries(Crupier.FOLD_SOUNDS.get(GameFrame.LANGUAGE)));
                     fold_sound_playing = false;
                 }
             });
@@ -926,23 +937,23 @@ public class Crupier implements Runnable {
             if (badbeat) {
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        Helpers.muteAllLoopMp3();
-                        Helpers.playWavResourceAndWait("misc/badbeat.wav");
-                        Helpers.unmuteAllLoopMp3();
+                        Audio.muteAllLoopMp3();
+                        Audio.playWavResourceAndWait("misc/badbeat.wav");
+                        Audio.unmuteAllLoopMp3();
                     }
                 });
             } else if (jugada_ganadora >= Hand.POKER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        Helpers.muteAllLoopMp3();
-                        Helpers.playWavResourceAndWait("misc/youarelucky.wav");
-                        Helpers.unmuteAllLoopMp3();
+                        Audio.muteAllLoopMp3();
+                        Audio.playWavResourceAndWait("misc/youarelucky.wav");
+                        Audio.unmuteAllLoopMp3();
                     }
                 });
 
             } else {
-                Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.SHOWDOWN_SOUNDS_MOD, Crupier.WINNER_SOUNDS_MOD, Crupier.LOSER_SOUNDS_MOD) : Map.ofEntries(Crupier.SHOWDOWN_SOUNDS.get(GameFrame.LANGUAGE), Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE), Crupier.LOSER_SOUNDS.get(GameFrame.LANGUAGE)));
+                Audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.SHOWDOWN_SOUNDS_MOD, Crupier.WINNER_SOUNDS_MOD, Crupier.LOSER_SOUNDS_MOD) : Map.ofEntries(Crupier.SHOWDOWN_SOUNDS.get(GameFrame.LANGUAGE), Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE), Crupier.LOSER_SOUNDS.get(GameFrame.LANGUAGE)));
             }
         }
     }
@@ -954,9 +965,9 @@ public class Crupier implements Runnable {
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        Helpers.muteAllLoopMp3();
-                        Helpers.playWavResourceAndWait("misc/youarelucky.wav");
-                        Helpers.unmuteAllLoopMp3();
+                        Audio.muteAllLoopMp3();
+                        Audio.playWavResourceAndWait("misc/youarelucky.wav");
+                        Audio.unmuteAllLoopMp3();
                     }
                 });
 
@@ -973,7 +984,7 @@ public class Crupier implements Runnable {
                     sonidos = Init.MOD != null ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD) : Map.ofEntries(Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE));
                 }
 
-                Helpers.playRandomWavResource(sonidos);
+                Audio.playRandomWavResource(sonidos);
             }
         }
     }
@@ -984,9 +995,9 @@ public class Crupier implements Runnable {
             if (badbeat) {
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        Helpers.muteAllLoopMp3();
-                        Helpers.playWavResourceAndWait("misc/badbeat.wav");
-                        Helpers.unmuteAllLoopMp3();
+                        Audio.muteAllLoopMp3();
+                        Audio.playWavResourceAndWait("misc/badbeat.wav");
+                        Audio.unmuteAllLoopMp3();
                     }
                 });
             } else if (jugada >= Hand.FULL && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
@@ -995,10 +1006,10 @@ public class Crupier implements Runnable {
                     "encargado.wav",
                     "matias.wav"});
 
-                Helpers.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
+                Audio.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
 
             } else {
-                Helpers.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD) : Map.ofEntries(Crupier.LOSER_SOUNDS.get(GameFrame.LANGUAGE)));
+                Audio.playRandomWavResource(Init.MOD != null ? Map.ofEntries(Crupier.LOSER_SOUNDS_MOD) : Map.ofEntries(Crupier.LOSER_SOUNDS.get(GameFrame.LANGUAGE)));
             }
         }
     }
@@ -1337,7 +1348,7 @@ public class Crupier implements Runnable {
                     jugador.showCards(jugada.getName());
 
                     if (GameFrame.SONIDOS_CHORRA && jugador.getDecision() == Player.FOLD) {
-                        Helpers.playWavResource("misc/showyourcards.wav");
+                        Audio.playWavResource("misc/showyourcards.wav");
                     }
 
                     if (!perdedores.containsKey(jugador)) {
@@ -1402,7 +1413,7 @@ public class Crupier implements Runnable {
                     jugador.showCards(jugada.getName());
 
                     if (GameFrame.SONIDOS_CHORRA && jugador.getDecision() == Player.FOLD) {
-                        Helpers.playWavResource("misc/showyourcards.wav");
+                        Audio.playWavResource("misc/showyourcards.wav");
                     }
 
                     if (!perdedores.containsKey(jugador)) {
@@ -1889,7 +1900,7 @@ public class Crupier implements Runnable {
 
                         jugador.setSpectator(Translator.translate("CALENTANDO"));
 
-                        Helpers.playWavResource("misc/cash_register.wav");
+                        Audio.playWavResource("misc/cash_register.wav");
                     }
                 }
 
@@ -2068,7 +2079,7 @@ public class Crupier implements Runnable {
 
         this.ciega_grande = (float) (CIEGAS[i][1] * Math.pow(10, j));
 
-        Helpers.playWavResource("misc/double_blinds.wav");
+        Audio.playWavResource("misc/double_blinds.wav");
 
         GameFrame.getInstance().getRegistro().print("SE DOBLAN LAS CIEGAS");
 
@@ -2210,10 +2221,10 @@ public class Crupier implements Runnable {
 
                             Helpers.pausar(500);
 
-                            Helpers.playWavResourceAndWait("misc/iwtsth.wav");
+                            Audio.playWavResourceAndWait("misc/iwtsth.wav");
 
                         } else {
-                            Helpers.playWavResourceAndWait("misc/iwtsth.wav");
+                            Audio.playWavResourceAndWait("misc/iwtsth.wav");
                         }
 
                         if (GameFrame.getInstance().isPartida_local()) {
@@ -2518,10 +2529,10 @@ public class Crupier implements Runnable {
         if (Helpers.float1DSecureCompare(0f, this.bote_sobrante) < 0) {
 
             if (GameFrame.SONIDOS_CHORRA && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
-                Helpers.playWavResource("misc/indivisible.wav");
+                Audio.playWavResource("misc/indivisible.wav");
             }
 
-            Helpers.playWavResource("misc/cash_register.wav");
+            Audio.playWavResource("misc/cash_register.wav");
 
             GameFrame.getInstance().getRegistro().print(Translator.translate("BOTE SOBRANTE NO DIVISIBLE") + " -> " + Helpers.float2String(bote_sobrante));
 
@@ -2589,12 +2600,12 @@ public class Crupier implements Runnable {
                     GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
                     if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
-                        Helpers.playWavResource("misc/startplay.wav");
+                        Audio.playWavResource("misc/startplay.wav");
                     }
 
                     if (GameFrame.MUSICA_AMBIENTAL) {
-                        Helpers.stopLoopMp3("misc/recovering.mp3");
-                        Helpers.playLoopMp3Resource("misc/background_music.mp3");
+                        Audio.stopLoopMp3("misc/recovering.mp3");
+                        Audio.playLoopMp3Resource("misc/background_music.mp3");
                     }
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
@@ -2612,12 +2623,12 @@ public class Crupier implements Runnable {
                 GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
                 if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
-                    Helpers.playWavResource("misc/startplay.wav");
+                    Audio.playWavResource("misc/startplay.wav");
                 }
 
                 if (GameFrame.MUSICA_AMBIENTAL) {
-                    Helpers.stopLoopMp3("misc/recovering.mp3");
-                    Helpers.playLoopMp3Resource("misc/background_music.mp3");
+                    Audio.stopLoopMp3("misc/recovering.mp3");
+                    Audio.playLoopMp3Resource("misc/background_music.mp3");
                 }
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
@@ -2706,17 +2717,17 @@ public class Crupier implements Runnable {
                                 }
                             });
 
-                            Helpers.playWavResourceAndWait("misc/shuffle.wav");
+                            Audio.playWavResourceAndWait("misc/shuffle.wav");
 
                         } else {
                             playing_cinematic = false;
 
-                            Helpers.playWavResourceAndWait("misc/shuffle.wav");
+                            Audio.playWavResourceAndWait("misc/shuffle.wav");
                         }
 
                     } else {
                         playing_cinematic = false;
-                        Helpers.playWavResourceAndWait("misc/shuffle.wav");
+                        Audio.playWavResourceAndWait("misc/shuffle.wav");
                     }
 
                     barajando = false;
@@ -3341,7 +3352,7 @@ public class Crupier implements Runnable {
 
             if (jugador.isActivo() && GameFrame.ANIMACION_REPARTIR) {
 
-                Helpers.playWavResource("misc/deal.wav", false);
+                Audio.playWavResource("misc/deal.wav", false);
 
                 if (jugador == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -3365,7 +3376,7 @@ public class Crupier implements Runnable {
                 }
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
-                Helpers.playWavResource("misc/deal.wav", false);
+                Audio.playWavResource("misc/deal.wav", false);
 
                 if (GameFrame.getInstance().isPartida_local()) {
 
@@ -3397,7 +3408,7 @@ public class Crupier implements Runnable {
 
             if (jugador.isActivo() && GameFrame.ANIMACION_REPARTIR) {
 
-                Helpers.playWavResource("misc/deal.wav", false);
+                Audio.playWavResource("misc/deal.wav", false);
 
                 if (jugador == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -3421,7 +3432,7 @@ public class Crupier implements Runnable {
                 }
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
-                Helpers.playWavResource("misc/deal.wav", false);
+                Audio.playWavResource("misc/deal.wav", false);
 
                 if (GameFrame.getInstance().isPartida_local()) {
 
@@ -3453,14 +3464,14 @@ public class Crupier implements Runnable {
             if (carta == GameFrame.getInstance().getFlop1() || carta == GameFrame.getInstance().getTurn() || carta == GameFrame.getInstance().getRiver()) {
 
                 if (GameFrame.ANIMACION_REPARTIR) {
-                    Helpers.playWavResource("misc/deal.wav", false);
+                    Audio.playWavResource("misc/deal.wav", false);
                 }
 
                 Helpers.pausar(pausa);
             }
 
             if (GameFrame.ANIMACION_REPARTIR) {
-                Helpers.playWavResource("misc/deal.wav", false);
+                Audio.playWavResource("misc/deal.wav", false);
                 carta.iniciarCarta();
             }
 
@@ -5675,12 +5686,12 @@ public class Crupier implements Runnable {
 
             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
-                Helpers.playWavResource("misc/startplay.wav");
+                Audio.playWavResource("misc/startplay.wav");
             }
 
             if (GameFrame.MUSICA_AMBIENTAL) {
-                Helpers.stopLoopMp3("misc/recovering.mp3");
-                Helpers.playLoopMp3Resource("misc/background_music.mp3");
+                Audio.stopLoopMp3("misc/recovering.mp3");
+                Audio.playLoopMp3Resource("misc/background_music.mp3");
 
             }
         }
@@ -6046,7 +6057,7 @@ public class Crupier implements Runnable {
                 broadcastGAMECommandFromServer(comando, null);
 
                 if (destapar) {
-                    Helpers.playWavResource("misc/uncover.wav", false);
+                    Audio.playWavResource("misc/uncover.wav", false);
 
                     //Destapamos las cartas de los jugadores involucrados
                     for (Player jugador : resisten) {
@@ -6066,7 +6077,7 @@ public class Crupier implements Runnable {
                 recibirCartasResistencia(resisten);
 
                 if (destapar) {
-                    Helpers.playWavResource("misc/uncover.wav", false);
+                    Audio.playWavResource("misc/uncover.wav", false);
 
                     //Destapamos las cartas de los jugadores involucrados
                     for (Player jugador : resisten) {
@@ -6274,7 +6285,7 @@ public class Crupier implements Runnable {
                         if (GameFrame.SONIDOS_CHORRA && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
                             if (jugador_actual.getDecision() == Player.ALLIN) {
-                                Helpers.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
+                                Audio.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
                             } else {
                                 this.soundWinner(jugada.getVal(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
                             }
@@ -6315,7 +6326,7 @@ public class Crupier implements Runnable {
                                     "encargado.wav",
                                     "matias.wav"});
 
-                                Helpers.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
+                                Audio.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
                             } else {
 
                                 this.soundLoser(jugada.getVal());
@@ -6338,7 +6349,7 @@ public class Crupier implements Runnable {
                         if (GameFrame.SONIDOS_CHORRA && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
                             if (jugador_actual.getDecision() == Player.ALLIN) {
-                                Helpers.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
+                                Audio.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
                             } else {
                                 this.soundWinner(jugada.getVal(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
                             }
@@ -6373,7 +6384,7 @@ public class Crupier implements Runnable {
                                     "encargado.wav",
                                     "matias.wav"});
 
-                                Helpers.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
+                                Audio.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
                             } else {
 
                                 this.soundLoser(jugada.getVal());
@@ -6477,20 +6488,20 @@ public class Crupier implements Runnable {
             }
         });
 
-        Helpers.stopLoopMp3("misc/waiting_room.mp3");
+        Audio.stopLoopMp3("misc/waiting_room.mp3");
 
         if (!GameFrame.RECOVER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
-            Helpers.playWavResource("misc/startplay.wav");
+            Audio.playWavResource("misc/startplay.wav");
         }
 
         if (GameFrame.MUSICA_AMBIENTAL) {
 
             if (!GameFrame.RECOVER) {
-                Helpers.unmuteLoopMp3("misc/background_music.mp3");
+                Audio.unmuteLoopMp3("misc/background_music.mp3");
             } else {
-                Helpers.stopLoopMp3("misc/background_music.mp3");
-                Helpers.playLoopMp3Resource("misc/recovering.mp3");
+                Audio.stopLoopMp3("misc/background_music.mp3");
+                Audio.playLoopMp3Resource("misc/recovering.mp3");
             }
         }
 
@@ -6539,12 +6550,12 @@ public class Crupier implements Runnable {
 
                         if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
-                            Helpers.playWavResource("misc/startplay.wav");
+                            Audio.playWavResource("misc/startplay.wav");
                         }
 
                         if (GameFrame.MUSICA_AMBIENTAL) {
-                            Helpers.stopLoopMp3("misc/recovering.mp3");
-                            Helpers.playLoopMp3Resource("misc/background_music.mp3");
+                            Audio.stopLoopMp3("misc/recovering.mp3");
+                            Audio.playLoopMp3Resource("misc/background_music.mp3");
                         }
                     }
 

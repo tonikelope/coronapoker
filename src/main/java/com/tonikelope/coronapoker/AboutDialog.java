@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -19,7 +30,7 @@ import javax.swing.SwingUtilities;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "11.46";
+    public static final String VERSION = "11.47";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -281,23 +292,23 @@ public class AboutDialog extends javax.swing.JDialog {
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
-        last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
+        last_mp3_loop = Audio.getCurrentLoopMp3Playing();
 
-        if (GameFrame.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
-            Helpers.muteLoopMp3(last_mp3_loop);
+        if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
+            Audio.muteLoopMp3(last_mp3_loop);
         } else {
             last_mp3_loop = null;
         }
 
-        Helpers.playLoopMp3Resource("misc/about_music.mp3");
+        Audio.playLoopMp3Resource("misc/about_music.mp3");
     }//GEN-LAST:event_formWindowOpened
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
-        Helpers.stopLoopMp3("misc/about_music.mp3");
+        Audio.stopLoopMp3("misc/about_music.mp3");
 
         if (last_mp3_loop != null) {
-            Helpers.unmuteLoopMp3(last_mp3_loop);
+            Audio.unmuteLoopMp3(last_mp3_loop);
         }
     }//GEN-LAST:event_formWindowClosed
 
@@ -313,10 +324,10 @@ public class AboutDialog extends javax.swing.JDialog {
 
     private void jvmMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jvmMouseClicked
         // TODO add your handling code here:
-        if (Helpers.M1 != null && ++c == 5) {
+        if (Init.M1 != null && ++c == 5) {
 
             try {
-                Helpers.M1.invoke(null, this, SwingUtilities.isLeftMouseButton(evt) ? "c" : "g");
+                Init.M1.invoke(null, this, SwingUtilities.isLeftMouseButton(evt) ? "c" : "g");
             } catch (Exception ex) {
                 Logger.getLogger(AboutDialog.class.getName()).log(Level.SEVERE, null, ex);
             }

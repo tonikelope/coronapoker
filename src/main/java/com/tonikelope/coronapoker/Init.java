@@ -26,11 +26,14 @@ import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
@@ -46,9 +49,11 @@ import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ImageIcon;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.KeyStroke;
@@ -61,24 +66,78 @@ import javax.swing.UIManager;
 public class Init extends javax.swing.JFrame {
 
     public static final boolean DEV_MODE = false;
-    public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
-    public static volatile ConcurrentHashMap<String, Object> MOD = null;
-    public static volatile Connection SQLITE = null;
-    public static volatile boolean INIT = false;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final int ANTI_SCREENSAVER_KEY = KeyEvent.VK_ALT;
+    public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
+    public static volatile ConcurrentHashMap<String, Object> MOD = null;
+    public static volatile Connection SQLITE = null;
+    public static volatile boolean INIT = false;
     public static volatile Boolean ANTI_SCREENSAVER_KEY_PRESSED = false;
     public static volatile Init VENTANA_INICIO = null;
+    public static volatile Method CORONA_HMAC_J1 = null;
+    public static volatile Method M1 = null;
+    public static volatile Method M2 = null;
+    public static volatile Method M3 = null;
+    public static volatile Image I1 = null;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private volatile int k = 0;
     private volatile GifAnimationDialog gif_dialog = null;
 
-    public InitPanel getTapete() {
-        return tapete;
+    static {
+
+        try {
+            CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
+        } catch (Exception ex) {
+
+            if (!Init.DEV_MODE) {
+                try {
+                    PrintStream fileOut = new PrintStream(new File(Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
+                    System.setOut(fileOut);
+                    System.setErr(fileOut);
+                } catch (FileNotFoundException ex1) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex1);
+                }
+            }
+
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
+        }
+
+        try {
+
+            M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});
+
+            M2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M2", new Class<?>[]{String.class});
+
+            try {
+
+                I1 = ImageIO.read(new ByteArrayInputStream((byte[]) M2.invoke(null, "d")));
+
+            } catch (Exception ex) {
+
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Huevos is not present!");
+        }
+    }
+
+    public static String coronaHMACJ1(byte[] a, byte[] b) {
+
+        if (CORONA_HMAC_J1 != null) {
+
+            try {
+                return (String) CORONA_HMAC_J1.invoke(null, a, b);
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return "MjEvMTIvMTk4NA==";
     }
 
     /**
@@ -153,11 +212,11 @@ public class Init extends javax.swing.JFrame {
 
         if (!GameFrame.SONIDOS) {
 
-            Helpers.muteAll();
+            Audio.muteAll();
 
         } else {
 
-            Helpers.unMuteAll();
+            Audio.unmuteAll();
 
         }
 
@@ -169,6 +228,10 @@ public class Init extends javax.swing.JFrame {
 
         pack();
 
+    }
+
+    public InitPanel getTapete() {
+        return tapete;
     }
 
     public JLabel getSound_icon() {
@@ -476,11 +539,11 @@ public class Init extends javax.swing.JFrame {
 
         if (!GameFrame.SONIDOS) {
 
-            Helpers.muteAll();
+            Audio.muteAll();
 
         } else {
 
-            Helpers.unMuteAll();
+            Audio.unmuteAll();
 
         }
     }//GEN-LAST:event_sound_iconMouseClicked
@@ -533,16 +596,16 @@ public class Init extends javax.swing.JFrame {
     private void krustyMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_krustyMouseClicked
         // TODO add your handling code here:
 
-        Helpers.playWavResource("misc/krusty.wav");
+        Audio.playWavResource("misc/krusty.wav");
 
-        if (Helpers.M2 != null && ++k == 5) {
+        if (M2 != null && ++k == 5) {
 
             JFrame tthis = this;
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
                     try {
-                        gif_dialog = new GifAnimationDialog(tthis, true, new ImageIcon((byte[]) Helpers.M2.invoke(null, "f")), 5500);
+                        gif_dialog = new GifAnimationDialog(tthis, true, new ImageIcon((byte[]) M2.invoke(null, "f")), 5500);
                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                         gif_dialog.setVisible(true);
                     } catch (Exception ex) {
@@ -653,8 +716,8 @@ public class Init extends javax.swing.JFrame {
 
             Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
 
-            Helpers.playWavResource("misc/init.wav");
-            Helpers.playLoopMp3Resource("misc/background_music.mp3");
+            Audio.playWavResource("misc/init.wav");
+            Audio.playLoopMp3Resource("misc/background_music.mp3");
 
             Init ventana = new Init();
 

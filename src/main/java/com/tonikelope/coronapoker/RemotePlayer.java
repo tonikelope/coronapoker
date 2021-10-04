@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -291,14 +302,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                     GameFrame.getInstance().getBarra_tiempo().setValue(response_counter);
 
                                     if (response_counter == 10 && Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                                        Helpers.playWavResource("misc/hurryup.wav");
+                                        Audio.playWavResource("misc/hurryup.wav");
                                     }
 
                                     if (response_counter == 0) {
 
                                         Helpers.threadRun(new Runnable() {
                                             public void run() {
-                                                Helpers.playWavResourceAndWait("misc/timeout.wav");
+                                                Audio.playWavResourceAndWait("misc/timeout.wav");
 
                                                 GameFrame.getInstance().checkPause();
 
@@ -448,7 +459,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void finTurno() {
 
-        Helpers.stopWavResource("misc/hurryup.wav");
+        Audio.stopWavResource("misc/hurryup.wav");
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -468,7 +479,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void fold() {
 
-        Helpers.playWavResource("misc/fold.wav");
+        Audio.playWavResource("misc/fold.wav");
 
         playingCard1.setVisibleCard(false);
         playingCard2.setVisibleCard(false);
@@ -480,7 +491,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void check() {
 
-        Helpers.playWavResource("misc/check.wav");
+        Audio.playWavResource("misc/check.wav");
 
         setBet(GameFrame.getInstance().getCrupier().getApuesta_actual());
 
@@ -498,14 +509,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void bet(float new_bet) {
 
-        Helpers.playWavResource("misc/bet.wav");
+        Audio.playWavResource("misc/bet.wav");
 
         setBet(new_bet);
 
         setDecision(Player.BET);
 
         if (GameFrame.SONIDOS_CHORRA && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
-            Helpers.playWavResource("misc/raise.wav");
+            Audio.playWavResource("misc/raise.wav");
         }
 
         finTurno();
@@ -514,7 +525,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void allin() {
 
-        Helpers.playWavResource("misc/allin.wav");
+        Audio.playWavResource("misc/allin.wav");
 
         GameFrame.getInstance().getCrupier().setPlaying_cinematic(true);
 
@@ -570,9 +581,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             });
 
             if (val) {
-                Helpers.playWavResource("misc/network_error.wav");
+                Audio.playWavResource("misc/network_error.wav");
             } else if (!GameFrame.getInstance().isPartida_local()) {
-                Helpers.playWavResource("misc/yahoo.wav");
+                Audio.playWavResource("misc/yahoo.wav");
             }
 
         }
@@ -1291,7 +1302,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(cantidad) + ")");
 
-        Helpers.playWavResource("misc/cash_register.wav");
+        Audio.playWavResource("misc/cash_register.wav");
 
         if (!player_stack_click) {
             Helpers.GUIRun(new Runnable() {
@@ -1702,7 +1713,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (getPlayingCard1().isIniciada() && getPlayingCard1().isTapada()) {
 
             if (sound) {
-                Helpers.playWavResource("misc/uncover.wav", false);
+                Audio.playWavResource("misc/uncover.wav", false);
             }
 
             getPlayingCard1().setPosChip_visible(false);

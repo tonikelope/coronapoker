@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
@@ -341,7 +357,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (val) {
 
-                Helpers.playWavResource("misc/network_error.wav");
+                Audio.playWavResource("misc/network_error.wav");
             }
         }
 
@@ -597,7 +613,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.stack += cantidad;
         this.buyin += cantidad;
         GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(cantidad) + ")");
-        Helpers.playWavResource("misc/cash_register.wav");
+        Audio.playWavResource("misc/cash_register.wav");
 
         if (!player_stack_click) {
             Helpers.GUIRun(new Runnable() {
@@ -631,7 +647,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
 
         if (this.getDecision() == Player.NODEC) {
-            Helpers.playWavResource("misc/yourturn.wav");
+            Audio.playWavResource("misc/yourturn.wav");
 
             call_required = Helpers.floatClean1D(GameFrame.getInstance().getCrupier().getApuesta_actual() - bet);
 
@@ -820,7 +836,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     GameFrame.getInstance().getBarra_tiempo().setValue(response_counter);
 
                                     if (response_counter == 10) {
-                                        Helpers.playWavResource("misc/hurryup.wav");
+                                        Audio.playWavResource("misc/hurryup.wav");
 
                                         if ((hurryup_timer == null || !hurryup_timer.isRunning()) && Helpers.float1DSecureCompare(0f, call_required) < 0) {
 
@@ -862,7 +878,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                             public void run() {
 
                                                 if (response_counter == 0) {
-                                                    Helpers.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
+                                                    Audio.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
                                                 }
 
                                                 GameFrame.getInstance().checkPause();
@@ -949,7 +965,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void finTurno() {
 
-        Helpers.stopWavResource("misc/hurryup.wav");
+        Audio.stopWavResource("misc/hurryup.wav");
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
@@ -1940,12 +1956,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (pre_pulsado == Player.FOLD) {
 
-                    Helpers.playWavResource("misc/button_off.wav");
+                    Audio.playWavResource("misc/button_off.wav");
 
                     this.desPrePulsarBoton(player_fold_button);
 
                 } else {
-                    Helpers.playWavResource("misc/button_on.wav");
+                    Audio.playWavResource("misc/button_on.wav");
 
                     this.desPrePulsarTodo();
 
@@ -1957,7 +1973,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (pre_pulsado == Player.FOLD || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
 
-                Helpers.playWavResource("misc/fold.wav");
+                Audio.playWavResource("misc/fold.wav");
 
                 playingCard1.desenfocar();
                 playingCard2.desenfocar();
@@ -2067,7 +2083,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                     if (GameFrame.SONIDOS_CHORRA && decision == Player.FOLD) {
 
-                                        Helpers.playWavResource("misc/showyourcards.wav");
+                                        Audio.playWavResource("misc/showyourcards.wav");
 
                                     }
 
@@ -2089,7 +2105,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (GameFrame.TEST_MODE || this.action_button_armed.get(player_allin_button) || click_recuperacion) {
 
-                        Helpers.playWavResource("misc/allin.wav");
+                        Audio.playWavResource("misc/allin.wav");
 
                         desactivarControles();
 
@@ -2145,13 +2161,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (pre_pulsado == Player.CHECK) {
 
-                    Helpers.playWavResource("misc/button_off.wav");
+                    Audio.playWavResource("misc/button_off.wav");
 
                     this.desPrePulsarBoton(player_check_button);
 
                 } else {
 
-                    Helpers.playWavResource("misc/button_on.wav");
+                    Audio.playWavResource("misc/button_on.wav");
 
                     this.desPrePulsarTodo();
 
@@ -2167,7 +2183,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_allin_buttonActionPerformed(null);
                 } else {
 
-                    Helpers.playWavResource("misc/check.wav");
+                    Audio.playWavResource("misc/check.wav");
 
                     desactivarControles();
 
@@ -2215,7 +2231,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     float bet_spinner_val = Helpers.floatClean1D(((BigDecimal) bet_spinner.getValue()).floatValue());
 
-                    Helpers.playWavResource("misc/bet.wav");
+                    Audio.playWavResource("misc/bet.wav");
 
                     desactivarControles();
 
@@ -2245,7 +2261,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             setDecision(Player.BET);
 
                             if (!GameFrame.getInstance().getCrupier().isSincronizando_mano() && GameFrame.SONIDOS_CHORRA && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
-                                Helpers.playWavResource("misc/raise.wav");
+                                Audio.playWavResource("misc/raise.wav");
                             }
 
                             finTurno();
@@ -2274,7 +2290,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.savePropertiesFile();
 
-            Helpers.playWavResource(this.playingCard1.isPosChip_visible() ? "misc/button_on.wav" : "misc/button_off.wav");
+            Audio.playWavResource(this.playingCard1.isPosChip_visible() ? "misc/button_on.wav" : "misc/button_off.wav");
         }
     }//GEN-LAST:event_player_nameMouseClicked
 
@@ -2614,7 +2630,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (getPlayingCard1().isIniciada() && getPlayingCard1().isTapada()) {
 
             if (sound) {
-                Helpers.playWavResource("misc/uncover.wav", false);
+                Audio.playWavResource("misc/uncover.wav", false);
             }
 
             getPlayingCard1().destapar(false);

@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -203,7 +214,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
-        Helpers.playWavResource("misc/last_hand_on.wav");
+        Audio.playWavResource("misc/last_hand_on.wav");
 
     }
 
@@ -232,7 +243,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
-        Helpers.playWavResource("misc/last_hand_off.wav");
+        Audio.playWavResource("misc/last_hand_off.wav");
 
     }
 
@@ -717,7 +728,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 tthis.getPause_button().setBackground(Color.WHITE);
                 tthis.getPause_button().setForeground(new Color(255, 102, 0));
                 GameFrame.getInstance().getLocalPlayer().setAuto_pause(true);
-                Helpers.playWavResource("misc/button_on.wav");
+                Audio.playWavResource("misc/button_on.wav");
 
                 if (!GameFrame.getInstance().getLocalPlayer().isAuto_pause_warning()) {
                     GameFrame.getInstance().getLocalPlayer().setAuto_pause_warning(true);
@@ -728,7 +739,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 tthis.getPause_button().setBackground(new Color(255, 102, 0));
                 tthis.getPause_button().setForeground(Color.WHITE);
                 GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
-                Helpers.playWavResource("misc/button_off.wav");
+                Audio.playWavResource("misc/button_off.wav");
             }
         }
 
@@ -762,7 +773,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
-            Helpers.playWavResource("misc/button_off.wav");
+            Audio.playWavResource("misc/button_off.wav");
             GameFrame.getInstance().getCapa_brillo().setBrightness(0.3f);
             lights_button.setText(Translator.translate("LUCES OFF"));
             lights_button.setBackground(new Color(102, 102, 102));
@@ -770,7 +781,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         } else {
 
-            Helpers.playWavResource("misc/button_on.wav");
+            Audio.playWavResource("misc/button_on.wav");
             GameFrame.getInstance().getCapa_brillo().setBrightness(0f);
             lights_button.setText(Translator.translate("LUCES ON"));
             lights_button.setBackground(new Color(255, 255, 204));

@@ -1908,7 +1908,9 @@ public class Helpers {
 
                             for (Clip c : WAVS_RESOURCES.get(sound)) {
 
-                                c.stop();
+                                if (c != null) {
+                                    c.stop();
+                                }
 
                             }
 
@@ -1955,7 +1957,7 @@ public class Helpers {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
                 tot++;
             }
         }
@@ -1967,7 +1969,7 @@ public class Helpers {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
 
                 return true;
 
@@ -2159,7 +2161,11 @@ public class Helpers {
             ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
 
             for (Clip c : list) {
-                c.stop();
+
+                if (c != null) {
+                    c.stop();
+                }
+
             }
         }
     }
@@ -2255,7 +2261,7 @@ public class Helpers {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
 
                 try {
                     entry.getValue().pause();
@@ -2275,7 +2281,7 @@ public class Helpers {
 
             Map.Entry<String, BasicPlayer> entry = iterator.next();
 
-            if (entry.getValue().getStatus() == BasicPlayer.PLAYING && !MP3_LOOP_MUTED.contains(entry.getKey())) {
+            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING && !MP3_LOOP_MUTED.contains(entry.getKey())) {
 
                 iterator.remove();
 
@@ -2327,7 +2333,7 @@ public class Helpers {
             for (Clip c : list) {
 
                 try {
-                    if (c.isOpen()) {
+                    if (c != null && c.isOpen()) {
                         FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
                         gainControl.setValue(gainControl.getMinimum());
                     }
@@ -2344,10 +2350,13 @@ public class Helpers {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            try {
-                entry.getValue().setGain(0f);
-            } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            if (entry.getValue() != null) {
+
+                try {
+                    entry.getValue().setGain(0f);
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         }
 
@@ -2358,11 +2367,12 @@ public class Helpers {
         MUTED_MP3 = true;
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
-
-            try {
-                entry.getValue().setGain(0f);
-            } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            if (entry.getValue() != null) {
+                try {
+                    entry.getValue().setGain(0f);
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         }
 
@@ -2376,7 +2386,7 @@ public class Helpers {
 
             try {
 
-                if (!MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
+                if (entry.getValue() != null && !MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
                     entry.getValue().setGain(getSoundVolume(entry.getKey()));
                 }
 
@@ -2394,7 +2404,7 @@ public class Helpers {
 
             try {
 
-                if (!MUTED_ALL) {
+                if (entry.getValue() != null && !MUTED_ALL) {
                     entry.getValue().setGain(getSoundVolume(entry.getKey()));
                 }
 
@@ -2416,7 +2426,7 @@ public class Helpers {
 
                 try {
 
-                    if (c.isOpen()) {
+                    if (c != null && c.isOpen()) {
                         FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
                         float dB = (float) Math.log10(getSoundVolume(entry.getKey())) * 20.0f;
                         gainControl.setValue(dB);
@@ -2445,7 +2455,7 @@ public class Helpers {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
                 return entry.getKey();
             }
         }
@@ -2462,7 +2472,11 @@ public class Helpers {
             ConcurrentLinkedQueue<Clip> list = iterator.next().getValue();
 
             for (Clip c : list) {
-                c.stop();
+
+                if (c != null) {
+                    c.stop();
+                }
+
             }
 
             iterator.remove();

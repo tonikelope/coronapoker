@@ -948,7 +948,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 vamos.setEnabled(false);
 
-                Helpers.playWavResource("misc/allin.wav");
+                Audio.playWavResource("misc/allin.wav");
 
                 String elnick = this.nick.getText().trim().replaceAll("\\$", "");
 
@@ -1332,7 +1332,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
     private void buyin_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_buyin_spinnerStateChanged
         // TODO add your handling code here:
-        Helpers.playWavResource("misc/cash_register.wav");
+        Audio.playWavResource("misc/cash_register.wav");
         // updateCiegasLabel();
     }//GEN-LAST:event_buyin_spinnerStateChanged
 

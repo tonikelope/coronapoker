@@ -1,0 +1,988 @@
+/*
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package com.tonikelope.coronapoker;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.FloatControl;
+import javazoom.jlgui.basicplayer.BasicController;
+import javazoom.jlgui.basicplayer.BasicPlayer;
+import javazoom.jlgui.basicplayer.BasicPlayerEvent;
+import javazoom.jlgui.basicplayer.BasicPlayerListener;
+import org.apache.commons.codec.binary.Base64;
+
+/**
+ *
+ * @author tonikelope
+ */
+public class Audio {
+
+    public static final float MASTER_VOLUME = 0.8f;
+    public static final float TTS_VOLUME = 1.0f;
+    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.4f); //DEFAULT * CUSTOM
+    public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/stats_music.mp3", 0.3f);
+    public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/waiting_room.mp3", 0.7f);
+    public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.7f);
+    public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
+    public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
+    public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
+    public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
+    public static final ConcurrentLinkedQueue<String> TTS_BLOCKED_USERS = new ConcurrentLinkedQueue<>();
+    public static final ConcurrentLinkedQueue<Object[]> TTS_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
+    public static final Object TTS_LOCK = new Object();
+    public static final int MAX_TTS_LENGTH = 150;
+    public volatile static boolean MUTED_ALL = false;
+    public volatile static boolean MUTED_WAV = false;
+    public volatile static boolean MUTED_MP3 = false;
+    public volatile static boolean MUTED_MP3_LOOP = false;
+    public volatile static BasicPlayer TTS_PLAYER = null;
+    public volatile static Object TTS_PLAYER_NOTIFIER = new Object();
+
+    public static void playRandomWavResource(Map<String, String[]> sonidos) {
+
+        ArrayList<String> sounds = new ArrayList<>();
+
+        for (Map.Entry<String, String[]> entry : sonidos.entrySet()) {
+
+            String folder = entry.getKey();
+
+            String[] ficheros = entry.getValue();
+
+            for (String fichero : ficheros) {
+                sounds.add(folder + fichero);
+            }
+        }
+
+        if (!sounds.isEmpty()) {
+            int elegido = Helpers.CSPRNG_GENERATOR.nextInt(sounds.size());
+
+            playWavResource(sounds.get(elegido));
+        }
+    }
+
+    public static void playRandomWavResourceAndWait(Map<String, String[]> sonidos) {
+
+        ArrayList<String> sounds = new ArrayList<>();
+
+        for (Map.Entry<String, String[]> entry : sonidos.entrySet()) {
+
+            String folder = entry.getKey();
+
+            String[] ficheros = entry.getValue();
+
+            for (String fichero : ficheros) {
+                sounds.add(folder + fichero);
+            }
+        }
+
+        if (!sounds.isEmpty()) {
+
+            int elegido = Helpers.CSPRNG_GENERATOR.nextInt(sounds.size());
+
+            playWavResourceAndWait(sounds.get(elegido));
+        }
+    }
+
+    public static float getSoundVolume(String sound) {
+
+        return CUSTOM_VOLUMES.containsKey(sound) ? CUSTOM_VOLUMES.get(sound) : (TTS_PLAYER != null && ((BasicPlayer) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? TTS_VOLUME : MASTER_VOLUME);
+    }
+
+    private static InputStream getSoundInputStream(String sound) {
+
+        if (Files.exists(Paths.get(sound))) {
+
+            try {
+                return new FileInputStream(sound);
+            } catch (FileNotFoundException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        if (Init.MOD != null) {
+
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/sounds/" + sound))) {
+
+                try {
+                    return new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/sounds/" + sound);
+                } catch (FileNotFoundException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/" + sound))) {
+
+                try {
+                    return new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/cinematics/" + sound);
+                } catch (FileNotFoundException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+        }
+
+        InputStream is;
+
+        if ((is = Helpers.class.getResourceAsStream("/sounds/" + sound)) != null || (is = Helpers.class.getResourceAsStream("/cinematics/" + sound)) != null) {
+            return is;
+        }
+
+        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "NO se encuentra el SONIDO {0}", sound);
+
+        return null;
+    }
+
+    public static boolean playWavResourceAndWait(String sound) {
+
+        return playWavResourceAndWait(sound, true, false);
+
+    }
+
+    public static boolean playWavResourceAndWait(String sound, boolean force_close, boolean bypass_muted) {
+        if (!GameFrame.TEST_MODE) {
+            InputStream sound_stream;
+            if ((sound_stream = getSoundInputStream(sound)) != null) {
+                try (final BufferedInputStream bis = new BufferedInputStream(sound_stream); final Clip clip = AudioSystem.getClip()) {
+
+                    ConcurrentLinkedQueue<Clip> list = new ConcurrentLinkedQueue<>();
+                    list.add(clip);
+                    WAVS_RESOURCES.putIfAbsent(sound, list);
+
+                    synchronized (WAVS_RESOURCES.get(sound)) {
+
+                        if (force_close) {
+
+                            for (Clip c : WAVS_RESOURCES.get(sound)) {
+
+                                if (c != null) {
+                                    c.stop();
+                                }
+
+                            }
+
+                            WAVS_RESOURCES.get(sound).clear();
+                        }
+
+                        if (!WAVS_RESOURCES.get(sound).contains(clip)) {
+                            WAVS_RESOURCES.get(sound).add(clip);
+                        }
+
+                        clip.open(AudioSystem.getAudioInputStream(bis));
+                        FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+                        if (!GameFrame.SONIDOS || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
+                            gainControl.setValue(gainControl.getMinimum());
+                        } else {
+                            float dB = (float) Math.log10(getSoundVolume(sound)) * 20.0f;
+                            gainControl.setValue(dB);
+                        }
+                        clip.loop(Clip.LOOP_CONTINUOUSLY);
+                    }
+
+                    Helpers.pausar(clip.getMicrosecondLength() / 1000);
+
+                    clip.stop();
+
+                    if (WAVS_RESOURCES.containsKey(sound) && WAVS_RESOURCES.get(sound).contains(clip)) {
+                        WAVS_RESOURCES.get(sound).remove(clip);
+                    }
+
+                    return true;
+
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+        return false;
+    }
+
+    public static synchronized int getTotalLoopMp3Playing() {
+
+        int tot = 0;
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+
+            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+                tot++;
+            }
+        }
+
+        return tot;
+    }
+
+    public static boolean isLoopMp3Playing() {
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+
+            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+
+                return true;
+
+            }
+        }
+
+        return false;
+
+    }
+
+    public static void playLoopMp3Resource(String sound) {
+
+        if (!GameFrame.TEST_MODE) {
+
+            Helpers.threadRun(new Runnable() {
+
+                @Override
+                public void run() {
+
+                    final Object player_wait = new Object();
+
+                    final BasicPlayer player = new BasicPlayer();
+
+                    do {
+
+                        try (BufferedInputStream bis = new BufferedInputStream(getSoundInputStream(sound))) {
+
+                            player.addBasicPlayerListener(new BasicPlayerListener() {
+
+                                @Override
+                                public void stateUpdated(BasicPlayerEvent bpe) {
+                                    synchronized (player_wait) {
+                                        player_wait.notifyAll();
+                                    }
+                                }
+
+                                @Override
+                                public void opened(Object o, Map map) {
+                                }
+
+                                @Override
+                                public void progress(int i, long l, byte[] bytes, Map map) {
+                                }
+
+                                @Override
+                                public void setController(BasicController bc) {
+                                }
+
+                            });
+
+                            player.open(bis);
+
+                            MP3_LOOP.put(sound, player);
+
+                            if (player.getStatus() != BasicPlayer.PLAYING) {
+                                player.play();
+                            }
+
+                            if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
+                                player.setGain(0f);
+                            } else {
+                                player.setGain(getSoundVolume(sound));
+                            }
+
+                            do {
+                                synchronized (player_wait) {
+
+                                    try {
+                                        player_wait.wait(1000);
+                                    } catch (InterruptedException ex) {
+                                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                }
+                            } while (player.getStatus() == BasicPlayer.PLAYING || player.getStatus() == BasicPlayer.PAUSED);
+
+                        } catch (Exception ex) {
+                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
+                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                    } while (MP3_LOOP.containsKey(sound));
+
+                }
+            });
+
+        }
+    }
+
+    public static void playMp3Resource(String sound, boolean tts) {
+
+        if (!GameFrame.TEST_MODE) {
+
+            final Object player_wait = new Object();
+
+            final BasicPlayer player = new BasicPlayer();
+
+            if (tts) {
+                TTS_PLAYER = player;
+            }
+
+            try (BufferedInputStream bis = new BufferedInputStream(getSoundInputStream(sound))) {
+
+                player.addBasicPlayerListener(new BasicPlayerListener() {
+
+                    @Override
+                    public void stateUpdated(BasicPlayerEvent bpe) {
+                        synchronized (player_wait) {
+                            player_wait.notifyAll();
+                        }
+
+                        if (tts) {
+                            synchronized (TTS_PLAYER_NOTIFIER) {
+                                TTS_PLAYER_NOTIFIER.notifyAll();
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void opened(Object o, Map map) {
+                    }
+
+                    @Override
+                    public void progress(int i, long l, byte[] bytes, Map map) {
+                    }
+
+                    @Override
+                    public void setController(BasicController bc) {
+                    }
+
+                });
+
+                player.open(bis);
+
+                MP3_RESOURCES.put(sound, player);
+
+                if (player.getStatus() != BasicPlayer.PLAYING) {
+                    player.play();
+                }
+
+                if (!GameFrame.SONIDOS) {
+                    player.setGain(0f);
+                } else {
+                    player.setGain(getSoundVolume(sound));
+                }
+
+                do {
+                    synchronized (player_wait) {
+
+                        try {
+                            player_wait.wait(1000);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                } while (player.getStatus() == BasicPlayer.PLAYING || player.getStatus() == BasicPlayer.PAUSED);
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                if (tts) {
+                    TTS_PLAYER = null;
+                }
+
+            }
+
+        }
+
+    }
+
+    private static boolean googleTranslatorTTSBASE64(String text, String lang, String filename) {
+
+        String url = "https://www.google.com/async/translate_tts?client=firefox-b-d&yv=3&ttsp=tl:" + lang + ",txt:__TTS__,spd:1&async=_fmt:jspb";
+
+        HttpURLConnection con = null;
+
+        boolean error = false;
+
+        try {
+
+            URL url_api = new URL(url.replace("__TTS__", URLEncoder.encode(URLEncoder.encode(text, "UTF-8").replace("+", "%20"))));
+
+            con = (HttpURLConnection) url_api.openConnection();
+
+            con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
+
+            con.setUseCaches(false);
+
+            try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"))) {
+
+                byte[] buffer = new byte[1024];
+
+                int reads;
+
+                while ((reads = is.read(buffer)) != -1) {
+
+                    bfos.write(buffer, 0, reads);
+                }
+
+            } catch (Exception ex) {
+
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
+
+            }
+
+            String mp3_b64 = new String(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt")), StandardCharsets.UTF_8);
+
+            Pattern pattern = Pattern.compile("\\[\"([^\\[\\]\"]+)\"\\]");
+
+            Matcher matcher = pattern.matcher(mp3_b64);
+
+            if (matcher.find()) {
+                Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename), Base64.decodeBase64(matcher.group(1)));
+            } else {
+                error = true;
+            }
+
+        } catch (Exception ex) {
+            error = true;
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
+
+        } finally {
+
+            if (con != null) {
+                con.disconnect();
+            }
+
+            try {
+                Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"));
+            } catch (IOException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return !error;
+
+    }
+
+    public static void TTS(String mensaje, TTSNotifyDialog nick_dialog) {
+
+        synchronized (TTS_LOCK) {
+
+            if (mensaje != null && !"".equals(mensaje)) {
+
+                String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿<>]", "").replaceAll(" {2,}", " ");
+
+                if (!"".equals(limpio) && limpio.length() <= MAX_TTS_LENGTH) {
+
+                    //¡¡OJO CON LO QUE SE DICE POR EL CHAT QUE ESTOS SON SERVICIOS EXTERNOS!! VEREMOS LO QUE DURAN...
+                    String filename = Helpers.genRandomString(30);
+
+                    if (!googleTranslatorTTSBASE64(limpio, GameFrame.DEFAULT_LANGUAGE.toLowerCase(), filename)) {
+
+                        String[] tts_mp3bin_services;
+
+                        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                            tts_mp3bin_services = new String[]{
+                                "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=es&q=__TTS__",
+                                "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=es-ES_LauraVoice&download=true&accept=audio%2Fmp3",};
+                        } else {
+                            tts_mp3bin_services = new String[]{
+                                "http://translate.google.com/translate_tts?ie=UTF-8&total=1&idx=0&textlen=32&client=tw-ob&tl=en&q=__TTS__",
+                                "https://text-to-speech-demo.ng.bluemix.net/api/v3/synthesize?text=__TTS__&voice=en-US_AllisonVoice&download=true&accept=audio%2Fmp3",};
+                        }
+
+                        boolean error;
+
+                        int conta_service = 0;
+
+                        do {
+                            error = false;
+
+                            HttpURLConnection con = null;
+
+                            try {
+
+                                URL url_api = new URL(tts_mp3bin_services[conta_service].replace("__TTS__", URLEncoder.encode(limpio, "UTF-8")));
+
+                                con = (HttpURLConnection) url_api.openConnection();
+
+                                con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
+
+                                con.setUseCaches(false);
+
+                                filename = Helpers.genRandomString(30);
+
+                                try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename))) {
+
+                                    byte[] buffer = new byte[1024];
+
+                                    int reads;
+
+                                    while ((reads = is.read(buffer)) != -1) {
+
+                                        bfos.write(buffer, 0, reads);
+                                    }
+
+                                } catch (Exception ex) {
+
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
+                                    error = true;
+                                    conta_service++;
+                                }
+
+                            } catch (Exception ex) {
+
+                                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
+                                error = true;
+                                conta_service++;
+
+                            } finally {
+
+                                if (con != null) {
+                                    con.disconnect();
+                                }
+
+                                if (error) {
+                                    filename = null;
+                                }
+                            }
+
+                        } while (error && conta_service < tts_mp3bin_services.length);
+                    }
+
+                    if (filename != null) {
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                while (TTS_PLAYER == null || TTS_PLAYER.getStatus() != BasicPlayer.PLAYING) {
+
+                                    synchronized (TTS_PLAYER_NOTIFIER) {
+                                        try {
+                                            TTS_PLAYER_NOTIFIER.wait(1000);
+                                        } catch (InterruptedException ex) {
+                                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+                                    }
+                                }
+
+                                Helpers.GUIRun(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        GameFrame.getInstance().getSonidos_menu().setEnabled(false);
+
+                                        nick_dialog.setVisible(true);
+                                    }
+                                });
+                            }
+                        });
+
+                        muteAllExceptMp3Loops();
+
+                        playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
+
+                        unmuteAll();
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                GameFrame.getInstance().getSonidos_menu().setEnabled(true);
+                                nick_dialog.setVisible(false);
+                            }
+                        });
+
+                        try {
+                            Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
+
+                        } catch (IOException ex) {
+                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                    }
+
+                }
+
+            }
+        }
+    }
+
+    public static void playWavResource(String sound) {
+
+        playWavResource(sound, true);
+
+    }
+
+    public static void playWavResource(String sound, boolean force_close) {
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+                playWavResourceAndWait(sound, force_close, false);
+            }
+        });
+    }
+
+    public static void stopWavResource(String sound) {
+
+        if (WAVS_RESOURCES.containsKey(sound)) {
+            ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
+
+            for (Clip c : list) {
+
+                if (c != null) {
+                    c.stop();
+                }
+
+            }
+        }
+    }
+
+    public static void stopLoopMp3(String sound) {
+
+        BasicPlayer player = MP3_LOOP.remove(sound);
+
+        if (player != null) {
+            try {
+
+                player.stop();
+
+                MP3_LOOP_MUTED.remove(sound);
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+    }
+
+    public static void pauseLoopMp3(String sound) {
+
+        BasicPlayer player = MP3_LOOP.get(sound);
+
+        if (player != null) {
+            try {
+                player.pause();
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+    }
+
+    public static void muteLoopMp3(String sound) {
+
+        BasicPlayer player = MP3_LOOP.get(sound);
+
+        if (player != null) {
+            try {
+                MP3_LOOP_MUTED.add(sound);
+                player.setGain(0f);
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+    }
+
+    public static void unmuteLoopMp3(String sound) {
+
+        BasicPlayer player = MP3_LOOP.get(sound);
+
+        if (player != null) {
+            try {
+                MP3_LOOP_MUTED.remove(sound);
+
+                if (!MUTED_ALL && !MUTED_MP3_LOOP) {
+                    player.setGain(getSoundVolume(sound));
+                }
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+    }
+
+    public static void resumeLoopMp3Resource(String sound) {
+
+        BasicPlayer player = MP3_LOOP.get(sound);
+
+        if (player != null) {
+
+            try {
+                player.resume();
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        } else {
+            playLoopMp3Resource(sound);
+        }
+
+    }
+
+    public static void pauseCurrentLoopMp3Resource() {
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+
+            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+
+                try {
+                    entry.getValue().pause();
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            }
+        }
+    }
+
+    public static void stopAllCurrentLoopMp3Resource() {
+
+        Iterator<Map.Entry<String, BasicPlayer>> iterator = MP3_LOOP.entrySet().iterator();
+
+        while (iterator.hasNext()) {
+
+            Map.Entry<String, BasicPlayer> entry = iterator.next();
+
+            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING && !MP3_LOOP_MUTED.contains(entry.getKey())) {
+
+                iterator.remove();
+
+                try {
+
+                    entry.getValue().stop();
+
+                    MP3_LOOP_MUTED.remove(entry.getKey());
+
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            }
+        }
+
+    }
+
+    public static void muteAll() {
+
+        MUTED_ALL = true;
+
+        muteAllMp3();
+
+        muteAllLoopMp3();
+
+        muteAllWav();
+
+    }
+
+    public static void muteAllExceptMp3Loops() {
+
+        MUTED_ALL = true;
+
+        muteAllMp3();
+
+        muteAllWav();
+
+    }
+
+    public static void muteAllWav() {
+
+        MUTED_WAV = true;
+
+        for (Map.Entry<String, ConcurrentLinkedQueue<Clip>> entry : WAVS_RESOURCES.entrySet()) {
+
+            ConcurrentLinkedQueue<Clip> list = entry.getValue();
+
+            for (Clip c : list) {
+
+                try {
+                    if (c != null && c.isOpen()) {
+                        FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
+                        gainControl.setValue(gainControl.getMinimum());
+                    }
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }
+
+    public static void muteAllLoopMp3() {
+
+        MUTED_MP3_LOOP = true;
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+
+            if (entry.getValue() != null) {
+
+                try {
+                    entry.getValue().setGain(0f);
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
+    }
+
+    public static void muteAllMp3() {
+
+        MUTED_MP3 = true;
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
+            if (entry.getValue() != null) {
+                try {
+                    entry.getValue().setGain(0f);
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
+    }
+
+    public static void unmuteAllLoopMp3() {
+
+        MUTED_MP3_LOOP = false;
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+
+            try {
+
+                if (entry.getValue() != null && !MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
+                    entry.getValue().setGain(getSoundVolume(entry.getKey()));
+                }
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    public static void unmuteAllMp3() {
+
+        MUTED_MP3 = false;
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
+
+            try {
+
+                if (entry.getValue() != null && !MUTED_ALL) {
+                    entry.getValue().setGain(getSoundVolume(entry.getKey()));
+                }
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    public static void unmuteAllWav() {
+
+        MUTED_WAV = false;
+
+        for (Map.Entry<String, ConcurrentLinkedQueue<Clip>> entry : WAVS_RESOURCES.entrySet()) {
+
+            ConcurrentLinkedQueue<Clip> list = entry.getValue();
+
+            for (Clip c : list) {
+
+                try {
+
+                    if (c != null && c.isOpen()) {
+                        FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
+                        float dB = (float) Math.log10(getSoundVolume(entry.getKey())) * 20.0f;
+                        gainControl.setValue(dB);
+                    }
+
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }
+
+    public static void unmuteAll() {
+
+        MUTED_ALL = false;
+
+        unmuteAllMp3();
+
+        unmuteAllLoopMp3();
+
+        unmuteAllWav();
+
+    }
+
+    public static String getCurrentLoopMp3Playing() {
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+
+            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+                return entry.getKey();
+            }
+        }
+
+        return null;
+    }
+
+    public static void stopAllWavResources() {
+
+        Iterator<Map.Entry<String, ConcurrentLinkedQueue<Clip>>> iterator = WAVS_RESOURCES.entrySet().iterator();
+
+        while (iterator.hasNext()) {
+
+            ConcurrentLinkedQueue<Clip> list = iterator.next().getValue();
+
+            for (Clip c : list) {
+
+                if (c != null) {
+                    c.stop();
+                }
+
+            }
+
+            iterator.remove();
+
+        }
+    }
+
+    private Audio() {
+    }
+
+}

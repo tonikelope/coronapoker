@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -222,10 +233,10 @@ public class GameOverDialog extends javax.swing.JDialog {
             @Override
             public void run() {
 
-                last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
+                last_mp3_loop = Audio.getCurrentLoopMp3Playing();
 
-                if (GameFrame.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
-                    Helpers.muteLoopMp3(last_mp3_loop);
+                if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
+                    Audio.muteLoopMp3(last_mp3_loop);
                 } else {
                     last_mp3_loop = null;
                 }
@@ -254,7 +265,7 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                     timer.start();
 
-                    Helpers.playWavResourceAndWait("misc/gameover.wav");
+                    Audio.playWavResourceAndWait("misc/gameover.wav");
 
                     if (timer.isRunning() && !continua) {
 
@@ -269,7 +280,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                         });
 
                         if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
-                            Helpers.playWavResourceAndWait("misc/norebuy.wav");
+                            Audio.playWavResourceAndWait("misc/norebuy.wav");
                         }
 
                         Helpers.GUIRun(new Runnable() {
@@ -282,7 +293,7 @@ public class GameOverDialog extends javax.swing.JDialog {
                     }
                 } else if (!continua) {
                     if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
-                        Helpers.playWavResourceAndWait("misc/norebuy.wav");
+                        Audio.playWavResourceAndWait("misc/norebuy.wav");
                     }
 
                     Helpers.GUIRun(new Runnable() {
@@ -303,7 +314,7 @@ public class GameOverDialog extends javax.swing.JDialog {
         GameFrame.getInstance().getTapete().showALL();
 
         if (last_mp3_loop != null) {
-            Helpers.unmuteLoopMp3(last_mp3_loop);
+            Audio.unmuteLoopMp3(last_mp3_loop);
         }
     }//GEN-LAST:event_formWindowClosed
 
@@ -313,9 +324,9 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         this.timer.stop();
 
-        Helpers.stopWavResource("misc/gameover.wav");
+        Audio.stopWavResource("misc/gameover.wav");
 
-        Helpers.playWavResource("misc/rebuy.wav");
+        Audio.playWavResource("misc/rebuy.wav");
 
         dispose();
 
@@ -336,10 +347,10 @@ public class GameOverDialog extends javax.swing.JDialog {
             @Override
             public void run() {
 
-                Helpers.stopWavResource("misc/gameover.wav");
+                Audio.stopWavResource("misc/gameover.wav");
 
                 if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
-                    Helpers.playWavResourceAndWait("misc/norebuy.wav");
+                    Audio.playWavResourceAndWait("misc/norebuy.wav");
                 }
 
                 Helpers.GUIRun(new Runnable() {

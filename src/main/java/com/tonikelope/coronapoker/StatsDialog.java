@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -2146,23 +2157,23 @@ public class StatsDialog extends javax.swing.JDialog {
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
 
-        last_mp3_loop = Helpers.getCurrentLoopMp3Playing();
+        last_mp3_loop = Audio.getCurrentLoopMp3Playing();
 
-        if (GameFrame.SONIDOS && last_mp3_loop != null && !Helpers.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
-            Helpers.muteLoopMp3(last_mp3_loop);
+        if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
+            Audio.muteLoopMp3(last_mp3_loop);
         } else {
             last_mp3_loop = null;
         }
 
-        Helpers.playLoopMp3Resource("misc/stats_music.mp3");
+        Audio.playLoopMp3Resource("misc/stats_music.mp3");
     }//GEN-LAST:event_formWindowOpened
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
-        Helpers.stopLoopMp3("misc/stats_music.mp3");
+        Audio.stopLoopMp3("misc/stats_music.mp3");
 
         if (last_mp3_loop != null) {
-            Helpers.unmuteLoopMp3(last_mp3_loop);
+            Audio.unmuteLoopMp3(last_mp3_loop);
         }
     }//GEN-LAST:event_formWindowClosed
 
@@ -2172,6 +2183,9 @@ public class StatsDialog extends javax.swing.JDialog {
         delete_game_button.setEnabled(false);
 
         if (Helpers.mostrarMensajeInformativoSINO((JFrame) this.getParent(), "¿ELIMINAR ESTA TIMBA?") == 0) {
+
+            Audio.playWavResource("misc/toilet.wav");
+
             Helpers.threadRun(new Runnable() {
 
                 public void run() {
@@ -2187,8 +2201,6 @@ public class StatsDialog extends javax.swing.JDialog {
                     }
 
                     if (deleteSelectedGame()) {
-
-                        Helpers.playWavResource("misc/toilet.wav");
 
                         Helpers.GUIRun(new Runnable() {
 
@@ -2309,6 +2321,8 @@ public class StatsDialog extends javax.swing.JDialog {
         purge_games_button.setEnabled(false);
 
         if (Helpers.mostrarMensajeInformativoSINO((JFrame) this.getParent(), Translator.translate("¿SEGURO QUE QUIERES ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR?")) == 0) {
+            Audio.playWavResource("misc/toilet.wav");
+
             Helpers.threadRun(new Runnable() {
 
                 public void run() {
@@ -2324,8 +2338,6 @@ public class StatsDialog extends javax.swing.JDialog {
                     }
 
                     if (deleteAllGames()) {
-
-                        Helpers.playWavResource("misc/toilet.wav");
 
                         Helpers.GUIRunAndWait(new Runnable() {
 

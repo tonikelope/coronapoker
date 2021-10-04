@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -40,7 +51,7 @@ public class FastChatDialog extends javax.swing.JDialog {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                if (chat_box.getText().length() <= Helpers.MAX_TTS_LENGTH) {
+                if (chat_box.getText().length() <= Audio.MAX_TTS_LENGTH) {
 
                     if (GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f) {
                         chat_panel.setBackground(Color.DARK_GRAY);
@@ -185,10 +196,10 @@ public class FastChatDialog extends javax.swing.JDialog {
 
             if (WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
 
-                Helpers.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), mensaje});
+                Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), mensaje});
 
-                synchronized (Helpers.TTS_CHAT_QUEUE) {
-                    Helpers.TTS_CHAT_QUEUE.notifyAll();
+                synchronized (Audio.TTS_CHAT_QUEUE) {
+                    Audio.TTS_CHAT_QUEUE.notifyAll();
                 }
             }
 
@@ -219,7 +230,7 @@ public class FastChatDialog extends javax.swing.JDialog {
             setVisible(false);
         } else {
 
-            if (chat_box.getText().length() <= Helpers.MAX_TTS_LENGTH) {
+            if (chat_box.getText().length() <= Audio.MAX_TTS_LENGTH) {
 
                 if (chat_box.getBackground() != Color.WHITE || chat_box.getBackground() != Color.DARK_GRAY) {
                     refreshColors();

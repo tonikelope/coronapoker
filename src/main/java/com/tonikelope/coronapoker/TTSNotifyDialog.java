@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -31,7 +42,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        tts_panel.getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Helpers.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+        tts_panel.getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Audio.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
 
         tts_panel.getMessage().setText("[" + nick + (msg != null ? "]: " + msg : "]"));
 
@@ -137,12 +148,12 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
 
-        if (player != null && !Helpers.TTS_BLOCKED_USERS.contains(player) && !GameFrame.getInstance().getLocalPlayer().getNickname().equals(player)) {
+        if (player != null && !Audio.TTS_BLOCKED_USERS.contains(player) && !GameFrame.getInstance().getLocalPlayer().getNickname().equals(player)) {
 
-            if (Helpers.TTS_PLAYER != null) {
+            if (Audio.TTS_PLAYER != null) {
                 try {
                     // TODO add your handling code here:
-                    Helpers.TTS_PLAYER.stop();
+                    Audio.TTS_PLAYER.stop();
                 } catch (Exception ex) {
                     Logger.getLogger(TTSNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -150,7 +161,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
             if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?") == 0) {
 
-                Helpers.TTS_BLOCKED_USERS.add(player);
+                Audio.TTS_BLOCKED_USERS.add(player);
             }
         }
     }//GEN-LAST:event_formMouseClicked

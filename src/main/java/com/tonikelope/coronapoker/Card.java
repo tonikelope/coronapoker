@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2020 tonikelope
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -649,7 +660,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         if (isIniciadaConValor() && this.tapada) {
 
             if (sound) {
-                Helpers.playWavResource("misc/uncover.wav", false);
+                Audio.playWavResource("misc/uncover.wav", false);
             }
 
             this.tapada = false;
@@ -779,7 +790,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         if (GameFrame.SONIDOS_CHORRA && CARTAS_SONIDO != null) {
 
             if (CARTAS_SONIDO.contains(this.toShortString())) {
-                Helpers.playWavResource("decks/" + GameFrame.BARAJA + "/" + this.toShortString() + ".wav");
+                Audio.playWavResource("decks/" + GameFrame.BARAJA + "/" + this.toShortString() + ".wav");
                 return true;
             }
         }
@@ -846,7 +857,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
             }
 
-            Helpers.playWavResource("misc/card_visor.wav");
+            Audio.playWavResource("misc/card_visor.wav");
 
             visor.setLocationRelativeTo(visor.getParent());
 

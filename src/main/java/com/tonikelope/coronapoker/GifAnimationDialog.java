@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Dimension;
+import java.awt.event.MouseEvent;
 import javax.swing.ImageIcon;
 
 /**
@@ -92,11 +93,17 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         gif_panel = new com.tonikelope.coronapoker.GifPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         setFocusCycleRoot(false);
         setFocusable(false);
         setFocusableWindowState(false);
         setUndecorated(true);
         setResizable(false);
+        addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                formMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -115,6 +122,14 @@ public class GifAnimationDialog extends javax.swing.JDialog {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
+
+    private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
+        // TODO add your handling code here
+
+        if (evt.getButton() == MouseEvent.BUTTON3) {
+            setVisible(false);
+        }
+    }//GEN-LAST:event_formMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.GifPanel gif_panel;

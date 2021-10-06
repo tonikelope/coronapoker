@@ -2745,7 +2745,7 @@ public class Crupier implements Runnable {
                     permutacion_baraja = permutacion_recuperada;
                     permutacion_recuperada = null;
                 } else {
-                    permutacion_baraja = Helpers.getPokerDeckPermutation(Helpers.DECK_RANDOM_GENERATOR);
+                    permutacion_baraja = Helpers.getRandomIntegerSequence(Helpers.DECK_RANDOM_GENERATOR, 1, 52);
                     preservarPermutacion(permutacion_baraja);
                 }
 
@@ -3495,9 +3495,7 @@ public class Crupier implements Runnable {
 
         int i = 0;
 
-        while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.dealer_nick)) {
-            i++;
-        }
+        while (!GameFrame.getInstance().getJugadores().get(i++).getNickname().equals(this.dealer_nick));
 
         int p = 0, j, pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();
 
@@ -3510,9 +3508,7 @@ public class Crupier implements Runnable {
 
             if (jugador.isActivo()) {
 
-                jugador.getPlayingCard1().preIniciarConValorNumerico(permutacion_baraja[p]);
-
-                p++;
+                jugador.getPlayingCard1().preIniciarConValorNumerico(permutacion_baraja[p++]);
             }
 
             j = (j + 1) % GameFrame.getInstance().getJugadores().size();
@@ -3526,9 +3522,7 @@ public class Crupier implements Runnable {
 
             if (jugador.isActivo()) {
 
-                jugador.getPlayingCard2().preIniciarConValorNumerico(permutacion_baraja[p]);
-
-                p++;
+                jugador.getPlayingCard2().preIniciarConValorNumerico(permutacion_baraja[p++]);
             }
 
             j = (j + 1) % GameFrame.getInstance().getJugadores().size();
@@ -3539,12 +3533,10 @@ public class Crupier implements Runnable {
 
             //Se quema una carta antes de cada calle
             if (carta == GameFrame.getInstance().getFlop1() || carta == GameFrame.getInstance().getTurn() || carta == GameFrame.getInstance().getRiver()) {
-                p++;
+                p = p + 1;
             }
 
-            carta.preIniciarConValorNumerico(permutacion_baraja[p]);
-
-            p++;
+            carta.preIniciarConValorNumerico(permutacion_baraja[p++]);
         }
 
     }

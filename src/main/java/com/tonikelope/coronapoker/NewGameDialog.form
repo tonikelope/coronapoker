@@ -484,7 +484,7 @@
                                       </Group>
                                       <EmptySpace max="-2" attributes="0"/>
                                       <Group type="103" groupAlignment="0" attributes="0">
-                                          <Component id="ciegas_combobox" pref="306" max="32767" attributes="0"/>
+                                          <Component id="ciegas_combobox" pref="357" max="32767" attributes="0"/>
                                           <Component id="buyin_spinner" max="32767" attributes="0"/>
                                       </Group>
                                   </Group>
@@ -624,12 +624,12 @@
                           <Group type="102" attributes="0">
                               <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="1" attributes="0">
+                                  <Component id="random_label" min="-2" pref="238" max="-2" attributes="0"/>
                                   <Component id="randomorg_label" min="-2" max="-2" attributes="0"/>
-                                  <Component id="random_label" min="-2" pref="305" max="-2" attributes="0"/>
                               </Group>
                               <EmptySpace max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="1" attributes="0">
-                                  <Component id="random_combobox" alignment="0" max="32767" attributes="0"/>
+                              <Group type="103" groupAlignment="0" attributes="0">
+                                  <Component id="random_combobox" max="32767" attributes="0"/>
                                   <Component id="randomorg_apikey" max="32767" attributes="0"/>
                               </Group>
                               <EmptySpace max="-2" attributes="0"/>
@@ -670,8 +670,7 @@
                         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                           <Font name="Dialog" size="16" style="1"/>
                         </Property>
-                        <Property name="text" type="java.lang.String" value="Generador de n&#xfa;meros aleatorios:"/>
-                        <Property name="toolTipText" type="java.lang.String" value="Se usar&#xe1; para barajar las cartas"/>
+                        <Property name="text" type="java.lang.String" value="ALGORITMO para barajar:"/>
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
                     </Component>
@@ -690,8 +689,8 @@
                         </Property>
                         <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.editors2.ComboBoxModelEditor">
                           <StringArray count="2">
-                            <StringItem index="0" value="TRNG [RANDOM.ORG] (Muy seguro)"/>
-                            <StringItem index="1" value="CSPRNG [DRBG SHA-512] (Seguro)"/>
+                            <StringItem index="0" value="Random.org [TRNG] (Muy seguro)"/>
+                            <StringItem index="1" value="Fisher-Yates [CSPRNG DRBG SHA-512] (Seguro)"/>
                           </StringArray>
                         </Property>
                         <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">

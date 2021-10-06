@@ -661,7 +661,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                             .addComponent(ciegas_label))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(ciegas_combobox, 0, 306, Short.MAX_VALUE)
+                            .addComponent(ciegas_combobox, 0, 357, Short.MAX_VALUE)
                             .addComponent(buyin_spinner))))
                 .addContainerGap())
         );
@@ -689,15 +689,14 @@ public class NewGameDialog extends javax.swing.JDialog {
         randomorg_label.setDoubleBuffered(true);
 
         random_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        random_label.setText("Generador de números aleatorios:");
-        random_label.setToolTipText("Se usará para barajar las cartas");
+        random_label.setText("ALGORITMO para barajar:");
         random_label.setDoubleBuffered(true);
 
         randomorg_apikey.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         randomorg_apikey.setDoubleBuffered(true);
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "TRNG [RANDOM.ORG] (Muy seguro)", "CSPRNG [DRBG SHA-512] (Seguro)" }));
+        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Random.org [TRNG] (Muy seguro)", "Fisher-Yates [CSPRNG DRBG SHA-512] (Seguro)" }));
         random_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_combobox.setDoubleBuffered(true);
         random_combobox.addActionListener(new java.awt.event.ActionListener() {
@@ -713,11 +712,11 @@ public class NewGameDialog extends javax.swing.JDialog {
             .addGroup(random_panelLayout.createSequentialGroup()
                 .addGap(12, 12, 12)
                 .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(randomorg_label)
-                    .addComponent(random_label, javax.swing.GroupLayout.PREFERRED_SIZE, 305, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(random_label, javax.swing.GroupLayout.PREFERRED_SIZE, 238, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(randomorg_label))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(random_combobox, javax.swing.GroupLayout.Alignment.LEADING, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(random_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(randomorg_apikey))
                 .addContainerGap())
         );

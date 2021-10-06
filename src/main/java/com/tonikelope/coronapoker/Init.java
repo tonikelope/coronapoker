@@ -55,7 +55,6 @@ import javax.swing.Action;
 import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.KeyStroke;
 import javax.swing.UIManager;
 
@@ -84,6 +83,7 @@ public class Init extends javax.swing.JFrame {
     public static volatile Method M3 = null;
     public static volatile Image I1 = null;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
+    private static volatile String NEW_VERSION = null;
     private volatile int k = 0;
     private volatile GifAnimationDialog gif_dialog = null;
 
@@ -150,6 +150,10 @@ public class Init extends javax.swing.JFrame {
         setTitle(Init.WINDOW_TITLE);
 
         JFrame tthis = this;
+
+        update_button.setVisible(false);
+
+        update_button.setIcon(new ImageIcon(getClass().getResource("/images/update.png")));
 
         update_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/gears.gif")).getImage().getScaledInstance(64, 64, Image.SCALE_DEFAULT)));
 
@@ -234,10 +238,6 @@ public class Init extends javax.swing.JFrame {
         return tapete;
     }
 
-    public JLabel getSound_icon() {
-        return sound_icon;
-    }
-
     public void translateGlobalLabels() {
         LocalPlayer.ACTIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? LocalPlayer.ACTIONS_LABELS_ES : LocalPlayer.ACTIONS_LABELS_EN;
         LocalPlayer.POSITIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? LocalPlayer.POSITIONS_LABELS_ES : LocalPlayer.POSITIONS_LABELS_EN;
@@ -271,6 +271,7 @@ public class Init extends javax.swing.JFrame {
         language_combobox = new javax.swing.JComboBox<>();
         stats_button = new javax.swing.JButton();
         update_label = new javax.swing.JLabel();
+        update_button = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("CoronaPoker");
@@ -405,6 +406,16 @@ public class Init extends javax.swing.JFrame {
         update_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         update_label.setText("COMPROBANDO ACTUALIZACIÓN...");
 
+        update_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        update_button.setText("ACTUALIZAR");
+        update_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        update_button.setDoubleBuffered(true);
+        update_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                update_buttonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout corona_init_panelLayout = new javax.swing.GroupLayout(corona_init_panel);
         corona_init_panel.setLayout(corona_init_panelLayout);
         corona_init_panelLayout.setHorizontalGroup(
@@ -412,6 +423,7 @@ public class Init extends javax.swing.JFrame {
             .addGroup(corona_init_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(update_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, corona_init_panelLayout.createSequentialGroup()
                         .addComponent(krusty)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -453,7 +465,9 @@ public class Init extends javax.swing.JFrame {
                             .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                 .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
-                .addGap(18, 18, 18)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(update_button)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(update_label))
         );
 
@@ -469,9 +483,9 @@ public class Init extends javax.swing.JFrame {
         tapeteLayout.setVerticalGroup(
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
-                .addContainerGap(565, Short.MAX_VALUE)
+                .addContainerGap(555, Short.MAX_VALUE)
                 .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(564, Short.MAX_VALUE))
+                .addContainerGap(555, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -619,6 +633,11 @@ public class Init extends javax.swing.JFrame {
 
     }//GEN-LAST:event_krustyMouseClicked
 
+    private void update_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_update_buttonActionPerformed
+        // TODO add your handling code here:
+        UPDATE();
+    }//GEN-LAST:event_update_buttonActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -719,75 +738,19 @@ public class Init extends javax.swing.JFrame {
             Audio.playWavResource("misc/init.wav");
             Audio.playLoopMp3Resource("misc/background_music.mp3");
 
-            Init ventana = new Init();
-
-            VENTANA_INICIO = ventana;
+            VENTANA_INICIO = new Init();
 
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
 
-                    Helpers.centrarJFrame(ventana, 0);
+                    Helpers.centrarJFrame(VENTANA_INICIO, 0);
 
-                    ventana.setVisible(true);
+                    VENTANA_INICIO.setVisible(true);
                 }
             });
 
-            final String new_version = Helpers.checkNewVersion(AboutDialog.UPDATE_URL);
-
-            if (new_version != null && !new_version.isBlank()) {
-
-                if (Helpers.mostrarMensajeInformativoSINO(ventana, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?") == 0) {
-
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            ventana.update_label.setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
-                        }
-                    });
-
-                    try {
-
-                        String current_jar_path = new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
-
-                        String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", new_version + ".jar");
-
-                        downloadUpdater();
-
-                        StringBuilder java_bin = new StringBuilder();
-
-                        java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
-
-                        StringBuilder updater_jar = new StringBuilder();
-
-                        updater_jar.append(System.getProperty("java.io.tmpdir") + "/coronaupdater.jar");
-
-                        String[] cmdArr = {java_bin.toString(), "-jar", updater_jar.toString(), new_version, current_jar_path, new_jar_path};
-
-                        Runtime.getRuntime().exec(cmdArr);
-
-                        System.exit(0);
-
-                    } catch (Exception ex) {
-                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
-                }
-
-            } else if (new_version == null) {
-                Helpers.mostrarMensajeError(ventana, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿TIENES CONEXIÓN A INTERNET?");
-            }
-
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    ventana.setEnabled(true);
-
-                    ventana.update_label.setVisible(false);
-                }
-            });
+            UPDATE();
 
             if (!Helpers.OSValidator.isMac()) {
                 antiScreensaver();
@@ -829,6 +792,93 @@ public class Init extends javax.swing.JFrame {
                 con.disconnect();
             }
         }
+
+    }
+
+    private static void UPDATE() {
+
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        VENTANA_INICIO.setEnabled(false);
+
+                        VENTANA_INICIO.update_label.setVisible(true);
+
+                        VENTANA_INICIO.update_button.setVisible(false);
+                    }
+                });
+
+                NEW_VERSION = Helpers.checkNewVersion(AboutDialog.UPDATE_URL);
+
+                if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
+
+                    if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?") == 0) {
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                VENTANA_INICIO.update_label.setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
+                            }
+                        });
+
+                        try {
+
+                            String current_jar_path = new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
+
+                            String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
+
+                            downloadUpdater();
+
+                            StringBuilder java_bin = new StringBuilder();
+
+                            java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+
+                            StringBuilder updater_jar = new StringBuilder();
+
+                            updater_jar.append(System.getProperty("java.io.tmpdir")).append("/coronaupdater.jar");
+
+                            String[] cmdArr = {java_bin.toString(), "-jar", updater_jar.toString(), NEW_VERSION, current_jar_path, new_jar_path};
+
+                            Runtime.getRuntime().exec(cmdArr);
+
+                            System.exit(0);
+
+                        } catch (Exception ex) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                    } else {
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                VENTANA_INICIO.update_button.setVisible(true);
+                            }
+                        });
+                    }
+
+                } else if (NEW_VERSION == null) {
+                    Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿TIENES CONEXIÓN A INTERNET?");
+                }
+
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        VENTANA_INICIO.setEnabled(true);
+
+                        VENTANA_INICIO.update_label.setVisible(false);
+                    }
+                });
+
+            }
+        });
 
     }
 
@@ -891,6 +941,7 @@ public class Init extends javax.swing.JFrame {
     private javax.swing.JLabel sound_icon;
     private javax.swing.JButton stats_button;
     private com.tonikelope.coronapoker.InitPanel tapete;
+    private javax.swing.JButton update_button;
     private javax.swing.JLabel update_label;
     // End of variables declaration//GEN-END:variables
 }

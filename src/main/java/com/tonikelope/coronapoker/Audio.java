@@ -61,11 +61,11 @@ public class Audio {
     public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.7f);
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
-    public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentLinkedQueue<String> TTS_BLOCKED_USERS = new ConcurrentLinkedQueue<>();
     public static final ConcurrentLinkedQueue<Object[]> TTS_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
+    public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final Object TTS_LOCK = new Object();
     public static final int MAX_TTS_LENGTH = 150;
     public volatile static boolean MUTED_ALL = false;
@@ -122,7 +122,7 @@ public class Audio {
 
     public static float getSoundVolume(String sound) {
 
-        return CUSTOM_VOLUMES.containsKey(sound) ? CUSTOM_VOLUMES.get(sound) : (TTS_PLAYER != null && ((BasicPlayer) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? TTS_VOLUME : MASTER_VOLUME);
+        return CUSTOM_VOLUMES.containsKey(sound) ? CUSTOM_VOLUMES.get(sound) : (TTS_PLAYER != null && MP3_RESOURCES.containsKey(sound) && ((BasicPlayer) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? TTS_VOLUME : MASTER_VOLUME);
     }
 
     private static InputStream getSoundInputStream(String sound) {
@@ -239,7 +239,7 @@ public class Audio {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
                 tot++;
             }
         }
@@ -251,7 +251,7 @@ public class Audio {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
 
                 return true;
 
@@ -759,7 +759,7 @@ public class Audio {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
 
                 try {
                     entry.getValue().pause();
@@ -779,7 +779,7 @@ public class Audio {
 
             Map.Entry<String, BasicPlayer> entry = iterator.next();
 
-            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING && !MP3_LOOP_MUTED.contains(entry.getKey())) {
+            if (entry.getValue().getStatus() == BasicPlayer.PLAYING && !MP3_LOOP_MUTED.contains(entry.getKey())) {
 
                 iterator.remove();
 
@@ -848,14 +848,12 @@ public class Audio {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue() != null) {
-
-                try {
-                    entry.getValue().setGain(0f);
-                } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                }
+            try {
+                entry.getValue().setGain(0f);
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
+
         }
 
     }
@@ -865,13 +863,13 @@ public class Audio {
         MUTED_MP3 = true;
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
-            if (entry.getValue() != null) {
-                try {
-                    entry.getValue().setGain(0f);
-                } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                }
+
+            try {
+                entry.getValue().setGain(0f);
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
+
         }
 
     }
@@ -884,7 +882,7 @@ public class Audio {
 
             try {
 
-                if (entry.getValue() != null && !MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
+                if (!MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
                     entry.getValue().setGain(getSoundVolume(entry.getKey()));
                 }
 
@@ -902,7 +900,7 @@ public class Audio {
 
             try {
 
-                if (entry.getValue() != null && !MUTED_ALL) {
+                if (!MUTED_ALL) {
                     entry.getValue().setGain(getSoundVolume(entry.getKey()));
                 }
 
@@ -953,7 +951,7 @@ public class Audio {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue() != null && entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
                 return entry.getKey();
             }
         }

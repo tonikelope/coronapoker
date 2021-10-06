@@ -1096,9 +1096,11 @@ public class Helpers {
         return ret;
     }
 
-    public static Integer[] getPokerDeckPermutation(int method) {
+    public static Integer[] getRandomIntegerSequence(int method, int min, int max) {
 
-        ArrayList<Integer> permutacion = new ArrayList<>();
+        if (min < 0 || min > max) {
+            return null;
+        }
 
         switch (method) {
             case Helpers.TRNG:
@@ -1127,7 +1129,7 @@ public class Helpers {
 
                                 try {
 
-                                    URL url_api = new URL("https://www.random.org/sequences/?min=1&max=52&col=1&format=plain&rnd=new");
+                                    URL url_api = new URL("https://www.random.org/sequences/?min=" + String.valueOf(min) + "&max=" + String.valueOf(max) + "&col=1&format=plain&rnd=new");
 
                                     con = (HttpURLConnection) url_api.openConnection();
 
@@ -1152,16 +1154,20 @@ public class Helpers {
 
                                     }
 
-                                    String[] parts = output.split("\n");
+                                    String[] per_str_array = output.split("\n");
 
-                                    ArrayList<Integer> permutacion = new ArrayList<>();
+                                    if (per_str_array.length == max - min + 1) {
 
-                                    for (String p : parts) {
+                                        Integer[] permutacion = new Integer[per_str_array.length];
 
-                                        permutacion.add(Integer.valueOf(p.trim()));
+                                        for (int i = 0; i < per_str_array.length; i++) {
+
+                                            permutacion[i] = Integer.valueOf(per_str_array[i].trim());
+                                        }
+
+                                        return permutacion;
+
                                     }
-
-                                    return permutacion.toArray(new Integer[permutacion.size()]);
 
                                 } catch (Exception ex) {
 
@@ -1219,13 +1225,15 @@ public class Helpers {
                 }
 
                 //Fallback to CSPRNG
-                return getPokerDeckPermutation(Helpers.CSPRNG);
+                return getRandomIntegerSequence(Helpers.CSPRNG, min, max);
 
             case Helpers.CSPRNG:
 
                 if (Helpers.CSPRNG_GENERATOR != null) {
 
-                    for (int i = 1; i <= DECK_ELEMENTS; i++) {
+                    ArrayList<Integer> permutacion = new ArrayList<>();
+
+                    for (int i = min; i <= max; i++) {
                         permutacion.add(i);
                     }
 
@@ -1236,7 +1244,7 @@ public class Helpers {
 
             default:
 
-                return getPokerDeckPermutation(Helpers.CSPRNG);
+                return getRandomIntegerSequence(Helpers.CSPRNG, min, max);
         }
 
     }

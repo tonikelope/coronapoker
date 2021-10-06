@@ -134,10 +134,11 @@ public class Init extends javax.swing.JFrame {
         Init ventana = new Init();
 
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
+        Helpers.GUIRun(new Runnable() {
+            @Override
             public void run() {
                 Helpers.centrarJFrame(ventana, 0);
-                ventana.getStatus().setText("UPDATING TO VERSION -> " + args[0]);
+                ventana.getStatus().setText("UPDATING TO >>> " + args[0]);
                 ventana.setVisible(true);
             }
         });
@@ -201,7 +202,7 @@ public class Init extends javax.swing.JFrame {
 
                 int length = con.getContentLength();
 
-                java.awt.EventQueue.invokeLater(new Runnable() {
+                Helpers.GUIRun(new Runnable() {
 
                     public void run() {
                         ventana.getProgress_bar().setMaximum(length);
@@ -223,7 +224,7 @@ public class Init extends javax.swing.JFrame {
 
                     int t = tot;
 
-                    java.awt.EventQueue.invokeLater(new Runnable() {
+                    Helpers.GUIRun(new Runnable() {
 
                         public void run() {
                             ventana.getProgress_bar().setValue(t);

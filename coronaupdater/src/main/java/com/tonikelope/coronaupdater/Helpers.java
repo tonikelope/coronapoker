@@ -5,16 +5,24 @@
  */
 package com.tonikelope.coronaupdater;
 
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Desktop;
+import java.awt.Font;
+import java.awt.FontFormatException;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JFrame;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
+import javax.swing.JTable;
 import javax.swing.SwingUtilities;
 
 /**
@@ -22,6 +30,8 @@ import javax.swing.SwingUtilities;
  * @author tonikelope
  */
 public class Helpers {
+
+    public volatile static Font GUI_FONT = null;
 
     public static void openBrowserURLAndWait(final String url) {
 
@@ -110,44 +120,25 @@ public class Helpers {
 
     public static void GUIRun(Runnable r) {
 
-        boolean ok;
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(r);
+        } else {
+            r.run();
+        }
 
-        do {
-            ok = true;
-
-            try {
-                if (!SwingUtilities.isEventDispatchThread()) {
-                    SwingUtilities.invokeLater(r);
-                } else {
-                    r.run();
-                }
-            } catch (Exception ex) {
-                ok = false;
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                pausar(250);
-            }
-
-        } while (!ok);
     }
 
     public static void GUIRunAndWait(Runnable r) {
 
-        boolean ok;
-
-        do {
-            ok = true;
-            try {
-                if (!SwingUtilities.isEventDispatchThread()) {
-                    SwingUtilities.invokeAndWait(r);
-                } else {
-                    r.run();
-                }
-            } catch (Exception ex) {
-                ok = false;
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                pausar(250);
+        try {
+            if (!SwingUtilities.isEventDispatchThread()) {
+                SwingUtilities.invokeAndWait(r);
+            } else {
+                r.run();
             }
-        } while (!ok);
+        } catch (InterruptedException | InvocationTargetException ex) {
+            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     public static void threadRun(Runnable r) {
@@ -156,6 +147,71 @@ public class Helpers {
 
         hilo.start();
 
+    }
+
+    public static Font createAndRegisterFont(InputStream stream) {
+
+        Font font = null;
+
+        try {
+
+            font = Font.createFont(Font.TRUETYPE_FONT, stream);
+
+            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+
+            ge.registerFont(font);
+
+        } catch (FontFormatException | IOException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex.getMessage());
+        }
+
+        return font;
+    }
+
+    public static void updateFonts(final Component component, final Font font, final Float zoom_factor) {
+
+        if (component != null) {
+
+            if (component instanceof javax.swing.JMenu) {
+
+                for (Component child : ((javax.swing.JMenu) component).getMenuComponents()) {
+                    if (child instanceof JMenuItem) {
+
+                        updateFonts(child, font, zoom_factor);
+                    }
+                }
+
+            } else if (component instanceof Container) {
+
+                for (Component child : ((Container) component).getComponents()) {
+                    if (child instanceof Container) {
+
+                        updateFonts(child, font, zoom_factor);
+                    }
+                }
+            }
+
+            Font old_font = component.getFont();
+
+            Font new_font = font.deriveFont(old_font.getStyle(), zoom_factor != null ? Math.round(old_font.getSize() * zoom_factor) : old_font.getSize());
+
+            boolean error;
+
+            do {
+                try {
+
+                    if (component instanceof JTable) {
+                        ((JTable) component).getTableHeader().setFont(new_font);
+                    }
+
+                    component.setFont(new_font);
+                    error = false;
+                } catch (Exception ex) {
+                    error = true;
+                }
+            } while (error);
+
+        }
     }
 
 }

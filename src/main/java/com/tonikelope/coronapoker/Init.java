@@ -663,13 +663,6 @@ public class Init extends javax.swing.JFrame {
                 java.util.logging.Logger.getLogger(Init.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
             }
             //</editor-fold>
-            //</editor-fold>
-            //</editor-fold>
-            //</editor-fold>
-            //</editor-fold>
-            //</editor-fold>
-            //</editor-fold>
-            //</editor-fold>
 
             Helpers.initSQLITE();
 

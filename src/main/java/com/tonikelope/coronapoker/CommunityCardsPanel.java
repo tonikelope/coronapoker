@@ -774,7 +774,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
             Audio.playWavResource("misc/button_off.wav");
-            GameFrame.getInstance().getCapa_brillo().setBrightness(0.3f);
+            GameFrame.getInstance().getCapa_brillo().lightsOFF();
             lights_button.setText(Translator.translate("LUCES OFF"));
             lights_button.setBackground(new Color(102, 102, 102));
             lights_button.setForeground(Color.WHITE);
@@ -782,7 +782,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         } else {
 
             Audio.playWavResource("misc/button_on.wav");
-            GameFrame.getInstance().getCapa_brillo().setBrightness(0f);
+            GameFrame.getInstance().getCapa_brillo().lightsON();
             lights_button.setText(Translator.translate("LUCES ON"));
             lights_button.setBackground(new Color(255, 255, 204));
             lights_button.setForeground(null);
@@ -794,7 +794,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         }
 
         GameFrame.getInstance().getFastchat_dialog().refreshColors();
-
         GameFrame.getInstance().getTapete().repaint();
     }//GEN-LAST:event_lights_buttonActionPerformed
 

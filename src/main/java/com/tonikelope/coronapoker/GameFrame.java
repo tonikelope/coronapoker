@@ -191,6 +191,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile int i60_c = 0;
     private volatile JLayer<JComponent> frame_layer = null;
     private volatile boolean retry = false;
+    private volatile boolean fin = false;
 
     public static synchronized void resetInstance() {
         THIS.dispose();
@@ -1685,7 +1686,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         synchronized (lock_fin) {
 
-            if (!getCrupier().isFin_de_la_transmision()) {
+            if (!fin) {
+
+                fin = true;
 
                 getCrupier().setFin_de_la_transmision(true);
 
@@ -1840,9 +1843,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 } else {
                     BYEBYE(partida_terminada);
                 }
-
             }
         }
+
     }
 
     private void BYEBYE(boolean partida_terminada) {

@@ -1685,159 +1685,162 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         synchronized (lock_fin) {
 
-            getCrupier().setFin_de_la_transmision(true);
+            if (!getCrupier().isFin_de_la_transmision()) {
 
-            if (Audio.TTS_PLAYER != null) {
-                try {
-                    // TODO add your handling code here:
-                    Audio.TTS_PLAYER.stop();
-                } catch (Exception ex) {
-                    Logger.getLogger(TTSNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
+                getCrupier().setFin_de_la_transmision(true);
 
-            Audio.stopAllWavResources();
-
-            GameFrame.getInstance().getTapete().hideALL();
-
-            if (this.getLocalPlayer().getAuto_action() != null) {
-                this.getLocalPlayer().getAuto_action().stop();
-            }
-
-            if (this.getLocalPlayer().getHurryup_timer() != null) {
-                this.getLocalPlayer().getHurryup_timer().stop();
-            }
-
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    if (jugadas_dialog != null) {
-                        jugadas_dialog.setVisible(false);
+                if (Audio.TTS_PLAYER != null) {
+                    try {
+                        // TODO add your handling code here:
+                        Audio.TTS_PLAYER.stop();
+                    } catch (Exception ex) {
+                        Logger.getLogger(TTSNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
-                    if (shortcuts_dialog != null) {
-                        shortcuts_dialog.setVisible(false);
-                    }
-
-                    if (registro_dialog.isVisible()) {
-                        registro_dialog.setVisible(false);
-                    }
-
-                    if (pausa_dialog != null) {
-                        pausa_dialog.setVisible(false);
-                    }
-
-                    GameFrame.getInstance().getFastchat_dialog().setVisible(false);
-
-                    exit_menu.setEnabled(false);
-
-                    menu_bar.setVisible(false);
-                }
-            });
-
-            if (partida_terminada) {
-
-                getRegistro().print("\n*************** LA TIMBA HA TERMINADO ***************");
-
-                getRegistro().print(Translator.translate("FIN DE LA TIMBA -> ") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
-
-                try {
-                    PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?");
-                    statement.setQueryTimeout(30);
-                    statement.setLong(1, System.currentTimeMillis());
-                    statement.setLong(2, crupier.getSqlite_game_id());
-                    statement.executeUpdate();
-                    statement.close();
-                } catch (SQLException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
-            }
+                Audio.stopAllWavResources();
 
-            synchronized (crupier.getLock_contabilidad()) {
+                GameFrame.getInstance().getTapete().hideALL();
 
-                crupier.auditorCuentas();
-
-                for (Map.Entry<String, Float[]> entry : crupier.getAuditor().entrySet()) {
-
-                    Float[] pasta = entry.getValue();
-
-                    String ganancia_msg = "";
-
-                    float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(pasta[0]) - Helpers.floatClean1D(pasta[1]));
-
-                    if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                        ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
-                    } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                        ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
-                    } else {
-                        ganancia_msg += Translator.translate("NI GANA NI PIERDE");
-                    }
-
-                    getRegistro().print(entry.getKey() + " " + ganancia_msg);
+                if (this.getLocalPlayer().getAuto_action() != null) {
+                    this.getLocalPlayer().getAuto_action().stop();
                 }
 
-                getRegistro().setFin_transmision(true);
-            }
-
-            Timestamp ts = new Timestamp(GAME_START_TIMESTAMP);
-            DateFormat timeZoneFormat = new SimpleDateFormat("dd_MM_yyyy__HH_mm_ss");
-            Date date = new Date(ts.getTime());
-            String fecha = timeZoneFormat.format(date);
-
-            String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
-
-            try {
-                Files.writeString(Paths.get(log_file), getRegistro().getText());
-            } catch (IOException ex1) {
-                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
-            }
-
-            if (!this.getSala_espera().getChat().getText().isEmpty()) {
-
-                String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
-
-                try {
-                    Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());
-                } catch (IOException ex1) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
+                if (this.getLocalPlayer().getHurryup_timer() != null) {
+                    this.getLocalPlayer().getHurryup_timer().stop();
                 }
-            }
 
-            if (partida_terminada) {
-
-                Helpers.GUIRunAndWait(new Runnable() {
+                Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
 
-                        BalanceDialog balance = new BalanceDialog(getFrame(), true);
+                        if (jugadas_dialog != null) {
+                            jugadas_dialog.setVisible(false);
+                        }
 
-                        balance.setPreferredSize(new Dimension(Math.round(balance.getWidth() * 1.10f), Math.round(0.9f * getFrame().getHeight())));
+                        if (shortcuts_dialog != null) {
+                            shortcuts_dialog.setVisible(false);
+                        }
 
-                        balance.pack();
+                        if (registro_dialog.isVisible()) {
+                            registro_dialog.setVisible(false);
+                        }
 
-                        balance.setLocationRelativeTo(getFrame());
+                        if (pausa_dialog != null) {
+                            pausa_dialog.setVisible(false);
+                        }
 
-                        balance.setVisible(true);
+                        GameFrame.getInstance().getFastchat_dialog().setVisible(false);
 
-                        retry = balance.isRetry();
+                        exit_menu.setEnabled(false);
+
+                        menu_bar.setVisible(false);
                     }
                 });
-            }
 
-            Helpers.SQLITEVAC();
+                if (partida_terminada) {
 
-            Helpers.closeSQLITE();
+                    getRegistro().print("\n*************** LA TIMBA HA TERMINADO ***************");
 
-            if (isPartida_local() && getSala_espera().isUpnp()) {
-                Helpers.UPnPClose(getSala_espera().getServer_port());
-            }
+                    getRegistro().print(Translator.translate("FIN DE LA TIMBA -> ") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
 
-            if (retry) {
-                RETRY();
-            } else {
-                BYEBYE(partida_terminada);
+                    try {
+                        PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?");
+                        statement.setQueryTimeout(30);
+                        statement.setLong(1, System.currentTimeMillis());
+                        statement.setLong(2, crupier.getSqlite_game_id());
+                        statement.executeUpdate();
+                        statement.close();
+                    } catch (SQLException ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                    synchronized (crupier.getLock_contabilidad()) {
+
+                        crupier.auditorCuentas();
+
+                        for (Map.Entry<String, Float[]> entry : crupier.getAuditor().entrySet()) {
+
+                            Float[] pasta = entry.getValue();
+
+                            String ganancia_msg = "";
+
+                            float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(pasta[0]) - Helpers.floatClean1D(pasta[1]));
+
+                            if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
+                                ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
+                            } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
+                                ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
+                            } else {
+                                ganancia_msg += Translator.translate("NI GANA NI PIERDE");
+                            }
+
+                            getRegistro().print(entry.getKey() + " " + ganancia_msg);
+                        }
+
+                        getRegistro().setFin_transmision(true);
+                    }
+
+                }
+
+                Timestamp ts = new Timestamp(GAME_START_TIMESTAMP);
+                DateFormat timeZoneFormat = new SimpleDateFormat("dd_MM_yyyy__HH_mm_ss");
+                Date date = new Date(ts.getTime());
+                String fecha = timeZoneFormat.format(date);
+                String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
+
+                try {
+                    Files.writeString(Paths.get(log_file), getRegistro().getText());
+                } catch (IOException ex1) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
+                }
+
+                if (!this.getSala_espera().getChat().getText().isEmpty()) {
+
+                    String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
+
+                    try {
+                        Files.writeString(Paths.get(chat_file), this.getSala_espera().getChat().getText());
+                    } catch (IOException ex1) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
+                    }
+                }
+
+                if (partida_terminada) {
+
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            BalanceDialog balance = new BalanceDialog(getFrame(), true);
+
+                            balance.setPreferredSize(new Dimension(Math.round(balance.getWidth() * 1.10f), Math.round(0.9f * getFrame().getHeight())));
+
+                            balance.pack();
+
+                            balance.setLocationRelativeTo(getFrame());
+
+                            balance.setVisible(true);
+
+                            retry = balance.isRetry();
+                        }
+                    });
+                }
+
+                Helpers.SQLITEVAC();
+
+                Helpers.closeSQLITE();
+
+                if (isPartida_local() && getSala_espera().isUpnp()) {
+                    Helpers.UPnPClose(getSala_espera().getServer_port());
+                }
+
+                if (retry) {
+                    RETRY();
+                } else {
+                    BYEBYE(partida_terminada);
+                }
+
             }
         }
     }

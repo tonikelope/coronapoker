@@ -173,6 +173,7 @@ public class Helpers {
     public static final int RANDOMORG_TIMEOUT = 15000;
     public static final int CSPRNG = 2;
     public static final int TRNG = 1;
+    public static final boolean CSPRNG_RESHUFFLE = false;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     public static final int DECK_ELEMENTS = 52;
@@ -1096,9 +1097,9 @@ public class Helpers {
         return ret;
     }
 
-    public static Integer[] getRandomIntegerSequence(int method, int min, int max) {
+    public static Integer[] getRandomIntegerSequence(int method, int min, int max, Integer[] init) {
 
-        if (min < 0 || min > max) {
+        if (init == null && (min < 0 || min > max)) {
             return null;
         }
 
@@ -1225,26 +1226,42 @@ public class Helpers {
                 }
 
                 //Fallback to CSPRNG
-                return getRandomIntegerSequence(Helpers.CSPRNG, min, max);
+                return getRandomIntegerSequence(Helpers.CSPRNG, min, max, init);
 
             case Helpers.CSPRNG:
 
+                /* EYE ON FISHER-YATES SHUFFLE -> BEWARE of PRNG used and its internal state length
+                In order to generate ANY of the 52! shuffle permutations, a minimum period of 2^226 may be required, 
+                although it would be advisable to exceed several orders of magnitude this amount.
+                (Reshuffling the same deck continuously would theoretically solve this problem. See const CSPRNG_RESHUFFLE).
+                
+                Note: CSPRNG used by CoronaPoker (HASH-DRBG SHA-512) has an average period of 2^512 (2^1024 internal state length) which is 
+                MANY orders of magnitude greater than required 2^226 ( More info about HASH DRBG -> https://www.hsdl.org/?view&did=460591 )
+                 */
                 if (Helpers.CSPRNG_GENERATOR != null) {
 
                     ArrayList<Integer> permutacion = new ArrayList<>();
 
-                    for (int i = min; i <= max; i++) {
-                        permutacion.add(i);
+                    if (init == null) {
+
+                        for (int i = min; i <= max; i++) {
+                            permutacion.add(i);
+                        }
+
+                    } else {
+
+                        permutacion.addAll(Arrays.asList(init));
+
                     }
 
-                    Collections.shuffle(permutacion, Helpers.CSPRNG_GENERATOR); //BEWARE of PRNG used and its SEED LENGTH and/or internal states (in order to generate ANY of the 52! shuffle permutations, a minimum of 2^226 internal states may be required, although it would be advisable to exceed several orders of magnitude this amount)
+                    Collections.shuffle(permutacion, Helpers.CSPRNG_GENERATOR); //Fisher-Yates
 
                     return permutacion.toArray(new Integer[permutacion.size()]);
                 }
 
             default:
 
-                return getRandomIntegerSequence(Helpers.CSPRNG, min, max);
+                return getRandomIntegerSequence(Helpers.CSPRNG, min, max, init);
         }
 
     }

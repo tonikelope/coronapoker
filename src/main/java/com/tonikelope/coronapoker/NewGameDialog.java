@@ -696,7 +696,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         randomorg_apikey.setDoubleBuffered(true);
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Random.org [TRNG] (Muy seguro)", "Fisher-Yates [CSPRNG DRBG SHA-512] (Seguro)" }));
+        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Random.org [TRNG]", "Fisher-Yates [CSPRNG HASH-DRBG SHA-512]" }));
         random_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_combobox.setDoubleBuffered(true);
         random_combobox.addActionListener(new java.awt.event.ActionListener() {

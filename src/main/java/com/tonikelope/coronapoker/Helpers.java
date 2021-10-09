@@ -173,7 +173,7 @@ public class Helpers {
     public static final int RANDOMORG_TIMEOUT = 15000;
     public static final int CSPRNG = 2;
     public static final int TRNG = 1;
-    public static final boolean CSPRNG_RESHUFFLE = false;
+    public static final boolean INFINITE_DECK_SHUFFLE = false;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     public static final int DECK_ELEMENTS = 52;
@@ -1097,10 +1097,22 @@ public class Helpers {
         return ret;
     }
 
-    public static Integer[] getRandomIntegerSequence(int method, int min, int max, Integer[] init) {
+    public static Integer[] getRandomIntegerSequence(int method, int min, int max) throws Exception {
 
-        if (init == null && (min < 0 || min > max)) {
-            return null;
+        return getRandomIntegerSequence(method, min, max, null);
+
+    }
+
+    public static Integer[] getRandomIntegerSequence(int method, Integer[] init) throws Exception {
+
+        return getRandomIntegerSequence(method, null, null, init);
+
+    }
+
+    private static Integer[] getRandomIntegerSequence(int method, Integer min, Integer max, Integer[] init) throws Exception {
+
+        if ((method == Helpers.TRNG || init == null) && (min == null || max == null || min < 0 || min > max)) {
+            throw new Exception("BAD INTEGER SEQUENCE PARAMETERS!");
         }
 
         switch (method) {
@@ -1230,13 +1242,17 @@ public class Helpers {
 
             case Helpers.CSPRNG:
 
-                /* EYE ON FISHER-YATES SHUFFLE -> BEWARE of PRNG used and its internal state length
-                In order to generate ANY of the 52! shuffle permutations, a minimum period of 2^226 may be required, 
-                although it would be advisable to exceed several orders of magnitude this amount.
-                (Reshuffling the same deck continuously would theoretically solve this problem. See const CSPRNG_RESHUFFLE).
+                /* 
+                    EYE ON FISHER-YATES SHUFFLE -> BEWARE of PRNG used and its internal state length
+                    In order to generate ANY of the 52! shuffle permutations, a minimum period of 2^226 
+                    may be required, although it would be advisable to exceed several orders of magnitude 
+                    this amount. (Reshuffling the same deck continuously would (theoretically) solve this 
+                    problem. See constant INFINITE_DECK_SHUFFLE).
+
+                    Note: PRNG used by CoronaPoker (CSPRNG HASH-DRBG SHA-512) has an average period of 2^512 
+                    (2^1024 internal state length) which is M-A-N-Y orders of magnitude greater than required 
+                    2^226 ( More info about HASH DRBG -> https://www.hsdl.org/?view&did=460591 )
                 
-                Note: CSPRNG used by CoronaPoker (HASH-DRBG SHA-512) has an average period of 2^512 (2^1024 internal state length) which is 
-                MANY orders of magnitude greater than required 2^226 ( More info about HASH DRBG -> https://www.hsdl.org/?view&did=460591 )
                  */
                 if (Helpers.CSPRNG_GENERATOR != null) {
 
@@ -1261,7 +1277,11 @@ public class Helpers {
 
             default:
 
-                return getRandomIntegerSequence(Helpers.CSPRNG, min, max, init);
+                if (Helpers.CSPRNG_GENERATOR != null) {
+                    return getRandomIntegerSequence(Helpers.CSPRNG, min, max, init);
+                } else {
+                    throw new Exception("NO RNG AVAILABLE!");
+                }
         }
 
     }

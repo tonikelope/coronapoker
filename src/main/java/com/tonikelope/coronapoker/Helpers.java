@@ -1131,7 +1131,7 @@ public class Helpers {
                                 try {
                                     RandomOrgClient roc = RandomOrgClient.getRandomOrgClient(RANDOM_ORG_APIKEY, 24 * 60 * 60 * 1000, 2 * Helpers.RANDOMORG_TIMEOUT, true);
 
-                                    return Arrays.stream(roc.generateIntegers(DECK_ELEMENTS, 1, DECK_ELEMENTS, false)).boxed().toArray(Integer[]::new);
+                                    return Arrays.stream(roc.generateIntegers(max - min + 1, min, max, false)).boxed().toArray(Integer[]::new);
 
                                 } catch (RandomOrgSendTimeoutException | RandomOrgKeyNotRunningError | RandomOrgInsufficientRequestsError | RandomOrgInsufficientBitsError | RandomOrgBadHTTPResponseException | RandomOrgRANDOMORGError | RandomOrgJSONRPCError | IOException ex) {
                                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -1243,11 +1243,10 @@ public class Helpers {
             case Helpers.CSPRNG:
 
                 /* 
-                    EYE ON FISHER-YATES SHUFFLE -> BEWARE of PRNG used and its internal state length
-                    In order to generate ANY of the 52! shuffle permutations, a minimum period of 2^226 
-                    may be required, although it would be advisable to exceed several orders of magnitude 
-                    this amount. (Reshuffling the same deck continuously might mitigate this. 
-                    See constant INFINITE_DECK_SHUFFLE).
+                    EYE ON FISHER-YATES WHEN SHUFFLING A POKER DECK -> BEWARE of PRNG used and its internal state length.
+                    In order to generate ANY of the 52! poker deck shuffle permutations, a minimum period of 2^226 
+                    may be required, although it would be advisable to exceed several orders of magnitude this amount. 
+                    (Reshuffling the same deck continuously might mitigate this. See constant INFINITE_DECK_SHUFFLE).
 
                     Note: PRNG used by CoronaPoker (CSPRNG HASH-DRBG SHA-512) has an average period of 2^512 
                     (2^1024 internal state length) which is M-A-N-Y orders of magnitude greater than required 

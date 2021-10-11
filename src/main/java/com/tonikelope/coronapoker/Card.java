@@ -37,6 +37,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.JMenu;
+import javax.swing.SwingUtilities;
 
 /**
  *
@@ -836,7 +837,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private void card_imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_card_imageMouseClicked
         // TODO add your handling code here:
 
-        if (evt.getButton() == MouseEvent.BUTTON1 && (!isDesenfocada() || !isTapada())) {
+        if (SwingUtilities.isLeftMouseButton(evt) && (!isDesenfocada() || !isTapada())) {
             CardVisorDialog visor;
 
             if (isIniciada()) {
@@ -863,7 +864,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
             visor.setVisible(true);
 
-        } else if (evt.getButton() == MouseEvent.BUTTON3) {
+        } else if (SwingUtilities.isRightMouseButton(evt)) {
 
             JMenu menu_barajas = GameFrame.getInstance().getMenu_barajas();
 

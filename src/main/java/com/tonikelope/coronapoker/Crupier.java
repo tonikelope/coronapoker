@@ -53,15 +53,15 @@ public class Crupier implements Runnable {
 
     public static final Map.Entry<String, Object[][]> ALLIN_CINEMATICS = new HashMap.SimpleEntry<String, Object[][]>("allin/",
             new Object[][]{
-                {"rounders.gif", 4500L},
+                {"rounders.gif", 3500L},
                 {"hulk.gif", 1100L},
                 {"nicolas_cage.gif", 1000L},
-                {"nicolas_cage2.gif", 2050L},
+                {"nicolas_cage2.gif", 2000L},
                 {"training_day.gif", 2000L},
                 {"wallstreet.gif", 1500L},
                 {"casinoroyale.gif", 4550L},
-                {"joker.gif", 3200L},
-                {"cards.gif", 2700L}
+                {"joker.gif", 3100L},
+                {"terminator2.gif", 3000L}
             });
 
     public static volatile Map.Entry<String, Object[][]> ALLIN_CINEMATICS_MOD = null;
@@ -2742,15 +2742,19 @@ public class Crupier implements Runnable {
             if (GameFrame.getInstance().isPartida_local()) {
 
                 if (permutacion_recuperada != null) {
+
                     permutacion_baraja = permutacion_recuperada;
                     permutacion_recuperada = null;
+
                 } else {
+
                     try {
-                        permutacion_baraja = Helpers.INFINITE_DECK_SHUFFLE ? Helpers.getRandomIntegerSequence(Helpers.DECK_RANDOM_GENERATOR, permutacion_baraja) : Helpers.getRandomIntegerSequence(Helpers.DECK_RANDOM_GENERATOR, 1, 52);
+                        permutacion_baraja = (Helpers.DECK_RANDOM_GENERATOR == Helpers.CSPRNG && Helpers.INFINITE_DECK_SHUFFLE && permutacion_baraja != null) ? Helpers.getRandomIntegerSequence(Helpers.DECK_RANDOM_GENERATOR, permutacion_baraja) : Helpers.getRandomIntegerSequence(Helpers.DECK_RANDOM_GENERATOR, 1, 52);
                     } catch (Exception ex) {
                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         System.exit(1);
                     }
+
                     preservarPermutacion(permutacion_baraja);
                 }
 

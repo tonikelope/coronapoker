@@ -17,8 +17,8 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Dimension;
-import java.awt.event.MouseEvent;
 import javax.swing.ImageIcon;
+import javax.swing.SwingUtilities;
 
 /**
  *
@@ -126,7 +126,7 @@ public class GifAnimationDialog extends javax.swing.JDialog {
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
         // TODO add your handling code here
 
-        if (evt.getButton() == MouseEvent.BUTTON3) {
+        if (SwingUtilities.isRightMouseButton(evt)) {
             setVisible(false);
         }
     }//GEN-LAST:event_formMouseClicked

@@ -34,8 +34,8 @@ public class Translator {
 
         String[][] rosetta = {
             {"ALGORITMO para barajar:", "Shuffle ALGORITHM:"},
-            {"Random.org [TRNG] (Muy seguro)", "Random.org [TRNG] (Very secure)"},
-            {"Fisher-Yates [CSPRNG DRBG SHA-512] (Seguro)", "Fisher-Yates [CSPRNG DRBG SHA-512] (Secure)"},
+            {"Random.org [TRNG] (Excelente)", "Random.org [TRNG] (Excellent)"},
+            {"Fisher-Yates [CSPRNG HASH-DRBG SHA-512] (Muy bueno)", "Fisher-Yates [CSPRNG HASH-DRBG SHA-512] (Very good)"},
             {"¿SEGURO QUE QUIERES ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR?", "ARE YOU SURE YOU WANT TO DELETE ALL THE GAMES IN WHICH THAT PLAYER PARTICIPATED?"},
             {"SE HAN BORRADO TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR", "ALL THE GAMES IN WHICH THAT PLAYER PARTICIPATED HAVE BEEN DELETED"},
             {"NO HAY TIMBAS EN LAS CUALES HAYA PARTICIPADO ESE JUGADOR", "THERE ARE NO GAMES IN WHICH THIS PLAYER HAS PARTICIPATED"},

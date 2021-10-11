@@ -661,7 +661,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                             .addComponent(ciegas_label))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(ciegas_combobox, 0, 357, Short.MAX_VALUE)
+                            .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(buyin_spinner))))
                 .addContainerGap())
         );
@@ -696,7 +696,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         randomorg_apikey.setDoubleBuffered(true);
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Random.org [TRNG]", "Fisher-Yates [CSPRNG HASH-DRBG SHA-512]" }));
+        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Random.org [TRNG] (10/10)", "Fisher-Yates [CSPRNG HASH-DRBG SHA-512] (9.5/10)" }));
         random_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_combobox.setDoubleBuffered(true);
         random_combobox.addActionListener(new java.awt.event.ActionListener() {

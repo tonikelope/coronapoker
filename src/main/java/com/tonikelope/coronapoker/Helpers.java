@@ -1246,8 +1246,8 @@ public class Helpers {
                     EYE ON FISHER-YATES SHUFFLE -> BEWARE of PRNG used and its internal state length
                     In order to generate ANY of the 52! shuffle permutations, a minimum period of 2^226 
                     may be required, although it would be advisable to exceed several orders of magnitude 
-                    this amount. (Reshuffling the same deck continuously would (theoretically) solve this 
-                    problem. See constant INFINITE_DECK_SHUFFLE).
+                    this amount. (Reshuffling the same deck continuously might mitigate this. 
+                    See constant INFINITE_DECK_SHUFFLE).
 
                     Note: PRNG used by CoronaPoker (CSPRNG HASH-DRBG SHA-512) has an average period of 2^512 
                     (2^1024 internal state length) which is M-A-N-Y orders of magnitude greater than required 

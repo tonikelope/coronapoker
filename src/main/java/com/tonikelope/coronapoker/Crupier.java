@@ -7073,10 +7073,19 @@ public class Crupier implements Runnable {
 
             this.rebuy_time = true;
 
+            final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
+
             if (GameFrame.REBUY) {
 
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
+
+                        if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                            GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+
+                            GameFrame.getInstance().getTapete().repaint();
+                        }
+
                         gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true);
 
                         GameFrame.getInstance().setGame_over_dialog(true);
@@ -7084,6 +7093,13 @@ public class Crupier implements Runnable {
                         gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
 
                         gameover_dialog.setVisible(true);
+
+                        if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                            GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
+
+                            GameFrame.getInstance().getTapete().repaint();
+                        }
+
                     }
                 });
 
@@ -7138,11 +7154,27 @@ public class Crupier implements Runnable {
 
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
+
+                        if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                            GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+
+                            GameFrame.getInstance().getTapete().repaint();
+                        }
+
                         gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true, true);
 
                         GameFrame.getInstance().setGame_over_dialog(true);
+
                         gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
+
                         gameover_dialog.setVisible(true);
+
+                        if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+
+                            GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
+
+                            GameFrame.getInstance().getTapete().repaint();
+                        }
                     }
                 });
 

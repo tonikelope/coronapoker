@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>coronaupdater</artifactId>
-    <version>0.7</version>
+    <version>0.8</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -38,6 +38,23 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>           
+                    <execution>             
+                        <id>remove-old-artifacts</id>             
+                        <phase>package</phase>             
+                        <goals>               
+                            <goal>remove-project-artifact</goal>             
+                        </goals>            
+                        <configuration>  
+                            <removeAll>true</removeAll><!-- remove all versions of built artifacts including all versions.  Install phase will regenerate -->             
+                        </configuration>          
+                    </execution>         
+                </executions>             
+            </plugin>
         </plugins>
     </build>
     <properties>
@@ -45,4 +62,6 @@
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
     </properties>
+    <name>CoronaUpdater</name>
+    <description>CoronaPoker updater</description>
 </project>

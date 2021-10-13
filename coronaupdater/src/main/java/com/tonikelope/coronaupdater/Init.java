@@ -138,7 +138,7 @@ public class Init extends javax.swing.JFrame {
             @Override
             public void run() {
                 Helpers.centrarJFrame(ventana, 0);
-                ventana.getStatus().setText("UPDATING TO >>> " + args[0]);
+                ventana.getStatus().setText(args.length < 4 ? "UPDATING TO >>> " + args[0] : args[3]);
                 ventana.setVisible(true);
             }
         });

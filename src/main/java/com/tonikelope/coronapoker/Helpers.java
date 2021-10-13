@@ -61,7 +61,6 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.CodeSource;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyException;
@@ -1518,13 +1517,9 @@ public class Helpers {
     }
 
     public static String getCurrentJarParentPath() {
+
         try {
-            CodeSource codeSource = Init.class.getProtectionDomain().getCodeSource();
-
-            File jarFile = new File(codeSource.getLocation().toURI().getPath());
-
-            return jarFile.getParentFile().getAbsolutePath();
-
+            return new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParentFile().getAbsolutePath();
         } catch (URISyntaxException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -1533,15 +1528,22 @@ public class Helpers {
     }
 
     public static String getCurrentJarPath() {
+
         try {
-
-            return new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
-
+            return new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getAbsolutePath();
         } catch (URISyntaxException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         return null;
+    }
+
+    public static String getJavaBinPath() {
+        StringBuilder java_bin = new StringBuilder();
+
+        java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+
+        return java_bin.toString();
     }
 
     public static void pausar(long pause) {

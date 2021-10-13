@@ -148,10 +148,15 @@ public class NewGameDialog extends javax.swing.JDialog {
         }
 
         Helpers.setTranslatedTitle(this, "Actualizar timba");
+        Helpers.updateFonts(this.vamos, Helpers.GUI_FONT, 0.75f);
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
 
         pack();
+
+        if (this.getWidth() >= this.getParent().getWidth() || this.getHeight() >= this.getParent().getHeight()) {
+            setPreferredSize(new Dimension(Math.round(this.getParent().getWidth() * 0.9f), Math.round(this.getParent().getHeight() * 0.9f)));
+        }
 
         init = true;
     }
@@ -312,13 +317,13 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
-        if (this.getWidth() >= this.getParent().getWidth() || this.getHeight() >= this.getParent().getHeight()) {
-            setPreferredSize(new Dimension(this.getParent().getWidth(), this.getParent().getHeight()));
-        }
-
         vamos.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/vamos.png")).getImage().getScaledInstance(Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f), Image.SCALE_SMOOTH)));
 
         pack();
+
+        if (this.getWidth() >= this.getParent().getWidth() || this.getHeight() >= this.getParent().getHeight()) {
+            setPreferredSize(new Dimension(Math.round(this.getParent().getWidth() * 0.9f), Math.round(this.getParent().getHeight() * 0.9f)));
+        }
 
         init = true;
 

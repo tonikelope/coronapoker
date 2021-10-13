@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>11.60</version>
+    <version>11.61</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -40,6 +40,23 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>           
+                    <execution>             
+                        <id>remove-old-artifacts</id>             
+                        <phase>package</phase>             
+                        <goals>               
+                            <goal>remove-project-artifact</goal>             
+                        </goals>            
+                        <configuration>  
+                            <removeAll>true</removeAll><!-- remove all versions of built artifacts including all versions.  Install phase will regenerate -->             
+                        </configuration>          
+                    </execution>         
+                </executions>             
             </plugin>
         </plugins>
     </build>
@@ -94,4 +111,5 @@
         <maven.compiler.target>11</maven.compiler.target>
     </properties>
     <description>Érase una plandemia y unos amigos que querían echarse su partida de los sábados.</description>
+    <name>CoronaPoker</name>
 </project>

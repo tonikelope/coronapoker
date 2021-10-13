@@ -33,6 +33,9 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)", "FAILED TO UPDATE (UNEXPECTED ERROR)"},
+            {"ACTUALIZANDO >>> ", "UPDATING >>> "},
+            {"NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)", "FAILED TO UPDATE (ERROR WHILE DOWNLOADING UPDATER)"},
             {"ALGORITMO para barajar:", "Shuffle ALGORITHM:"},
             {"Random.org [TRNG] (Excelente)", "Random.org [TRNG] (Excellent)"},
             {"Fisher-Yates [CSPRNG HASH-DRBG SHA-512] (Muy bueno)", "Fisher-Yates [CSPRNG HASH-DRBG SHA-512] (Very good)"},

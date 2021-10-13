@@ -752,9 +752,11 @@ public class Init extends javax.swing.JFrame {
         }
     }
 
-    private static void downloadUpdater() throws IOException {
+    private static String downloadUpdater() throws IOException {
 
         HttpURLConnection con = null;
+
+        String updater_path = null;
 
         try {
 
@@ -766,7 +768,9 @@ public class Init extends javax.swing.JFrame {
 
             con.setUseCaches(false);
 
-            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/coronaupdater.jar"))) {
+            updater_path = System.getProperty("java.io.tmpdir") + "/coronaupdater.jar";
+
+            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(updater_path))) {
 
                 byte[] buffer = new byte[1024];
 
@@ -785,6 +789,8 @@ public class Init extends javax.swing.JFrame {
                 con.disconnect();
             }
         }
+
+        return updater_path;
 
     }
 
@@ -822,39 +828,36 @@ public class Init extends javax.swing.JFrame {
 
                         try {
 
-                            String current_jar_path = new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
+                            String current_jar_path = Helpers.getCurrentJarPath();
 
                             String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
 
-                            downloadUpdater();
+                            String updater_jar = downloadUpdater();
 
-                            StringBuilder java_bin = new StringBuilder();
+                            if (updater_jar != null) {
 
-                            java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, Translator.translate("ACTUALIZANDO >>> ") + NEW_VERSION};
 
-                            StringBuilder updater_jar = new StringBuilder();
+                                Runtime.getRuntime().exec(cmdArr);
 
-                            updater_jar.append(System.getProperty("java.io.tmpdir")).append("/coronaupdater.jar");
-
-                            String[] cmdArr = {java_bin.toString(), "-jar", updater_jar.toString(), NEW_VERSION, current_jar_path, new_jar_path};
-
-                            Runtime.getRuntime().exec(cmdArr);
-
-                            System.exit(0);
+                                System.exit(0);
+                            } else {
+                                Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)");
+                            }
 
                         } catch (Exception ex) {
                             Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                            Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)");
                         }
-
-                    } else {
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
-
-                                VENTANA_INICIO.update_button.setVisible(true);
-                            }
-                        });
                     }
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            VENTANA_INICIO.update_button.setVisible(true);
+                        }
+                    });
 
                 } else if (NEW_VERSION == null) {
                     Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿TIENES CONEXIÓN A INTERNET?");

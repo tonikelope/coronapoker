@@ -214,16 +214,6 @@ public class Init extends javax.swing.JFrame {
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
-        if (!GameFrame.SONIDOS) {
-
-            Audio.muteAll();
-
-        } else {
-
-            Audio.unmuteAll();
-
-        }
-
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         stats_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/stats.png")).getImage().getScaledInstance(stats_button.getHeight(), stats_button.getHeight(), Image.SCALE_SMOOTH)));
@@ -673,9 +663,8 @@ public class Init extends javax.swing.JFrame {
 
             } catch (NoSuchAlgorithmException ex) {
 
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                 Helpers.CSPRNG_GENERATOR = new SecureRandom();
-
+                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "CSPRNG -> {0}", Helpers.CSPRNG_GENERATOR.getAlgorithm());
             }
 
             Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
@@ -727,6 +716,16 @@ public class Init extends javax.swing.JFrame {
             }
 
             Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
+
+            if (!GameFrame.SONIDOS) {
+
+                Audio.muteAll();
+
+            } else {
+
+                Audio.unmuteAll();
+
+            }
 
             Audio.playWavResource("misc/init.wav");
             Audio.playLoopMp3Resource("misc/background_music.mp3");

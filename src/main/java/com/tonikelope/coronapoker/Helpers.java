@@ -1207,9 +1207,8 @@ public class Helpers {
                     if (per != null) {
 
                         if (method == Helpers.TRNG_CSPRNG) {
-                            
+
                             //Second shuffle with CSPRNG
-                            
                             return getRandomIntegerSequence(Helpers.CSPRNG, per);
 
                         }
@@ -1270,7 +1269,6 @@ public class Helpers {
                     Note: reshuffling the same deck continuously might mitigate a short period PRNG. See constant INFINITE_DECK_SHUFFLE.
                 
                  */
-                
                 if (Helpers.CSPRNG_GENERATOR != null) {
 
                     ArrayList<Integer> permutacion = new ArrayList<>();

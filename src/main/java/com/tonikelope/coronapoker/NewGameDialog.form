@@ -688,9 +688,10 @@
                           <Font name="Dialog" size="16" style="0"/>
                         </Property>
                         <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.editors2.ComboBoxModelEditor">
-                          <StringArray count="2">
-                            <StringItem index="0" value="Random.org [TRNG] (10/10)"/>
-                            <StringItem index="1" value="Fisher-Yates [CSPRNG HASH-DRBG SHA-512] (9.5/10)"/>
+                          <StringArray count="3">
+                            <StringItem index="0" value="Random.org + Fisher-Yates [TRNG -&gt; CSPRNG] (10/10)"/>
+                            <StringItem index="1" value="Random.org [TRNG] (9.5/10)"/>
+                            <StringItem index="2" value="Fisher-Yates [CSPRNG HASH-DRBG SHA-512] (9/10)"/>
                           </StringArray>
                         </Property>
                         <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">

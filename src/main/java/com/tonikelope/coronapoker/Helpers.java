@@ -170,14 +170,15 @@ public class Helpers {
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
     public static final int RANDOMORG_TIMEOUT = 15000;
-    public static final int CSPRNG = 2;
-    public static final int TRNG = 1;
+    public static final int CSPRNG = 3;
+    public static final int TRNG = 2;
+    public static final int TRNG_CSPRNG = 1;
     public static final boolean INFINITE_DECK_SHUFFLE = false;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     public static final int DECK_ELEMENTS = 52;
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
-    public volatile static int DECK_RANDOM_GENERATOR = Helpers.TRNG;
+    public volatile static int DECK_RANDOM_GENERATOR = Helpers.TRNG_CSPRNG;
     public volatile static String RANDOM_ORG_APIKEY = "";
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = loadPropertiesFile();
@@ -1110,11 +1111,14 @@ public class Helpers {
 
     private static Integer[] getRandomIntegerSequence(int method, Integer min, Integer max, Integer[] init) throws Exception {
 
-        if ((method == Helpers.TRNG || init == null) && (min == null || max == null || min < 0 || min > max)) {
+        if ((method <= Helpers.TRNG || init == null) && (min == null || max == null || min < 0 || min > max)) {
             throw new Exception("BAD INTEGER SEQUENCE PARAMETERS!");
         }
 
         switch (method) {
+
+            case Helpers.TRNG_CSPRNG:
+
             case Helpers.TRNG:
 
                 Future future = null;
@@ -1201,6 +1205,15 @@ public class Helpers {
                     Integer[] per = (Integer[]) future.get(Helpers.RANDOMORG_TIMEOUT, TimeUnit.MILLISECONDS);
 
                     if (per != null) {
+
+                        if (method == Helpers.TRNG_CSPRNG) {
+                            
+                            //Second shuffle with CSPRNG
+                            
+                            return getRandomIntegerSequence(Helpers.CSPRNG, per);
+
+                        }
+
                         return per;
                     }
 
@@ -1242,16 +1255,22 @@ public class Helpers {
             case Helpers.CSPRNG:
 
                 /* 
-                    EYE ON FISHER-YATES WHEN SHUFFLING A POKER DECK -> BEWARE of PRNG used and its internal state length.
-                    In order to generate ANY of the 52! poker deck shuffle permutations, a minimum period of 2^226 
+                    EYE ON FISHER-YATES WHEN SHUFFLING A POKER DECK:
+                    
+                    The Fisher-Yates shuffling algorithm guarantees that all permutations are equally likely, but in 
+                    order to randomly generate ANY of the mathematically possible permutations, a suitable random number
+                    generator is required.
+                
+                    A 52 cards poker deck can be sorted in [52! = 80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000]
+                    different ways. In order to generate ANY of the 52! permutations, a minimum period of 2^226 
                     may be required, although it would be advisable to exceed several orders of magnitude this amount. 
-                    (Reshuffling the same deck continuously might mitigate this. See constant INFINITE_DECK_SHUFFLE).
-
-                    Note: PRNG used by CoronaPoker (CSPRNG HASH-DRBG SHA-512) has an average period of 2^512 
-                    (2^1024 internal state length) which is M-A-N-Y orders of magnitude greater than required 
-                    2^226 ( More info about HASH DRBG -> https://www.hsdl.org/?view&did=460591 )
+                    CSPRNG HASH-DRBG SHA-512 has an average period of 2^512 (2^1024 internal state length) which 
+                    is M-A-N-Y orders of magnitude greater than required.
+                
+                    Note: reshuffling the same deck continuously might mitigate a short period PRNG. See constant INFINITE_DECK_SHUFFLE.
                 
                  */
+                
                 if (Helpers.CSPRNG_GENERATOR != null) {
 
                     ArrayList<Integer> permutacion = new ArrayList<>();

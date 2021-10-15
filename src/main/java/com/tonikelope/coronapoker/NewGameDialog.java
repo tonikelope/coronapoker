@@ -288,7 +288,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             server_ip_textfield.setEnabled(false);
             server_port_textfield.setText(Helpers.PROPERTIES.getProperty("local_port", String.valueOf(DEFAULT_PORT)));
             config_partida_panel.setVisible(true);
-            random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.TRNG))) - 1);
+            random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.TRNG_CSPRNG))) - 1);
             randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
             rebuy_checkbox.setSelected(true);
             doblar_checkbox.setSelected(true);
@@ -701,7 +701,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         randomorg_apikey.setDoubleBuffered(true);
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Random.org [TRNG] (10/10)", "Fisher-Yates [CSPRNG HASH-DRBG SHA-512] (9.5/10)" }));
+        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Random.org + Fisher-Yates [TRNG -> CSPRNG] (10/10)", "Random.org [TRNG] (9.5/10)", "Fisher-Yates [CSPRNG HASH-DRBG SHA-512] (9/10)" }));
         random_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_combobox.setDoubleBuffered(true);
         random_combobox.addActionListener(new java.awt.event.ActionListener() {
@@ -1054,10 +1054,10 @@ public class NewGameDialog extends javax.swing.JDialog {
         if (!update) {
             Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
 
-            this.randomorg_label.setVisible(Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG);
-            this.randomorg_apikey.setVisible(Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG);
+            this.randomorg_label.setVisible(Helpers.DECK_RANDOM_GENERATOR <= Helpers.TRNG);
+            this.randomorg_apikey.setVisible(Helpers.DECK_RANDOM_GENERATOR <= Helpers.TRNG);
 
-            if (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG) {
+            if (Helpers.DECK_RANDOM_GENERATOR <= Helpers.TRNG) {
                 this.randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
                 Helpers.RANDOM_ORG_APIKEY = Helpers.PROPERTIES.getProperty("randomorg_api", "");
             }

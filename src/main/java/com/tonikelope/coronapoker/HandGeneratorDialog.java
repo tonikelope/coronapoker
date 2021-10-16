@@ -117,7 +117,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(1.302.540 / 2.598.960)");
+                probability.setText("4,74:1");
 
             }
         });
@@ -172,7 +172,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(1.098.240 / 2.598.960)");
+                probability.setText("1,28:1");
 
             }
         });
@@ -205,7 +205,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(123.552 / 2.598.960)");
+                probability.setText("3,26:1");
 
             }
         });
@@ -270,7 +270,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(54.912 / 2.598.960)");
+                probability.setText("19,7:1");
 
             }
         });
@@ -304,7 +304,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(10200 / 2.598.960)");
+                probability.setText("20,65:1");
 
             }
         });
@@ -345,7 +345,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(5108 / 2.598.960)");
+                probability.setText("32,05:1");
 
             }
         });
@@ -399,7 +399,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(3744 / 2.598.960)");
+                probability.setText("37,52:1");
 
             }
         });
@@ -457,7 +457,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(624 / 2.598.960)");
+                probability.setText("594:1");
 
             }
         });
@@ -481,7 +481,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(36 / 2.598.960)");
+                probability.setText("3589,57:1");
 
             }
         });
@@ -504,7 +504,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             public void run() {
                 nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("(4 / 2.598.960)");
+                probability.setText("30939:1");
 
             }
         });
@@ -569,7 +569,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         nombre_jugada.setDoubleBuffered(true);
         nombre_jugada.setFocusable(false);
 
-        probability.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        probability.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         probability.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         probability.setText("(4 de 2.598.960) ");
         probability.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));

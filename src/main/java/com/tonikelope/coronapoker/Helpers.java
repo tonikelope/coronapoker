@@ -177,6 +177,7 @@ public class Helpers {
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     public static final int DECK_ELEMENTS = 52;
+
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
     public volatile static int DECK_RANDOM_GENERATOR = Helpers.TRNG_CSPRNG;
     public volatile static String RANDOM_ORG_APIKEY = "";
@@ -2465,7 +2466,7 @@ public class Helpers {
 
                 popup.add(EXIT_MENU);
 
-                Helpers.updateFonts(popup, Helpers.GUI_FONT, 1.10f);
+                Helpers.updateFonts(popup, Helpers.GUI_FONT, 1.05f);
             }
 
             tapete.setComponentPopupMenu(popup);

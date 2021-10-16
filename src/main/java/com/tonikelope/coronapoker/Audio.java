@@ -30,6 +30,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -68,12 +70,34 @@ public class Audio {
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final Object TTS_LOCK = new Object();
     public static final int MAX_TTS_LENGTH = 150;
+    public static final Map<String, String> TTS_ES_WORD_REPLACE;
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_WAV = false;
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean MUTED_MP3_LOOP = false;
     public volatile static BasicPlayer TTS_PLAYER = null;
     public volatile static Object TTS_PLAYER_NOTIFIER = new Object();
+
+    static {
+
+        Map<String, String> tts_es_replace = new HashMap<>();
+
+        tts_es_replace.put("asi", "así"); //LOWERCASE ALL
+
+        TTS_ES_WORD_REPLACE = Collections.unmodifiableMap(tts_es_replace);
+
+    }
+
+    public static String replaceWordsTTSMsg(String msg, Map<String, String> map) {
+
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+
+            msg = msg.replaceAll("\\b" + Pattern.quote(entry.getKey()) + "\\b", entry.getValue());
+
+        }
+
+        return msg;
+    }
 
     public static void playRandomWavResource(Map<String, String[]> sonidos) {
 
@@ -500,6 +524,11 @@ public class Audio {
 
                 String limpio = mensaje.toLowerCase().replaceAll("[^a-z0-9áéíóúñü@& ,.:;!?¡¿<>]", "").replaceAll(" {2,}", " ");
 
+                if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+
+                    limpio = Audio.replaceWordsTTSMsg(limpio, TTS_ES_WORD_REPLACE);
+                }
+
                 if (!"".equals(limpio) && limpio.length() <= MAX_TTS_LENGTH) {
 
                     //¡¡OJO CON LO QUE SE DICE POR EL CHAT QUE ESTOS SON SERVICIOS EXTERNOS!! VEREMOS LO QUE DURAN...
@@ -507,6 +536,7 @@ public class Audio {
 
                     if (!googleTranslatorTTSBASE64(limpio, GameFrame.DEFAULT_LANGUAGE.toLowerCase(), filename)) {
 
+                        //FALLBACK METHODS
                         String[] tts_mp3bin_services;
 
                         if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {

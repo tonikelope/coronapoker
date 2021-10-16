@@ -1969,33 +1969,36 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (pre_pulsado == Player.FOLD || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
 
-                Audio.playWavResource("misc/fold.wav");
+                if (player_fold_button.getBackground() != Color.RED || pre_pulsado == Player.FOLD || GameFrame.CONFIRM_ACTIONS || click_recuperacion || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SEGURO QUE QUIERES TIRARTE?") == 0) {
 
-                playingCard1.desenfocar();
-                playingCard2.desenfocar();
+                    Audio.playWavResource("misc/fold.wav");
 
-                desactivarControles();
+                    playingCard1.desenfocar();
+                    playingCard2.desenfocar();
 
-                GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
+                    desactivarControles();
 
-                if (auto_action != null) {
-                    auto_action.stop();
-                }
+                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
 
-                if (hurryup_timer != null) {
-                    hurryup_timer.stop();
-                }
-
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-
-                        GameFrame.getInstance().getCrupier().soundFold();
-
-                        setDecision(Player.FOLD);
-
-                        finTurno();
+                    if (auto_action != null) {
+                        auto_action.stop();
                     }
-                });
+
+                    if (hurryup_timer != null) {
+                        hurryup_timer.stop();
+                    }
+
+                    Helpers.threadRun(new Runnable() {
+                        public void run() {
+
+                            GameFrame.getInstance().getCrupier().soundFold();
+
+                            setDecision(Player.FOLD);
+
+                            finTurno();
+                        }
+                    });
+                }
 
             } else {
 

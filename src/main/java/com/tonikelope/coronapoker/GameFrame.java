@@ -1838,6 +1838,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     Helpers.UPnPClose(getSala_espera().getServer_port());
                 }
 
+                KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+
+                if (GameFrame.key_event_dispatcher != null) {
+                    kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
+                }
+
                 if (retry) {
                     RETRY();
                 } else {
@@ -1876,10 +1882,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             });
 
             KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-
-            if (GameFrame.key_event_dispatcher != null) {
-                kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
-            }
 
             GameFrame.key_event_dispatcher = new KeyEventDispatcher() {
 

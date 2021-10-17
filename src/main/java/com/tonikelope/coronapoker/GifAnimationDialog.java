@@ -17,14 +17,19 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Dimension;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import javax.swing.ImageIcon;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 /**
  *
  * @author tonikelope
  */
 public class GifAnimationDialog extends javax.swing.JDialog {
+
+    private volatile Timer timer = null;
 
     /**
      * Creates new form GifAnimation
@@ -64,20 +69,18 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         pack();
 
         if (timeout != null) {
-            Helpers.threadRun(new Runnable() {
+            timer = new Timer(timeout * 1000, new ActionListener() {
 
-                public void run() {
-                    Helpers.pausar(timeout);
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+                    timer.stop();
+                    dispose();
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            dispose();
-
-                        }
-                    });
                 }
             });
+
+            timer.setRepeats(false);
+            timer.start();
         }
     }
 

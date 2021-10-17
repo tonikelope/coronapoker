@@ -185,6 +185,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile FastChatDialog fastchat_dialog = null;
     private volatile RebuyDialog rebuy_dialog = null;
     private volatile GifAnimationDialog gif_dialog = null;
+    public volatile VolumeControlDialog volume_dialog = null;
     private volatile TablePanel tapete = null;
     private volatile Timer tiempo_juego;
     private volatile int tapete_counter = 0;
@@ -794,6 +795,49 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void setupGlobalShortcuts() {
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-DOWN") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (Audio.MASTER_VOLUME > 0f) {
+
+                    Audio.MASTER_VOLUME = Helpers.floatClean2D(Audio.MASTER_VOLUME - 0.01f);
+
+                    Audio.refreshAllVolumes();
+                }
+
+                if (volume_dialog != null) {
+                    volume_dialog.refresh();
+                } else {
+                    volume_dialog = new VolumeControlDialog(GameFrame.getInstance().getFrame(), false);
+                    volume_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                    volume_dialog.refresh();
+                }
+
+            }
+        });
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-UP") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (Audio.MASTER_VOLUME < 1.0f) {
+
+                    Audio.MASTER_VOLUME = Helpers.floatClean2D(Audio.MASTER_VOLUME + 0.01f);
+
+                    Audio.refreshAllVolumes();
+
+                }
+
+                if (volume_dialog != null) {
+                    volume_dialog.refresh();
+                } else {
+                    volume_dialog = new VolumeControlDialog(GameFrame.getInstance().getFrame(), false);
+                    volume_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                    volume_dialog.refresh();
+                }
+
+            }
+        });
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0), new AbstractAction("BUYIN") {
             @Override

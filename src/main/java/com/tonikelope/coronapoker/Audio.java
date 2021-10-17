@@ -46,6 +46,7 @@ import javax.sound.sampled.FloatControl;
 import javazoom.jlgui.basicplayer.BasicController;
 import javazoom.jlgui.basicplayer.BasicPlayer;
 import javazoom.jlgui.basicplayer.BasicPlayerEvent;
+import javazoom.jlgui.basicplayer.BasicPlayerException;
 import javazoom.jlgui.basicplayer.BasicPlayerListener;
 import org.apache.commons.codec.binary.Base64;
 
@@ -55,12 +56,12 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class Audio {
 
-    public static final float MASTER_VOLUME = 0.8f;
-    public static final float TTS_VOLUME = 1.0f;
-    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.4f); //DEFAULT * CUSTOM
-    public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/stats_music.mp3", 0.3f);
-    public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/waiting_room.mp3", 0.7f);
-    public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.7f);
+    public static volatile float MASTER_VOLUME = 0.8f;
+    public static final float TTS_VOLUME = 2.0f;
+    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.5f);
+    public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/stats_music.mp3", 0.4f);
+    public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/waiting_room.mp3", 0.9f);
+    public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.9f);
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
@@ -69,6 +70,7 @@ public class Audio {
     public static final ConcurrentLinkedQueue<Object[]> TTS_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final Object TTS_LOCK = new Object();
+    public static final Object VOL_LOCK = new Object();
     public static final int MAX_TTS_LENGTH = 150;
     public static final Map<String, String> TTS_ES_WORD_REPLACE;
     public volatile static boolean MUTED_ALL = false;
@@ -144,9 +146,9 @@ public class Audio {
         }
     }
 
-    public static float getSoundVolume(String sound) {
+    public static float calculateSoundVolume(String sound) {
 
-        return CUSTOM_VOLUMES.containsKey(sound) ? CUSTOM_VOLUMES.get(sound) : (TTS_PLAYER != null && MP3_RESOURCES.containsKey(sound) && ((BasicPlayer) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? TTS_VOLUME : MASTER_VOLUME);
+        return CUSTOM_VOLUMES.containsKey(sound) ? (MASTER_VOLUME > 0f ? CUSTOM_VOLUMES.get(sound) * MASTER_VOLUME : 0f) : (TTS_PLAYER != null && MP3_RESOURCES.containsKey(sound) && ((BasicPlayer) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? (MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f) : (MASTER_VOLUME > 0f ? MASTER_VOLUME : 0f));
     }
 
     private static InputStream getSoundInputStream(String sound) {
@@ -192,6 +194,122 @@ public class Audio {
         return null;
     }
 
+    public static void refreshAllVolumes() {
+
+        Helpers.threadRun(new Runnable() {
+
+            @Override
+            public void run() {
+
+                synchronized (VOL_LOCK) {
+
+                    try {
+                        setAllWAVVolume();
+                        setALLMP3Volume();
+                        setALLMP3LoopVolume();
+                        setTTSVolume();
+                    } catch (Exception ex) {
+                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                }
+
+            }
+        });
+    }
+
+    public static void setTTSVolume() throws BasicPlayerException {
+
+        if (TTS_PLAYER != null) {
+            if (!GameFrame.SONIDOS) {
+                TTS_PLAYER.setGain(0f);
+            } else {
+                TTS_PLAYER.setGain(MASTER_VOLUME > 0f ? TTS_VOLUME * MASTER_VOLUME : 0f);
+            }
+        }
+
+    }
+
+    public static void setAllWAVVolume() {
+
+        for (Map.Entry<String, ConcurrentLinkedQueue<Clip>> entry : WAVS_RESOURCES.entrySet()) {
+
+            ConcurrentLinkedQueue<Clip> list = entry.getValue();
+
+            for (Clip c : list) {
+
+                try {
+                    if (c != null && c.isOpen()) {
+                        setClipVolume(entry.getKey(), c, false);
+                    }
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }
+
+    public static void setALLMP3Volume() {
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
+
+            try {
+                setMP3PlayerVolume(entry.getKey(), entry.getValue());
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
+
+    }
+
+    public static void setALLMP3LoopVolume() {
+
+        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+
+            try {
+                setMP3LoopPlayerVolume(entry.getKey(), entry.getValue());
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
+
+    }
+
+    public static void setMP3LoopPlayerVolume(String sound, BasicPlayer player) throws BasicPlayerException {
+
+        if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
+            player.setGain(0f);
+        } else {
+            player.setGain(calculateSoundVolume(sound));
+        }
+
+    }
+
+    public static void setMP3PlayerVolume(String sound, BasicPlayer player) throws BasicPlayerException {
+
+        if (!GameFrame.SONIDOS) {
+            player.setGain(0f);
+        } else {
+            player.setGain(calculateSoundVolume(sound));
+        }
+
+    }
+
+    public static void setClipVolume(String sound, Clip clip, boolean bypass_muted) {
+
+        FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+
+        if (!GameFrame.SONIDOS || calculateSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
+            gainControl.setValue(gainControl.getMinimum());
+        } else {
+            float dB = 20f * (float) Math.log10(calculateSoundVolume(sound));
+            gainControl.setValue(dB);
+
+        }
+    }
+
     public static boolean playWavResourceAndWait(String sound) {
 
         return playWavResourceAndWait(sound, true, false);
@@ -228,13 +346,9 @@ public class Audio {
                         }
 
                         clip.open(AudioSystem.getAudioInputStream(bis));
-                        FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-                        if (!GameFrame.SONIDOS || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
-                            gainControl.setValue(gainControl.getMinimum());
-                        } else {
-                            float dB = (float) Math.log10(getSoundVolume(sound)) * 20.0f;
-                            gainControl.setValue(dB);
-                        }
+
+                        setClipVolume(sound, clip, bypass_muted);
+
                         clip.loop(Clip.LOOP_CONTINUOUSLY);
                     }
 
@@ -334,11 +448,7 @@ public class Audio {
                                 player.play();
                             }
 
-                            if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
-                                player.setGain(0f);
-                            } else {
-                                player.setGain(getSoundVolume(sound));
-                            }
+                            setMP3LoopPlayerVolume(sound, player);
 
                             do {
                                 synchronized (player_wait) {
@@ -415,11 +525,7 @@ public class Audio {
                     player.play();
                 }
 
-                if (!GameFrame.SONIDOS) {
-                    player.setGain(0f);
-                } else {
-                    player.setGain(getSoundVolume(sound));
-                }
+                setMP3PlayerVolume(sound, player);
 
                 do {
                     synchronized (player_wait) {
@@ -756,7 +862,7 @@ public class Audio {
                 MP3_LOOP_MUTED.remove(sound);
 
                 if (!MUTED_ALL && !MUTED_MP3_LOOP) {
-                    player.setGain(getSoundVolume(sound));
+                    player.setGain(calculateSoundVolume(sound));
                 }
 
             } catch (Exception ex) {
@@ -913,7 +1019,7 @@ public class Audio {
             try {
 
                 if (!MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
-                    entry.getValue().setGain(getSoundVolume(entry.getKey()));
+                    entry.getValue().setGain(calculateSoundVolume(entry.getKey()));
                 }
 
             } catch (Exception ex) {
@@ -931,7 +1037,7 @@ public class Audio {
             try {
 
                 if (!MUTED_ALL) {
-                    entry.getValue().setGain(getSoundVolume(entry.getKey()));
+                    entry.getValue().setGain(calculateSoundVolume(entry.getKey()));
                 }
 
             } catch (Exception ex) {
@@ -954,7 +1060,7 @@ public class Audio {
 
                     if (c != null && c.isOpen()) {
                         FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
-                        float dB = (float) Math.log10(getSoundVolume(entry.getKey())) * 20.0f;
+                        float dB = (float) Math.log10(calculateSoundVolume(entry.getKey())) * 20.0f;
                         gainControl.setValue(dB);
                     }
 

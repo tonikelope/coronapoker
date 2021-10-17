@@ -1883,6 +1883,11 @@ public class Helpers {
         return new BigDecimal(val).setScale(1, RoundingMode.HALF_UP).floatValue();
     }
 
+    public static float floatClean2D(float val) {
+
+        return new BigDecimal(val).setScale(2, RoundingMode.HALF_UP).floatValue();
+    }
+
     public static int float1DSecureCompare(float val1, float val2) {
 
         return Float.compare(floatClean1D(val1), floatClean1D(val2));

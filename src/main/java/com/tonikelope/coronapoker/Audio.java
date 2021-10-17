@@ -146,7 +146,7 @@ public class Audio {
         }
     }
 
-    public static float calculateSoundVolume(String sound) {
+    public static float findSoundVolume(String sound) {
 
         return CUSTOM_VOLUMES.containsKey(sound) ? (MASTER_VOLUME > 0f ? CUSTOM_VOLUMES.get(sound) * MASTER_VOLUME : 0f) : (TTS_PLAYER != null && MP3_RESOURCES.containsKey(sound) && ((BasicPlayer) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? (MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f) : (MASTER_VOLUME > 0f ? MASTER_VOLUME : 0f));
     }
@@ -194,7 +194,7 @@ public class Audio {
         return null;
     }
 
-    public static void refreshAllVolumes() {
+    public static void refreshALLVolumes() {
 
         Helpers.threadRun(new Runnable() {
 
@@ -204,10 +204,10 @@ public class Audio {
                 synchronized (VOL_LOCK) {
 
                     try {
-                        setAllWAVVolume();
-                        setALLMP3Volume();
-                        setALLMP3LoopVolume();
-                        setTTSVolume();
+                        refreshALLWAVVolume();
+                        refreshALLMP3Volume();
+                        refreshALLMP3LoopVolume();
+                        refreshTTSVolume();
                     } catch (Exception ex) {
                         Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -218,19 +218,19 @@ public class Audio {
         });
     }
 
-    public static void setTTSVolume() throws BasicPlayerException {
+    public static void refreshTTSVolume() throws BasicPlayerException {
 
         if (TTS_PLAYER != null) {
             if (!GameFrame.SONIDOS) {
                 TTS_PLAYER.setGain(0f);
             } else {
-                TTS_PLAYER.setGain(MASTER_VOLUME > 0f ? TTS_VOLUME * MASTER_VOLUME : 0f);
+                TTS_PLAYER.setGain(MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f);
             }
         }
 
     }
 
-    public static void setAllWAVVolume() {
+    public static void refreshALLWAVVolume() {
 
         for (Map.Entry<String, ConcurrentLinkedQueue<Clip>> entry : WAVS_RESOURCES.entrySet()) {
 
@@ -249,7 +249,7 @@ public class Audio {
         }
     }
 
-    public static void setALLMP3Volume() {
+    public static void refreshALLMP3Volume() {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
 
@@ -263,7 +263,7 @@ public class Audio {
 
     }
 
-    public static void setALLMP3LoopVolume() {
+    public static void refreshALLMP3LoopVolume() {
 
         for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
 
@@ -282,7 +282,7 @@ public class Audio {
         if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
             player.setGain(0f);
         } else {
-            player.setGain(calculateSoundVolume(sound));
+            player.setGain(findSoundVolume(sound));
         }
 
     }
@@ -292,7 +292,7 @@ public class Audio {
         if (!GameFrame.SONIDOS) {
             player.setGain(0f);
         } else {
-            player.setGain(calculateSoundVolume(sound));
+            player.setGain(findSoundVolume(sound));
         }
 
     }
@@ -301,12 +301,10 @@ public class Audio {
 
         FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
 
-        if (!GameFrame.SONIDOS || calculateSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
+        if (!GameFrame.SONIDOS || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
             gainControl.setValue(gainControl.getMinimum());
         } else {
-            float dB = 20f * (float) Math.log10(calculateSoundVolume(sound));
-            gainControl.setValue(dB);
-
+            gainControl.setValue(Helpers.floatClean(20 * (float) Math.log10(findSoundVolume(sound)), 3));
         }
     }
 
@@ -862,7 +860,7 @@ public class Audio {
                 MP3_LOOP_MUTED.remove(sound);
 
                 if (!MUTED_ALL && !MUTED_MP3_LOOP) {
-                    player.setGain(calculateSoundVolume(sound));
+                    player.setGain(findSoundVolume(sound));
                 }
 
             } catch (Exception ex) {
@@ -1019,7 +1017,7 @@ public class Audio {
             try {
 
                 if (!MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
-                    entry.getValue().setGain(calculateSoundVolume(entry.getKey()));
+                    entry.getValue().setGain(findSoundVolume(entry.getKey()));
                 }
 
             } catch (Exception ex) {
@@ -1037,7 +1035,7 @@ public class Audio {
             try {
 
                 if (!MUTED_ALL) {
-                    entry.getValue().setGain(calculateSoundVolume(entry.getKey()));
+                    entry.getValue().setGain(findSoundVolume(entry.getKey()));
                 }
 
             } catch (Exception ex) {
@@ -1060,8 +1058,7 @@ public class Audio {
 
                     if (c != null && c.isOpen()) {
                         FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
-                        float dB = (float) Math.log10(calculateSoundVolume(entry.getKey())) * 20.0f;
-                        gainControl.setValue(dB);
+                        gainControl.setValue(Helpers.floatClean(20 * (float) Math.log10(findSoundVolume(entry.getKey())), 3));
                     }
 
                 } catch (Exception ex) {

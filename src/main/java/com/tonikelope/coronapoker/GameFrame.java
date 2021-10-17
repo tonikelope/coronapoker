@@ -800,10 +800,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (Audio.MASTER_VOLUME > 0f) {
-
-                    Audio.MASTER_VOLUME = Helpers.floatClean2D(Audio.MASTER_VOLUME - 0.01f);
-
-                    Audio.refreshAllVolumes();
+                    Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME - 0.01f, 2);
+                    Audio.refreshALLVolumes();
                 }
 
                 if (volume_dialog != null) {
@@ -821,11 +819,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (Audio.MASTER_VOLUME < 1.0f) {
-
-                    Audio.MASTER_VOLUME = Helpers.floatClean2D(Audio.MASTER_VOLUME + 0.01f);
-
-                    Audio.refreshAllVolumes();
-
+                    Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME + 0.01f, 2);
+                    Audio.refreshALLVolumes();
                 }
 
                 if (volume_dialog != null) {
@@ -1812,7 +1807,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                             String ganancia_msg = "";
 
-                            float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(pasta[0]) - Helpers.floatClean1D(pasta[1]));
+                            float ganancia = Helpers.floatClean(Helpers.floatClean(pasta[0]) - Helpers.floatClean(pasta[1]));
 
                             if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
                                 ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);

@@ -916,7 +916,7 @@ public class StatsDialog extends javax.swing.JDialog {
                                     hand_comcards_val.setText(Card.collection2String(cartas));
                                 }
 
-                                hand_bote_val.setText(String.valueOf(Helpers.floatClean1D(rs.getFloat("pot"))));
+                                hand_bote_val.setText(String.valueOf(Helpers.floatClean(rs.getFloat("pot"))));
 
                                 loadShowdownData(id_hand);
                             } catch (Exception ex) {

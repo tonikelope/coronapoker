@@ -1054,14 +1054,14 @@ public class Crupier implements Runnable {
 
             GameFrame.getInstance().getRegistro().print(status);
 
-            if (Helpers.float1DSecureCompare(Helpers.floatClean1D(stack_sum) + Helpers.floatClean1D(this.bote_sobrante), buyin_sum) != 0) {
+            if (Helpers.float1DSecureCompare(Helpers.floatClean(stack_sum) + Helpers.floatClean(this.bote_sobrante), buyin_sum) != 0) {
 
                 if (this.game_recovered == 1 && Helpers.float1DSecureCompare(0f, this.bote_sobrante) <= 0) {
 
                     this.game_recovered = 2;
 
                     //CORREGIMOS EL BOTE SOBRANTE DESAPARECIDO AL RECUPERAR LA PARTIDA
-                    this.bote_sobrante = Helpers.floatClean1D(Helpers.floatClean1D(buyin_sum) - Helpers.floatClean1D(stack_sum));
+                    this.bote_sobrante = Helpers.floatClean(Helpers.floatClean(buyin_sum) - Helpers.floatClean(stack_sum));
                     this.bote_total = this.bote_sobrante;
 
                     GameFrame.getInstance().getRegistro().print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: " + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum) + " / INDIVISIBLE: " + Helpers.float2String(this.bote_sobrante));
@@ -1849,7 +1849,7 @@ public class Crupier implements Runnable {
                         //Este jugador estaba en la mano que se interrumpió -> NO SE PUEDE RECUPERAR LA MANO INTERRUMPIDA
                         String ganancia_msg = "";
 
-                        float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(Float.parseFloat(partes[1])) - Helpers.floatClean1D(Float.parseFloat(partes[2])));
+                        float ganancia = Helpers.floatClean(Helpers.floatClean(Float.parseFloat(partes[1])) - Helpers.floatClean(Float.parseFloat(partes[2])));
 
                         if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
                             ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
@@ -2855,7 +2855,7 @@ public class Crupier implements Runnable {
 
             statement.setInt(5, current_player.getDecision());
 
-            statement.setFloat(6, Helpers.floatClean1D(current_player.getBet()));
+            statement.setFloat(6, Helpers.floatClean(current_player.getBet()));
 
             statement.setInt(7, this.getConta_raise());
 
@@ -2909,7 +2909,7 @@ public class Crupier implements Runnable {
                 statement.setInt(4, current_player.getDecision());
 
                 if (current_player.getDecision() >= Player.BET) {
-                    statement.setFloat(5, Helpers.floatClean1D(current_player.getBet()));
+                    statement.setFloat(5, Helpers.floatClean(current_player.getBet()));
                 }
 
                 rs = statement.executeQuery();
@@ -2987,9 +2987,9 @@ public class Crupier implements Runnable {
         try {
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
-            statement.setFloat(1, Helpers.floatClean1D(jugador.getPagar()));
+            statement.setFloat(1, Helpers.floatClean(jugador.getPagar()));
 
-            statement.setFloat(2, Helpers.floatClean1D(jugador.getPagar() - jugador.getBote()));
+            statement.setFloat(2, Helpers.floatClean(jugador.getPagar() - jugador.getBote()));
 
             statement.setInt(3, this.sqlite_id_hand);
 
@@ -3024,9 +3024,9 @@ public class Crupier implements Runnable {
 
             statement.setBoolean(6, win);
 
-            statement.setFloat(7, Helpers.floatClean1D(jugador != null ? jugador.getPagar() : 0f));
+            statement.setFloat(7, Helpers.floatClean(jugador != null ? jugador.getPagar() : 0f));
 
-            statement.setFloat(8, Helpers.floatClean1D(jugador != null ? jugador.getPagar() - jugador.getBote() : 0f));
+            statement.setFloat(8, Helpers.floatClean(jugador != null ? jugador.getPagar() - jugador.getBote() : 0f));
 
             statement.executeUpdate();
 
@@ -3045,7 +3045,7 @@ public class Crupier implements Runnable {
             statement = Helpers.getSQLITE().prepareStatement("UPDATE hand SET end=?, pot=? WHERE id=?");
             statement.setQueryTimeout(30);
             statement.setLong(1, System.currentTimeMillis());
-            statement.setFloat(2, Helpers.floatClean1D(bote_tot));
+            statement.setFloat(2, Helpers.floatClean(bote_tot));
             statement.setInt(3, this.sqlite_id_hand);
             statement.executeUpdate();
 
@@ -3149,7 +3149,7 @@ public class Crupier implements Runnable {
             statement.setQueryTimeout(30);
             statement.setInt(1, this.sqlite_id_hand);
             statement.setString(2, nick);
-            statement.setFloat(3, Helpers.floatClean1D(stack));
+            statement.setFloat(3, Helpers.floatClean(stack));
             statement.setInt(4, buyin);
             statement.executeUpdate();
 
@@ -3166,7 +3166,7 @@ public class Crupier implements Runnable {
         try {
             statement = Helpers.getSQLITE().prepareStatement("UPDATE balance SET stack=?, buyin=? WHERE id_hand=? and player=?");
             statement.setQueryTimeout(30);
-            statement.setFloat(1, Helpers.floatClean1D(stack));
+            statement.setFloat(1, Helpers.floatClean(stack));
             statement.setInt(2, buyin);
             statement.setInt(3, this.sqlite_id_hand);
             statement.setString(4, nick);
@@ -3206,7 +3206,7 @@ public class Crupier implements Runnable {
 
             statement.setInt(3, GameFrame.BUYIN);
 
-            statement.setFloat(4, Helpers.floatClean1D(GameFrame.CIEGA_PEQUEÑA));
+            statement.setFloat(4, Helpers.floatClean(GameFrame.CIEGA_PEQUEÑA));
 
             statement.setInt(5, GameFrame.CIEGAS_DOUBLE);
 
@@ -3258,7 +3258,7 @@ public class Crupier implements Runnable {
 
             statement.setInt(2, this.conta_mano);
 
-            statement.setFloat(3, Helpers.floatClean1D(this.ciega_pequeña));
+            statement.setFloat(3, Helpers.floatClean(this.ciega_pequeña));
 
             statement.setInt(4, this.ciegas_double);
 
@@ -4668,7 +4668,7 @@ public class Crupier implements Runnable {
                                 //El jugador actual subió la apuesta actual
                                 boolean partial_raise = false;
 
-                                float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : Helpers.floatClean1D(getCiega_grande());
+                                float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : Helpers.floatClean(getCiega_grande());
 
                                 float current_raise = current_player.getBet() - this.apuesta_actual + this.partial_raise_cum;
 
@@ -5653,7 +5653,7 @@ public class Crupier implements Runnable {
                     res[0] = Integer.parseInt(accion_partes[1]);
 
                     if ((int) res[0] == Player.BET) {
-                        res[1] = Helpers.floatClean1D(Float.parseFloat(accion_partes[2]));
+                        res[1] = Helpers.floatClean(Float.parseFloat(accion_partes[2]));
                     } else {
                         res[1] = 0f;
                     }
@@ -6118,7 +6118,7 @@ public class Crupier implements Runnable {
             if (jugador.isExit()) {
                 this.auditor.put(jugador.getNickname(), new Float[]{jugador.getStack() + jugador.getPagar(), (float) jugador.getBuyin()});
 
-                float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(jugador.getStack()) + Helpers.floatClean1D(jugador.getPagar())) - Helpers.floatClean1D(jugador.getBuyin());
+                float ganancia = Helpers.floatClean(Helpers.floatClean(jugador.getStack()) + Helpers.floatClean(jugador.getPagar())) - Helpers.floatClean(jugador.getBuyin());
 
                 String ganancia_msg = "";
 
@@ -7056,7 +7056,7 @@ public class Crupier implements Runnable {
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
-            if (jugador != GameFrame.getInstance().getLocalPlayer() && jugador.isActivo() && Helpers.float1DSecureCompare(0f, Helpers.floatClean1D(jugador.getStack()) + Helpers.floatClean1D(jugador.getPagar())) == 0) {
+            if (jugador != GameFrame.getInstance().getLocalPlayer() && jugador.isActivo() && Helpers.float1DSecureCompare(0f, Helpers.floatClean(jugador.getStack()) + Helpers.floatClean(jugador.getPagar())) == 0) {
 
                 if (GameFrame.REBUY) {
                     rebuy_players.add(jugador.getNickname());
@@ -7069,7 +7069,7 @@ public class Crupier implements Runnable {
 
         this.rebuy_time = !rebuy_players.isEmpty();
 
-        if (GameFrame.getInstance().getLocalPlayer().isActivo() && Helpers.float1DSecureCompare(Helpers.floatClean1D(GameFrame.getInstance().getLocalPlayer().getStack()) + Helpers.floatClean1D(GameFrame.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
+        if (GameFrame.getInstance().getLocalPlayer().isActivo() && Helpers.float1DSecureCompare(Helpers.floatClean(GameFrame.getInstance().getLocalPlayer().getStack()) + Helpers.floatClean(GameFrame.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
 
             this.rebuy_time = true;
 

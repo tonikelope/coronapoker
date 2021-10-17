@@ -947,7 +947,7 @@ public class Helpers {
 
     public static String float2String(float cantidad) {
 
-        cantidad = Helpers.floatClean1D(cantidad);
+        cantidad = Helpers.floatClean(cantidad);
 
         DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
 
@@ -1878,19 +1878,19 @@ public class Helpers {
         return System.getProperty("os.name") + " " + System.getProperty("os.version") + " " + System.getProperty("os.arch") + " / " + System.getProperty("java.vm.name") + " " + System.getProperty("java.version");
     }
 
-    public static float floatClean1D(float val) {
+    public static float floatClean(float val) {
 
-        return new BigDecimal(val).setScale(1, RoundingMode.HALF_UP).floatValue();
+        return floatClean(val, 1);
     }
 
-    public static float floatClean2D(float val) {
+    public static float floatClean(float val, int decs) {
 
-        return new BigDecimal(val).setScale(2, RoundingMode.HALF_UP).floatValue();
+        return new BigDecimal(val).setScale(decs, RoundingMode.HALF_UP).floatValue();
     }
 
     public static int float1DSecureCompare(float val1, float val2) {
 
-        return Float.compare(floatClean1D(val1), floatClean1D(val2));
+        return Float.compare(floatClean(val1), floatClean(val2));
     }
 
     public static HashMap<Object, Object> reverseHashMap(HashMap<Object, Object> map) {

@@ -194,7 +194,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public synchronized void setStack(float stack) {
-        this.stack = Helpers.floatClean1D(stack);
+        this.stack = Helpers.floatClean(stack);
 
         if (!player_stack_click) {
             Helpers.GUIRunAndWait(new Runnable() {
@@ -222,10 +222,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         float old_bet = bet;
 
-        bet = Helpers.floatClean1D(new_bet);
+        bet = Helpers.floatClean(new_bet);
 
         if (Helpers.float1DSecureCompare(old_bet, bet) < 0) {
-            this.bote += Helpers.floatClean1D(bet - old_bet);
+            this.bote += Helpers.floatClean(bet - old_bet);
             setStack(stack - (bet - old_bet));
         }
 
@@ -503,7 +503,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public synchronized float getEffectiveStack() {
 
-        return Helpers.floatClean1D(this.stack) + Helpers.floatClean1D(this.bote) + Helpers.floatClean1D(this.pagar);
+        return Helpers.floatClean(this.stack) + Helpers.floatClean(this.bote) + Helpers.floatClean(this.pagar);
 
     }
 

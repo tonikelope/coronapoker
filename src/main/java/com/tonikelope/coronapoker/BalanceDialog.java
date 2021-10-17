@@ -61,7 +61,7 @@ public class BalanceDialog extends javax.swing.JDialog {
 
             String ganancia_msg = "";
 
-            float ganancia = Helpers.floatClean1D(Helpers.floatClean1D(pasta[0]) - Helpers.floatClean1D(pasta[1]));
+            float ganancia = Helpers.floatClean(Helpers.floatClean(pasta[0]) - Helpers.floatClean(pasta[1]));
 
             if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
                 ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);

@@ -60,10 +60,10 @@ public class Bot {
 
         switch (GameFrame.getInstance().getCrupier().getFase()) {
             case Crupier.PREFLOP:
-                b = Helpers.floatClean1D((3 + GameFrame.getInstance().getCrupier().getLimpersCount()) * GameFrame.getInstance().getCrupier().getCiega_grande()); //Classic
+                b = Helpers.floatClean((3 + GameFrame.getInstance().getCrupier().getLimpersCount()) * GameFrame.getInstance().getCrupier().getCiega_grande()); //Classic
                 break;
             default:
-                b = Helpers.floatClean1D(GameFrame.getInstance().getCrupier().getBote_total() / 3); //Gentle because we don't want a quick massacre
+                b = Helpers.floatClean(GameFrame.getInstance().getCrupier().getBote_total() / 3); //Gentle because we don't want a quick massacre
                 break;
         }
 

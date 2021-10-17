@@ -448,7 +448,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public synchronized void setStack(float stack) {
-        this.stack = Helpers.floatClean1D(stack);
+        this.stack = Helpers.floatClean(stack);
 
         if (!player_stack_click) {
             Helpers.GUIRunAndWait(new Runnable() {
@@ -575,10 +575,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         float old_bet = bet;
 
-        bet = Helpers.floatClean1D(new_bet);
+        bet = Helpers.floatClean(new_bet);
 
         if (Helpers.float1DSecureCompare(old_bet, bet) < 0) {
-            this.bote += Helpers.floatClean1D(bet - old_bet);
+            this.bote += Helpers.floatClean(bet - old_bet);
             setStack(stack - (bet - old_bet));
         }
 
@@ -645,9 +645,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (this.getDecision() == Player.NODEC) {
             Audio.playWavResource("misc/yourturn.wav");
 
-            call_required = Helpers.floatClean1D(GameFrame.getInstance().getCrupier().getApuesta_actual() - bet);
+            call_required = Helpers.floatClean(GameFrame.getInstance().getCrupier().getApuesta_actual() - bet);
 
-            min_raise = Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getUltimo_raise()) < 0 ? GameFrame.getInstance().getCrupier().getUltimo_raise() : Helpers.floatClean1D(GameFrame.getInstance().getCrupier().getCiega_grande());
+            min_raise = Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getUltimo_raise()) < 0 ? GameFrame.getInstance().getCrupier().getUltimo_raise() : Helpers.floatClean(GameFrame.getInstance().getCrupier().getCiega_grande());
 
             Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
@@ -1339,7 +1339,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public synchronized float getEffectiveStack() {
 
-        return Helpers.floatClean1D(this.stack) + Helpers.floatClean1D(this.bote) + Helpers.floatClean1D(this.pagar);
+        return Helpers.floatClean(this.stack) + Helpers.floatClean(this.bote) + Helpers.floatClean(this.pagar);
 
     }
 
@@ -2228,7 +2228,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (!GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_bet_button) || click_recuperacion) {
 
-                    float bet_spinner_val = Helpers.floatClean1D(((BigDecimal) bet_spinner.getValue()).floatValue());
+                    float bet_spinner_val = Helpers.floatClean(((BigDecimal) bet_spinner.getValue()).floatValue());
 
                     Audio.playWavResource("misc/bet.wav");
 

@@ -16,7 +16,7 @@ import javax.swing.Timer;
  * @author tonikelope
  */
 public class VolumeControlDialog extends javax.swing.JDialog {
-    
+
     public static final int TIMEOUT = 1;
     private volatile Timer timer = null;
 
@@ -26,40 +26,42 @@ public class VolumeControlDialog extends javax.swing.JDialog {
     public VolumeControlDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
         initComponents();
-        
+
         setPreferredSize(new Dimension(Math.round(0.5f * parent.getWidth()), this.getHeight()));
         
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
         timer = new Timer(TIMEOUT * 1000, new ActionListener() {
-            
+
             @Override
             public void actionPerformed(ActionEvent ae) {
-                
+
                 timer.stop();
                 dispose();
                 GameFrame.getInstance().volume_dialog = null;
-                
+
             }
         });
-        
+
         timer.setRepeats(false);
         timer.setCoalesce(false);
     }
-    
+
     public void refresh() {
-        
+
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                
+
                 if (timer.isRunning()) {
                     timer.restart();
                 } else {
                     timer.start();
                 }
-                
+
                 barra.setValue(Math.round(Audio.MASTER_VOLUME * 100));
-                
+
                 sound_icon.setBackground(barra.getValue() > 0 ? Color.WHITE : Color.RED);
-                
+
                 if (!isVisible()) {
                     setVisible(true);
                 }
@@ -91,10 +93,12 @@ public class VolumeControlDialog extends javax.swing.JDialog {
         sound_icon.setFocusable(false);
         sound_icon.setOpaque(true);
 
+        barra.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         barra.setBorder(null);
         barra.setBorderPainted(false);
         barra.setDoubleBuffered(true);
         barra.setFocusable(false);
+        barra.setStringPainted(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);

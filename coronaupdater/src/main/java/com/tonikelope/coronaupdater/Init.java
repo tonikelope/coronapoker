@@ -68,6 +68,7 @@ public class Init extends javax.swing.JFrame {
         jLabel2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_splash.png"))); // NOI18N
         jLabel2.setDoubleBuffered(true);
 
+        progress_bar.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         progress_bar.setDoubleBuffered(true);
         progress_bar.setStringPainted(true);
 

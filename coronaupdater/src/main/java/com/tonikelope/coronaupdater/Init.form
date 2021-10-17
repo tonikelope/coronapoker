@@ -57,6 +57,9 @@
     </Component>
     <Component class="javax.swing.JProgressBar" name="progress_bar">
       <Properties>
+        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+          <Font name="Dialog" size="18" style="1"/>
+        </Property>
         <Property name="doubleBuffered" type="boolean" value="true"/>
         <Property name="stringPainted" type="boolean" value="true"/>
       </Properties>

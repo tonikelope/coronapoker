@@ -143,44 +143,54 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
-        try {
+        boolean ok;
 
-            Files.move(Paths.get(args[1]), Paths.get(args[1] + ".bak"));
+        do {
 
-            downloadCoronaPoker(ventana, args[0], args[2]);
-
-            StringBuilder java_bin = new StringBuilder();
-
-            java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
-
-            String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
-
-            Runtime.getRuntime().exec(cmdArr);
-
-            Files.deleteIfExists(Paths.get(args[1] + ".bak"));
-
-        } catch (Exception ex) {
-
-            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            ok = true;
 
             try {
 
-                Files.deleteIfExists(Paths.get(args[2]));
+                Files.move(Paths.get(args[1]), Paths.get(args[1] + ".bak"));
 
-                if (Files.exists(Paths.get(args[1] + ".bak"))) {
-                    Files.move(Paths.get(args[1] + ".bak"), Paths.get(args[1]));
+                downloadCoronaPoker(ventana, args[0], args[2]);
+
+                StringBuilder java_bin = new StringBuilder();
+
+                java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+
+                String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
+
+                Runtime.getRuntime().exec(cmdArr);
+
+                Files.deleteIfExists(Paths.get(args[1] + ".bak"));
+
+            } catch (Exception ex) {
+
+                ok = false;
+
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+
+                try {
+
+                    Files.deleteIfExists(Paths.get(args[2]));
+
+                    if (Files.exists(Paths.get(args[1] + ".bak"))) {
+                        Files.move(Paths.get(args[1] + ".bak"), Paths.get(args[1]));
+                    }
+
+                } catch (Exception ex1) {
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
                 }
-
-            } catch (Exception ex1) {
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
             }
 
-            Helpers.mostrarMensajeError(ventana, "UPDATE ERROR\n" + args[0] + "\n" + args[1] + "\n" + args[2] + "\n");
-
-            Helpers.openBrowserURLAndWait("https://github.com/tonikelope/coronapoker/releases/latest");
-        }
+        } while (!ok && Helpers.mostrarMensajeErrorSINO(ventana, "UPDATE ERROR\n" + args[0] + "\n" + args[1] + "\n" + args[2] + "\n\n" + (ventana.getStatus().getText().trim().toLowerCase().startsWith("updating") ? "RETRY?" : "¿VOLVER A INTENTAR?")) == 0);
 
         ventana.dispose();
+
+        if (!ok) {
+            Helpers.openBrowserURLAndWait("https://github.com/tonikelope/coronapoker/releases/latest");
+        }
 
     }
 

@@ -61,6 +61,30 @@ public class Helpers {
 
     }
 
+    // 0=yes, 1=no, 2=cancel
+    public static int mostrarMensajeErrorSINO(JFrame frame, String msg) {
+
+        if (SwingUtilities.isEventDispatchThread()) {
+
+            return JOptionPane.showConfirmDialog(frame, msg, "ERROR", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+
+        } else {
+
+            final int[] res = new int[1];
+
+            Helpers.GUIRunAndWait(new Runnable() {
+                @Override
+                public void run() {
+
+                    res[0] = JOptionPane.showConfirmDialog(frame, msg, "ERROR", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+                }
+            });
+
+            return res[0];
+
+        }
+    }
+
     public static void mostrarMensajeInformativo(JFrame frame, String msg) {
 
         if (SwingUtilities.isEventDispatchThread()) {

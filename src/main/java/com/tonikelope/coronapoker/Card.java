@@ -849,7 +849,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private void card_imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_card_imageMouseClicked
         // TODO add your handling code here:
 
-        if (isTapada() && iwtsth_candidate != null) {
+        if (SwingUtilities.isLeftMouseButton(evt) && isTapada() && iwtsth_candidate != null) {
 
             iwtsth_candidate.playerActionClick();
 

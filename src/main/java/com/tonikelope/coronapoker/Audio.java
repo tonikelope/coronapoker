@@ -16,6 +16,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
@@ -43,6 +45,7 @@ import java.util.regex.Pattern;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
+import javax.swing.Timer;
 import javazoom.jlgui.basicplayer.BasicController;
 import javazoom.jlgui.basicplayer.BasicPlayer;
 import javazoom.jlgui.basicplayer.BasicPlayerEvent;
@@ -73,6 +76,7 @@ public class Audio {
     public static final Object VOL_LOCK = new Object();
     public static final int MAX_TTS_LENGTH = 150;
     public static final Map<String, String> TTS_ES_WORD_REPLACE;
+    public static final Timer VOLUME_TIMER;
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_WAV = false;
     public volatile static boolean MUTED_MP3 = false;
@@ -87,6 +91,21 @@ public class Audio {
         tts_es_replace.put("asi", "así"); //LOWERCASE ALL
 
         TTS_ES_WORD_REPLACE = Collections.unmodifiableMap(tts_es_replace);
+
+        VOLUME_TIMER = new Timer(250, new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+
+                VOLUME_TIMER.stop();
+
+                refreshALLVolumes();
+            }
+        });
+
+        VOLUME_TIMER.setRepeats(false);
+
+        VOLUME_TIMER.setCoalesce(false);
 
     }
 
@@ -204,10 +223,14 @@ public class Audio {
                 synchronized (VOL_LOCK) {
 
                     try {
+
                         refreshALLWAVVolume();
                         refreshALLMP3Volume();
                         refreshALLMP3LoopVolume();
                         refreshTTSVolume();
+
+                        playWavResource("misc/volume_change.wav");
+
                     } catch (Exception ex) {
                         Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -304,7 +327,8 @@ public class Audio {
         if (!GameFrame.SONIDOS || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
             gainControl.setValue(gainControl.getMinimum());
         } else {
-            gainControl.setValue(Helpers.floatClean(20 * (float) Math.log10(findSoundVolume(sound)), 3));
+            float db = Helpers.floatClean(20f * (float) Math.log10(findSoundVolume(sound)), 2);
+            gainControl.setValue(db >= gainControl.getMinimum() ? db : gainControl.getMinimum());
         }
     }
 

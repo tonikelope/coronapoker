@@ -333,6 +333,11 @@ public class Init extends javax.swing.JFrame {
                 formComponentShown(evt);
             }
         });
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
+            }
+        });
 
         corona_init_panel.setOpaque(false);
 
@@ -690,6 +695,12 @@ public class Init extends javax.swing.JFrame {
         UPDATE();
     }//GEN-LAST:event_update_buttonActionPerformed
 
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        // TODO add your handling code here:
+        Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
+        Helpers.savePropertiesFile();
+    }//GEN-LAST:event_formWindowClosing
+
     /**
      * @param args the command line arguments
      */
@@ -778,6 +789,8 @@ public class Init extends javax.swing.JFrame {
             }
 
             Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
+
+            Audio.MASTER_VOLUME = Float.parseFloat(Helpers.PROPERTIES.getProperty("master_volume", "0.8"));
 
             if (!GameFrame.SONIDOS) {
 

@@ -1934,6 +1934,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             @Override
                             public void mouseClicked(MouseEvent e) {
                                 {
+                                    Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
+
+                                    Helpers.savePropertiesFile();
+
                                     System.exit(0);
                                 }
                             }
@@ -1951,6 +1955,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Audio.playWavResourceAndWait("misc/end.wav", true, true);
         }
+
+        Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
+
+        Helpers.savePropertiesFile();
 
         System.exit(0);
     }

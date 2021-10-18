@@ -59,7 +59,7 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class Audio {
 
-    public static volatile float MASTER_VOLUME = 0.8f;
+    public static volatile float MASTER_VOLUME;
     public static final float TTS_VOLUME = 2.0f;
     public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.5f);
     public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/stats_music.mp3", 0.4f);

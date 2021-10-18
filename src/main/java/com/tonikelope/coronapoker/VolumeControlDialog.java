@@ -17,7 +17,7 @@ import javax.swing.Timer;
  */
 public class VolumeControlDialog extends javax.swing.JDialog {
 
-    public static final int TIMEOUT = 1;
+    public static final int TIMEOUT = 1000;
     private volatile Timer timer = null;
 
     /**
@@ -28,10 +28,10 @@ public class VolumeControlDialog extends javax.swing.JDialog {
         initComponents();
 
         setPreferredSize(new Dimension(Math.round(0.5f * parent.getWidth()), this.getHeight()));
-        
+
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
-        timer = new Timer(TIMEOUT * 1000, new ActionListener() {
+        timer = new Timer(TIMEOUT, new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent ae) {

@@ -69,7 +69,7 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         pack();
 
         if (timeout != null) {
-            timer = new Timer(timeout * 1000, new ActionListener() {
+            timer = new Timer(timeout, new ActionListener() {
 
                 @Override
                 public void actionPerformed(ActionEvent ae) {
@@ -80,6 +80,7 @@ public class GifAnimationDialog extends javax.swing.JDialog {
             });
 
             timer.setRepeats(false);
+            timer.setCoalesce(false);
             timer.start();
         }
     }

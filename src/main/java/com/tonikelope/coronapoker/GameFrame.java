@@ -801,7 +801,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             public void actionPerformed(ActionEvent e) {
                 if (Audio.MASTER_VOLUME > 0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME - 0.01f, 2);
-                    Audio.refreshALLVolumes();
+
+                    if (Audio.VOLUME_TIMER.isRunning()) {
+                        Audio.VOLUME_TIMER.restart();
+                    } else {
+                        Audio.VOLUME_TIMER.start();
+                    }
+
                 }
 
                 if (volume_dialog != null) {
@@ -820,7 +826,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             public void actionPerformed(ActionEvent e) {
                 if (Audio.MASTER_VOLUME < 1.0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME + 0.01f, 2);
-                    Audio.refreshALLVolumes();
+
+                    if (Audio.VOLUME_TIMER.isRunning()) {
+                        Audio.VOLUME_TIMER.restart();
+                    } else {
+                        Audio.VOLUME_TIMER.start();
+                    }
                 }
 
                 if (volume_dialog != null) {

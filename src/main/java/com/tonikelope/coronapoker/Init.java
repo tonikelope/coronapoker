@@ -82,6 +82,8 @@ public class Init extends javax.swing.JFrame {
     public static volatile Method M2 = null;
     public static volatile Method M3 = null;
     public static volatile Image I1 = null;
+    public static volatile VolumeControlDialog VOLUME_DIALOG = null;
+    public static volatile JDialog CURRENT_MODAL_DIALOG = null;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private static volatile String NEW_VERSION = null;
     private volatile int k = 0;
@@ -158,6 +160,66 @@ public class Init extends javax.swing.JFrame {
         update_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/gears.gif")).getImage().getScaledInstance(64, 64, Image.SCALE_DEFAULT)));
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-DOWN") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (Audio.MASTER_VOLUME > 0f) {
+                    Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME - 0.01f, 2);
+
+                    if (Audio.VOLUME_TIMER.isRunning()) {
+                        Audio.VOLUME_TIMER.restart();
+                    } else {
+                        Audio.VOLUME_TIMER.start();
+                    }
+
+                }
+
+                if (VOLUME_DIALOG != null) {
+                    VOLUME_DIALOG.refresh();
+                } else {
+
+                    if (CURRENT_MODAL_DIALOG != null) {
+                        VOLUME_DIALOG = new VolumeControlDialog(CURRENT_MODAL_DIALOG, false);
+                    } else {
+
+                        VOLUME_DIALOG = new VolumeControlDialog(GameFrame.getInstance() != null ? GameFrame.getInstance().getFrame() : (VENTANA_INICIO.isVisible() ? VENTANA_INICIO : WaitingRoomFrame.getInstance()), false);
+                    }
+                    VOLUME_DIALOG.setLocationRelativeTo(GameFrame.getInstance() != null ? GameFrame.getInstance().getFrame() : (VENTANA_INICIO.isVisible() ? VENTANA_INICIO : WaitingRoomFrame.getInstance()));
+                    VOLUME_DIALOG.refresh();
+                }
+            }
+        });
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-UP") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (Audio.MASTER_VOLUME < 1.0f) {
+                    Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME + 0.01f, 2);
+
+                    if (Audio.VOLUME_TIMER.isRunning()) {
+                        Audio.VOLUME_TIMER.restart();
+                    } else {
+                        Audio.VOLUME_TIMER.start();
+                    }
+                }
+
+                if (VOLUME_DIALOG != null) {
+                    VOLUME_DIALOG.refresh();
+                } else {
+
+                    if (CURRENT_MODAL_DIALOG != null) {
+                        VOLUME_DIALOG = new VolumeControlDialog(CURRENT_MODAL_DIALOG, false);
+                    } else {
+
+                        VOLUME_DIALOG = new VolumeControlDialog(GameFrame.getInstance() != null ? GameFrame.getInstance().getFrame() : (VENTANA_INICIO.isVisible() ? VENTANA_INICIO : WaitingRoomFrame.getInstance()), false);
+                    }
+                    VOLUME_DIALOG.setLocationRelativeTo(GameFrame.getInstance() != null ? GameFrame.getInstance().getFrame() : (VENTANA_INICIO.isVisible() ? VENTANA_INICIO : WaitingRoomFrame.getInstance()));
+                    VOLUME_DIALOG.refresh();
+                }
+
+            }
+        });
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK), new AbstractAction("FORCE_EXIT") {
             @Override

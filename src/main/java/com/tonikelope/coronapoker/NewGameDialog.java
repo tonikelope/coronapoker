@@ -418,6 +418,14 @@ public class NewGameDialog extends javax.swing.JDialog {
         setTitle("CoronaPoker - Nueva timba");
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
         setMinimumSize(new java.awt.Dimension(533, 0));
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosed(java.awt.event.WindowEvent evt) {
+                formWindowClosed(evt);
+            }
+            public void windowOpened(java.awt.event.WindowEvent evt) {
+                formWindowOpened(evt);
+            }
+        });
 
         scroll_panel.setBorder(null);
         scroll_panel.setDoubleBuffered(true);
@@ -1046,6 +1054,10 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         }
 
+        if (Init.CURRENT_MODAL_DIALOG == this) {
+            Init.CURRENT_MODAL_DIALOG = null;
+        }
+
     }//GEN-LAST:event_vamosActionPerformed
 
     private void random_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_random_comboboxActionPerformed
@@ -1339,6 +1351,18 @@ public class NewGameDialog extends javax.swing.JDialog {
         Audio.playWavResource("misc/cash_register.wav");
         // updateCiegasLabel();
     }//GEN-LAST:event_buyin_spinnerStateChanged
+
+    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
+        // TODO add your handling code here:
+        Init.CURRENT_MODAL_DIALOG = this;
+    }//GEN-LAST:event_formWindowOpened
+
+    private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
+        // TODO add your handling code here:
+        if (Init.CURRENT_MODAL_DIALOG == this) {
+            Init.CURRENT_MODAL_DIALOG = null;
+        }
+    }//GEN-LAST:event_formWindowClosed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;

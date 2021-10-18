@@ -796,55 +796,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-DOWN") {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (Audio.MASTER_VOLUME > 0f) {
-                    Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME - 0.01f, 2);
-
-                    if (Audio.VOLUME_TIMER.isRunning()) {
-                        Audio.VOLUME_TIMER.restart();
-                    } else {
-                        Audio.VOLUME_TIMER.start();
-                    }
-
-                }
-
-                if (volume_dialog != null) {
-                    volume_dialog.refresh();
-                } else {
-                    volume_dialog = new VolumeControlDialog(GameFrame.getInstance().getFrame(), false);
-                    volume_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
-                    volume_dialog.refresh();
-                }
-
-            }
-        });
-
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-UP") {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (Audio.MASTER_VOLUME < 1.0f) {
-                    Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME + 0.01f, 2);
-
-                    if (Audio.VOLUME_TIMER.isRunning()) {
-                        Audio.VOLUME_TIMER.restart();
-                    } else {
-                        Audio.VOLUME_TIMER.start();
-                    }
-                }
-
-                if (volume_dialog != null) {
-                    volume_dialog.refresh();
-                } else {
-                    volume_dialog = new VolumeControlDialog(GameFrame.getInstance().getFrame(), false);
-                    volume_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
-                    volume_dialog.refresh();
-                }
-
-            }
-        });
-
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0), new AbstractAction("BUYIN") {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -1975,6 +1926,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     public void run() {
                         gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon);
 
+                        Init.CURRENT_MODAL_DIALOG = gif_dialog;
+
                         gif_dialog.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
                         gif_dialog.addMouseListener(new MouseAdapter() {
@@ -1988,6 +1941,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                         gif_dialog.setVisible(true);
+
+                        Init.CURRENT_MODAL_DIALOG = null;
                     }
                 });
             }

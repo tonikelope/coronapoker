@@ -156,6 +156,11 @@ public class BalanceDialog extends javax.swing.JDialog {
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setUndecorated(true);
         setResizable(false);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowOpened(java.awt.event.WindowEvent evt) {
+                formWindowOpened(evt);
+            }
+        });
 
         title.setBackground(new java.awt.Color(102, 102, 102));
         title.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
@@ -262,6 +267,7 @@ public class BalanceDialog extends javax.swing.JDialog {
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
         // TODO add your handling code here:
         dispose();
+        Init.CURRENT_MODAL_DIALOG = null;
     }//GEN-LAST:event_exit_buttonActionPerformed
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
@@ -274,7 +280,11 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         dialog.setLocationRelativeTo(this);
 
+        Init.CURRENT_MODAL_DIALOG = dialog;
+
         dialog.setVisible(true);
+
+        Init.CURRENT_MODAL_DIALOG = this;
     }//GEN-LAST:event_stats_buttonActionPerformed
 
     private void log_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_log_buttonActionPerformed
@@ -287,14 +297,27 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         GameFrame.getInstance().getRegistro_dialog().setModal(true);
 
+        Init.CURRENT_MODAL_DIALOG = GameFrame.getInstance().getRegistro_dialog();
+
         GameFrame.getInstance().getRegistro_dialog().setVisible(true);
+
+        Init.CURRENT_MODAL_DIALOG = this;
+
     }//GEN-LAST:event_log_buttonActionPerformed
 
     private void retry_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_retry_buttonActionPerformed
         // TODO add your handling code here:
         retry = true;
         dispose();
+        Init.CURRENT_MODAL_DIALOG = null;
     }//GEN-LAST:event_retry_buttonActionPerformed
+
+    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
+        // TODO add your handling code here:
+
+        Init.CURRENT_MODAL_DIALOG = this;
+
+    }//GEN-LAST:event_formWindowOpened
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton exit_button;

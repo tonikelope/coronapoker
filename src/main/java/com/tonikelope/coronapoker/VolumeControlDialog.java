@@ -23,6 +23,33 @@ public class VolumeControlDialog extends javax.swing.JDialog {
     /**
      * Creates new form VolumeControl
      */
+    public VolumeControlDialog(java.awt.Dialog parent, boolean modal) {
+        super(parent, modal);
+        initComponents();
+
+        setPreferredSize(new Dimension(Math.round(0.5f * parent.getWidth()), this.getHeight()));
+
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+        timer = new Timer(TIMEOUT, new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+
+                timer.stop();
+                dispose();
+                Init.VOLUME_DIALOG = null;
+
+            }
+        });
+
+        timer.setRepeats(false);
+        timer.setCoalesce(false);
+    }
+
+    /**
+     * Creates new form VolumeControl
+     */
     public VolumeControlDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
         initComponents();
@@ -38,7 +65,7 @@ public class VolumeControlDialog extends javax.swing.JDialog {
 
                 timer.stop();
                 dispose();
-                GameFrame.getInstance().volume_dialog = null;
+                Init.VOLUME_DIALOG = null;
 
             }
         });

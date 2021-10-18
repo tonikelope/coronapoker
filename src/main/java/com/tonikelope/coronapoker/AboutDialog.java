@@ -30,7 +30,7 @@ import javax.swing.SwingUtilities;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "11.73";
+    public static final String VERSION = "11.74";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -301,6 +301,8 @@ public class AboutDialog extends javax.swing.JDialog {
         }
 
         Audio.playLoopMp3Resource("misc/about_music.mp3");
+
+        Init.CURRENT_MODAL_DIALOG = this;
     }//GEN-LAST:event_formWindowOpened
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
@@ -309,6 +311,10 @@ public class AboutDialog extends javax.swing.JDialog {
 
         if (last_mp3_loop != null) {
             Audio.unmuteLoopMp3(last_mp3_loop);
+        }
+
+        if (Init.CURRENT_MODAL_DIALOG == this) {
+            Init.CURRENT_MODAL_DIALOG = null;
         }
     }//GEN-LAST:event_formWindowClosed
 

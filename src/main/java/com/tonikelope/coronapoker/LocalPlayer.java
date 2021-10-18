@@ -1969,7 +1969,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (pre_pulsado == Player.FOLD || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
 
-                if (player_fold_button.getBackground() != Color.RED || pre_pulsado == Player.FOLD || GameFrame.CONFIRM_ACTIONS || click_recuperacion || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SEGURO QUE QUIERES TIRARTE?") == 0) {
+                if (player_fold_button.getBackground() != Color.RED || !player_check_button.isEnabled() || pre_pulsado == Player.FOLD || GameFrame.CONFIRM_ACTIONS || click_recuperacion || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SEGURO QUE QUIERES TIRARTE?") == 0) {
 
                     Audio.playWavResource("misc/fold.wav");
 

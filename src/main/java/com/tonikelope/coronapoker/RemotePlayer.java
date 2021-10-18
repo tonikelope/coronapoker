@@ -630,6 +630,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    public void playerActionClick() {
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                player_actionMouseClicked(null);
+            }
+        });
+    }
+
     public Card getPlayingCard1() {
         return playingCard1;
     }
@@ -867,12 +875,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 player_actionMouseClicked(evt);
             }
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                player_actionMouseEntered(evt);
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                player_actionMouseExited(evt);
-            }
         });
 
         danger.setBackground(new java.awt.Color(255, 0, 0));
@@ -952,36 +954,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }//GEN-LAST:event_player_stackMouseClicked
 
-    private void player_actionMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseEntered
-        // TODO add your handling code here:
-        if (isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsthing_request() && !GameFrame.getInstance().getCrupier().isIwtsth() && GameFrame.getInstance().getCrupier().isShow_time()) {
-            iwtsth_action_text = player_action.getText();
-            player_action.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            player_action.setText("IWTSTH");
-            player_action.setBackground(Color.WHITE);
-            player_action.setForeground(Color.RED);
-        }
-    }//GEN-LAST:event_player_actionMouseEntered
-
-    private void player_actionMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseExited
-        // TODO add your handling code here:
-        if (iwtsth_action_text != null && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsthing_request() && !GameFrame.getInstance().getCrupier().isIwtsth() && GameFrame.getInstance().getCrupier().isShow_time()) {
-            player_action.setText(iwtsth_action_text);
-            player_action.setBackground(Color.RED);
-            player_action.setForeground(Color.WHITE);
-            iwtsth_action_text = null;
-        }
-
-        player_action.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-    }//GEN-LAST:event_player_actionMouseExited
-
     private void player_actionMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseClicked
         // TODO add your handling code here:
 
         if (isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsthing_request() && !GameFrame.getInstance().getCrupier().isIwtsth() && GameFrame.getInstance().getCrupier().isShow_time()) {
 
-            player_actionMouseExited(evt);
             GameFrame.getInstance().getCrupier().IWTSTH_REQUEST(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+            player_action.setBackground(Color.RED);
+            player_action.setForeground(Color.WHITE);
+            player_action.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 
         }
     }//GEN-LAST:event_player_actionMouseClicked
@@ -1026,7 +1008,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // End of variables declaration//GEN-END:variables
 
     public boolean isIwtsthCandidate() {
-        return isActivo() && getPlayingCard1().isVisible_card() && getPlayingCard1().isTapada() && getPlayingCard1().isDesenfocada();
+        return isLoser() && isActivo() && getPlayingCard1().isVisible_card() && getPlayingCard1().isTapada();
     }
 
     public void zoomIcons() {
@@ -1150,19 +1132,32 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void setLoser(String msg) {
         this.loser = true;
 
+        RemotePlayer tthis = this;
+
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
                 setPlayerBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                player_action.setBackground(Color.RED);
-                player_action.setForeground(Color.WHITE);
                 player_action.setText(msg);
 
                 setPlayerActionIcon("action/cry.png");
 
-                playingCard1.desenfocar();
-                playingCard2.desenfocar();
+                if (!(playingCard1.isTapada() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized())) {
+
+                    player_action.setBackground(Color.RED);
+                    player_action.setForeground(Color.WHITE);
+                    playingCard1.desenfocar();
+                    playingCard2.desenfocar();
+
+                } else {
+
+                    player_action.setBackground(Color.WHITE);
+                    player_action.setForeground(Color.RED);
+                    player_action.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                    playingCard1.setIwtsth_candidate(tthis);
+                    playingCard2.setIwtsth_candidate(tthis);
+                }
 
             }
         });
@@ -1359,6 +1354,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setBackground(new Color(204, 204, 204, 75));
 
                 player_pot.setForeground(Color.WHITE);
+
+                player_action.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 
                 disablePlayerAction();
 

@@ -6723,10 +6723,8 @@ public class Crupier implements Runnable {
 
                                     Player perdedor = entry.getKey();
 
-                                    perdedor.getPlayingCard1().desenfocar();
-
-                                    perdedor.getPlayingCard2().desenfocar();
-
+                                    //perdedor.getPlayingCard1().desenfocar();
+                                    //perdedor.getPlayingCard2().desenfocar();
                                     badbeat = badbeat(perdedor, unganador);
 
                                     perdedores.put(perdedor, entry.getValue());
@@ -6814,10 +6812,8 @@ public class Crupier implements Runnable {
 
                                     Player perdedor = entry.getKey();
 
-                                    perdedor.getPlayingCard1().desenfocar();
-
-                                    perdedor.getPlayingCard2().desenfocar();
-
+                                    //perdedor.getPlayingCard1().desenfocar();
+                                    //perdedor.getPlayingCard2().desenfocar();
                                     badbeat = badbeat(perdedor, unganador);
 
                                     perdedores.put(perdedor, entry.getValue());
@@ -6888,10 +6884,8 @@ public class Crupier implements Runnable {
 
                                             Player perdedor = entry.getKey();
 
-                                            perdedor.getPlayingCard1().desenfocar();
-
-                                            perdedor.getPlayingCard2().desenfocar();
-
+                                            //perdedor.getPlayingCard1().desenfocar();
+                                            //perdedor.getPlayingCard2().desenfocar();
                                             perdedores.put(perdedor, entry.getValue());
 
                                             GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");

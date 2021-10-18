@@ -77,7 +77,16 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile boolean gui = true;
     private volatile ImageIcon image = null;
     private volatile ImageIcon image_b = null;
+    private volatile RemotePlayer iwtsth_candidate = null;
     private final Object image_precache_lock = new Object();
+
+    public RemotePlayer getIwtsth_candidate() {
+        return iwtsth_candidate;
+    }
+
+    public void setIwtsth_candidate(RemotePlayer iwtsth_candidate) {
+        this.iwtsth_candidate = iwtsth_candidate;
+    }
 
     public boolean isIniciadaConValor() {
         return this.isIniciada() && !"".equals(this.valor) && !"".equals(this.palo);
@@ -472,6 +481,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             this.visible_card = visible;
             this.valor = "";
             this.palo = "";
+            this.iwtsth_candidate = null;
             invalidateImagePrecache();
         }
 
@@ -671,6 +681,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             this.refreshCard();
 
         }
+
+        this.iwtsth_candidate = null;
     }
 
     public void tapar() {
@@ -837,7 +849,11 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private void card_imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_card_imageMouseClicked
         // TODO add your handling code here:
 
-        if (SwingUtilities.isLeftMouseButton(evt) && (!isDesenfocada() || !isTapada())) {
+        if (isTapada() && iwtsth_candidate != null) {
+
+            iwtsth_candidate.playerActionClick();
+
+        } else if (SwingUtilities.isLeftMouseButton(evt) && (!isDesenfocada() || !isTapada())) {
             CardVisorDialog visor;
 
             if (isIniciada()) {

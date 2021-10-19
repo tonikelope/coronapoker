@@ -1013,7 +1013,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 JFrame frame = GameFrame.getInstance().getFrame();
 
-                if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()))) {
+                if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && keyStroke.equals(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK))))) {
                     final Action a = actionMap.get(keyStroke);
                     final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
 

@@ -129,8 +129,6 @@ public class VolumeControlDialog extends javax.swing.JDialog {
         sound_icon.setOpaque(true);
 
         barra.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        barra.setBorder(null);
-        barra.setBorderPainted(false);
         barra.setDoubleBuffered(true);
         barra.setFocusable(false);
         barra.setStringPainted(true);

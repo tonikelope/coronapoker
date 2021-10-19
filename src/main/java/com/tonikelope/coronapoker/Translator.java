@@ -238,7 +238,7 @@ public class Translator {
             {"Puede contener lenguaje soez", "May contain foul language"},
             {"Contiene apuestas con dinero ficticio", "It contains bets with fictitious money"},
             {"Permite jugar online", "Allows you to play online"},
-            {"Click para activar/desactivar el sonido", "Click to turn the sound on/off"},
+            {"Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)", "Click to turn the sound on/off. (SHIFT + UP/DOWN FOR VOLUME CONTROL)"},
             {"¿De dónde ha salido esto?", "Where did this come from?"},
             {"El videojuego de Texas hold 'em NL que nos merecemos, no el que necesitamos ¿o era al revés?", "The Texas hold 'em NL videogame we deserve, not the one we need, or was it the opposite?"},
             {"Gracias a todos los amigos que han colaborado en esta aventura, en especial a Pepsi por sus barajas y el \"hilo fino\",", "Thanks to all the friends who have collaborated in this adventure, especially to Pepsi for their decks and the \"fine-grain\","},

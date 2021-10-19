@@ -350,7 +350,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         tiempo_partida.setDoubleBuffered(true);
         tiempo_partida.setFocusable(false);
 
-        sound_icon.setToolTipText("Click para activar/desactivar el sonido");
+        sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         sound_icon.setDoubleBuffered(true);
         sound_icon.setFocusable(false);

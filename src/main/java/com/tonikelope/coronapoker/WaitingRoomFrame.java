@@ -2333,7 +2333,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         });
 
         sound_icon.setBackground(new java.awt.Color(153, 153, 153));
-        sound_icon.setToolTipText("Click para activar/desactivar el sonido");
+        sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         sound_icon.setDoubleBuffered(true);
         sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));

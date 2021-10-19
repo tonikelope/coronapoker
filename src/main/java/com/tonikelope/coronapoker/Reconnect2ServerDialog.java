@@ -117,6 +117,14 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
                 formComponentShown(evt);
             }
         });
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
+            }
+        });
 
         status.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -226,6 +234,20 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
 
         System.exit(1);
     }//GEN-LAST:event_exit_buttonActionPerformed
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
+    }//GEN-LAST:event_formWindowActivated
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra;

@@ -52,6 +52,11 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         initComponents();
 
+        this.setFocusable(modal);
+        this.setFocusCycleRoot(modal);
+        this.setAutoRequestFocus(modal);
+        this.setFocusableWindowState(modal);
+
         setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
         setPreferredSize(new Dimension(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight())));
@@ -80,6 +85,11 @@ public class CardVisorDialog extends javax.swing.JDialog {
         super(parent, modal);
 
         initComponents();
+
+        this.setFocusable(modal);
+        this.setFocusCycleRoot(modal);
+        this.setAutoRequestFocus(modal);
+        this.setFocusableWindowState(modal);
 
         setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
@@ -184,6 +194,14 @@ public class CardVisorDialog extends javax.swing.JDialog {
         setFocusCycleRoot(false);
         setFocusable(false);
         setFocusableWindowState(false);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
+            }
+        });
 
         scroll_panel.setBorder(null);
         scroll_panel.setDoubleBuffered(true);
@@ -213,6 +231,20 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
+    }//GEN-LAST:event_formWindowActivated
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel card;

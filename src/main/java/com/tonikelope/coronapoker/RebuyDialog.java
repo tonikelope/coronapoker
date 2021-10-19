@@ -141,6 +141,14 @@ public class RebuyDialog extends javax.swing.JDialog {
         setModal(true);
         setUndecorated(true);
         setResizable(false);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
+            }
+        });
 
         panel.setBackground(new java.awt.Color(255, 255, 255));
         panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 0, 0), 8));
@@ -255,6 +263,20 @@ public class RebuyDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         touched = true;
     }//GEN-LAST:event_rebuy_spinnerStateChanged
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
+    }//GEN-LAST:event_formWindowActivated
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra;

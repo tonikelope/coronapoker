@@ -1531,14 +1531,17 @@ public class StatsDialog extends javax.swing.JDialog {
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("Lo que no son cuentas, son cuentos");
         addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
             public void windowClosed(java.awt.event.WindowEvent evt) {
                 formWindowClosed(evt);
             }
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
             }
-            public void windowOpened(java.awt.event.WindowEvent evt) {
-                formWindowOpened(evt);
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
             }
         });
 
@@ -2154,20 +2157,6 @@ public class StatsDialog extends javax.swing.JDialog {
 
     }//GEN-LAST:event_hand_comboItemStateChanged
 
-    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
-        // TODO add your handling code here:
-
-        last_mp3_loop = Audio.getCurrentLoopMp3Playing();
-
-        if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
-            Audio.muteLoopMp3(last_mp3_loop);
-        } else {
-            last_mp3_loop = null;
-        }
-
-        Audio.playLoopMp3Resource("misc/stats_music.mp3");
-    }//GEN-LAST:event_formWindowOpened
-
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
         Audio.stopLoopMp3("misc/stats_music.mp3");
@@ -2420,6 +2409,30 @@ public class StatsDialog extends javax.swing.JDialog {
 
         game_data_panel.repaint();
     }//GEN-LAST:event_chat_game_buttonActionPerformed
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
+
+        last_mp3_loop = Audio.getCurrentLoopMp3Playing();
+
+        if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
+            Audio.muteLoopMp3(last_mp3_loop);
+        } else {
+            last_mp3_loop = null;
+        }
+
+        Audio.playLoopMp3Resource("misc/stats_music.mp3");
+    }//GEN-LAST:event_formWindowActivated
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar cargando;

@@ -113,8 +113,14 @@ public class GameOverDialog extends javax.swing.JDialog {
         setUndecorated(true);
         setResizable(false);
         addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
             public void windowClosed(java.awt.event.WindowEvent evt) {
                 formWindowClosed(evt);
+            }
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
             }
             public void windowOpened(java.awt.event.WindowEvent evt) {
                 formWindowOpened(evt);
@@ -364,6 +370,21 @@ public class GameOverDialog extends javax.swing.JDialog {
         });
 
     }//GEN-LAST:event_exit_now_buttonActionPerformed
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
+
+    }//GEN-LAST:event_formWindowActivated
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton continue_button;

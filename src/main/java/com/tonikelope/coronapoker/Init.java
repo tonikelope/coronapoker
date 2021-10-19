@@ -47,6 +47,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -71,6 +72,7 @@ public class Init extends javax.swing.JFrame {
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final int ANTI_SCREENSAVER_KEY = KeyEvent.VK_ALT;
+    public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;
@@ -83,7 +85,6 @@ public class Init extends javax.swing.JFrame {
     public static volatile Method M3 = null;
     public static volatile Image I1 = null;
     public static volatile VolumeControlDialog VOLUME_DIALOG = null;
-    public static volatile JDialog CURRENT_MODAL_DIALOG = null;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private static volatile String NEW_VERSION = null;
     private volatile int k = 0;
@@ -179,8 +180,8 @@ public class Init extends javax.swing.JFrame {
                     VOLUME_DIALOG.refresh();
                 } else {
 
-                    if (CURRENT_MODAL_DIALOG != null) {
-                        VOLUME_DIALOG = new VolumeControlDialog(CURRENT_MODAL_DIALOG, false);
+                    if (!CURRENT_MODAL_DIALOG.isEmpty()) {
+                        VOLUME_DIALOG = new VolumeControlDialog(CURRENT_MODAL_DIALOG.peekLast(), false);
                     } else {
 
                         VOLUME_DIALOG = new VolumeControlDialog(GameFrame.getInstance() != null ? GameFrame.getInstance().getFrame() : (VENTANA_INICIO.isVisible() ? VENTANA_INICIO : WaitingRoomFrame.getInstance()), false);
@@ -208,8 +209,8 @@ public class Init extends javax.swing.JFrame {
                     VOLUME_DIALOG.refresh();
                 } else {
 
-                    if (CURRENT_MODAL_DIALOG != null) {
-                        VOLUME_DIALOG = new VolumeControlDialog(CURRENT_MODAL_DIALOG, false);
+                    if (!CURRENT_MODAL_DIALOG.isEmpty()) {
+                        VOLUME_DIALOG = new VolumeControlDialog(CURRENT_MODAL_DIALOG.peekLast(), false);
                     } else {
 
                         VOLUME_DIALOG = new VolumeControlDialog(GameFrame.getInstance() != null ? GameFrame.getInstance().getFrame() : (VENTANA_INICIO.isVisible() ? VENTANA_INICIO : WaitingRoomFrame.getInstance()), false);

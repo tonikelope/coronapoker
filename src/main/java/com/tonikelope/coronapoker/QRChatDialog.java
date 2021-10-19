@@ -135,6 +135,14 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
         setFocusable(false);
         setUndecorated(true);
         setResizable(false);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
+            }
+        });
 
         jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(26, 115, 232), 8));
 
@@ -285,6 +293,20 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
             Helpers.openBrowserURL("https://duo.google.com");
         }
     }//GEN-LAST:event_qr_statusMouseClicked
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
+    }//GEN-LAST:event_formWindowActivated
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton close_button;

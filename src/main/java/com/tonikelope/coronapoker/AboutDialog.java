@@ -30,7 +30,7 @@ import javax.swing.SwingUtilities;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "11.74";
+    public static final String VERSION = "11.75";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -108,11 +108,11 @@ public class AboutDialog extends javax.swing.JDialog {
         setModal(true);
         setResizable(false);
         addWindowListener(new java.awt.event.WindowAdapter() {
-            public void windowClosed(java.awt.event.WindowEvent evt) {
-                formWindowClosed(evt);
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
             }
-            public void windowOpened(java.awt.event.WindowEvent evt) {
-                formWindowOpened(evt);
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
             }
         });
 
@@ -232,22 +232,16 @@ public class AboutDialog extends javax.swing.JDialog {
                     .addComponent(jLabel8, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(jLabel11, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
-                        .addComponent(jLabel9)
+                        .addComponent(mod_label)
                         .addGap(0, 0, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(mod_label)
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel9)
+                            .addComponent(jLabel12)
+                            .addComponent(jLabel1))
                         .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jLabel12)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jLabel1)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -290,34 +284,6 @@ public class AboutDialog extends javax.swing.JDialog {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
-        // TODO add your handling code here:
-        last_mp3_loop = Audio.getCurrentLoopMp3Playing();
-
-        if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
-            Audio.muteLoopMp3(last_mp3_loop);
-        } else {
-            last_mp3_loop = null;
-        }
-
-        Audio.playLoopMp3Resource("misc/about_music.mp3");
-
-        Init.CURRENT_MODAL_DIALOG = this;
-    }//GEN-LAST:event_formWindowOpened
-
-    private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
-        // TODO add your handling code here:
-        Audio.stopLoopMp3("misc/about_music.mp3");
-
-        if (last_mp3_loop != null) {
-            Audio.unmuteLoopMp3(last_mp3_loop);
-        }
-
-        if (Init.CURRENT_MODAL_DIALOG == this) {
-            Init.CURRENT_MODAL_DIALOG = null;
-        }
-    }//GEN-LAST:event_formWindowClosed
-
     private void jLabel1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jLabel1MouseClicked
         // TODO add your handling code here:
         Helpers.openBrowserURL("https://tonikelope.github.io/coronapoker/");
@@ -341,6 +307,39 @@ public class AboutDialog extends javax.swing.JDialog {
             c = 0;
         }
     }//GEN-LAST:event_jvmMouseClicked
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+
+        Audio.stopLoopMp3("misc/about_music.mp3");
+
+        if (last_mp3_loop != null) {
+            Audio.unmuteLoopMp3(last_mp3_loop);
+        }
+
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
+
+        last_mp3_loop = Audio.getCurrentLoopMp3Playing();
+
+        if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
+            Audio.muteLoopMp3(last_mp3_loop);
+        } else {
+            last_mp3_loop = null;
+        }
+
+        Audio.playLoopMp3Resource("misc/about_music.mp3");
+
+    }//GEN-LAST:event_formWindowActivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel dedicado;

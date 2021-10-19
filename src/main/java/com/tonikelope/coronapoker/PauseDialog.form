@@ -15,8 +15,10 @@
   </SyntheticProperties>
   <Events>
     <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="formMouseClicked"/>
+    <EventHandler event="windowActivated" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowActivated"/>
     <EventHandler event="windowClosed" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowClosed"/>
     <EventHandler event="windowClosing" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowClosing"/>
+    <EventHandler event="windowDeactivated" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowDeactivated"/>
     <EventHandler event="windowOpened" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowOpened"/>
   </Events>
   <AuxValues>

@@ -1926,8 +1926,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     public void run() {
                         gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon);
 
-                        Init.CURRENT_MODAL_DIALOG = gif_dialog;
-
                         gif_dialog.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
                         gif_dialog.addMouseListener(new MouseAdapter() {
@@ -1946,7 +1944,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                         gif_dialog.setVisible(true);
 
-                        Init.CURRENT_MODAL_DIALOG = null;
                     }
                 });
             }

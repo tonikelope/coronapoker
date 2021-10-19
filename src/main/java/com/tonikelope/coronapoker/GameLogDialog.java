@@ -237,6 +237,14 @@ public class GameLogDialog extends javax.swing.JDialog {
         utf8_cards_menu = new javax.swing.JCheckBoxMenuItem();
 
         setTitle("REGISTRO");
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
+            }
+        });
 
         jScrollPane1.setDoubleBuffered(true);
 
@@ -310,6 +318,20 @@ public class GameLogDialog extends javax.swing.JDialog {
             this.disableUTF8Cards();
         }
     }//GEN-LAST:event_utf8_cards_menuActionPerformed
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
+    }//GEN-LAST:event_formWindowActivated
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JCheckBoxMenuItem auto_scroll_menu;

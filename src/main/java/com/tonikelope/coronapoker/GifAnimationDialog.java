@@ -45,6 +45,12 @@ public class GifAnimationDialog extends javax.swing.JDialog {
     public GifAnimationDialog(java.awt.Frame parent, boolean modal, ImageIcon icon, Integer timeout) {
         super(parent, modal);
         initComponents();
+
+        this.setFocusable(modal);
+        this.setFocusCycleRoot(modal);
+        this.setAutoRequestFocus(modal);
+        this.setFocusableWindowState(modal);
+
         int height, width;
         if (icon.getImage().getHeight(null) > icon.getImage().getWidth(null)) {
             height = Math.round(0.7f * parent.getHeight());
@@ -97,6 +103,7 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         gif_panel = new com.tonikelope.coronapoker.GifPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        setAutoRequestFocus(false);
         setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         setFocusCycleRoot(false);
         setFocusable(false);
@@ -106,6 +113,14 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 formMouseClicked(evt);
+            }
+        });
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
             }
         });
 
@@ -134,6 +149,20 @@ public class GifAnimationDialog extends javax.swing.JDialog {
             setVisible(false);
         }
     }//GEN-LAST:event_formMouseClicked
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
+    }//GEN-LAST:event_formWindowActivated
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.GifPanel gif_panel;

@@ -419,8 +419,8 @@ public class NewGameDialog extends javax.swing.JDialog {
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
         setMinimumSize(new java.awt.Dimension(533, 0));
         addWindowListener(new java.awt.event.WindowAdapter() {
-            public void windowClosed(java.awt.event.WindowEvent evt) {
-                formWindowClosed(evt);
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
             }
             public void windowOpened(java.awt.event.WindowEvent evt) {
                 formWindowOpened(evt);
@@ -910,10 +910,9 @@ public class NewGameDialog extends javax.swing.JDialog {
 
     private void vamosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_vamosActionPerformed
         // TODO add your handling code here:
+        vamos.setEnabled(false);
 
         if (update) {
-
-            vamos.setEnabled(false);
 
             if (this.manos_checkbox.isSelected()) {
 
@@ -951,8 +950,6 @@ public class NewGameDialog extends javax.swing.JDialog {
             this.dialog_ok = true;
 
             setVisible(false);
-
-            vamos.setEnabled(true);
 
         } else {
 
@@ -1044,18 +1041,12 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 setVisible(false);
 
-                vamos.setEnabled(true);
-
                 espera.setVisible(true);
 
             } else {
                 Helpers.mostrarMensajeError((JFrame) this.getParent(), "Te falta algún campo obligatorio por completar");
             }
 
-        }
-
-        if (Init.CURRENT_MODAL_DIALOG == this) {
-            Init.CURRENT_MODAL_DIALOG = null;
         }
 
     }//GEN-LAST:event_vamosActionPerformed
@@ -1354,15 +1345,17 @@ public class NewGameDialog extends javax.swing.JDialog {
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
-        Init.CURRENT_MODAL_DIALOG = this;
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
     }//GEN-LAST:event_formWindowOpened
 
-    private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
         // TODO add your handling code here:
-        if (Init.CURRENT_MODAL_DIALOG == this) {
-            Init.CURRENT_MODAL_DIALOG = null;
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
         }
-    }//GEN-LAST:event_formWindowClosed
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;

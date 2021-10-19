@@ -542,6 +542,14 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         card3 = new com.tonikelope.coronapoker.Card();
 
         setResizable(false);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
+            }
+        });
 
         superior_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         superior_button.setText("Jugada superior");
@@ -698,6 +706,20 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         Helpers.openBrowserURL("https://brilliant.org/wiki/math-of-poker/");
     }//GEN-LAST:event_probabilityMouseClicked
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.add(this);
+        }
+    }//GEN-LAST:event_formWindowActivated
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.Card card1;

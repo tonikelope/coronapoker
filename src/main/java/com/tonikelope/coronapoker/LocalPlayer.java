@@ -666,6 +666,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_fold_button.setEnabled(true);
 
+                    player_fold_button.setBackground(Color.DARK_GRAY);
+
+                    player_fold_button.setForeground(Color.WHITE);
+
                     player_fold_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/down.png")).getImage().getScaledInstance(Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()), Image.SCALE_SMOOTH)));
 
                     player_action.setBackground(new Color(204, 204, 204, 75));

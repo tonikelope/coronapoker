@@ -71,6 +71,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile String iwtsth_action_text = null;
     private volatile String player_action_icon = null;
     private volatile Timer icon_zoom_timer = null;
+    private volatile Timer iwtsth_blink_timer = null;
     private final Object zoom_lock = new Object();
 
     public boolean isTimeout() {
@@ -625,6 +626,24 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 icon_zoom_timer.setRepeats(false);
                 icon_zoom_timer.setCoalesce(false);
+
+                iwtsth_blink_timer = new Timer(760, new ActionListener() {
+
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+
+                        if (player_action.getBackground() == Color.RED) {
+                            player_action.setBackground(Color.WHITE);
+                            player_action.setForeground(Color.RED);
+                            player_action.setText("IWTSTH");
+                        } else {
+                            player_action.setBackground(Color.RED);
+                            player_action.setForeground(Color.WHITE);
+                            player_action.setText(Translator.translate("PIERDE"));
+                        }
+
+                    }
+                });
             }
         });
 
@@ -1143,20 +1162,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setPlayerActionIcon("action/cry.png");
 
+                player_action.setBackground(Color.RED);
+                player_action.setForeground(Color.WHITE);
+
                 if (!(playingCard1.isTapada() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized())) {
 
-                    player_action.setBackground(Color.RED);
-                    player_action.setForeground(Color.WHITE);
                     playingCard1.desenfocar();
                     playingCard2.desenfocar();
 
                 } else {
 
-                    player_action.setBackground(Color.WHITE);
-                    player_action.setForeground(Color.RED);
                     player_action.setCursor(new Cursor(Cursor.HAND_CURSOR));
                     playingCard1.setIwtsth_candidate(tthis);
                     playingCard2.setIwtsth_candidate(tthis);
+                    iwtsth_blink_timer.start();
+
                 }
 
             }
@@ -1344,6 +1364,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setBackground(null);
 
                 setPlayerBorder(new java.awt.Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+
+                if (iwtsth_blink_timer.isRunning()) {
+
+                    iwtsth_blink_timer.stop();
+                }
 
                 player_name.setIcon(null);
 
@@ -1712,6 +1737,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             getPlayingCard1().destapar(false);
             getPlayingCard2().setPosChip_visible(false);
             getPlayingCard2().destapar(false);
+
+            if (iwtsth_blink_timer.isRunning()) {
+
+                iwtsth_blink_timer.stop();
+
+                if (isLoser()) {
+                    player_action.setBackground(Color.RED);
+                    player_action.setForeground(Color.WHITE);
+                }
+            }
         }
     }
 

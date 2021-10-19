@@ -1543,6 +1543,9 @@ public class StatsDialog extends javax.swing.JDialog {
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
             }
+            public void windowOpened(java.awt.event.WindowEvent evt) {
+                formWindowOpened(evt);
+            }
         });
 
         title.setBackground(new java.awt.Color(255, 153, 51));
@@ -2415,7 +2418,17 @@ public class StatsDialog extends javax.swing.JDialog {
         if (isModal()) {
             Init.CURRENT_MODAL_DIALOG.add(this);
         }
+    }//GEN-LAST:event_formWindowActivated
 
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            Init.CURRENT_MODAL_DIALOG.removeLast();
+        }
+    }//GEN-LAST:event_formWindowDeactivated
+
+    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
+        // TODO add your handling code here:
         last_mp3_loop = Audio.getCurrentLoopMp3Playing();
 
         if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
@@ -2425,14 +2438,7 @@ public class StatsDialog extends javax.swing.JDialog {
         }
 
         Audio.playLoopMp3Resource("misc/stats_music.mp3");
-    }//GEN-LAST:event_formWindowActivated
-
-    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
-        // TODO add your handling code here:
-        if (isModal()) {
-            Init.CURRENT_MODAL_DIALOG.removeLast();
-        }
-    }//GEN-LAST:event_formWindowDeactivated
+    }//GEN-LAST:event_formWindowOpened
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar cargando;

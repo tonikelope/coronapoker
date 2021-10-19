@@ -23,13 +23,15 @@ public class VolumeControlDialog extends javax.swing.JDialog {
     /**
      * Creates new form VolumeControl
      */
-    public VolumeControlDialog(java.awt.Dialog parent, boolean modal) {
+    public VolumeControlDialog(java.awt.Dialog parent, boolean modal, int width) {
         super(parent, modal);
         initComponents();
 
-        setPreferredSize(new Dimension(Math.round(0.5f * parent.getWidth()), this.getHeight()));
+        setPreferredSize(new Dimension(width, this.getHeight()));
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+        pack();
 
         timer = new Timer(TIMEOUT, new ActionListener() {
 
@@ -50,13 +52,15 @@ public class VolumeControlDialog extends javax.swing.JDialog {
     /**
      * Creates new form VolumeControl
      */
-    public VolumeControlDialog(java.awt.Frame parent, boolean modal) {
+    public VolumeControlDialog(java.awt.Frame parent, boolean modal, int width) {
         super(parent, modal);
         initComponents();
 
-        setPreferredSize(new Dimension(Math.round(0.5f * parent.getWidth()), this.getHeight()));
+        setPreferredSize(new Dimension(width, this.getHeight()));
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+        pack();
 
         timer = new Timer(TIMEOUT, new ActionListener() {
 
@@ -88,6 +92,7 @@ public class VolumeControlDialog extends javax.swing.JDialog {
                 barra.setValue(Math.round(Audio.MASTER_VOLUME * 100));
 
                 sound_icon.setBackground(barra.getValue() > 0 ? Color.WHITE : Color.RED);
+                panel.setBackground(barra.getValue() > 0 ? Color.WHITE : Color.RED);
 
                 if (!isVisible()) {
                     setVisible(true);
@@ -105,6 +110,7 @@ public class VolumeControlDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        panel = new javax.swing.JPanel();
         sound_icon = new javax.swing.JLabel();
         barra = new javax.swing.JProgressBar();
 
@@ -114,35 +120,53 @@ public class VolumeControlDialog extends javax.swing.JDialog {
         setFocusableWindowState(false);
         setUndecorated(true);
 
+        panel.setBackground(new java.awt.Color(255, 255, 255));
+
         sound_icon.setBackground(new java.awt.Color(255, 255, 255));
         sound_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/volumen.png"))); // NOI18N
         sound_icon.setDoubleBuffered(true);
         sound_icon.setFocusable(false);
         sound_icon.setOpaque(true);
 
-        barra.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
+        barra.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         barra.setBorder(null);
         barra.setBorderPainted(false);
         barra.setDoubleBuffered(true);
         barra.setFocusable(false);
         barra.setStringPainted(true);
 
+        javax.swing.GroupLayout panelLayout = new javax.swing.GroupLayout(panel);
+        panel.setLayout(panelLayout);
+        panelLayout.setHorizontalGroup(
+            panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(sound_icon)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+        panelLayout.setVerticalGroup(
+            panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(sound_icon)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelLayout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addComponent(sound_icon)
-                .addGap(0, 0, 0)
-                .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, 929, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addComponent(panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(0, 0, Short.MAX_VALUE))
+            .addComponent(panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();
@@ -150,6 +174,7 @@ public class VolumeControlDialog extends javax.swing.JDialog {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra;
+    private javax.swing.JPanel panel;
     private javax.swing.JLabel sound_icon;
     // End of variables declaration//GEN-END:variables
 }

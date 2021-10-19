@@ -51,7 +51,7 @@ public class PauseDialog extends javax.swing.JDialog {
 
         pack();
 
-        timer = new Timer(1000, new ActionListener() {
+        timer = new Timer(750, new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent ae) {

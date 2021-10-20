@@ -309,7 +309,10 @@ public class BalanceDialog extends javax.swing.JDialog {
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
         // TODO add your handling code here:
         if (isModal()) {
-            Init.CURRENT_MODAL_DIALOG.removeLast();
+            try {
+                Init.CURRENT_MODAL_DIALOG.removeLast();
+            } catch (Exception ex) {
+            }
         }
     }//GEN-LAST:event_formWindowDeactivated
 

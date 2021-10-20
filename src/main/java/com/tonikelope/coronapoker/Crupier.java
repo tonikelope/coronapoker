@@ -6403,6 +6403,24 @@ public class Crupier implements Runnable {
 
     }
 
+    public void startIWTSTHPlayersBlinking() {
+
+        if (isIWTSTH4LocalPlayerAuthorized()) {
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
+                        if (rp.isActivo() && rp.isLoser() && rp.getPlayingCard1().isTapada()) {
+                            rp.getIwtsth_blink_timer().start();
+                        }
+                    }
+                }
+            });
+
+        }
+    }
+
     @Override
     public void run() {
 
@@ -6960,6 +6978,8 @@ public class Crupier implements Runnable {
                     }
 
                     disableAllPlayersTimeout();
+
+                    startIWTSTHPlayersBlinking();
 
                     if (!GameFrame.TEST_MODE) {
 

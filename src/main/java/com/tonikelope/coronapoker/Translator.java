@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿IWTSTH?", "IWTSTH?"},
             {"¿SEGURO QUE QUIERES TIRARTE?", "SURE YOU FOLD?"},
             {"NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)", "FAILED TO UPDATE (UNEXPECTED ERROR)"},
             {"ACTUALIZANDO >>> ", "UPDATING >>> "},

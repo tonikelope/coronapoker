@@ -419,11 +419,11 @@ public class NewGameDialog extends javax.swing.JDialog {
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
         setMinimumSize(new java.awt.Dimension(533, 0));
         addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
-            }
-            public void windowOpened(java.awt.event.WindowEvent evt) {
-                formWindowOpened(evt);
             }
         });
 
@@ -1343,19 +1343,22 @@ public class NewGameDialog extends javax.swing.JDialog {
         // updateCiegasLabel();
     }//GEN-LAST:event_buyin_spinnerStateChanged
 
-    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (isModal()) {
+            try {
+                Init.CURRENT_MODAL_DIALOG.removeLast();
+            } catch (Exception ex) {
+            }
+        }
+    }//GEN-LAST:event_formWindowDeactivated
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
         // TODO add your handling code here:
         if (isModal()) {
             Init.CURRENT_MODAL_DIALOG.add(this);
         }
-    }//GEN-LAST:event_formWindowOpened
-
-    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
-        // TODO add your handling code here:
-        if (isModal()) {
-            Init.CURRENT_MODAL_DIALOG.removeLast();
-        }
-    }//GEN-LAST:event_formWindowDeactivated
+    }//GEN-LAST:event_formWindowActivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_img;

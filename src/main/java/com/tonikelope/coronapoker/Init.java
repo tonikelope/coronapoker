@@ -162,6 +162,20 @@ public class Init extends javax.swing.JFrame {
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK), new AbstractAction("SOUND-SWITCH") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                if (GameFrame.getInstance() != null) {
+                    GameFrame.getInstance().getSonidos_menu().doClick();
+                } else if (VENTANA_INICIO.isVisible()) {
+                    sound_iconMouseClicked(null);
+                } else {
+                    WaitingRoomFrame.getInstance().soundIconClick();
+                }
+            }
+        });
+
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-DOWN") {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -174,6 +188,15 @@ public class Init extends javax.swing.JFrame {
                         Audio.VOLUME_TIMER.start();
                     }
 
+                    if (!GameFrame.SONIDOS) {
+                        if (GameFrame.getInstance() != null) {
+                            GameFrame.getInstance().getSonidos_menu().doClick();
+                        } else if (VENTANA_INICIO.isVisible()) {
+                            sound_iconMouseClicked(null);
+                        } else {
+                            WaitingRoomFrame.getInstance().soundIconClick();
+                        }
+                    }
                 }
 
                 if (VOLUME_DIALOG != null) {
@@ -195,6 +218,17 @@ public class Init extends javax.swing.JFrame {
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-UP") {
             @Override
             public void actionPerformed(ActionEvent e) {
+
+                if (!GameFrame.SONIDOS) {
+                    if (GameFrame.getInstance() != null) {
+                        GameFrame.getInstance().getSonidos_menu().doClick();
+                    } else if (VENTANA_INICIO.isVisible()) {
+                        sound_iconMouseClicked(null);
+                    } else {
+                        WaitingRoomFrame.getInstance().soundIconClick();
+                    }
+                }
+
                 if (Audio.MASTER_VOLUME < 1.0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME + 0.01f, 2);
 

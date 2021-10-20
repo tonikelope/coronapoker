@@ -858,13 +858,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK), new AbstractAction("SOUND") {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                sonidos_menu.doClick();
-            }
-        });
-
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, KeyEvent.ALT_DOWN_MASK), new AbstractAction("CHAT") {
             @Override
             public void actionPerformed(ActionEvent e) {

@@ -116,6 +116,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile String password = null;
     private volatile boolean exit = false;
 
+    public void soundIconClick() {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                sound_iconMouseClicked(null);
+            }
+        });
+    }
+
     public void setExit(boolean exit) {
         this.exit = exit;
     }

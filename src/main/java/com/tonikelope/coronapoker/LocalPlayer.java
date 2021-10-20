@@ -687,8 +687,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             player_check_button.setText("PASAR");
                             player_check_button.setBackground(new Color(0, 130, 0));
                             player_check_button.setForeground(Color.WHITE);
-                            player_fold_button.setBackground(Color.RED);
-                            player_fold_button.setForeground(Color.WHITE);
+                            player_fold_button.setEnabled(false);
                         } else {
                             player_check_button.setText(Translator.translate("IR") + " (+" + Helpers.float2String(call_required) + ")");
                             player_check_button.setBackground(null);
@@ -1973,36 +1972,33 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (pre_pulsado == Player.FOLD || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
 
-                if (player_fold_button.getBackground() != Color.RED || !player_check_button.isEnabled() || pre_pulsado == Player.FOLD || GameFrame.CONFIRM_ACTIONS || click_recuperacion || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SEGURO QUE QUIERES TIRARTE?") == 0) {
+                Audio.playWavResource("misc/fold.wav");
 
-                    Audio.playWavResource("misc/fold.wav");
+                playingCard1.desenfocar();
+                playingCard2.desenfocar();
 
-                    playingCard1.desenfocar();
-                    playingCard2.desenfocar();
+                desactivarControles();
 
-                    desactivarControles();
+                GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
 
-                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
-
-                    if (auto_action != null) {
-                        auto_action.stop();
-                    }
-
-                    if (hurryup_timer != null) {
-                        hurryup_timer.stop();
-                    }
-
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
-
-                            GameFrame.getInstance().getCrupier().soundFold();
-
-                            setDecision(Player.FOLD);
-
-                            finTurno();
-                        }
-                    });
+                if (auto_action != null) {
+                    auto_action.stop();
                 }
+
+                if (hurryup_timer != null) {
+                    hurryup_timer.stop();
+                }
+
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
+
+                        GameFrame.getInstance().getCrupier().soundFold();
+
+                        setDecision(Player.FOLD);
+
+                        finTurno();
+                    }
+                });
 
             } else {
 

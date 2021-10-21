@@ -35,6 +35,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -339,7 +340,11 @@ public class Init extends javax.swing.JFrame {
 
                 String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(Helpers.CSPRNG_GENERATOR.nextInt((GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).size())).trim().split("#");
 
-                quote.setText("\"" + quote_parts[0] + "\" (" + quote_parts[1] + ")");
+                try {
+                    quote.setText("\"" + new String(quote_parts[0].getBytes(), "UTF-8") + "\" (" + new String(quote_parts[1].getBytes(), "UTF-8") + ")");
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                }
 
             }
         });
@@ -760,7 +765,11 @@ public class Init extends javax.swing.JFrame {
 
         String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(Helpers.CSPRNG_GENERATOR.nextInt((GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).size())).trim().split("#");
 
-        quote.setText("\"" + quote_parts[0] + "\" (" + quote_parts[1] + ")");
+        try {
+            quote.setText("\"" + new String(quote_parts[0].getBytes(), "UTF-8") + "\" (" + new String(quote_parts[1].getBytes(), "UTF-8") + ")");
+        } catch (UnsupportedEncodingException ex) {
+            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }//GEN-LAST:event_language_comboboxActionPerformed
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed

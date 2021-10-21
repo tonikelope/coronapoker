@@ -19,7 +19,6 @@ package com.tonikelope.coronapoker;
 import static com.tonikelope.coronapoker.Helpers.TapetePopupMenu.BARAJAS_MENU;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
@@ -99,7 +98,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int DEFAULT_ZOOM_LEVEL = -2;
     public static final float MIN_BIG_BLIND = 0.20f;
     public static final float ZOOM_STEP = 0.05f;
-    public static final int PAUSA_ENTRE_MANOS = 9; //Segundos
+    public static final int PAUSA_ENTRE_MANOS = 10; //Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
     public static final int TIEMPO_PENSAR = 35; //Segundos
@@ -162,6 +161,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private final Object full_screen_lock = new Object();
     private final Object lock_pause = new Object();
     private final Object lock_fin = new Object();
+    private final Object exit_now_lock = new Object();
     private final ArrayList<Player> jugadores;
     private final ConcurrentHashMap<String, String> nick2avatar = new ConcurrentHashMap<>();
     private final Crupier crupier;
@@ -1422,16 +1422,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     public void run() {
                                         try {
                                             gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon((byte[]) Init.M2.invoke(null, "e")), 12000);
-
-                                            gif_dialog.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-                                            gif_dialog.addMouseListener(new java.awt.event.MouseAdapter() {
-                                                @Override
-                                                public void mouseClicked(java.awt.event.MouseEvent evt) {
-                                                    gif_dialog.dispose();
-                                                }
-                                            });
-
                                             gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                             gif_dialog.setVisible(true);
                                         } catch (Exception ex) {
@@ -1857,21 +1847,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), new AbstractAction("EXIT") {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    System.exit(0);
+                    exitNOW();
                 }
             });
 
             actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), new AbstractAction("EXIT2") {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    System.exit(0);
+                    exitNOW();
                 }
             });
 
             actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), new AbstractAction("EXIT3") {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    System.exit(0);
+                    exitNOW();
                 }
             });
 
@@ -1919,17 +1909,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     public void run() {
                         gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon);
 
-                        gif_dialog.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
                         gif_dialog.addMouseListener(new MouseAdapter() {
                             @Override
                             public void mouseClicked(MouseEvent e) {
                                 {
-                                    Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
-
-                                    Helpers.savePropertiesFile();
-
-                                    System.exit(0);
+                                    exitNOW();
                                 }
                             }
                         });
@@ -1946,11 +1930,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Audio.playWavResourceAndWait("misc/end.wav", true, true);
         }
 
-        Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
+        exitNOW();
+    }
 
-        Helpers.savePropertiesFile();
+    private void exitNOW() {
+        synchronized (exit_now_lock) {
+            Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
 
-        System.exit(0);
+            Helpers.savePropertiesFile();
+
+            System.exit(0);
+        }
     }
 
     private void RETRY() {

@@ -80,7 +80,7 @@ public class Init extends javax.swing.JFrame {
     public static final int ANTI_SCREENSAVER_KEY = KeyEvent.VK_ALT;
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
     public static final Object LOCK_CINEMATICS = new Object();
-    public static final int QUOTE_DELAY = 15000;
+    public static final int QUOTE_DELAY = 10000;
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;

@@ -45,12 +45,14 @@ import java.awt.event.ActionListener;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
@@ -59,7 +61,6 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.InvalidAlgorithmParameterException;
@@ -83,6 +84,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
@@ -99,6 +101,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -193,13 +196,33 @@ public class Helpers {
 
         try {
 
-            POKER_QUOTES_ES = (ArrayList<String>) Files.readAllLines(Paths.get(Helpers.class.getResource("/quotes_ES.txt").getPath()), Charset.defaultCharset());
-            POKER_QUOTES_EN = (ArrayList<String>) Files.readAllLines(Paths.get(Helpers.class.getResource("/quotes_EN.txt").getPath()), Charset.defaultCharset());
+            POKER_QUOTES_ES = (ArrayList<String>) getResourceTextFileAsList("quotes_ES.txt");
+            POKER_QUOTES_EN = (ArrayList<String>) getResourceTextFileAsList("quotes_EN.txt");
 
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    //Thanks -> https://stackoverflow.com/a/46613809
+    /**
+     * Reads given resource file as a string.
+     *
+     * @param fileName path to the resource file
+     * @return the file's contents
+     * @throws IOException if read fails for any reason
+     */
+    public static List<String> getResourceTextFileAsList(String fileName) throws IOException {
+
+        try (InputStream is = ClassLoader.getSystemClassLoader().getResourceAsStream(fileName)) {
+
+            try (InputStreamReader isr = new InputStreamReader(is);
+                    BufferedReader reader = new BufferedReader(isr)) {
+
+                return reader.lines().collect(Collectors.toList());
+            }
+        }
     }
 
     public static void SHUTDOWN_THREAD_POOL() {

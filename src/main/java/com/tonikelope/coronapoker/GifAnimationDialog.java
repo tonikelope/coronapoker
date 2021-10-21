@@ -80,14 +80,21 @@ public class GifAnimationDialog extends javax.swing.JDialog {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     timer.stop();
+
                     dispose();
 
+                    Init.PLAYING_CINEMATIC = false;
+
+                    synchronized (Init.LOCK_CINEMATICS) {
+
+                        Init.LOCK_CINEMATICS.notifyAll();
+
+                    }
                 }
             });
 
             timer.setRepeats(false);
             timer.setCoalesce(false);
-            timer.start();
         }
     }
 
@@ -119,8 +126,14 @@ public class GifAnimationDialog extends javax.swing.JDialog {
             public void windowActivated(java.awt.event.WindowEvent evt) {
                 formWindowActivated(evt);
             }
+            public void windowClosed(java.awt.event.WindowEvent evt) {
+                formWindowClosed(evt);
+            }
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
+            }
+            public void windowOpened(java.awt.event.WindowEvent evt) {
+                formWindowOpened(evt);
             }
         });
 
@@ -146,6 +159,7 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         // TODO add your handling code here
 
         if (SwingUtilities.isRightMouseButton(evt)) {
+
             setVisible(false);
         }
     }//GEN-LAST:event_formMouseClicked
@@ -166,6 +180,22 @@ public class GifAnimationDialog extends javax.swing.JDialog {
             }
         }
     }//GEN-LAST:event_formWindowDeactivated
+
+    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
+        // TODO add your handling code here:
+        if (timer != null) {
+
+            timer.start();
+        }
+
+    }//GEN-LAST:event_formWindowOpened
+
+    private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
+        // TODO add your handling code here:
+        if (timer != null && timer.isRunning()) {
+            timer.stop();
+        }
+    }//GEN-LAST:event_formWindowClosed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.GifPanel gif_panel;

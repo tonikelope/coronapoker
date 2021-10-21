@@ -73,6 +73,7 @@ public class Init extends javax.swing.JFrame {
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final int ANTI_SCREENSAVER_KEY = KeyEvent.VK_ALT;
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
+    public static final Object LOCK_CINEMATICS = new Object();
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;
@@ -84,6 +85,7 @@ public class Init extends javax.swing.JFrame {
     public static volatile Method M2 = null;
     public static volatile Method M3 = null;
     public static volatile Image I1 = null;
+    public static volatile boolean PLAYING_CINEMATIC = false;
     public static volatile VolumeControlDialog VOLUME_DIALOG = null;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private static volatile String NEW_VERSION = null;

@@ -198,7 +198,6 @@ public class Crupier implements Runnable {
     private final HashMap<String, Float[]> auditor = new HashMap<>();
     private final Object lock_apuestas = new Object();
     private final Object lock_contabilidad = new Object();
-    private final Object lock_cinematics = new Object();
     private final Object lock_mostrar = new Object();
     private final Object iwtsth_lock = new Object();
     private final Object lock_last_hand = new Object();
@@ -241,7 +240,6 @@ public class Crupier implements Runnable {
     private volatile int jugada_ganadora = 0;
     private volatile boolean sincronizando_mano = false;
     private volatile RecoverDialog recover_dialog = null;
-    private volatile boolean playing_cinematic = false;
     private volatile String current_local_cinematic_b64 = null;
     private volatile String current_remote_cinematic_b64 = null;
     private volatile boolean rebuy_time = false;
@@ -358,14 +356,6 @@ public class Crupier implements Runnable {
 
     public void setCurrent_remote_cinematic_b64(String current_remote_cinematic_b64) {
         this.current_remote_cinematic_b64 = current_remote_cinematic_b64;
-    }
-
-    public void setPlaying_cinematic(boolean playing_cinematic) {
-        this.playing_cinematic = playing_cinematic;
-    }
-
-    public boolean isPlaying_cinematic() {
-        return playing_cinematic;
     }
 
     public void rebuyNow(String nick, int buyin) {
@@ -579,10 +569,10 @@ public class Crupier implements Runnable {
             broadcastGAMECommandFromServer("CINEMATICEND", nick);
         }
 
-        playing_cinematic = false;
+        Init.PLAYING_CINEMATIC = false;
 
-        synchronized (lock_cinematics) {
-            lock_cinematics.notifyAll();
+        synchronized (Init.LOCK_CINEMATICS) {
+            Init.LOCK_CINEMATICS.notifyAll();
         }
 
     }
@@ -668,10 +658,10 @@ public class Crupier implements Runnable {
                                     sendGAMECommandToServer("CINEMATICEND");
                                 }
 
-                                playing_cinematic = false;
+                                Init.PLAYING_CINEMATIC = false;
 
-                                synchronized (lock_cinematics) {
-                                    lock_cinematics.notifyAll();
+                                synchronized (Init.LOCK_CINEMATICS) {
+                                    Init.LOCK_CINEMATICS.notifyAll();
                                 }
                             }
                         }
@@ -687,11 +677,11 @@ public class Crupier implements Runnable {
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
 
-                playing_cinematic = false;
+                Init.PLAYING_CINEMATIC = false;
                 this.current_local_cinematic_b64 = null;
             }
         } else {
-            playing_cinematic = false;
+            Init.PLAYING_CINEMATIC = false;
             this.current_local_cinematic_b64 = null;
         }
 
@@ -720,9 +710,9 @@ public class Crupier implements Runnable {
 
                             if (Audio.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
 
-                                playing_cinematic = false;
-                                synchronized (lock_cinematics) {
-                                    lock_cinematics.notifyAll();
+                                Init.PLAYING_CINEMATIC = false;
+                                synchronized (Init.LOCK_CINEMATICS) {
+                                    Init.LOCK_CINEMATICS.notifyAll();
                                 }
                             }
                         }
@@ -733,12 +723,12 @@ public class Crupier implements Runnable {
 
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                setPlaying_cinematic(false);
+                Init.PLAYING_CINEMATIC = false;
                 setCurrent_remote_cinematic_b64(null);
             }
 
         } else {
-            setPlaying_cinematic(false);
+            Init.PLAYING_CINEMATIC = false;
         }
 
         return false;
@@ -776,26 +766,20 @@ public class Crupier implements Runnable {
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
 
-                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon);
+                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, (int) pausa);
                                     gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                     gif_dialog.setVisible(true);
                                 }
                             });
 
-                            if (pausa != 0L) {
-                                Helpers.pausar(pausa);
-                                playing_cinematic = false;
-                            } else {
+                            while (Init.PLAYING_CINEMATIC) {
 
-                                while (playing_cinematic) {
+                                synchronized (Init.LOCK_CINEMATICS) {
 
-                                    synchronized (lock_cinematics) {
-
-                                        try {
-                                            lock_cinematics.wait(1000);
-                                        } catch (InterruptedException ex) {
-                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
+                                    try {
+                                        Init.LOCK_CINEMATICS.wait(1000);
+                                    } catch (InterruptedException ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                     }
                                 }
                             }
@@ -804,7 +788,6 @@ public class Crupier implements Runnable {
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
-                                    gif_dialog.dispose();
 
                                     GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
                                     GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
@@ -827,15 +810,15 @@ public class Crupier implements Runnable {
 
                                 if (pausa != 0L) {
                                     Helpers.pausar(pausa);
-                                    playing_cinematic = false;
+                                    Init.PLAYING_CINEMATIC = false;
                                 } else {
 
-                                    while (playing_cinematic) {
+                                    while (Init.PLAYING_CINEMATIC) {
 
-                                        synchronized (lock_cinematics) {
+                                        synchronized (Init.LOCK_CINEMATICS) {
 
                                             try {
-                                                lock_cinematics.wait(1000);
+                                                Init.LOCK_CINEMATICS.wait(1000);
                                             } catch (InterruptedException ex) {
                                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                             }
@@ -869,15 +852,15 @@ public class Crupier implements Runnable {
                     public void run() {
                         if (pausa != 0L) {
                             Helpers.pausar(pausa);
-                            playing_cinematic = false;
+                            Init.PLAYING_CINEMATIC = false;
                         } else {
 
-                            while (playing_cinematic) {
+                            while (Init.PLAYING_CINEMATIC) {
 
-                                synchronized (lock_cinematics) {
+                                synchronized (Init.LOCK_CINEMATICS) {
 
                                     try {
-                                        lock_cinematics.wait(1000);
+                                        Init.LOCK_CINEMATICS.wait(1000);
                                     } catch (InterruptedException ex) {
                                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                     }
@@ -2679,21 +2662,23 @@ public class Crupier implements Runnable {
 
             actualizarContadoresTapete();
 
-            Object lock = new Object();
+            Object shuffle_lock = new Object();
 
             barajando = true;
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
                     if (GameFrame.CINEMATICAS) {
-                        playing_cinematic = true;
+
+                        Init.PLAYING_CINEMATIC = true;
+
                         ImageIcon icon = new ImageIcon(getClass().getResource("/cinematics/misc/shuffle.gif"));
 
                         if (icon != null) {
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
-                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon);
+                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, 2500);
 
                                     gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
 
@@ -2701,40 +2686,36 @@ public class Crupier implements Runnable {
                                 }
                             });
 
-                            Helpers.threadRun(new Runnable() {
+                            Audio.playWavResource("misc/shuffle.wav");
 
-                                public void run() {
-                                    Helpers.pausar(2500);
+                            while (Init.PLAYING_CINEMATIC) {
 
-                                    Helpers.GUIRun(new Runnable() {
-                                        public void run() {
+                                synchronized (Init.LOCK_CINEMATICS) {
 
-                                            gif_dialog.dispose();
-
-                                            playing_cinematic = false;
-                                        }
-                                    });
+                                    try {
+                                        Init.LOCK_CINEMATICS.wait(1000);
+                                    } catch (InterruptedException ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
                                 }
-                            });
-
-                            Audio.playWavResourceAndWait("misc/shuffle.wav");
+                            }
 
                         } else {
-                            playing_cinematic = false;
+                            Init.PLAYING_CINEMATIC = false;
 
                             Audio.playWavResourceAndWait("misc/shuffle.wav");
                         }
 
                     } else {
-                        playing_cinematic = false;
+                        Init.PLAYING_CINEMATIC = false;
                         Audio.playWavResourceAndWait("misc/shuffle.wav");
                     }
 
                     barajando = false;
 
-                    synchronized (lock) {
+                    synchronized (shuffle_lock) {
 
-                        lock.notifyAll();
+                        shuffle_lock.notifyAll();
                     }
                 }
             });
@@ -2776,10 +2757,10 @@ public class Crupier implements Runnable {
 
             if (barajando) {
                 do {
-                    synchronized (lock) {
+                    synchronized (shuffle_lock) {
 
                         try {
-                            lock.wait(1000);
+                            shuffle_lock.wait(1000);
                         } catch (InterruptedException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -4749,7 +4730,7 @@ public class Crupier implements Runnable {
                     }
                 }
 
-                while (isPlaying_cinematic()) {
+                while (Init.PLAYING_CINEMATIC) {
 
                     synchronized (getLock_apuestas()) {
                         try {

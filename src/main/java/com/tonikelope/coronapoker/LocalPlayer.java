@@ -2118,7 +2118,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             hurryup_timer.stop();
                         }
 
-                        GameFrame.getInstance().getCrupier().setPlaying_cinematic(true);
+                        Init.PLAYING_CINEMATIC = true;
 
                         Helpers.threadRun(new Runnable() {
 

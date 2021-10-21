@@ -17,12 +17,14 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.AWTException;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.Robot;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -57,7 +59,11 @@ import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.KeyStroke;
+import javax.swing.Timer;
 import javax.swing.UIManager;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 
 /**
  *
@@ -74,6 +80,7 @@ public class Init extends javax.swing.JFrame {
     public static final int ANTI_SCREENSAVER_KEY = KeyEvent.VK_ALT;
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
     public static final Object LOCK_CINEMATICS = new Object();
+    public static final int QUOTE_DELAY = 15000;
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;
@@ -91,6 +98,7 @@ public class Init extends javax.swing.JFrame {
     private static volatile String NEW_VERSION = null;
     private volatile int k = 0;
     private volatile GifAnimationDialog gif_dialog = null;
+    private volatile Timer quote_timer = null;
 
     static {
 
@@ -155,6 +163,21 @@ public class Init extends javax.swing.JFrame {
         setTitle(Init.WINDOW_TITLE);
 
         JFrame tthis = this;
+
+        StyledDocument doc = quote.getStyledDocument();
+        SimpleAttributeSet center = new SimpleAttributeSet();
+        StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
+        doc.setParagraphAttributes(0, doc.getLength(), center, false);
+
+        quote.setOpaque(false);
+
+        quote.setBackground(new Color(0, 0, 0, 0));
+
+        panel_textarea.getViewport().setOpaque(false);
+
+        panel_textarea.setViewportBorder(null);
+
+        panel_textarea.setOpaque(false);
 
         update_button.setVisible(false);
 
@@ -309,7 +332,18 @@ public class Init extends javax.swing.JFrame {
             language_combobox.setSelectedIndex(1);
         }
 
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        quote_timer = new Timer(QUOTE_DELAY, new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+
+                String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(Helpers.CSPRNG_GENERATOR.nextInt((GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).size())).trim().split("#");
+
+                quote.setText("\"" + quote_parts[0] + "\" (" + quote_parts[1] + ")");
+
+            }
+        });
+        quote_timer.setInitialDelay(0);
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 
@@ -320,6 +354,8 @@ public class Init extends javax.swing.JFrame {
         setEnabled(false);
 
         pack();
+
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
 
     }
 
@@ -346,6 +382,7 @@ public class Init extends javax.swing.JFrame {
     private void initComponents() {
 
         tapete = new com.tonikelope.coronapoker.InitPanel();
+        panel = new javax.swing.JPanel();
         corona_init_panel = new javax.swing.JPanel();
         sound_icon = new javax.swing.JLabel();
         krusty = new javax.swing.JLabel();
@@ -361,11 +398,16 @@ public class Init extends javax.swing.JFrame {
         stats_button = new javax.swing.JButton();
         update_label = new javax.swing.JLabel();
         update_button = new javax.swing.JButton();
+        panel_textarea = new javax.swing.JScrollPane();
+        quote = new javax.swing.JTextPane();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("CoronaPoker");
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
         addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentHidden(java.awt.event.ComponentEvent evt) {
+                formComponentHidden(evt);
+            }
             public void componentShown(java.awt.event.ComponentEvent evt) {
                 formComponentShown(evt);
             }
@@ -375,6 +417,8 @@ public class Init extends javax.swing.JFrame {
                 formWindowClosing(evt);
             }
         });
+
+        panel.setOpaque(false);
 
         corona_init_panel.setOpaque(false);
 
@@ -565,21 +609,54 @@ public class Init extends javax.swing.JFrame {
                 .addComponent(update_label))
         );
 
+        panel_textarea.setBorder(null);
+        panel_textarea.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        panel_textarea.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+        panel_textarea.setDoubleBuffered(true);
+
+        quote.setEditable(false);
+        quote.setBorder(null);
+        quote.setFont(new java.awt.Font("Dialog", 2, 24)); // NOI18N
+        quote.setForeground(new java.awt.Color(255, 255, 255));
+        quote.setText("\"The strong point in poker is never to lose your temper, either with those you are playing or, more particularly with the cards. There is no sympathy in poker. Always keep cool. If you lose your head you will lose all your chips.\" (William J. Florence)\n");
+        quote.setAutoscrolls(false);
+        quote.setDoubleBuffered(true);
+        panel_textarea.setViewportView(quote);
+
+        javax.swing.GroupLayout panelLayout = new javax.swing.GroupLayout(panel);
+        panel.setLayout(panelLayout);
+        panelLayout.setHorizontalGroup(
+            panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelLayout.createSequentialGroup()
+                .addContainerGap(81, Short.MAX_VALUE)
+                .addComponent(panel_textarea, javax.swing.GroupLayout.PREFERRED_SIZE, 880, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(82, Short.MAX_VALUE))
+            .addGroup(panelLayout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        panelLayout.setVerticalGroup(
+            panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelLayout.createSequentialGroup()
+                .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(50, 50, 50)
+                .addComponent(panel_textarea, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0))
+        );
+
         javax.swing.GroupLayout tapeteLayout = new javax.swing.GroupLayout(tapete);
         tapete.setLayout(tapeteLayout);
         tapeteLayout.setHorizontalGroup(
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
-                .addContainerGap(187, Short.MAX_VALUE)
-                .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(186, Short.MAX_VALUE))
+            .addComponent(panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         tapeteLayout.setVerticalGroup(
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
-                .addContainerGap(164, Short.MAX_VALUE)
-                .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(164, Short.MAX_VALUE))
+            .addGroup(tapeteLayout.createSequentialGroup()
+                .addContainerGap(52, Short.MAX_VALUE)
+                .addComponent(panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(51, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -680,6 +757,10 @@ public class Init extends javax.swing.JFrame {
         Crupier.loadMODSounds();
 
         Locale.setDefault(Locale.Category.FORMAT, Locale.ENGLISH);
+
+        String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(Helpers.CSPRNG_GENERATOR.nextInt((GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).size())).trim().split("#");
+
+        quote.setText("\"" + quote_parts[0] + "\" (" + quote_parts[1] + ")");
     }//GEN-LAST:event_language_comboboxActionPerformed
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
@@ -699,6 +780,13 @@ public class Init extends javax.swing.JFrame {
         // TODO add your handling code here:
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+
+        if (quote_timer.isRunning()) {
+            quote_timer.restart();
+        } else {
+            quote_timer.start();
+        }
+
     }//GEN-LAST:event_formComponentShown
 
     private void krustyMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_krustyMouseClicked
@@ -737,6 +825,13 @@ public class Init extends javax.swing.JFrame {
         Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
         Helpers.savePropertiesFile();
     }//GEN-LAST:event_formWindowClosing
+
+    private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
+        // TODO add your handling code here:
+        if (quote_timer.isRunning()) {
+            quote_timer.stop();
+        }
+    }//GEN-LAST:event_formComponentHidden
 
     /**
      * @param args the command line arguments
@@ -849,6 +944,8 @@ public class Init extends javax.swing.JFrame {
                 public void run() {
 
                     Helpers.centrarJFrame(VENTANA_INICIO, 0);
+
+                    VENTANA_INICIO.setExtendedState(VENTANA_INICIO.getExtendedState() | JFrame.MAXIMIZED_BOTH);
 
                     VENTANA_INICIO.setVisible(true);
                 }
@@ -1044,7 +1141,10 @@ public class Init extends javax.swing.JFrame {
     private javax.swing.JButton join_button;
     private javax.swing.JLabel krusty;
     private javax.swing.JComboBox<String> language_combobox;
+    private javax.swing.JPanel panel;
+    private javax.swing.JScrollPane panel_textarea;
     private javax.swing.JPanel pegi_panel;
+    private javax.swing.JTextPane quote;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JButton stats_button;
     private com.tonikelope.coronapoker.InitPanel tapete;

@@ -59,6 +59,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.InvalidAlgorithmParameterException;
@@ -177,6 +178,8 @@ public class Helpers {
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     public static final int DECK_ELEMENTS = 52;
+    public static ArrayList<String> POKER_QUOTES_ES = new ArrayList<>();
+    public static ArrayList<String> POKER_QUOTES_EN = new ArrayList<>();
 
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
     public volatile static int DECK_RANDOM_GENERATOR = Helpers.TRNG_CSPRNG;
@@ -185,6 +188,19 @@ public class Helpers {
     public volatile static Properties PROPERTIES = loadPropertiesFile();
     public volatile static Font GUI_FONT = null;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
+
+    static {
+
+        try {
+
+            POKER_QUOTES_ES = (ArrayList<String>) Files.readAllLines(Paths.get(Helpers.class.getResource("/quotes_ES.txt").getPath()), Charset.defaultCharset());
+            POKER_QUOTES_EN = (ArrayList<String>) Files.readAllLines(Paths.get(Helpers.class.getResource("/quotes_EN.txt").getPath()), Charset.defaultCharset());
+
+        } catch (IOException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
 
     public static void SHUTDOWN_THREAD_POOL() {
 

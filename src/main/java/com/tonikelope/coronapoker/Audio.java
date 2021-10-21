@@ -830,12 +830,12 @@ public class Audio {
 
         BasicPlayer player = MP3_LOOP.remove(sound);
 
+        MP3_LOOP_MUTED.remove(sound);
+
         if (player != null) {
             try {
 
                 player.stop();
-
-                MP3_LOOP_MUTED.remove(sound);
 
             } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -937,23 +937,18 @@ public class Audio {
 
             Map.Entry<String, BasicPlayer> entry = iterator.next();
 
-            if (entry.getValue().getStatus() == BasicPlayer.PLAYING && !MP3_LOOP_MUTED.contains(entry.getKey())) {
+            try {
 
                 iterator.remove();
 
-                try {
+                MP3_LOOP_MUTED.remove(entry.getKey());
 
-                    entry.getValue().stop();
+                entry.getValue().stop();
 
-                    MP3_LOOP_MUTED.remove(entry.getKey());
-
-                } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                }
-
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-
     }
 
     public static void muteAll() {

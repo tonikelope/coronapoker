@@ -122,6 +122,11 @@ public class GifAnimationDialog extends javax.swing.JDialog {
                 formMouseClicked(evt);
             }
         });
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentShown(java.awt.event.ComponentEvent evt) {
+                formComponentShown(evt);
+            }
+        });
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowActivated(java.awt.event.WindowEvent evt) {
                 formWindowActivated(evt);
@@ -131,9 +136,6 @@ public class GifAnimationDialog extends javax.swing.JDialog {
             }
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
-            }
-            public void windowOpened(java.awt.event.WindowEvent evt) {
-                formWindowOpened(evt);
             }
         });
 
@@ -181,21 +183,20 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         }
     }//GEN-LAST:event_formWindowDeactivated
 
-    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
-        // TODO add your handling code here:
-        if (timer != null) {
-
-            timer.start();
-        }
-
-    }//GEN-LAST:event_formWindowOpened
-
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
         if (timer != null && timer.isRunning()) {
             timer.stop();
         }
     }//GEN-LAST:event_formWindowClosed
+
+    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
+        // TODO add your handling code here:
+        if (timer != null) {
+
+            timer.start();
+        }
+    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.GifPanel gif_panel;

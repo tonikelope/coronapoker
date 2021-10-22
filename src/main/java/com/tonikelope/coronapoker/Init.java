@@ -45,6 +45,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.sql.Connection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -100,6 +101,7 @@ public class Init extends javax.swing.JFrame {
     private volatile int k = 0;
     private volatile GifAnimationDialog gif_dialog = null;
     private volatile Timer quote_timer = null;
+    private volatile int conta_quote = 0;
 
     static {
 
@@ -152,6 +154,31 @@ public class Init extends javax.swing.JFrame {
         }
 
         return "MjEvMTIvMTk4NA==";
+    }
+
+    private void printQuote() {
+
+        if (conta_quote % Helpers.POKER_QUOTES_ES.size() == 0) {
+            conta_quote = 0;
+            Collections.shuffle(Helpers.POKER_QUOTES_ES, Helpers.CSPRNG_GENERATOR);
+            Collections.shuffle(Helpers.POKER_QUOTES_EN, Helpers.CSPRNG_GENERATOR);
+        }
+
+        String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(conta_quote++).trim().split("#");
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                try {
+                    quote.setText("\"" + new String(quote_parts[0].getBytes(), "UTF-8") + "\" (" + new String(quote_parts[1].getBytes(), "UTF-8") + ")");
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            }
+        });
+
     }
 
     /**
@@ -338,13 +365,7 @@ public class Init extends javax.swing.JFrame {
             @Override
             public void actionPerformed(ActionEvent ae) {
 
-                String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(Helpers.CSPRNG_GENERATOR.nextInt((GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).size())).trim().split("#");
-
-                try {
-                    quote.setText("\"" + new String(quote_parts[0].getBytes(), "UTF-8") + "\" (" + new String(quote_parts[1].getBytes(), "UTF-8") + ")");
-                } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                printQuote();
 
             }
         });
@@ -633,9 +654,9 @@ public class Init extends javax.swing.JFrame {
         panelLayout.setHorizontalGroup(
             panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelLayout.createSequentialGroup()
-                .addContainerGap(107, Short.MAX_VALUE)
+                .addContainerGap(58, Short.MAX_VALUE)
                 .addComponent(panel_textarea, javax.swing.GroupLayout.PREFERRED_SIZE, 880, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(108, Short.MAX_VALUE))
+                .addContainerGap(57, Short.MAX_VALUE))
             .addGroup(panelLayout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -659,9 +680,9 @@ public class Init extends javax.swing.JFrame {
         tapeteLayout.setVerticalGroup(
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(tapeteLayout.createSequentialGroup()
-                .addContainerGap(52, Short.MAX_VALUE)
+                .addContainerGap(80, Short.MAX_VALUE)
                 .addComponent(panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(51, Short.MAX_VALUE))
+                .addContainerGap(20, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -763,13 +784,7 @@ public class Init extends javax.swing.JFrame {
 
         Locale.setDefault(Locale.Category.FORMAT, Locale.ENGLISH);
 
-        String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(Helpers.CSPRNG_GENERATOR.nextInt((GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).size())).trim().split("#");
-
-        try {
-            quote.setText("\"" + new String(quote_parts[0].getBytes(), "UTF-8") + "\" (" + new String(quote_parts[1].getBytes(), "UTF-8") + ")");
-        } catch (UnsupportedEncodingException ex) {
-            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        printQuote();
     }//GEN-LAST:event_language_comboboxActionPerformed
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed

@@ -199,6 +199,14 @@ public class Helpers {
             POKER_QUOTES_ES = (ArrayList<String>) getResourceTextFileAsList("quotes_ES.txt");
             POKER_QUOTES_EN = (ArrayList<String>) getResourceTextFileAsList("quotes_EN.txt");
 
+            if (POKER_QUOTES_ES.size() != POKER_QUOTES_EN.size()) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "QUOTES FILES LENGTH DO NOT MATCH. TRUNCATING...");
+
+                final int size = Math.min(POKER_QUOTES_ES.size(), POKER_QUOTES_EN.size());
+                POKER_QUOTES_ES = (ArrayList<String>) POKER_QUOTES_ES.subList(0, size);
+                POKER_QUOTES_EN = (ArrayList<String>) POKER_QUOTES_EN.subList(0, size);
+            }
+
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }

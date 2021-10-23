@@ -283,8 +283,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.GUIRun(new Runnable() {
                         @Override
                         public void run() {
-                            player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
-                            setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
+                            if (isSpectator()) {
+                                player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
+                                setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
+                            }
 
                         }
                     });

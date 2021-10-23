@@ -668,7 +668,11 @@ public class Crupier implements Runnable {
                     });
                 } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null) {
 
-                    Audio.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
+                    if (Audio.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
+                        synchronized (Init.LOCK_CINEMATICS) {
+                            Init.LOCK_CINEMATICS.notifyAll();
+                        }
+                    }
 
                 }
 
@@ -766,7 +770,7 @@ public class Crupier implements Runnable {
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
 
-                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, (int) pausa);
+                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, pausa > 0L ? (int) pausa : null);
                                     gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                     gif_dialog.setVisible(true);
                                 }
@@ -788,6 +792,10 @@ public class Crupier implements Runnable {
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
+
+                                    if (gif_dialog.isVisible()) {
+                                        gif_dialog.dispose();
+                                    }
 
                                     GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
                                     GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);

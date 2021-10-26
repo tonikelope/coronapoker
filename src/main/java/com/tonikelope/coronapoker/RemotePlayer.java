@@ -639,7 +639,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             player_action.setForeground(Color.WHITE);
                         }
 
-                        player_action.setText(player_action.equals(Translator.translate("PIERDE")) ? Translator.translate("¿IWTSTH?") : Translator.translate("PIERDE"));
+                        player_action.setText(player_action.getText().equals(Translator.translate("PIERDE")) ? Translator.translate("¿IWTSTH?") : Translator.translate("PIERDE"));
                     }
                 });
             }

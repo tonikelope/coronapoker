@@ -198,7 +198,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     public void last_hand_on() {
         GameFrame.getInstance().getCrupier().setLast_hand(true);
 
-        CommunityCardsPanel tthis = GameFrame.getInstance().getTapete().getCommunityCards();
+        var tthis = GameFrame.getInstance().getTapete().getCommunityCards();
 
         Helpers.GUIRun(new Runnable() {
             @Override
@@ -222,7 +222,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         GameFrame.getInstance().getCrupier().setLast_hand(false);
 
-        CommunityCardsPanel tthis = GameFrame.getInstance().getTapete().getCommunityCards();
+        var tthis = GameFrame.getInstance().getTapete().getCommunityCards();
 
         Helpers.GUIRun(new Runnable() {
             @Override
@@ -561,7 +561,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hand_labelMouseClicked
         // TODO add your handling code here:
 
-        CommunityCardsPanel tthis = GameFrame.getInstance().getTapete().getCommunityCards();
+        var tthis = GameFrame.getInstance().getTapete().getCommunityCards();
 
         if (GameFrame.getInstance().isPartida_local() && tthis.getHand_label().isEnabled()) {
 
@@ -609,7 +609,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     }//GEN-LAST:event_hand_labelMouseClicked
 
     private void click_max_hands() {
-        CommunityCardsPanel tthis = GameFrame.getInstance().getTapete().getCommunityCards();
+        var tthis = GameFrame.getInstance().getTapete().getCommunityCards();
 
         if (tthis.getHand_limit_spinner().isVisible()) {
 
@@ -686,7 +686,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void pause_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pause_buttonActionPerformed
         // TODO add your handling code here:
 
-        CommunityCardsPanel tthis = GameFrame.getInstance().getTapete().getCommunityCards();
+        var tthis = GameFrame.getInstance().getTapete().getCommunityCards();
 
         int pause_now = -2;
 

@@ -2408,12 +2408,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setBackground(Color.RED);
                 player_action.setForeground(Color.WHITE);
-                player_action.setText(msg);
-
-                setPlayerActionIcon("action/cry.png");
 
                 playingCard1.desenfocar();
                 playingCard2.desenfocar();
+
+                player_action.setText(msg);
+                setPlayerActionIcon("action/cry.png");
 
             }
         });

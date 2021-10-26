@@ -1156,16 +1156,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 setPlayerBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                player_action.setBackground(Color.RED);
-                player_action.setForeground(Color.WHITE);
-
                 if (!playingCard1.isTapada() || !GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized()) {
 
+                    player_action.setBackground(Color.RED);
+                    player_action.setForeground(Color.WHITE);
                     playingCard1.desenfocar();
                     playingCard2.desenfocar();
 
                 } else {
-
+                    player_action.setBackground(Color.WHITE);
+                    player_action.setForeground(Color.RED);
                     player_action.setCursor(new Cursor(Cursor.HAND_CURSOR));
                     playingCard1.setIwtsth_candidate(tthis);
                     playingCard2.setIwtsth_candidate(tthis);

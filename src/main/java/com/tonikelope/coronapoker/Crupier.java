@@ -189,6 +189,7 @@ public class Crupier implements Runnable {
     public static final int NEW_HAND_READY_WAIT = 1000;
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes BAN
+    public static final boolean IWTSTH_BLINKING = true;
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -6394,7 +6395,7 @@ public class Crupier implements Runnable {
 
     public void startIWTSTHPlayersBlinking() {
 
-        if (isIWTSTH4LocalPlayerAuthorized()) {
+        if (IWTSTH_BLINKING && isIWTSTH4LocalPlayerAuthorized()) {
 
             Helpers.GUIRun(new Runnable() {
                 @Override

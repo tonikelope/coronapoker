@@ -190,7 +190,7 @@ public class Init extends javax.swing.JFrame {
 
         setTitle(Init.WINDOW_TITLE);
 
-        JFrame tthis = this;
+        var tthis = this;
 
         StyledDocument doc = quote.getStyledDocument();
         SimpleAttributeSet center = new SimpleAttributeSet();
@@ -820,7 +820,7 @@ public class Init extends javax.swing.JFrame {
 
         if (M2 != null && ++k == 5) {
 
-            JFrame tthis = this;
+            var tthis = this;
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {

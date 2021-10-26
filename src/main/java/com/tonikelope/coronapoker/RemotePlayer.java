@@ -1149,16 +1149,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void setLoser(String msg) {
         this.loser = true;
 
-        RemotePlayer tthis = this;
+        var tthis = this;
 
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
                 setPlayerBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-
-                player_action.setText(msg);
-
-                setPlayerActionIcon("action/cry.png");
 
                 player_action.setBackground(Color.RED);
                 player_action.setForeground(Color.WHITE);
@@ -1175,6 +1171,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     playingCard2.setIwtsth_candidate(tthis);
                 }
 
+                player_action.setText(msg);
+                setPlayerActionIcon("action/cry.png");
             }
         });
 

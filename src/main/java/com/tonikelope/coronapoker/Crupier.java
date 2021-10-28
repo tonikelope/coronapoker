@@ -6620,6 +6620,11 @@ public class Crupier implements Runnable {
                             //Todos se han tirado menos uno GANA SIN MOSTRAR
                             resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("GANAS") : Translator.translate("GANA"));
 
+                            if (resisten.get(0) != GameFrame.getInstance().getLocalPlayer()) {
+                                resisten.get(0).getPlayingCard1().desenfocar();
+                                resisten.get(0).getPlayingCard2().desenfocar();
+                            }
+
                             resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante);
 
                             this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();

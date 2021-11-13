@@ -480,7 +480,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         lights_button.setBackground(new java.awt.Color(255, 255, 204));
         lights_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        lights_button.setText("LUCES ON");
+        lights_button.setText("LUCES");
         lights_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         lights_button.setDoubleBuffered(true);
         lights_button.setFocusable(false);
@@ -622,6 +622,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             max_hands_button.setVisible(false);
 
+            tiempo_partida.setVisible(GameFrame.SHOW_CLOCK);
+
             tthis.getHand_label().setEnabled(false);
 
             int manos = (int) (GameFrame.getInstance().getTapete().getCommunityCards().getHand_limit_spinner().getValue());
@@ -663,6 +665,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
 
         } else {
+
+            tiempo_partida.setVisible(false);
+
             tthis.getHand_limit_spinner().setModel(new SpinnerNumberModel(GameFrame.MANOS != -1 ? GameFrame.MANOS : 0, 0, null, 1));
 
             ((JSpinner.DefaultEditor) tthis.getHand_limit_spinner().getEditor()).getTextField().setEditable(false);
@@ -775,7 +780,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             Audio.playWavResource("misc/button_off.wav");
             GameFrame.getInstance().getCapa_brillo().lightsOFF();
-            lights_button.setText(Translator.translate("LUCES OFF"));
             lights_button.setBackground(new Color(102, 102, 102));
             lights_button.setForeground(Color.WHITE);
 
@@ -783,7 +787,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             Audio.playWavResource("misc/button_on.wav");
             GameFrame.getInstance().getCapa_brillo().lightsON();
-            lights_button.setText(Translator.translate("LUCES ON"));
             lights_button.setBackground(new Color(255, 255, 204));
             lights_button.setForeground(null);
 

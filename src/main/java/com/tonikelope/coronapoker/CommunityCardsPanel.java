@@ -47,8 +47,14 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private volatile Timer icon_zoom_timer = null;
     private final Object zoom_lock = new Object();
 
-    public JButton getLights_button() {
-        return lights_button;
+    public void lightsButtonClick() {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                lights_labelMouseReleased(null);
+            }
+        });
     }
 
     public JLabel getLast_hand_label() {
@@ -139,6 +145,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         });
     }
 
+    public JLabel getLights_label() {
+        return lights_label;
+    }
+
     /**
      * Creates new form CommunityCards
      */
@@ -186,6 +196,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                         pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
                         pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
                         bet_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+                        lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
+
                         ready = true;
 
                     }
@@ -303,7 +315,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         random_button = new javax.swing.JButton();
         hand_limit_spinner = new javax.swing.JSpinner();
         max_hands_button = new javax.swing.JButton();
-        lights_button = new javax.swing.JButton();
+        lights_label = new javax.swing.JLabel();
 
         setFocusable(false);
         setOpaque(false);
@@ -478,15 +490,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
-        lights_button.setBackground(new java.awt.Color(255, 255, 204));
-        lights_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        lights_button.setText("LUCES");
-        lights_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        lights_button.setDoubleBuffered(true);
-        lights_button.setFocusable(false);
-        lights_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                lights_buttonActionPerformed(evt);
+        lights_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        lights_label.setText(" ");
+        lights_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        lights_label.setDoubleBuffered(true);
+        lights_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                lights_labelMouseReleased(evt);
             }
         });
 
@@ -507,7 +517,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(random_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lights_button)
+                .addComponent(lights_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(tiempo_partida)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -542,7 +552,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                                 .addComponent(hand_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(tiempo_partida)
                                 .addComponent(max_hands_button)
-                                .addComponent(lights_button)))
+                                .addComponent(lights_label)))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(panel_barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
@@ -773,22 +783,19 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     }//GEN-LAST:event_max_hands_buttonActionPerformed
 
-    private void lights_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_lights_buttonActionPerformed
+    private void lights_labelMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lights_labelMouseReleased
         // TODO add your handling code here:
-
         if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
             Audio.playWavResource("misc/button_off.wav");
             GameFrame.getInstance().getCapa_brillo().lightsOFF();
-            lights_button.setBackground(new Color(102, 102, 102));
-            lights_button.setForeground(Color.WHITE);
+            lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/lights_off.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
 
         } else {
 
             Audio.playWavResource("misc/button_on.wav");
             GameFrame.getInstance().getCapa_brillo().lightsON();
-            lights_button.setBackground(new Color(255, 255, 204));
-            lights_button.setForeground(null);
+            lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/lights_on.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
 
         }
 
@@ -798,7 +805,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         GameFrame.getInstance().getFastchat_dialog().refreshColors();
         GameFrame.getInstance().getTapete().repaint();
-    }//GEN-LAST:event_lights_buttonActionPerformed
+    }//GEN-LAST:event_lights_labelMouseReleased
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra_tiempo;
@@ -811,7 +818,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private javax.swing.JLabel hand_label;
     private javax.swing.JSpinner hand_limit_spinner;
     private javax.swing.JLabel last_hand_label;
-    private javax.swing.JButton lights_button;
+    private javax.swing.JLabel lights_label;
     private javax.swing.JButton max_hands_button;
     private javax.swing.JPanel panel_barra;
     private javax.swing.JButton pause_button;
@@ -842,6 +849,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                             pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
                             pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
                             bet_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
+                            lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
 
                         }
                     });

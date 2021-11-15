@@ -813,7 +813,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.ALT_DOWN_MASK), new AbstractAction("LIGHTS") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                GameFrame.getInstance().getTapete().getCommunityCards().getLights_button().doClick();
+                GameFrame.getInstance().getTapete().getCommunityCards().lightsButtonClick();
             }
         });
 

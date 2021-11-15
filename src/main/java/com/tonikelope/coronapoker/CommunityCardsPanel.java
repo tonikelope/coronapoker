@@ -19,6 +19,7 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
+import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -785,26 +786,30 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     private void lights_labelMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lights_labelMouseReleased
         // TODO add your handling code here:
-        if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
-            Audio.playWavResource("misc/button_off.wav");
-            GameFrame.getInstance().getCapa_brillo().lightsOFF();
-            lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/lights_off.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
+        if (evt == null || new Rectangle(new Dimension(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()))).contains(evt.getPoint())) {
+            if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
-        } else {
+                Audio.playWavResource("misc/button_off.wav");
+                GameFrame.getInstance().getCapa_brillo().lightsOFF();
+                lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/lights_off.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
 
-            Audio.playWavResource("misc/button_on.wav");
-            GameFrame.getInstance().getCapa_brillo().lightsON();
-            lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/lights_on.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
+            } else {
 
+                Audio.playWavResource("misc/button_on.wav");
+                GameFrame.getInstance().getCapa_brillo().lightsON();
+                lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/lights_on.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
+
+            }
+
+            if (GameFrame.getInstance().getNick_dialog() != null) {
+                GameFrame.getInstance().getNick_dialog().repaint();
+            }
+
+            GameFrame.getInstance().getFastchat_dialog().refreshColors();
+            GameFrame.getInstance().getTapete().repaint();
         }
 
-        if (GameFrame.getInstance().getNick_dialog() != null) {
-            GameFrame.getInstance().getNick_dialog().repaint();
-        }
-
-        GameFrame.getInstance().getFastchat_dialog().refreshColors();
-        GameFrame.getInstance().getTapete().repaint();
     }//GEN-LAST:event_lights_labelMouseReleased
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

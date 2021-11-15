@@ -112,9 +112,6 @@ public class TablePanelFactory {
                         nuevo_panel.getCommunityCards().getTiempo_partida().setVisible(panel.getCommunityCards().getTiempo_partida().isVisible());
                         nuevo_panel.getCommunityCards().getMax_hands_button().setVisible(panel.getCommunityCards().getMax_hands_button().isVisible());
                         nuevo_panel.getCommunityCards().getHand_limit_spinner().setVisible(panel.getCommunityCards().getHand_limit_spinner().isVisible());
-                        nuevo_panel.getCommunityCards().getLights_button().setText(panel.getCommunityCards().getLights_button().getText());
-                        nuevo_panel.getCommunityCards().getLights_button().setBackground(panel.getCommunityCards().getLights_button().getBackground());
-                        nuevo_panel.getCommunityCards().getLights_button().setForeground(panel.getCommunityCards().getLights_button().getForeground());
                         nuevo_panel.getCommunityCards().getPause_button().setText(panel.getCommunityCards().getPause_button().getText());
                         nuevo_panel.getCommunityCards().getPause_button().setVisible(panel.getCommunityCards().getPause_button().isVisible());
                         nuevo_panel.getCommunityCards().getPot_label().setText(" ");

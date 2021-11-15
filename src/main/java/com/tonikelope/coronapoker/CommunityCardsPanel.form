@@ -34,7 +34,7 @@
               <EmptySpace max="-2" attributes="0"/>
               <Component id="random_button" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
-              <Component id="lights_button" min="-2" max="-2" attributes="0"/>
+              <Component id="lights_label" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="32767" attributes="0"/>
               <Component id="tiempo_partida" min="-2" max="-2" attributes="0"/>
               <EmptySpace type="unrelated" max="-2" attributes="0"/>
@@ -72,7 +72,7 @@
                               <Component id="hand_limit_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
                               <Component id="tiempo_partida" alignment="3" min="-2" max="-2" attributes="0"/>
                               <Component id="max_hands_button" alignment="3" min="-2" max="-2" attributes="0"/>
-                              <Component id="lights_button" alignment="3" min="-2" max="-2" attributes="0"/>
+                              <Component id="lights_label" alignment="3" min="-2" max="-2" attributes="0"/>
                           </Group>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
@@ -395,23 +395,19 @@
         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="max_hands_buttonActionPerformed"/>
       </Events>
     </Component>
-    <Component class="javax.swing.JButton" name="lights_button">
+    <Component class="javax.swing.JLabel" name="lights_label">
       <Properties>
-        <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-          <Color blue="cc" green="ff" red="ff" type="rgb"/>
-        </Property>
         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
           <Font name="Dialog" size="18" style="1"/>
         </Property>
-        <Property name="text" type="java.lang.String" value="LUCES"/>
+        <Property name="text" type="java.lang.String" value=" "/>
         <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
           <Color id="Cursor de Mano"/>
         </Property>
         <Property name="doubleBuffered" type="boolean" value="true"/>
-        <Property name="focusable" type="boolean" value="false"/>
       </Properties>
       <Events>
-        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="lights_buttonActionPerformed"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="lights_labelMouseReleased"/>
       </Events>
     </Component>
   </SubComponents>

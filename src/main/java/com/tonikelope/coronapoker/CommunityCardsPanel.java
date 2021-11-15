@@ -896,6 +896,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     pause_button.setIcon(null);
                     pot_label.setIcon(null);
                     bet_label.setIcon(null);
+                    lights_label.setIcon(null);
                 }
             });
 

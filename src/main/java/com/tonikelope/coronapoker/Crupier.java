@@ -643,7 +643,7 @@ public class Crupier implements Runnable {
 
                 this.current_local_cinematic_b64 = Base64.encodeBase64String((Base64.encodeBase64String(filename.getBytes("UTF-8")) + "#" + String.valueOf(pausa)).getBytes("UTF-8"));
 
-                if (pausa == 0L) {
+                if (pausa == 0L || Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null) {
                     Helpers.threadRun(new Runnable() {
 
                         public void run() {
@@ -667,14 +667,6 @@ public class Crupier implements Runnable {
                             }
                         }
                     });
-                } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null) {
-
-                    if (Audio.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
-                        synchronized (Init.LOCK_CINEMATICS) {
-                            Init.LOCK_CINEMATICS.notifyAll();
-                        }
-                    }
-
                 }
 
                 return _cinematicAllin(filename, pausa);

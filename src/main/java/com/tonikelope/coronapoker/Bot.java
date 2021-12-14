@@ -223,7 +223,7 @@ public class Bot {
 
             return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET) ? Player.BET : Player.CHECK;
 
-        } else if (poseffectiveStrength >= 0.60f && !(effectiveStrength < 0.75f && fase == Crupier.RIVER && Helpers.float1DSecureCompare(cpu_player.getStack(), GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) <= 0)) {
+        } else if (poseffectiveStrength >= 0.65f && !(effectiveStrength < 0.80f && fase == Crupier.RIVER && Helpers.float1DSecureCompare(cpu_player.getStack(), GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) <= 0)) {
 
             if (GameFrame.getInstance().getCrupier().getConta_bet() == 0) {
 
@@ -243,7 +243,7 @@ public class Bot {
 
             conta_call++;
 
-            if (this.semi_bluff || (fase != Crupier.RIVER && ppot >= 1.5 * potOdds2())) {
+            if (this.semi_bluff || (fase != Crupier.RIVER && ppot >= 2 * potOdds2())) {
 
                 this.semi_bluff = true;
 
@@ -253,7 +253,7 @@ public class Bot {
             return Player.CHECK;
         }
 
-        if (fase == Crupier.RIVER && effectiveStrength >= 1.5 * potOdds()) {
+        if (fase == Crupier.RIVER && effectiveStrength >= 2 * potOdds()) {
 
             conta_call++;
 
@@ -280,7 +280,7 @@ public class Bot {
             showdown_cost = GameFrame.getInstance().getCrupier().getApuesta_actual();
         }
 
-        if (effectiveStrength >= 1.75 * showdownOdds(showdown_cost) && !this.semi_bluff) {
+        if (effectiveStrength >= 2 * showdownOdds(showdown_cost) && !this.semi_bluff) {
 
             conta_call++;
 

@@ -53,7 +53,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public static final String[] POSITIONS_LABELS_ES = new String[]{"CP", "CG", "DE"};
     public static final String[] POSITIONS_LABELS_EN = new String[]{"SB", "BB", "DE"};
     public static String[] POSITIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? POSITIONS_LABELS_ES : POSITIONS_LABELS_EN;
-    public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
+    public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.YELLOW, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 550;
     public static final int MIN_ACTION_HEIGHT = 45;
 

@@ -21,6 +21,8 @@ package com.tonikelope.coronapoker;
  * FULLY EXPERIMENTAL. B-A-S-E-D on the mythical Alberta's Loki Bot
  * https://poker.cs.ualberta.ca/publications/papp.msc.pdf
  *
+ * Very very optimizable, but enough to have fun with.
+ *
  * @author tonikelope
  */
 public class Bot {
@@ -37,6 +39,7 @@ public class Bot {
     private volatile org.alberta.poker.Card card1 = null;
     private volatile org.alberta.poker.Card card2 = null;
     private volatile int conta_call = 0;
+    private volatile boolean slow_play = false;
 
     public Bot(RemotePlayer player) {
         cpu_player = player;
@@ -49,6 +52,7 @@ public class Bot {
         card2 = new org.alberta.poker.Card(cpu_player.getPlayingCard2().getValorNumerico() - 2, getCardSuit(cpu_player.getPlayingCard2()));
 
         semi_bluff = false;
+        slow_play = Helpers.CSPRNG_GENERATOR.nextBoolean();
         conta_call = 0;
     }
 
@@ -80,6 +84,7 @@ public class Bot {
         int fase = GameFrame.getInstance().getCrupier().getFase();
         int activos = GameFrame.getInstance().getCrupier().getJugadoresActivos();
 
+        //PREFLOP
         if (fase == Crupier.PREFLOP) {
 
             //Esto es claramente muy mejorable
@@ -107,7 +112,7 @@ public class Bot {
                 //Manos buenas (sin ser todas PREMIUM)
                 conta_call++;
 
-                return GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET ? Player.BET : Player.CHECK;
+                return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET && !this.slow_play) ? Player.BET : Player.CHECK;
 
             } else if ((Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 2) <= 0) && (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) >= 13) || (straight && Math.min(valor1, valor2) >= 10) || Math.min(valor1, valor2) >= 11)) {
 
@@ -137,7 +142,7 @@ public class Bot {
                     vamos = Helpers.CSPRNG_GENERATOR.nextInt(10) <= 1;
                 }
 
-                return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET && vamos) ? Player.BET : Player.CHECK;
+                return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET && vamos && !this.slow_play) ? Player.BET : Player.CHECK;
 
             } else if (GameFrame.getInstance().getCrupier().getConta_bet() == 0) {
 
@@ -207,6 +212,11 @@ public class Bot {
             return Player.FOLD;
         }
 
+        //POST FLOP
+        if (fase > Crupier.FLOP) {
+            this.slow_play = false;
+        }
+
         double strength = HANDEVALUATOR.handRank(card1, card2, Bot.BOT_COMMUNITY_CARDS, opponents);
 
         double ppot = HANDPOTENTIAL.ppot_raw(card1, card2, Bot.BOT_COMMUNITY_CARDS, true);
@@ -221,7 +231,7 @@ public class Bot {
 
             conta_call++;
 
-            return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET) ? Player.BET : Player.CHECK;
+            return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET && !this.slow_play) ? Player.BET : Player.CHECK;
 
         } else if (poseffectiveStrength >= 0.70f && !(effectiveStrength < 0.85f && fase == Crupier.RIVER && Helpers.float1DSecureCompare(cpu_player.getStack(), GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) <= 0)) {
 
@@ -229,7 +239,7 @@ public class Bot {
 
                 conta_call++;
 
-                return Player.BET;
+                return !this.slow_play ? Player.BET : Player.CHECK;
 
             } else if (!(conta_call == 0 && GameFrame.getInstance().getCrupier().getConta_bet() >= 2)) {
 
@@ -243,7 +253,7 @@ public class Bot {
 
             conta_call++;
 
-            if (this.semi_bluff || (fase != Crupier.RIVER && ppot >= 2.5 * potOdds2())) {
+            if (this.semi_bluff || (fase != Crupier.RIVER && ppot >= 2 * potOdds2()) || Helpers.CSPRNG_GENERATOR.nextBoolean()) {
 
                 this.semi_bluff = true;
 

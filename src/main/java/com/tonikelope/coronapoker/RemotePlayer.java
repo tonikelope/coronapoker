@@ -1495,7 +1495,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 action += player_action.getText() + " (" + Helpers.float2String(this.bote) + ")";
                 break;
             case Player.ALLIN:
-                action += player_action.getText();
+                action += player_action.getText() + " (" + Helpers.float2String(this.bote) + ")";
+                ;
                 break;
             default:
                 break;

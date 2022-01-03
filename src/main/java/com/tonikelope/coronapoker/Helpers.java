@@ -2510,13 +2510,15 @@ public class Helpers {
                 rules.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/book.png")));
                 popup.add(rules);
 
-                popup.addSeparator();
+                /*
+                    popup.addSeparator();
 
-                EXIT_MENU = new JMenuItem(exitAction);
+                    EXIT_MENU = new JMenuItem(exitAction);
 
-                EXIT_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));
+                    EXIT_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));
 
-                popup.add(EXIT_MENU);
+                    popup.add(EXIT_MENU);
+                */
 
                 Helpers.updateFonts(popup, Helpers.GUI_FONT, 1.05f);
             }

@@ -88,6 +88,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final Object keep_alive_lock = new Object();
     private final Object lock_new_client = new Object();
     private final Object lock_reconnect = new Object();
+    private final Object lock_client_reconnect = new Object();
     private final boolean server;
     private final String local_nick;
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
@@ -425,7 +426,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             empezar_timba.setVisible(false);
             new_bot_button.setVisible(false);
             kick_user.setVisible(false);
-            status.setText("Conectando...");
+            chat_box.setEnabled(false);
+            barra.setVisible(true);
             conectados.setModel(listModel);
             conectados.revalidate();
             conectados.repaint();
@@ -903,21 +905,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void cliente() {
 
-        booting = true;
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-
-                barra.setVisible(true);
-                chat_box.setEnabled(false);
-            }
-        });
-
         Helpers.threadRun(new Runnable() {
 
             public void run() {
 
                 do {
+
+                    Helpers.GUIRun(new Runnable() {
+
+                        public void run() {
+                            status.setForeground(new Color(51, 153, 0));
+                            status.setText(Translator.translate("Conectando..."));
+                        }
+                    });
 
                     booting = true;
 
@@ -1611,16 +1611,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 });
 
                                 if (!exit) {
-                                    Helpers.pausar(1000);
+                                    synchronized (lock_client_reconnect) {
+                                        try {
+                                            lock_client_reconnect.wait(1000);
+                                        } catch (InterruptedException ex) {
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+                                    }
                                 }
                             }
-
-                            Helpers.GUIRun(new Runnable() {
-
-                                public void run() {
-                                    status.setForeground(new Color(51, 153, 0));
-                                }
-                            });
 
                         } else {
 
@@ -2881,6 +2880,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 exit = true;
                 Helpers.savePropertiesFile();
                 System.exit(1);
+            }
+
+            synchronized (lock_client_reconnect) {
+                lock_client_reconnect.notifyAll();
             }
         }
     }//GEN-LAST:event_formWindowClosing

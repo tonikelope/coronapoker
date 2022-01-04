@@ -2426,7 +2426,6 @@ public class Crupier implements Runnable {
 
                 if (!GameFrame.getInstance().isPartida_local()) {
                     GameFrame.getInstance().getExit_menu().setEnabled(false);
-                    Helpers.TapetePopupMenu.EXIT_MENU.setEnabled(false);
                 }
             }
         });
@@ -2778,7 +2777,6 @@ public class Crupier implements Runnable {
                     GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
                     GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
                     GameFrame.getInstance().getExit_menu().setEnabled(true);
-                    Helpers.TapetePopupMenu.EXIT_MENU.setEnabled(true);
                 }
             });
 
@@ -2806,7 +2804,6 @@ public class Crupier implements Runnable {
                     GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
                     GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
                     GameFrame.getInstance().getExit_menu().setEnabled(true);
-                    Helpers.TapetePopupMenu.EXIT_MENU.setEnabled(true);
                 }
             });
 

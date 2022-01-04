@@ -33,6 +33,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {" segs...)", " secs...)"},
+            {"ERROR (Reconexión en ", "ERROR (Reconnection in "},
             {"¿IWTSTH?", "IWTSTH?"},
             {"¿SEGURO QUE QUIERES TIRARTE?", "SURE YOU FOLD?"},
             {"NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)", "FAILED TO UPDATE (UNEXPECTED ERROR)"},

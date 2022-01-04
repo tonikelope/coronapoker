@@ -2118,7 +2118,6 @@ public class Helpers {
 
         public static JMenu BARAJAS_MENU = new JMenu("Barajas");
         public static JMenu TAPETES_MENU = new JMenu("Tapetes");
-        public static JMenuItem EXIT_MENU;
         public static JMenuItem MAX_HANDS_MENU;
         public static JCheckBoxMenuItem FULLSCREEN_MENU;
         public static JCheckBoxMenuItem SONIDOS_MENU;
@@ -2509,16 +2508,6 @@ public class Helpers {
                 JMenuItem rules = new JMenuItem(rulesAction);
                 rules.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/book.png")));
                 popup.add(rules);
-
-                /*
-                    popup.addSeparator();
-
-                    EXIT_MENU = new JMenuItem(exitAction);
-
-                    EXIT_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));
-
-                    popup.add(EXIT_MENU);
-                */
 
                 Helpers.updateFonts(popup, Helpers.GUI_FONT, 1.05f);
             }

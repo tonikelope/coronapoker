@@ -427,6 +427,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             new_bot_button.setVisible(false);
             kick_user.setVisible(false);
             chat_box.setEnabled(false);
+            chat.setEnabled(false);
             barra.setVisible(true);
             conectados.setModel(listModel);
             conectados.revalidate();
@@ -915,6 +916,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         public void run() {
                             status.setForeground(new Color(51, 153, 0));
+                            barra.setIndeterminate(true);
                             status.setText(Translator.translate("Conectando..."));
                         }
                     });
@@ -1195,6 +1197,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     status.setText(Translator.translate("CONECTADO"));
                                     barra.setVisible(false);
                                     chat_box.setEnabled(true);
+                                    chat.setEnabled(true);
 
                                 }
                             });
@@ -1597,6 +1600,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 public void run() {
                                     status.setForeground(Color.red);
+                                    barra.setIndeterminate(false);
+                                    barra.setMaximum(CLIENT_REC_WAIT);
+                                    barra.setValue(CLIENT_REC_WAIT);
                                 }
                             });
 
@@ -1607,6 +1613,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                     public void run() {
                                         status.setText(Translator.translate("ERROR (Reconexión en ") + j + Translator.translate(" segs...)"));
+                                        barra.setValue(j);
                                     }
                                 });
 
@@ -2280,7 +2287,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         status1 = new javax.swing.JLabel();
         sound_icon = new javax.swing.JLabel();
         video_chat_button = new javax.swing.JButton();
-        jPanel2 = new javax.swing.JPanel();
+        panel_con = new javax.swing.JPanel();
         panel_conectados = new javax.swing.JScrollPane();
         conectados = new javax.swing.JList<>();
         kick_user = new javax.swing.JButton();
@@ -2362,12 +2369,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         status.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         status.setForeground(new java.awt.Color(51, 153, 0));
-        status.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
         status.setText("Estado");
         status.setDoubleBuffered(true);
 
         status1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        status1.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
         status1.setText("1.1.1.1");
         status1.setToolTipText("Click para obtener datos de conexión");
         status1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -2403,8 +2408,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        jPanel2.setFocusable(false);
-        jPanel2.setOpaque(false);
+        panel_con.setFocusable(false);
+        panel_con.setOpaque(false);
 
         panel_conectados.setDoubleBuffered(true);
         panel_conectados.setFocusable(false);
@@ -2432,23 +2437,24 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
-        jPanel2.setLayout(jPanel2Layout);
-        jPanel2Layout.setHorizontalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
+        javax.swing.GroupLayout panel_conLayout = new javax.swing.GroupLayout(panel_con);
+        panel_con.setLayout(panel_conLayout);
+        panel_conLayout.setHorizontalGroup(
+            panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panel_conLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(panel_conectados)))
         );
-        jPanel2Layout.setVerticalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
+        panel_conLayout.setVerticalGroup(
+            panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panel_conLayout.createSequentialGroup()
                 .addGap(0, 0, Short.MAX_VALUE)
-                .addComponent(panel_conectados, javax.swing.GroupLayout.PREFERRED_SIZE, 381, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(panel_conectados, javax.swing.GroupLayout.PREFERRED_SIZE, 342, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(kick_user))
+                .addComponent(kick_user)
+                .addGap(39, 39, 39))
         );
 
         empezar_timba.setBackground(new java.awt.Color(0, 130, 0));
@@ -2483,10 +2489,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addGroup(jPanel1Layout.createSequentialGroup()
                         .addComponent(pass_icon)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -2496,9 +2498,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     .addComponent(tot_conectados, javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(panel_con, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addComponent(empezar_timba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2509,7 +2515,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         .addComponent(logo)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(tot_conectados)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(game_info)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(new_bot_button, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -2518,12 +2524,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                             .addComponent(status1)
-                            .addComponent(pass_icon))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(status, javax.swing.GroupLayout.Alignment.TRAILING)))
-                    .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(pass_icon)))
+                    .addComponent(panel_con, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2588,7 +2594,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 138, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 144, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -3135,11 +3141,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private javax.swing.JButton empezar_timba;
     private javax.swing.JLabel game_info;
     private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JButton kick_user;
     private javax.swing.JLabel logo;
     private javax.swing.JButton new_bot_button;
+    private javax.swing.JPanel panel_con;
     private javax.swing.JScrollPane panel_conectados;
     private javax.swing.JLabel pass_icon;
     private javax.swing.JLabel sound_icon;

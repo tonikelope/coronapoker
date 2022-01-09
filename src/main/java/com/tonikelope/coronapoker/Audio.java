@@ -344,41 +344,56 @@ public class Audio {
             if ((sound_stream = getSoundInputStream(sound)) != null) {
                 try (final BufferedInputStream bis = new BufferedInputStream(sound_stream); final Clip clip = AudioSystem.getClip()) {
 
-                    ConcurrentLinkedQueue<Clip> list = new ConcurrentLinkedQueue<>();
-                    list.add(clip);
-                    WAVS_RESOURCES.putIfAbsent(sound, list);
+                    Helpers.threadRun(new Runnable() {
 
-                    synchronized (WAVS_RESOURCES.get(sound)) {
+                        @Override
+                        public void run() {
 
-                        if (force_close) {
+                            ConcurrentLinkedQueue<Clip> list = new ConcurrentLinkedQueue<>();
 
-                            for (Clip c : WAVS_RESOURCES.get(sound)) {
+                            list.add(clip);
 
-                                if (c != null) {
-                                    c.stop();
+                            if (WAVS_RESOURCES.putIfAbsent(sound, list) != null && !WAVS_RESOURCES.get(sound).contains(clip)) {
+                                WAVS_RESOURCES.get(sound).add(clip);
+                            }
+
+                            if (force_close) {
+
+                                Iterator<Clip> iterator = WAVS_RESOURCES.get(sound).iterator();
+
+                                while (iterator.hasNext()) {
+
+                                    Clip entry = iterator.next();
+
+                                    if (entry != clip) {
+
+                                        try {
+
+                                            iterator.remove();
+
+                                            entry.stop();
+
+                                        } catch (Exception ex) {
+                                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+                                    }
                                 }
 
                             }
-
-                            WAVS_RESOURCES.get(sound).clear();
                         }
+                    });
 
-                        if (!WAVS_RESOURCES.get(sound).contains(clip)) {
-                            WAVS_RESOURCES.get(sound).add(clip);
-                        }
+                    clip.open(AudioSystem.getAudioInputStream(bis));
 
-                        clip.open(AudioSystem.getAudioInputStream(bis));
+                    setClipVolume(sound, clip, bypass_muted);
 
-                        setClipVolume(sound, clip, bypass_muted);
-
-                        clip.loop(Clip.LOOP_CONTINUOUSLY);
-                    }
+                    clip.loop(Clip.LOOP_CONTINUOUSLY);
 
                     Helpers.pausar(clip.getMicrosecondLength() / 1000);
 
                     clip.stop();
 
-                    if (WAVS_RESOURCES.containsKey(sound) && WAVS_RESOURCES.get(sound).contains(clip)) {
+                    if (WAVS_RESOURCES.containsKey(sound)) {
                         WAVS_RESOURCES.get(sound).remove(clip);
                     }
 

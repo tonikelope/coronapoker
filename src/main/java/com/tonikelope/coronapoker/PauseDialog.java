@@ -47,16 +47,18 @@ public class PauseDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
-        pausa_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(getHeight(), getHeight(), Image.SCALE_SMOOTH)));
-
         pack();
 
-        timer = new Timer(750, new ActionListener() {
+        timer = new Timer(1000, new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent ae) {
 
                 pausa_label.setVisible(!pausa_label.isVisible());
+
+                if (pausa_label.isVisible()) {
+                    pack();
+                }
 
             }
         });
@@ -152,11 +154,12 @@ public class PauseDialog extends javax.swing.JDialog {
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
-        this.timer.start();
 
         pausa_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(getHeight(), getHeight(), Image.SCALE_SMOOTH)));
 
         pack();
+
+        this.timer.start();
     }//GEN-LAST:event_formWindowOpened
 
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked

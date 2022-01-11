@@ -17,11 +17,8 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Image;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import javax.swing.ImageIcon;
-import javax.swing.Timer;
 
 /**
  *
@@ -30,11 +27,11 @@ import javax.swing.Timer;
 public class GameOverDialog extends javax.swing.JDialog {
 
     public static final int COUNTDOWN_PAUSE = 1350;
-    private volatile Timer timer = null;
     private volatile boolean continua = false;
     private volatile String last_mp3_loop = null;
     private volatile boolean direct_gameover = false;
     private volatile RebuyDialog buyin_dialog = null;
+    private volatile boolean exit = false;
 
     public RebuyDialog getBuyin_dialog() {
         return buyin_dialog;
@@ -62,10 +59,11 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
+        gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over.gif")), 782, 326);
+
         exit_now_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/ghost.png")).getImage().getScaledInstance(exit_now_button.getHeight(), exit_now_button.getHeight(), Image.SCALE_SMOOTH)));
 
         pack();
-
     }
 
     public GameOverDialog(java.awt.Frame parent, boolean modal, boolean direct) {
@@ -88,9 +86,12 @@ public class GameOverDialog extends javax.swing.JDialog {
         if (direct_gameover) {
             exit_now_button.setEnabled(false);
             continue_button.setEnabled(false);
-            numbers.setIcon(new ImageIcon(getClass().getResource("/images/gameover/0.png")));
-            pack();
+            gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over_zero.gif")), 782, 326);
+        } else {
+            gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over.gif")), 782, 326);
         }
+
+        pack();
     }
 
     /**
@@ -103,8 +104,7 @@ public class GameOverDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         jPanel1 = new javax.swing.JPanel();
-        game_over = new javax.swing.JLabel();
-        numbers = new javax.swing.JLabel();
+        gifPanel = new com.tonikelope.coronapoker.GifPanel(false);
         continue_button = new javax.swing.JButton();
         exit_now_button = new javax.swing.JButton();
 
@@ -132,15 +132,9 @@ public class GameOverDialog extends javax.swing.JDialog {
             }
         });
 
-        jPanel1.setBackground(new java.awt.Color(51, 51, 51));
+        jPanel1.setBackground(new java.awt.Color(0, 0, 0));
 
-        game_over.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        game_over.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/gameover/game_over.png"))); // NOI18N
-        game_over.setDoubleBuffered(true);
-
-        numbers.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        numbers.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/gameover/9.png"))); // NOI18N
-        numbers.setDoubleBuffered(true);
+        gifPanel.setPreferredSize(new java.awt.Dimension(782, 326));
 
         continue_button.setFont(new java.awt.Font("Dialog", 1, 60)); // NOI18N
         continue_button.setIcon(new ImageIcon(getClass().getResource("/images/gameover/continue_"+com.tonikelope.coronapoker.GameFrame.LANGUAGE+".png")));
@@ -152,7 +146,7 @@ public class GameOverDialog extends javax.swing.JDialog {
             }
         });
 
-        exit_now_button.setBackground(new java.awt.Color(0, 102, 153));
+        exit_now_button.setBackground(new java.awt.Color(102, 153, 255));
         exit_now_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         exit_now_button.setForeground(new java.awt.Color(255, 255, 255));
         exit_now_button.setText("ESPECTADOR");
@@ -168,30 +162,27 @@ public class GameOverDialog extends javax.swing.JDialog {
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(50, 50, 50)
+                .addGap(20, 20, 20)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(numbers, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(game_over, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(50, 50, 50))
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(exit_now_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(continue_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(gifPanel, javax.swing.GroupLayout.DEFAULT_SIZE, 512, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(exit_now_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(continue_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addGap(20, 20, 20))
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(50, 50, 50)
-                .addComponent(game_over)
+                .addGap(30, 30, 30)
+                .addComponent(gifPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addComponent(numbers, javax.swing.GroupLayout.PREFERRED_SIZE, 163, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addComponent(continue_button, javax.swing.GroupLayout.PREFERRED_SIZE, 103, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(continue_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
                 .addComponent(exit_now_button)
-                .addGap(50, 50, 50))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -249,41 +240,20 @@ public class GameOverDialog extends javax.swing.JDialog {
 
                 if (!direct_gameover && !continua) {
 
-                    timer = new Timer(COUNTDOWN_PAUSE, new ActionListener() {
+                    Audio.playWavResourceAndWait("misc/game_over.wav");
 
-                        int counter = 9;
-
-                        public void actionPerformed(ActionEvent ae) {
-
-                            counter--;
-
-                            if (counter < 0) {
-
-                                timer.stop();
-
-                            } else {
-                                numbers.setIcon(new ImageIcon(getClass().getResource("/images/gameover/" + String.valueOf(counter) + ".png")));
-
-                            }
-
-                        }
-                    });
-
-                    timer.start();
-
-                    Audio.playWavResourceAndWait("misc/gameover.wav");
-
-                    if (timer.isRunning() && !continua) {
-
-                        timer.stop();
+                    if (!continua && !exit) {
 
                         Helpers.GUIRun(new Runnable() {
                             @Override
                             public void run() {
                                 exit_now_button.setEnabled(false);
                                 continue_button.setEnabled(false);
+                                gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over_zero.gif")), 782, 326);
                             }
                         });
+
+                        Audio.playWavResourceAndWait("misc/nocontinue.wav");
 
                         if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
                             Audio.playWavResourceAndWait("misc/norebuy.wav");
@@ -297,7 +267,9 @@ public class GameOverDialog extends javax.swing.JDialog {
                         });
 
                     }
+
                 } else if (!continua) {
+
                     if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
                         Audio.playWavResourceAndWait("misc/norebuy.wav");
                     }
@@ -328,9 +300,9 @@ public class GameOverDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         this.continua = true;
 
-        this.timer.stop();
+        this.exit = true;
 
-        Audio.stopWavResource("misc/gameover.wav");
+        Audio.stopWavResource("misc/game_over.wav");
 
         Audio.playWavResource("misc/rebuy.wav");
 
@@ -345,15 +317,20 @@ public class GameOverDialog extends javax.swing.JDialog {
 
     private void exit_now_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_now_buttonActionPerformed
         // TODO add your handling code here:
-        this.timer.stop();
+
+        this.exit = true;
+
         exit_now_button.setEnabled(false);
         continue_button.setEnabled(false);
+        gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over_zero.gif")), 782, 326);
 
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
 
-                Audio.stopWavResource("misc/gameover.wav");
+                Audio.stopWavResource("misc/game_over.wav");
+
+                Audio.playWavResourceAndWait("misc/nocontinue.wav");
 
                 if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
                     Audio.playWavResourceAndWait("misc/norebuy.wav");
@@ -392,8 +369,7 @@ public class GameOverDialog extends javax.swing.JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton continue_button;
     private javax.swing.JButton exit_now_button;
-    private javax.swing.JLabel game_over;
+    private com.tonikelope.coronapoker.GifPanel gifPanel;
     private javax.swing.JPanel jPanel1;
-    private javax.swing.JLabel numbers;
     // End of variables declaration//GEN-END:variables
 }

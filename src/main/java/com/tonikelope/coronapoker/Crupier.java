@@ -2540,12 +2540,15 @@ public class Crupier implements Runnable {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
-                GameFrame.getInstance().getRebuy_now_menu().setBackground(null);
-                GameFrame.getInstance().getRebuy_now_menu().setOpaque(false);
-                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
-                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
-                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
+
+                if (GameFrame.getInstance().getRebuy_now_menu().isEnabled()) {
+                    GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
+                    GameFrame.getInstance().getRebuy_now_menu().setBackground(null);
+                    GameFrame.getInstance().getRebuy_now_menu().setOpaque(false);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
+                }
             }
         });
 

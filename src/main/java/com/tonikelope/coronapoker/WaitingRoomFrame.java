@@ -19,6 +19,8 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
+import java.awt.event.ActionEvent;
+import java.awt.event.MouseEvent;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -67,8 +69,12 @@ import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.DefaultCaret;
+import javax.swing.text.DefaultEditorKit;
+import javax.swing.text.TextAction;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -344,16 +350,32 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             String avatar_src = "";
 
             if (nick.equals(this.local_nick)) {
+                
                 try {
-                    avatar_src = getAvatar().toURL().toExternalForm();
+                    
+                    if(getAvatar()!=null){
+                        avatar_src = getAvatar().toURL().toExternalForm();
+                    } else {
+                        
+                        avatar_src=getClass().getResource("/images/avatar_default.png").toExternalForm();
+                    } 
+                    
                 } catch (MalformedURLException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
-            } else if (this.participantes.containsKey(nick) && this.participantes.get(nick).getAvatar() != null) {
+            } else if (this.participantes.containsKey(nick)) {
 
                 try {
-                    avatar_src = this.participantes.get(nick).getAvatar().toURL().toExternalForm();
+                    
+                    if(this.participantes.get(nick).getAvatar() != null){
+                        avatar_src = this.participantes.get(nick).getAvatar().toURL().toExternalForm();
+                    } else {
+                        avatar_src=getClass().getResource("/images/avatar_default.png").toExternalForm();
+                    }
+                    
+                    
+                    
                 } catch (MalformedURLException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -455,6 +477,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         
         emoji_panel.setText("<html><body style='margin:5px'>"+emoji_html+"</body></html>");
         
+        
+emoji_panel.getActionMap().put(DefaultEditorKit.selectWordAction, 
+            new TextAction(DefaultEditorKit.selectWordAction) {
+                public void actionPerformed(ActionEvent e) {
+                    // DO NOTHING
+                }
+            });
         
 
         chat.setContentType("text/html");
@@ -2725,12 +2754,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         chat_scroll.setViewportView(chat);
 
         emoji_scroll_panel.setBorder(null);
+        emoji_scroll_panel.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+        emoji_scroll_panel.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         emoji_scroll_panel.setDoubleBuffered(true);
         emoji_scroll_panel.setFocusable(false);
         emoji_scroll_panel.setRequestFocusEnabled(false);
 
         emoji_panel.setEditable(false);
         emoji_panel.setBorder(null);
+        emoji_panel.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         emoji_panel.setDoubleBuffered(true);
         emoji_panel.setFocusCycleRoot(false);
         emoji_panel.setFocusable(false);

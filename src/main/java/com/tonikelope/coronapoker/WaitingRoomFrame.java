@@ -31,6 +31,7 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -60,9 +61,11 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 import javax.swing.JCheckBox;
+import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
-import javax.swing.JTextArea;
+import javax.swing.JScrollBar;
+import javax.swing.event.HyperlinkEvent;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -117,6 +120,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile boolean partida_empezando = false;
     private volatile String password = null;
     private volatile boolean exit = false;
+    private volatile StringBuilder chat_text = new StringBuilder();
+
+    public StringBuilder getChat_text() {
+        return chat_text;
+    }
 
     public void soundIconClick() {
         Helpers.GUIRun(new Runnable() {
@@ -277,7 +285,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return exit;
     }
 
-    public JTextArea getChat() {
+    public JEditorPane getChat() {
         return chat;
     }
 
@@ -317,6 +325,47 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return local_client_socket_lock;
     }
 
+    public String plainChat2HTML(String chat) {
+
+        String html = "";
+
+        String[] lines = chat.split("\n");
+
+        for (String line : lines) {
+
+            String nick = line.replaceAll("^([^:]+:+).*$", "$1").replaceAll(":$", "");
+
+            String msg = line.replaceAll("^[^:]+:+ *(.*)$", "$1");
+
+            String avatar_src = "";
+
+            if (nick.equals(this.local_nick)) {
+                try {
+                    avatar_src = getAvatar().toURL().toExternalForm();
+                } catch (MalformedURLException ex) {
+                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            } else if (this.participantes.containsKey(nick) && this.participantes.get(nick).getAvatar() != null) {
+
+                try {
+                    avatar_src = this.participantes.get(nick).getAvatar().toURL().toExternalForm();
+                } catch (MalformedURLException ex) {
+                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            msg = msg.replaceAll("http[^ \r\n]+", "<a href='$0'><b>$0</b></a>");
+
+            msg = msg.replaceAll("<a href='([^']+(?:jpg|jpeg|gif|png))'><b>[^<>]+</b></a>", "<img align='middle' src='$1' />");
+
+            html += "<div style='margin-bottom:5px'><img align='middle' src='" + avatar_src + "' width='" + NewGameDialog.DEFAULT_AVATAR_WIDTH + "' height='" + NewGameDialog.DEFAULT_AVATAR_WIDTH + "' /><span><b>" + nick + "</b>: " + msg + "</span></div>";
+        }
+
+        return html;
+
+    }
+
     /**
      * Creates new form SalaEspera
      */
@@ -332,6 +381,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         initComponents();
 
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
+
+        chat.setContentType("text/html");
+        chat.addHyperlinkListener(e -> {
+            if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
+
+                Helpers.openBrowserURL(e.getURL().toString());
+            }
+        });
+
+        String background_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
+        chat.setText("<html><body style='background-image: url(" + background_src + ")'></body></html>");
 
         barra.setVisible(false);
         barra.setIndeterminate(true);
@@ -689,16 +749,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 if (!"*".equals(recibido)) {
 
-                                    String chat_text;
+                                    chat_text = new StringBuilder(new String(Base64.decodeBase64(recibido), "UTF-8"));
 
-                                    chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
-
-                                    Helpers.GUIRun(new Runnable() {
-                                        public void run() {
-
-                                            chat.setText(chat_text);
-                                        }
-                                    });
+                                    refreshChatPanel();
 
                                 }
 
@@ -1128,14 +1181,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             if (!"*".equals(recibido)) {
 
-                                String chat_text = new String(Base64.decodeBase64(recibido), "UTF-8");
+                                chat_text = new StringBuilder(new String(Base64.decodeBase64(recibido), "UTF-8"));
 
-                                Helpers.GUIRun(new Runnable() {
-                                    public void run() {
-
-                                        chat.setText(chat_text);
-                                    }
-                                });
+                                refreshChatPanel();
                             }
 
                             //Leemos el enlace del videochat (si existe)
@@ -1877,7 +1925,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : ""), aes_key, hmac_key), client_socket);
 
                             //Mandamos el contenido del chat
-                            writeCommandFromServer(Helpers.encryptCommand(chat.getText().isEmpty() ? "*" : Base64.encodeBase64String(chat.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
+                            writeCommandFromServer(Helpers.encryptCommand(chat_text.toString().isEmpty() ? "*" : Base64.encodeBase64String(chat_text.toString().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 
                             //Mandamos el link del videochat
                             writeCommandFromServer(Helpers.encryptCommand(getVideo_chat_link() != null ? Base64.encodeBase64String(getVideo_chat_link().getBytes("UTF-8")) : "*", aes_key, hmac_key), client_socket);
@@ -2081,16 +2129,33 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         });
     }
 
+    public void refreshChatPanel() {
+
+        if (!chat_text.toString().isEmpty()) {
+            Helpers.GUIRun(new Runnable() {
+
+                public void run() {
+                    String background_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
+                    chat.setText("<html><body style='background-image: url(" + background_src + ")'>" + plainChat2HTML(chat_text.toString()) + "</body></html>");
+                    
+                        //chat.setCaretPosition(chat.getDocument().getLength());
+                        JScrollBar vertical = chat_scroll.getVerticalScrollBar();
+                        vertical.setValue( vertical.getMaximum() );
+
+                    
+                }
+            });
+        }
+    }
+
     public void recibirMensajeChat(String nick, String msg) {
 
+        chat_text.append(nick + ": " + msg + "\n");
         Helpers.GUIRun(new Runnable() {
+
             public void run() {
 
-                chat.append("[" + nick + "]: " + msg + "\n");
-
-                if (!chat.isFocusOwner()) {
-                    chat.setCaretPosition(chat.getText().length());
-                }
+                refreshChatPanel();
 
                 if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive() && WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
 
@@ -2261,6 +2326,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 conectados.repaint();
 
+                refreshChatPanel();
+
             }
         });
 
@@ -2275,8 +2342,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jScrollPane1 = new javax.swing.JScrollPane();
-        chat = new javax.swing.JTextArea();
         chat_box = new javax.swing.JTextField();
         avatar_label = new javax.swing.JLabel();
         jPanel1 = new javax.swing.JPanel();
@@ -2298,6 +2363,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         danger_server = new javax.swing.JLabel();
         tts_warning = new javax.swing.JLabel();
         chat_notifications = new javax.swing.JCheckBox();
+        chat_scroll = new javax.swing.JScrollPane();
+        chat = new javax.swing.JEditorPane();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -2313,16 +2380,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 formWindowClosing(evt);
             }
         });
-
-        jScrollPane1.setDoubleBuffered(true);
-
-        chat.setEditable(false);
-        chat.setColumns(20);
-        chat.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        chat.setLineWrap(true);
-        chat.setRows(5);
-        chat.setDoubleBuffered(true);
-        jScrollPane1.setViewportView(chat);
 
         chat_box.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         chat_box.setDoubleBuffered(true);
@@ -2567,6 +2624,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        chat.setEditable(false);
+        chat.setBorder(null);
+        chat.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        chat.setDoubleBuffered(true);
+        chat_scroll.setViewportView(chat);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -2576,13 +2639,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(tts_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jScrollPane1)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(avatar_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(chat_box))
                     .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(chat_notifications, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(chat_notifications, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(chat_scroll))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -2594,8 +2657,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 144, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 150, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(chat_box))
@@ -2614,11 +2677,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (chat_enabled && mensaje.length() > 0) {
 
-            chat.append("[" + local_nick + "]: " + mensaje + "\n");
+            chat_text.append(local_nick + ": " + mensaje + "\n");
 
-            if (!chat.isFocusOwner()) {
-                chat.setCaretPosition(chat.getText().length());
-            }
+            refreshChatPanel();
 
             this.enviarMensajeChat(local_nick, mensaje);
 
@@ -3133,15 +3194,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
     private javax.swing.JProgressBar barra;
-    private javax.swing.JTextArea chat;
+    private javax.swing.JEditorPane chat;
     private javax.swing.JTextField chat_box;
     private javax.swing.JCheckBox chat_notifications;
+    private javax.swing.JScrollPane chat_scroll;
     private javax.swing.JList<String> conectados;
     private javax.swing.JLabel danger_server;
     private javax.swing.JButton empezar_timba;
     private javax.swing.JLabel game_info;
     private javax.swing.JPanel jPanel1;
-    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JButton kick_user;
     private javax.swing.JLabel logo;
     private javax.swing.JButton new_bot_button;

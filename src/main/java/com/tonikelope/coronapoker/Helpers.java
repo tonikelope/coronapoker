@@ -80,6 +80,7 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -216,7 +217,10 @@ public class Helpers {
     }
 
     public static String getLocalTimeString() {
-        return LocalDateTime.now().getHour() + ":" + LocalDateTime.now().getMinute();
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+
+        return LocalDateTime.now().format(formatter);
     }
 
     //Thanks -> https://stackoverflow.com/a/46613809

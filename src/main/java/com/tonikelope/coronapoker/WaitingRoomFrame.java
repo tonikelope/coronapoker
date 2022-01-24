@@ -349,7 +349,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             String avatar_src = "";
 
+            String align = "";
+
             if (nick.equals(this.local_nick)) {
+
+                align = "align='right' style='margin-right:8px'";
 
                 try {
 
@@ -365,6 +369,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 }
 
             } else if (this.participantes.containsKey(nick)) {
+
+                align = "align='left' style='margin-left:8px'";
 
                 try {
 
@@ -385,7 +391,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             msg = parseEmoji(msg);
 
-            html += "<div style='margin:8px;'><img align='middle' src='" + avatar_src + "' width='32' height='32' /> <span><b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></span><br><div style='margin-left:10px;margin-top:5px;'>" + msg + "</div></div>";
+            html += "<div " + align + "><div style='margin-top:5px;margin-bottom:5px;'><img align='middle' src='" + avatar_src + "' width='32' height='32' /> <span><b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></span><br><div style='margin-top:3px;'>" + msg + "</div></div></div>";
         }
 
         return html;
@@ -1314,11 +1320,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
+                                    refreshChatPanel();
                                     status.setText(Translator.translate("CONECTADO"));
                                     barra.setVisible(false);
                                     chat_box.setEnabled(true);
                                     chat.setEnabled(true);
-
                                 }
                             });
 

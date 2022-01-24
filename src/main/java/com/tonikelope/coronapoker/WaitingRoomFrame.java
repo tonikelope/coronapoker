@@ -19,8 +19,6 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
-import java.awt.event.ActionEvent;
-import java.awt.event.MouseEvent;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -69,12 +67,9 @@ import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
 import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
 import javax.swing.event.HyperlinkEvent;
-import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
-import javax.swing.text.DefaultEditorKit;
-import javax.swing.text.TextAction;
+import javax.swing.text.JTextComponent;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -130,7 +125,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile String password = null;
     private volatile boolean exit = false;
     private volatile StringBuilder chat_text = new StringBuilder();
-    private volatile boolean emoji_show = false;
 
     public StringBuilder getChat_text() {
         return chat_text;
@@ -350,16 +344,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             String avatar_src = "";
 
             if (nick.equals(this.local_nick)) {
-                
+
                 try {
-                    
-                    if(getAvatar()!=null){
+
+                    if (getAvatar() != null) {
                         avatar_src = getAvatar().toURL().toExternalForm();
                     } else {
-                        
-                        avatar_src=getClass().getResource("/images/avatar_default.png").toExternalForm();
-                    } 
-                    
+
+                        avatar_src = getClass().getResource("/images/avatar_default.png").toExternalForm();
+                    }
+
                 } catch (MalformedURLException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -367,15 +361,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             } else if (this.participantes.containsKey(nick)) {
 
                 try {
-                    
-                    if(this.participantes.get(nick).getAvatar() != null){
+
+                    if (this.participantes.get(nick).getAvatar() != null) {
                         avatar_src = this.participantes.get(nick).getAvatar().toURL().toExternalForm();
                     } else {
-                        avatar_src=getClass().getResource("/images/avatar_default.png").toExternalForm();
+                        avatar_src = getClass().getResource("/images/avatar_default.png").toExternalForm();
                     }
-                    
-                    
-                    
+
                 } catch (MalformedURLException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -384,50 +376,58 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             msg = msg.replaceAll("http[^ \r\n]+", "<a href='$0'><b>$0</b></a>");
 
             msg = msg.replaceAll("img(s?)://([^ \r\n]+)", "<div style='margin-bottom:5px'><img src='http$1://$2' /></div>");
-            
+
             msg = parseEmoji(msg);
 
             html += "<div style='margin:5px;'><img align='middle' src='" + avatar_src + "' width='32' height='32' /> <span><b>" + nick + "</b></span><br><div style='margin-left:10px;margin-top:5px;'>" + msg + "</div></div>";
         }
-        
-        System.out.println(html);
 
         return html;
 
     }
-    
-    public String parseEmoji(String message){
-    
+
+    public String parseEmoji(String message) {
+
         String msg = message;
 
         Pattern pattern = Pattern.compile("#([0-9]+)#");
-        
+
         Matcher matcher = pattern.matcher(message);
-        
+
         ArrayList<Integer> lista = new ArrayList<>();
-        
-        String space_src = getClass().getResource("/images/emoji_chat/space.png").toExternalForm();
 
-        while(matcher.find()) {
-            
-            if(!lista.contains(Integer.parseInt(matcher.group(1)))){
-            
-                String emoji_src = getClass().getResource("/images/emoji_chat/"+matcher.group(1)+".png").toExternalForm();
+        while (matcher.find()) {
 
-                msg = msg.replaceAll("#"+matcher.group(1)+"#", "<img align='middle' src='"+emoji_src+"' /><img align='middle' src='"+space_src+"' />");
+            if (!lista.contains(Integer.parseInt(matcher.group(1)))) {
+
+                String emoji_src = getClass().getResource("/images/emoji_chat/" + matcher.group(1) + ".png").toExternalForm();
+
+                msg = msg.replaceAll(" ?#" + matcher.group(1) + "# ?", "<span><img align='middle' src='" + emoji_src + "' />&nbsp;</span>");
 
                 lista.add(Integer.parseInt(matcher.group(1)));
             }
         }
-        
+
         return msg;
     }
 
     public JTextField getChat_box() {
         return chat_box;
     }
-    
-    
+
+    public class NoTextSelectionCaret extends DefaultCaret {
+
+        public NoTextSelectionCaret(JTextComponent textComponent) {
+            setBlinkRate(textComponent.getCaret().getBlinkRate());
+            textComponent.setHighlighter(null);
+        }
+
+        @Override
+        public int getMark() {
+            return getDot();
+        }
+
+    }
 
     /**
      * Creates new form SalaEspera
@@ -444,50 +444,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         initComponents();
 
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
-        
-        emoji_scroll_panel.setVisible(false);
-        
-        emoji_panel.setContentType("text/html");
-        
-        emoji_panel.addHyperlinkListener(e -> {
-            if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
-                
-                System.out.println(e.getURL().toString());
 
-                int pos = getChat_box().getCaretPosition();
-                
-                try {
-                    getChat_box().getDocument().insertString(pos, " #"+e.getURL().toString().replace("http://", "")+"# ", null);
-                } catch (BadLocationException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        });
-        
-        String emoji_html="";
-        
-        String space_src = getClass().getResource("/images/emoji_chat/space.png").toExternalForm();
-        
-        for(int i=1; i<=99; i++){
-            
-            String emoji_src = getClass().getResource("/images/emoji_chat/"+i+".png").toExternalForm();
-            
-            emoji_html+="<a href='http://"+i+"'><img border='0' align='middle' src='"+emoji_src+"' /></a><img align='middle' src='"+space_src+"' />";
-        }
-        
-        emoji_panel.setText("<html><body style='margin:5px'>"+emoji_html+"</body></html>");
-        
-        
-emoji_panel.getActionMap().put(DefaultEditorKit.selectWordAction, 
-            new TextAction(DefaultEditorKit.selectWordAction) {
-                public void actionPerformed(ActionEvent e) {
-                    // DO NOTHING
-                }
-            });
-        
+        emoji_scroll_panel.setVisible(false);
 
         chat.setContentType("text/html");
-        
+
         chat.addHyperlinkListener(e -> {
             if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
 
@@ -2489,11 +2450,11 @@ emoji_panel.getActionMap().put(DefaultEditorKit.selectWordAction,
         chat_notifications = new javax.swing.JCheckBox();
         chat_scroll = new javax.swing.JScrollPane();
         chat = new javax.swing.JEditorPane();
-        emoji_scroll_panel = new javax.swing.JScrollPane();
-        emoji_panel = new javax.swing.JEditorPane();
         jPanel2 = new javax.swing.JPanel();
         chat_box = new javax.swing.JTextField();
         jButton1 = new javax.swing.JButton();
+        emoji_scroll_panel = new javax.swing.JScrollPane();
+        emoji_panel = new com.tonikelope.coronapoker.EmojiPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -2753,22 +2714,6 @@ emoji_panel.getActionMap().put(DefaultEditorKit.selectWordAction,
         chat.setDoubleBuffered(true);
         chat_scroll.setViewportView(chat);
 
-        emoji_scroll_panel.setBorder(null);
-        emoji_scroll_panel.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
-        emoji_scroll_panel.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        emoji_scroll_panel.setDoubleBuffered(true);
-        emoji_scroll_panel.setFocusable(false);
-        emoji_scroll_panel.setRequestFocusEnabled(false);
-
-        emoji_panel.setEditable(false);
-        emoji_panel.setBorder(null);
-        emoji_panel.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        emoji_panel.setDoubleBuffered(true);
-        emoji_panel.setFocusCycleRoot(false);
-        emoji_panel.setFocusable(false);
-        emoji_panel.setRequestFocusEnabled(false);
-        emoji_scroll_panel.setViewportView(emoji_panel);
-
         chat_box.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         chat_box.setDoubleBuffered(true);
         chat_box.addActionListener(new java.awt.event.ActionListener() {
@@ -2806,6 +2751,13 @@ emoji_panel.getActionMap().put(DefaultEditorKit.selectWordAction,
                     .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
 
+        emoji_scroll_panel.setBorder(null);
+        emoji_scroll_panel.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+        emoji_scroll_panel.setDoubleBuffered(true);
+        emoji_scroll_panel.setFocusable(false);
+        emoji_scroll_panel.setRequestFocusEnabled(false);
+        emoji_scroll_panel.setViewportView(emoji_panel);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -2834,13 +2786,13 @@ emoji_panel.getActionMap().put(DefaultEditorKit.selectWordAction,
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 270, Short.MAX_VALUE)
+                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 129, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(emoji_scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 65, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(emoji_scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(tts_warning)
                 .addGap(6, 6, 6))
@@ -2848,41 +2800,6 @@ emoji_panel.getActionMap().put(DefaultEditorKit.selectWordAction,
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
-
-    private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_boxActionPerformed
-        // TODO add your handling code here:
-
-        String mensaje = chat_box.getText().trim();
-
-        if (chat_enabled && mensaje.length() > 0) {
-
-            chat_text.append(local_nick + ": " + mensaje + "\n");
-
-            refreshChatPanel();
-
-            this.enviarMensajeChat(local_nick, mensaje);
-
-            this.chat_box.setText("");
-
-            chat_enabled = false;
-
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-
-                    Helpers.pausar(1000);
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            chat_enabled = true;
-
-                        }
-                    });
-
-                }
-            });
-        }
-    }//GEN-LAST:event_chat_boxActionPerformed
 
     private void kick_userActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_kick_userActionPerformed
 
@@ -3373,17 +3290,47 @@ emoji_panel.getActionMap().put(DefaultEditorKit.selectWordAction,
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         // TODO add your handling code here:
         emoji_scroll_panel.setVisible(!emoji_scroll_panel.isVisible());
-                
-        if(!emoji_show){
-            emoji_scroll_panel.getHorizontalScrollBar().setValue(0);
-            emoji_show = true;
-        }
-        
+
         this.revalidate();
-        
+
         this.repaint();
-        
+
     }//GEN-LAST:event_jButton1ActionPerformed
+
+    private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_boxActionPerformed
+        // TODO add your handling code here:
+
+        String mensaje = chat_box.getText().trim();
+
+        if (chat_enabled && mensaje.length() > 0) {
+
+            chat_text.append(local_nick + ": " + mensaje + "\n");
+
+            refreshChatPanel();
+
+            this.enviarMensajeChat(local_nick, mensaje);
+
+            this.chat_box.setText("");
+
+            chat_enabled = false;
+
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+
+                    Helpers.pausar(1000);
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            chat_enabled = true;
+
+                        }
+                    });
+
+                }
+            });
+        }
+    }//GEN-LAST:event_chat_boxActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
@@ -3394,7 +3341,7 @@ emoji_panel.getActionMap().put(DefaultEditorKit.selectWordAction,
     private javax.swing.JScrollPane chat_scroll;
     private javax.swing.JList<String> conectados;
     private javax.swing.JLabel danger_server;
-    private javax.swing.JEditorPane emoji_panel;
+    private com.tonikelope.coronapoker.EmojiPanel emoji_panel;
     private javax.swing.JScrollPane emoji_scroll_panel;
     private javax.swing.JButton empezar_timba;
     private javax.swing.JLabel game_info;

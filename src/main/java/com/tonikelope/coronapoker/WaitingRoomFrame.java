@@ -126,6 +126,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile boolean exit = false;
     private volatile StringBuilder chat_text = new StringBuilder();
 
+    public String getLocal_nick() {
+        return local_nick;
+    }
+
     public StringBuilder getChat_text() {
         return chat_text;
     }
@@ -337,9 +341,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         for (String line : lines) {
 
-            String nick = line.replaceAll("^([^:]+:+).*$", "$1").replaceAll(":$", "");
+            String nick = line.replaceAll("^([^:()]+:+).*$", "$1").replaceAll(":$", "");
 
-            String msg = line.replaceAll("^[^:]+:+ *(.*)$", "$1");
+            String msg = line.replaceAll("^[^:()]+:+[0-9:()]+ *(.*)$", "$1");
+
+            String hora = line.replaceAll("^[^:()]+:+([0-9:()]+) *.*$", "$1");
 
             String avatar_src = "";
 
@@ -379,7 +385,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             msg = parseEmoji(msg);
 
-            html += "<div style='margin:5px;'><img align='middle' src='" + avatar_src + "' width='32' height='32' /> <span><b>" + nick + "</b></span><br><div style='margin-left:10px;margin-top:5px;'>" + msg + "</div></div>";
+            html += "<div style='margin:8px;'><img align='middle' src='" + avatar_src + "' width='32' height='32' /> <span><b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></span><br><div style='margin-left:10px;margin-top:5px;'>" + msg + "</div></div>";
         }
 
         return html;
@@ -2207,6 +2213,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     String background_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
 
                     chat.setText("<html><body style='background-image: url(" + background_src + ")'>" + plainChat2HTML(chat_text.toString()) + "</body></html>");
+
                 }
             });
 
@@ -2236,7 +2243,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void recibirMensajeChat(String nick, String msg) {
 
-        chat_text.append(nick + ": " + msg + "\n");
+        chat_text.append(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n");
         Helpers.GUIRun(new Runnable() {
 
             public void run() {
@@ -2412,8 +2419,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 conectados.repaint();
 
-                refreshChatPanel();
-
             }
         });
 
@@ -2452,7 +2457,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         chat = new javax.swing.JEditorPane();
         jPanel2 = new javax.swing.JPanel();
         chat_box = new javax.swing.JTextField();
-        jButton1 = new javax.swing.JButton();
+        emoji_button = new javax.swing.JButton();
+        image_button = new javax.swing.JButton();
         emoji_scroll_panel = new javax.swing.JScrollPane();
         emoji_panel = new com.tonikelope.coronapoker.EmojiPanel();
 
@@ -2722,12 +2728,24 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        jButton1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/129.png"))); // NOI18N
-        jButton1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        jButton1.setDoubleBuffered(true);
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
+        emoji_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/129.png"))); // NOI18N
+        emoji_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        emoji_button.setDoubleBuffered(true);
+        emoji_button.setMargin(new java.awt.Insets(2, 2, 2, 2));
+        emoji_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
+                emoji_buttonActionPerformed(evt);
+            }
+        });
+
+        image_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/chat_image.png"))); // NOI18N
+        image_button.setToolTipText("Enviar imagen");
+        image_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        image_button.setDoubleBuffered(true);
+        image_button.setMargin(new java.awt.Insets(0, 0, 0, 0));
+        image_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                image_buttonActionPerformed(evt);
             }
         });
 
@@ -2737,18 +2755,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addGap(0, 0, 0)
+                .addComponent(emoji_button)
+                .addGap(0, 0, 0)
                 .addComponent(chat_box)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, 0))
+                .addGap(0, 0, 0)
+                .addComponent(image_button))
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(chat_box)
-                    .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+            .addComponent(chat_box)
+            .addComponent(emoji_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(image_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         emoji_scroll_panel.setBorder(null);
@@ -3287,15 +3304,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.savePropertiesFile();
     }//GEN-LAST:event_chat_notificationsActionPerformed
 
-    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+    private void emoji_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_emoji_buttonActionPerformed
         // TODO add your handling code here:
+
+        if (!emoji_scroll_panel.isVisible()) {
+            emoji_panel.refreshEmojis();
+        } else {
+            emoji_scroll_panel.getHorizontalScrollBar().setValue(0);
+        }
+
         emoji_scroll_panel.setVisible(!emoji_scroll_panel.isVisible());
 
         this.revalidate();
 
         this.repaint();
 
-    }//GEN-LAST:event_jButton1ActionPerformed
+    }//GEN-LAST:event_emoji_buttonActionPerformed
 
     private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_boxActionPerformed
         // TODO add your handling code here:
@@ -3304,7 +3328,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (chat_enabled && mensaje.length() > 0) {
 
-            chat_text.append(local_nick + ": " + mensaje + "\n");
+            chat_text.append(local_nick + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n");
 
             refreshChatPanel();
 
@@ -3332,6 +3356,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_chat_boxActionPerformed
 
+    private void image_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_image_buttonActionPerformed
+        // TODO add your handling code here:
+
+        ChatImageURLDialog dialog = new ChatImageURLDialog(this, true);
+        dialog.setPreferredSize(new Dimension((int) (this.getWidth() * 0.9f), (int) dialog.getPreferredSize().getHeight()));
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }//GEN-LAST:event_image_buttonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
     private javax.swing.JProgressBar barra;
@@ -3341,11 +3375,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private javax.swing.JScrollPane chat_scroll;
     private javax.swing.JList<String> conectados;
     private javax.swing.JLabel danger_server;
+    private javax.swing.JButton emoji_button;
     private com.tonikelope.coronapoker.EmojiPanel emoji_panel;
     private javax.swing.JScrollPane emoji_scroll_panel;
     private javax.swing.JButton empezar_timba;
     private javax.swing.JLabel game_info;
-    private javax.swing.JButton jButton1;
+    private javax.swing.JButton image_button;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JButton kick_user;

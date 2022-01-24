@@ -8,11 +8,14 @@ package com.tonikelope.coronapoker;
 import java.awt.Cursor;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.UnsupportedEncodingException;
+import java.util.ArrayDeque;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.text.BadLocationException;
+import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -20,42 +23,118 @@ import javax.swing.text.BadLocationException;
  */
 public class EmojiPanel extends javax.swing.JPanel {
 
+    private static ArrayDeque<Integer> HISTORIAL = cargarHistorial();
+
     /**
      * Creates new form EmojiPanel
      */
     public EmojiPanel() {
         initComponents();
+        refreshEmojis();
+    }
+
+    public void refreshEmojis() {
+
+        this.removeAll();
+
+        for (Integer i : HISTORIAL) {
+            createEmoji(i);
+        }
 
         for (int i = 1; i <= 131; i++) {
 
-            JLabel label = new JLabel();
-
-            label.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-            label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/" + i + ".png")));
-
-            final int j = i;
-
-            label.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    try {
-
-                        WaitingRoomFrame.getInstance().getChat_box().getDocument().insertString(WaitingRoomFrame.getInstance().getChat_box().getCaretPosition(), " #" + j + "# ", null);
-
-                    } catch (BadLocationException ex) {
-                        Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
-                }
-            });
-
-            add(label);
+            if (!HISTORIAL.contains(i)) {
+                createEmoji(i);
+            }
         }
 
         revalidate();
 
         repaint();
+    }
+
+    private void createEmoji(int i) {
+        JLabel label = new JLabel();
+
+        label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/" + i + ".png")));
+
+        final int j = i;
+
+        label.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                try {
+
+                    WaitingRoomFrame.getInstance().getChat_box().getDocument().insertString(WaitingRoomFrame.getInstance().getChat_box().getCaretPosition(), " #" + j + "# ", null);
+                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+
+                    if (HISTORIAL.isEmpty() || !HISTORIAL.peekLast().equals(j)) {
+
+                        if (HISTORIAL.contains(j)) {
+                            HISTORIAL.remove(j);
+                        }
+
+                        HISTORIAL.push(j);
+
+                        guardarHistorial();
+                    }
+
+                } catch (BadLocationException ex) {
+                    Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            }
+        });
+
+        add(label);
+    }
+
+    private void guardarHistorial() {
+
+        Integer[] historial = HISTORIAL.toArray(new Integer[0]);
+
+        String[] hist = new String[historial.length];
+
+        for (int i = 0; i < historial.length; i++) {
+
+            hist[i] = String.valueOf(historial[i]);
+        }
+
+        try {
+            Helpers.PROPERTIES.setProperty("chat_emoji_hist", Base64.encodeBase64String(String.join(",", hist).getBytes("UTF-8")));
+            Helpers.savePropertiesFile();
+        } catch (UnsupportedEncodingException ex) {
+            Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private static ArrayDeque<Integer> cargarHistorial() {
+
+        ArrayDeque<Integer> historial = new ArrayDeque<>();
+
+        String hist_b64 = Helpers.PROPERTIES.getProperty("chat_emoji_hist", "");
+
+        if (!hist_b64.isBlank()) {
+
+            String hist;
+            try {
+                hist = new String(Base64.decodeBase64(hist_b64), "UTF-8");
+
+                String[] hist_numbers = hist.split(",");
+
+                for (String s : hist_numbers) {
+                    historial.addLast(Integer.parseInt(s));
+                }
+
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return historial;
+
     }
 
     /**

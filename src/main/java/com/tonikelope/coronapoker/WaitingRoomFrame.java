@@ -19,6 +19,8 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
+import java.awt.event.AdjustmentEvent;
+import java.awt.event.AdjustmentListener;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -96,6 +98,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final Object lock_new_client = new Object();
     private final Object lock_reconnect = new Object();
     private final Object lock_client_reconnect = new Object();
+    private final Object lock_chat_panel = new Object();
     private final boolean server;
     private final String local_nick;
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
@@ -468,6 +471,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        chat_scroll.getVerticalScrollBar().addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent e) {
+
+                if (!chat.hasFocus()) {
+
+                    e.getAdjustable().setValue(e.getAdjustable().getMaximum());
+                }
+            }
+        });
+
         String background_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
         chat.setText("<html><body style='background-image: url(" + background_src + ")'></body></html>");
 
@@ -564,7 +577,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             empezar_timba.setVisible(false);
             new_bot_button.setVisible(false);
             kick_user.setVisible(false);
-            chat_box.setEnabled(false);
+            chat_box_panel.setEnabled(false);
             chat.setEnabled(false);
             barra.setVisible(true);
             conectados.setModel(listModel);
@@ -1323,7 +1336,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     refreshChatPanel();
                                     status.setText(Translator.translate("CONECTADO"));
                                     barra.setVisible(false);
-                                    chat_box.setEnabled(true);
+                                    chat_box_panel.setEnabled(true);
                                     chat.setEnabled(true);
                                 }
                             });
@@ -2211,39 +2224,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (!chat_text.toString().isEmpty()) {
 
-            int old_max = chat_scroll.getVerticalScrollBar().getMaximum();
+            String background_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
 
             Helpers.GUIRunAndWait(new Runnable() {
 
                 public void run() {
-                    String background_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
 
                     chat.setText("<html><body style='background-image: url(" + background_src + ")'>" + plainChat2HTML(chat_text.toString()) + "</body></html>");
 
                 }
             });
-
-            if (!chat.hasFocus()) {
-                Helpers.threadRun(new Runnable() {
-
-                    public void run() {
-
-                        while (chat_scroll.getVerticalScrollBar().getValueIsAdjusting() || old_max == chat_scroll.getVerticalScrollBar().getMaximum()) {
-
-                            Helpers.pausar(125);
-                        }
-
-                        Helpers.GUIRun(new Runnable() {
-
-                            public void run() {
-                                chat_scroll.getVerticalScrollBar().setValue(chat_scroll.getVerticalScrollBar().getMaximum());
-
-                            }
-                        });
-
-                    }
-                });
-            }
         }
     }
 
@@ -2461,7 +2451,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         chat_notifications = new javax.swing.JCheckBox();
         chat_scroll = new javax.swing.JScrollPane();
         chat = new javax.swing.JEditorPane();
-        jPanel2 = new javax.swing.JPanel();
+        chat_box_panel = new javax.swing.JPanel();
         chat_box = new javax.swing.JTextField();
         emoji_button = new javax.swing.JButton();
         image_button = new javax.swing.JButton();
@@ -2755,11 +2745,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
-        jPanel2.setLayout(jPanel2Layout);
-        jPanel2Layout.setHorizontalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
+        javax.swing.GroupLayout chat_box_panelLayout = new javax.swing.GroupLayout(chat_box_panel);
+        chat_box_panel.setLayout(chat_box_panelLayout);
+        chat_box_panelLayout.setHorizontalGroup(
+            chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(chat_box_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addComponent(emoji_button)
                 .addGap(0, 0, 0)
@@ -2767,8 +2757,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addGap(0, 0, 0)
                 .addComponent(image_button))
         );
-        jPanel2Layout.setVerticalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        chat_box_panelLayout.setVerticalGroup(
+            chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(chat_box)
             .addComponent(emoji_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(image_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2794,7 +2784,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(avatar_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addComponent(chat_box_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(chat_notifications, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(chat_scroll, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
@@ -2813,7 +2803,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(chat_box_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(emoji_scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -3377,6 +3367,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private javax.swing.JProgressBar barra;
     private javax.swing.JEditorPane chat;
     private javax.swing.JTextField chat_box;
+    private javax.swing.JPanel chat_box_panel;
     private javax.swing.JCheckBox chat_notifications;
     private javax.swing.JScrollPane chat_scroll;
     private javax.swing.JList<String> conectados;
@@ -3388,7 +3379,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private javax.swing.JLabel game_info;
     private javax.swing.JButton image_button;
     private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel2;
     private javax.swing.JButton kick_user;
     private javax.swing.JLabel logo;
     private javax.swing.JButton new_bot_button;

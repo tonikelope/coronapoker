@@ -2222,7 +2222,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void refreshChatPanel() {
 
-        if (!chat_text.toString().isEmpty()) {
+        if (isVisible() && !chat_text.toString().isEmpty()) {
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
@@ -3059,6 +3059,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 } else {
                     setVisible(false);
+
+                    Helpers.GUIRun(new Runnable() {
+
+                        public void run() {
+
+                            chat.setText("");
+
+                        }
+                    });
                 }
 
             } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
@@ -3105,6 +3114,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         chat.revalidate();
 
         chat.repaint();
+
+        refreshChatPanel();
 
         sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
 

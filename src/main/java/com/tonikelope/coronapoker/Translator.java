@@ -33,6 +33,9 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Enviar", "Send"},
+            {"Enviar imagen", "Send image"},
+            {"Enviar URL de imagen", "Send image URL"},
             {" segs...)", " secs...)"},
             {"ERROR (Reconexión en ", "ERROR (Reconnection in "},
             {"¿IWTSTH?", "IWTSTH?"},

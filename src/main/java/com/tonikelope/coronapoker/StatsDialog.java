@@ -43,6 +43,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
+import javax.swing.event.HyperlinkEvent;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import org.apache.commons.codec.binary.Base64;
@@ -81,6 +82,14 @@ public class StatsDialog extends javax.swing.JDialog {
         sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL RIVER"), this::subidasRiver);
 
         initComponents();
+
+        game_textarea.setContentType("text/html");
+        game_textarea.addHyperlinkListener(e -> {
+            if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
+
+                Helpers.openBrowserURL(e.getURL().toString());
+            }
+        });
 
         scroll_stats_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_stats_panel.getHorizontalScrollBar().setUnitIncrement(16);
@@ -1492,9 +1501,9 @@ public class StatsDialog extends javax.swing.JDialog {
         game_playtime_val = new javax.swing.JLabel();
         delete_game_button = new javax.swing.JButton();
         log_game_button = new javax.swing.JButton();
-        game_textarea_scrollpane = new javax.swing.JScrollPane();
-        game_textarea = new javax.swing.JTextArea();
         chat_game_button = new javax.swing.JButton();
+        game_textarea_scrollpane = new javax.swing.JScrollPane();
+        game_textarea = new javax.swing.JEditorPane();
         game_combo_filter = new javax.swing.JTextField();
         purge_games_button = new javax.swing.JButton();
         hands_panel = new javax.swing.JPanel();
@@ -1653,15 +1662,6 @@ public class StatsDialog extends javax.swing.JDialog {
             }
         });
 
-        game_textarea.setEditable(false);
-        game_textarea.setBackground(new java.awt.Color(102, 102, 102));
-        game_textarea.setColumns(20);
-        game_textarea.setFont(new java.awt.Font("DejaVu Sans", 0, 16)); // NOI18N
-        game_textarea.setForeground(new java.awt.Color(255, 255, 255));
-        game_textarea.setRows(5);
-        game_textarea.setDoubleBuffered(true);
-        game_textarea_scrollpane.setViewportView(game_textarea);
-
         chat_game_button.setBackground(new java.awt.Color(0, 102, 153));
         chat_game_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         chat_game_button.setForeground(new java.awt.Color(255, 255, 255));
@@ -1673,6 +1673,13 @@ public class StatsDialog extends javax.swing.JDialog {
                 chat_game_buttonActionPerformed(evt);
             }
         });
+
+        game_textarea_scrollpane.setDoubleBuffered(true);
+
+        game_textarea.setEditable(false);
+        game_textarea.setBorder(null);
+        game_textarea.setDoubleBuffered(true);
+        game_textarea_scrollpane.setViewportView(game_textarea);
 
         javax.swing.GroupLayout game_data_panelLayout = new javax.swing.GroupLayout(game_data_panel);
         game_data_panel.setLayout(game_data_panelLayout);
@@ -2291,7 +2298,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                 String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8);
 
-                game_textarea.setText(log);
+                game_textarea.setText("<html><body style='color:white;background-color:rgb(102,102,102)'>" + log.replaceAll("[*]{15} [^*]+ [*]{15}", "<b>$0</b>").replaceAll("\n", "<br>") + "</body></html>");
 
                 game_textarea_scrollpane.setVisible(true);
 
@@ -2464,7 +2471,7 @@ public class StatsDialog extends javax.swing.JDialog {
     private javax.swing.JLabel game_playtime_val;
     private javax.swing.JLabel game_rebuy_label;
     private javax.swing.JLabel game_rebuy_val;
-    private javax.swing.JTextArea game_textarea;
+    private javax.swing.JEditorPane game_textarea;
     private javax.swing.JScrollPane game_textarea_scrollpane;
     private javax.swing.JLabel hand_blinds_label;
     private javax.swing.JLabel hand_blinds_val;

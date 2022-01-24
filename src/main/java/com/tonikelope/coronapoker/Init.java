@@ -22,6 +22,8 @@ import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
+import java.awt.MouseInfo;
+import java.awt.Point;
 import java.awt.Robot;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -79,7 +81,6 @@ public class Init extends javax.swing.JFrame {
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
-    public static final int ANTI_SCREENSAVER_KEY = KeyEvent.VK_ALT;
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
     public static final Object LOCK_CINEMATICS = new Object();
     public static final int QUOTE_DELAY = 10000;
@@ -1111,42 +1112,22 @@ public class Init extends javax.swing.JFrame {
     }
 
     private static void antiScreensaver() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(new KeyEventDispatcher() {
-
-            @Override
-            public boolean dispatchKeyEvent(KeyEvent ke) {
-
-                switch (ke.getID()) {
-                    case KeyEvent.KEY_PRESSED:
-                        if (ke.getKeyCode() == ANTI_SCREENSAVER_KEY) {
-                            ANTI_SCREENSAVER_KEY_PRESSED = true;
-                        }
-                        break;
-
-                    case KeyEvent.KEY_RELEASED:
-                        if (ke.getKeyCode() == ANTI_SCREENSAVER_KEY) {
-                            ANTI_SCREENSAVER_KEY_PRESSED = false;
-                        }
-                        break;
-                }
-                return false;
-
-            }
-        });
 
         java.util.Timer screensaver = new java.util.Timer();
 
         screensaver.schedule(new TimerTask() {
             @Override
             public void run() {
-                if (!ANTI_SCREENSAVER_KEY_PRESSED && (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen())) {
+                if (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen()) {
+
                     try {
-                        Robot r = new Robot();
-                        r.waitForIdle();
-                        r.keyPress(ANTI_SCREENSAVER_KEY);
-                        r.keyRelease(ANTI_SCREENSAVER_KEY);
+
+                        Point mouseLoc = MouseInfo.getPointerInfo().getLocation();
+                        Robot rob = new Robot();
+                        rob.mouseMove(mouseLoc.x, mouseLoc.y);
+
                     } catch (AWTException ex) {
-                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
             }

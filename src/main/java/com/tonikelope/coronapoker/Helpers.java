@@ -79,6 +79,7 @@ import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -212,6 +213,10 @@ public class Helpers {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    public static String getLocalTimeString() {
+        return LocalDateTime.now().getHour() + ":" + LocalDateTime.now().getMinute();
     }
 
     //Thanks -> https://stackoverflow.com/a/46613809

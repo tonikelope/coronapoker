@@ -98,7 +98,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final Object lock_new_client = new Object();
     private final Object lock_reconnect = new Object();
     private final Object lock_client_reconnect = new Object();
-    private final Object lock_chat_panel = new Object();
     private final boolean server;
     private final String local_nick;
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
@@ -127,13 +126,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile boolean partida_empezando = false;
     private volatile String password = null;
     private volatile boolean exit = false;
-    private volatile StringBuilder chat_text = new StringBuilder();
+    private volatile StringBuffer chat_text = new StringBuffer();
 
     public String getLocal_nick() {
         return local_nick;
     }
 
-    public StringBuilder getChat_text() {
+    public StringBuffer getChat_text() {
         return chat_text;
     }
 
@@ -840,7 +839,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 if (!"*".equals(recibido)) {
 
-                                    chat_text = new StringBuilder(new String(Base64.decodeBase64(recibido), "UTF-8"));
+                                    chat_text = new StringBuffer(new String(Base64.decodeBase64(recibido), "UTF-8"));
 
                                     refreshChatPanel();
 
@@ -1272,7 +1271,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             if (!"*".equals(recibido)) {
 
-                                chat_text = new StringBuilder(new String(Base64.decodeBase64(recibido), "UTF-8"));
+                                chat_text = new StringBuffer(new String(Base64.decodeBase64(recibido), "UTF-8"));
 
                                 refreshChatPanel();
                             }
@@ -1331,9 +1330,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 }
                             });
 
+                            refreshChatPanel();
+
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
-                                    refreshChatPanel();
                                     status.setText(Translator.translate("CONECTADO"));
                                     barra.setVisible(false);
                                     chat_box_panel.setEnabled(true);
@@ -2224,13 +2224,21 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (!chat_text.toString().isEmpty()) {
 
-            String background_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
-
-            Helpers.GUIRunAndWait(new Runnable() {
-
+            Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    chat.setText("<html><body style='background-image: url(" + background_src + ")'>" + plainChat2HTML(chat_text.toString()) + "</body></html>");
+                    String background_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
+
+                    final String html = "<html><body style='background-image: url(" + background_src + ")'>" + plainChat2HTML(chat_text.toString()) + "</body></html>";
+
+                    Helpers.GUIRun(new Runnable() {
+
+                        public void run() {
+
+                            chat.setText(html);
+
+                        }
+                    });
 
                 }
             });
@@ -2240,11 +2248,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public void recibirMensajeChat(String nick, String msg) {
 
         chat_text.append(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n");
+
+        refreshChatPanel();
+
         Helpers.GUIRun(new Runnable() {
 
             public void run() {
-
-                refreshChatPanel();
 
                 if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive() && WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
 

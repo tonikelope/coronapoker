@@ -75,7 +75,6 @@ import javax.swing.text.DefaultCaret;
 import javax.swing.text.JTextComponent;
 import org.apache.commons.codec.binary.Base64;
 
-
 /**
  * Appearances can be deceiving...
  *
@@ -131,7 +130,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile StringBuffer chat_text = new StringBuffer();
     private final String background_src;
     private volatile String local_avatar_chat_src;
-    private volatile Border chat_scroll_border=null;
+    private volatile Border chat_scroll_border = null;
 
     public String getLocal_nick() {
         return local_nick;
@@ -442,7 +441,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         initComponents();
 
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
-        
+
         chat_scroll_border = chat_scroll.getBorder();
 
         emoji_scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
@@ -455,6 +454,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
 
                 Helpers.openBrowserURL(e.getURL().toString());
+
+                chat_box.requestFocus();
             }
         });
 
@@ -1326,8 +1327,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 }
                             });
-
-                            refreshChatPanel();
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
@@ -2472,8 +2471,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
         addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowActivated(java.awt.event.WindowEvent evt) {
+                formWindowActivated(evt);
+            }
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
+            }
+            public void windowOpened(java.awt.event.WindowEvent evt) {
+                formWindowOpened(evt);
             }
         });
 
@@ -3332,6 +3337,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         this.repaint();
 
+        chat_box.requestFocus();
+
     }//GEN-LAST:event_emoji_buttonActionPerformed
 
     private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_boxActionPerformed
@@ -3399,6 +3406,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
         emoji_panel.refreshEmojiHistory();
     }//GEN-LAST:event_emoji_scroll_panelComponentHidden
+
+    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
+        // TODO add your handling code here:
+        chat_box.requestFocus();
+    }//GEN-LAST:event_formWindowActivated
+
+    private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
+        // TODO add your handling code here:
+        chat_box.requestFocus();
+    }//GEN-LAST:event_formWindowOpened
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

@@ -136,6 +136,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Enviar URL de imagen");
         setModal(true);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
+            }
+        });
 
         image_url.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         image_url.setDoubleBuffered(true);
@@ -214,6 +219,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             this.setVisible(false);
         }
     }//GEN-LAST:event_send_buttonActionPerformed
+
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        // TODO add your handling code here:
+        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+    }//GEN-LAST:event_formWindowClosing
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JEditorPane historial_panel;

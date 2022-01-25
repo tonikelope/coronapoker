@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
+import java.awt.Image;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -32,6 +33,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.spec.SecretKeySpec;
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -65,6 +68,7 @@ public class Participant implements Runnable {
     private volatile int new_hand_ready = 0;
     private volatile boolean unsecure_player = false;
     private volatile boolean reset_socket = false;
+    private volatile String avatar_chat_src;
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
@@ -91,6 +95,25 @@ public class Participant implements Runnable {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+
+        if (avatar != null) {
+            try {
+                //Guardamos una versión de 32x32 del avatar para el chat
+                ImageIO.write(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()), "png", new File(avatar.getAbsolutePath() + "_chat"));
+                avatar_chat_src = new File(avatar.getAbsolutePath() + "_chat").toURI().toURL().toExternalForm();
+            } catch (IOException ex) {
+                avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
+                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        } else {
+            avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
+        }
+
+    }
+
+    public String getAvatar_chat_src() {
+        return avatar_chat_src;
     }
 
     private void runKeepAliveThread() {

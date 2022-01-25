@@ -28,7 +28,7 @@
           <Group type="102" alignment="0" attributes="0">
               <EmptySpace max="-2" attributes="0"/>
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Component id="jScrollPane1" max="32767" attributes="0"/>
+                  <Component id="scroll_panel" max="32767" attributes="0"/>
                   <Group type="102" attributes="0">
                       <Component id="image_url" pref="560" max="32767" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
@@ -48,7 +48,7 @@
                   <Component id="image_url" max="32767" attributes="0"/>
               </Group>
               <EmptySpace max="-2" attributes="0"/>
-              <Component id="jScrollPane1" pref="276" max="32767" attributes="0"/>
+              <Component id="scroll_panel" pref="276" max="32767" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
           </Group>
       </Group>
@@ -78,7 +78,7 @@
         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="send_buttonActionPerformed"/>
       </Events>
     </Component>
-    <Container class="javax.swing.JScrollPane" name="jScrollPane1">
+    <Container class="javax.swing.JScrollPane" name="scroll_panel">
       <Properties>
         <Property name="doubleBuffered" type="boolean" value="true"/>
         <Property name="focusable" type="boolean" value="false"/>

@@ -30,6 +30,10 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         Helpers.JTextFieldRegularPopupMenu.addTo(image_url);
 
+        scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
+
+        scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
+
         historial_panel.setContentType("text/html");
 
         historial_panel.addHyperlinkListener(e -> {
@@ -126,7 +130,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         image_url = new javax.swing.JTextField();
         send_button = new javax.swing.JButton();
-        jScrollPane1 = new javax.swing.JScrollPane();
+        scroll_panel = new javax.swing.JScrollPane();
         historial_panel = new javax.swing.JEditorPane();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
@@ -146,16 +150,16 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             }
         });
 
-        jScrollPane1.setDoubleBuffered(true);
-        jScrollPane1.setFocusable(false);
-        jScrollPane1.setRequestFocusEnabled(false);
+        scroll_panel.setDoubleBuffered(true);
+        scroll_panel.setFocusable(false);
+        scroll_panel.setRequestFocusEnabled(false);
 
         historial_panel.setEditable(false);
         historial_panel.setBorder(null);
         historial_panel.setDoubleBuffered(true);
         historial_panel.setFocusCycleRoot(false);
         historial_panel.setFocusable(false);
-        jScrollPane1.setViewportView(historial_panel);
+        scroll_panel.setViewportView(historial_panel);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -164,7 +168,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane1)
+                    .addComponent(scroll_panel)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(image_url, javax.swing.GroupLayout.DEFAULT_SIZE, 560, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -179,7 +183,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                     .addComponent(send_button, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
                     .addComponent(image_url))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 276, Short.MAX_VALUE)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 276, Short.MAX_VALUE)
                 .addContainerGap())
         );
 
@@ -214,7 +218,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JEditorPane historial_panel;
     private javax.swing.JTextField image_url;
-    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane scroll_panel;
     private javax.swing.JButton send_button;
     // End of variables declaration//GEN-END:variables
 }

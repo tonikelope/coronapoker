@@ -10,10 +10,12 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.text.BadLocationException;
 import org.apache.commons.codec.binary.Base64;
 
@@ -23,7 +25,10 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class EmojiPanel extends javax.swing.JPanel {
 
-    private static ArrayDeque<Integer> HISTORIAL = cargarHistorial();
+    public static final int EMOJI_COUNT = 1826;
+    public static final ArrayList<String> EMOJI_SRC = createEmojisImageSrcs();
+    public static final ArrayList<ImageIcon> EMOJI_ICON = createEmojisImageIcons();
+    public static final ArrayDeque<Integer> HISTORIAL = cargarHistorial();
 
     /**
      * Creates new form EmojiPanel
@@ -35,17 +40,16 @@ public class EmojiPanel extends javax.swing.JPanel {
 
     public void refreshEmojis() {
 
-        this.removeAll();
+        history_panel.removeAll();
 
         for (Integer i : HISTORIAL) {
-            createEmoji(i);
+            createEmoji(history_panel, i);
         }
 
-        for (int i = 1; i <= 131; i++) {
+        emoji_panel.removeAll();
 
-            if (!HISTORIAL.contains(i)) {
-                createEmoji(i);
-            }
+        for (int i = 1; i <= EMOJI_COUNT; i++) {
+            createEmoji(emoji_panel, i);
         }
 
         revalidate();
@@ -53,12 +57,25 @@ public class EmojiPanel extends javax.swing.JPanel {
         repaint();
     }
 
-    private void createEmoji(int i) {
+    public void refreshEmojiHistory() {
+
+        history_panel.removeAll();
+
+        for (Integer i : HISTORIAL) {
+            createEmoji(history_panel, i);
+        }
+
+        revalidate();
+
+        repaint();
+    }
+
+    private void createEmoji(JPanel panel, int i) {
         JLabel label = new JLabel();
 
         label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/" + i + ".png")));
+        label.setIcon(EMOJI_ICON.get(i - 1));
 
         final int j = i;
 
@@ -70,7 +87,7 @@ public class EmojiPanel extends javax.swing.JPanel {
                     WaitingRoomFrame.getInstance().getChat_box().getDocument().insertString(WaitingRoomFrame.getInstance().getChat_box().getCaretPosition(), " #" + j + "# ", null);
                     WaitingRoomFrame.getInstance().getChat_box().requestFocus();
 
-                    if (HISTORIAL.isEmpty() || !HISTORIAL.peekLast().equals(j)) {
+                    if (HISTORIAL.isEmpty() || !HISTORIAL.peekFirst().equals(j)) {
 
                         if (HISTORIAL.contains(j)) {
                             HISTORIAL.remove(j);
@@ -88,7 +105,7 @@ public class EmojiPanel extends javax.swing.JPanel {
             }
         });
 
-        add(label);
+        panel.add(label);
     }
 
     private void guardarHistorial() {
@@ -110,7 +127,7 @@ public class EmojiPanel extends javax.swing.JPanel {
         }
     }
 
-    private static ArrayDeque<Integer> cargarHistorial() {
+    public static ArrayDeque<Integer> cargarHistorial() {
 
         ArrayDeque<Integer> historial = new ArrayDeque<>();
 
@@ -137,6 +154,30 @@ public class EmojiPanel extends javax.swing.JPanel {
 
     }
 
+    public static ArrayList<String> createEmojisImageSrcs() {
+
+        ArrayList<String> image_src_list = new ArrayList<>();
+
+        for (int i = 1; i <= EMOJI_COUNT; i++) {
+
+            image_src_list.add(EmojiPanel.class.getResource("/images/emoji_chat/" + i + ".png").toExternalForm());
+        }
+
+        return image_src_list;
+    }
+
+    public static ArrayList<ImageIcon> createEmojisImageIcons() {
+
+        ArrayList<ImageIcon> image_icon_list = new ArrayList<>();
+
+        for (int i = 1; i <= EMOJI_COUNT; i++) {
+
+            image_icon_list.add(new ImageIcon(EmojiPanel.class.getResource("/images/emoji_chat/" + i + ".png")));
+        }
+
+        return image_icon_list;
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -146,10 +187,33 @@ public class EmojiPanel extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        history_panel = new javax.swing.JPanel();
+        emoji_panel = new javax.swing.JPanel();
+
         setFocusable(false);
         setRequestFocusEnabled(false);
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
+        this.setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(history_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 359, Short.MAX_VALUE)
+                .addGap(0, 0, 0)
+                .addComponent(emoji_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 359, Short.MAX_VALUE))
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGap(0, 0, Short.MAX_VALUE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(history_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(emoji_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)))
+        );
     }// </editor-fold>//GEN-END:initComponents
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JPanel emoji_panel;
+    private javax.swing.JPanel history_panel;
     // End of variables declaration//GEN-END:variables
 }

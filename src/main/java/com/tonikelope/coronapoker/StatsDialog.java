@@ -2399,11 +2399,13 @@ public class StatsDialog extends javax.swing.JDialog {
 
             String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
+            String avatar_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
+
             try {
 
                 String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8);
 
-                game_textarea.setText(log.replaceAll("\n", "\n\n"));
+                game_textarea.setText(log.replaceAll("<img[^<>]+avatar[^<>]+>", "<img src='" + avatar_src + "' />"));
 
                 game_textarea_scrollpane.setVisible(true);
 

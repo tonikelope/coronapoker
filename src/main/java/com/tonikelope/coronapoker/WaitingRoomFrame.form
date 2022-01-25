@@ -290,7 +290,7 @@
                       <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Component id="kick_user" max="32767" attributes="0"/>
-                          <Component id="panel_conectados" max="32767" attributes="0"/>
+                          <Component id="panel_conectados" pref="364" max="32767" attributes="0"/>
                       </Group>
                   </Group>
               </Group>
@@ -496,6 +496,10 @@
             </Property>
             <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
+          <Events>
+            <EventHandler event="focusGained" listener="java.awt.event.FocusListener" parameters="java.awt.event.FocusEvent" handler="chatFocusGained"/>
+            <EventHandler event="focusLost" listener="java.awt.event.FocusListener" parameters="java.awt.event.FocusEvent" handler="chatFocusLost"/>
+          </Events>
         </Component>
       </SubComponents>
     </Container>
@@ -508,9 +512,9 @@
                   <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                   <Component id="emoji_button" min="-2" max="-2" attributes="0"/>
                   <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Component id="chat_box" max="32767" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                   <Component id="image_button" min="-2" max="-2" attributes="0"/>
+                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                  <Component id="chat_box" max="32767" attributes="0"/>
               </Group>
           </Group>
         </DimensionLayout>
@@ -537,7 +541,7 @@
         <Component class="javax.swing.JButton" name="emoji_button">
           <Properties>
             <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-              <Image iconType="3" name="/images/emoji_chat/129.png"/>
+              <Image iconType="3" name="/images/emoji_chat/1.png"/>
             </Property>
             <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
               <Color id="Cursor de Mano"/>
@@ -581,6 +585,9 @@
         <Property name="focusable" type="boolean" value="false"/>
         <Property name="requestFocusEnabled" type="boolean" value="false"/>
       </Properties>
+      <Events>
+        <EventHandler event="componentHidden" listener="java.awt.event.ComponentListener" parameters="java.awt.event.ComponentEvent" handler="emoji_scroll_panelComponentHidden"/>
+      </Events>
 
       <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
       <SubComponents>

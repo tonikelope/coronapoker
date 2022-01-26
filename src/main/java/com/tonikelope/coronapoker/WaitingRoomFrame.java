@@ -72,6 +72,8 @@ import javax.swing.JLabel;
 import javax.swing.JProgressBar;
 import javax.swing.JTextField;
 import javax.swing.border.Border;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultCaret;
 import javax.swing.text.html.HTMLEditorKit;
@@ -345,6 +347,20 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return local_client_socket_lock;
     }
 
+    public void chatHTMLAppend(String text) {
+
+        chat_text.append(text);
+
+        HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
+
+        StringReader reader = new StringReader(plainChat2HTML(text));
+
+        try {
+            editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
+        } catch (Exception ex) {
+        }
+    }
+
     public synchronized String plainChat2HTML(String chat) {
 
         String html = "";
@@ -375,16 +391,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 avatar_src = this.participantes.get(nick).getAvatar_chat_src();
             }
-            
+
             msg = Helpers.escapeHTML(msg);
 
             msg = msg.replaceAll("https?://([^/]+)[^ \r\n]+", "#171#<a href='$0'><b>$1</b></a>");
-            
+
             msg = msg.replaceAll("[^@ ]+@[^ @.]+(?:\\.[^.@ ]+)+", "#1215# <i>$0</i>");
 
             msg = parseImagesChat(msg);
 
             msg = parseEmojiChat(msg);
+
+            msg = parseBBCODE(msg);
 
             html += "<div " + align + "><div style='margin-top:5px;margin-bottom:5px;'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' /> <span><b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></span><br><div style='margin-top:3px;'>" + msg + "</div></div></div>";
         }
@@ -392,7 +410,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return html;
 
     }
-    
+
+    private String parseBBCODE(String message) {
+
+        return message.replaceAll("(?i)\\[ *([i]) *\\](.*?)\\[ */ *\\1 *\\]", "<i>$2</i>").replaceAll("(?i)\\[ *([b]) *\\](.*?)\\[ */ *\\1 *\\]", "<b>$2</b>").replaceAll("(?i)\\[ *([c](?:olor)?) *= *(.*?) *\\](.*?)\\[ */ *\\1 *\\]", "<span style='color:$2'>$3</span>");
+    }
+
     private String parseImagesChat(String message) {
 
         String msg = message;
@@ -477,9 +500,29 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
 
+        class SendButtonListener implements DocumentListener {
+
+            public void changedUpdate(DocumentEvent e) {
+
+                send_label.setEnabled(!chat_box.getText().isBlank());
+            }
+
+            public void insertUpdate(DocumentEvent e) {
+                send_label.setEnabled(!chat_box.getText().isBlank());
+            }
+
+            public void removeUpdate(DocumentEvent e) {
+                send_label.setEnabled(!chat_box.getText().isBlank());
+            }
+        }
+
+        chat_box.getDocument().addDocumentListener(new SendButtonListener());
+
         emoji_button.setEnabled(false);
 
         Helpers.setResourceIconLabel(send_label, getClass().getResource("/images/start.png"), chat_box.getHeight(), chat_box.getHeight());
+
+        send_label.setEnabled(false);
 
         chat_scroll_border = chat_scroll.getBorder();
 
@@ -2279,17 +2322,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void recibirMensajeChat(String nick, String msg) {
 
-        chat_text.append(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n");
-
-        HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
-
-        StringReader reader = new StringReader(plainChat2HTML(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n"));
-
-        try {
-
-            editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
-        } catch (Exception ex) {
-        }
+        chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n");
 
         Helpers.GUIRun(new Runnable() {
 
@@ -3405,17 +3438,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (chat_enabled && mensaje.length() > 0) {
 
-            chat_text.append(local_nick + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n");
-
-            HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
-
-            StringReader reader = new StringReader(plainChat2HTML(local_nick + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n"));
-
-            try {
-
-                editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
-            } catch (Exception ex) {
-            }
+            chatHTMLAppend(local_nick + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n");
 
             this.enviarMensajeChat(local_nick, mensaje);
 

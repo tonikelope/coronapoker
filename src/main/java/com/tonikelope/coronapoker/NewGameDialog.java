@@ -222,17 +222,17 @@ public class NewGameDialog extends javax.swing.JDialog {
         class VamosButtonListener implements DocumentListener {
 
             public void changedUpdate(DocumentEvent e) {
-                vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+                vamos.setEnabled(!nick.getText().isBlank() && !server_ip_textfield.getText().isBlank() && !server_port_textfield.getText().isBlank());
                 password.setEnabled(pass_text.getPassword().length > 0);
             }
 
             public void insertUpdate(DocumentEvent e) {
-                vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+                vamos.setEnabled(!nick.getText().isBlank() && !server_ip_textfield.getText().isBlank() && !server_port_textfield.getText().isBlank());
                 password.setEnabled(pass_text.getPassword().length > 0);
             }
 
             public void removeUpdate(DocumentEvent e) {
-                vamos.setEnabled(nick.getText().length() > 0 && server_ip_textfield.getText().length() > 0 && server_port_textfield.getText().length() > 0);
+                vamos.setEnabled(!nick.getText().isBlank() && !server_ip_textfield.getText().isBlank() && !server_port_textfield.getText().isBlank());
                 password.setEnabled(pass_text.getPassword().length > 0);
             }
         }

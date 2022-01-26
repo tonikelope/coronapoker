@@ -6,7 +6,7 @@
 package com.tonikelope.coronapoker;
 
 import java.io.StringReader;
-import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.event.HyperlinkEvent;
@@ -19,7 +19,7 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class ChatImageURLDialog extends javax.swing.JDialog {
 
-    public static ArrayList<String> HISTORIAL = cargarHistorial();
+    public static ArrayDeque<String> HISTORIAL = cargarHistorial();
 
     /**
      * Creates new form ChatImageURLDialog
@@ -77,7 +77,27 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     }
 
-    private void guardarHistorial() {
+    public static void updateHistorialEnviados(String url) {
+
+        if (HISTORIAL.isEmpty() || !HISTORIAL.peekFirst().equals(url)) {
+
+            if (HISTORIAL.contains(url)) {
+                HISTORIAL.remove(url);
+            }
+
+            HISTORIAL.push(url);
+        }
+    }
+
+    public static void updateHistorialRecibidos(String url) {
+
+        if (!HISTORIAL.contains(url)) {
+
+            HISTORIAL.addLast(url);
+        }
+    }
+
+    public synchronized static void guardarHistorial() {
 
         String[] historial = HISTORIAL.toArray(new String[0]);
 
@@ -98,9 +118,9 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     }
 
-    private static ArrayList<String> cargarHistorial() {
+    private static ArrayDeque<String> cargarHistorial() {
 
-        ArrayList<String> historial = new ArrayList<>();
+        ArrayDeque<String> historial = new ArrayDeque<>();
 
         String hist_b64 = Helpers.PROPERTIES.getProperty("chat_img_hist", "");
 
@@ -110,7 +130,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
             for (String h : hist) {
                 try {
-                    historial.add(new String(Base64.decodeBase64(h), "UTF-8"));
+                    historial.addLast(new String(Base64.decodeBase64(h), "UTF-8"));
                 } catch (Exception ex) {
                     Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -172,15 +192,13 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(scroll_panel)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(image_url, javax.swing.GroupLayout.DEFAULT_SIZE, 560, Short.MAX_VALUE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(send_button)))
+                .addComponent(image_url, javax.swing.GroupLayout.DEFAULT_SIZE, 619, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(send_button)
                 .addContainerGap())
+            .addComponent(scroll_panel)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -190,8 +208,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                     .addComponent(send_button, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
                     .addComponent(image_url))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 276, Short.MAX_VALUE)
-                .addContainerGap())
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 288, Short.MAX_VALUE))
         );
 
         pack();
@@ -203,12 +220,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         String url = image_url.getText().trim();
 
         if (url.startsWith("http")) {
-
-            if (!HISTORIAL.contains(url)) {
-                HISTORIAL.add(url);
-            }
-
-            guardarHistorial();
 
             WaitingRoomFrame.getInstance().getChat_text().append(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
 
@@ -225,6 +236,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             WaitingRoomFrame.getInstance().enviarMensajeChat(WaitingRoomFrame.getInstance().getLocal_nick(), url.replaceAll("^http", "img"));
 
             WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+
+            updateHistorialEnviados(url);
 
             this.setVisible(false);
 

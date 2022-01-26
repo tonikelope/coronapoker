@@ -26,7 +26,7 @@ import org.apache.commons.codec.binary.Base64;
 public class EmojiPanel extends javax.swing.JPanel {
 
     public static final int EMOJI_COUNT = 1826;
-    public static final int MAX_HIST = 10;
+    public static final int MAX_HIST = 15;
     public static final ArrayList<String> EMOJI_SRC = createEmojisImageSrcs();
     public static final ArrayList<ImageIcon> EMOJI_ICON = createEmojisImageIcons();
     public static final ArrayDeque<Integer> HISTORIAL = cargarHistorial();
@@ -99,20 +99,12 @@ public class EmojiPanel extends javax.swing.JPanel {
                     WaitingRoomFrame.getInstance().getChat_box().getDocument().insertString(WaitingRoomFrame.getInstance().getChat_box().getCaretPosition(), " #" + j + "# ", null);
                     WaitingRoomFrame.getInstance().getChat_box().requestFocus();
 
-                    if (HISTORIAL.isEmpty() || !HISTORIAL.peekFirst().equals(j)) {
-
-                        if (HISTORIAL.contains(j)) {
-                            HISTORIAL.remove(j);
+                    Helpers.threadRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            updateHistorial(j);
                         }
-
-                        HISTORIAL.push(j);
-
-                        if (HISTORIAL.size() > MAX_HIST) {
-                            HISTORIAL.removeLast();
-                        }
-
-                        guardarHistorial();
-                    }
+                    });
 
                 } catch (BadLocationException ex) {
                     Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
@@ -122,6 +114,25 @@ public class EmojiPanel extends javax.swing.JPanel {
         });
 
         panel.add(label);
+    }
+
+    private void updateHistorial(int j) {
+
+        if (HISTORIAL.isEmpty() || !HISTORIAL.peekFirst().equals(j)) {
+
+            if (HISTORIAL.contains(j)) {
+                HISTORIAL.remove(j);
+            }
+
+            HISTORIAL.push(j);
+
+            if (HISTORIAL.size() > MAX_HIST) {
+                HISTORIAL.removeLast();
+            }
+
+            guardarHistorial();
+        }
+
     }
 
     private void guardarHistorial() {

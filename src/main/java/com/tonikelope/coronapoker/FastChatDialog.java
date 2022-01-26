@@ -18,9 +18,7 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Dimension;
-import java.io.StringReader;
 import javax.swing.JTextField;
-import javax.swing.text.html.HTMLEditorKit;
 
 /**
  *
@@ -186,17 +184,7 @@ public class FastChatDialog extends javax.swing.JDialog {
 
         if (GameFrame.getInstance().getSala_espera().isChat_enabled() && mensaje.length() > 0) {
 
-            GameFrame.getInstance().getSala_espera().getChat_text().append(GameFrame.getInstance().getLocalPlayer().getNickname() + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n");
-
-            HTMLEditorKit editor = (HTMLEditorKit) GameFrame.getInstance().getSala_espera().getChat().getEditorKit();
-
-            StringReader reader = new StringReader(GameFrame.getInstance().getSala_espera().plainChat2HTML(GameFrame.getInstance().getLocalPlayer().getNickname() + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n"));
-
-            try {
-
-                editor.read(reader, GameFrame.getInstance().getSala_espera().getChat().getDocument(), GameFrame.getInstance().getSala_espera().getChat().getDocument().getLength());
-            } catch (Exception ex) {
-            }
+            GameFrame.getInstance().getSala_espera().chatHTMLAppend(GameFrame.getInstance().getLocalPlayer().getNickname() + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n");
 
             GameFrame.getInstance().getSala_espera().enviarMensajeChat(GameFrame.getInstance().getLocalPlayer().getNickname(), mensaje);
 

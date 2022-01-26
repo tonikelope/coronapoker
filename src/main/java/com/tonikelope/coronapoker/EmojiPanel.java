@@ -24,7 +24,7 @@ import org.apache.commons.codec.binary.Base64;
  * @author tonikelope
  */
 public class EmojiPanel extends javax.swing.JPanel {
-
+    
     public static final int EMOJI_COUNT = 1826;
     public static final int MAX_HIST = 10;
     public static final ArrayList<String> EMOJI_SRC = createEmojisImageSrcs();
@@ -36,94 +36,105 @@ public class EmojiPanel extends javax.swing.JPanel {
      */
     public EmojiPanel() {
         initComponents();
-        refreshEmojis();
+        populateEmojis();
     }
-
-    public void refreshEmojis() {
-
-        history_panel.removeAll();
-
-        for (Integer i : HISTORIAL) {
-            createEmoji(history_panel, i);
-        }
-
-        emoji_panel.removeAll();
-
-        for (int i = 1; i <= EMOJI_COUNT; i++) {
-            createEmoji(emoji_panel, i);
-        }
-
-        revalidate();
-
-        repaint();
+    
+    private void populateEmojis() {
+        
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+                
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+                        history_panel.removeAll();
+                        
+                        for (Integer i : HISTORIAL) {
+                            createEmoji(history_panel, i);
+                        }
+                        
+                        emoji_panel.removeAll();
+                        
+                        for (int i = 1; i <= EMOJI_COUNT; i++) {
+                            createEmoji(emoji_panel, i);
+                        }
+                        
+                        revalidate();
+                        
+                        repaint();
+                        
+                        WaitingRoomFrame.getInstance().getEmoji_button().setEnabled(true);
+                    }
+                });
+            }
+        });
     }
-
+    
     public void refreshEmojiHistory() {
-
+        
         history_panel.removeAll();
-
+        
         for (Integer i : HISTORIAL) {
             createEmoji(history_panel, i);
         }
-
+        
         revalidate();
-
+        
         repaint();
     }
-
+    
     private void createEmoji(JPanel panel, int i) {
         JLabel label = new JLabel();
-
+        
         label.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
+        
         label.setIcon(EMOJI_ICON.get(i - 1));
-
+        
         final int j = i;
-
+        
         label.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 try {
-
+                    
                     WaitingRoomFrame.getInstance().getChat_box().getDocument().insertString(WaitingRoomFrame.getInstance().getChat_box().getCaretPosition(), " #" + j + "# ", null);
                     WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-
+                    
                     if (HISTORIAL.isEmpty() || !HISTORIAL.peekFirst().equals(j)) {
-
+                        
                         if (HISTORIAL.contains(j)) {
                             HISTORIAL.remove(j);
                         }
-
+                        
                         HISTORIAL.push(j);
-
+                        
                         if (HISTORIAL.size() > MAX_HIST) {
                             HISTORIAL.removeLast();
                         }
-
+                        
                         guardarHistorial();
                     }
-
+                    
                 } catch (BadLocationException ex) {
                     Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
+                
             }
         });
-
+        
         panel.add(label);
     }
-
+    
     private void guardarHistorial() {
-
+        
         Integer[] historial = HISTORIAL.toArray(new Integer[0]);
-
+        
         String[] hist = new String[historial.length];
-
+        
         for (int i = 0; i < historial.length; i++) {
-
+            
             hist[i] = String.valueOf(historial[i]);
         }
-
+        
         try {
             Helpers.PROPERTIES.setProperty("chat_emoji_hist", Base64.encodeBase64String(String.join(",", hist).getBytes("UTF-8")));
             Helpers.savePropertiesFile();
@@ -131,59 +142,59 @@ public class EmojiPanel extends javax.swing.JPanel {
             Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-
+    
     public static ArrayDeque<Integer> cargarHistorial() {
-
+        
         ArrayDeque<Integer> historial = new ArrayDeque<>();
-
+        
         String hist_b64 = Helpers.PROPERTIES.getProperty("chat_emoji_hist", "");
-
+        
         if (!hist_b64.isBlank()) {
-
+            
             String hist;
             try {
                 hist = new String(Base64.decodeBase64(hist_b64), "UTF-8");
-
+                
                 String[] hist_numbers = hist.split(",");
-
+                
                 for (String s : hist_numbers) {
                     historial.addLast(Integer.parseInt(s));
                 }
-
+                
                 while (historial.size() > MAX_HIST) {
                     historial.removeFirst();
                 }
-
+                
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-
+        
         return historial;
-
+        
     }
-
+    
     public static ArrayList<String> createEmojisImageSrcs() {
-
+        
         ArrayList<String> image_src_list = new ArrayList<>();
-
+        
         for (int i = 1; i <= EMOJI_COUNT; i++) {
-
+            
             image_src_list.add(EmojiPanel.class.getResource("/images/emoji_chat/" + i + ".png").toExternalForm());
         }
-
+        
         return image_src_list;
     }
-
+    
     public static ArrayList<ImageIcon> createEmojisImageIcons() {
-
+        
         ArrayList<ImageIcon> image_icon_list = new ArrayList<>();
-
+        
         for (int i = 1; i <= EMOJI_COUNT; i++) {
-
+            
             image_icon_list.add(new ImageIcon(EmojiPanel.class.getResource("/images/emoji_chat/" + i + ".png")));
         }
-
+        
         return image_icon_list;
     }
 

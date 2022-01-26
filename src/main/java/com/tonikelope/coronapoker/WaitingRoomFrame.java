@@ -74,7 +74,6 @@ import javax.swing.JTextField;
 import javax.swing.border.Border;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultCaret;
-import javax.swing.text.JTextComponent;
 import javax.swing.text.html.HTMLEditorKit;
 import org.apache.commons.codec.binary.Base64;
 
@@ -346,7 +345,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return local_client_socket_lock;
     }
 
-    public String plainChat2HTML(String chat) {
+    public synchronized String plainChat2HTML(String chat) {
 
         String html = "";
 
@@ -376,12 +375,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 avatar_src = this.participantes.get(nick).getAvatar_chat_src();
             }
+            
+            msg = Helpers.escapeHTML(msg);
 
-            msg = msg.replaceAll("http[^ \r\n]+", "<a href='$0'><b>$0</b></a>");
+            msg = msg.replaceAll("https?://([^/]+)[^ \r\n]+", "#171#<a href='$0'><b>$1</b></a>");
+            
+            msg = msg.replaceAll("[^@ ]+@[^ @.]+(?:\\.[^.@ ]+)+", "#1215# <i>$0</i>");
 
-            msg = msg.replaceAll("img(s?)://([^ \r\n]+)", "<div style='margin-bottom:5px'><img src='http$1://$2' /></div>");
+            msg = parseImagesChat(msg);
 
-            msg = parseEmoji(msg);
+            msg = parseEmojiChat(msg);
 
             html += "<div " + align + "><div style='margin-top:5px;margin-bottom:5px;'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' /> <span><b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></span><br><div style='margin-top:3px;'>" + msg + "</div></div></div>";
         }
@@ -389,8 +392,43 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return html;
 
     }
+    
+    private String parseImagesChat(String message) {
 
-    public String parseEmoji(String message) {
+        String msg = message;
+
+        Pattern pattern = Pattern.compile("img(s?)://([^ \r\n]+)");
+
+        Matcher matcher = pattern.matcher(message);
+
+        ArrayList<String> lista = new ArrayList<>();
+
+        while (matcher.find()) {
+
+            if (!lista.contains(matcher.group(0))) {
+
+                String img_src = "http" + (matcher.groupCount() > 1 ? matcher.group(1) : "") + "://" + matcher.group(matcher.groupCount() > 1 ? 2 : 1);
+
+                msg = msg.replaceAll(Pattern.quote(matcher.group(0)), "<div style='margin-bottom:5px'><img src='" + img_src + "' /></div>");
+
+                lista.add(matcher.group(0));
+
+                ChatImageURLDialog.updateHistorialRecibidos(img_src);
+            }
+        }
+
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+
+                ChatImageURLDialog.guardarHistorial();
+            }
+        });
+
+        return msg;
+    }
+
+    private String parseEmojiChat(String message) {
 
         String msg = message;
 
@@ -402,13 +440,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         while (matcher.find()) {
 
-            if (!lista.contains(Integer.parseInt(matcher.group(1))) && Integer.parseInt(matcher.group(1)) > 0 && Integer.parseInt(matcher.group(1)) <= EmojiPanel.EMOJI_SRC.size()) {
+            try {
 
-                String emoji_src = EmojiPanel.EMOJI_SRC.get(Integer.parseInt(matcher.group(1)) - 1);
+                if (!lista.contains(Integer.parseInt(matcher.group(1))) && Integer.parseInt(matcher.group(1)) > 0 && Integer.parseInt(matcher.group(1)) <= EmojiPanel.EMOJI_SRC.size()) {
 
-                msg = msg.replaceAll(" ?#" + matcher.group(1) + "# ?", "<span><img align='middle' src='" + emoji_src + "' />&nbsp;</span>");
+                    String emoji_src = EmojiPanel.EMOJI_SRC.get(Integer.parseInt(matcher.group(1)) - 1);
 
-                lista.add(Integer.parseInt(matcher.group(1)));
+                    msg = msg.replaceAll(" ?#" + matcher.group(1) + "# ?", "<span><img align='middle' src='" + emoji_src + "' />&nbsp;</span>");
+
+                    lista.add(Integer.parseInt(matcher.group(1)));
+                }
+            } catch (Exception ex) {
             }
         }
 
@@ -417,20 +459,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public JTextField getChat_box() {
         return chat_box;
-    }
-
-    public class NoTextSelectionCaret extends DefaultCaret {
-
-        public NoTextSelectionCaret(JTextComponent textComponent) {
-            setBlinkRate(textComponent.getCaret().getBlinkRate());
-            textComponent.setHighlighter(null);
-        }
-
-        @Override
-        public int getMark() {
-            return getDot();
-        }
-
     }
 
     /**
@@ -3437,7 +3465,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void chatFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusLost
         // TODO add your handling code here:
         this.chat_scroll.setBorder(chat_scroll_border);
-        ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+        ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.UPDATE_WHEN_ON_EDT);
     }//GEN-LAST:event_chatFocusLost
 
     private void emoji_scroll_panelComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_emoji_scroll_panelComponentHidden

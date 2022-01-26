@@ -18,7 +18,6 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Font;
-import java.awt.Image;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
@@ -41,7 +40,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.table.DefaultTableModel;
@@ -123,7 +121,7 @@ public class StatsDialog extends javax.swing.JDialog {
         setTitle(Translator.translate(getTitle()));
         stats_combo.setSelectedIndex(-1);
 
-        title.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/stats.png")).getImage().getScaledInstance(title.getHeight(), title.getHeight(), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconLabel(title, getClass().getResource("/images/stats.png"), title.getHeight(), title.getHeight());
 
         cargando.setIndeterminate(true);
 

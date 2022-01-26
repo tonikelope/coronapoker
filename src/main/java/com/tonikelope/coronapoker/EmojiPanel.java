@@ -26,6 +26,7 @@ import org.apache.commons.codec.binary.Base64;
 public class EmojiPanel extends javax.swing.JPanel {
 
     public static final int EMOJI_COUNT = 1826;
+    public static final int MAX_HIST = 10;
     public static final ArrayList<String> EMOJI_SRC = createEmojisImageSrcs();
     public static final ArrayList<ImageIcon> EMOJI_ICON = createEmojisImageIcons();
     public static final ArrayDeque<Integer> HISTORIAL = cargarHistorial();
@@ -95,6 +96,10 @@ public class EmojiPanel extends javax.swing.JPanel {
 
                         HISTORIAL.push(j);
 
+                        if (HISTORIAL.size() > MAX_HIST) {
+                            HISTORIAL.removeLast();
+                        }
+
                         guardarHistorial();
                     }
 
@@ -145,6 +150,10 @@ public class EmojiPanel extends javax.swing.JPanel {
                     historial.addLast(Integer.parseInt(s));
                 }
 
+                while (historial.size() > MAX_HIST) {
+                    historial.removeFirst();
+                }
+
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -192,6 +201,8 @@ public class EmojiPanel extends javax.swing.JPanel {
 
         setFocusable(false);
         setRequestFocusEnabled(false);
+
+        history_panel.setBackground(new java.awt.Color(153, 153, 153));
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);

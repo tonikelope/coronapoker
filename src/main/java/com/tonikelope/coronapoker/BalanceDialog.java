@@ -19,12 +19,10 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Image;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
-import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
 /**
@@ -88,15 +86,15 @@ public class BalanceDialog extends javax.swing.JDialog {
 
             if (!"".equals(avatar_path) && !"*".equals(avatar_path)) {
 
-                label.setIcon(new ImageIcon(new ImageIcon(avatar_path).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(label, avatar_path, NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             } else if ("*".equals(avatar_path)) {
 
-                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_bot.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(label, getClass().getResource("/images/avatar_bot.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             } else {
 
-                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             }
 
             ranking.add(new Object[]{ganancia, label});
@@ -115,13 +113,13 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
-        log_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/log.png")).getImage().getScaledInstance(log_button.getHeight(), log_button.getHeight(), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconButton(log_button, getClass().getResource("/images/log.png"), log_button.getHeight(), log_button.getHeight());
 
-        stats_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/stats.png")).getImage().getScaledInstance(stats_button.getHeight(), stats_button.getHeight(), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
 
-        exit_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/exit.png")).getImage().getScaledInstance(exit_button.getHeight(), exit_button.getHeight(), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconButton(exit_button, getClass().getResource("/images/exit.png"), exit_button.getHeight(), exit_button.getHeight());
 
-        retry_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/start.png")).getImage().getScaledInstance(retry_button.getHeight(), retry_button.getHeight(), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconButton(retry_button, getClass().getResource("/images/start.png"), retry_button.getHeight(), retry_button.getHeight());
 
         pack();
 

@@ -114,6 +114,7 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JCheckBoxMenuItem;
@@ -213,6 +214,29 @@ public class Helpers {
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
+
+    }
+
+    public static void setResourceIconLabel(JLabel label, String path, int width, int height) {
+
+        label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH)));
+    }
+
+    public static void setResourceIconLabel(JLabel label, URL path, int width, int height) {
+
+        label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH)));
+
+    }
+
+    public static void setResourceIconButton(JButton button, String path, int width, int height) {
+
+        button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH)));
+
+    }
+
+    public static void setResourceIconButton(JButton button, URL path, int width, int height) {
+
+        button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH)));
 
     }
 

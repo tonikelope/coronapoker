@@ -606,7 +606,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 disablePlayerAction();
 
-                utg_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/utg.png")).getImage().getScaledInstance(41, 31, Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(utg_icon, getClass().getResource("/images/utg.png"), 41, 31);
 
                 utg_icon.setVisible(false);
 
@@ -1204,7 +1204,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     @Override
                     public void run() {
 
-                        player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/dealer.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+                        Helpers.setResourceIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
                     }
                 });
 
@@ -1231,7 +1231,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     @Override
                     public void run() {
 
-                        player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/bb.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+                        Helpers.setResourceIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
                     }
                 });
 
@@ -1254,7 +1254,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     @Override
                     public void run() {
 
-                        player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/sb.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+                        Helpers.setResourceIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
                     }
                 });
 
@@ -1622,11 +1622,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
                 if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
-                    player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/bb.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+                    Helpers.setResourceIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
                 } else if (nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
-                    player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/sb.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+                    Helpers.setResourceIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
                 } else if (nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
-                    player_name.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/dealer.png")).getImage().getScaledInstance(Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()), Image.SCALE_SMOOTH)));
+                    Helpers.setResourceIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
                 }
             }
         });

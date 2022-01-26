@@ -17,10 +17,8 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
-import java.awt.Image;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.ImageIcon;
 
 /**
  *
@@ -42,7 +40,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        tts_panel.getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Audio.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconLabel(tts_panel.getSound_icon(), getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Audio.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png"), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
         tts_panel.getMessage().setText("[" + nick + (msg != null ? "]: " + msg : "]"));
 
@@ -50,20 +48,20 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
             if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
 
-                tts_panel.getMessage().setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(tts_panel.getMessage(), GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath(), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
             } else {
 
-                tts_panel.getMessage().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(tts_panel.getMessage(), getClass().getResource("/images/avatar_default.png"), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
             }
         } else {
 
             if (GameFrame.getInstance().getParticipantes().get(nick).getAvatar() != null) {
 
-                tts_panel.getMessage().setIcon(new ImageIcon(new ImageIcon(GameFrame.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath()).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(tts_panel.getMessage(), GameFrame.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath(), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
             } else {
 
-                tts_panel.getMessage().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(tts_panel.getMessage(), getClass().getResource("/images/avatar_default.png"), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
             }
 
         }
@@ -79,7 +77,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        tts_panel.getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(!tts ? "/images/mute.png" : "/images/sound.png")).getImage().getScaledInstance(Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconLabel(tts_panel.getSound_icon(), getClass().getResource(!tts ? "/images/mute.png" : "/images/sound.png"), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
         tts_panel.getMessage().setText(tts ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR");
 

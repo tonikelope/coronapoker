@@ -18,7 +18,6 @@ package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.Helpers.JTextFieldRegularPopupMenu;
 import java.awt.Dimension;
-import java.awt.Image;
 import java.awt.event.KeyEvent;
 import java.io.File;
 import java.sql.ResultSet;
@@ -34,7 +33,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JSpinner.DefaultEditor;
@@ -268,18 +266,18 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             if (avatar.exists() && avatar.canRead() && avatar.length() <= AVATAR_MAX_FILESIZE * 1024) {
                 avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                avatar_img.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(avatar_img, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             } else {
                 avatar = null;
                 avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                avatar_img.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             }
         } else {
             avatar = null;
             avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            avatar_img.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+            Helpers.setResourceIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
         }
 
@@ -317,7 +315,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
-        vamos.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/vamos.png")).getImage().getScaledInstance(Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconButton(vamos, getClass().getResource("/images/action/vamos.png"), Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f));
 
         pack();
 
@@ -1090,7 +1088,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 this.avatar = selectedFile;
 
                 avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                avatar_img.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(avatar_img, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             }
 
@@ -1099,7 +1097,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             this.avatar = null;
 
             avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            avatar_img.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+            Helpers.setResourceIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
         }
     }//GEN-LAST:event_avatar_imgMouseClicked

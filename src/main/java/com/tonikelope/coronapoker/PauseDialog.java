@@ -17,10 +17,8 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
-import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import javax.swing.ImageIcon;
 import javax.swing.Timer;
 
 /**
@@ -155,7 +153,7 @@ public class PauseDialog extends javax.swing.JDialog {
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
 
-        pausa_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(getHeight(), getHeight(), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconLabel(pausa_label, getClass().getResource("/images/pause.png"), getHeight(), getHeight());
 
         pack();
 

@@ -217,6 +217,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             WaitingRoomFrame.getInstance().getChat_box().requestFocus();
 
             this.setVisible(false);
+
         }
     }//GEN-LAST:event_send_buttonActionPerformed
 

@@ -18,8 +18,6 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Image;
-import javax.swing.ImageIcon;
 import javax.swing.JTextField;
 
 /**
@@ -40,7 +38,7 @@ public class FastChatDialog extends javax.swing.JDialog {
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
-        icono.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/chat.png")).getImage().getScaledInstance(chat_box.getHeight(), chat_box.getHeight(), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconLabel(icono, getClass().getResource("/images/chat.png"), chat_box.getHeight(), chat_box.getHeight());
 
         pack();
 

@@ -22,7 +22,6 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.Window;
@@ -1349,7 +1348,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 @Override
                 public void run() {
                     tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(tapete.getCommunityCards().getBlinds_label().getHeight(), tapete.getCommunityCards().getBlinds_label().getHeight()));
-                    tapete.getCommunityCards().getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(tapete.getCommunityCards().getBlinds_label().getHeight(), tapete.getCommunityCards().getBlinds_label().getHeight(), Image.SCALE_SMOOTH)));
+                    Helpers.setResourceIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), tapete.getCommunityCards().getBlinds_label().getHeight(), tapete.getCommunityCards().getBlinds_label().getHeight());
                 }
             });
         } else {
@@ -1357,7 +1356,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 @Override
                 public void run() {
                     tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH));
-                    tapete.getCommunityCards().getSound_icon().setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH, Image.SCALE_SMOOTH)));
+                    Helpers.setResourceIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH);
                 }
             });
         }

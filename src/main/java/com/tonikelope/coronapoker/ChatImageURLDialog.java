@@ -5,10 +5,12 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.event.HyperlinkEvent;
+import javax.swing.text.html.HTMLEditorKit;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -210,7 +212,15 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
             WaitingRoomFrame.getInstance().getChat_text().append(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
 
-            WaitingRoomFrame.getInstance().refreshChatPanel();
+            HTMLEditorKit editor = (HTMLEditorKit) WaitingRoomFrame.getInstance().getChat().getEditorKit();
+
+            StringReader reader = new StringReader(WaitingRoomFrame.getInstance().plainChat2HTML(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n"));
+
+            try {
+
+                editor.read(reader, WaitingRoomFrame.getInstance().getChat().getDocument(), WaitingRoomFrame.getInstance().getChat().getDocument().getLength());
+            } catch (Exception ex) {
+            }
 
             WaitingRoomFrame.getInstance().enviarMensajeChat(WaitingRoomFrame.getInstance().getLocal_nick(), url.replaceAll("^http", "img"));
 

@@ -16,10 +16,8 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.Image;
 import java.util.ArrayList;
 import java.util.Collections;
-import javax.swing.ImageIcon;
 
 /**
  *
@@ -48,8 +46,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             c.setCompactable(false);
         }
 
-        inferior_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/down.png")).getImage().getScaledInstance(inferior_button.getHeight(), inferior_button.getHeight(), Image.SCALE_SMOOTH)));
-        superior_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/up.png")).getImage().getScaledInstance(superior_button.getHeight(), superior_button.getHeight(), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconButton(inferior_button, getClass().getResource("/images/down.png"), inferior_button.getHeight(), inferior_button.getHeight());
+        Helpers.setResourceIconButton(superior_button, getClass().getResource("/images/up.png"), superior_button.getHeight(), superior_button.getHeight());
 
         pack();
 

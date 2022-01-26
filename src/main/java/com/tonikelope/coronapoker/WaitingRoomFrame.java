@@ -131,6 +131,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final String background_src;
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
+    private volatile int last_chat_scroll_pos;
 
     public String getLocal_nick() {
         return local_nick;
@@ -395,7 +396,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         while (matcher.find()) {
 
-            if (!lista.contains(Integer.parseInt(matcher.group(1))) && Integer.parseInt(matcher.group(1)) <= EmojiPanel.EMOJI_SRC.size()) {
+            if (!lista.contains(Integer.parseInt(matcher.group(1))) && Integer.parseInt(matcher.group(1)) > 0 && Integer.parseInt(matcher.group(1)) <= EmojiPanel.EMOJI_SRC.size()) {
 
                 String emoji_src = EmojiPanel.EMOJI_SRC.get(Integer.parseInt(matcher.group(1)) - 1);
 
@@ -442,6 +443,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
 
+        Helpers.setResourceIconLabel(send_label, getClass().getResource("/images/start.png"), chat_box.getHeight(), chat_box.getHeight());
+
         chat_scroll_border = chat_scroll.getBorder();
 
         emoji_scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
@@ -465,6 +468,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 if (!chat.hasFocus()) {
 
                     e.getAdjustable().setValue(e.getAdjustable().getMaximum());
+
                 }
             }
         });
@@ -502,7 +506,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             pass_icon.setVisible(false);
         }
 
-        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
         kick_user.setEnabled(false);
 
@@ -514,7 +518,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (avatar != null) {
             avatar_label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            avatar_label.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+            Helpers.setResourceIconLabel(avatar_label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             try {
                 ImageIO.write(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(local_avatar.getAbsolutePath()).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()), "png", new File(local_avatar.getAbsolutePath() + "_chat"));
                 local_avatar_chat_src = new File(local_avatar.getAbsolutePath() + "_chat").toURI().toURL().toExternalForm();
@@ -526,7 +530,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         } else {
             avatar_label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            avatar_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+            Helpers.setResourceIconLabel(avatar_label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             local_avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         }
 
@@ -559,9 +563,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
 
             if (local_avatar != null) {
-                label.setIcon(new ImageIcon(new ImageIcon(local_avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(label, local_avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             } else {
-                label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             }
 
             listModel.addElement(label);
@@ -586,9 +590,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         Helpers.translateComponents(this, false);
 
-        empezar_timba.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/start.png")).getImage().getScaledInstance(Math.round(empezar_timba.getHeight() * 0.8f), Math.round(empezar_timba.getHeight() * 0.8f), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconButton(empezar_timba, getClass().getResource("/images/start.png"), Math.round(empezar_timba.getHeight() * 0.8f), Math.round(empezar_timba.getHeight() * 0.8f));
 
-        kick_user.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/kick.png")).getImage().getScaledInstance(kick_user.getHeight(), kick_user.getHeight(), Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconButton(kick_user, getClass().getResource("/images/kick.png"), kick_user.getHeight(), kick_user.getHeight());
 
         pack();
 
@@ -2229,6 +2233,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         public void run() {
 
+                            last_chat_scroll_pos = chat_scroll.getVerticalScrollBar().getValue();
+
                             chat.setText(html);
 
                         }
@@ -2407,9 +2413,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
 
                 if (avatar != null) {
-                    label.setIcon(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                    Helpers.setResourceIconLabel(label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
                 } else {
-                    label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource((server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png")).getImage().getScaledInstance(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH, Image.SCALE_SMOOTH)));
+                    Helpers.setResourceIconLabel(label, getClass().getResource((server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
                 }
 
                 ((DefaultListModel) conectados.getModel()).addElement(label);
@@ -2458,6 +2464,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         chat_box = new javax.swing.JTextField();
         emoji_button = new javax.swing.JButton();
         image_button = new javax.swing.JButton();
+        send_label = new javax.swing.JLabel();
         emoji_scroll_panel = new javax.swing.JScrollPane();
         emoji_panel = new com.tonikelope.coronapoker.EmojiPanel();
 
@@ -2471,9 +2478,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
         addWindowListener(new java.awt.event.WindowAdapter() {
-            public void windowActivated(java.awt.event.WindowEvent evt) {
-                formWindowActivated(evt);
-            }
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
             }
@@ -2762,6 +2766,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        send_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        send_label.setDoubleBuffered(true);
+        send_label.setFocusable(false);
+        send_label.setRequestFocusEnabled(false);
+        send_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                send_labelMouseClicked(evt);
+            }
+        });
+
         javax.swing.GroupLayout chat_box_panelLayout = new javax.swing.GroupLayout(chat_box_panel);
         chat_box_panel.setLayout(chat_box_panelLayout);
         chat_box_panelLayout.setHorizontalGroup(
@@ -2772,13 +2786,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addGap(0, 0, 0)
                 .addComponent(image_button)
                 .addGap(0, 0, 0)
-                .addComponent(chat_box))
+                .addComponent(chat_box)
+                .addGap(0, 0, 0)
+                .addComponent(send_label))
         );
         chat_box_panelLayout.setVerticalGroup(
             chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(chat_box)
             .addComponent(emoji_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(image_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(chat_box_panelLayout.createSequentialGroup()
+                .addComponent(send_label)
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         emoji_scroll_panel.setBorder(null);
@@ -3095,7 +3114,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         Helpers.savePropertiesFile();
 
-        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
         if (!GameFrame.SONIDOS) {
 
@@ -3123,7 +3142,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         refreshChatPanel();
 
-        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png")).getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH)));
+        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
         chat_box.requestFocus();
     }//GEN-LAST:event_formComponentShown
@@ -3395,11 +3414,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void chatFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusGained
         // TODO add your handling code here:
         this.chat_scroll.setBorder(javax.swing.BorderFactory.createLineBorder(Color.YELLOW, 3));
+        ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
     }//GEN-LAST:event_chatFocusGained
 
     private void chatFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusLost
         // TODO add your handling code here:
         this.chat_scroll.setBorder(chat_scroll_border);
+        ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
     }//GEN-LAST:event_chatFocusLost
 
     private void emoji_scroll_panelComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_emoji_scroll_panelComponentHidden
@@ -3407,15 +3428,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         emoji_panel.refreshEmojiHistory();
     }//GEN-LAST:event_emoji_scroll_panelComponentHidden
 
-    private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
-        // TODO add your handling code here:
-        chat_box.requestFocus();
-    }//GEN-LAST:event_formWindowActivated
-
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
         chat_box.requestFocus();
     }//GEN-LAST:event_formWindowOpened
+
+    private void send_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_send_labelMouseClicked
+        // TODO add your handling code here:
+        chat_boxActionPerformed(null);
+    }//GEN-LAST:event_send_labelMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
@@ -3440,6 +3461,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panel_con;
     private javax.swing.JScrollPane panel_conectados;
     private javax.swing.JLabel pass_icon;
+    private javax.swing.JLabel send_label;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel status;
     private javax.swing.JLabel status1;

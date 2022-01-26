@@ -18,14 +18,12 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
@@ -192,12 +190,12 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     @Override
                     public void run() {
                         sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
-                        sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(blinds_label.getHeight(), blinds_label.getHeight(), Image.SCALE_SMOOTH)));
+                        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), blinds_label.getHeight(), blinds_label.getHeight());
                         panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
-                        pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
-                        pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
-                        bet_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
-                        lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
+                        Helpers.setResourceIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
+                        Helpers.setResourceIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+                        Helpers.setResourceIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+                        Helpers.setResourceIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
 
                         ready = true;
 
@@ -792,13 +790,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 Audio.playWavResource("misc/button_off.wav");
                 GameFrame.getInstance().getCapa_brillo().lightsOFF();
-                lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/lights_off.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(lights_label, getClass().getResource("/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
 
             } else {
 
                 Audio.playWavResource("misc/button_on.wav");
                 GameFrame.getInstance().getCapa_brillo().lightsON();
-                lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/lights_on.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
+                Helpers.setResourceIconLabel(lights_label, getClass().getResource("/images/lights_on.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
 
             }
 
@@ -847,14 +845,14 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                         @Override
                         public void run() {
                             sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
-                            sound_icon.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png")).getImage().getScaledInstance(blinds_label.getHeight(), blinds_label.getHeight(), Image.SCALE_SMOOTH)));
+                            Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), blinds_label.getHeight(), blinds_label.getHeight());
                             panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
                             sound_icon.setVisible(true);
                             panel_barra.setVisible(true);
-                            pause_button.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pause.png")).getImage().getScaledInstance(Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()), Image.SCALE_SMOOTH)));
-                            pot_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
-                            bet_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/pot.png")).getImage().getScaledInstance(pot_label.getHeight(), pot_label.getHeight(), Image.SCALE_SMOOTH)));
-                            lights_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png")).getImage().getScaledInstance(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()), Image.SCALE_SMOOTH)));
+                            Helpers.setResourceIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
+                            Helpers.setResourceIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+                            Helpers.setResourceIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+                            Helpers.setResourceIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
 
                         }
                     });

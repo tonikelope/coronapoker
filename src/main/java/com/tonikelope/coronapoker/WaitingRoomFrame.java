@@ -353,7 +353,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
 
-        StringReader reader = new StringReader(plainChat2HTML(text));
+        StringReader reader = new StringReader(txtChat2HTML(text));
 
         try {
             editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
@@ -361,7 +361,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
     }
 
-    public synchronized String plainChat2HTML(String chat) {
+    public synchronized String txtChat2HTML(String chat) {
 
         String html = "";
 
@@ -394,7 +394,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             msg = Helpers.escapeHTML(msg);
 
-            msg = msg.replaceAll("https?://([^/]+)[^ \r\n]+", "#171#<a href='$0'><b>$1</b></a>");
+            msg = msg.replaceAll("https?://([^/]+)[^ \r\n]*", "#171#<a href='$0'><b>$1</b></a>");
 
             msg = msg.replaceAll("[^@ ]+@[^ @.]+(?:\\.[^.@ ]+)+", "#1215# <i>$0</i>");
 
@@ -2304,7 +2304,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    final String html = "<html><body style='background-image: url(" + background_src + ")'>" + plainChat2HTML(chat_text.toString()) + "</body></html>";
+                    final String html = "<html><body style='background-image: url(" + background_src + ")'>" + txtChat2HTML(chat_text.toString()) + "</body></html>";
 
                     Helpers.GUIRun(new Runnable() {
 

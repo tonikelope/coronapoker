@@ -30,6 +30,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -74,6 +75,7 @@ import javax.swing.border.Border;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultCaret;
 import javax.swing.text.JTextComponent;
+import javax.swing.text.html.HTMLEditorKit;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -82,7 +84,7 @@ import org.apache.commons.codec.binary.Base64;
  * @author tonikelope
  */
 public class WaitingRoomFrame extends javax.swing.JFrame {
-    
+
     public static final int MAX_PARTICIPANTES = 10;
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final int PING_PONG_TIMEOUT = 15000;
@@ -92,7 +94,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public static final int CLIENT_REC_WAIT = 15;
     public static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_game_notifications", "true"));
     private static volatile WaitingRoomFrame THIS = null;
-    
+
     private final File local_avatar;
     private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
     private final Object local_client_socket_lock = new Object();
@@ -132,19 +134,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final String background_src;
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
-    
+
     public JButton getEmoji_button() {
         return emoji_button;
     }
-    
+
     public String getLocal_nick() {
         return local_nick;
     }
-    
+
     public StringBuffer getChat_text() {
         return chat_text;
     }
-    
+
     public void soundIconClick() {
         Helpers.GUIRun(new Runnable() {
             @Override
@@ -153,13 +155,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
     }
-    
+
     public void setExit(boolean exit) {
         this.exit = exit;
     }
-    
+
     public void closeServerSocket() {
-        
+
         if (server_socket != null) {
             try {
                 server_socket.close();
@@ -167,11 +169,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        
+
     }
-    
+
     public void closeClientSocket() {
-        
+
         if (local_client_socket != null) {
             try {
                 local_client_socket.close();
@@ -180,52 +182,52 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         }
     }
-    
+
     public static void resetInstance() {
         THIS.dispose();
         THIS = null;
     }
-    
+
     public JCheckBox getChat_notifications() {
         return chat_notifications;
     }
-    
+
     public JLabel getTts_warning() {
         return tts_warning;
     }
-    
+
     public boolean isChat_enabled() {
         return chat_enabled;
     }
-    
+
     public void setChat_enabled(boolean chat_enabled) {
         this.chat_enabled = chat_enabled;
     }
-    
+
     public Map<String, Participant> getParticipantes() {
         return participantes;
     }
-    
+
     public File getLocal_avatar() {
         return local_avatar;
     }
-    
+
     public boolean isPartida_empezando() {
         return partida_empezando;
     }
-    
+
     public String getVideo_chat_link() {
         return video_chat_link;
     }
-    
+
     public void setVideo_chat_link(String video_chat_link) {
-        
+
         if (!server && (this.video_chat_link == null || !this.video_chat_link.equals(video_chat_link))) {
             Audio.playWavResource("misc/chat_alert.wav");
         }
-        
+
         this.video_chat_link = video_chat_link;
-        
+
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
@@ -233,39 +235,39 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
     }
-    
+
     public boolean isUnsecure_server() {
         return unsecure_server;
     }
-    
+
     public int getServer_port() {
         return server_port;
     }
-    
+
     public boolean isUpnp() {
         return upnp;
     }
-    
+
     public void setUnsecure_server(boolean val) {
         this.unsecure_server = val;
-        
+
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                
+
                 danger_server.setVisible(unsecure_server);
                 pack();
-                
+
             }
         });
     }
-    
+
     public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
         return received_confirmations;
     }
-    
+
     public SecretKeySpec getLocal_client_hmac_key() {
-        
+
         while (this.reconnecting) {
             synchronized (getLocalClientSocketLock()) {
                 try {
@@ -275,13 +277,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 }
             }
         }
-        
+
         return local_client_hmac_key;
-        
+
     }
-    
+
     public SecretKeySpec getLocal_client_aes_key() {
-        
+
         while (this.reconnecting) {
             synchronized (getLocalClientSocketLock()) {
                 try {
@@ -291,144 +293,144 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 }
             }
         }
-        
+
         return local_client_aes_key;
-        
+
     }
-    
+
     public BufferedReader getLocal_client_buffer_read_is() {
         return local_client_buffer_read_is;
     }
-    
+
     public boolean isExit() {
         return exit;
     }
-    
+
     public JEditorPane getChat() {
         return chat;
     }
-    
+
     public static WaitingRoomFrame getInstance() {
         return THIS;
     }
-    
+
     public JLabel getStatus() {
         return status;
     }
-    
+
     public boolean isReconnecting() {
         return reconnecting;
     }
-    
+
     public Object getLock_reconnect() {
         return lock_reconnect;
     }
-    
+
     public File getAvatar() {
         return local_avatar;
     }
-    
+
     public boolean isServer() {
         return server;
     }
-    
+
     public ServerSocket getServer_socket() {
         return server_socket;
     }
-    
+
     public String getServer_nick() {
         return server_nick;
     }
-    
+
     public Object getLocalClientSocketLock() {
         return local_client_socket_lock;
     }
-    
+
     public String plainChat2HTML(String chat) {
-        
+
         String html = "";
-        
+
         String[] lines = chat.split("\n");
-        
+
         for (String line : lines) {
-            
+
             String nick = line.replaceAll("^([^:()]+:+).*$", "$1").replaceAll(":$", "");
-            
+
             String msg = line.replaceAll("^[^:()]+:+[0-9:()]+ *(.*)$", "$1");
-            
+
             String hora = line.replaceAll("^[^:()]+:+([0-9:()]+) *.*$", "$1");
-            
+
             String avatar_src = "";
-            
+
             String align = "";
-            
+
             if (nick.equals(this.local_nick)) {
-                
+
                 align = "align='right' style='margin-right:8px'";
-                
+
                 avatar_src = local_avatar_chat_src;
-                
+
             } else if (this.participantes.containsKey(nick)) {
-                
+
                 align = "align='left' style='margin-left:8px'";
-                
+
                 avatar_src = this.participantes.get(nick).getAvatar_chat_src();
             }
-            
+
             msg = msg.replaceAll("http[^ \r\n]+", "<a href='$0'><b>$0</b></a>");
-            
+
             msg = msg.replaceAll("img(s?)://([^ \r\n]+)", "<div style='margin-bottom:5px'><img src='http$1://$2' /></div>");
-            
+
             msg = parseEmoji(msg);
-            
+
             html += "<div " + align + "><div style='margin-top:5px;margin-bottom:5px;'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' /> <span><b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></span><br><div style='margin-top:3px;'>" + msg + "</div></div></div>";
         }
-        
+
         return html;
-        
+
     }
-    
+
     public String parseEmoji(String message) {
-        
+
         String msg = message;
-        
+
         Pattern pattern = Pattern.compile("#([0-9]+)#");
-        
+
         Matcher matcher = pattern.matcher(message);
-        
+
         ArrayList<Integer> lista = new ArrayList<>();
-        
+
         while (matcher.find()) {
-            
+
             if (!lista.contains(Integer.parseInt(matcher.group(1))) && Integer.parseInt(matcher.group(1)) > 0 && Integer.parseInt(matcher.group(1)) <= EmojiPanel.EMOJI_SRC.size()) {
-                
+
                 String emoji_src = EmojiPanel.EMOJI_SRC.get(Integer.parseInt(matcher.group(1)) - 1);
-                
+
                 msg = msg.replaceAll(" ?#" + matcher.group(1) + "# ?", "<span><img align='middle' src='" + emoji_src + "' />&nbsp;</span>");
-                
+
                 lista.add(Integer.parseInt(matcher.group(1)));
             }
         }
-        
+
         return msg;
     }
-    
+
     public JTextField getChat_box() {
         return chat_box;
     }
-    
+
     public class NoTextSelectionCaret extends DefaultCaret {
-        
+
         public NoTextSelectionCaret(JTextComponent textComponent) {
             setBlinkRate(textComponent.getCaret().getBlinkRate());
             textComponent.setHighlighter(null);
         }
-        
+
         @Override
         public int getMark() {
             return getDot();
         }
-        
+
     }
 
     /**
@@ -442,143 +444,143 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         server_ip_port = servidor_ip_port;
         local_avatar = avatar;
         password = pass;
-        
+
         initComponents();
-        
+
         setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
-        
+
         emoji_button.setEnabled(false);
-        
+
         Helpers.setResourceIconLabel(send_label, getClass().getResource("/images/start.png"), chat_box.getHeight(), chat_box.getHeight());
-        
+
         chat_scroll_border = chat_scroll.getBorder();
-        
+
         emoji_scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
-        
+
         emoji_scroll_panel.setVisible(false);
-        
+
         chat.setContentType("text/html");
-        
+
         chat.addHyperlinkListener(e -> {
             if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
-                
+
                 Helpers.openBrowserURL(e.getURL().toString());
-                
+
                 chat_box.requestFocus();
             }
         });
-        
+
         chat_scroll.getVerticalScrollBar().addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(AdjustmentEvent e) {
-                
+
                 if (!chat.hasFocus()) {
-                    
+
                     e.getAdjustable().setValue(e.getAdjustable().getMaximum());
-                    
+
                 }
             }
         });
-        
+
         background_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
         chat.setText("<html><body style='background-image: url(" + background_src + ")'></body></html>");
-        
+
         barra.setVisible(false);
         barra.setIndeterminate(true);
         tts_warning.setVisible(false);
         chat_notifications.setSelected(CHAT_GAME_NOTIFICATIONS);
         chat_notifications.setVisible(false);
-        
+
         danger_server.setVisible(false);
-        
+
         if (GameFrame.isRECOVER()) {
             game_info.setText("(CONTINUANDO TIMBA ANTERIOR)");
         }
-        
+
         if (server) {
-            
+
             if (GameFrame.isRECOVER()) {
                 game_info.setToolTipText("Click para actualizar datos de la timba");
             }
-            
+
             pass_icon.setVisible(true);
-            
+
             if (password != null) {
                 pass_icon.setToolTipText(password);
             } else {
                 pass_icon.setEnabled(false);
             }
-            
+
         } else {
             pass_icon.setVisible(false);
         }
-        
+
         Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
-        
+
         kick_user.setEnabled(false);
-        
+
         empezar_timba.setEnabled(false);
-        
+
         Helpers.JTextFieldRegularPopupMenu.addTo(chat);
-        
+
         Helpers.JTextFieldRegularPopupMenu.addTo(chat_box);
-        
+
         if (avatar != null) {
             avatar_label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
             Helpers.setResourceIconLabel(avatar_label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             try {
                 ImageIO.write(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(local_avatar.getAbsolutePath()).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()), "png", new File(local_avatar.getAbsolutePath() + "_chat"));
                 local_avatar_chat_src = new File(local_avatar.getAbsolutePath() + "_chat").toURI().toURL().toExternalForm();
-                
+
             } catch (IOException ex) {
                 local_avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
-            
+
         } else {
             avatar_label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
             Helpers.setResourceIconLabel(avatar_label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             local_avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         }
-        
+
         avatar_label.setText(local_nick);
-        
+
         status1.setText(server_ip_port);
-        
+
         DefaultListModel listModel = new DefaultListModel();
-        
+
         if (server) {
-            
+
             new_bot_button.setEnabled(true);
-            
+
             status.setText("Esperando jugadores...");
-            
+
             gameinfo_original = GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : "");
-            
+
             if (game_info.isEnabled() && !GameFrame.isRECOVER()) {
                 game_info.setText(gameinfo_original);
             }
-            
+
             participantes.put(local_nick, null);
-            
+
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
-            
+
             ParticipantsListRenderer label = new ParticipantsListRenderer();
-            
+
             label.setText(local_nick);
-            
+
             label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            
+
             if (local_avatar != null) {
                 Helpers.setResourceIconLabel(label, local_avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             } else {
                 Helpers.setResourceIconLabel(label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             }
-            
+
             listModel.addElement(label);
             conectados.setModel(listModel);
             conectados.revalidate();
             conectados.repaint();
-            
+
         } else {
             video_chat_button.setEnabled(false);
             empezar_timba.setVisible(false);
@@ -590,105 +592,105 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             conectados.revalidate();
             conectados.repaint();
         }
-        
+
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-        
+
         Helpers.translateComponents(this, false);
-        
+
         Helpers.setResourceIconButton(empezar_timba, getClass().getResource("/images/start.png"), Math.round(empezar_timba.getHeight() * 0.8f), Math.round(empezar_timba.getHeight() * 0.8f));
-        
+
         Helpers.setResourceIconButton(kick_user, getClass().getResource("/images/kick.png"), kick_user.getHeight(), kick_user.getHeight());
-        
+
         pack();
-        
+
         Audio.muteLoopMp3("misc/background_music.mp3");
-        
+
         Audio.playLoopMp3Resource("misc/waiting_room.mp3");
-        
+
         if (server) {
             servidor();
         } else {
             cliente();
         }
     }
-    
+
     private void sqlSavePermutationkey() {
-        
+
         try {
-            
+
             String sql = "INSERT INTO permutationkey(hash, key) VALUES (?, ?)";
-            
+
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-            
+
             statement.setQueryTimeout(30);
-            
+
             statement.setString(1, this.local_client_permutation_key_hash);
-            
+
             statement.setString(2, Base64.encodeBase64String(this.local_client_permutation_key.getEncoded()));
-            
+
             statement.executeUpdate();
-            
+
             statement.close();
-            
+
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
     }
-    
+
     private String sqlReadPermutationkey(String hash) {
-        
+
         String ret = null;
-        
+
         try {
-            
+
             String sql = "SELECT key FROM permutationkey WHERE hash=?";
-            
+
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-            
+
             statement.setQueryTimeout(30);
-            
+
             statement.setString(1, hash);
-            
+
             ResultSet rs = statement.executeQuery();
-            
+
             if (rs.next()) {
                 ret = rs.getString("key");
             }
-            
+
             statement.close();
-            
+
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
         return ret;
-        
+
     }
-    
+
     public void sqlRemovePermutationkey() {
-        
+
         try {
-            
+
             String sql = "DELETE FROM permutationkey WHERE hash=?";
-            
+
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-            
+
             statement.setQueryTimeout(30);
-            
+
             statement.setString(1, this.local_client_permutation_key_hash);
-            
+
             statement.executeUpdate();
-            
+
             statement.close();
-            
+
         } catch (SQLException ex) {
             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+
     public void writeCommandToServer(String command) throws IOException {
-        
+
         while (this.reconnecting) {
             synchronized (getLocalClientSocketLock()) {
                 try {
@@ -698,25 +700,25 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 }
             }
         }
-        
+
         synchronized (getLocalClientSocketLock()) {
             this.local_client_socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
         }
     }
-    
+
     public void writeCommandFromServer(String command, Socket socket) throws IOException {
         socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
     }
-    
+
     public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) throws KeyException, IOException {
-        
+
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        
+
         return Helpers.decryptCommand(in.readLine(), key, hmac_key);
     }
-    
+
     public String readCommandFromServer() throws KeyException, IOException {
-        
+
         while (this.reconnecting) {
             synchronized (getLocalClientSocketLock()) {
                 try {
@@ -726,53 +728,53 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 }
             }
         }
-        
+
         return Helpers.decryptCommand(this.getLocal_client_buffer_read_is().readLine(), this.getLocal_client_aes_key(), this.getLocal_client_hmac_key());
     }
 
     //Función AUTO-RECONNECT
     public boolean reconectarCliente() {
-        
+
         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Intentando reconectar con el servidor...");
-        
+
         this.reconnecting = true;
-        
+
         synchronized (getLocalClientSocketLock()) {
-            
+
             try {
-                
+
                 boolean ok_rec;
-                
+
                 if (!local_client_socket.isClosed()) {
                     try {
                         local_client_socket.close();
-                        
+
                     } catch (Exception ex) {
                     }
                 }
-                
+
                 local_client_socket = null;
-                
+
                 long start = System.currentTimeMillis();
-                
+
                 ok_rec = false;
-                
+
                 Mac orig_sha256_HMAC = Mac.getInstance("HmacSHA256");
-                
+
                 orig_sha256_HMAC.init(local_client_hmac_key_orig);
-                
+
                 String b64_nick = Base64.encodeBase64String(local_nick.getBytes("UTF-8"));
-                
+
                 String b64_hmac_nick = Base64.encodeBase64String(orig_sha256_HMAC.doFinal(local_nick.getBytes("UTF-8")));
-                
+
                 do {
-                    
+
                     try {
-                        
+
                         String[] server_address = server_ip_port.split(":");
-                        
+
                         local_client_socket = new Socket(server_address[0], Integer.valueOf(server_address[1]));
-                        
+
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "¡Conectado al servidor! Vamos a intercambiar las claves...");
 
                         //Le mandamos los bytes "mágicos"
@@ -780,137 +782,137 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         /* INICIO INTERCAMBIO CLAVES */
                         KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
-                        
+
                         clientKpairGen.initialize(EC_KEY_LENGTH);
-                        
+
                         KeyPair clientKpair = clientKpairGen.generateKeyPair();
-                        
+
                         KeyAgreement clientKeyAgree = KeyAgreement.getInstance("ECDH");
-                        
+
                         clientKeyAgree.init(clientKpair.getPrivate());
-                        
+
                         byte[] clientPubKeyEnc = clientKpair.getPublic().getEncoded();
-                        
+
                         DataOutputStream dOut = new DataOutputStream(local_client_socket.getOutputStream());
-                        
+
                         dOut.writeInt(clientPubKeyEnc.length);
-                        
+
                         dOut.write(clientPubKeyEnc);
-                        
+
                         DataInputStream dIn = new DataInputStream(local_client_socket.getInputStream());
-                        
+
                         int length = dIn.readInt();
-                        
+
                         byte[] serverPubKeyEnc = new byte[length];
-                        
+
                         dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
-                        
+
                         KeyFactory clientKeyFac = KeyFactory.getInstance("EC");
-                        
+
                         X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(serverPubKeyEnc);
-                        
+
                         PublicKey serverPubKey = clientKeyFac.generatePublic(x509KeySpec);
-                        
+
                         clientKeyAgree.doPhase(serverPubKey, true);
-                        
+
                         byte[] clientSharedSecret = clientKeyAgree.generateSecret();
-                        
+
                         byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(clientSharedSecret);
-                        
+
                         local_client_aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
-                        
+
                         local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
 
                         /* FIN INTERCAMBIO CLAVES */
                         //Le mandamos nuestro nick al server autenticado con la clave HMAC antigua
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Enviando datos de reconexión...");
-                        
+
                         local_client_socket.getOutputStream().write((Helpers.encryptCommand(b64_nick + "#" + AboutDialog.VERSION + "#*#*#" + b64_hmac_nick, local_client_aes_key, local_client_hmac_key) + "\n").getBytes("UTF-8"));
-                        
+
                         local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
 
                         //Leemos el contenido del chat
                         String recibido;
-                        
+
                         ok_rec = false;
-                        
+
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Leyendo datos del chat...");
-                        
+
                         recibido = this.local_client_buffer_read_is.readLine();
-                        
+
                         if (recibido != null) {
-                            
+
                             recibido = Helpers.decryptCommand(recibido, local_client_aes_key, local_client_hmac_key);
-                            
+
                             if (recibido != null) {
-                                
+
                                 if (!"*".equals(recibido)) {
-                                    
+
                                     chat_text = new StringBuffer(new String(Base64.decodeBase64(recibido), "UTF-8"));
-                                    
+
                                     refreshChatPanel();
-                                    
+
                                 }
-                                
+
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "HEMOS CONSEGUIDO RECONECTAR CORRECTAMENTE CON EL SERVIDOR");
-                                
+
                                 ok_rec = true;
-                                
+
                             }
-                            
+
                         } else {
                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "EL SOCKET DE RECONEXiÓN RECIBIÓ NULL");
                         }
-                        
+
                     } catch (Exception ex) {
-                        
+
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "EL SOCKET DE RECONEXiÓN PROVOCÓ UNA EXCEPCIÓN");
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-                        
+
                     } finally {
-                        
+
                         if (!ok_rec) {
-                            
+
                             if (local_client_socket != null && !local_client_socket.isClosed()) {
-                                
+
                                 try {
-                                    
+
                                     local_client_socket.close();
-                                    
+
                                 } catch (Exception ex) {
                                 }
-                                
+
                                 local_client_socket = null;
                             }
-                            
+
                             if (!exit && (!WaitingRoomFrame.getInstance().isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit())) {
-                                
+
                                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT && WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                                    
+
                                     if (this.reconnect_dialog == null) {
-                                        
+
                                         Helpers.GUIRun(new Runnable() {
                                             public void run() {
                                                 reconnect_dialog = new Reconnect2ServerDialog(GameFrame.getInstance() != null ? GameFrame.getInstance().getFrame() : THIS, true, server_ip_port);
                                                 reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
                                                 reconnect_dialog.setVisible(true);
-                                                
+
                                             }
                                         });
-                                        
+
                                     } else {
                                         reconnect_dialog.setReconectar(false);
-                                        
+
                                         Helpers.GUIRun(new Runnable() {
                                             public void run() {
                                                 reconnect_dialog.reset();
                                                 reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
                                                 reconnect_dialog.setVisible(true);
-                                                
+
                                             }
                                         });
                                     }
-                                    
+
                                     while (reconnect_dialog == null || !reconnect_dialog.isReconectar()) {
                                         synchronized (this.lock_reconnect) {
                                             try {
@@ -920,24 +922,24 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             }
                                         }
                                     }
-                                    
+
                                     start = System.currentTimeMillis();
                                     server_ip_port = reconnect_dialog.getIp_port().getText().trim();
-                                    
+
                                 } else {
-                                    
+
                                     Helpers.pausar(GameFrame.CLIENT_RECON_ERROR_PAUSE);
                                 }
-                                
+
                             }
-                            
+
                         }
                     }
-                    
+
                 } while (!exit && !ok_rec && (!WaitingRoomFrame.getInstance().isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit()));
-                
+
                 if (this.reconnect_dialog != null) {
-                    
+
                     Helpers.GUIRunAndWait(new Runnable() {
                         @Override
                         public void run() {
@@ -946,272 +948,272 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         }
                     });
                 }
-                
+
                 if (ok_rec) {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
-                
+
                 this.reconnecting = false;
-                
+
                 getLocalClientSocketLock().notifyAll();
-                
+
                 return ok_rec;
-                
+
             } catch (InvalidKeyException | NoSuchAlgorithmException | UnsupportedEncodingException ex) {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
-            
+
         }
-        
+
         return false;
-        
+
     }
-    
+
     public void broadcastASYNCGAMECommandFromServer(String command, Participant par) {
-        
+
         broadcastASYNCGAMECommandFromServer(command, par, true);
-        
+
     }
-    
+
     public void broadcastASYNCGAMECommandFromServer(String command, Participant par, boolean confirmation) {
-        
+
         ArrayList<String> pendientes = new ArrayList<>();
-        
+
         for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
-            
+
             Participant p = entry.getValue();
-            
+
             if (p != null && !p.isCpu() && p != par && !p.isExit()) {
-                
+
                 pendientes.add(p.getNick());
-                
+
             }
-            
+
         }
-        
+
         if (!pendientes.isEmpty()) {
-            
+
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
-            
+
             byte[] iv = new byte[16];
-            
+
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-            
+
             for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
-                
+
                 Participant p = entry.getValue();
-                
+
                 if (p != null && !p.isCpu() && pendientes.contains(p.getNick())) {
-                    
+
                     if (!confirmation) {
-                        
+
                         String full_command = "GAME#" + String.valueOf(id) + "#" + command;
-                        
+
                         p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
-                        
+
                     } else {
-                        
+
                         synchronized (p.getAsync_command_queue()) {
                             p.getAsync_command_queue().add(command);
                             p.getAsync_command_queue().notifyAll();
                         }
-                        
+
                     }
-                    
+
                 }
             }
-            
+
         }
     }
-    
+
     public void sendASYNCGAMECommandFromServer(String command, Participant p) {
-        
+
         sendASYNCGAMECommandFromServer(command, p, true);
     }
-    
+
     public void sendASYNCGAMECommandFromServer(String command, Participant p, boolean confirmation) {
-        
+
         if (!confirmation) {
-            
+
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
-            
+
             String full_command = "GAME#" + String.valueOf(id) + "#" + command;
-            
+
             p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
-            
+
         } else {
-            
+
             synchronized (p.getAsync_command_queue()) {
                 p.getAsync_command_queue().add(command);
                 p.getAsync_command_queue().notifyAll();
             }
-            
+
         }
-        
+
     }
-    
+
     public JProgressBar getBarra() {
         return barra;
     }
-    
+
     private void cliente() {
-        
+
         Helpers.threadRun(new Runnable() {
-            
+
             public void run() {
-                
+
                 do {
-                    
+
                     Helpers.GUIRun(new Runnable() {
-                        
+
                         public void run() {
                             status.setForeground(new Color(51, 153, 0));
                             barra.setIndeterminate(true);
                             status.setText(Translator.translate("Conectando..."));
                         }
                     });
-                    
+
                     booting = true;
-                    
+
                     HashMap<String, Integer> last_received = new HashMap<>();
-                    
+
                     String recibido;
-                    
+
                     String[] partes;
-                    
+
                     try {
-                        
+
                         String[] direccion = server_ip_port.split(":");
-                        
+
                         local_client_socket = new Socket(direccion[0], Integer.valueOf(direccion[1]));
 
                         //Le mandamos los bytes "mágicos"
                         local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
-                        
+
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
                                 status.setText(Translator.translate("Intercambio de claves..."));
-                                
+
                             }
                         });
 
                         /* INICIO INTERCAMBIO CLAVES */
                         KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
-                        
+
                         clientKpairGen.initialize(EC_KEY_LENGTH);
-                        
+
                         KeyPair clientKpair = clientKpairGen.generateKeyPair();
-                        
+
                         KeyAgreement clientKeyAgree = KeyAgreement.getInstance("ECDH");
-                        
+
                         clientKeyAgree.init(clientKpair.getPrivate());
-                        
+
                         byte[] clientPubKeyEnc = clientKpair.getPublic().getEncoded();
-                        
+
                         DataOutputStream dOut = new DataOutputStream(local_client_socket.getOutputStream());
-                        
+
                         dOut.writeInt(clientPubKeyEnc.length);
-                        
+
                         dOut.write(clientPubKeyEnc);
-                        
+
                         DataInputStream dIn = new DataInputStream(local_client_socket.getInputStream());
-                        
+
                         int length = dIn.readInt();
-                        
+
                         byte[] serverPubKeyEnc = new byte[length];
-                        
+
                         dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
-                        
+
                         KeyFactory clientKeyFac = KeyFactory.getInstance("EC");
-                        
+
                         X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(serverPubKeyEnc);
-                        
+
                         PublicKey serverPubKey = clientKeyFac.generatePublic(x509KeySpec);
-                        
+
                         clientKeyAgree.doPhase(serverPubKey, true);
-                        
+
                         byte[] clientSharedSecret = clientKeyAgree.generateSecret();
-                        
+
                         byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(clientSharedSecret);
-                        
+
                         local_client_aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
-                        
+
                         local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
-                        
+
                         local_client_hmac_key_orig = local_client_hmac_key;
 
                         /* FIN INTERCAMBIO CLAVES */
                         byte[] avatar_bytes = null;
-                        
+
                         if (local_avatar != null && local_avatar.length() > 0) {
                             try (FileInputStream is = new FileInputStream(local_avatar)) {
                                 avatar_bytes = is.readAllBytes();
                             }
                         }
-                        
+
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
                                 status.setText(Translator.translate("Chequeo de integridad..."));
                             }
                         });
-                        
+
                         String jar_hmac = Init.coronaHMACJ1(local_client_aes_key.getEncoded(), local_client_hmac_key.getEncoded());
 
                         //Le mandamos nuestro nick + VERSION + AVATAR + password al server
                         writeCommandToServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + "#" + AboutDialog.VERSION + "@" + jar_hmac + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : "#*") + (password != null ? "#" + Base64.encodeBase64String(password.getBytes("UTF-8")) : "#*"), local_client_aes_key, local_client_hmac_key));
-                        
+
                         local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
 
                         //Leemos la respuesta del server
                         recibido = readCommandFromServer();
-                        
+
                         partes = recibido.split("#");
-                        
+
                         if (partes[0].equals("BADVERSION")) {
                             exit = true;
                             Helpers.mostrarMensajeError(THIS, Translator.translate("Versión de CoronaPoker incorrecta") + "(" + partes[1] + ")");
                         } else if (partes[0].equals("YOUARELATE")) {
                             exit = true;
                             Helpers.mostrarMensajeError(THIS, "Llegas TARDE. La partida ya ha empezado.");
-                            
+
                         } else if (partes[0].equals("NOSPACE")) {
                             exit = true;
                             Helpers.mostrarMensajeError(THIS, "NO HAY SITIO");
-                            
+
                         } else if (partes[0].equals("NICKFAIL")) {
                             exit = true;
                             Helpers.mostrarMensajeError(THIS, "El nick elegido ya lo está usando otro usuario.");
-                            
+
                         } else if (partes[0].equals("BADPASSWORD")) {
                             exit = true;
                             Helpers.mostrarMensajeError(THIS, "PASSWORD INCORRECTA");
                         } else if (partes[0].equals("NICKOK")) {
-                            
+
                             String server_jar_hmac = Init.coronaHMACJ1(Base64.decodeBase64(jar_hmac), local_client_hmac_key.getEncoded());
-                            
+
                             if (!server_jar_hmac.equals(partes[2])) {
-                                
+
                                 THIS.setUnsecure_server(true);
-                                
+
                                 Helpers.threadRun(new Runnable() {
                                     public void run() {
-                                        
+
                                         Helpers.mostrarMensajeInformativo(THIS, "CUIDADO: el ejecutable del juego del servidor es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)");
                                     }
                                 });
                             }
-                            
+
                             if ("0".equals(partes[1])) {
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
-                                        
+
                                         pass_icon.setVisible(false);
                                     }
                                 });
                             }
-                            
+
                             gameinfo_original = new String(Base64.decodeBase64(partes[3]), "UTF-8");
-                            
+
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
                                     status.setText(Translator.translate("Recibiendo info del servidor..."));
@@ -1221,77 +1223,77 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             //Leemos el nick del server
                             recibido = readCommandFromServer();
-                            
+
                             partes = recibido.split("#");
-                            
+
                             server_nick = new String(Base64.decodeBase64(partes[0]), "UTF-8").trim();
 
                             //Generamos y guardamos nuestra clave de permutacion para en caso de que la partida se corte el servidor pueda recuperarla
                             try {
-                                
+
                                 MessageDigest md = MessageDigest.getInstance("MD5");
                                 md.update(local_nick.getBytes("UTF-8"));
                                 md.update(server_nick.getBytes("UTF-8"));
                                 md.update(local_client_aes_key.getEncoded());
                                 md.update(local_client_hmac_key.getEncoded());
                                 local_client_permutation_key = new SecretKeySpec(md.digest(), "AES");
-                                
+
                                 md = MessageDigest.getInstance("MD5");
                                 local_client_permutation_key_hash = Base64.encodeBase64String(md.digest(local_client_permutation_key.getEncoded()));
-                                
+
                                 sqlSavePermutationkey();
-                                
+
                             } catch (IOException ex) {
                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
                             //Leemos el avatar del server
                             String server_avatar_base64 = partes.length > 1 ? partes[1] : "";
-                            
+
                             File server_avatar = null;
-                            
+
                             try {
-                                
+
                                 if (server_avatar_base64.length() > 0) {
-                                    
+
                                     int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                    
+
                                     if (file_id < 0) {
                                         file_id *= -1;
                                     }
-                                    
+
                                     server_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + server_nick + "_avatar" + String.valueOf(file_id));
-                                    
+
                                     FileOutputStream os = new FileOutputStream(server_avatar);
-                                    
+
                                     os.write(Base64.decodeBase64(server_avatar_base64));
-                                    
+
                                     os.close();
                                 }
-                                
+
                             } catch (Exception ex) {
                                 server_avatar = null;
                             }
 
                             //Leemos el contenido del chat
                             recibido = readCommandFromServer();
-                            
+
                             if (!"*".equals(recibido)) {
-                                
+
                                 chat_text = new StringBuffer(new String(Base64.decodeBase64(recibido), "UTF-8"));
-                                
+
                                 refreshChatPanel();
                             }
 
                             //Leemos el enlace del videochat (si existe)
                             recibido = readCommandFromServer();
-                            
+
                             if (!"*".equals(recibido)) {
-                                
+
                                 String video_chat_link = new String(Base64.decodeBase64(recibido), "UTF-8");
-                                
+
                                 if (video_chat_link.toLowerCase().startsWith("http")) {
-                                    
+
                                     setVideo_chat_link(video_chat_link);
                                 }
                             }
@@ -1305,19 +1307,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             //Cada X segundos mandamos un comando KEEP ALIVE al server 
                             Helpers.threadRun(new Runnable() {
                                 public void run() {
-                                    
+
                                     while (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                                        
+
                                         int ping = Helpers.CSPRNG_GENERATOR.nextInt();
-                                        
+
                                         try {
-                                            
+
                                             writeCommandToServer("PING#" + String.valueOf(ping));
-                                            
+
                                         } catch (IOException ex) {
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                                         }
-                                        
+
                                         synchronized (keep_alive_lock) {
                                             try {
                                                 keep_alive_lock.wait(WaitingRoomFrame.PING_PONG_TIMEOUT);
@@ -1325,18 +1327,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                                             }
                                         }
-                                        
+
                                         if (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
-                                            
+
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
-                                            
+
                                         }
-                                        
+
                                     }
-                                    
+
                                 }
                             });
-                            
+
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
                                     status.setText(Translator.translate("CONECTADO"));
@@ -1344,126 +1346,126 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     chat_box_panel.setEnabled(true);
                                 }
                             });
-                            
+
                             booting = false;
 
                             //Nos quedamos en bucle esperando mensajes del server
                             do {
-                                
+
                                 try {
-                                    
+
                                     recibido = readCommandFromServer();
-                                    
+
                                     if (recibido != null) {
-                                        
+
                                         String[] partes_comando = recibido.split("#");
-                                        
+
                                         if (partes_comando[0].equals("PONG")) {
-                                            
+
                                             pong = Integer.parseInt(partes_comando[1]);
-                                            
+
                                         } else if (partes_comando[0].equals("PING")) {
-                                            
+
                                             writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
-                                            
+
                                         } else if (partes_comando[0].equals("CHAT")) {
-                                            
+
                                             String mensaje;
-                                            
+
                                             if (partes_comando.length == 3) {
-                                                
+
                                                 mensaje = new String(Base64.decodeBase64(partes_comando[2]), "UTF-8");
-                                                
+
                                             } else {
                                                 mensaje = "";
                                             }
-                                            
+
                                             recibirMensajeChat(new String(Base64.decodeBase64(partes_comando[1]), "UTF-8"), mensaje);
-                                            
+
                                         } else if (partes_comando[0].equals("EXIT")) {
-                                            
+
                                             exit = true;
-                                            
+
                                             Helpers.mostrarMensajeError(THIS, "El servidor ha cancelado la timba antes de empezar.");
-                                            
+
                                         } else if (partes_comando[0].equals("KICKED")) {
-                                            
+
                                             exit = true;
-                                            
+
                                             Audio.playWavResource("loser/payaso.wav");
-                                            
+
                                             Helpers.mostrarMensajeInformativo(THIS, "¡A LA PUTA CALLE!");
-                                            
+
                                         } else if (partes_comando[0].equals("GAME")) {
 
                                             //Confirmamos recepción al servidor
                                             String subcomando = partes_comando[2];
-                                            
+
                                             int id = Integer.valueOf(partes_comando[1]);
-                                            
+
                                             writeCommandToServer("CONF#" + String.valueOf(id + 1) + "#OK");
-                                            
+
                                             if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != id) {
-                                                
+
                                                 last_received.put(subcomando, id);
-                                                
+
                                                 if (isPartida_empezada()) {
-                                                    
+
                                                     switch (subcomando) {
-                                                        
+
                                                         case "PING":
                                                             break;
-                                                        
+
                                                         case "IWTSTH":
-                                                            
+
                                                             GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-                                                            
+
                                                             break;
-                                                        
+
                                                         case "IWTSTHSHOW":
-                                                            
+
                                                             GameFrame.getInstance().getCrupier().IWTSTH_SHOW(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Boolean.parseBoolean(partes_comando[4]));
-                                                            
+
                                                             break;
-                                                        
+
                                                         case "TIMEOUT":
-                                                            
+
                                                             Player jugador = GameFrame.getInstance().getCrupier().getNick2player().get(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-                                                            
+
                                                             if (jugador != null) {
-                                                                
+
                                                                 jugador.setTimeout(true);
                                                             }
-                                                            
+
                                                             break;
-                                                        
+
                                                         case "TTS":
                                                             GameFrame.TTS_SERVER = partes_comando[3].equals("1");
-                                                            
+
                                                             Helpers.GUIRun(new Runnable() {
                                                                 public void run() {
-                                                                    
+
                                                                     GameFrame.getInstance().getTts_menu().setEnabled(GameFrame.TTS_SERVER);
-                                                                    
+
                                                                     Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
-                                                                    
+
                                                                     if (GameFrame.SONIDOS_TTS) {
                                                                         TTSNotifyDialog dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, GameFrame.TTS_SERVER);
-                                                                        
+
                                                                         dialog.setLocation(dialog.getParent().getLocation());
-                                                                        
+
                                                                         dialog.setVisible(true);
                                                                     }
-                                                                    
+
                                                                 }
                                                             });
-                                                            
+
                                                             break;
-                                                        
+
                                                         case "VIDEOCHAT":
                                                             setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                             break;
-                                                        
+
                                                         case "PAUSE":
                                                             Helpers.threadRun(new Runnable() {
                                                                 public void run() {
@@ -1475,84 +1477,84 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 }
                                                             });
                                                             break;
-                                                        
+
                                                         case "PERMUTATIONKEY":
-                                                            
+
                                                             Helpers.threadRun(new Runnable() {
                                                                 public void run() {
-                                                                    
+
                                                                     String key = sqlReadPermutationkey(partes_comando[3]);
-                                                                    
+
                                                                     GameFrame.getInstance().getCrupier().sendGAMECommandToServer("PERMUTATIONKEY#" + (key != null ? key : "*"));
                                                                 }
                                                             });
                                                             break;
-                                                        
+
                                                         case "CINEMATICEND":
                                                             GameFrame.getInstance().getCrupier().remoteCinematicEnd(null);
                                                             break;
-                                                        
+
                                                         case "SHOWCARDS":
                                                             GameFrame.getInstance().getCrupier().showPlayerCards(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), partes_comando[4], partes_comando[5]);
                                                             break;
-                                                        
+
                                                         case "REBUYNOW":
                                                             GameFrame.getInstance().getCrupier().rebuyNow(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Integer.parseInt(partes_comando[4]));
                                                             break;
-                                                        
+
                                                         case "EXIT":
                                                             GameFrame.getInstance().getCrupier().remotePlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                             break;
-                                                        
+
                                                         case "LASTHAND":
-                                                            
+
                                                             if (partes_comando[3].equals("0")) {
                                                                 GameFrame.getInstance().getTapete().getCommunityCards().last_hand_off();
                                                             } else {
                                                                 GameFrame.getInstance().getTapete().getCommunityCards().last_hand_on();
                                                             }
-                                                            
+
                                                             break;
-                                                        
+
                                                         case "MAXHANDS":
-                                                            
+
                                                             GameFrame.MANOS = Integer.parseInt(partes_comando[3]);
-                                                            
+
                                                             GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
-                                                            
+
                                                             break;
-                                                        
+
                                                         case "SERVEREXIT":
                                                             exit = true;
-                                                            
+
                                                             if (!GameFrame.CINEMATICAS) {
                                                                 Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA TERMINADO LA TIMBA");
                                                             }
                                                             break;
-                                                        
+
                                                         default:
                                                         
                                                         synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                                 GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
                                                                 GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                             }
-                                                            
+
                                                             break;
                                                     }
-                                                    
+
                                                 } else {
-                                                    
+
                                                     switch (subcomando) {
                                                         case "GAMEINFO":
-                                                            
+
                                                             String ginfo = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
                                                             if (!ginfo.equals(game_info.getText())) {
-                                                                
+
                                                                 Helpers.GUIRun(new Runnable() {
                                                                     public void run() {
-                                                                        
+
                                                                         game_info.setText(ginfo);
-                                                                        
+
                                                                         if (!gameinfo_original.equals(game_info.getText())) {
                                                                             game_info.setOpaque(true);
                                                                             game_info.setBackground(Color.YELLOW);
@@ -1562,112 +1564,112 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                         }
                                                                     }
                                                                 });
-                                                                
+
                                                                 if (gameinfo_original.equals(ginfo)) {
                                                                     Audio.playWavResource("misc/last_hand_off.wav");
                                                                 } else {
                                                                     Audio.playWavResource("misc/last_hand_on.wav");
                                                                 }
                                                             }
-                                                            
+
                                                             break;
                                                         case "VIDEOCHAT":
                                                             setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                             break;
-                                                        
+
                                                         case "DELUSER":
                                                             borrarParticipante(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                             break;
-                                                        
+
                                                         case "NEWUSER":
                                                             Audio.playWavResource("misc/new_user.wav");
-                                                            
+
                                                             String nick = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
-                                                            
+
                                                             File avatar = null;
-                                                            
+
                                                             int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                            
+
                                                             if (file_id < 0) {
                                                                 file_id *= -1;
                                                             }
-                                                            
+
                                                             if (partes_comando.length == 5) {
                                                                 avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
-                                                                
+
                                                                 try (FileOutputStream os = new FileOutputStream(avatar)) {
                                                                     os.write(Base64.decodeBase64(partes_comando[4]));
                                                                 }
                                                             }
-                                                            
+
                                                             if (!participantes.containsKey(nick)) {
                                                                 //Añadimos al participante
                                                                 nuevoParticipante(nick, avatar, null, null, null, false);
                                                             }
-                                                            
+
                                                             break;
                                                         case "USERSLIST":
                                                             String[] current_users_parts = partes_comando[3].split("@");
-                                                            
+
                                                             for (String user : current_users_parts) {
-                                                                
+
                                                                 String[] user_parts = user.split("\\|");
-                                                                
+
                                                                 nick = new String(Base64.decodeBase64(user_parts[0]), "UTF-8");
-                                                                
+
                                                                 avatar = null;
-                                                                
+
                                                                 if (user_parts.length == 2) {
                                                                     file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    
+
                                                                     if (file_id < 0) {
                                                                         file_id *= -1;
                                                                     }
-                                                                    
+
                                                                     avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
-                                                                    
+
                                                                     try (FileOutputStream os = new FileOutputStream(avatar)) {
                                                                         os.write(Base64.decodeBase64(user_parts[1]));
                                                                     }
-                                                                    
+
                                                                 }
-                                                                
+
                                                                 if (!participantes.containsKey(nick)) {
                                                                     //Añadimos al participante
                                                                     nuevoParticipante(nick, avatar, null, null, null, false);
                                                                 }
-                                                                
+
                                                             }
                                                             break;
-                                                        
+
                                                         case "INIT":
-                                                            
+
                                                             Helpers.GUIRun(new Runnable() {
                                                                 public void run() {
                                                                     setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                                                                     sound_icon.setVisible(false);
                                                                     status.setText(Translator.translate("Inicializando timba..."));
                                                                     barra.setVisible(true);
-                                                                    
+
                                                                 }
                                                             });
-                                                            
+
                                                             GameFrame.BUYIN = Integer.parseInt(partes_comando[3]);
-                                                            
+
                                                             GameFrame.CIEGA_PEQUEÑA = Float.parseFloat(partes_comando[4]);
-                                                            
+
                                                             GameFrame.CIEGA_GRANDE = Float.parseFloat(partes_comando[5]);
-                                                            
+
                                                             String[] ciegas_double = partes_comando[6].split("@");
-                                                            
+
                                                             GameFrame.CIEGAS_DOUBLE = Integer.parseInt(ciegas_double[0]);
-                                                            
+
                                                             GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(ciegas_double[1]);
-                                                            
+
                                                             GameFrame.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
-                                                            
+
                                                             GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
-                                                            
+
                                                             GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
 
                                                             //Inicializamos partida
@@ -1676,51 +1678,51 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                     new GameFrame(THIS, local_nick, false);
                                                                 }
                                                             });
-                                                            
+
                                                             partida_empezada = true;
-                                                            
+
                                                             GameFrame.getInstance().AJUGAR();
-                                                            
+
                                                             break;
                                                     }
                                                 }
                                             }
-                                            
+
                                         } else if (partes_comando[0].equals("CONF")) {
                                             //Es una confirmación del servidor
 
                                             WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
                                             synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-                                                
+
                                                 WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
                                             }
-                                            
+
                                         }
-                                        
+
                                     } else {
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SOCKET RECIBIÓ NULL");
                                     }
-                                    
+
                                 } catch (Exception ex) {
-                                    
+
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EXCEPCION AL LEER DEL SOCKET");
-                                    
+
                                     recibido = null;
-                                    
+
                                 } finally {
                                     if (recibido == null && (!exit && (!isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit())) && !reconectarCliente()) {
                                         exit = true;
                                     }
                                 }
-                                
+
                                 if (!exit) {
                                     Helpers.pausar(1000);
                                 }
-                                
+
                             } while (!exit);
-                            
+
                         }
-                        
+
                     } catch (IOException ex) {
                         //Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                     } catch (Exception ex) {
@@ -1728,19 +1730,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Helpers.mostrarMensajeError(THIS, "ERROR INESPERADO");
                         System.exit(1);
                     }
-                    
+
                     if (WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                        
+
                         GameFrame.getInstance().finTransmision(exit);
-                        
+
                     } else if (!exit) {
-                        
+
                         if (local_client_socket == null) {
-                            
+
                             booting = false;
-                            
+
                             Helpers.GUIRun(new Runnable() {
-                                
+
                                 public void run() {
                                     status.setForeground(Color.red);
                                     barra.setIndeterminate(false);
@@ -1748,18 +1750,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     barra.setValue(CLIENT_REC_WAIT);
                                 }
                             });
-                            
+
                             for (int i = CLIENT_REC_WAIT; i > 0 && !exit; i--) {
-                                
+
                                 int j = i;
                                 Helpers.GUIRun(new Runnable() {
-                                    
+
                                     public void run() {
                                         status.setText(Translator.translate("ERROR (Reconexión en ") + j + Translator.translate(" segs...)"));
                                         barra.setValue(j);
                                     }
                                 });
-                                
+
                                 if (!exit) {
                                     synchronized (lock_client_reconnect) {
                                         try {
@@ -1770,203 +1772,203 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     }
                                 }
                             }
-                            
+
                         } else {
-                            
+
                             Helpers.mostrarMensajeError(THIS, "ALGO HA FALLADO. Has perdido la conexión con el servidor.");
                         }
                     }
-                    
+
                 } while (!exit && local_client_socket == null);
-                
+
                 exit = true;
-                
+
                 synchronized (keep_alive_lock) {
                     keep_alive_lock.notifyAll();
                 }
-                
+
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
-                        
+
                         Init.VENTANA_INICIO.setVisible(true);
-                        
+
                         dispose();
                     }
                 });
-                
+
                 Audio.stopLoopMp3("misc/waiting_room.mp3");
-                
+
                 Audio.unmuteLoopMp3("misc/background_music.mp3");
             }
         });
     }
-    
+
     private void enviarListaUsuariosActualesAlNuevoUsuario(Participant par) {
-        
+
         String command = "USERSLIST#";
-        
+
         for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
-            
+
             Participant p = entry.getValue();
-            
+
             try {
-                
+
                 if (p != null && p != par) {
-                    
+
                     command += Base64.encodeBase64String(p.getNick().getBytes("UTF-8"));
-                    
+
                     if (p.getAvatar() != null || p.isCpu()) {
                         byte[] avatar_b;
-                        
+
                         try (InputStream is = !p.isCpu() ? new FileInputStream(p.getAvatar()) : WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
                             avatar_b = is.readAllBytes();
                         }
-                        
+
                         command += "|" + Base64.encodeBase64String(avatar_b);
                     }
-                    
+
                     command += "@";
                 }
-                
+
             } catch (IOException ex) {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
-            
+
         }
-        
+
         this.sendASYNCGAMECommandFromServer(command, par);
-        
+
     }
-    
+
     private void serverSocketHandler(final Socket client_socket) {
-        
+
         Helpers.threadRun(new Runnable() {
             public void run() {
-                
+
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "Un cliente intenta conectar...");
-                
+
                 client_threads.add(Thread.currentThread().getId());
-                
+
                 String recibido;
-                
+
                 String[] partes;
-                
+
                 try {
                     //Leemos los bytes "mágicos"
                     byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
-                    
+
                     client_socket.getInputStream().read(magic);
-                    
+
                     if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
 
                         /* INICIO INTERCAMBIO DE CLAVES */
                         DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
-                        
+
                         int length = dIn.readInt();
-                        
+
                         byte[] clientPubKeyEnc = new byte[length];
-                        
+
                         dIn.readFully(clientPubKeyEnc, 0, clientPubKeyEnc.length);
-                        
+
                         KeyFactory serverKeyFac = KeyFactory.getInstance("EC");
-                        
+
                         X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(clientPubKeyEnc);
-                        
+
                         PublicKey clientPubKey = serverKeyFac.generatePublic(x509KeySpec);
-                        
+
                         KeyPairGenerator serverKpairGen = KeyPairGenerator.getInstance("EC");
-                        
+
                         serverKpairGen.initialize(EC_KEY_LENGTH);
-                        
+
                         KeyPair serverKpair = serverKpairGen.generateKeyPair();
-                        
+
                         KeyAgreement serverKeyAgree = KeyAgreement.getInstance("ECDH");
-                        
+
                         serverKeyAgree.init(serverKpair.getPrivate());
-                        
+
                         byte[] serverPubKeyEnc = serverKpair.getPublic().getEncoded();
-                        
+
                         DataOutputStream dOut = new DataOutputStream(client_socket.getOutputStream());
-                        
+
                         dOut.writeInt(serverPubKeyEnc.length);
-                        
+
                         dOut.write(serverPubKeyEnc);
-                        
+
                         serverKeyAgree.doPhase(clientPubKey, true);
-                        
+
                         byte[] serverSharedSecret = serverKeyAgree.generateSecret();
-                        
+
                         byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(serverSharedSecret);
-                        
+
                         SecretKeySpec aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
-                        
+
                         SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
-                        
+
                         String client_jar_hmac = Init.coronaHMACJ1(aes_key.getEncoded(), hmac_key.getEncoded());
 
                         /* FIN INTERCAMBIO DE CLAVES */
                         //Leemos el nick del usuario
                         recibido = readCommandFromClient(client_socket, aes_key, hmac_key);
-                        
+
                         partes = recibido.split("#");
-                        
+
                         String client_nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
-                        
+
                         File client_avatar = null;
-                        
+
                         if (partes.length == 5) {
-                            
+
                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Un supuesto cliente quiere reconectar...");
-                            
+
                             if (participantes.containsKey(client_nick)) {
-                                
+
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El cliente existe");
-                                
+
                                 Mac orig_sha256_HMAC = Mac.getInstance("HmacSHA256");
-                                
+
                                 orig_sha256_HMAC.init(participantes.get(client_nick).getHmac_key_orig());
-                                
+
                                 byte[] orig_hmac = orig_sha256_HMAC.doFinal(client_nick.getBytes("UTF-8"));
-                                
+
                                 if (MessageDigest.isEqual(orig_hmac, Base64.decodeBase64(partes[4]))) {
-                                    
+
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El HMAC del cliente es auténtico");
-                                    
+
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Reseteando el socket del cliente...");
 
                                     //Es un usuario intentado reconectar
                                     if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {
-                                        
+
                                         Audio.playWavResource("misc/yahoo.wav");
-                                        
+
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
                                     } else {
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR");
-                                        
+
                                         try {
                                             client_socket.close();
                                         } catch (Exception ex) {
                                         }
                                     }
-                                    
+
                                 } else {
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR (BAD HMAC)");
-                                    
+
                                     try {
                                         client_socket.close();
                                     } catch (Exception ex) {
                                     }
                                 }
-                                
+
                             } else {
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El usuario " + client_nick + " INTENTA RECONECTAR UNA TIMBA ANTERIOR -> DENEGADO");
-                                
+
                                 try {
                                     client_socket.close();
                                 } catch (Exception ex) {
                                 }
                             }
-                            
+
                         } else if (!partes[1].split("@")[0].equals(AboutDialog.VERSION)) {
                             writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
                         } else if (password != null && ("*".equals(partes[3]) || !password.equals(new String(Base64.decodeBase64(partes[3]), "UTF-8")))) {
@@ -1981,36 +1983,36 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             //Procesamos su avatar
                             String client_avatar_base64 = partes[2];
-                            
+
                             try {
-                                
+
                                 if (!"*".equals(client_avatar_base64)) {
-                                    
+
                                     int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                    
+
                                     if (file_id < 0) {
                                         file_id *= -1;
                                     }
                                     client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + client_nick + "_avatar" + String.valueOf(file_id));
-                                    
+
                                     FileOutputStream os = new FileOutputStream(client_avatar);
-                                    
+
                                     os.write(Base64.decodeBase64(client_avatar_base64));
-                                    
+
                                     os.close();
                                 }
                             } catch (Exception ex) {
                                 client_avatar = null;
                             }
-                            
+
                             String jar_hmac = Init.coronaHMACJ1(Base64.decodeBase64(client_jar_hmac), hmac_key.getEncoded());
-                            
+
                             writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1") + "#" + jar_hmac + "#" + Base64.encodeBase64String(game_info.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
-                            
+
                             byte[] avatar_bytes = null;
-                            
+
                             if (local_avatar != null && local_avatar.length() > 0) {
-                                
+
                                 try (FileInputStream is = new FileInputStream(local_avatar)) {
                                     avatar_bytes = is.readAllBytes();
                                 }
@@ -2024,19 +2026,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             //Mandamos el link del videochat
                             writeCommandFromServer(Helpers.encryptCommand(getVideo_chat_link() != null ? Base64.encodeBase64String(getVideo_chat_link().getBytes("UTF-8")) : "*", aes_key, hmac_key), client_socket);
-                            
+
                             synchronized (lock_new_client) {
-                                
+
                                 try {
-                                    
+
                                     Helpers.GUIRunAndWait(new Runnable() {
                                         public void run() {
                                             empezar_timba.setEnabled(false);
                                             game_info.setEnabled(false);
-                                            
+
                                         }
                                     });
-                                    
+
                                     if (participantes.size() < MAX_PARTICIPANTES && !WaitingRoomFrame.getInstance().isPartida_empezando() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                                         //Añadimos al participante
@@ -2048,49 +2050,49 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                             //Mandamos el nuevo participante al resto de participantes
                                             String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
-                                            
+
                                             if (client_avatar != null) {
-                                                
+
                                                 byte[] avatar_b;
-                                                
+
                                                 try (FileInputStream is = new FileInputStream(client_avatar)) {
                                                     avatar_b = is.readAllBytes();
                                                 }
-                                                
+
                                                 comando += "#" + Base64.encodeBase64String(avatar_b);
                                             }
-                                            
+
                                             broadcastASYNCGAMECommandFromServer(comando, participantes.get(client_nick));
                                         }
-                                        
+
                                         Helpers.GUIRun(new Runnable() {
                                             public void run() {
                                                 kick_user.setEnabled(true);
                                                 new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                                             }
                                         });
-                                        
+
                                         Audio.playWavResource("misc/new_user.wav");
-                                        
+
                                         if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
-                                            
+
                                             participantes.get(client_nick).setUnsecure_player(true);
-                                            
+
                                             Helpers.threadRun(new Runnable() {
                                                 public void run() {
-                                                    
+
                                                     Helpers.mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
                                                 }
                                             });
-                                            
+
                                         }
-                                        
+
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " CONECTADO");
                                     } else {
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " NO PUDO CONECTAR CORRECTAMENTE (PARTIDA LLENA O EMPEZADA)");
                                         client_socket.close();
                                     }
-                                    
+
                                 } catch (Exception ex) {
                                 } finally {
                                     Helpers.GUIRunAndWait(new Runnable() {
@@ -2098,16 +2100,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             if (participantes.size() > 1) {
                                                 empezar_timba.setEnabled(true);
                                             }
-                                            
+
                                             game_info.setEnabled(true);
                                         }
                                     });
                                 }
-                                
+
                             }
-                            
+
                         }
-                        
+
                     } else {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "BAD MAGIC BYTES FROM CLIENT!");
                         client_socket.close();
@@ -2115,199 +2117,207 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 } catch (Exception ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
-                
+
                 client_threads.remove(Thread.currentThread().getId());
-                
+
             }
         });
-        
+
     }
-    
+
     private void servidor() {
-        
+
         server_nick = local_nick;
-        
+
         Helpers.threadRun(new Runnable() {
             public void run() {
-                
+
                 while (!exit) {
-                    
+
                     booting = true;
-                    
+
                     try {
                         String[] direccion = server_ip_port.trim().split(":");
-                        
+
                         server_port = Integer.valueOf(direccion[1]);
-                        
+
                         if (upnp) {
-                            
+
                             String stat = status1.getText();
-                            
+
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
                                     status1.setText(Translator.translate("Probando UPnP..."));
                                 }
                             });
-                            
+
                             upnp = Helpers.UPnPOpen(server_port);
-                            
+
                             if (upnp) {
-                                
+
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
                                         status1.setForeground(Color.BLUE);
                                         status1.setText(Helpers.getMyPublicIP() + ":" + String.valueOf(server_port) + " (UPnP OK)");
                                     }
                                 });
-                                
+
                             } else {
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
                                         status1.setText(stat + " (UPnP ERROR)");
                                     }
                                 });
-                                
+
                                 Helpers.mostrarMensajeError(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás activar UPnP en tu router o mapear el puerto de forma manual)");
                             }
                         }
-                        
+
                         Helpers.PROPERTIES.setProperty("upnp", String.valueOf(upnp));
-                        
+
                         Helpers.savePropertiesFile();
-                        
+
                         booting = false;
-                        
+
                         server_socket = new ServerSocket();
-                        
+
                         server_socket.setReuseAddress(true);
-                        
+
                         server_socket.bind(new InetSocketAddress(server_port));
-                        
+
                         while (!server_socket.isClosed()) {
-                            
+
                             serverSocketHandler(server_socket.accept());
-                            
+
                         }
-                        
+
                     } catch (IOException ex) {
-                        
+
                         if (server_socket == null) {
-                            
+
                             exit = true;
-                            
+
                             Helpers.mostrarMensajeError(THIS, "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
                         }
-                        
+
                     } catch (Exception ex) {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
-                
+
                 if (upnp) {
                     Helpers.UPnPClose(server_port);
                 }
-                
+
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
-                        
+
                         Init.VENTANA_INICIO.setVisible(true);
-                        
+
                         dispose();
                     }
                 });
-                
+
                 Audio.stopLoopMp3("misc/waiting_room.mp3");
-                
+
                 Audio.unmuteLoopMp3("misc/background_music.mp3");
-                
+
             }
         });
     }
-    
+
     public void refreshChatPanel() {
-        
+
         if (isVisible() && !chat_text.toString().isEmpty()) {
-            
+
             Helpers.threadRun(new Runnable() {
                 public void run() {
-                    
+
                     final String html = "<html><body style='background-image: url(" + background_src + ")'>" + plainChat2HTML(chat_text.toString()) + "</body></html>";
-                    
+
                     Helpers.GUIRun(new Runnable() {
-                        
+
                         public void run() {
-                            
+
                             chat.setText(html);
-                            
+
                         }
                     });
-                    
+
                 }
             });
         }
     }
-    
+
     public void recibirMensajeChat(String nick, String msg) {
-        
+
         chat_text.append(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n");
-        
-        refreshChatPanel();
-        
+
+        HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
+
+        StringReader reader = new StringReader(plainChat2HTML(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n"));
+
+        try {
+
+            editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
+        } catch (Exception ex) {
+        }
+
         Helpers.GUIRun(new Runnable() {
-            
+
             public void run() {
-                
+
                 if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive() && WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
-                    
+
                     Audio.TTS_CHAT_QUEUE.add(new Object[]{nick, msg});
-                    
+
                     synchronized (Audio.TTS_CHAT_QUEUE) {
                         Audio.TTS_CHAT_QUEUE.notifyAll();
                     }
-                    
+
                 }
             }
         });
-        
+
         if (this.server) {
-            
+
             byte[] iv = new byte[16];
-            
+
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
             //Reenviamos el mensaje al resto de participantes
             participantes.entrySet().forEach((entry) -> {
                 try {
-                    
+
                     Participant p = entry.getValue();
-                    
+
                     if (p != null && !p.isCpu() && !p.getNick().equals(nick)) {
-                        
+
                         String comando = "CHAT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(msg.getBytes("UTF-8"));
-                        
+
                         p.writeCommandFromServer(Helpers.encryptCommand(comando, p.getAes_key(), iv, p.getHmac_key()));
                     }
-                    
+
                 } catch (IOException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
             });
         }
     }
-    
+
     public boolean isPartida_empezada() {
         return partida_empezada;
     }
-    
+
     public void enviarMensajeChat(String nick, String msg) {
-        
+
         Helpers.threadRun(new Runnable() {
             public void run() {
-                
+
                 byte[] iv = new byte[16];
-                
+
                 Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-                
+
                 if (!server) {
                     try {
                         String comando = "CHAT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(msg.getBytes("UTF-8"));
@@ -2316,7 +2326,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 } else {
-                    
+
                     participantes.entrySet().forEach((entry) -> {
                         try {
                             Participant participante = entry.getValue();
@@ -2329,106 +2339,106 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         }
                     });
                 }
-                
+
             }
         });
     }
-    
+
     public synchronized void borrarParticipante(String nick) {
-        
+
         if (this.participantes.containsKey(nick)) {
-            
+
             Audio.playWavResource("misc/toilet.wav");
-            
+
             participantes.remove(nick);
-            
+
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    
+
                     tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
-                    
+
                     DefaultListModel model = (DefaultListModel) conectados.getModel();
-                    
+
                     ParticipantsListRenderer rem_element = null;
-                    
+
                     for (int i = 0; i < model.getSize(); i++) {
-                        
+
                         if (((ParticipantsListRenderer) model.getElementAt(i)).getText().equals(nick)) {
                             rem_element = (ParticipantsListRenderer) model.getElementAt(i);
                             break;
                         }
                     }
-                    
+
                     model.removeElement(rem_element);
-                    
+
                     conectados.revalidate();
-                    
+
                     conectados.repaint();
-                    
+
                     if (server && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                        
+
                         if (participantes.size() < 2) {
                             empezar_timba.setEnabled(false);
                             kick_user.setEnabled(false);
                         }
-                        
+
                         new_bot_button.setEnabled(true);
                     }
                 }
             });
-            
+
             if (this.isServer() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !exit) {
-                
+
                 try {
                     String comando = "DELUSER#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
                     this.broadcastASYNCGAMECommandFromServer(comando, participantes.get(nick));
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
-                
+
             }
         }
-        
+
     }
-    
+
     private synchronized void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
-        
+
         Participant participante = new Participant(this, nick, avatar, socket, aes_k, hmac_k, cpu);
-        
+
         participantes.put(nick, participante);
-        
+
         if (socket != null) {
-            
+
             Helpers.threadRun(participante);
-            
+
         }
-        
+
         Helpers.GUIRun(new Runnable() {
             public void run() {
-                
+
                 tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
-                
+
                 ParticipantsListRenderer label = new ParticipantsListRenderer();
-                
+
                 label.setText(nick);
-                
+
                 label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                
+
                 if (avatar != null) {
                     Helpers.setResourceIconLabel(label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
                 } else {
                     Helpers.setResourceIconLabel(label, getClass().getResource((server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
                 }
-                
+
                 ((DefaultListModel) conectados.getModel()).addElement(label);
-                
+
                 conectados.revalidate();
-                
+
                 conectados.repaint();
-                
+
             }
         });
-        
+
     }
 
     /**
@@ -2861,52 +2871,52 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         // TODO add your handling code here:
         if (conectados.getSelectedIndex() != -1) {
-            
+
             String expulsado = ((JLabel) ((DefaultListModel) conectados.getModel()).get(conectados.getSelectedIndex())).getText();
-            
+
             if (!expulsado.equals(local_nick)) {
 
                 //Cambiamos la contraseña por una aleatoria
                 if (password != null && !participantes.get(expulsado).isCpu()) {
                     password = Helpers.genRandomString(password.length());
-                    
+
                 }
-                
+
                 kick_user.setEnabled(false);
-                
+
                 Helpers.threadRun(new Runnable() {
                     public void run() {
                         try {
-                            
+
                             participantes.get(expulsado).setExit(true);
-                            
+
                             if (!participantes.get(expulsado).isCpu()) {
-                                
+
                                 String comando = "KICKED#" + Base64.encodeBase64String(expulsado.getBytes("UTF-8"));
                                 participantes.get(expulsado).writeCommandFromServer(Helpers.encryptCommand(comando, participantes.get(expulsado).getAes_key(), participantes.get(expulsado).getHmac_key()), false);
                             }
-                            
+
                             participantes.get(expulsado).exitAndCloseSocket();
-                            
+
                             borrarParticipante(expulsado);
-                            
+
                         } catch (UnsupportedEncodingException ex) {
                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                         } catch (IOException ex) {
                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                        
+
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
                                 kick_user.setEnabled(participantes.size() > 1);
-                                
+
                                 if (password != null) {
                                     pass_icon.setToolTipText(password);
-                                    
+
                                 }
                             }
                         });
-                        
+
                         if (password != null && !participantes.get(expulsado).isCpu()) {
                             Helpers.copyTextToClipboard(password);
                             Helpers.mostrarMensajeInformativo(THIS, "NUEVA PASSWORD COPIADA EN EL PORTAPAPELES");
@@ -2917,65 +2927,65 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         } else {
             Helpers.mostrarMensajeError(THIS, "Tienes que seleccionar algún participante antes");
         }
-        
+
     }//GEN-LAST:event_kick_userActionPerformed
-    
+
     private void empezar_timbaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_empezar_timbaActionPerformed
         // TODO add your handling code here:
 
         if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES EMPEZAR YA?") == 0 && participantes.size() >= 2 && !WaitingRoomFrame.getInstance().isPartida_empezada() && !WaitingRoomFrame.getInstance().isPartida_empezando()) {
-            
+
             String missing_players = "";
-            
+
             if (GameFrame.RECOVER) {
-                
+
                 int game_id = GameFrame.RECOVER_ID;
-                
+
                 try {
-                    
+
                     String sql = "SELECT preflop_players as PLAYERS FROM hand WHERE hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand where hand.id_game=?)";
-                    
+
                     PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-                    
+
                     statement.setQueryTimeout(30);
-                    
+
                     statement.setInt(1, game_id);
-                    
+
                     statement.setInt(2, game_id);
-                    
+
                     ResultSet rs = statement.executeQuery();
-                    
+
                     if (rs.next()) {
-                        
+
                         String datos = rs.getString("PLAYERS");
-                        
+
                         String[] partes = datos.split("#");
-                        
+
                         for (String player_data : partes) {
-                            
+
                             partes = player_data.split("\\|");
-                            
+
                             String nick = new String(Base64.decodeBase64(partes[0]), "UTF-8");
-                            
+
                             if (!"".equals(nick) && !participantes.containsKey(nick)) {
                                 missing_players += nick + "\n\n";
                             }
                         }
                     }
-                    
+
                     statement.close();
-                    
+
                 } catch (SQLException | UnsupportedEncodingException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-            
+
             boolean vamos = ("".equals(missing_players) || Helpers.mostrarMensajeInformativoSINO(this, missing_players + Translator.translate("Hay jugadores de la timba anterior que no se han vuelto a conectar.\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n¿EMPEZAMOS YA?")) == 0);
-            
+
             if (vamos) {
-                
+
                 partida_empezando = true;
-                
+
                 setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                 this.empezar_timba.setEnabled(false);
                 this.empezar_timba.setVisible(false);
@@ -2986,100 +2996,100 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 this.sound_icon.setVisible(false);
                 this.status.setText(Translator.translate("Inicializando timba..."));
                 this.barra.setVisible(true);
-                
+
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        
+
                         synchronized (lock_new_client) {
-                            
+
                             boolean ocupados;
-                            
+
                             do {
-                                
+
                                 ocupados = false;
-                                
+
                                 for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
-                                    
+
                                     Participant p = entry.getValue();
-                                    
+
                                     if (p != null && !p.isCpu() && !p.getAsync_command_queue().isEmpty()) {
-                                        
+
                                         ocupados = true;
-                                        
+
                                         break;
-                                        
+
                                     }
-                                    
+
                                 }
-                                
+
                                 if (ocupados) {
-                                    
+
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Hay algun participante con comandos sin confirmar. NO podemos empezar aún...");
                                     Helpers.pausar(1000);
                                 }
-                                
+
                             } while (ocupados);
 
                             //Inicializamos partida
                             Helpers.GUIRunAndWait(new Runnable() {
                                 public void run() {
                                     new GameFrame(THIS, local_nick, true);
-                                    
+
                                 }
                             });
-                            
+
                             partida_empezada = true;
-                            
+
                             GameFrame.getInstance().AJUGAR();
                         }
                     }
                 });
             }
         }
-        
+
     }//GEN-LAST:event_empezar_timbaActionPerformed
-    
+
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
 
         if (!barra.isVisible() || !booting) {
-            
+
             if (!booting && client_threads.isEmpty()) {
-                
+
                 if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                    
+
                     if (exit || reconnecting) {
-                        
+
                         if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
                             exit = true;
                             Helpers.savePropertiesFile();
                             System.exit(1);
                         }
-                        
+
                     } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES SALIR AHORA?") == 0) {
-                        
+
                         exit = true;
-                        
+
                         Helpers.threadRun(new Runnable() {
                             public void run() {
-                                
+
                                 if (isServer()) {
-                                    
+
                                     participantes.entrySet().forEach((entry) -> {
-                                        
+
                                         Participant p = entry.getValue();
-                                        
+
                                         if (p != null) {
-                                            
+
                                             p.exitAndCloseSocket();
                                         }
-                                        
+
                                     });
-                                    
+
                                     closeServerSocket();
-                                    
+
                                 } else if (local_client_socket != null && !reconnecting) {
-                                    
+
                                     try {
                                         writeCommandToServer(Helpers.encryptCommand("EXIT", getLocal_client_aes_key(), getLocal_client_hmac_key()));
                                         local_client_socket.close();
@@ -3090,125 +3100,125 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             }
                         });
                     }
-                    
+
                 } else {
                     setVisible(false);
                 }
-                
+
             } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
                 exit = true;
                 Helpers.savePropertiesFile();
                 System.exit(1);
             }
-            
+
             synchronized (lock_client_reconnect) {
                 lock_client_reconnect.notifyAll();
             }
         }
     }//GEN-LAST:event_formWindowClosing
-    
+
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
         // TODO add your handling code here:
 
         GameFrame.SONIDOS = !GameFrame.SONIDOS;
-        
+
         Helpers.PROPERTIES.setProperty("sonidos", GameFrame.SONIDOS ? "true" : "false");
-        
+
         Helpers.savePropertiesFile();
-        
+
         Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
-        
+
         if (!GameFrame.SONIDOS) {
-            
+
             Audio.muteAll();
-            
+
         } else {
-            
+
             Audio.unmuteAll();
-            
+
         }
     }//GEN-LAST:event_sound_iconMouseClicked
-    
+
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
 
         conectados.revalidate();
-        
+
         conectados.repaint();
-        
+
         chat.revalidate();
-        
+
         chat.repaint();
-        
+
         refreshChatPanel();
-        
+
         Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
-        
+
         chat_box.requestFocus();
     }//GEN-LAST:event_formComponentShown
-    
+
     private void logoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_logoMouseClicked
         // TODO add your handling code here:
         AboutDialog dialog = new AboutDialog(this, true);
-        
+
         dialog.setLocationRelativeTo(this);
-        
+
         dialog.setVisible(true);
     }//GEN-LAST:event_logoMouseClicked
-    
+
     private void new_bot_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_new_bot_buttonActionPerformed
-        
+
         if (participantes.size() < MAX_PARTICIPANTES) {
-            
+
             new_bot_button.setEnabled(false);
-            
+
             Audio.playWavResource("misc/laser.wav");
-            
+
             Helpers.threadRun(new Runnable() {
                 public void run() {
                     try {
                         // TODO add your handling code here:
                         String bot_nick;
-                        
+
                         int conta_bot = 0;
-                        
+
                         do {
                             conta_bot++;
-                            
+
                             bot_nick = "CoronaBot$" + String.valueOf(conta_bot);
-                            
+
                         } while (participantes.get(bot_nick) != null);
 
                         //Mandamos el nuevo participante al resto de participantes
                         String comando = "NEWUSER#" + Base64.encodeBase64String(bot_nick.getBytes("UTF-8"));
-                        
+
                         byte[] avatar_b = null;
-                        
+
                         try (InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
                             avatar_b = is.readAllBytes();
                         } catch (IOException ex) {
                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                        
+
                         comando += "#" + Base64.encodeBase64String(avatar_b);
-                        
+
                         synchronized (lock_new_client) {
-                            
+
                             nuevoParticipante(bot_nick, null, null, null, null, true);
-                            
+
                             broadcastASYNCGAMECommandFromServer(comando, participantes.get(bot_nick));
-                            
+
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
                                     empezar_timba.setEnabled(true);
                                     kick_user.setEnabled(true);
                                     new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                                     chat_box.requestFocus();
-                                    
+
                                 }
                             });
                         }
-                        
+
                     } catch (UnsupportedEncodingException ex) {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -3216,38 +3226,38 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             });
         }
     }//GEN-LAST:event_new_bot_buttonActionPerformed
-    
+
     private void video_chat_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_video_chat_buttonActionPerformed
         // TODO add your handling code here:
 
         QRChatDialog chat_dialog = new QRChatDialog(this, true, this.getVideo_chat_link(), server);
-        
+
         chat_dialog.setLocationRelativeTo(this);
-        
+
         chat_dialog.setVisible(true);
-        
+
         if (server && !chat_dialog.isCancel() && chat_dialog.getLink() != null) {
-            
+
             this.setVideo_chat_link(chat_dialog.getLink());
-            
+
             try {
-                
+
                 if (isPartida_empezada()) {
-                    
+
                     GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("VIDEOCHAT#" + Base64.encodeBase64String(this.getVideo_chat_link().getBytes("UTF-8")), null);
-                    
+
                 } else {
-                    
+
                     broadcastASYNCGAMECommandFromServer("VIDEOCHAT#" + Base64.encodeBase64String(this.getVideo_chat_link().getBytes("UTF-8")), null);
-                    
+
                 }
-                
+
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }//GEN-LAST:event_video_chat_buttonActionPerformed
-    
+
     private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_pass_iconMouseClicked
         // TODO add your handling code here:
 
@@ -3256,7 +3266,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 password = Helpers.genRandomString(GEN_PASS_LENGTH);
                 pass_icon.setToolTipText(password);
             }
-            
+
             if (password != null) {
                 pass_icon.setEnabled(true);
                 Helpers.copyTextToClipboard(password);
@@ -3264,15 +3274,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         }
     }//GEN-LAST:event_pass_iconMouseClicked
-    
+
     private void tts_warningMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tts_warningMouseClicked
         // TODO add your handling code here:
         Helpers.mostrarMensajeInformativo(this,
                 "Aunque CoronaPoker usa cifrado extremo a extremo en todas las comunicaciones, el chat de\nvoz utiliza APIs externas TTS para convertir el texto en audio, por lo que los mensajes\nenviados a esos servidores podrían ser (en teoría) leidos por terceros.\n\nPOR FAVOR, TENLO EN CUENTA A LA HORA DE USAR EL CHAT");
     }//GEN-LAST:event_tts_warningMouseClicked
-    
+
     private void status1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_status1MouseClicked
-        
+
         if (server) {
             try {
                 // TODO add your handling code here:
@@ -3284,24 +3294,24 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         }
     }//GEN-LAST:event_status1MouseClicked
-    
+
     private void game_infoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_game_infoMouseClicked
         // TODO add your handling code here:
 
         if (server && !GameFrame.isRECOVER() && !isPartida_empezada() && !isPartida_empezando() && game_info.isEnabled()) {
-            
+
             game_info.setEnabled(false);
-            
+
             NewGameDialog dialog = new NewGameDialog(this, true);
-            
+
             dialog.setLocationRelativeTo(dialog.getParent());
-            
+
             dialog.setVisible(true);
-            
+
             if (dialog.isDialog_ok()) {
-                
+
                 game_info.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : ""));
-                
+
                 if (!gameinfo_original.equals(game_info.getText())) {
                     game_info.setOpaque(true);
                     game_info.setBackground(Color.YELLOW);
@@ -3309,19 +3319,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     game_info.setOpaque(false);
                     game_info.setBackground(null);
                 }
-                
+
                 Helpers.threadRun(new Runnable() {
                     public void run() {
-                        
+
                         try {
                             broadcastASYNCGAMECommandFromServer("GAMEINFO#" + Base64.encodeBase64String(game_info.getText().getBytes("UTF-8")), null);
                         } catch (UnsupportedEncodingException ex) {
                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                        
+
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
-                                
+
                                 game_info.setEnabled(true);
                             }
                         });
@@ -3330,71 +3340,79 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             } else {
                 game_info.setEnabled(true);
             }
-            
+
         }
-        
+
     }//GEN-LAST:event_game_infoMouseClicked
-    
+
     private void chat_notificationsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_notificationsActionPerformed
         // TODO add your handling code here:
 
         CHAT_GAME_NOTIFICATIONS = chat_notifications.isSelected();
-        
+
         Helpers.PROPERTIES.setProperty("chat_game_notifications", String.valueOf(CHAT_GAME_NOTIFICATIONS));
-        
+
         Helpers.savePropertiesFile();
     }//GEN-LAST:event_chat_notificationsActionPerformed
-    
+
     private void emoji_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_emoji_buttonActionPerformed
         // TODO add your handling code here:
 
         emoji_scroll_panel.getHorizontalScrollBar().setValue(0);
-        
+
         emoji_scroll_panel.setVisible(!emoji_scroll_panel.isVisible());
-        
+
         this.revalidate();
-        
+
         this.repaint();
-        
+
         chat_box.requestFocus();
-        
+
     }//GEN-LAST:event_emoji_buttonActionPerformed
-    
+
     private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_boxActionPerformed
         // TODO add your handling code here:
 
         String mensaje = chat_box.getText().trim();
-        
+
         if (chat_enabled && mensaje.length() > 0) {
-            
+
             chat_text.append(local_nick + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n");
-            
-            refreshChatPanel();
-            
+
+            HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
+
+            StringReader reader = new StringReader(plainChat2HTML(local_nick + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n"));
+
+            try {
+
+                editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
+            } catch (Exception ex) {
+            }
+
             this.enviarMensajeChat(local_nick, mensaje);
-            
+
             this.chat_box.setText("");
-            
+
             chat_enabled = false;
-            
+
             Helpers.threadRun(new Runnable() {
                 public void run() {
-                    
+
                     Helpers.pausar(1000);
-                    
+
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
-                            
+
                             chat_enabled = true;
-                            
+
                         }
                     });
-                    
+
                 }
             });
         }
     }//GEN-LAST:event_chat_boxActionPerformed
-    
+
     private void image_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_image_buttonActionPerformed
         // TODO add your handling code here:
 
@@ -3404,34 +3422,34 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
     }//GEN-LAST:event_image_buttonActionPerformed
-    
+
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
         // TODO add your handling code here:
         chat.setText("");
     }//GEN-LAST:event_formComponentHidden
-    
+
     private void chatFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusGained
         // TODO add your handling code here:
         this.chat_scroll.setBorder(javax.swing.BorderFactory.createLineBorder(Color.YELLOW, 3));
         ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
     }//GEN-LAST:event_chatFocusGained
-    
+
     private void chatFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusLost
         // TODO add your handling code here:
         this.chat_scroll.setBorder(chat_scroll_border);
         ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
     }//GEN-LAST:event_chatFocusLost
-    
+
     private void emoji_scroll_panelComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_emoji_scroll_panelComponentHidden
         // TODO add your handling code here:
         emoji_panel.refreshEmojiHistory();
     }//GEN-LAST:event_emoji_scroll_panelComponentHidden
-    
+
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
         chat_box.requestFocus();
     }//GEN-LAST:event_formWindowOpened
-    
+
     private void send_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_send_labelMouseClicked
         // TODO add your handling code here:
         chat_boxActionPerformed(null);

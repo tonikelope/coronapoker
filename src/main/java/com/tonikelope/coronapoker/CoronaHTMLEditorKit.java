@@ -97,7 +97,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                             } else {
 
-                                label.setText("IMAGE ERROR -> " + url);
+                                label.setText("ERROR -> " + url);
                                 label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/95.png")));
                             }
 

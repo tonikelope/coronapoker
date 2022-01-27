@@ -347,18 +347,17 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                     this.setVisible(false);
 
                 } else {
-                    Helpers.mostrarMensajeError(this, "ERROR AL CARGAR LA URL: LA IMAGEN NO ES VÁLIDA");
+                    Helpers.mostrarMensajeError(this, "ERROR: LA IMAGEN NO ES VÁLIDA");
                     image_url.setText("");
-                    barra.setVisible(false);
                 }
             } catch (MalformedURLException ex) {
                 Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
-
-                Helpers.mostrarMensajeError(this, "ERROR AL CARGAR LA URL: LA IMAGEN NO ES VÁLIDA");
+                Helpers.mostrarMensajeError(this, "ERROR: LA IMAGEN NO ES VÁLIDA");
                 image_url.setText("");
-                barra.setVisible(false);
             }
         }
+
+        barra.setVisible(false);
     }//GEN-LAST:event_send_buttonActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing

@@ -378,18 +378,24 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             String avatar_src = "";
 
             String align = "";
+            
+            String image_align="";
 
             if (nick.equals(this.local_nick)) {
 
                 align = "align='right' style='margin-right:8px'";
 
                 avatar_src = local_avatar_chat_src;
+                
+                image_align = "0.995";
 
             } else if (this.participantes.containsKey(nick)) {
 
                 align = "align='left' style='margin-left:8px'";
 
                 avatar_src = this.participantes.get(nick).getAvatar_chat_src();
+                
+                image_align = "0.005";
             }
 
             msg = Helpers.escapeHTML(msg);
@@ -398,7 +404,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             msg = msg.replaceAll("[^@ ]+@[^ @.]+(?:\\.[^.@ ]+)+", "#1215# <i>$0</i>");
 
-            msg = parseImagesChat(msg);
+            msg = parseImagesChat(msg, image_align);
 
             msg = parseEmojiChat(msg);
 
@@ -416,7 +422,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return message.replaceAll("(?i)\\[ *([i]) *\\](.*?)\\[ */ *\\1 *\\]", "<i>$2</i>").replaceAll("(?i)\\[ *([b]) *\\](.*?)\\[ */ *\\1 *\\]", "<b>$2</b>").replaceAll("(?i)\\[ *([c](?:olor)?) *= *(.*?) *\\](.*?)\\[ */ *\\1 *\\]", "<span style='color:$2'>$3</span>");
     }
 
-    private String parseImagesChat(String message) {
+    private String parseImagesChat(String message, String align) {
 
         String msg = message;
 
@@ -433,7 +439,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 String img_src = "http" + (matcher.groupCount() > 1 ? matcher.group(1) : "") + "://" + matcher.group(matcher.groupCount() > 1 ? 2 : 1);
 
                 try {
-                    msg = msg.replaceAll(Pattern.quote(matcher.group(0)), "<tonimg>" + (Base64.encodeBase64String(img_src.getBytes("UTF-8")) + "@0.999") + "</tonimg><br>");
+                    msg = msg.replaceAll(Pattern.quote(matcher.group(0)), "<tonimg>" + (Base64.encodeBase64String(img_src.getBytes("UTF-8")) + "@" + align) + "</tonimg><br>");
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }

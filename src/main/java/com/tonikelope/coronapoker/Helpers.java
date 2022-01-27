@@ -34,6 +34,7 @@ import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
+import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
@@ -215,6 +216,18 @@ public class Helpers {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    public static void containerSetLocationRelativeTo(Container reference, Container current) {
+
+        int reference_center_x = (int) (reference.getLocation().getX() + Math.round(reference.getWidth() / 2));
+        int reference_center_y = (int) (reference.getLocation().getY() + Math.round(reference.getHeight() / 2));
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                current.setLocation(new Point(reference_center_x - Math.round(current.getWidth() / 2), reference_center_y - Math.round(current.getHeight() / 2)));
+            }
+        });
     }
 
     public static String escapeHTML(String str) {
@@ -1422,7 +1435,7 @@ public class Helpers {
         });
     }
 
-    public static void mostrarMensajeInformativo(JFrame frame, String msg) {
+    public static void mostrarMensajeInformativo(Container container, String msg) {
 
         final String mensaje = Translator.translate(msg);
 
@@ -1430,20 +1443,20 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            JOptionPane.showMessageDialog(frame, mensaje);
+            JOptionPane.showMessageDialog(container, mensaje);
 
         } else {
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
-                    JOptionPane.showMessageDialog(frame, mensaje);
+                    JOptionPane.showMessageDialog(container, mensaje);
                 }
             });
         }
     }
 
     // 0=yes, 1=no, 2=cancel
-    public static int mostrarMensajeInformativoSINO(JFrame frame, String msg) {
+    public static int mostrarMensajeInformativoSINO(Container container, String msg) {
 
         final String mensaje = Translator.translate(msg);
 
@@ -1451,7 +1464,7 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            return JOptionPane.showConfirmDialog(frame, mensaje, "Info", JOptionPane.YES_NO_OPTION);
+            return JOptionPane.showConfirmDialog(container, mensaje, "Info", JOptionPane.YES_NO_OPTION);
 
         } else {
 
@@ -1461,7 +1474,7 @@ public class Helpers {
                 @Override
                 public void run() {
 
-                    res[0] = JOptionPane.showConfirmDialog(frame, mensaje, "Info", JOptionPane.YES_NO_OPTION);
+                    res[0] = JOptionPane.showConfirmDialog(container, mensaje, "Info", JOptionPane.YES_NO_OPTION);
                 }
             });
 
@@ -1480,7 +1493,7 @@ public class Helpers {
         }
     }
 
-    public static void mostrarMensajeError(JFrame frame, String msg) {
+    public static void mostrarMensajeError(Container container, String msg) {
 
         final String mensaje = Translator.translate(msg);
 
@@ -1488,14 +1501,14 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            JOptionPane.showMessageDialog(frame, mensaje, "ERROR", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(container, mensaje, "ERROR", JOptionPane.ERROR_MESSAGE);
 
         } else {
 
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
-                    JOptionPane.showMessageDialog(frame, mensaje, "ERROR", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(container, mensaje, "ERROR", JOptionPane.ERROR_MESSAGE);
                 }
             });
         }
@@ -1503,7 +1516,7 @@ public class Helpers {
     }
 
     // 0=yes, 1=no, 2=cancel
-    public static int mostrarMensajeErrorSINO(JFrame frame, String msg) {
+    public static int mostrarMensajeErrorSINO(Container container, String msg) {
 
         final String mensaje = Translator.translate(msg);
 
@@ -1511,7 +1524,7 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            return JOptionPane.showConfirmDialog(frame, mensaje, "ERROR", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+            return JOptionPane.showConfirmDialog(container, mensaje, "ERROR", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
 
         } else {
 
@@ -1521,7 +1534,7 @@ public class Helpers {
                 @Override
                 public void run() {
 
-                    res[0] = JOptionPane.showConfirmDialog(frame, mensaje, "ERROR", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+                    res[0] = JOptionPane.showConfirmDialog(container, mensaje, "ERROR", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
                 }
             });
 

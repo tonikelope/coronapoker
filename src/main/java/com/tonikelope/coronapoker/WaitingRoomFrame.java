@@ -432,7 +432,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 String img_src = "http" + (matcher.groupCount() > 1 ? matcher.group(1) : "") + "://" + matcher.group(matcher.groupCount() > 1 ? 2 : 1);
 
-                msg = msg.replaceAll(Pattern.quote(matcher.group(0)), "<div style='margin-bottom:5px'><img src='" + img_src + "' /></div>");
+                try {
+                    msg = msg.replaceAll(Pattern.quote(matcher.group(0)), "<tonimg>" + (Base64.encodeBase64String(img_src.getBytes("UTF-8")) + "@0.999") + "</tonimg><br>");
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                }
 
                 lista.add(matcher.group(0));
 
@@ -530,7 +534,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         emoji_scroll_panel.setVisible(false);
 
-        chat.setContentType("text/html");
+        chat.setEditorKit(new CoronaHTMLEditorKit());
 
         chat.addHyperlinkListener(e -> {
             if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
@@ -3200,24 +3204,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_sound_iconMouseClicked
 
-    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
-        // TODO add your handling code here:
-
-        conectados.revalidate();
-
-        conectados.repaint();
-
-        chat.revalidate();
-
-        chat.repaint();
-
-        refreshChatPanel();
-
-        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
-
-        chat_box.requestFocus();
-    }//GEN-LAST:event_formComponentShown
-
     private void logoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_logoMouseClicked
         // TODO add your handling code here:
         AboutDialog dialog = new AboutDialog(this, true);
@@ -3505,6 +3491,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
         chat_boxActionPerformed(null);
     }//GEN-LAST:event_send_labelMouseClicked
+
+    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
+        // TODO add your handling code here:
+        conectados.revalidate();
+
+        conectados.repaint();
+
+        chat_box.requestFocus();
+
+        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

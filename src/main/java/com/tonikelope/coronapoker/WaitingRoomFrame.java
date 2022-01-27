@@ -3460,11 +3460,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         dialog.setVisible(true);
     }//GEN-LAST:event_image_buttonActionPerformed
 
-    private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
-        // TODO add your handling code here:
-        chat.setText("");
-    }//GEN-LAST:event_formComponentHidden
-
     private void chatFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusGained
         // TODO add your handling code here:
         this.chat_scroll.setBorder(javax.swing.BorderFactory.createLineBorder(Color.YELLOW, 3));

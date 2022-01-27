@@ -450,13 +450,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         }
 
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
+        if (lista.size() > 0) {
 
-                ChatImageURLDialog.guardarHistorial();
-            }
-        });
+            Helpers.threadRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    ChatImageURLDialog.guardarHistorial();
+                }
+            });
+        }
 
         return msg;
     }

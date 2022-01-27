@@ -6,6 +6,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Component;
+import java.awt.MediaTracker;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -86,9 +87,19 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                             float align = Float.parseFloat(text.split("@")[1]);
 
-                            label.setIcon(new ImageIcon(new URL(url)));
-
                             label.setAlignmentX(align);
+
+                            ImageIcon image = new ImageIcon(new URL(url));
+
+                            if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
+
+                                label.setIcon(new ImageIcon(new URL(url)));
+
+                            } else {
+
+                                label.setText("IMAGE ERROR -> " + url);
+                                label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/95.png")));
+                            }
 
                         } catch (BadLocationException e) {
                             e.printStackTrace();

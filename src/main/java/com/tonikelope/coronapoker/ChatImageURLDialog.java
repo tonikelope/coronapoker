@@ -5,6 +5,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dialog;
 import java.awt.Dimension;
@@ -19,6 +20,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -62,8 +64,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         Helpers.threadRun(new Runnable() {
             public void run() {
 
-                int max_width = getWidth();
-                int max_height = getHeight();
+                int max_width = 0;
+                int max_height = 0;
 
                 for (String h : HISTORIAL) {
                     ImageIcon image;
@@ -100,13 +102,26 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                     guardarHistorial();
                                                 }
                                             });
-                                        } else if (SwingUtilities.isRightMouseButton(e) && Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+                                        } else if (SwingUtilities.isRightMouseButton(e)) {
 
-                                            HISTORIAL.remove(h);
-                                            historial_panel.remove(label);
-                                            revalidate();
-                                            repaint();
+                                            label.setBorder(new LineBorder(Color.RED, 5));
+
+                                            if (Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+                                                HISTORIAL.remove(h);
+                                                historial_panel.remove(label);
+                                                revalidate();
+                                                repaint();
+
+                                                Helpers.threadRun(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        guardarHistorial();
+                                                    }
+                                                });
+                                            }
                                         }
+
+                                        label.setBorder(new EmptyBorder(10, 0, 10, 0));
 
                                     }
                                 });
@@ -244,6 +259,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         });
 
         scroll_panel.setBorder(null);
+        scroll_panel.setDoubleBuffered(true);
 
         historial_panel.setLayout(new javax.swing.BoxLayout(historial_panel, javax.swing.BoxLayout.Y_AXIS));
         scroll_panel.setViewportView(historial_panel);

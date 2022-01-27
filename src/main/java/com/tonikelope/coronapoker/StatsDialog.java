@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
+import java.awt.Dialog;
 import java.awt.Font;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -61,6 +62,7 @@ public class StatsDialog extends javax.swing.JDialog {
     private volatile boolean hand_combo_blocked = false;
     private volatile boolean backup = false;
     private volatile Font original_dialog_font;
+    private volatile int last_button = 0;
 
     /**
      * Creates new form Stats
@@ -81,7 +83,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        game_textarea.setContentType("text/html");
+        game_textarea.setEditorKit(new CoronaHTMLEditorKit());
         game_textarea.addHyperlinkListener(e -> {
             if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
 
@@ -2280,11 +2282,13 @@ public class StatsDialog extends javax.swing.JDialog {
     private void log_game_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_log_game_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (game_textarea_scrollpane.isVisible() && game_textarea.getBackground() == log_game_button.getBackground()) {
+        if (game_textarea_scrollpane.isVisible() && last_button == 1) {
             game_textarea_scrollpane.setVisible(false);
         } else {
 
-            game_textarea.setBackground(log_game_button.getBackground());
+            last_button = 1;
+
+            cargando.setVisible(true);
 
             String item = (String) game_combo.getSelectedItem();
 
@@ -2292,20 +2296,40 @@ public class StatsDialog extends javax.swing.JDialog {
 
             String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
-            try {
+            Dialog tthis = this;
+            Helpers.threadRun(new Runnable() {
 
-                String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8);
+                public void run() {
+                    try {
 
-                game_textarea.setText("<html><body style='color:white;background-color:rgb(102,102,102)'>" + log.replaceAll("[*]{15} [^*]+ [*]{15}", "<b>$0</b>").replaceAll("\n", "<br>") + "</body></html>");
+                        String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll("[*]{15} [^*]+ [*]{15}", "<b>$0</b>").replaceAll("\n", "<br>");
 
-                game_textarea_scrollpane.setVisible(true);
+                        Helpers.GUIRun(new Runnable() {
 
-                game_textarea.setCaretPosition(0);
+                            public void run() {
+                                game_textarea.setText("<html><body style='color:white;background-color:rgb(102,102,102)'>" + log + "</body></html>");
 
-            } catch (IOException ex) {
-                Helpers.mostrarMensajeError((JFrame) this.getParent(), Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log");
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-            }
+                                game_textarea_scrollpane.setVisible(true);
+
+                                game_textarea.setCaretPosition(0);
+
+                                cargando.setVisible(false);
+                            }
+                        });
+
+                    } catch (IOException ex) {
+                        Helpers.mostrarMensajeError(tthis, Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log");
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        Helpers.GUIRun(new Runnable() {
+
+                            public void run() {
+                                cargando.setVisible(false);
+                            }
+                        });
+                    }
+
+                }
+            });
         }
 
         game_data_panel.revalidate();
@@ -2385,11 +2409,13 @@ public class StatsDialog extends javax.swing.JDialog {
 
     private void chat_game_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_game_buttonActionPerformed
         // TODO add your handling code here:
-        if (game_textarea_scrollpane.isVisible() && game_textarea.getBackground() == chat_game_button.getBackground()) {
+        if (game_textarea_scrollpane.isVisible() && last_button == 2) {
             game_textarea_scrollpane.setVisible(false);
         } else {
 
-            game_textarea.setBackground(chat_game_button.getBackground());
+            last_button = 2;
+
+            cargando.setVisible(true);
 
             String item = (String) game_combo.getSelectedItem();
 
@@ -2399,20 +2425,42 @@ public class StatsDialog extends javax.swing.JDialog {
 
             String avatar_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
 
-            try {
+            Dialog tthis = this;
 
-                String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8);
+            Helpers.threadRun(new Runnable() {
 
-                game_textarea.setText(log.replaceAll("<img[^<>]+avatar[^<>]+>", "<img src='" + avatar_src + "' />"));
+                public void run() {
+                    try {
 
-                game_textarea_scrollpane.setVisible(true);
+                        String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll("<img[^<>]+avatar[^<>]+>", "<img src='" + avatar_src + "' />");
 
-                game_textarea.setCaretPosition(0);
+                        Helpers.GUIRun(new Runnable() {
 
-            } catch (IOException ex) {
-                Helpers.mostrarMensajeError((JFrame) this.getParent(), Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log");
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-            }
+                            public void run() {
+                                game_textarea.setText(log);
+
+                                game_textarea_scrollpane.setVisible(true);
+
+                                game_textarea.setCaretPosition(0);
+
+                                cargando.setVisible(false);
+                            }
+                        });
+
+                    } catch (IOException ex) {
+                        Helpers.mostrarMensajeError(tthis, Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log");
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        Helpers.GUIRun(new Runnable() {
+
+                            public void run() {
+
+                                cargando.setVisible(false);
+                            }
+                        });
+                    }
+
+                }
+            });
         }
 
         game_data_panel.revalidate();

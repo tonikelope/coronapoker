@@ -1430,8 +1430,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     status.setText(Translator.translate("CONECTADO"));
                                     barra.setVisible(false);
                                     chat_box.setEnabled(true);
-            emoji_button.setEnabled(true);
-            image_button.setEnabled(true);
+                                    emoji_button.setEnabled(true);
+                                    image_button.setEnabled(true);
                                 }
                             });
 

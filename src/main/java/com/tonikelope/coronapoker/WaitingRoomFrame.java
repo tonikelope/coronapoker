@@ -378,15 +378,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             String avatar_src = "";
 
             String align = "";
-            
-            String image_align="";
+
+            String image_align = "";
 
             if (nick.equals(this.local_nick)) {
 
                 align = "align='right' style='margin-right:8px'";
 
                 avatar_src = local_avatar_chat_src;
-                
+
                 image_align = "0.995";
 
             } else if (this.participantes.containsKey(nick)) {
@@ -394,7 +394,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 align = "align='left' style='margin-left:8px'";
 
                 avatar_src = this.participantes.get(nick).getAvatar_chat_src();
-                
+
                 image_align = "0.005";
             }
 
@@ -3469,6 +3469,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         dialog.setPreferredSize(new Dimension((int) (this.getWidth() * 0.9f), (int) dialog.getPreferredSize().getHeight()));
         dialog.pack();
         dialog.setLocationRelativeTo(this);
+        dialog.refreshHistorialPanel();
         dialog.setVisible(true);
     }//GEN-LAST:event_image_buttonActionPerformed
 

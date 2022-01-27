@@ -6,6 +6,8 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Cursor;
+import java.awt.Dialog;
+import java.awt.Dimension;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.MalformedURLException;
@@ -15,6 +17,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -44,8 +48,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
-        refreshHistorialPanel();
-
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
@@ -53,39 +55,63 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         pack();
     }
 
-    private void refreshHistorialPanel() {
+    public void refreshHistorialPanel() {
+
+        Dialog tthis = this;
 
         Helpers.threadRun(new Runnable() {
             public void run() {
+
+                int max_width = getWidth();
+                int max_height = getHeight();
 
                 for (String h : HISTORIAL) {
                     ImageIcon image;
                     try {
                         image = new ImageIcon(new URL(h));
+
+                        if (image.getIconWidth() > max_width) {
+                            max_width = image.getIconWidth();
+                        }
+
+                        if (image.getIconHeight() > max_height) {
+                            max_height = image.getIconHeight();
+                        }
+
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
                                 JLabel label = new JLabel();
+                                label.setAlignmentX(0.5f);
+                                label.setBorder(new EmptyBorder(10, 0, 10, 0));
                                 label.setCursor(new Cursor(Cursor.HAND_CURSOR));
                                 label.setIcon(image);
                                 label.addMouseListener(new MouseAdapter() {
                                     @Override
                                     public void mouseClicked(MouseEvent e) {
-                                        image_url.setText(h);
-                                        send_buttonActionPerformed(null);
 
-                                        Helpers.threadRun(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                updateHistorialEnviados(h);
-                                                guardarHistorial();
-                                            }
-                                        });
+                                        if (SwingUtilities.isLeftMouseButton(e)) {
+                                            image_url.setText(h);
+                                            send_buttonActionPerformed(null);
+
+                                            Helpers.threadRun(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    updateHistorialEnviados(h);
+                                                    guardarHistorial();
+                                                }
+                                            });
+                                        } else if (SwingUtilities.isRightMouseButton(e) && Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+
+                                            HISTORIAL.remove(h);
+                                            historial_panel.remove(label);
+                                            revalidate();
+                                            repaint();
+                                        }
 
                                     }
                                 });
                                 historial_panel.add(label);
-                                historial_panel.revalidate();
-                                historial_panel.repaint();
+
                             }
                         });
                     } catch (MalformedURLException ex) {
@@ -94,12 +120,20 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                 }
 
+                int w = max_width;
+                int h = max_height;
+
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
-
+                        setPreferredSize(new Dimension(w + 35, h + 35));
+                        setSize(new Dimension(w + 35, h + 35));
                         barra.setVisible(false);
                         send_button.setEnabled(true);
+                        revalidate();
+                        repaint();
+                        pack();
 
+                        Helpers.containerSetLocationRelativeTo(getParent(), tthis);
                     }
                 });
 
@@ -210,6 +244,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         });
 
         scroll_panel.setBorder(null);
+
+        historial_panel.setLayout(new javax.swing.BoxLayout(historial_panel, javax.swing.BoxLayout.Y_AXIS));
         scroll_panel.setViewportView(historial_panel);
 
         barra.setDoubleBuffered(true);

@@ -3475,7 +3475,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void chatFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusGained
         // TODO add your handling code here:
-        this.chat_scroll.setBorder(javax.swing.BorderFactory.createLineBorder(Color.YELLOW, 3));
+        this.chat_scroll.setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, 3));
         ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
     }//GEN-LAST:event_chatFocusGained
 

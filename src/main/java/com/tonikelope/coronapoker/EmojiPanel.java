@@ -62,7 +62,7 @@ public class EmojiPanel extends javax.swing.JPanel {
 
                         repaint();
 
-                        WaitingRoomFrame.getInstance().getEmoji_button().setEnabled(true);
+                        WaitingRoomFrame.getInstance().getEmoji_button().setEnabled(WaitingRoomFrame.getInstance().getChat_box().isEnabled());
                     }
                 });
             }

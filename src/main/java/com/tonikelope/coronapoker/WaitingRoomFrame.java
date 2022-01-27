@@ -670,7 +670,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             empezar_timba.setVisible(false);
             new_bot_button.setVisible(false);
             kick_user.setVisible(false);
-            chat_box_panel.setEnabled(false);
+            chat_box.setEnabled(false);
+            emoji_button.setEnabled(false);
+            image_button.setEnabled(false);
             barra.setVisible(true);
             conectados.setModel(listModel);
             conectados.revalidate();
@@ -1427,7 +1429,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 public void run() {
                                     status.setText(Translator.translate("CONECTADO"));
                                     barra.setVisible(false);
-                                    chat_box_panel.setEnabled(true);
+                                    chat_box.setEnabled(true);
+            emoji_button.setEnabled(true);
+            image_button.setEnabled(true);
                                 }
                             });
 

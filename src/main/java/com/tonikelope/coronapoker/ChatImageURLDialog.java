@@ -32,6 +32,7 @@ import org.apache.commons.codec.binary.Base64;
 public class ChatImageURLDialog extends javax.swing.JDialog {
 
     public static ArrayDeque<String> HISTORIAL = cargarHistorial();
+    private final ArrayList<JLabel> ICONS = new ArrayList<>();
 
     /**
      * Creates new form ChatImageURLDialog
@@ -57,9 +58,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         Helpers.translateComponents(this, false);
 
         pack();
+
+        cargarHistorialPanel();
     }
 
-    public void refreshHistorialPanel() {
+    private void cargarHistorialPanel() {
 
         Dialog tthis = this;
 
@@ -90,6 +93,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
                                     JLabel label = new JLabel();
+                                    ICONS.add(label);
                                     label.setAlignmentX(0.5f);
                                     label.setBorder(new EmptyBorder(10, 0, 10, 0));
                                     label.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -169,8 +173,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                         setSize(new Dimension(w + 35, h + 35));
                         barra.setVisible(false);
                         send_button.setEnabled(true);
-                        revalidate();
-                        repaint();
                         pack();
 
                         Helpers.containerSetLocationRelativeTo(getParent(), tthis);
@@ -325,39 +327,72 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     private void send_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_send_buttonActionPerformed
         // TODO add your handling code here:
 
+        send_button.setEnabled(false);
+
         barra.setVisible(true);
 
         String url = image_url.getText().trim();
 
         if (url.startsWith("http")) {
 
-            try {
-                ImageIcon image = new ImageIcon(new URL(url));
+            Dialog tthis = this;
 
-                if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
+            Helpers.threadRun(new Runnable() {
 
-                    WaitingRoomFrame.getInstance().chatHTMLAppend(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
+                public void run() {
 
-                    WaitingRoomFrame.getInstance().enviarMensajeChat(WaitingRoomFrame.getInstance().getLocal_nick(), url.replaceAll("^http", "img"));
+                    try {
+                        ImageIcon image = new ImageIcon(new URL(url));
 
-                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+                        if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
-                    updateHistorialEnviados(url);
+                            Helpers.GUIRun(new Runnable() {
 
-                    this.setVisible(false);
+                                public void run() {
 
-                } else {
-                    Helpers.mostrarMensajeError(this, "ERROR: LA IMAGEN NO ES VÁLIDA");
-                    image_url.setText("");
+                                    WaitingRoomFrame.getInstance().chatHTMLAppend(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
+
+                                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+
+                                    setVisible(false);
+                                }
+                            });
+
+                            WaitingRoomFrame.getInstance().enviarMensajeChat(WaitingRoomFrame.getInstance().getLocal_nick(), url.replaceAll("^http", "img"));
+
+                            updateHistorialEnviados(url);
+
+                        } else {
+                            Helpers.mostrarMensajeError(tthis, "ERROR: LA IMAGEN NO ES VÁLIDA");
+
+                            Helpers.GUIRun(new Runnable() {
+
+                                public void run() {
+                                    barra.setVisible(false);
+                                    send_button.setEnabled(true);
+                                }
+                            });
+                        }
+                    } catch (MalformedURLException ex) {
+                        Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        Helpers.mostrarMensajeError(tthis, "ERROR: LA IMAGEN NO ES VÁLIDA");
+
+                        Helpers.GUIRun(new Runnable() {
+
+                            public void run() {
+                                barra.setVisible(false);
+                                send_button.setEnabled(true);
+                            }
+                        });
+                    }
+
                 }
-            } catch (MalformedURLException ex) {
-                Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
-                Helpers.mostrarMensajeError(this, "ERROR: LA IMAGEN NO ES VÁLIDA");
-                image_url.setText("");
-            }
+            });
+        } else {
+            barra.setVisible(false);
+            send_button.setEnabled(true);
         }
 
-        barra.setVisible(false);
     }//GEN-LAST:event_send_buttonActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing

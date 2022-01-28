@@ -351,14 +351,20 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         chat_text.append(text);
 
-        HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
 
-        StringReader reader = new StringReader(txtChat2HTML(text));
+                HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
 
-        try {
-            editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
-        } catch (Exception ex) {
-        }
+                StringReader reader = new StringReader(txtChat2HTML(text));
+
+                try {
+                    editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
+                } catch (Exception ex) {
+                }
+            }
+        });
     }
 
     public synchronized String txtChat2HTML(String chat) {
@@ -3472,12 +3478,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void image_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_image_buttonActionPerformed
         // TODO add your handling code here:
 
-        ChatImageURLDialog dialog = new ChatImageURLDialog(this, true);
-        dialog.setPreferredSize(new Dimension((int) (this.getWidth() * 0.9f), (int) dialog.getPreferredSize().getHeight()));
-        dialog.pack();
-        dialog.setLocationRelativeTo(this);
-        dialog.refreshHistorialPanel();
-        dialog.setVisible(true);
+        ChatImageURLDialog chat_image_dialog = new ChatImageURLDialog(this, true);
+        chat_image_dialog.setPreferredSize(new Dimension((int) (this.getWidth() * 0.9f), (int) chat_image_dialog.getPreferredSize().getHeight()));
+        chat_image_dialog.pack();
+        chat_image_dialog.setLocationRelativeTo(this);
+        chat_image_dialog.setVisible(true);
+
     }//GEN-LAST:event_image_buttonActionPerformed
 
     private void chatFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusGained

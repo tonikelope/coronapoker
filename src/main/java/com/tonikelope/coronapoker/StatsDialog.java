@@ -2288,6 +2288,10 @@ public class StatsDialog extends javax.swing.JDialog {
 
             last_button = 1;
 
+            chat_game_button.setEnabled(false);
+
+            log_game_button.setEnabled(false);
+
             cargando.setVisible(true);
 
             String item = (String) game_combo.getSelectedItem();
@@ -2313,6 +2317,10 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                 game_textarea.setCaretPosition(0);
 
+                                chat_game_button.setEnabled(true);
+
+                                log_game_button.setEnabled(true);
+
                                 cargando.setVisible(false);
                             }
                         });
@@ -2323,6 +2331,10 @@ public class StatsDialog extends javax.swing.JDialog {
                         Helpers.GUIRun(new Runnable() {
 
                             public void run() {
+                                chat_game_button.setEnabled(true);
+
+                                log_game_button.setEnabled(true);
+
                                 cargando.setVisible(false);
                             }
                         });
@@ -2332,9 +2344,6 @@ public class StatsDialog extends javax.swing.JDialog {
             });
         }
 
-        game_data_panel.revalidate();
-
-        game_data_panel.repaint();
     }//GEN-LAST:event_log_game_buttonActionPerformed
 
     private void purge_games_button_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_purge_games_button_buttonActionPerformed
@@ -2413,9 +2422,13 @@ public class StatsDialog extends javax.swing.JDialog {
             game_textarea_scrollpane.setVisible(false);
         } else {
 
-            last_button = 2;
+            chat_game_button.setEnabled(false);
+
+            log_game_button.setEnabled(false);
 
             cargando.setVisible(true);
+
+            last_button = 2;
 
             String item = (String) game_combo.getSelectedItem();
 
@@ -2443,6 +2456,10 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                 game_textarea.setCaretPosition(0);
 
+                                chat_game_button.setEnabled(true);
+
+                                log_game_button.setEnabled(true);
+
                                 cargando.setVisible(false);
                             }
                         });
@@ -2454,6 +2471,10 @@ public class StatsDialog extends javax.swing.JDialog {
 
                             public void run() {
 
+                                chat_game_button.setEnabled(true);
+
+                                log_game_button.setEnabled(true);
+
                                 cargando.setVisible(false);
                             }
                         });
@@ -2463,9 +2484,6 @@ public class StatsDialog extends javax.swing.JDialog {
             });
         }
 
-        game_data_panel.revalidate();
-
-        game_data_panel.repaint();
     }//GEN-LAST:event_chat_game_buttonActionPerformed
 
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated

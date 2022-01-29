@@ -179,6 +179,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                         setPreferredSize(new Dimension(w + 35, h + 35));
                         setSize(new Dimension(w + 35, h + 35));
                         barra.setVisible(false);
+                        loading.setVisible(false);
                         send_button.setEnabled(true);
                         pack();
 
@@ -269,10 +270,12 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         scroll_panel = new javax.swing.JScrollPane();
         historial_panel = new javax.swing.JPanel();
         barra = new javax.swing.JProgressBar();
+        loading = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Enviar URL de imagen");
         setModal(true);
+        setPreferredSize(new java.awt.Dimension(744, 300));
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
@@ -300,19 +303,25 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         barra.setDoubleBuffered(true);
 
+        loading.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
+        loading.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        loading.setText("CARGANDO IMÁGENES...");
+        loading.setDoubleBuffered(true);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(scroll_panel)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+            .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(image_url, javax.swing.GroupLayout.DEFAULT_SIZE, 616, Short.MAX_VALUE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(image_url)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(send_button)))
+                        .addComponent(send_button))
+                    .addComponent(loading, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -325,7 +334,9 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 254, Short.MAX_VALUE))
+                .addComponent(loading)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE))
         );
 
         pack();
@@ -425,6 +436,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     private javax.swing.JProgressBar barra;
     private javax.swing.JPanel historial_panel;
     private javax.swing.JTextField image_url;
+    private javax.swing.JLabel loading;
     private javax.swing.JScrollPane scroll_panel;
     private javax.swing.JButton send_button;
     // End of variables declaration//GEN-END:variables

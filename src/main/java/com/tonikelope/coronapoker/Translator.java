@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"CARGANDO IMÁGENES...", "LOADING IMAGES..."},
             {"Leyendo contenido del chat...", "Reading chat content..."},
             {"¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?", "DELETE THIS IMAGE FROM HISTORY?"},
             {"ERROR: LA IMAGEN NO ES VÁLIDA", "ERROR: IMAGE IS NOT VALID"},

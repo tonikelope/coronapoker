@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"ACTUALIZAR", "UPDATE"},
             {"CARGANDO IMÁGENES...", "LOADING IMAGES..."},
             {"Leyendo contenido del chat...", "Reading chat content..."},
             {"¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?", "DELETE THIS IMAGE FROM HISTORY?"},

@@ -275,7 +275,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Enviar URL de imagen");
         setModal(true);
-        setPreferredSize(new java.awt.Dimension(744, 300));
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
@@ -305,6 +304,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         loading.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         loading.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        loading.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/waiting.png"))); // NOI18N
         loading.setText("CARGANDO IMÁGENES...");
         loading.setDoubleBuffered(true);
 

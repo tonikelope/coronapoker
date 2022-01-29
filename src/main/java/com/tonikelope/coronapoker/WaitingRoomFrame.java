@@ -2332,6 +2332,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
+                    String status_text = status.getText();
+
                     Helpers.GUIRun(new Runnable() {
 
                         public void run() {
@@ -2348,6 +2350,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         public void run() {
 
                             chat.setText(html);
+                            status.setText(status_text);
 
                         }
                     });
@@ -3493,8 +3496,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
 
         ChatImageURLDialog chat_image_dialog = new ChatImageURLDialog(this, true);
-        chat_image_dialog.setPreferredSize(new Dimension((int) (this.getWidth() * 0.9f), (int) chat_image_dialog.getPreferredSize().getHeight()));
-        chat_image_dialog.pack();
         chat_image_dialog.setLocationRelativeTo(this);
         chat_image_dialog.setVisible(true);
 

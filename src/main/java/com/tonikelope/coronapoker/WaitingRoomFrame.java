@@ -410,7 +410,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             msg = msg.replaceAll("[^@ ]+@[^ @.]+(?:\\.[^.@ ]+)+", "#1215# <i>$0</i>");
 
-            msg = parseImagesChat(msg, image_align);
+            msg = parseImagesChat(msg, image_align, nick.equals(this.local_nick));
 
             msg = parseEmojiChat(msg);
 
@@ -428,7 +428,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return message.replaceAll("(?i)\\[ *([i]) *\\](.*?)\\[ */ *\\1 *\\]", "<i>$2</i>").replaceAll("(?i)\\[ *([b]) *\\](.*?)\\[ */ *\\1 *\\]", "<b>$2</b>").replaceAll("(?i)\\[ *([c](?:olor)?) *= *(.*?) *\\](.*?)\\[ */ *\\1 *\\]", "<span style='color:$2'>$3</span>");
     }
 
-    private String parseImagesChat(String message, String align) {
+    private String parseImagesChat(String message, String align, boolean send) {
 
         String msg = message;
 
@@ -452,7 +452,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 lista.add(matcher.group(0));
 
-                ChatImageURLDialog.updateHistorialRecibidos(img_src);
+                if (send) {
+                    ChatImageURLDialog.updateHistorialEnviados(img_src);
+                } else {
+                    ChatImageURLDialog.updateHistorialRecibidos(img_src);
+                }
+
             }
         }
 
@@ -2326,6 +2331,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
+
+                    Helpers.GUIRun(new Runnable() {
+
+                        public void run() {
+
+                            status.setText(Translator.translate("Leyendo contenido del chat..."));
+
+                        }
+                    });
 
                     final String html = "<html><body style='background-image: url(" + background_src + ")'>" + txtChat2HTML(chat_text.toString()) + "</body></html>";
 

@@ -546,6 +546,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         Helpers.setResourceIconLabel(send_label, getClass().getResource("/images/start.png"), chat_box.getHeight(), chat_box.getHeight());
 
+        Helpers.setResourceIconLabel(max_min_label, getClass().getResource("/images/maximize.png"), chat_box.getHeight(), chat_box.getHeight());
+
         send_label.setEnabled(false);
 
         chat_scroll_border = chat_scroll.getBorder();
@@ -2571,6 +2573,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         emoji_button = new javax.swing.JButton();
         image_button = new javax.swing.JButton();
         send_label = new javax.swing.JLabel();
+        max_min_label = new javax.swing.JLabel();
         emoji_scroll_panel = new javax.swing.JScrollPane();
         emoji_panel = new com.tonikelope.coronapoker.EmojiPanel();
 
@@ -2596,11 +2599,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         avatar_label.setText("Toni");
         avatar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         avatar_label.setDoubleBuffered(true);
-        avatar_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                avatar_labelMouseClicked(evt);
-            }
-        });
 
         pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
         pass_icon.setToolTipText("Click para gestionar contraseña");
@@ -2838,6 +2836,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         chat.setEditable(false);
         chat.setBorder(null);
         chat.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        chat.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         chat.setDoubleBuffered(true);
         chat.addFocusListener(new java.awt.event.FocusAdapter() {
             public void focusGained(java.awt.event.FocusEvent evt) {
@@ -2888,6 +2887,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        max_min_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        max_min_label.setDoubleBuffered(true);
+        max_min_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                max_min_labelMouseClicked(evt);
+            }
+        });
+
         javax.swing.GroupLayout chat_box_panelLayout = new javax.swing.GroupLayout(chat_box_panel);
         chat_box_panel.setLayout(chat_box_panelLayout);
         chat_box_panelLayout.setHorizontalGroup(
@@ -2898,17 +2905,21 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addGap(0, 0, 0)
                 .addComponent(image_button)
                 .addGap(0, 0, 0)
-                .addComponent(chat_box)
+                .addComponent(chat_box, javax.swing.GroupLayout.DEFAULT_SIZE, 547, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
-                .addComponent(send_label))
+                .addComponent(send_label)
+                .addGap(0, 0, 0)
+                .addComponent(max_min_label))
         );
         chat_box_panelLayout.setVerticalGroup(
             chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(chat_box)
             .addComponent(emoji_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(image_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(chat_box)
             .addGroup(chat_box_panelLayout.createSequentialGroup()
-                .addComponent(send_label)
+                .addGroup(chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(send_label)
+                    .addComponent(max_min_label))
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
@@ -3532,10 +3543,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
     }//GEN-LAST:event_formComponentShown
 
-    private void avatar_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatar_labelMouseClicked
+    private void max_min_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_max_min_labelMouseClicked
         // TODO add your handling code here:
         panel_arriba.setVisible(!panel_arriba.isVisible());
-    }//GEN-LAST:event_avatar_labelMouseClicked
+        Helpers.setResourceIconLabel(max_min_label, getClass().getResource("/images/" + (panel_arriba.isVisible() ? "maximize" : "minimize") + ".png"), chat_box.getHeight(), chat_box.getHeight());
+    }//GEN-LAST:event_max_min_labelMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
@@ -3555,6 +3567,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private javax.swing.JButton image_button;
     private javax.swing.JButton kick_user;
     private javax.swing.JLabel logo;
+    private javax.swing.JLabel max_min_label;
     private javax.swing.JButton new_bot_button;
     private javax.swing.JPanel panel_arriba;
     private javax.swing.JPanel panel_con;

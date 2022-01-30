@@ -137,6 +137,7 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableModel;
@@ -216,6 +217,11 @@ public class Helpers {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    public static void updateCoronaDialogsFont() {
+        UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
+        UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
     }
 
     public static void containerSetLocationRelativeTo(Container reference, Container current) {
@@ -919,47 +925,6 @@ public class Helpers {
                         ((JTable) component).getTableHeader().setFont(new_font);
                     }
 
-                    component.setFont(new_font);
-                    error = false;
-                } catch (Exception ex) {
-                    error = true;
-                }
-            } while (error);
-
-        }
-    }
-
-    public static void updateFonts(final Component component, final Font font, final int size_dif) {
-
-        if (component != null) {
-
-            if (component instanceof javax.swing.JMenu) {
-
-                for (Component child : ((javax.swing.JMenu) component).getMenuComponents()) {
-                    if (child instanceof JMenuItem) {
-
-                        updateFonts(child, font, size_dif);
-                    }
-                }
-
-            } else if (component instanceof Container) {
-
-                for (Component child : ((Container) component).getComponents()) {
-                    if (child instanceof Container) {
-
-                        updateFonts(child, font, size_dif);
-                    }
-                }
-            }
-
-            Font old_font = component.getFont();
-
-            Font new_font = font.deriveFont(old_font.getStyle(), size_dif != 0 ? (old_font.getSize() + size_dif) : old_font.getSize());
-
-            boolean error;
-
-            do {
-                try {
                     component.setFont(new_font);
                     error = false;
                 } catch (Exception ex) {

@@ -74,6 +74,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                 return new ComponentView(element) {
                     @Override
                     protected Component createComponent() {
+
                         JLabel label = new JLabel();
 
                         try {
@@ -87,9 +88,20 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                             label.setAlignmentX(align);
 
-                            ImageIcon image = new ImageIcon(new URL(url));
+                            ImageIcon image;
 
-                            if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
+                            if (ChatImageURLDialog.ICON_CACHE.containsKey(url)) {
+
+                                image = ChatImageURLDialog.ICON_CACHE.get(url);
+                            } else {
+
+                                image = new ImageIcon(new URL(url));
+
+                            }
+
+                            if (ChatImageURLDialog.ICON_CACHE.containsKey(url) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
+
+                                ChatImageURLDialog.ICON_CACHE.putIfAbsent(url, image);
 
                                 label.setIcon(new ImageIcon(new URL(url)));
 
@@ -100,6 +112,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                             }
 
                         } catch (Exception ex) {
+
                             Logger.getLogger(CoronaHTMLEditorKit.class.getName()).log(Level.SEVERE, null, ex);
                         }
 

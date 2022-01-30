@@ -10,8 +10,10 @@ import java.awt.Cursor;
 import java.awt.MediaTracker;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -74,6 +76,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                 for (String h : HISTORIAL) {
 
                     if (!LABEL_CACHE.containsKey(h)) {
+
                         ImageIcon image;
 
                         try {
@@ -81,7 +84,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                             if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
-                                Helpers.GUIRun(new Runnable() {
+                                Helpers.GUIRunAndWait(new Runnable() {
+                                    @Override
                                     public void run() {
                                         JLabel label = new JLabel();
                                         LABEL_CACHE.put(h, label);
@@ -104,7 +108,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                     if (Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
                                                         HISTORIAL.remove(h);
                                                         THIS.historial_panel.remove(label);
-                                                        LABEL_CACHE.remove(label);
+                                                        LABEL_CACHE.remove(h);
                                                         THIS.revalidate();
                                                         THIS.repaint();
 
@@ -121,7 +125,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                             }
                                         });
-                                        historial_panel.add(label);
+                                        THIS.historial_panel.add(label);
 
                                     }
                                 });
@@ -138,7 +142,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                         }
 
                     } else {
-                        historial_panel.add(LABEL_CACHE.get(h));
+                        THIS.historial_panel.add(LABEL_CACHE.get(h));
                     }
 
                 }
@@ -157,6 +161,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                         barra.setVisible(false);
                         loading.setVisible(false);
                         send_button.setEnabled(true);
+                        THIS.revalidate();
+                        THIS.repaint();
 
                     }
                 });
@@ -168,14 +174,12 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     public synchronized static void updateHistorialEnviados(String url) {
 
-        if (HISTORIAL.isEmpty() || !HISTORIAL.peekFirst().equals(url)) {
-
-            if (HISTORIAL.contains(url)) {
-                HISTORIAL.remove(url);
-            }
-
-            HISTORIAL.push(url);
+        if (HISTORIAL.contains(url)) {
+            HISTORIAL.remove(url);
         }
+
+        HISTORIAL.addFirst(url);
+
     }
 
     public synchronized static void updateHistorialRecibidos(String url) {
@@ -183,6 +187,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         if (!HISTORIAL.contains(url)) {
 
             HISTORIAL.addLast(url);
+
         }
     }
 
@@ -257,6 +262,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         image_url.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         image_url.setDoubleBuffered(true);
+        image_url.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                image_urlActionPerformed(evt);
+            }
+        });
 
         send_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         send_button.setText("Enviar");
@@ -397,6 +407,12 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         } else {
             barra.setVisible(false);
             send_button.setEnabled(true);
+
+            try {
+                Helpers.openBrowserURL("https://www.google.com/search?q=" + URLEncoder.encode(image_url.getText(), "UTF-8") + "&tbm=isch");
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
 
     }//GEN-LAST:event_send_buttonActionPerformed
@@ -405,6 +421,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         WaitingRoomFrame.getInstance().getChat_box().requestFocus();
     }//GEN-LAST:event_formWindowClosing
+
+    private void image_urlActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_image_urlActionPerformed
+        // TODO add your handling code here:
+        send_button.doClick();
+    }//GEN-LAST:event_image_urlActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra;

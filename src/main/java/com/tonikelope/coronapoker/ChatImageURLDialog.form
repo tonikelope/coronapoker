@@ -70,6 +70,9 @@
         </Property>
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="image_urlActionPerformed"/>
+      </Events>
     </Component>
     <Component class="javax.swing.JButton" name="send_button">
       <Properties>

@@ -357,7 +357,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(image_url, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(image_url)
                     .addComponent(jLabel1)
                     .addComponent(send_button))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)

@@ -64,7 +64,6 @@ import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.KeyStroke;
 import javax.swing.Timer;
-import javax.swing.UIManager;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
@@ -906,9 +905,7 @@ public class Init extends javax.swing.JFrame {
 
             Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
 
-            UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
-
-            UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
+            Helpers.updateCoronaDialogsFont();
 
             Init.MOD = Helpers.loadMOD();
 

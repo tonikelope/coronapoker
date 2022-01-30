@@ -7,6 +7,7 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.MediaTracker;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -71,6 +72,10 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         Helpers.threadRun(new Runnable() {
             public void run() {
 
+                int width = getWidth();
+
+                int height = getHeight();
+
                 ArrayList<String> rem = new ArrayList<>();
 
                 for (String h : HISTORIAL) {
@@ -83,6 +88,14 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                             image = new ImageIcon(new URL(h));
 
                             if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
+
+                                if (image.getIconWidth() > width) {
+                                    width = image.getIconWidth();
+                                }
+
+                                if (image.getIconHeight() > height) {
+                                    height = image.getIconHeight();
+                                }
 
                                 Helpers.GUIRunAndWait(new Runnable() {
                                     @Override
@@ -143,6 +156,14 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                     } else {
                         THIS.historial_panel.add(LABEL_CACHE.get(h));
+
+                        if (LABEL_CACHE.get(h).getIcon().getIconWidth() > width) {
+                            width = LABEL_CACHE.get(h).getIcon().getIconWidth();
+                        }
+
+                        if (LABEL_CACHE.get(h).getIcon().getIconHeight() > height) {
+                            height = LABEL_CACHE.get(h).getIcon().getIconHeight();
+                        }
                     }
 
                 }
@@ -155,6 +176,10 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                 guardarHistorial();
 
+                int new_w = width;
+
+                int new_h = height;
+
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
 
@@ -163,6 +188,12 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                         send_button.setEnabled(true);
                         THIS.revalidate();
                         THIS.repaint();
+
+                        if (new_w > getWidth() || new_h > getHeight()) {
+                            THIS.setPreferredSize(new Dimension(new_w + 40, new_h + 120));
+                            THIS.pack();
+                            Helpers.containerSetLocationRelativeTo(THIS.getParent(), THIS);
+                        }
 
                     }
                 });
@@ -246,6 +277,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         image_url = new javax.swing.JTextField();
         send_button = new javax.swing.JButton();
+        jLabel1 = new javax.swing.JLabel();
+        jLabel2 = new javax.swing.JLabel();
         scroll_panel = new javax.swing.JScrollPane();
         historial_panel = new javax.swing.JPanel();
         barra = new javax.swing.JProgressBar();
@@ -278,6 +311,14 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             }
         });
 
+        jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel1.setText("URL:");
+
+        jLabel2.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
+        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel2.setText("Nota: también puedes buscar desde aquí imágenes en Google introduciendo palabras clave.");
+        jLabel2.setDoubleBuffered(true);
+
         scroll_panel.setBorder(null);
         scroll_panel.setDoubleBuffered(true);
 
@@ -300,11 +341,14 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(jLabel1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(image_url)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(send_button))
+                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(loading, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
@@ -312,10 +356,13 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(send_button, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                    .addComponent(image_url))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(image_url, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel1)
+                    .addComponent(send_button))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel2)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(loading)
@@ -404,16 +451,17 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                 }
             });
-        } else {
-            barra.setVisible(false);
-            send_button.setEnabled(true);
+        } else if (!url.isBlank()) {
 
             try {
-                Helpers.openBrowserURL("https://www.google.com/search?q=" + URLEncoder.encode(image_url.getText(), "UTF-8") + "&tbm=isch");
+                Helpers.openBrowserURL("https://www.google.com/search?q=" + URLEncoder.encode(url, "UTF-8") + "&tbm=isch");
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+
+        barra.setVisible(false);
+        send_button.setEnabled(true);
 
     }//GEN-LAST:event_send_buttonActionPerformed
 
@@ -431,6 +479,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     private javax.swing.JProgressBar barra;
     private javax.swing.JPanel historial_panel;
     private javax.swing.JTextField image_url;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel loading;
     private javax.swing.JScrollPane scroll_panel;
     private javax.swing.JButton send_button;

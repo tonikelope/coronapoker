@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Nota: también puedes buscar desde aquí imágenes en Google introduciendo palabras clave.", "Note: you can also search from here for images in Google by entering keywords."},
             {"ACTUALIZAR", "UPDATE"},
             {"CARGANDO IMÁGENES...", "LOADING IMAGES..."},
             {"Leyendo contenido del chat...", "Reading chat content..."},

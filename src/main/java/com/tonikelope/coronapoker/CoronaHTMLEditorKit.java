@@ -7,8 +7,6 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Component;
 import java.awt.MediaTracker;
-import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -101,11 +99,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                 label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/95.png")));
                             }
 
-                        } catch (BadLocationException e) {
-                            e.printStackTrace();
-                        } catch (MalformedURLException ex) {
-                            Logger.getLogger(CoronaHTMLEditorKit.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (UnsupportedEncodingException ex) {
+                        } catch (Exception ex) {
                             Logger.getLogger(CoronaHTMLEditorKit.class.getName()).log(Level.SEVERE, null, ex);
                         }
 

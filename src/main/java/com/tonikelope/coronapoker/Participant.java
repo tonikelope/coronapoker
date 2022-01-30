@@ -110,11 +110,6 @@ public class Participant implements Runnable {
             avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         }
 
-        if (nick.equals(WaitingRoomFrame.getInstance().getLocal_nick())) {
-
-            WaitingRoomFrame.getInstance().refreshChatPanel();
-        }
-
     }
 
     public String getAvatar_chat_src() {

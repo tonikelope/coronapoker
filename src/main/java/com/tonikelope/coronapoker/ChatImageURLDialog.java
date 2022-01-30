@@ -7,7 +7,6 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Cursor;
-import java.awt.Dimension;
 import java.awt.MediaTracker;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -70,9 +69,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         Helpers.threadRun(new Runnable() {
             public void run() {
 
-                int max_width = 0;
-                int max_height = 0;
-
                 ArrayList<String> rem = new ArrayList<>();
 
                 for (String h : HISTORIAL) {
@@ -84,14 +80,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                             image = new ImageIcon(new URL(h));
 
                             if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
-
-                                if (image.getIconWidth() > max_width) {
-                                    max_width = image.getIconWidth();
-                                }
-
-                                if (image.getIconHeight() > max_height) {
-                                    max_height = image.getIconHeight();
-                                }
 
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
@@ -151,14 +139,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                     } else {
                         historial_panel.add(LABEL_CACHE.get(h));
-
-                        if (LABEL_CACHE.get(h).getIcon().getIconWidth() > max_width) {
-                            max_width = LABEL_CACHE.get(h).getIcon().getIconWidth();
-                        }
-
-                        if (LABEL_CACHE.get(h).getIcon().getIconHeight() > max_height) {
-                            max_height = LABEL_CACHE.get(h).getIcon().getIconHeight();
-                        }
                     }
 
                 }
@@ -171,19 +151,13 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                 guardarHistorial();
 
-                int w = max_width;
-                int h = max_height;
-
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
-                        setPreferredSize(new Dimension(w + 35, h + 35));
-                        setSize(new Dimension(w + 35, h + 35));
+
                         barra.setVisible(false);
                         loading.setVisible(false);
                         send_button.setEnabled(true);
-                        pack();
 
-                        Helpers.containerSetLocationRelativeTo(getParent(), THIS);
                     }
                 });
 

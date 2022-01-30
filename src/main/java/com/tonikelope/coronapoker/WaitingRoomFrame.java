@@ -1125,6 +1125,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
     }
 
+    public JButton getImage_button() {
+        return image_button;
+    }
+
     public void sendASYNCGAMECommandFromServer(String command, Participant p) {
 
         sendASYNCGAMECommandFromServer(command, p, true);
@@ -3534,11 +3538,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
-        conectados.revalidate();
-
-        conectados.repaint();
 
         chat_box.requestFocus();
+
+        revalidate();
+
+        repaint();
 
         Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
     }//GEN-LAST:event_formComponentShown

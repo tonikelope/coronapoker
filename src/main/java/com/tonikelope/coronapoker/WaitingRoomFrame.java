@@ -389,7 +389,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             if (nick.equals(this.local_nick)) {
 
-                align = "align='right' style='margin-right:8px'";
+                align = "align='right' style='margin-right:8px;margin-top:7px;margin-bottom:7px;'";
 
                 avatar_src = local_avatar_chat_src;
 
@@ -397,7 +397,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             } else if (this.participantes.containsKey(nick)) {
 
-                align = "align='left' style='margin-left:8px'";
+                align = "align='left' style='margin-left:8px;margin-top:7px;margin-bottom:7px;'";
 
                 avatar_src = this.participantes.get(nick).getAvatar_chat_src();
 
@@ -416,7 +416,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             msg = parseBBCODE(msg);
 
-            html += "<div " + align + "><div style='margin-top:5px;margin-bottom:5px;'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' /> <span><b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></span><br><div style='margin-top:3px;'>" + msg + "</div></div></div>";
+            html += "<div " + align + "><div style='margin-bottom:5px'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></div>" + msg + "</div>";
         }
 
         return html;
@@ -445,7 +445,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 String img_src = "http" + (matcher.groupCount() > 1 ? matcher.group(1) : "") + "://" + matcher.group(matcher.groupCount() > 1 ? 2 : 1);
 
                 try {
-                    msg = msg.replaceAll(Pattern.quote(matcher.group(0)), "<tonimg>" + (Base64.encodeBase64String(img_src.getBytes("UTF-8")) + "@" + align) + "</tonimg><br>");
+                    msg = msg.replaceAll(Pattern.quote(matcher.group(0)), "<tonimg>" + (Base64.encodeBase64String(img_src.getBytes("UTF-8")) + "@" + align) + "</tonimg><img src='" + getClass().getResource("/images/emoji_chat/image_space.png").toExternalForm() + "' />");
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -1436,6 +1436,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 }
                             });
 
+                            refreshChatPanel();
+
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
                                     status.setText(Translator.translate("CONECTADO"));
@@ -2327,33 +2329,24 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void refreshChatPanel() {
 
-        if (isVisible() && !chat_text.toString().isEmpty()) {
+        if (!chat_text.toString().isEmpty()) {
 
-            Helpers.threadRun(new Runnable() {
+            Helpers.GUIRun(new Runnable() {
+
                 public void run() {
 
-                    String status_text = status.getText();
+                    status.setText(Translator.translate("Leyendo contenido del chat..."));
 
-                    Helpers.GUIRun(new Runnable() {
+                }
+            });
 
-                        public void run() {
+            final String html = "<html><body style='background-image: url(" + background_src + ")'>" + txtChat2HTML(chat_text.toString()) + "</body></html>";
 
-                            status.setText(Translator.translate("Leyendo contenido del chat..."));
+            Helpers.GUIRun(new Runnable() {
 
-                        }
-                    });
+                public void run() {
 
-                    final String html = "<html><body style='background-image: url(" + background_src + ")'>" + txtChat2HTML(chat_text.toString()) + "</body></html>";
-
-                    Helpers.GUIRun(new Runnable() {
-
-                        public void run() {
-
-                            chat.setText(html);
-                            status.setText(status_text);
-
-                        }
-                    });
+                    chat.setText(html);
 
                 }
             });

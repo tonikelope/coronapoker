@@ -34,7 +34,7 @@ import org.apache.commons.codec.binary.Base64;
 public class ChatImageURLDialog extends javax.swing.JDialog {
 
     private static final ArrayDeque<String> HISTORIAL = cargarHistorial();
-    public static final ConcurrentHashMap<String, ImageIcon> ICON_CACHE = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, ImageIcon> ICON_CACHE = new ConcurrentHashMap<>();
     public volatile static boolean AUTO_REC;
     private volatile static ChatImageURLDialog THIS;
 

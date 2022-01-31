@@ -79,7 +79,9 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                         try {
                             int start = getElement().getStartOffset();
+
                             int end = getElement().getEndOffset();
+
                             String text = getElement().getDocument().getText(start, end - start);
 
                             String url = new String(Base64.decodeBase64(text.split("@")[0]), "UTF-8");
@@ -88,20 +90,9 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                             label.setAlignmentX(align);
 
-                            ImageIcon image;
+                            ImageIcon image = new ImageIcon(new URL(url));
 
-                            if (ChatImageURLDialog.ICON_CACHE.containsKey(url)) {
-
-                                image = ChatImageURLDialog.ICON_CACHE.get(url);
-                            } else {
-
-                                image = new ImageIcon(new URL(url));
-
-                            }
-
-                            if (ChatImageURLDialog.ICON_CACHE.containsKey(url) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
-
-                                ChatImageURLDialog.ICON_CACHE.putIfAbsent(url, image);
+                            if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
                                 label.setIcon(new ImageIcon(new URL(url)));
 

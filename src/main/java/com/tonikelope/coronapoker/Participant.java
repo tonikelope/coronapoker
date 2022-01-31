@@ -107,7 +107,7 @@ public class Participant implements Runnable {
             }
 
         } else {
-            avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
+            avatar_chat_src = cpu ? getClass().getResource("/images/avatar_bot_chat.png").toExternalForm() : getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         }
 
     }

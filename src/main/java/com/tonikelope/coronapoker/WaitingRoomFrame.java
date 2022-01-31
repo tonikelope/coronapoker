@@ -554,14 +554,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             public void changedUpdate(DocumentEvent e) {
 
                 send_label.setEnabled(!chat_box.getText().isBlank());
+                max_min_label.setVisible(chat_box.getText().isBlank());
             }
 
             public void insertUpdate(DocumentEvent e) {
                 send_label.setEnabled(!chat_box.getText().isBlank());
+                max_min_label.setVisible(chat_box.getText().isBlank());
             }
 
             public void removeUpdate(DocumentEvent e) {
                 send_label.setEnabled(!chat_box.getText().isBlank());
+                max_min_label.setVisible(chat_box.getText().isBlank());
             }
         }
 

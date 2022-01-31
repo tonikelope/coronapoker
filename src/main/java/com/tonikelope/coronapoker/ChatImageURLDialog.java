@@ -407,13 +407,13 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     private void send_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_send_buttonActionPerformed
         // TODO add your handling code here:
 
-        send_button.setEnabled(false);
-
-        barra.setVisible(true);
-
         String url = image_url.getText().trim();
 
         if (url.startsWith("http")) {
+
+            send_button.setEnabled(false);
+
+            barra.setVisible(true);
 
             Helpers.threadRun(new Runnable() {
 
@@ -484,15 +484,18 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             });
         } else if (!url.isBlank()) {
 
+            send_button.setEnabled(false);
+            barra.setVisible(true);
+
             try {
                 Helpers.openBrowserURL("https://www.google.com/search?q=" + URLEncoder.encode(url, "UTF-8") + "&tbm=isch");
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
-        }
 
-        barra.setVisible(false);
-        send_button.setEnabled(true);
+            barra.setVisible(false);
+            send_button.setEnabled(true);
+        }
 
     }//GEN-LAST:event_send_buttonActionPerformed
 

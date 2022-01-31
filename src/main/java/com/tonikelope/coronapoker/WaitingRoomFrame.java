@@ -348,17 +348,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return local_client_socket_lock;
     }
 
-    public void chatHTMLAppend(String text) {
-
-        chat_text.append(text);
-
+    private void HTMLEditorKitAppend(String text) {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
 
                 HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
 
-                StringReader reader = new StringReader(txtChat2HTML(text));
+                StringReader reader = new StringReader(text);
 
                 try {
                     editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
@@ -366,6 +363,33 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 }
             }
         });
+    }
+
+    public void chatHTMLAppend(String text) {
+
+        chat_text.append(text);
+
+        HTMLEditorKitAppend(txtChat2HTML(text));
+    }
+
+    public void chatHTMLAppendNewUser(String nick) {
+
+        String hora = Helpers.getLocalTimeString();
+
+        chat_text.append(nick + " (" + hora + ") -> HELLO");
+
+        String avatar_src = this.participantes.get(nick).getAvatar_chat_src();
+
+        HTMLEditorKitAppend("<div align='center' style='margin-top:7px;margin-bottom:7px;'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "&nbsp;<span style='color:green;'>" + Translator.translate("SE UNE A LA TIMBA") + "</span></b>&nbsp;<span style='font-size:0.8em'>(" + hora + ")</span></div>");
+    }
+
+    public void chatHTMLAppendExitUser(String nick, String avatar_src) {
+
+        String hora = Helpers.getLocalTimeString();
+
+        chat_text.append(nick + " (" + hora + ") -> BYE");
+
+        HTMLEditorKitAppend("<div align='center' style='margin-top:7px;margin-bottom:7px;'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "&nbsp;<span style='color:red;'>" + Translator.translate("ABANDONA A LA TIMBA") + "</span></b>&nbsp;<span style='font-size:0.8em'>(" + hora + ")</span></div>");
     }
 
     public synchronized String txtChat2HTML(String chat) {
@@ -2453,6 +2477,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             Audio.playWavResource("misc/toilet.wav");
 
+            String avatar_src = participantes.get(nick).getAvatar_chat_src();
+
             participantes.remove(nick);
 
             Helpers.GUIRun(new Runnable() {
@@ -2487,6 +2513,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         new_bot_button.setEnabled(true);
                     }
+
+                    chatHTMLAppendExitUser(nick, avatar_src);
                 }
             });
 
@@ -2538,6 +2566,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 conectados.revalidate();
 
                 conectados.repaint();
+
+                if (!nick.equals(server_nick)) {
+
+                    chatHTMLAppendNewUser(nick);
+
+                }
 
             }
         });

@@ -33,6 +33,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"ABANDONA LA TIMBA", "LEAVES THE GAME"},
+            {"SE UNE A LA TIMBA", "JOINS THE GAME"},
             {"Añadir imágenes recibidas al historial", "Add received images to history"},
             {"¿BORRAR TODAS LAS IMÁGENES DEL HISTORIAL?\n(Nota: puedes borrar una imagen en concreto haciendo click derecho encima de ella)", "REMOVE ALL HISTORY IMAGES?\n(Note: you can delete a specific image by right clicking on it)."},
             {"Borrar historial", "Delete history"},

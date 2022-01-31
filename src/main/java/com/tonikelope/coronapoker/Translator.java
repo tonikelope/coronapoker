@@ -33,9 +33,12 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Añadir imágenes recibidas al historial", "Add received images to history"},
+            {"¿BORRAR TODAS LAS IMÁGENES DEL HISTORIAL?\n(Nota: puedes borrar una imagen en concreto haciendo click derecho encima de ella)", "REMOVE ALL HISTORY IMAGES?\n(Note: you can delete a specific image by right clicking on it)."},
+            {"Borrar historial", "Delete history"},
             {"Nota: también puedes buscar desde aquí imágenes en Google introduciendo palabras clave.", "Note: you can also search from here for images in Google by entering keywords."},
             {"ACTUALIZAR", "UPDATE"},
-            {"CARGANDO IMÁGENES...", "LOADING IMAGES..."},
+            {"CARGANDO HISTORIAL...", "LOADING HISTORY..."},
             {"Leyendo contenido del chat...", "Reading chat content..."},
             {"¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?", "DELETE THIS IMAGE FROM HISTORY?"},
             {"ERROR: LA IMAGEN NO ES VÁLIDA", "ERROR: IMAGE IS NOT VALID"},

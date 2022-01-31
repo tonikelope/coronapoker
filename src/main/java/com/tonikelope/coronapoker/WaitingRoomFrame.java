@@ -18,6 +18,7 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Frame;
 import java.awt.Image;
 import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
@@ -639,7 +640,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             local_avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         }
 
-        avatar_label.setText(local_nick);
+        avatar_label.setText("");
 
         status1.setText(server_ip_port);
 
@@ -2595,6 +2596,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 formComponentShown(evt);
             }
         });
+        addWindowStateListener(new java.awt.event.WindowStateListener() {
+            public void windowStateChanged(java.awt.event.WindowEvent evt) {
+                formWindowStateChanged(evt);
+            }
+        });
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
@@ -3565,6 +3571,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
         chat.setText("");
     }//GEN-LAST:event_formComponentHidden
+
+    private void formWindowStateChanged(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowStateChanged
+        // TODO add your handling code here:
+
+        if ((evt.getNewState() & Frame.MAXIMIZED_BOTH) == Frame.MAXIMIZED_BOTH) {
+            avatar_label.setText(this.local_nick);
+        } else {
+            avatar_label.setText("");
+        }
+    }//GEN-LAST:event_formWindowStateChanged
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

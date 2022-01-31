@@ -35,6 +35,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     private static final ArrayDeque<String> HISTORIAL = cargarHistorial();
     public static final ConcurrentHashMap<String, ImageIcon> ICON_CACHE = new ConcurrentHashMap<>();
+    public volatile static boolean AUTO_REC;
     private volatile static ChatImageURLDialog THIS;
 
     /**
@@ -56,6 +57,10 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
+        clear_button.setEnabled(!HISTORIAL.isEmpty());
+
+        auto_recibir_checkbox.setSelected(AUTO_REC);
+
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
@@ -65,6 +70,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         THIS = this;
 
         cargarHistorialPanel();
+
     }
 
     private void cargarHistorialPanel() {
@@ -205,7 +211,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     public synchronized static void updateHistorialRecibidos(String url) {
 
-        if (!HISTORIAL.contains(url)) {
+        if (AUTO_REC && !HISTORIAL.contains(url)) {
 
             HISTORIAL.addLast(url);
 
@@ -228,6 +234,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         }
 
         Helpers.PROPERTIES.setProperty("chat_img_hist", String.join("@", historial));
+
+        Helpers.PROPERTIES.setProperty("chat_img_hist_auto_rec", String.valueOf(AUTO_REC));
 
         Helpers.savePropertiesFile();
 
@@ -252,6 +260,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             }
         }
 
+        AUTO_REC = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_img_hist_auto_rec", "true"));
+
         return historial;
 
     }
@@ -273,6 +283,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         historial_panel = new javax.swing.JPanel();
         barra = new javax.swing.JProgressBar();
         loading = new javax.swing.JLabel();
+        clear_button = new javax.swing.JButton();
+        auto_recibir_checkbox = new javax.swing.JCheckBox();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Enviar URL de imagen");
@@ -320,8 +332,28 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         loading.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         loading.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         loading.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/waiting.png"))); // NOI18N
-        loading.setText("CARGANDO IMÁGENES...");
+        loading.setText("CARGANDO HISTORIAL...");
         loading.setDoubleBuffered(true);
+
+        clear_button.setBackground(new java.awt.Color(255, 0, 0));
+        clear_button.setForeground(new java.awt.Color(255, 255, 255));
+        clear_button.setText("Borrar historial");
+        clear_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        clear_button.setDoubleBuffered(true);
+        clear_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                clear_buttonActionPerformed(evt);
+            }
+        });
+
+        auto_recibir_checkbox.setText("Añadir imágenes recibidas al historial");
+        auto_recibir_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        auto_recibir_checkbox.setDoubleBuffered(true);
+        auto_recibir_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                auto_recibir_checkboxActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -331,6 +363,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(auto_recibir_checkbox)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(jLabel1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -339,6 +372,9 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                         .addComponent(send_button))
                     .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(clear_button))
                     .addComponent(loading, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
@@ -357,7 +393,12 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(loading)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE))
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(clear_button)
+                    .addComponent(auto_recibir_checkbox))
+                .addContainerGap())
         );
 
         pack();
@@ -466,8 +507,41 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         send_button.doClick();
     }//GEN-LAST:event_image_urlActionPerformed
 
+    private void clear_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clear_buttonActionPerformed
+        // TODO add your handling code here:
+        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿BORRAR TODAS LAS IMÁGENES DEL HISTORIAL?\n(Nota: puedes borrar una imagen en concreto haciendo click derecho encima de ella)") == 0) {
+
+            HISTORIAL.clear();
+
+            guardarHistorial();
+
+            historial_panel.removeAll();
+
+            clear_button.setEnabled(false);
+
+            historial_panel.revalidate();
+
+            historial_panel.repaint();
+        }
+
+        image_url.requestFocus();
+    }//GEN-LAST:event_clear_buttonActionPerformed
+
+    private void auto_recibir_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_recibir_checkboxActionPerformed
+        // TODO add your handling code here:
+
+        AUTO_REC = auto_recibir_checkbox.isSelected();
+
+        Helpers.PROPERTIES.setProperty("chat_img_hist_auto_rec", String.valueOf(AUTO_REC));
+
+        Helpers.savePropertiesFile();
+
+    }//GEN-LAST:event_auto_recibir_checkboxActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JCheckBox auto_recibir_checkbox;
     private javax.swing.JProgressBar barra;
+    private javax.swing.JButton clear_button;
     private javax.swing.JPanel historial_panel;
     private javax.swing.JTextField image_url;
     private javax.swing.JLabel jLabel1;

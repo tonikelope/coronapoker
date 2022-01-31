@@ -3074,6 +3074,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     pass_icon.setToolTipText(password);
 
                                 }
+
+                                chat_box.requestFocus();
                             }
                         });
 
@@ -3085,7 +3087,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 });
             }
         } else {
+
             Helpers.mostrarMensajeError(THIS, "Tienes que seleccionar algún participante antes");
+            chat_box.requestFocus();
         }
 
     }//GEN-LAST:event_kick_userActionPerformed
@@ -3205,6 +3209,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     }
                 });
             }
+        } else {
+
+            chat_box.requestFocus();
         }
 
     }//GEN-LAST:event_empezar_timbaActionPerformed
@@ -3398,6 +3405,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+
+        chat_box.requestFocus();
     }//GEN-LAST:event_video_chat_buttonActionPerformed
 
     private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_pass_iconMouseClicked

@@ -389,7 +389,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         chat_text.append(nick + " (" + hora + ") -> BYE");
 
-        HTMLEditorKitAppend("<div align='center' style='margin-top:7px;margin-bottom:7px;'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "&nbsp;<span style='color:red;'>" + Translator.translate("ABANDONA A LA TIMBA") + "</span></b>&nbsp;<span style='font-size:0.8em'>(" + hora + ")</span></div>");
+        HTMLEditorKitAppend("<div align='center' style='margin-top:7px;margin-bottom:7px;'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "&nbsp;<span style='color:red;'>" + Translator.translate("ABANDONA LA TIMBA") + "</span></b>&nbsp;<span style='font-size:0.8em'>(" + hora + ")</span></div>");
     }
 
     public synchronized String txtChat2HTML(String chat) {

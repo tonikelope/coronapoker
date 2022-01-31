@@ -2337,14 +2337,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (!chat_text.toString().isEmpty()) {
 
-            Helpers.GUIRun(new Runnable() {
+            if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                Helpers.GUIRun(new Runnable() {
 
-                public void run() {
+                    public void run() {
 
-                    status.setText(Translator.translate("Leyendo contenido del chat..."));
+                        status.setText(Translator.translate("Leyendo contenido del chat..."));
 
-                }
-            });
+                    }
+                });
+            }
 
             final String html = "<html><body style='background-image: url(" + background_src + ")'>" + txtChat2HTML(chat_text.toString()) + "</body></html>";
 
@@ -2586,6 +2588,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
         setPreferredSize(new java.awt.Dimension(700, 900));
         addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentHidden(java.awt.event.ComponentEvent evt) {
+                formComponentHidden(evt);
+            }
             public void componentShown(java.awt.event.ComponentEvent evt) {
                 formComponentShown(evt);
             }
@@ -3539,6 +3544,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
 
+        refreshChatPanel();
+
         chat_box.requestFocus();
 
         revalidate();
@@ -3553,6 +3560,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         panel_arriba.setVisible(!panel_arriba.isVisible());
         Helpers.setResourceIconLabel(max_min_label, getClass().getResource("/images/" + (panel_arriba.isVisible() ? "maximize" : "minimize") + ".png"), chat_box.getHeight(), chat_box.getHeight());
     }//GEN-LAST:event_max_min_labelMouseClicked
+
+    private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
+        // TODO add your handling code here:
+        chat.setText("");
+    }//GEN-LAST:event_formComponentHidden
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

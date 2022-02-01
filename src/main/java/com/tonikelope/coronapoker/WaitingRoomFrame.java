@@ -3604,7 +3604,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
 
-        if (chat.getText().isEmpty()) {
+        if (!chat_text.toString().isEmpty()) {
             refreshChatPanel();
         }
 

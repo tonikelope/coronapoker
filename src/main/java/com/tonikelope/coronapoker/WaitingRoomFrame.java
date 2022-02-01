@@ -376,8 +376,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         String hora = Helpers.getLocalTimeString();
 
-        chat_text.append(nick + " (" + hora + ") -> HELLO");
-
         String avatar_src = this.participantes.get(nick).getAvatar_chat_src();
 
         HTMLEditorKitAppend("<div align='center' style='margin-top:7px;margin-bottom:7px;'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "&nbsp;<span style='color:green;'>" + Translator.translate("SE UNE A LA TIMBA") + "</span></b>&nbsp;<span style='font-size:0.8em'>(" + hora + ")</span></div>");
@@ -386,8 +384,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public void chatHTMLAppendExitUser(String nick, String avatar_src) {
 
         String hora = Helpers.getLocalTimeString();
-
-        chat_text.append(nick + " (" + hora + ") -> BYE");
 
         HTMLEditorKitAppend("<div align='center' style='margin-top:7px;margin-bottom:7px;'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "&nbsp;<span style='color:red;'>" + Translator.translate("ABANDONA LA TIMBA") + "</span></b>&nbsp;<span style='font-size:0.8em'>(" + hora + ")</span></div>");
     }

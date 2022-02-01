@@ -2359,30 +2359,28 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void refreshChatPanel() {
 
-        if (!chat_text.toString().isEmpty()) {
-
-            if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                Helpers.GUIRun(new Runnable() {
-
-                    public void run() {
-
-                        status.setText(Translator.translate("Leyendo contenido del chat..."));
-
-                    }
-                });
-            }
-
-            final String html = "<html><body style='background-image: url(" + background_src + ")'>" + txtChat2HTML(chat_text.toString()) + "</body></html>";
-
+        if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
             Helpers.GUIRun(new Runnable() {
 
                 public void run() {
 
-                    chat.setText(html);
+                    status.setText(Translator.translate("Leyendo contenido del chat..."));
 
                 }
             });
         }
+
+        final String html = "<html><body style='background-image: url(" + background_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
+
+        Helpers.GUIRun(new Runnable() {
+
+            public void run() {
+
+                chat.setText(html);
+
+            }
+        });
+
     }
 
     public void recibirMensajeChat(String nick, String msg) {
@@ -3595,12 +3593,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         refreshChatPanel();
 
         chat_box.requestFocus();
+        
+        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
         revalidate();
 
         repaint();
-
-        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
     }//GEN-LAST:event_formComponentShown
 
     private void max_min_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_max_min_labelMouseClicked

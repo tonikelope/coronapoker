@@ -2370,6 +2370,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             });
         }
 
+        Helpers.GUIRun(new Runnable() {
+
+            public void run() {
+
+                chat_box_panel.setVisible(false);
+
+            }
+        });
+
         final String html = "<html><body style='background-image: url(" + background_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
 
         Helpers.GUIRun(new Runnable() {
@@ -2377,6 +2386,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             public void run() {
 
                 chat.setText(html);
+                chat_box_panel.setVisible(true);
 
             }
         });
@@ -3593,7 +3603,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         refreshChatPanel();
 
         chat_box.requestFocus();
-        
+
         Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
         revalidate();

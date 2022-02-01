@@ -2075,7 +2075,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             }
                         });
 
-                        if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                        if (!((String) tts[1]).isBlank() && GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
                             Audio.TTS((String) tts[1], nick_dialog);
 

@@ -435,7 +435,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             msg = parseEmojiChat(msg);
 
-            msg = parseBBCODE(msg);
+            msg = parseBBCODEChat(msg);
 
             html += "<div " + align + "><div style='margin-bottom:5px'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></div>" + msg + "</div>";
         }
@@ -444,9 +444,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     }
 
-    private String parseBBCODE(String message) {
+    private String parseBBCODEChat(String message) {
 
         return message.replaceAll("(?i)\\[ *([i]) *\\](.*?)\\[ */ *\\1 *\\]", "<i>$2</i>").replaceAll("(?i)\\[ *([b]) *\\](.*?)\\[ */ *\\1 *\\]", "<b>$2</b>").replaceAll("(?i)\\[ *([c](?:olor)?) *= *(.*?) *\\](.*?)\\[ */ *\\1 *\\]", "<span style='color:$2'>$3</span>");
+    }
+
+    private String removeBBCODEChat(String message) {
+        return message.replaceAll("(?i)\\[ *([i]) *\\](.*?)\\[ */ *\\1 *\\]", "$2").replaceAll("(?i)\\[ *([b]) *\\](.*?)\\[ */ *\\1 *\\]", "$2").replaceAll("(?i)\\[ *([c](?:olor)?) *= *(.*?) *\\](.*?)\\[ */ *\\1 *\\]", "$3");
+
     }
 
     private String parseImagesChat(String message, String align, boolean send) {
@@ -496,6 +501,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return msg;
     }
 
+    private String removeLinksImagesChat(String message) {
+        return message.replaceAll("(?:http|img)s?://[^ \r\n]+", "");
+    }
+
     private String parseEmojiChat(String message) {
 
         String msg = message;
@@ -523,6 +532,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
 
         return msg;
+    }
+
+    private String removeEmojiChat(String message) {
+
+        return message.replaceAll(" #[0-9]+# ", "");
     }
 
     public JTextField getChat_box() {
@@ -2359,37 +2373,40 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void refreshChatPanel() {
 
-        if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+        if (!chat_text.toString().isBlank()) {
+
+            if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                Helpers.GUIRun(new Runnable() {
+
+                    public void run() {
+
+                        status.setText(Translator.translate("Refrescando contenido del chat..."));
+
+                    }
+                });
+            }
+
             Helpers.GUIRun(new Runnable() {
 
                 public void run() {
 
-                    status.setText(Translator.translate("Leyendo contenido del chat..."));
+                    chat_box_panel.setVisible(false);
+
+                }
+            });
+
+            final String html = "<html><body style='background-image: url(" + background_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
+
+            Helpers.GUIRun(new Runnable() {
+
+                public void run() {
+
+                    chat.setText(html);
+                    chat_box_panel.setVisible(true);
 
                 }
             });
         }
-
-        Helpers.GUIRun(new Runnable() {
-
-            public void run() {
-
-                chat_box_panel.setVisible(false);
-
-            }
-        });
-
-        final String html = "<html><body style='background-image: url(" + background_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
-
-        Helpers.GUIRun(new Runnable() {
-
-            public void run() {
-
-                chat.setText(html);
-                chat_box_panel.setVisible(true);
-
-            }
-        });
 
     }
 
@@ -2397,18 +2414,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n");
 
+        String tts_msg = removeEmojiChat(removeLinksImagesChat(removeBBCODEChat(msg))).trim();
+
         Helpers.GUIRun(new Runnable() {
 
             public void run() {
 
                 if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive() && WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
 
-                    Audio.TTS_CHAT_QUEUE.add(new Object[]{nick, msg});
+                    Audio.TTS_CHAT_QUEUE.add(new Object[]{nick, tts_msg});
 
                     synchronized (Audio.TTS_CHAT_QUEUE) {
                         Audio.TTS_CHAT_QUEUE.notifyAll();
                     }
-
                 }
             }
         });

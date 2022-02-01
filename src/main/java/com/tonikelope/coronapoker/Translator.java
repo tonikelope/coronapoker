@@ -41,7 +41,7 @@ public class Translator {
             {"Nota: también puedes buscar desde aquí imágenes en Google introduciendo palabras clave.", "Note: you can also search from here for images in Google by entering keywords."},
             {"ACTUALIZAR", "UPDATE"},
             {"CARGANDO HISTORIAL...", "LOADING HISTORY..."},
-            {"Leyendo contenido del chat...", "Reading chat content..."},
+            {"Refrescando contenido del chat...", "Refreshing chat content..."},
             {"¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?", "DELETE THIS IMAGE FROM HISTORY?"},
             {"ERROR: LA IMAGEN NO ES VÁLIDA", "ERROR: IMAGE IS NOT VALID"},
             {"Enviar", "Send"},

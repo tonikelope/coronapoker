@@ -2391,7 +2391,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 chat.setText(html);
                 chat_box_panel.setVisible(true);
-                chat_box.requestFocus();
             }
         });
 
@@ -3605,13 +3604,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
 
         Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
-        
-        if (!chat_text.toString().isEmpty() || chat.getText().isEmpty()) {
+
+        if (!chat_text.toString().isEmpty()) {
             refreshChatPanel();
         }
-        
+
+        chat_box.requestFocus();
+
         revalidate();
-        
+
         repaint();
     }//GEN-LAST:event_formComponentShown
 
@@ -3623,7 +3624,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
         // TODO add your handling code here:
-        chat.setText("");
+
+        chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
+        chat_box.requestFocus();
     }//GEN-LAST:event_formComponentHidden
 
     private void formWindowStateChanged(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowStateChanged

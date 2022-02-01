@@ -536,7 +536,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private String removeEmojiChat(String message) {
 
-        return message.replaceAll(" #[0-9]+# ", "");
+        return message.replaceAll("#[0-9]+#", "");
     }
 
     public JTextField getChat_box() {

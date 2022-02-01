@@ -2371,7 +2371,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void refreshChatPanel() {
 
-        Helpers.GUIRunAndWait(new Runnable() {
+        Helpers.GUIRun(new Runnable() {
 
             public void run() {
 
@@ -2385,13 +2385,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         final String html = "<html><body style='background-image: url(" + background_chat_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
 
-        Helpers.GUIRunAndWait(new Runnable() {
+        Helpers.GUIRun(new Runnable() {
 
             public void run() {
 
                 chat.setText(html);
                 chat_box_panel.setVisible(true);
-
+                chat_box.requestFocus();
             }
         });
 
@@ -3604,16 +3604,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
 
-        if (!chat_text.toString().isEmpty()) {
+        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+        
+        if (!chat_text.toString().isEmpty() || chat.getText().isEmpty()) {
             refreshChatPanel();
         }
-
-        chat_box.requestFocus();
-
-        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
-
+        
         revalidate();
-
+        
         repaint();
     }//GEN-LAST:event_formComponentShown
 

@@ -133,7 +133,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile String password = null;
     private volatile boolean exit = false;
     private volatile StringBuffer chat_text = new StringBuffer();
-    private final String background_src;
+    private final String background_chat_src;
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
 
@@ -616,8 +616,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        background_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
-        chat.setText("<html><body style='background-image: url(" + background_src + ")'></body></html>");
+        background_chat_src = getClass().getResource("/images/chat_bg.jpg").toExternalForm();
+        chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
 
         barra.setVisible(false);
         barra.setIndeterminate(true);
@@ -1422,8 +1422,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             if (!"*".equals(recibido)) {
 
                                 chat_text = new StringBuffer(new String(Base64.decodeBase64(recibido), "UTF-8"));
-
-                                refreshChatPanel();
                             }
 
                             //Leemos el enlace del videochat (si existe)
@@ -1479,6 +1477,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 }
                             });
+
+                            refreshChatPanel();
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
@@ -2371,29 +2371,21 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void refreshChatPanel() {
 
-        if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-            Helpers.GUIRun(new Runnable() {
-
-                public void run() {
-
-                    status.setText(Translator.translate("Refrescando contenido del chat..."));
-
-                }
-            });
-        }
-
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
 
             public void run() {
 
-                chat_box_panel.setVisible(false);
+                if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                    status.setText(Translator.translate("Refrescando contenido del chat..."));
+                }
 
+                chat_box_panel.setVisible(false);
             }
         });
 
-        final String html = "<html><body style='background-image: url(" + background_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
+        final String html = "<html><body style='background-image: url(" + background_chat_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
 
             public void run() {
 

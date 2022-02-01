@@ -1480,8 +1480,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 }
                             });
 
-                            refreshChatPanel();
-
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
                                     status.setText(Translator.translate("CONECTADO"));
@@ -2373,40 +2371,37 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void refreshChatPanel() {
 
-        if (!chat_text.toString().isBlank()) {
-
-            if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                Helpers.GUIRun(new Runnable() {
-
-                    public void run() {
-
-                        status.setText(Translator.translate("Refrescando contenido del chat..."));
-
-                    }
-                });
-            }
-
+        if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
             Helpers.GUIRun(new Runnable() {
 
                 public void run() {
 
-                    chat_box_panel.setVisible(false);
-
-                }
-            });
-
-            final String html = "<html><body style='background-image: url(" + background_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
-
-            Helpers.GUIRun(new Runnable() {
-
-                public void run() {
-
-                    chat.setText(html);
-                    chat_box_panel.setVisible(true);
+                    status.setText(Translator.translate("Refrescando contenido del chat..."));
 
                 }
             });
         }
+
+        Helpers.GUIRun(new Runnable() {
+
+            public void run() {
+
+                chat_box_panel.setVisible(false);
+
+            }
+        });
+
+        final String html = "<html><body style='background-image: url(" + background_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
+
+        Helpers.GUIRun(new Runnable() {
+
+            public void run() {
+
+                chat.setText(html);
+                chat_box_panel.setVisible(true);
+
+            }
+        });
 
     }
 
@@ -2592,7 +2587,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 conectados.repaint();
 
-                if (!nick.equals(server_nick)) {
+                if (!nick.equals(server_nick) && !nick.equals(local_nick)) {
 
                     chatHTMLAppendNewUser(nick);
 
@@ -2707,7 +2702,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         status.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         status.setForeground(new java.awt.Color(51, 153, 0));
-        status.setText("Estado");
         status.setDoubleBuffered(true);
 
         status1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
@@ -3618,7 +3612,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
 
-        refreshChatPanel();
+        if (chat.getText().isEmpty()) {
+            refreshChatPanel();
+        }
 
         chat_box.requestFocus();
 

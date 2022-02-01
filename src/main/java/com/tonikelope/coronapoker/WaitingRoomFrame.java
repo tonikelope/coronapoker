@@ -539,6 +539,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return message.replaceAll("#[0-9]+#", "");
     }
 
+    public String cleanTTSChatMessage(String msg) {
+        return removeEmojiChat(removeLinksImagesChat(removeBBCODEChat(msg))).trim();
+    }
+
     public JTextField getChat_box() {
         return chat_box;
     }
@@ -2400,7 +2404,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n");
 
-        String tts_msg = removeEmojiChat(removeLinksImagesChat(removeBBCODEChat(msg))).trim();
+        String tts_msg = cleanTTSChatMessage(msg);
 
         Helpers.GUIRun(new Runnable() {
 

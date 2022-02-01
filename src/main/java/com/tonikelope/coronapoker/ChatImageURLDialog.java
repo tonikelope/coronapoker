@@ -53,11 +53,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         send_button.setEnabled(false);
 
+        clear_button.setEnabled(false);
+
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
 
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
-
-        clear_button.setEnabled(!HISTORIAL.isEmpty());
 
         auto_recibir_checkbox.setSelected(AUTO_REC);
 
@@ -148,6 +148,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                 }
 
                                                 label.setBorder(new EmptyBorder(10, 0, 10, 0));
+
+                                                THIS.image_url.requestFocus();
                                             }
                                         }
                                     });
@@ -182,6 +184,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                         barra.setVisible(false);
                         loading.setVisible(false);
                         send_button.setEnabled(true);
+                        clear_button.setEnabled(!HISTORIAL.isEmpty());
                         THIS.revalidate();
                         THIS.repaint();
 
@@ -448,6 +451,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                     public void run() {
                                         barra.setVisible(false);
                                         send_button.setEnabled(true);
+                                        image_url.requestFocus();
                                     }
                                 });
                             }
@@ -460,6 +464,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                 public void run() {
                                     barra.setVisible(false);
                                     send_button.setEnabled(true);
+                                    image_url.requestFocus();
                                 }
                             });
                         }
@@ -495,6 +500,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
             barra.setVisible(false);
             send_button.setEnabled(true);
+            image_url.requestFocus();
         }
 
     }//GEN-LAST:event_send_buttonActionPerformed
@@ -538,6 +544,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         Helpers.PROPERTIES.setProperty("chat_img_hist_auto_rec", String.valueOf(AUTO_REC));
 
         Helpers.savePropertiesFile();
+
+        image_url.requestFocus();
 
     }//GEN-LAST:event_auto_recibir_checkboxActionPerformed
 

@@ -501,6 +501,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             barra.setVisible(false);
             send_button.setEnabled(true);
             image_url.requestFocus();
+        } else {
+            image_url.requestFocus();
         }
 
     }//GEN-LAST:event_send_buttonActionPerformed

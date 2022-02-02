@@ -601,6 +601,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         emoji_scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
+        main_scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
+
+        main_scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
+
         emoji_scroll_panel.setVisible(false);
 
         chat.setEditorKit(new CoronaHTMLEditorKit());
@@ -746,6 +750,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.setResourceIconButton(empezar_timba, getClass().getResource("/images/start.png"), Math.round(empezar_timba.getHeight() * 0.8f), Math.round(empezar_timba.getHeight() * 0.8f));
 
         Helpers.setResourceIconButton(kick_user, getClass().getResource("/images/kick.png"), kick_user.getHeight(), kick_user.getHeight());
+
+        pack();
 
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 

@@ -20,6 +20,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.Image;
+import java.awt.Toolkit;
 import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
 import java.io.BufferedReader;
@@ -136,6 +137,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final String background_chat_src;
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
+
+    public String getBackground_chat_src() {
+        return background_chat_src;
+    }
 
     public JButton getEmoji_button() {
         return emoji_button;
@@ -437,7 +442,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             msg = parseBBCODEChat(msg);
 
-            html += "<div " + align + "><div style='margin-bottom:5px'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></div>" + msg + "</div>";
+            html += "<div " + align + "><div style='margin-bottom:4px'><img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "</b> <span style='font-size:0.8em'>" + hora + "</span></div>" + msg + "</div>";
         }
 
         return html;
@@ -741,6 +746,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.setResourceIconButton(empezar_timba, getClass().getResource("/images/start.png"), Math.round(empezar_timba.getHeight() * 0.8f), Math.round(empezar_timba.getHeight() * 0.8f));
 
         Helpers.setResourceIconButton(kick_user, getClass().getResource("/images/kick.png"), kick_user.getHeight(), kick_user.getHeight());
+
+        int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
+
+        int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.8f));
+
+        setSize(new Dimension(w, h));
+
+        setPreferredSize(getSize());
 
         pack();
 

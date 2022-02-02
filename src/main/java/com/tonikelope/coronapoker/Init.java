@@ -18,13 +18,13 @@ package com.tonikelope.coronapoker;
 
 import java.awt.AWTException;
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.Robot;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -798,7 +798,9 @@ public class Init extends javax.swing.JFrame {
         // TODO add your handling code here:
         StatsDialog dialog = new StatsDialog(this, true);
 
-        dialog.setPreferredSize(new Dimension(Math.round(0.9f * this.getWidth()), Math.round(0.9f * this.getHeight())));
+        dialog.setSize(Toolkit.getDefaultToolkit().getScreenSize());
+
+        dialog.setPreferredSize(Toolkit.getDefaultToolkit().getScreenSize());
 
         dialog.pack();
 

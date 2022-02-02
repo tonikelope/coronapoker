@@ -150,11 +150,15 @@ public class NewGameDialog extends javax.swing.JDialog {
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
 
-        pack();
+        int w = Math.min(getWidth(), Math.round(this.getParent().getWidth() * 0.9f));
 
-        if (this.getWidth() >= this.getParent().getWidth() || this.getHeight() >= this.getParent().getHeight()) {
-            setPreferredSize(new Dimension(Math.round(this.getParent().getWidth() * 0.9f), Math.round(this.getParent().getHeight() * 0.9f)));
-        }
+        int h = Math.min(getHeight(), Math.round(this.getParent().getHeight() * 0.8f));
+
+        setSize(new Dimension(w, h));
+
+        setPreferredSize(getSize());
+
+        pack();
 
         init = true;
     }
@@ -317,11 +321,15 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         Helpers.setResourceIconButton(vamos, getClass().getResource("/images/action/vamos.png"), Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f));
 
-        pack();
+        int w = Math.min(getWidth(), Math.round(this.getParent().getWidth() * 0.9f));
 
-        if (this.getWidth() >= this.getParent().getWidth() || this.getHeight() >= this.getParent().getHeight()) {
-            setPreferredSize(new Dimension(Math.round(this.getParent().getWidth() * 0.9f), Math.round(this.getParent().getHeight() * 0.9f)));
-        }
+        int h = Math.min(getHeight(), Math.round(this.getParent().getHeight() * 0.8f));
+
+        setSize(new Dimension(w, h));
+
+        setPreferredSize(getSize());
+
+        pack();
 
         init = true;
 

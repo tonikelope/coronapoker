@@ -120,7 +120,7 @@ public class StatsDialog extends javax.swing.JDialog {
         hand_comcards_val.setFont(original_dialog_font);
         game_textarea.setFont(original_dialog_font);
         Helpers.translateComponents(this, false);
-        setTitle(Translator.translate(getTitle()));
+        setTitle("CoronaPoker " + AboutDialog.VERSION + " - " + Translator.translate(getTitle()));
         stats_combo.setSelectedIndex(-1);
 
         Helpers.setResourceIconLabel(title, getClass().getResource("/images/stats.png"), title.getHeight(), title.getHeight());
@@ -2284,6 +2284,8 @@ public class StatsDialog extends javax.swing.JDialog {
 
         if (game_textarea_scrollpane.isVisible() && last_button == 1) {
             game_textarea_scrollpane.setVisible(false);
+            revalidate();
+            repaint();
         } else {
 
             last_button = 1;
@@ -2420,6 +2422,8 @@ public class StatsDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         if (game_textarea_scrollpane.isVisible() && last_button == 2) {
             game_textarea_scrollpane.setVisible(false);
+            revalidate();
+            repaint();
         } else {
 
             chat_game_button.setEnabled(false);
@@ -2445,12 +2449,12 @@ public class StatsDialog extends javax.swing.JDialog {
                 public void run() {
                     try {
 
-                        String log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll("<img[^<>]+avatar[^<>]+>", "<img src='" + avatar_src + "' />");
+                        String chat_log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll("<img[^<>]+avatar[^<>]+>", "<img src='" + avatar_src + "' />");
 
                         Helpers.GUIRun(new Runnable() {
 
                             public void run() {
-                                game_textarea.setText(log);
+                                game_textarea.setText(chat_log);
 
                                 game_textarea_scrollpane.setVisible(true);
 

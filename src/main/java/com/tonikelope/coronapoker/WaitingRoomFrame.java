@@ -3600,6 +3600,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             this.enviarMensajeChat(local_nick, mensaje);
 
             this.chat_box.setText("");
+            
+            if(emoji_scroll_panel.isVisible()){
+                
+                emoji_scroll_panel.setVisible(false);
+                
+                revalidate();
+
+                repaint();
+            }
 
             chat_enabled = false;
 

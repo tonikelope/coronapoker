@@ -3580,26 +3580,24 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         emoji_scroll_panel.setVisible(!emoji_scroll_panel.isVisible());
 
-        this.revalidate();
-
-        this.repaint();
-
         chat_box.requestFocus();
 
-        if (main_scroll_panel.getVerticalScrollBar().isVisible()) {
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+        revalidate();
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
+        repaint();
 
-                            main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
-                        }
-                    });
+        Helpers.threadRun(new Runnable() {
+            public void run() {
 
-                }
-            });
-        }
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+
+                        main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
+                    }
+                });
+
+            }
+        });
     }//GEN-LAST:event_emoji_buttonActionPerformed
 
     private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_boxActionPerformed
@@ -3689,15 +3687,24 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             refreshChatPanel();
         }
 
-        if (main_scroll_panel.getVerticalScrollBar().isVisible()) {
-            main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
-        }
-
         chat_box.requestFocus();
 
         revalidate();
 
         repaint();
+
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+
+                        main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
+                    }
+                });
+
+            }
+        });
     }//GEN-LAST:event_formComponentShown
 
     private void max_min_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_max_min_labelMouseClicked
@@ -3705,20 +3712,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         panel_arriba.setVisible(!panel_arriba.isVisible());
         Helpers.setResourceIconLabel(max_min_label, getClass().getResource("/images/" + (panel_arriba.isVisible() ? "maximize" : "minimize") + ".png"), chat_box.getHeight(), chat_box.getHeight());
 
-        if (main_scroll_panel.getVerticalScrollBar().isVisible()) {
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+        Helpers.threadRun(new Runnable() {
+            public void run() {
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
 
-                            main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
-                        }
-                    });
+                        main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
+                    }
+                });
 
-                }
-            });
-        }
+            }
+        });
 
     }//GEN-LAST:event_max_min_labelMouseClicked
 

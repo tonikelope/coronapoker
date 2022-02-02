@@ -154,7 +154,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         int w = Math.min(getWidth(), Math.round(this.getParent().getWidth() * 0.9f));
 
-        int h = Math.min(getHeight(), Math.round(this.getParent().getHeight() * 0.8f));
+        int h = Math.min(getHeight(), Math.round(this.getParent().getHeight() * 0.9f));
 
         setSize(new Dimension(w, h));
 
@@ -327,7 +327,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         int w = Math.min(getWidth(), Math.round(this.getParent().getWidth() * 0.9f));
 
-        int h = Math.min(getHeight(), Math.round(this.getParent().getHeight() * 0.8f));
+        int h = Math.min(getHeight(), Math.round(this.getParent().getHeight() * 0.9f));
 
         setSize(new Dimension(w, h));
 

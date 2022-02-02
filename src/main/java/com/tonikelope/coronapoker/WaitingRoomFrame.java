@@ -2615,7 +2615,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        avatar_label = new javax.swing.JLabel();
+        main_scroll_panel = new javax.swing.JScrollPane();
+        main_panel = new javax.swing.JPanel();
         panel_arriba = new javax.swing.JPanel();
         pass_icon = new javax.swing.JLabel();
         new_bot_button = new javax.swing.JButton();
@@ -2633,18 +2634,20 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         game_info = new javax.swing.JLabel();
         barra = new javax.swing.JProgressBar();
         danger_server = new javax.swing.JLabel();
-        tts_warning = new javax.swing.JLabel();
         chat_notifications = new javax.swing.JCheckBox();
         chat_scroll = new javax.swing.JScrollPane();
         chat = new javax.swing.JEditorPane();
+        jPanel1 = new javax.swing.JPanel();
         chat_box_panel = new javax.swing.JPanel();
         chat_box = new javax.swing.JTextField();
         emoji_button = new javax.swing.JButton();
         image_button = new javax.swing.JButton();
         send_label = new javax.swing.JLabel();
         max_min_label = new javax.swing.JLabel();
+        avatar_label = new javax.swing.JLabel();
         emoji_scroll_panel = new javax.swing.JScrollPane();
         emoji_panel = new com.tonikelope.coronapoker.EmojiPanel();
+        tts_warning = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -2672,10 +2675,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        avatar_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        avatar_label.setText("Toni");
-        avatar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        avatar_label.setDoubleBuffered(true);
+        main_scroll_panel.setBorder(null);
+        main_scroll_panel.setDoubleBuffered(true);
 
         pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
         pass_icon.setToolTipText("Click para gestionar contraseña");
@@ -2885,17 +2886,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         danger_server.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         danger_server.setOpaque(true);
 
-        tts_warning.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
-        tts_warning.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        tts_warning.setText("Aviso: la privacidad del CHAT no está garantizada si algún jugador usa la función de voz TTS (click para más info).");
-        tts_warning.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        tts_warning.setDoubleBuffered(true);
-        tts_warning.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                tts_warningMouseClicked(evt);
-            }
-        });
-
         chat_notifications.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         chat_notifications.setText("Notificaciones del chat durante el juego");
         chat_notifications.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -2971,12 +2961,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        avatar_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        avatar_label.setText("Toni");
+        avatar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        avatar_label.setDoubleBuffered(true);
+
         javax.swing.GroupLayout chat_box_panelLayout = new javax.swing.GroupLayout(chat_box_panel);
         chat_box_panel.setLayout(chat_box_panelLayout);
         chat_box_panelLayout.setHorizontalGroup(
             chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(chat_box_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
+                .addComponent(avatar_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(emoji_button)
                 .addGap(0, 0, 0)
                 .addComponent(image_button)
@@ -2989,7 +2985,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         );
         chat_box_panelLayout.setVerticalGroup(
             chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(emoji_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(emoji_button, javax.swing.GroupLayout.DEFAULT_SIZE, 43, Short.MAX_VALUE)
             .addComponent(image_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(chat_box)
             .addGroup(chat_box_panelLayout.createSequentialGroup()
@@ -2997,6 +2993,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     .addComponent(send_label)
                     .addComponent(max_min_label))
                 .addGap(0, 0, Short.MAX_VALUE))
+            .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         emoji_scroll_panel.setBorder(null);
@@ -3011,44 +3008,81 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         });
         emoji_scroll_panel.setViewportView(emoji_panel);
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(danger_server, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        tts_warning.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
+        tts_warning.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        tts_warning.setText("Aviso: la privacidad del CHAT no está garantizada si algún jugador usa la función de voz TTS (click para más info).");
+        tts_warning.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        tts_warning.setDoubleBuffered(true);
+        tts_warning.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                tts_warningMouseClicked(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(emoji_scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
                     .addComponent(tts_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addComponent(avatar_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(chat_box_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(chat_box_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(0, 0, 0))
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(chat_box_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(emoji_scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(tts_warning))
+        );
+
+        javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
+        main_panel.setLayout(main_panelLayout);
+        main_panelLayout.setHorizontalGroup(
+            main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(main_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(danger_server, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(panel_arriba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(chat_notifications, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(chat_scroll, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
+                    .addComponent(chat_scroll, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+        main_panelLayout.setVerticalGroup(
+            main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(main_panelLayout.createSequentialGroup()
+                .addContainerGap()
                 .addComponent(danger_server)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(panel_arriba, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 135, Short.MAX_VALUE)
+                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 122, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(chat_box_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(emoji_scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(tts_warning)
-                .addGap(6, 6, 6))
+                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
+        );
+
+        main_scroll_panel.setViewportView(main_panel);
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(main_scroll_panel, javax.swing.GroupLayout.Alignment.TRAILING)
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(main_scroll_panel, javax.swing.GroupLayout.Alignment.TRAILING)
         );
 
         pack();
@@ -3672,8 +3706,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private javax.swing.JButton empezar_timba;
     private javax.swing.JLabel game_info;
     private javax.swing.JButton image_button;
+    private javax.swing.JPanel jPanel1;
     private javax.swing.JButton kick_user;
     private javax.swing.JLabel logo;
+    private javax.swing.JPanel main_panel;
+    private javax.swing.JScrollPane main_scroll_panel;
     private javax.swing.JLabel max_min_label;
     private javax.swing.JButton new_bot_button;
     private javax.swing.JPanel panel_arriba;

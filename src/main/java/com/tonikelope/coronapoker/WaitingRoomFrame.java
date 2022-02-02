@@ -755,7 +755,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 
-        int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.8f));
+        int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
 
         setSize(new Dimension(w, h));
 
@@ -3666,6 +3666,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             refreshChatPanel();
         }
 
+        if (main_scroll_panel.getVerticalScrollBar().isVisible()) {
+            main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
+        }
+
         chat_box.requestFocus();
 
         revalidate();
@@ -3677,6 +3681,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
         panel_arriba.setVisible(!panel_arriba.isVisible());
         Helpers.setResourceIconLabel(max_min_label, getClass().getResource("/images/" + (panel_arriba.isVisible() ? "maximize" : "minimize") + ".png"), chat_box.getHeight(), chat_box.getHeight());
+
+        if (main_scroll_panel.getVerticalScrollBar().isVisible()) {
+            main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
+        }
     }//GEN-LAST:event_max_min_labelMouseClicked
 
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden

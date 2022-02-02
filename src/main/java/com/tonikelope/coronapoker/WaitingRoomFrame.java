@@ -3586,6 +3586,20 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         chat_box.requestFocus();
 
+        if (main_scroll_panel.getVerticalScrollBar().isVisible()) {
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
+                        }
+                    });
+
+                }
+            });
+        }
     }//GEN-LAST:event_emoji_buttonActionPerformed
 
     private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_boxActionPerformed
@@ -3691,18 +3705,20 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         panel_arriba.setVisible(!panel_arriba.isVisible());
         Helpers.setResourceIconLabel(max_min_label, getClass().getResource("/images/" + (panel_arriba.isVisible() ? "maximize" : "minimize") + ".png"), chat_box.getHeight(), chat_box.getHeight());
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        if (main_scroll_panel.getVerticalScrollBar().isVisible()) {
+            Helpers.threadRun(new Runnable() {
+                public void run() {
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
 
-                        main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
-                    }
-                });
+                            main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
+                        }
+                    });
 
-            }
-        });
+                }
+            });
+        }
 
     }//GEN-LAST:event_max_min_labelMouseClicked
 

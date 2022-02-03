@@ -528,7 +528,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     String emoji_src = EmojiPanel.EMOJI_SRC.get(Integer.parseInt(matcher.group(1)) - 1);
 
-                    msg = msg.replaceAll(" ?#" + matcher.group(1) + "# ?", "<span><img align='middle' src='" + emoji_src + "' />&nbsp;</span>");
+                    msg = msg.replaceAll(" ?#" + matcher.group(1) + "# ?", "<span><img align='middle' src='" + emoji_src + "' /></span>&nbsp;");
 
                     lista.add(Integer.parseInt(matcher.group(1)));
                 }

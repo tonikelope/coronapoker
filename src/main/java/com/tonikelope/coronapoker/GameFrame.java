@@ -1792,7 +1792,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (!this.getSala_espera().getChat_text().toString().isEmpty()) {
 
-                    String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
+                    String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".html";
 
                     try {
                         Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");

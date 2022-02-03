@@ -774,7 +774,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                 log_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log")));
 
-                                chat_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) > 0L);
+                                chat_game_button.setEnabled((Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html")) || Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"))) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) > 0L);
 
                                 game_playtime_val.setText((rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")");
 
@@ -2457,7 +2457,13 @@ public class StatsDialog extends javax.swing.JDialog {
                 public void run() {
                     try {
 
-                        String chat_log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll("<img[^<>]+avatar[^<>]+>", "<img src='" + avatar_src + "' />");
+                        String chat_log;
+
+                        if (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html"))) {
+                            chat_log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html"), StandardCharsets.UTF_8).replaceAll("<img[^<>]+avatar[^<>]+>", "<img src='" + avatar_src + "' />");
+                        } else {
+                            chat_log = "<html><body style='background-color:rgb(0,102,153);color:white'>" + Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll("\n", "<br><br>") + "</body></html>";
+                        }
 
                         Helpers.GUIRun(new Runnable() {
 

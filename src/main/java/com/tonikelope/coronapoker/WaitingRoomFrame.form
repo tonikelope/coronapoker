@@ -467,6 +467,8 @@
             </Component>
             <Container class="javax.swing.JScrollPane" name="chat_scroll">
               <Properties>
+                <Property name="horizontalScrollBarPolicy" type="int" value="31"/>
+                <Property name="verticalScrollBarPolicy" type="int" value="21"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <AuxValues>

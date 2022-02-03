@@ -72,6 +72,7 @@ import javax.swing.JCheckBox;
 import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.border.Border;
 import javax.swing.event.DocumentEvent;
@@ -2906,6 +2907,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        chat_scroll.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        chat_scroll.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
         chat_scroll.setDoubleBuffered(true);
 
         chat.setEditable(false);
@@ -3660,6 +3663,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void chatFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusLost
         // TODO add your handling code here:
+        this.chat_scroll.getVerticalScrollBar().setValue(this.chat_scroll.getVerticalScrollBar().getMaximum());
+        this.chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         this.chat_scroll.setBorder(chat_scroll_border);
         ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.UPDATE_WHEN_ON_EDT);
         chat.setFocusable(false);
@@ -3750,6 +3755,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
 
         if (!chat.isFocusable()) {
+            this.chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
             this.chat_scroll.setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, 3));
             ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
             chat.setFocusable(true);

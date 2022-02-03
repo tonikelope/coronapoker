@@ -1770,7 +1770,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                             if (!participantes.containsKey(nick)) {
                                                                 //Añadimos al participante
+
                                                                 nuevoParticipante(nick, avatar, null, null, null, false);
+
                                                             }
 
                                                             break;
@@ -1802,10 +1804,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                                 if (!participantes.containsKey(nick)) {
                                                                     //Añadimos al participante
+
                                                                     nuevoParticipante(nick, avatar, null, null, null, false);
+
                                                                 }
 
                                                             }
+
                                                             break;
 
                                                         case "INIT":
@@ -2261,12 +2266,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 } catch (Exception ex) {
                                 } finally {
-                                    Helpers.GUIRunAndWait(new Runnable() {
+                                    Helpers.GUIRun(new Runnable() {
                                         public void run() {
-                                            if (participantes.size() > 1) {
-                                                empezar_timba.setEnabled(true);
-                                            }
 
+                                            empezar_timba.setEnabled((participantes.size() > 1));
                                             game_info.setEnabled(true);
                                         }
                                     });
@@ -2910,12 +2913,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         chat.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         chat.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         chat.setDoubleBuffered(true);
+        chat.setFocusable(false);
         chat.addFocusListener(new java.awt.event.FocusAdapter() {
-            public void focusGained(java.awt.event.FocusEvent evt) {
-                chatFocusGained(evt);
-            }
             public void focusLost(java.awt.event.FocusEvent evt) {
                 chatFocusLost(evt);
+            }
+        });
+        chat.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                chatMouseClicked(evt);
             }
         });
         chat_scroll.setViewportView(chat);
@@ -3429,6 +3435,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     empezar_timba.setEnabled(true);
                                     kick_user.setEnabled(true);
                                     new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
+
                                     chat_box.requestFocus();
 
                                 }
@@ -3651,16 +3658,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     }//GEN-LAST:event_image_buttonActionPerformed
 
-    private void chatFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusGained
-        // TODO add your handling code here:
-        this.chat_scroll.setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, 3));
-        ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
-    }//GEN-LAST:event_chatFocusGained
-
     private void chatFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chatFocusLost
         // TODO add your handling code here:
         this.chat_scroll.setBorder(chat_scroll_border);
         ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.UPDATE_WHEN_ON_EDT);
+        chat.setFocusable(false);
     }//GEN-LAST:event_chatFocusLost
 
     private void emoji_scroll_panelComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_emoji_scroll_panelComponentHidden
@@ -3743,6 +3745,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             avatar_label.setText("");
         }
     }//GEN-LAST:event_formWindowStateChanged
+
+    private void chatMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_chatMouseClicked
+        // TODO add your handling code here:
+
+        if (!chat.isFocusable()) {
+            this.chat_scroll.setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, 3));
+            ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
+            chat.setFocusable(true);
+            chat.requestFocus();
+        }
+    }//GEN-LAST:event_chatMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

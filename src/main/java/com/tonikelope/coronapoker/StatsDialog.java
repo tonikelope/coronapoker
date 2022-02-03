@@ -19,6 +19,7 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dialog;
 import java.awt.Font;
+import java.awt.Toolkit;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
@@ -96,6 +97,7 @@ public class StatsDialog extends javax.swing.JDialog {
         res_table_warning.setVisible(false);
         showdown_panel.setVisible(false);
         game_textarea_scrollpane.setVisible(false);
+        game_textarea_scrollpane.setPreferredSize(game_textarea_scrollpane.getSize());
         Helpers.JTextFieldRegularPopupMenu.addTo(game_textarea);
         table_panel.setVisible(false);
         hand_data_panel.setVisible(false);
@@ -130,6 +132,12 @@ public class StatsDialog extends javax.swing.JDialog {
         cargando.setVisible(false);
 
         purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
+
+        setSize(Toolkit.getDefaultToolkit().getScreenSize());
+
+        setPreferredSize(Toolkit.getDefaultToolkit().getScreenSize());
+
+        pack();
 
         Helpers.threadRun(new Runnable() {
 
@@ -1705,7 +1713,7 @@ public class StatsDialog extends javax.swing.JDialog {
                             .addComponent(game_playtime_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(game_buyin_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(game_blinds_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_blinds_double_val, javax.swing.GroupLayout.DEFAULT_SIZE, 1003, Short.MAX_VALUE)
+                            .addComponent(game_blinds_double_val, javax.swing.GroupLayout.DEFAULT_SIZE, 1056, Short.MAX_VALUE)
                             .addComponent(game_rebuy_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, game_data_panelLayout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
@@ -1896,7 +1904,7 @@ public class StatsDialog extends javax.swing.JDialog {
             .addGroup(hand_data_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(showdown_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 1138, Short.MAX_VALUE)
+                    .addComponent(showdown_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 1191, Short.MAX_VALUE)
                     .addGroup(hand_data_panelLayout.createSequentialGroup()
                         .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(hand_blinds_label, javax.swing.GroupLayout.PREFERRED_SIZE, 146, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -2066,7 +2074,7 @@ public class StatsDialog extends javax.swing.JDialog {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(scroll_stats_panel)
+                .addComponent(scroll_stats_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 1241, Short.MAX_VALUE)
                 .addContainerGap())
             .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(cargando, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2454,6 +2462,7 @@ public class StatsDialog extends javax.swing.JDialog {
                         Helpers.GUIRun(new Runnable() {
 
                             public void run() {
+
                                 game_textarea.setText(chat_log);
 
                                 game_textarea_scrollpane.setVisible(true);
@@ -2465,6 +2474,7 @@ public class StatsDialog extends javax.swing.JDialog {
                                 log_game_button.setEnabled(true);
 
                                 cargando.setVisible(false);
+
                             }
                         });
 

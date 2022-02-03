@@ -19,7 +19,6 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Toolkit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -274,12 +273,6 @@ public class BalanceDialog extends javax.swing.JDialog {
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
         // TODO add your handling code here:
         StatsDialog dialog = new StatsDialog(GameFrame.getInstance().getFrame(), true);
-
-        dialog.setSize(Toolkit.getDefaultToolkit().getScreenSize());
-
-        dialog.setPreferredSize(Toolkit.getDefaultToolkit().getScreenSize());
-
-        dialog.pack();
 
         dialog.setLocationRelativeTo(this);
 

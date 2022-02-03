@@ -24,7 +24,6 @@ import java.awt.KeyboardFocusManager;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.Robot;
-import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -797,12 +796,6 @@ public class Init extends javax.swing.JFrame {
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
         // TODO add your handling code here:
         StatsDialog dialog = new StatsDialog(this, true);
-
-        dialog.setSize(Toolkit.getDefaultToolkit().getScreenSize());
-
-        dialog.setPreferredSize(Toolkit.getDefaultToolkit().getScreenSize());
-
-        dialog.pack();
 
         dialog.setLocationRelativeTo(this);
 

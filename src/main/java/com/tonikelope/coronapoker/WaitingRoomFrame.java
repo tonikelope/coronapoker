@@ -762,6 +762,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         setPreferredSize(getSize());
 
+        chat_box.setPreferredSize(new Dimension(Math.round((float) (chat_box.getSize().getWidth() * 0.5f)), (int) chat_box.getSize().getHeight()));
+
         pack();
 
         Audio.muteLoopMp3("misc/background_music.mp3");
@@ -3665,6 +3667,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
         this.chat_scroll.getVerticalScrollBar().setValue(this.chat_scroll.getVerticalScrollBar().getMaximum());
         this.chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        this.chat_scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         this.chat_scroll.setBorder(chat_scroll_border);
         ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.UPDATE_WHEN_ON_EDT);
         chat.setFocusable(false);
@@ -3756,6 +3759,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (!chat.isFocusable()) {
             this.chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+            this.chat_scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
             this.chat_scroll.setBorder(javax.swing.BorderFactory.createLineBorder(Color.GREEN, 3));
             ((DefaultCaret) chat.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
             chat.setFocusable(true);

@@ -5,13 +5,18 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.MediaTracker;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.SwingUtilities;
 import javax.swing.text.Document;
 import javax.swing.text.ViewFactory;
 import javax.swing.text.html.HTMLEditorKit;
@@ -77,6 +82,8 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                         JLabel label = new JLabel();
 
+                        label.setIcon(new ImageIcon(getClass().getResource("/images/loading.gif")));
+
                         try {
                             int start = getElement().getStartOffset();
 
@@ -90,17 +97,48 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                             label.setAlignmentX(align);
 
-                            ImageIcon image = new ImageIcon(new URL(url));
+                            Helpers.threadRun(new Runnable() {
+                                public void run() {
 
-                            if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
+                                    try {
+                                        ImageIcon image = new ImageIcon(new URL(url));
 
-                                label.setIcon(new ImageIcon(new URL(url)));
+                                        Helpers.GUIRun(new Runnable() {
+                                            @Override
+                                            public void run() {
 
-                            } else {
+                                                if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
-                                label.setText("ERROR -> " + url);
-                                label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/95.png")));
-                            }
+                                                    label.setIcon(image);
+                                                } else {
+                                                    label.setText(Translator.translate("IMAGEN NO INSERTABLE"));
+                                                    label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/95.png")));
+                                                    label.setBackground(Color.RED);
+                                                    label.setForeground(Color.white);
+                                                    label.setOpaque(true);
+                                                    label.addMouseListener(new MouseAdapter() {
+                                                        @Override
+                                                        public void mouseClicked(MouseEvent e) {
+
+                                                            if (SwingUtilities.isLeftMouseButton(e)) {
+                                                                Helpers.openBrowserURL(url);
+
+                                                                if (WaitingRoomFrame.getInstance() != null) {
+                                                                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+                                                                }
+                                                            }
+
+                                                        }
+                                                    });
+                                                }
+                                            }
+                                        });
+
+                                    } catch (MalformedURLException ex) {
+                                        Logger.getLogger(CoronaHTMLEditorKit.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                }
+                            });
 
                         } catch (Exception ex) {
 

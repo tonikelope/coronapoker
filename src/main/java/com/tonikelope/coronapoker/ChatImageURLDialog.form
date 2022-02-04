@@ -32,7 +32,6 @@
           <Group type="102" attributes="0">
               <EmptySpace max="-2" attributes="0"/>
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Component id="auto_recibir_checkbox" alignment="0" min="-2" max="-2" attributes="0"/>
                   <Group type="102" alignment="1" attributes="0">
                       <Component id="jLabel1" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
@@ -40,13 +39,13 @@
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="send_button" min="-2" max="-2" attributes="0"/>
                   </Group>
-                  <Component id="jLabel2" alignment="1" max="32767" attributes="0"/>
+                  <Component id="jLabel2" alignment="1" pref="763" max="32767" attributes="0"/>
                   <Component id="barra" alignment="1" max="32767" attributes="0"/>
+                  <Component id="auto_recibir_checkbox" alignment="0" min="-2" max="-2" attributes="0"/>
                   <Group type="102" alignment="0" attributes="0">
                       <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                       <Component id="clear_button" min="-2" max="-2" attributes="0"/>
                   </Group>
-                  <Component id="loading" alignment="0" max="32767" attributes="0"/>
               </Group>
               <EmptySpace max="-2" attributes="0"/>
           </Group>
@@ -66,9 +65,7 @@
               <EmptySpace max="-2" attributes="0"/>
               <Component id="barra" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
-              <Component id="loading" min="-2" max="-2" attributes="0"/>
-              <EmptySpace max="-2" attributes="0"/>
-              <Component id="scroll_panel" pref="22" max="32767" attributes="0"/>
+              <Component id="scroll_panel" pref="316" max="32767" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
               <Group type="103" groupAlignment="3" attributes="0">
                   <Component id="clear_button" alignment="3" min="-2" max="-2" attributes="0"/>
@@ -144,19 +141,6 @@
     </Container>
     <Component class="javax.swing.JProgressBar" name="barra">
       <Properties>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-      </Properties>
-    </Component>
-    <Component class="javax.swing.JLabel" name="loading">
-      <Properties>
-        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Dialog" size="36" style="1"/>
-        </Property>
-        <Property name="horizontalAlignment" type="int" value="0"/>
-        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-          <Image iconType="3" name="/images/waiting.png"/>
-        </Property>
-        <Property name="text" type="java.lang.String" value="CARGANDO HISTORIAL..."/>
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
     </Component>

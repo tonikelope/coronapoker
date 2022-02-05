@@ -87,6 +87,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -112,6 +113,9 @@ import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.DefaultComboBoxModel;
@@ -217,6 +221,28 @@ public class Helpers {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    public static boolean isImageURLGIF(URL url) {
+        try {
+            ImageInputStream iis = ImageIO.createImageInputStream(url.openStream());
+
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+
+            while (readers.hasNext()) {
+
+                ImageReader read = readers.next();
+
+                if ("gif".equals(read.getFormatName().toLowerCase())) {
+                    return true;
+                }
+            }
+
+        } catch (IOException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return false;
     }
 
     public static void updateCoronaDialogsFont() {

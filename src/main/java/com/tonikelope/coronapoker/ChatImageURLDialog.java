@@ -8,7 +8,9 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.Image;
 import java.awt.MediaTracker;
+import java.awt.Toolkit;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.UnsupportedEncodingException;
@@ -16,6 +18,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayDeque;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.logging.Level;
@@ -33,6 +36,8 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class ChatImageURLDialog extends javax.swing.JDialog {
 
+    public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.3f);
+    public static final ConcurrentHashMap<String, ImageIcon> IMAGE_ICON_CACHE = new ConcurrentHashMap<>();
     private static final ThreadPoolExecutor IMAGE_THREAD_POOL = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
     private static final ArrayDeque<String> HISTORIAL = cargarHistorial();
     private volatile static boolean AUTO_REC;
@@ -120,7 +125,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                     @Override
                                                     public void run() {
                                                         ChatImageURLDialog.removeFromHistory(h);
-                                                        guardarHistorial();
+                                                        ChatImageURLDialog.guardarHistorial();
                                                     }
                                                 });
                                             }
@@ -143,9 +148,14 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                 try {
 
-                                    image = new ImageIcon(new URL(h));
+                                    image = (IMAGE_ICON_CACHE.containsKey(h)) ? IMAGE_ICON_CACHE.get(h) : new ImageIcon(new URL(h));
 
-                                    if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
+                                    if (IMAGE_ICON_CACHE.containsKey(h) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
+
+                                        if (image.getIconWidth() > ChatImageURLDialog.MAX_IMAGE_WIDTH) {
+
+                                            image = new ImageIcon(image.getImage().getScaledInstance(ChatImageURLDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageURLDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), Helpers.isImageURLGIF(new URL(h)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                        }
 
                                         if (image.getIconWidth() > width) {
                                             width = image.getIconWidth();
@@ -155,11 +165,15 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                             height = image.getIconHeight();
                                         }
 
+                                        IMAGE_ICON_CACHE.putIfAbsent(h, image);
+
+                                        ImageIcon final_image = image;
+
                                         Helpers.GUIRun(new Runnable() {
                                             @Override
                                             public void run() {
 
-                                                label.setIcon(image);
+                                                label.setIcon(final_image);
 
                                                 if (width > getWidth() || height > getHeight()) {
                                                     THIS.setPreferredSize(new Dimension(width + 40, height + 120));
@@ -182,13 +196,29 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                             }
                                         });
 
+                                        ChatImageURLDialog.removeFromHistory(h);
+                                        ChatImageURLDialog.guardarHistorial();
+
                                         Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + h);
                                     }
 
-                                } catch (MalformedURLException ex) {
+                                } catch (Exception ex) {
 
-                                    Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
+                                    Helpers.GUIRun(new Runnable() {
+                                        @Override
+                                        public void run() {
 
+                                            THIS.historial_panel.remove(label);
+                                            THIS.revalidate();
+                                            THIS.repaint();
+
+                                        }
+                                    });
+
+                                    ChatImageURLDialog.removeFromHistory(h);
+                                    ChatImageURLDialog.guardarHistorial();
+
+                                    Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + h);
                                 }
 
                             }
@@ -443,6 +473,10 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                     WaitingRoomFrame.getInstance().chatHTMLAppend(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
 
                                     THIS.setVisible(false);
+
+                                    if (WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()) {
+                                        WaitingRoomFrame.getInstance().getEmoji_button().doClick();
+                                    }
 
                                     WaitingRoomFrame.getInstance().getChat_box().requestFocus();
                                 }

@@ -152,9 +152,9 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         pack();
 
-        int w = Math.min(getWidth(), Math.round(this.getParent().getWidth() * 0.9f));
+        int w = Math.min(getWidth(), this.getParent().getWidth());
 
-        int h = Math.min(getHeight(), Math.round(this.getParent().getHeight() * 0.9f));
+        int h = Math.min(getHeight(), this.getParent().getHeight());
 
         if (w != getWidth() || h != getHeight()) {
             setSize(new Dimension(w, h));
@@ -163,6 +163,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             pack();
         }
+        
+        setResizable(false);
 
         init = true;
     }
@@ -641,6 +643,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         ciegas_label.setDoubleBuffered(true);
 
         buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        buyin_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1202.png"))); // NOI18N
         buyin_label.setText("Compra inicial (10 a 100 ciegas grandes):");
         buyin_label.setToolTipText("[10-100] ciegas grandes");
         buyin_label.setDoubleBuffered(true);
@@ -684,7 +687,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                         .addComponent(rebuy_checkbox))
                     .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel3Layout.createSequentialGroup()
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(buyin_label, javax.swing.GroupLayout.PREFERRED_SIZE, 352, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(buyin_label)
                             .addComponent(ciegas_label))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -716,6 +719,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         randomorg_label.setDoubleBuffered(true);
 
         random_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        random_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1058.png"))); // NOI18N
         random_label.setText("ALGORITMO para barajar:");
         random_label.setDoubleBuffered(true);
 
@@ -739,7 +743,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             .addGroup(random_panelLayout.createSequentialGroup()
                 .addGap(12, 12, 12)
                 .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(random_label, javax.swing.GroupLayout.PREFERRED_SIZE, 238, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(random_label)
                     .addComponent(randomorg_label))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)

@@ -32,7 +32,7 @@ import javax.swing.SwingUtilities;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "12.93";
+    public static final String VERSION = "12.94";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -84,11 +84,13 @@ public class AboutDialog extends javax.swing.JDialog {
 
         int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
 
-        setSize(new Dimension(w, h));
+        if (w != getWidth() || h != getHeight()) {
+            setSize(new Dimension(w, h));
 
-        setPreferredSize(getSize());
+            setPreferredSize(getSize());
 
-        pack();
+            pack();
+        }
 
     }
 

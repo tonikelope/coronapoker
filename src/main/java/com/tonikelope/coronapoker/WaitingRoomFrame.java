@@ -754,17 +754,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         pack();
 
+        chat_box.setPreferredSize(new Dimension(Math.round((float) (chat_box.getSize().getWidth() * 0.5f)), (int) chat_box.getSize().getHeight()));
+
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 
         int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
 
-        setSize(new Dimension(w, h));
+        if (w != getWidth() || h != getHeight()) {
+            setSize(new Dimension(w, h));
 
-        setPreferredSize(getSize());
+            setPreferredSize(getSize());
 
-        chat_box.setPreferredSize(new Dimension(Math.round((float) (chat_box.getSize().getWidth() * 0.5f)), (int) chat_box.getSize().getHeight()));
-
-        pack();
+            pack();
+        }
 
         Audio.muteLoopMp3("misc/background_music.mp3");
 

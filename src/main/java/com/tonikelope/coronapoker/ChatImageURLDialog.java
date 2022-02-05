@@ -174,7 +174,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                                 GIF_CACHE.put(h, image);
 
-                                            } else if(!GIF_CACHE.containsKey(h)) {
+                                            } else if (!GIF_CACHE.containsKey(h)) {
 
                                                 STATIC_IMAGE_CACHE.putIfAbsent(h, image);
                                             }

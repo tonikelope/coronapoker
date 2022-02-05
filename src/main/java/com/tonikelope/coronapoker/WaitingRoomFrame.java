@@ -573,17 +573,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             public void changedUpdate(DocumentEvent e) {
 
-                send_label.setEnabled(!chat_box.getText().isBlank());
+                send_label.setVisible(!chat_box.getText().isBlank());
                 max_min_label.setVisible(chat_box.getText().isBlank());
             }
 
             public void insertUpdate(DocumentEvent e) {
-                send_label.setEnabled(!chat_box.getText().isBlank());
+                send_label.setVisible(!chat_box.getText().isBlank());
                 max_min_label.setVisible(chat_box.getText().isBlank());
             }
 
             public void removeUpdate(DocumentEvent e) {
-                send_label.setEnabled(!chat_box.getText().isBlank());
+                send_label.setVisible(!chat_box.getText().isBlank());
                 max_min_label.setVisible(chat_box.getText().isBlank());
             }
         }
@@ -596,7 +596,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         Helpers.setResourceIconLabel(max_min_label, getClass().getResource("/images/maximize.png"), chat_box.getHeight(), chat_box.getHeight());
 
-        send_label.setEnabled(false);
+        send_label.setVisible(false);
 
         chat_scroll_border = chat_scroll.getBorder();
 
@@ -775,6 +775,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         } else {
             cliente();
         }
+    }
+
+    public JScrollPane getEmoji_scroll_panel() {
+        return emoji_scroll_panel;
     }
 
     private void sqlSavePermutationkey() {

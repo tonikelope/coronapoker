@@ -5,8 +5,10 @@
  */
 package com.tonikelope.coronapoker;
 
+import static com.tonikelope.coronapoker.ChatImageURLDialog.IMAGE_ICON_CACHE;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Image;
 import java.awt.MediaTracker;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -101,16 +103,31 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                 public void run() {
 
                                     try {
-                                        ImageIcon image = new ImageIcon(new URL(url));
+                                        ImageIcon image = (ChatImageURLDialog.IMAGE_ICON_CACHE.containsKey(url)) ? ChatImageURLDialog.IMAGE_ICON_CACHE.get(url) : new ImageIcon(new URL(url));
 
-                                        Helpers.GUIRun(new Runnable() {
-                                            @Override
-                                            public void run() {
+                                        if (ChatImageURLDialog.IMAGE_ICON_CACHE.containsKey(url) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
-                                                if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
+                                            if (image.getIconWidth() > ChatImageURLDialog.MAX_IMAGE_WIDTH) {
 
-                                                    label.setIcon(image);
-                                                } else {
+                                                image = new ImageIcon(image.getImage().getScaledInstance(ChatImageURLDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageURLDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), Image.SCALE_DEFAULT));
+                                            }
+
+                                            IMAGE_ICON_CACHE.putIfAbsent(url, image);
+
+                                            ImageIcon final_image = image;
+
+                                            Helpers.GUIRun(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    label.setIcon(final_image);
+
+                                                }
+                                            });
+                                        } else {
+
+                                            Helpers.GUIRun(new Runnable() {
+                                                @Override
+                                                public void run() {
                                                     label.setText(Translator.translate("IMAGEN NO INSERTABLE"));
                                                     label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/95.png")));
                                                     label.setBackground(Color.RED);
@@ -131,8 +148,8 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                                         }
                                                     });
                                                 }
-                                            }
-                                        });
+                                            });
+                                        }
 
                                     } catch (MalformedURLException ex) {
                                         Logger.getLogger(CoronaHTMLEditorKit.class.getName()).log(Level.SEVERE, null, ex);

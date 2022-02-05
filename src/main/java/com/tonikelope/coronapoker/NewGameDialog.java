@@ -156,11 +156,13 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         int h = Math.min(getHeight(), Math.round(this.getParent().getHeight() * 0.9f));
 
-        setSize(new Dimension(w, h));
+        if (w != getWidth() || h != getHeight()) {
+            setSize(new Dimension(w, h));
 
-        setPreferredSize(getSize());
+            setPreferredSize(getSize());
 
-        pack();
+            pack();
+        }
 
         init = true;
     }
@@ -329,11 +331,13 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         int h = Math.min(getHeight(), Math.round(this.getParent().getHeight() * 0.9f));
 
-        setSize(new Dimension(w, h));
+        if (w != getWidth() || h != getHeight()) {
+            setSize(new Dimension(w, h));
 
-        setPreferredSize(getSize());
+            setPreferredSize(getSize());
 
-        pack();
+            pack();
+        }
 
         init = true;
 

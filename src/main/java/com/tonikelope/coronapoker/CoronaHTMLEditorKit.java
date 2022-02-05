@@ -130,7 +130,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                                                     ChatImageURLDialog.GIF_CACHE.put(url, image);
 
-                                                } else if(!ChatImageURLDialog.GIF_CACHE.containsKey(url)) {
+                                                } else if (!ChatImageURLDialog.GIF_CACHE.containsKey(url)) {
 
                                                     ChatImageURLDialog.STATIC_IMAGE_CACHE.putIfAbsent(url, image);
                                                 }

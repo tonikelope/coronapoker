@@ -2446,7 +2446,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     if (msg.startsWith("img://") || msg.startsWith("imgs://")) {
 
                         try {
-                            Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(msg.replaceAll("^img", "http") + "#" + Helpers.genRandomString(20))});
+                            Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(msg.replaceAll("^img", "http"))});
                         } catch (MalformedURLException ex) {
                             Logger.getLogger(FastChatDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }

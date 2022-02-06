@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -164,6 +165,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private final Object exit_now_lock = new Object();
     private final ArrayList<Player> jugadores;
     private final ConcurrentHashMap<String, String> nick2avatar = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> gif_length = new ConcurrentHashMap<>();
     private final Crupier crupier;
     private final boolean partida_local;
     private final String nick_local;
@@ -2081,19 +2083,31 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         if (tts[1] instanceof URL) {
 
+                            String url = ((URL) tts[1]).toString();
+
+                            int gif_l = gif_length.containsKey(url) ? gif_length.get(url) : -1;
+
                             Helpers.GUIRun(new Runnable() {
                                 @Override
                                 public void run() {
-                                    nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (URL) tts[1]);
+                                    try {
+                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], new URL(url + "#" + Helpers.genRandomString(20)));
+                                    } catch (MalformedURLException ex) {
+                                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
                                     nick_dialog.setLocation(nick_dialog.getParent().getLocation());
                                     nick_dialog.setVisible(true);
                                 }
                             });
 
                             try {
-                                Helpers.pausar(Helpers.isImageURLGIF((URL) tts[1]) ? Math.max(Helpers.getGIFLength((URL) tts[1]), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT);
+                                Helpers.pausar((gif_l != -1 || Helpers.isImageURLGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT);
                             } catch (Exception ex) {
                                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+
+                            if (gif_l != -1) {
+                                gif_length.putIfAbsent(url, gif_l);
                             }
 
                             Helpers.GUIRunAndWait(new Runnable() {

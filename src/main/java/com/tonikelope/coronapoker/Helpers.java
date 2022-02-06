@@ -16,6 +16,11 @@
  */
 package com.tonikelope.coronapoker;
 
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.imaging.ImageProcessingException;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.MetadataException;
+import com.drew.metadata.gif.GifControlDirectory;
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
@@ -220,6 +225,31 @@ public class Helpers {
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
+
+    }
+
+    public static int getGIFLength(URL url) throws IOException, ImageProcessingException {
+
+        Metadata metadata = ImageMetadataReader.readMetadata(url.openStream());
+        List<GifControlDirectory> gifControlDirectories
+                = (List<GifControlDirectory>) metadata.getDirectoriesOfType(GifControlDirectory.class);
+
+        int timeLength = 0;
+        if (gifControlDirectories.size() == 1) { // Do not read delay of static GIF files with single frame.
+        } else if (gifControlDirectories.size() >= 1) {
+            for (GifControlDirectory gifControlDirectory : gifControlDirectories) {
+                try {
+                    if (gifControlDirectory.hasTagName(GifControlDirectory.TAG_DELAY)) {
+                        timeLength += gifControlDirectory.getInt(GifControlDirectory.TAG_DELAY);
+                    }
+                } catch (MetadataException e) {
+                    e.printStackTrace();
+                }
+            }
+            // Unit of time is 10 milliseconds in GIF.
+            timeLength *= 10;
+        }
+        return timeLength;
 
     }
 

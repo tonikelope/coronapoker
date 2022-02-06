@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>12.95</version>
+    <version>12.96</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -103,6 +103,11 @@
             <groupId>com.tonikelope.coronahmac</groupId>
             <artifactId>coronahmac</artifactId>
             <version>1.1.24</version>
+        </dependency>
+        <dependency>
+            <groupId>com.drewnoakes</groupId>
+            <artifactId>metadata-extractor</artifactId>
+            <version>2.16.0</version>
         </dependency>
     </dependencies>
     <properties>

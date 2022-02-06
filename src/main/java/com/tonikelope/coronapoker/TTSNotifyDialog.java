@@ -17,8 +17,12 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
+import java.awt.Image;
+import java.awt.Toolkit;
+import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.ImageIcon;
 
 /**
  *
@@ -26,7 +30,8 @@ import java.util.logging.Logger;
  */
 public class TTSNotifyDialog extends javax.swing.JDialog {
 
-    public static final int SIZE = 90;
+    public static final int SIZE = 80;
+    public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.2f);
 
     private volatile String player = null;
 
@@ -103,6 +108,54 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
                 });
             }
         });
+
+    }
+
+    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, URL image_url) {
+        super(parent, modal);
+
+        this.player = nick;
+
+        initComponents();
+
+        tts_panel.getSound_icon().setVisible(false);
+
+        tts_panel.getMessage().setText("[" + nick + "]");
+
+        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
+
+            if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
+
+                Helpers.setResourceIconLabel(tts_panel.getMessage(), GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath(), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            } else {
+
+                Helpers.setResourceIconLabel(tts_panel.getMessage(), getClass().getResource("/images/avatar_default.png"), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            }
+        } else {
+
+            if (GameFrame.getInstance().getParticipantes().get(nick).getAvatar() != null) {
+
+                Helpers.setResourceIconLabel(tts_panel.getMessage(), GameFrame.getInstance().getParticipantes().get(nick).getAvatar().getAbsolutePath(), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+
+            } else {
+
+                Helpers.setResourceIconLabel(tts_panel.getMessage(), getClass().getResource("/images/avatar_default.png"), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            }
+
+        }
+
+        ImageIcon image = new ImageIcon(image_url);
+
+        if (image.getIconWidth() > MAX_IMAGE_WIDTH) {
+
+            image = new ImageIcon(image.getImage().getScaledInstance(MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * MAX_IMAGE_WIDTH) / image.getIconWidth()), Helpers.isImageURLGIF(image_url) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+        }
+
+        tts_panel.getImage_label().setIcon(image);
+
+        Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+
+        pack();
 
     }
 

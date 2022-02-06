@@ -514,7 +514,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                             if (!WaitingRoomFrame.getInstance().isVisible()) {
                                 try {
-                                    Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(url + "#" + Helpers.genRandomString(20))});
+                                    Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(url)});
                                 } catch (MalformedURLException ex) {
                                     Logger.getLogger(FastChatDialog.class.getName()).log(Level.SEVERE, null, ex);
                                 }

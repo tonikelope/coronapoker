@@ -512,6 +512,17 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                             WaitingRoomFrame.getInstance().enviarMensajeChat(WaitingRoomFrame.getInstance().getLocal_nick(), url.replaceAll("^http", "img"));
 
+                            if (!WaitingRoomFrame.getInstance().isVisible()) {
+                                try {
+                                    Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(url + "#" + Helpers.genRandomString(20))});
+                                } catch (MalformedURLException ex) {
+                                    Logger.getLogger(FastChatDialog.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                                synchronized (Audio.TTS_CHAT_QUEUE) {
+                                    Audio.TTS_CHAT_QUEUE.notifyAll();
+                                }
+                            }
+
                         } else {
                             Helpers.mostrarMensajeError(THIS, "ERROR: LA IMAGEN NO ES VÁLIDA");
 

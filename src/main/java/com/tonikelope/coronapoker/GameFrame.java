@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.PreparedStatement;
@@ -880,6 +881,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 } else {
                     fastchat_dialog.setVisible(false);
                 }
+
+            }
+        });
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_1, 0), new AbstractAction("FASTCHAT-IMAGE") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                ChatImageURLDialog chat_image_dialog = new ChatImageURLDialog(getFrame(), true);
+                chat_image_dialog.setLocationRelativeTo(getFrame());
+                chat_image_dialog.setVisible(true);
 
             }
         });
@@ -2067,29 +2079,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         Object[] tts = Audio.TTS_CHAT_QUEUE.poll();
 
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            @Override
-                            public void run() {
-                                nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]));
-                                nick_dialog.setLocation(nick_dialog.getParent().getLocation());
+                        if (tts[1] instanceof URL) {
 
-                            }
-                        });
-
-                        if (!((String) tts[1]).isBlank() && GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
-
-                            Audio.TTS((String) tts[1], nick_dialog);
-
-                        } else if (!Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
-
-                            Helpers.GUIRunAndWait(new Runnable() {
+                            Helpers.GUIRun(new Runnable() {
                                 @Override
                                 public void run() {
+                                    nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (URL) tts[1]);
+                                    nick_dialog.setLocation(nick_dialog.getParent().getLocation());
                                     nick_dialog.setVisible(true);
                                 }
                             });
 
-                            Helpers.pausar(TTS_NO_SOUND_TIMEOUT);
+                            try {
+                                Helpers.pausar(Helpers.isImageURLGIF((URL) tts[1]) ? Math.max(Helpers.getGIFLength((URL) tts[1]), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT);
+                            } catch (Exception ex) {
+                                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            }
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
@@ -2097,6 +2102,41 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     nick_dialog.setVisible(false);
                                 }
                             });
+
+                        } else {
+
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                @Override
+                                public void run() {
+                                    nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]));
+                                    nick_dialog.setLocation(nick_dialog.getParent().getLocation());
+
+                                }
+                            });
+
+                            if (!((String) tts[1]).isBlank() && GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+
+                                Audio.TTS((String) tts[1], nick_dialog);
+
+                            } else if (!Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+
+                                Helpers.GUIRunAndWait(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        nick_dialog.setVisible(true);
+                                    }
+                                });
+
+                                Helpers.pausar(TTS_NO_SOUND_TIMEOUT);
+
+                                Helpers.GUIRunAndWait(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        nick_dialog.setVisible(false);
+                                    }
+                                });
+                            }
+
                         }
                     }
 

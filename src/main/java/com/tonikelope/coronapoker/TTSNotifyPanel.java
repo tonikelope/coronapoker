@@ -39,6 +39,10 @@ public class TTSNotifyPanel extends javax.swing.JPanel {
         }
     }
 
+    public JLabel getImage_label() {
+        return image_label;
+    }
+
     public JLabel getMessage() {
         return message;
     }
@@ -65,6 +69,7 @@ public class TTSNotifyPanel extends javax.swing.JPanel {
 
         message = new javax.swing.JLabel();
         sound_icon = new javax.swing.JLabel();
+        image_label = new javax.swing.JLabel();
 
         setBackground(new java.awt.Color(102, 102, 102));
 
@@ -75,27 +80,33 @@ public class TTSNotifyPanel extends javax.swing.JPanel {
         message.setDoubleBuffered(true);
         message.setFocusable(false);
 
+        image_label.setDoubleBuffered(true);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(0, 0, 0)
                 .addComponent(sound_icon)
                 .addGap(0, 0, 0)
                 .addComponent(message, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addComponent(image_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(0, 0, 0)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(message, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(message, javax.swing.GroupLayout.PREFERRED_SIZE, 95, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 0, 0))
+                    .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(0, 0, 0)
+                .addComponent(image_label))
         );
     }// </editor-fold>//GEN-END:initComponents
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JLabel image_label;
     private javax.swing.JLabel message;
     private javax.swing.JLabel sound_icon;
     // End of variables declaration//GEN-END:variables

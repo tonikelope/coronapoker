@@ -36,8 +36,10 @@ import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.KeyException;
@@ -2435,15 +2437,27 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n");
 
-        String tts_msg = cleanTTSChatMessage(msg);
-
         Helpers.GUIRun(new Runnable() {
 
             public void run() {
 
                 if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive() && WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
 
-                    Audio.TTS_CHAT_QUEUE.add(new Object[]{nick, tts_msg});
+                    if (msg.startsWith("img://") || msg.startsWith("imgs://")) {
+
+                        try {
+                            Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(msg.replaceAll("^img", "http") + "#" + Helpers.genRandomString(20))});
+                        } catch (MalformedURLException ex) {
+                            Logger.getLogger(FastChatDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                    } else {
+
+                        String tts_msg = cleanTTSChatMessage(msg);
+
+                        Audio.TTS_CHAT_QUEUE.add(new Object[]{nick, tts_msg});
+
+                    }
 
                     synchronized (Audio.TTS_CHAT_QUEUE) {
                         Audio.TTS_CHAT_QUEUE.notifyAll();

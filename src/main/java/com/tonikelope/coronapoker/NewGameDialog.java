@@ -163,7 +163,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             pack();
         }
-        
+
         setResizable(false);
 
         init = true;

@@ -473,6 +473,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         ArrayList<String> lista = new ArrayList<>();
 
+        ArrayList<String> img_src_lista = new ArrayList<>();
+
         while (matcher.find()) {
 
             if (!lista.contains(matcher.group(0))) {
@@ -487,22 +489,21 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 lista.add(matcher.group(0));
 
-                if (send) {
-                    ChatImageURLDialog.updateHistorialEnviados(img_src);
-                } else {
-                    ChatImageURLDialog.updateHistorialRecibidos(img_src);
+                if (!send) {
+
+                    img_src_lista.add(img_src);
                 }
 
             }
         }
 
-        if (lista.size() > 0) {
+        if (img_src_lista.size() > 0) {
 
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
 
-                    ChatImageURLDialog.guardarHistorial();
+                    ChatImageURLDialog.updateHistorialRecibidos(img_src_lista);
                 }
             });
         }

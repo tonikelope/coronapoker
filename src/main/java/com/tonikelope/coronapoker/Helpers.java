@@ -254,6 +254,7 @@ public class Helpers {
     }
 
     public static boolean isImageURLGIF(URL url) {
+
         try {
             ImageInputStream iis = ImageIO.createImageInputStream(url.openStream());
 

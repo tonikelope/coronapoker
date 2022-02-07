@@ -18,6 +18,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -38,7 +39,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.3f);
     public static final ConcurrentHashMap<String, ImageIcon> STATIC_IMAGE_CACHE = new ConcurrentHashMap<>();
-    public static final ConcurrentHashMap<String, ImageIcon> GIF_CACHE = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, Object[]> GIF_CACHE = new ConcurrentHashMap<>();
     public static final int ANTI_FLOOD_IMAGE = 5000;
     private static final ThreadPoolExecutor IMAGE_THREAD_POOL = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
     private static final ArrayDeque<String> HISTORIAL = cargarHistorial();
@@ -55,7 +56,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         super(parent, modal);
         initComponents();
 
-        Helpers.setTranslatedTitle(this, "Enviar URL de imagen");
+        Helpers.setTranslatedTitle(this, "Enviar imagen");
 
         Helpers.JTextFieldRegularPopupMenu.addTo(image_url);
 
@@ -105,7 +106,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                 label.setAlignmentX(0.5f);
                                 label.setBorder(new EmptyBorder(10, 0, 10, 0));
                                 label.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                                label.setIcon((STATIC_IMAGE_CACHE.containsKey(h) || GIF_CACHE.containsKey(h)) ? getImageFromCaches(h) : new ImageIcon(getClass().getResource("/images/loading.gif")));
+                                label.setIcon((STATIC_IMAGE_CACHE.containsKey(h) || GIF_CACHE.containsKey(h)) ? getImageFromCache(h) : new ImageIcon(getClass().getResource("/images/loading.gif")));
                                 label.addMouseListener(new MouseAdapter() {
                                     @Override
                                     public void mouseClicked(MouseEvent e) {
@@ -129,7 +130,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                     @Override
                                                     public void run() {
                                                         ChatImageURLDialog.removeFromHistory(h);
-                                                        ChatImageURLDialog.guardarHistorial();
                                                     }
                                                 });
                                             }
@@ -145,102 +145,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                             }
                         });
 
-                        if (!(STATIC_IMAGE_CACHE.containsKey(h) || GIF_CACHE.containsKey(h))) {
-
-                            IMAGE_THREAD_POOL.submit(new Runnable() {
-                                public void run() {
-
-                                    ImageIcon image;
-
-                                    try {
-
-                                        image = (STATIC_IMAGE_CACHE.containsKey(h) || GIF_CACHE.containsKey(h)) ? getImageFromCaches(h) : new ImageIcon(new URL(h));
-
-                                        if ((STATIC_IMAGE_CACHE.containsKey(h) || GIF_CACHE.containsKey(h)) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
-
-                                            Boolean isgif = null;
-
-                                            if (image.getIconWidth() > ChatImageURLDialog.MAX_IMAGE_WIDTH) {
-
-                                                image = new ImageIcon(image.getImage().getScaledInstance(ChatImageURLDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageURLDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), (isgif = Helpers.isImageURLGIF(new URL(h))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-                                            }
-
-                                            if (image.getIconWidth() > width) {
-                                                width = image.getIconWidth();
-                                            }
-
-                                            if (image.getIconHeight() > height) {
-                                                height = image.getIconHeight();
-                                            }
-
-                                            if ((isgif != null && isgif) || (!GIF_CACHE.containsKey(h) && Helpers.isImageURLGIF(new URL(h)))) {
-
-                                                GIF_CACHE.put(h, image);
-
-                                            } else if (!GIF_CACHE.containsKey(h)) {
-
-                                                STATIC_IMAGE_CACHE.putIfAbsent(h, image);
-                                            }
-
-                                            ImageIcon final_image = image;
-
-                                            Helpers.GUIRun(new Runnable() {
-                                                @Override
-                                                public void run() {
-
-                                                    label.setIcon(final_image);
-
-                                                    if (width > getWidth() || height > getHeight()) {
-                                                        THIS.setPreferredSize(new Dimension(width + 40, height + 120));
-                                                        THIS.pack();
-                                                        Helpers.containerSetLocationRelativeTo(THIS.getParent(), THIS);
-                                                    }
-                                                }
-                                            });
-
-                                        } else {
-
-                                            Helpers.GUIRun(new Runnable() {
-                                                @Override
-                                                public void run() {
-
-                                                    THIS.historial_panel.remove(label);
-                                                    THIS.revalidate();
-                                                    THIS.repaint();
-
-                                                }
-                                            });
-
-                                            ChatImageURLDialog.removeFromHistory(h);
-                                            ChatImageURLDialog.guardarHistorial();
-
-                                            Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + h);
-                                        }
-
-                                    } catch (Exception ex) {
-
-                                        Helpers.GUIRun(new Runnable() {
-                                            @Override
-                                            public void run() {
-
-                                                THIS.historial_panel.remove(label);
-                                                THIS.revalidate();
-                                                THIS.repaint();
-
-                                            }
-                                        });
-
-                                        ChatImageURLDialog.removeFromHistory(h);
-                                        ChatImageURLDialog.guardarHistorial();
-
-                                        Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + h);
-                                    }
-
-                                }
-                            });
-
-                        }
-
+                        loadImage(label, h);
                     }
 
                 }
@@ -263,32 +168,143 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     }
 
-    private ImageIcon getImageFromCaches(String url) {
+    private void loadImage(JLabel label, String url) {
+        if (!(STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url))) {
+
+            IMAGE_THREAD_POOL.submit(new Runnable() {
+                public void run() {
+
+                    ImageIcon image;
+
+                    try {
+
+                        image = (STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) ? getImageFromCache(url) : new ImageIcon(new URL(url));
+
+                        if ((STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
+
+                            Boolean isgif = null;
+
+                            if (image.getIconWidth() > ChatImageURLDialog.MAX_IMAGE_WIDTH) {
+
+                                image = new ImageIcon(image.getImage().getScaledInstance(ChatImageURLDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageURLDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), (isgif = Helpers.isImageURLGIF(new URL(url))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                            }
+
+                            if (image.getIconWidth() > width) {
+                                width = image.getIconWidth();
+                            }
+
+                            if (image.getIconHeight() > height) {
+                                height = image.getIconHeight();
+                            }
+
+                            ImageIcon final_image = image;
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    label.setIcon(final_image);
+
+                                    if (width > getWidth() || height > getHeight()) {
+                                        THIS.setPreferredSize(new Dimension(width + 40, height + 120));
+                                        THIS.pack();
+                                        Helpers.containerSetLocationRelativeTo(THIS.getParent(), THIS);
+                                    }
+                                }
+                            });
+
+                            if ((isgif != null && isgif) || (!GIF_CACHE.containsKey(url) && Helpers.isImageURLGIF(new URL(url)))) {
+
+                                GIF_CACHE.put(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
+
+                            } else if (!GIF_CACHE.containsKey(url)) {
+
+                                STATIC_IMAGE_CACHE.putIfAbsent(url, image);
+                            }
+
+                        } else {
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    THIS.historial_panel.remove(label);
+                                    THIS.revalidate();
+                                    THIS.repaint();
+
+                                }
+                            });
+
+                            Helpers.threadRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    ChatImageURLDialog.removeFromHistory(url);
+                                }
+                            });
+
+                            Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + url);
+                        }
+
+                    } catch (Exception ex) {
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                THIS.historial_panel.remove(label);
+                                THIS.revalidate();
+                                THIS.repaint();
+
+                            }
+                        });
+
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                ChatImageURLDialog.removeFromHistory(url);
+                            }
+                        });
+
+                        Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + url);
+                    }
+
+                }
+            });
+
+        }
+    }
+
+    private ImageIcon getImageFromCache(String url) {
 
         if (STATIC_IMAGE_CACHE.containsKey(url)) {
             return STATIC_IMAGE_CACHE.get(url);
         } else if (GIF_CACHE.containsKey(url)) {
-            return GIF_CACHE.get(url);
+            return (ImageIcon) GIF_CACHE.get(url)[0];
         } else {
             return null;
         }
     }
 
-    public synchronized static boolean removeFromHistory(String url) {
+    public synchronized static void removeFromHistory(String url) {
 
         STATIC_IMAGE_CACHE.remove(url);
+
         GIF_CACHE.remove(url);
 
-        return HISTORIAL.remove(url);
+        HISTORIAL.remove(url);
+
+        guardarHistorial();
     }
 
-    public synchronized static void updateHistorialEnviados(String url) {
+    private synchronized static void updateHistorialEnviados(String url) {
 
         if (HISTORIAL.contains(url)) {
             HISTORIAL.remove(url);
         }
 
         HISTORIAL.addFirst(url);
+
+        guardarHistorial();
 
     }
 
@@ -298,6 +314,22 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
             HISTORIAL.addLast(url);
 
+            guardarHistorial();
+
+        }
+    }
+
+    public synchronized static void updateHistorialRecibidos(ArrayList<String> urls) {
+
+        if (AUTO_REC) {
+
+            for (String s : urls) {
+                if (!HISTORIAL.contains(s)) {
+                    HISTORIAL.addLast(s);
+                }
+            }
+
+            guardarHistorial();
         }
     }
 
@@ -369,7 +401,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         auto_recibir_checkbox = new javax.swing.JCheckBox();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-        setTitle("Enviar URL de imagen");
+        setTitle("Enviar imagen");
         setModal(true);
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
@@ -495,7 +527,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             } else {
 
                 send_button.setEnabled(false);
-                
+
                 image_url.setEnabled(false);
 
                 barra.setVisible(true);
@@ -555,6 +587,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                     }
                                 });
+
+                                updateHistorialEnviados(url);
 
                             } else {
                                 Helpers.mostrarMensajeError(THIS, "ERROR: LA IMAGEN NO ES VÁLIDA");

@@ -166,7 +166,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private final Object exit_now_lock = new Object();
     private final ArrayList<Player> jugadores;
     private final ConcurrentHashMap<String, String> nick2avatar = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Integer> gif_length = new ConcurrentHashMap<>();
     private final Crupier crupier;
     private final boolean partida_local;
     private final String nick_local;
@@ -2090,7 +2089,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 String url = ((URL) tts[1]).toString();
 
-                                int gif_l = gif_length.containsKey(url) ? gif_length.get(url) : -1;
+                                int gif_l = ChatImageURLDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageURLDialog.GIF_CACHE.get(url)[1] : -1;
 
                                 ImageIcon image = new ImageIcon(new URL(url + "#" + Helpers.genRandomString(20)));
 
@@ -2100,10 +2099,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 }
 
                                 timeout = (gif_l != -1 || Helpers.isImageURLGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
-
-                                if (gif_l != -1) {
-                                    gif_length.putIfAbsent(url, gif_l);
-                                }
 
                                 ImageIcon final_image = image;
 

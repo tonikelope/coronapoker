@@ -11,7 +11,6 @@ import java.awt.Image;
 import java.awt.MediaTracker;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -128,7 +127,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                                                 if ((isgif != null && isgif) || (!ChatImageURLDialog.GIF_CACHE.containsKey(url) && Helpers.isImageURLGIF(new URL(url)))) {
 
-                                                    ChatImageURLDialog.GIF_CACHE.put(url, image);
+                                                    ChatImageURLDialog.GIF_CACHE.put(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
 
                                                 } else if (!ChatImageURLDialog.GIF_CACHE.containsKey(url)) {
 
@@ -163,7 +162,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                                 });
                                             }
 
-                                        } catch (MalformedURLException ex) {
+                                        } catch (Exception ex) {
                                             Logger.getLogger(CoronaHTMLEditorKit.class.getName()).log(Level.SEVERE, null, ex);
                                         }
                                     }

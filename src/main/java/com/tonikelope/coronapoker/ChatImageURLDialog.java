@@ -112,6 +112,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                         if (SwingUtilities.isLeftMouseButton(e)) {
                                             image_url.setText(h);
+                                            image_url.setEnabled(false);
                                             send_buttonActionPerformed(null);
 
                                         } else if (SwingUtilities.isRightMouseButton(e)) {
@@ -485,9 +486,17 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
             if (!SEND_ENABLED) {
                 Helpers.mostrarMensajeError(THIS, "ESPERA UN POCO");
+
+                if (!image_url.isEnabled()) {
+                    image_url.setText("");
+                    image_url.setEnabled(true);
+                }
+
             } else {
 
                 send_button.setEnabled(false);
+                
+                image_url.setEnabled(false);
 
                 barra.setVisible(true);
 
@@ -554,6 +563,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                     public void run() {
                                         barra.setVisible(false);
+                                        image_url.setEnabled(true);
                                         send_button.setEnabled(true);
                                         image_url.requestFocus();
                                     }
@@ -567,6 +577,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                 public void run() {
                                     barra.setVisible(false);
+                                    image_url.setEnabled(true);
                                     send_button.setEnabled(true);
                                     image_url.requestFocus();
                                 }

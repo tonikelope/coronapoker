@@ -119,8 +119,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                             if (Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
 
                                                 THIS.historial_panel.remove(label);
-                                                THIS.revalidate();
-                                                THIS.repaint();
+                                                THIS.historial_panel.revalidate();
+                                                THIS.historial_panel.repaint();
 
                                                 Helpers.threadRun(new Runnable() {
                                                     @Override
@@ -186,8 +186,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                 public void run() {
 
                                                     label.setIcon(final_image);
-                                                    label.revalidate();
-                                                    label.repaint();
 
                                                     if (width > getWidth() || height > getHeight()) {
                                                         THIS.setPreferredSize(new Dimension(width + 40, height + 120));
@@ -204,8 +202,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                 public void run() {
 
                                                     THIS.historial_panel.remove(label);
-                                                    THIS.historial_panel.revalidate();
-                                                    THIS.historial_panel.repaint();
+                                                    THIS.revalidate();
+                                                    THIS.repaint();
 
                                                 }
                                             });

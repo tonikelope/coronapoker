@@ -2082,6 +2082,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         Object[] tts = Audio.TTS_CHAT_QUEUE.poll();
 
+                        Integer timeout = null;
+
                         if (tts[1] instanceof URL) {
 
                             try {
@@ -2097,7 +2099,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     image = new ImageIcon(image.getImage().getScaledInstance(MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * MAX_IMAGE_WIDTH) / image.getIconWidth()), Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                 }
 
-                                int timeout = (gif_l != -1 || Helpers.isImageURLGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
+                                timeout = (gif_l != -1 || Helpers.isImageURLGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
 
                                 if (gif_l != -1) {
                                     gif_length.putIfAbsent(url, gif_l);
@@ -2109,7 +2111,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     @Override
                                     public void run() {
 
-                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image, timeout);
+                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image);
                                         nick_dialog.setLocation(nick_dialog.getParent().getLocation());
                                         nick_dialog.setVisible(true);
                                     }
@@ -2126,7 +2128,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 Helpers.GUIRunAndWait(new Runnable() {
                                     @Override
                                     public void run() {
-                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]), null);
+                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]));
                                         nick_dialog.setLocation(nick_dialog.getParent().getLocation());
                                         nick_dialog.setVisible(true);
                                     }
@@ -2136,10 +2138,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                             } else if (!Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
+                                timeout = TTS_NO_SOUND_TIMEOUT;
+
                                 Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
-                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]), TTS_NO_SOUND_TIMEOUT);
+                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]));
                                         nick_dialog.setLocation(nick_dialog.getParent().getLocation());
                                         nick_dialog.setVisible(true);
                                     }
@@ -2148,6 +2152,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             }
 
                         }
+
+                        if (timeout != null) {
+
+                            Helpers.pausar(timeout);
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    nick_dialog.setVisible(false);
+                                }
+                            });
+                        }
+
                     }
 
                     synchronized (Audio.TTS_CHAT_QUEUE) {

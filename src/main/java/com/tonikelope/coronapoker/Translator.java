@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"ESPERA UN POCO", "WAIT A BIT"},
             {"IMAGEN NO INSERTABLE", "IMAGE CANNOT BE INSERTED"},
             {"ABANDONA LA TIMBA", "LEAVES THE GAME"},
             {"SE UNE A LA TIMBA", "JOINS THE GAME"},

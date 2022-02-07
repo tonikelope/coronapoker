@@ -17,12 +17,13 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
-import java.awt.Image;
 import java.awt.Toolkit;
-import java.net.URL;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import javax.swing.Timer;
 
 /**
  *
@@ -34,11 +35,12 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
     public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.2f);
 
     private volatile String player = null;
+    private volatile Timer timer = null;
 
     /**
      * Creates new form NickTTSDialog
      */
-    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, String msg) {
+    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, String msg, Integer timeout) {
         super(parent, modal);
 
         this.player = nick;
@@ -75,6 +77,20 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         pack();
 
+        if (timeout != null) {
+            timer = new Timer(timeout, new ActionListener() {
+
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+                    timer.stop();
+                    dispose();
+                }
+            });
+
+            timer.setRepeats(false);
+            timer.setCoalesce(false);
+        }
+
     }
 
     public TTSNotifyDialog(java.awt.Frame parent, boolean modal, boolean tts) {
@@ -94,24 +110,21 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         pack();
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        timer = new Timer(GameFrame.TTS_NO_SOUND_TIMEOUT, new ActionListener() {
 
-                Helpers.pausar(2000);
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-
-                        setVisible(false);
-
-                    }
-                });
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+                timer.stop();
+                dispose();
             }
         });
 
+        timer.setRepeats(false);
+        timer.setCoalesce(false);
+
     }
 
-    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, URL image_url) {
+    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, ImageIcon image, Integer timeout) {
         super(parent, modal);
 
         this.player = nick;
@@ -144,18 +157,25 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         }
 
-        ImageIcon image = new ImageIcon(image_url);
-
-        if (image.getIconWidth() > MAX_IMAGE_WIDTH) {
-
-            image = new ImageIcon(image.getImage().getScaledInstance(MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * MAX_IMAGE_WIDTH) / image.getIconWidth()), Helpers.isImageURLGIF(image_url) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-        }
-
         tts_panel.getImage_label().setIcon(image);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
         pack();
+
+        if (timeout != null) {
+            timer = new Timer(timeout, new ActionListener() {
+
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+                    timer.stop();
+                    dispose();
+                }
+            });
+
+            timer.setRepeats(false);
+            timer.setCoalesce(false);
+        }
 
     }
 
@@ -180,6 +200,11 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
         addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 formMouseClicked(evt);
+            }
+        });
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentShown(java.awt.event.ComponentEvent evt) {
+                formComponentShown(evt);
             }
         });
 
@@ -214,8 +239,21 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
                 Audio.TTS_BLOCKED_USERS.add(player);
             }
+
+            if (timer != null) {
+                timer.stop();
+                dispose();
+            }
         }
     }//GEN-LAST:event_formMouseClicked
+
+    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
+        // TODO add your handling code here:
+        if (timer != null) {
+
+            timer.start();
+        }
+    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.TTSNotifyPanel tts_panel;

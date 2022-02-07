@@ -98,6 +98,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
     public static final int CLIENT_REC_WAIT = 15;
+    public static final int ANTI_FLOOD_CHAT = 1000;
     public static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_game_notifications", "true"));
     private static volatile WaitingRoomFrame THIS = null;
 
@@ -3639,7 +3640,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (chat_enabled && mensaje.length() > 0) {
 
-            chatHTMLAppend(local_nick + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n");
+            chatHTMLAppend(local_nick + ":(" + Helpers.getLocalTimeString() + ") " + mensaje.replaceAll("(?i)img(s?)://", "http$1://") + "\n");
 
             this.enviarMensajeChat(local_nick, mensaje);
 
@@ -3659,7 +3660,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    Helpers.pausar(1000);
+                    Helpers.pausar(ANTI_FLOOD_CHAT);
 
                     Helpers.GUIRun(new Runnable() {
                         public void run() {

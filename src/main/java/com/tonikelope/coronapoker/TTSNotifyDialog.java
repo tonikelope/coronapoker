@@ -40,7 +40,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
     /**
      * Creates new form NickTTSDialog
      */
-    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, String msg, Integer timeout) {
+    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, String msg) {
         super(parent, modal);
 
         this.player = nick;
@@ -79,20 +79,6 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         pack();
 
-        if (timeout != null) {
-            timer = new Timer(timeout, new ActionListener() {
-
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    timer.stop();
-                    dispose();
-                }
-            });
-
-            timer.setRepeats(false);
-            timer.setCoalesce(false);
-        }
-
     }
 
     public TTSNotifyDialog(java.awt.Frame parent, boolean modal, boolean tts) {
@@ -128,7 +114,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
     }
 
-    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, ImageIcon image, Integer timeout) {
+    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, ImageIcon image) {
         super(parent, modal);
 
         this.player = nick;
@@ -168,20 +154,6 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
         pack();
-
-        if (timeout != null) {
-            timer = new Timer(timeout, new ActionListener() {
-
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    timer.stop();
-                    dispose();
-                }
-            });
-
-            timer.setRepeats(false);
-            timer.setCoalesce(false);
-        }
 
     }
 

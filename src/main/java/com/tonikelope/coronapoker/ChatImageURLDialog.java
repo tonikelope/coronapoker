@@ -39,9 +39,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.3f);
     public static final ConcurrentHashMap<String, ImageIcon> STATIC_IMAGE_CACHE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ImageIcon> GIF_CACHE = new ConcurrentHashMap<>();
+    public static final int ANTI_FLOOD_IMAGE = 5000;
     private static final ThreadPoolExecutor IMAGE_THREAD_POOL = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
     private static final ArrayDeque<String> HISTORIAL = cargarHistorial();
     private volatile static boolean AUTO_REC;
+    private volatile static boolean SEND_ENABLED = true;
     private volatile static ChatImageURLDialog THIS;
     private volatile int width;
     private volatile int height;
@@ -481,49 +483,84 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         if (url.startsWith("http")) {
 
-            send_button.setEnabled(false);
+            if (!SEND_ENABLED) {
+                Helpers.mostrarMensajeError(THIS, "ESPERA UN POCO");
+            } else {
 
-            barra.setVisible(true);
+                send_button.setEnabled(false);
 
-            Helpers.threadRun(new Runnable() {
+                barra.setVisible(true);
 
-                public void run() {
+                Helpers.threadRun(new Runnable() {
 
-                    try {
-                        ImageIcon image = new ImageIcon(new URL(url));
+                    public void run() {
 
-                        if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
+                        try {
+                            ImageIcon image = new ImageIcon(new URL(url));
 
-                            Helpers.GUIRun(new Runnable() {
+                            if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
-                                public void run() {
+                                Helpers.GUIRun(new Runnable() {
 
-                                    WaitingRoomFrame.getInstance().chatHTMLAppend(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
+                                    public void run() {
 
-                                    THIS.setVisible(false);
+                                        WaitingRoomFrame.getInstance().chatHTMLAppend(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
 
-                                    if (WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()) {
-                                        WaitingRoomFrame.getInstance().getEmoji_button().doClick();
+                                        THIS.setVisible(false);
+
+                                        if (WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()) {
+                                            WaitingRoomFrame.getInstance().getEmoji_button().doClick();
+                                        }
+
+                                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
                                     }
+                                });
 
-                                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-                                }
-                            });
+                                WaitingRoomFrame.getInstance().enviarMensajeChat(WaitingRoomFrame.getInstance().getLocal_nick(), url.replaceAll("^http", "img"));
 
-                            WaitingRoomFrame.getInstance().enviarMensajeChat(WaitingRoomFrame.getInstance().getLocal_nick(), url.replaceAll("^http", "img"));
+                                if (!WaitingRoomFrame.getInstance().isVisible()) {
+                                    try {
+                                        Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(url)});
+                                    } catch (MalformedURLException ex) {
+                                        Logger.getLogger(FastChatDialog.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                    synchronized (Audio.TTS_CHAT_QUEUE) {
+                                        Audio.TTS_CHAT_QUEUE.notifyAll();
+                                    }
+                                }
 
-                            if (!WaitingRoomFrame.getInstance().isVisible()) {
-                                try {
-                                    Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(url)});
-                                } catch (MalformedURLException ex) {
-                                    Logger.getLogger(FastChatDialog.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                                synchronized (Audio.TTS_CHAT_QUEUE) {
-                                    Audio.TTS_CHAT_QUEUE.notifyAll();
-                                }
+                                SEND_ENABLED = false;
+
+                                Helpers.threadRun(new Runnable() {
+                                    public void run() {
+
+                                        Helpers.pausar(ANTI_FLOOD_IMAGE);
+
+                                        Helpers.GUIRun(new Runnable() {
+                                            public void run() {
+
+                                                SEND_ENABLED = true;
+
+                                            }
+                                        });
+
+                                    }
+                                });
+
+                            } else {
+                                Helpers.mostrarMensajeError(THIS, "ERROR: LA IMAGEN NO ES VÁLIDA");
+
+                                Helpers.GUIRun(new Runnable() {
+
+                                    public void run() {
+                                        barra.setVisible(false);
+                                        send_button.setEnabled(true);
+                                        image_url.requestFocus();
+                                    }
+                                });
                             }
-
-                        } else {
+                        } catch (MalformedURLException ex) {
+                            Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
                             Helpers.mostrarMensajeError(THIS, "ERROR: LA IMAGEN NO ES VÁLIDA");
 
                             Helpers.GUIRun(new Runnable() {
@@ -535,22 +572,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                 }
                             });
                         }
-                    } catch (MalformedURLException ex) {
-                        Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
-                        Helpers.mostrarMensajeError(THIS, "ERROR: LA IMAGEN NO ES VÁLIDA");
 
-                        Helpers.GUIRun(new Runnable() {
-
-                            public void run() {
-                                barra.setVisible(false);
-                                send_button.setEnabled(true);
-                                image_url.requestFocus();
-                            }
-                        });
                     }
+                });
+            }
 
-                }
-            });
         } else if (!url.isBlank()) {
 
             send_button.setEnabled(false);

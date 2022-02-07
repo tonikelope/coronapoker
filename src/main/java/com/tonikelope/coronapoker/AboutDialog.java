@@ -32,7 +32,7 @@ import javax.swing.SwingUtilities;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "13.0";
+    public static final String VERSION = "13.1";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -275,6 +275,7 @@ public class AboutDialog extends javax.swing.JDialog {
         });
 
         jLabel9.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel9.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/cruz.png"))); // NOI18N
         jLabel9.setText("MADE IN SPAIN");
         jLabel9.setToolTipText("PLVS VLTRA");
@@ -283,17 +284,12 @@ public class AboutDialog extends javax.swing.JDialog {
         jPanel4.setLayout(jPanel4Layout);
         jPanel4Layout.setHorizontalGroup(
             jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel4Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel9)
-                    .addComponent(jLabel12, javax.swing.GroupLayout.Alignment.TRAILING))
-                .addContainerGap())
+            .addComponent(jLabel12, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(jLabel9, javax.swing.GroupLayout.DEFAULT_SIZE, 154, Short.MAX_VALUE)
         );
         jPanel4Layout.setVerticalGroup(
             jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel4Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
                 .addComponent(jLabel12)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jLabel9)

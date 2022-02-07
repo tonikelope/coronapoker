@@ -17,11 +17,13 @@
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.Helpers.TapetePopupMenu.BARAJAS_MENU;
+import static com.tonikelope.coronapoker.TTSNotifyDialog.MAX_IMAGE_WIDTH;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.Window;
@@ -36,7 +38,6 @@ import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -2083,72 +2084,67 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         if (tts[1] instanceof URL) {
 
-                            String url = ((URL) tts[1]).toString();
-
-                            int gif_l = gif_length.containsKey(url) ? gif_length.get(url) : -1;
-
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], new URL(url + "#" + Helpers.genRandomString(20)));
-                                    } catch (MalformedURLException ex) {
-                                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                    nick_dialog.setLocation(nick_dialog.getParent().getLocation());
-                                    nick_dialog.setVisible(true);
-                                }
-                            });
-
                             try {
-                                Helpers.pausar((gif_l != -1 || Helpers.isImageURLGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT);
+
+                                String url = ((URL) tts[1]).toString();
+
+                                int gif_l = gif_length.containsKey(url) ? gif_length.get(url) : -1;
+
+                                ImageIcon image = new ImageIcon(new URL(url + "#" + Helpers.genRandomString(20)));
+
+                                if (image.getIconWidth() > MAX_IMAGE_WIDTH) {
+
+                                    image = new ImageIcon(image.getImage().getScaledInstance(MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * MAX_IMAGE_WIDTH) / image.getIconWidth()), Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                }
+
+                                int timeout = (gif_l != -1 || Helpers.isImageURLGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
+
+                                if (gif_l != -1) {
+                                    gif_length.putIfAbsent(url, gif_l);
+                                }
+
+                                ImageIcon final_image = image;
+
+                                Helpers.GUIRun(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image, timeout);
+                                        nick_dialog.setLocation(nick_dialog.getParent().getLocation());
+                                        nick_dialog.setVisible(true);
+                                    }
+                                });
+
                             } catch (Exception ex) {
                                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
-                            if (gif_l != -1) {
-                                gif_length.putIfAbsent(url, gif_l);
-                            }
-
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                @Override
-                                public void run() {
-                                    nick_dialog.setVisible(false);
-                                }
-                            });
-
                         } else {
 
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                @Override
-                                public void run() {
-                                    nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]));
-                                    nick_dialog.setLocation(nick_dialog.getParent().getLocation());
-
-                                }
-                            });
-
                             if (!((String) tts[1]).isBlank() && GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+
+                                Helpers.GUIRunAndWait(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]), null);
+                                        nick_dialog.setLocation(nick_dialog.getParent().getLocation());
+                                        nick_dialog.setVisible(true);
+                                    }
+                                });
 
                                 Audio.TTS((String) tts[1], nick_dialog);
 
                             } else if (!Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
 
-                                Helpers.GUIRunAndWait(new Runnable() {
+                                Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
+                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]), TTS_NO_SOUND_TIMEOUT);
+                                        nick_dialog.setLocation(nick_dialog.getParent().getLocation());
                                         nick_dialog.setVisible(true);
                                     }
                                 });
 
-                                Helpers.pausar(TTS_NO_SOUND_TIMEOUT);
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        nick_dialog.setVisible(false);
-                                    }
-                                });
                             }
 
                         }

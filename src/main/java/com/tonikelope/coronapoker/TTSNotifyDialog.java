@@ -51,7 +51,12 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         Helpers.setResourceIconLabel(tts_panel.getSound_icon(), getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Audio.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png"), Math.round(avatar_size * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(avatar_size * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-        tts_panel.getMessage().setText("[" + nick + (msg != null ? "]: " + msg : "]"));
+        if ((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Audio.TTS_BLOCKED_USERS.contains(nick))) {
+
+            tts_panel.getMessage().setText("[" + nick + (msg != null ? "]: " + msg : "]"));
+        } else {
+            tts_panel.getMessage().setText(nick + (msg != null ? " " + msg : ""));
+        }
 
         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
 
@@ -125,7 +130,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
         tts_panel.getSound_icon().setVisible(false);
 
-        tts_panel.getMessage().setText("[" + nick + "]");
+        tts_panel.getMessage().setText(nick);
 
         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
 

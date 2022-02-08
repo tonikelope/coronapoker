@@ -18,6 +18,7 @@ package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.Helpers.JTextFieldRegularPopupMenu;
 import java.awt.Dimension;
+import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.io.File;
 import java.sql.ResultSet;
@@ -152,6 +153,21 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         pack();
 
+        int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
+
+        int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
+
+        if (w != getWidth() || h != getHeight()) {
+            setSize(w, h);
+
+            setPreferredSize(getSize());
+
+            pack();
+
+            if (scroll_panel.getHorizontalScrollBar().isVisible()) {
+                Helpers.windowAutoIncreaseWidthToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+            }
+        }
         init = true;
     }
 
@@ -315,16 +331,20 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         pack();
 
-        int w = Math.min(getWidth(), Math.round(this.getParent().getWidth() * 0.9f));
+        int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 
-        int h = Math.min(getHeight(), Math.round(this.getParent().getHeight() * 0.9f));
+        int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
 
         if (w != getWidth() || h != getHeight()) {
-            setSize(new Dimension(w, h));
+            setSize(w, h);
 
             setPreferredSize(getSize());
 
             pack();
+
+            if (scroll_panel.getHorizontalScrollBar().isVisible()) {
+                Helpers.windowAutoIncreaseWidthToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+            }
         }
 
         init = true;

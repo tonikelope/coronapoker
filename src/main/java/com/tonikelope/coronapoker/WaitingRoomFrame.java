@@ -765,11 +765,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
 
         if (w != getWidth() || h != getHeight()) {
-            setSize(new Dimension(w, h));
+            setSize(w, h);
 
             setPreferredSize(getSize());
 
             pack();
+
+            if (main_scroll_panel.getHorizontalScrollBar().isVisible()) {
+                Helpers.windowAutoIncreaseWidthToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+            }
         }
 
         Audio.muteLoopMp3("misc/background_music.mp3");

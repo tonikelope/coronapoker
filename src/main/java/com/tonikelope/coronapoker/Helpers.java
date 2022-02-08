@@ -42,6 +42,7 @@ import java.awt.Image;
 import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
+import java.awt.Window;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
@@ -141,6 +142,7 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JRadioButton;
 import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JScrollBar;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -279,6 +281,32 @@ public class Helpers {
     public static void updateCoronaDialogsFont() {
         UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
         UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
+    }
+
+    public static void windowAutoIncreaseWidthToRemoveHScrollBar(Window window, JScrollBar hbar, int max_width, float increment) {
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+
+                int i = 1;
+                int width = window.getWidth();
+
+                do {
+
+                    window.setSize(Math.round(width * (1.0f + increment * i)), window.getHeight());
+                    window.setPreferredSize(window.getSize());
+                    window.pack();
+
+                    if (hbar.isVisible() && window.getWidth() < max_width) {
+                        Helpers.pausar(125);
+                        i++;
+                    }
+
+                } while (hbar.isVisible() && window.getWidth() < max_width);
+
+            }
+        });
+
     }
 
     public static void containerSetLocationRelativeTo(Container reference, Container current) {

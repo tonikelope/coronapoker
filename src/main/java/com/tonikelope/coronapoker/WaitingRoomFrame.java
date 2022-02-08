@@ -756,8 +756,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         Helpers.setResourceIconButton(kick_user, getClass().getResource("/images/kick.png"), kick_user.getHeight(), kick_user.getHeight());
 
-        pack();
-
         chat_box.setPreferredSize(new Dimension(Math.round((float) (chat_box.getSize().getWidth() * 0.5f)), (int) chat_box.getSize().getHeight()));
 
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
@@ -769,12 +767,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             setPreferredSize(getSize());
 
-            pack();
-
             if (main_scroll_panel.getHorizontalScrollBar().isVisible()) {
                 Helpers.windowAutoIncreaseWidthToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
             }
         }
+
+        pack();
 
         Audio.muteLoopMp3("misc/background_music.mp3");
 

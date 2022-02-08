@@ -41,7 +41,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     public static final ConcurrentHashMap<String, ImageIcon> STATIC_IMAGE_CACHE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Object[]> GIF_CACHE = new ConcurrentHashMap<>();
     public static final int ANTI_FLOOD_IMAGE = 5000;
-    private static final ThreadPoolExecutor IMAGE_THREAD_POOL = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
+    private static final ThreadPoolExecutor IMAGE_THREAD_POOL = (ThreadPoolExecutor) Executors.newFixedThreadPool(5);
     private static final ArrayDeque<String> HISTORIAL = cargarHistorial();
     private volatile static boolean AUTO_REC;
     private volatile static boolean SEND_ENABLED = true;

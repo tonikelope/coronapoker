@@ -432,6 +432,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 avatar_src = this.participantes.get(nick).getAvatar_chat_src();
 
                 image_align = "0.005";
+            } else {
+                align = "align='left' style='margin-left:8px;margin-top:7px;margin-bottom:7px;'";
+
+                avatar_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
+
+                image_align = "0.005";
             }
 
             msg = Helpers.escapeHTML(msg);

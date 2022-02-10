@@ -2435,8 +2435,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         Helpers.GUIRun(new Runnable() {
 
             public void run() {
-
+                CoronaHTMLEditorKit.USE_GIF_CACHE = true;
                 chat.setText(html);
+                CoronaHTMLEditorKit.USE_GIF_CACHE = false;
                 chat_box_panel.setVisible(true);
             }
         });

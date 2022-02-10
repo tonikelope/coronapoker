@@ -174,6 +174,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
         tts_panel = new com.tonikelope.coronapoker.TTSNotifyPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setAlwaysOnTop(true);
         setAutoRequestFocus(false);
         setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         setFocusCycleRoot(false);

@@ -18,7 +18,10 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JTextField;
+import javax.swing.text.BadLocationException;
 
 /**
  *
@@ -31,10 +34,15 @@ public class FastChatDialog extends javax.swing.JDialog {
     /**
      * Creates new form FastChatDialog
      */
-    public FastChatDialog(java.awt.Frame parent, boolean modal) {
+    public FastChatDialog(java.awt.Frame parent, boolean modal, FastChatDialog old) {
         super(parent, modal);
 
         initComponents();
+
+        if (old != null) {
+            chat_box.setText(old.chat_box.getText());
+            old.dispose();
+        }
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
@@ -77,26 +85,6 @@ public class FastChatDialog extends javax.swing.JDialog {
         return chat_box;
     }
 
-    public void showDialog(java.awt.Frame p) {
-
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-
-                chat_panel.setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
-
-                refreshColors();
-
-                setPreferredSize(new Dimension((int) Math.round(p.getWidth() * 0.3f), chat_box.getHeight()));
-
-                pack();
-
-                setLocation(p.getX(), p.getY() + p.getHeight() - getHeight());
-
-                setVisible(true);
-            }
-        });
-    }
-
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -111,7 +99,13 @@ public class FastChatDialog extends javax.swing.JDialog {
         icono = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        setAlwaysOnTop(true);
         setUndecorated(true);
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentShown(java.awt.event.ComponentEvent evt) {
+                formComponentShown(evt);
+            }
+        });
 
         chat_panel.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -155,10 +149,8 @@ public class FastChatDialog extends javax.swing.JDialog {
                 .addGap(0, 0, 0)
                 .addGroup(chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(chat_box, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(chat_panelLayout.createSequentialGroup()
-                        .addComponent(icono)
-                        .addGap(0, 0, Short.MAX_VALUE)))
-                .addGap(0, 0, 0))
+                    .addComponent(icono))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -227,7 +219,15 @@ public class FastChatDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
 
         if (evt.getKeyChar() == 'º') {
-            setVisible(false);
+            if (!evt.isControlDown()) {
+                setVisible(false);
+            } else {
+                try {
+                    chat_box.getDocument().insertString(chat_box.getCaretPosition(), "º", null);
+                } catch (BadLocationException ex) {
+                    Logger.getLogger(FastChatDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         } else {
 
             if (chat_box.getText().length() <= Audio.MAX_TTS_LENGTH) {
@@ -290,6 +290,19 @@ public class FastChatDialog extends javax.swing.JDialog {
             refreshColors();
         }
     }//GEN-LAST:event_chat_boxFocusGained
+
+    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
+        // TODO add your handling code here:
+        chat_panel.setPreferredSize(new Dimension((int) Math.round(getParent().getWidth() * 0.3f), chat_box.getHeight()));
+
+        refreshColors();
+
+        setPreferredSize(new Dimension((int) Math.round(getParent().getWidth() * 0.3f), chat_box.getHeight()));
+
+        pack();
+
+        setLocation(getParent().getX(), getParent().getY() + getParent().getHeight() - getHeight());
+    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextField chat_box;

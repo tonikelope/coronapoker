@@ -7,7 +7,6 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Cursor;
-import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.MediaTracker;
 import java.awt.Toolkit;
@@ -46,8 +45,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     private volatile static boolean AUTO_REC;
     private volatile static int ANTI_FLOOD_WAIT = 0;
     private volatile static ChatImageURLDialog THIS;
-    private volatile int width;
-    private volatile int height;
 
     /**
      * Creates new form ChatImageURLDialog
@@ -95,10 +92,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         Helpers.threadRun(new Runnable() {
             public void run() {
-
-                width = getWidth();
-
-                height = getHeight();
 
                 synchronized (ChatImageURLDialog.class) {
 
@@ -198,14 +191,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                 image = new ImageIcon(image.getImage().getScaledInstance(ChatImageURLDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageURLDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), (isgif = Helpers.isImageURLGIF(new URL(url))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                             }
 
-                            if (image.getIconWidth() > width) {
-                                width = image.getIconWidth();
-                            }
-
-                            if (image.getIconHeight() > height) {
-                                height = image.getIconHeight();
-                            }
-
                             ImageIcon final_image = image;
 
                             Helpers.GUIRun(new Runnable() {
@@ -213,12 +198,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                 public void run() {
 
                                     label.setIcon(final_image);
-
-                                    if (width > getWidth() || height > getHeight()) {
-                                        THIS.setPreferredSize(new Dimension(width + 40, height + 120));
-                                        THIS.pack();
-                                        Helpers.containerSetLocationRelativeTo(THIS.getParent(), THIS);
-                                    }
                                 }
                             });
 
@@ -411,6 +390,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Enviar imagen");
+        setAlwaysOnTop(true);
         setModal(true);
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
@@ -486,7 +466,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                         .addComponent(image_url)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(send_button))
-                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 763, Short.MAX_VALUE)
+                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 776, Short.MAX_VALUE)
                     .addComponent(barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(auto_recibir_checkbox)
                     .addGroup(layout.createSequentialGroup()
@@ -507,7 +487,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 316, Short.MAX_VALUE)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 366, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(clear_button)

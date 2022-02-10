@@ -74,7 +74,7 @@
                   </Group>
                   <Component id="jLabel4" alignment="0" max="32767" attributes="0"/>
                   <Component id="merecemos" alignment="0" max="32767" attributes="0"/>
-                  <Component id="jLabel5" alignment="0" max="32767" attributes="0"/>
+                  <Component id="jLabel5" alignment="0" pref="893" max="32767" attributes="0"/>
                   <Component id="jLabel6" alignment="0" max="32767" attributes="0"/>
                   <Component id="jLabel7" alignment="0" max="32767" attributes="0"/>
                   <Component id="jLabel8" alignment="1" max="32767" attributes="0"/>
@@ -86,9 +86,9 @@
                       <EmptySpace max="32767" attributes="0"/>
                   </Group>
                   <Group type="102" alignment="0" attributes="0">
-                      <Component id="memory_bar" min="-2" pref="788" max="-2" attributes="0"/>
+                      <Component id="memory_bar" max="32767" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
-                      <Component id="memory_usage" min="-2" pref="150" max="-2" attributes="0"/>
+                      <Component id="memory_usage" min="-2" pref="135" max="-2" attributes="0"/>
                   </Group>
               </Group>
             </DimensionLayout>
@@ -402,8 +402,14 @@
             </Component>
             <Component class="javax.swing.JLabel" name="memory_usage">
               <Properties>
-                <Property name="horizontalAlignment" type="int" value="2"/>
-                <Property name="text" type="java.lang.String" value="jLabel1"/>
+                <Property name="horizontalAlignment" type="int" value="4"/>
+                <Property name="text" type="java.lang.String" value="1000 MB / 20 GB"/>
+                <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                  <Dimension value="[135, 15]"/>
+                </Property>
+                <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                  <Dimension value="[135, 15]"/>
+                </Property>
               </Properties>
             </Component>
           </SubComponents>

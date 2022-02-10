@@ -40,11 +40,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.3f);
     public static final ConcurrentHashMap<String, ImageIcon> STATIC_IMAGE_CACHE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Object[]> GIF_CACHE = new ConcurrentHashMap<>();
-    public static final int ANTI_FLOOD_IMAGE = 5000;
+    public static final int ANTI_FLOOD_IMAGE = 5;
     private static final ThreadPoolExecutor IMAGE_THREAD_POOL = (ThreadPoolExecutor) Executors.newFixedThreadPool(5);
     private static final ArrayDeque<String> HISTORIAL = cargarHistorial();
     private volatile static boolean AUTO_REC;
-    private volatile static boolean SEND_ENABLED = true;
+    private volatile static int ANTI_FLOOD_WAIT = 0;
     private volatile static ChatImageURLDialog THIS;
     private volatile int width;
     private volatile int height;
@@ -60,8 +60,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         Helpers.JTextFieldRegularPopupMenu.addTo(image_url);
 
-        barra.setIndeterminate(true);
-
         send_button.setEnabled(false);
 
         clear_button.setEnabled(false);
@@ -71,6 +69,15 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
         auto_recibir_checkbox.setSelected(AUTO_REC);
+
+        if (ANTI_FLOOD_WAIT > 0) {
+            barra.setIndeterminate(false);
+            barra.setMaximum(ANTI_FLOOD_IMAGE);
+            barra.setValue(ANTI_FLOOD_WAIT);
+            barra.setVisible(true);
+        } else {
+            barra.setIndeterminate(true);
+        }
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
@@ -154,7 +161,9 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                     @Override
                     public void run() {
 
-                        barra.setVisible(false);
+                        if (barra.isIndeterminate()) {
+                            barra.setVisible(false);
+                        }
                         send_button.setEnabled(true);
                         clear_button.setEnabled(!HISTORIAL.isEmpty());
                         THIS.revalidate();
@@ -516,7 +525,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         if (url.startsWith("http")) {
 
-            if (!SEND_ENABLED) {
+            if (ANTI_FLOOD_WAIT > 0) {
                 Helpers.mostrarMensajeError(THIS, "ESPERA UN POCO");
 
                 if (!image_url.isEnabled()) {
@@ -570,21 +579,34 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                     }
                                 }
 
-                                SEND_ENABLED = false;
+                                ANTI_FLOOD_WAIT = ANTI_FLOOD_IMAGE;
 
                                 Helpers.threadRun(new Runnable() {
                                     public void run() {
 
-                                        Helpers.pausar(ANTI_FLOOD_IMAGE);
+                                        while (ANTI_FLOOD_WAIT > 0) {
 
-                                        Helpers.GUIRun(new Runnable() {
-                                            public void run() {
+                                            Helpers.pausar(1000);
 
-                                                SEND_ENABLED = true;
+                                            ANTI_FLOOD_WAIT--;
 
-                                            }
-                                        });
+                                            Helpers.GUIRun(new Runnable() {
 
+                                                public void run() {
+
+                                                    if (THIS.barra.isVisible()) {
+                                                        THIS.barra.setValue(ANTI_FLOOD_WAIT);
+
+                                                        if (ANTI_FLOOD_WAIT == 0) {
+                                                            THIS.barra.setVisible(false);
+                                                            THIS.barra.setIndeterminate(true);
+                                                        }
+                                                    }
+
+                                                }
+                                            });
+
+                                        }
                                     }
                                 });
 

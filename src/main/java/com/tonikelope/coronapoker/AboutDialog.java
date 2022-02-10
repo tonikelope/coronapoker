@@ -19,12 +19,15 @@ package com.tonikelope.coronapoker;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 /**
  *
@@ -38,6 +41,7 @@ public class AboutDialog extends javax.swing.JDialog {
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
     private volatile String last_mp3_loop = null;
     private volatile int c = 0;
+    private volatile Timer memory_timer = null;
 
     /**
      * Creates new form About
@@ -50,6 +54,8 @@ public class AboutDialog extends javax.swing.JDialog {
 
         main_scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         main_scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
+        memory_bar.setMaximum((int) Math.round(Helpers.getMaxMemory() / 1000f));
+        memory_bar.setValue((int) Math.round(Helpers.getUsedMemory() / 1000f));
 
         if (Init.MOD != null) {
             mod_label.setText(Init.MOD.get("name") + " " + Init.MOD.get("version"));
@@ -92,6 +98,17 @@ public class AboutDialog extends javax.swing.JDialog {
 
         setResizable(false);
 
+        memory_timer = new Timer(2000, new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+                memory_bar.setValue((int) Math.round(Helpers.getUsedMemory() / 1000f));
+            }
+        });
+
+        memory_timer.setRepeats(true);
+        memory_timer.setCoalesce(false);
+
     }
 
     /**
@@ -124,6 +141,7 @@ public class AboutDialog extends javax.swing.JDialog {
         jPanel4 = new javax.swing.JPanel();
         jLabel12 = new javax.swing.JLabel();
         jLabel9 = new javax.swing.JLabel();
+        memory_bar = new javax.swing.JProgressBar();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("¿De dónde ha salido esto?");
@@ -294,6 +312,8 @@ public class AboutDialog extends javax.swing.JDialog {
                 .addGap(0, 0, 0))
         );
 
+        memory_bar.setDoubleBuffered(true);
+
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
@@ -317,6 +337,7 @@ public class AboutDialog extends javax.swing.JDialog {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addComponent(memory_bar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -344,11 +365,18 @@ public class AboutDialog extends javax.swing.JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jLabel6)
                 .addGap(18, 18, 18)
-                .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jvm)
-                    .addComponent(jLabel3)))
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(jPanel2Layout.createSequentialGroup()
+                        .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 73, Short.MAX_VALUE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jvm)
+                            .addComponent(jLabel3))
+                        .addGap(0, 0, 0)
+                        .addComponent(memory_bar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 0, 0))))
         );
 
         main_scroll_panel.setViewportView(jPanel2);
@@ -418,6 +446,9 @@ public class AboutDialog extends javax.swing.JDialog {
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
+
+        memory_timer.start();
+
         last_mp3_loop = Audio.getCurrentLoopMp3Playing();
 
         if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
@@ -437,6 +468,8 @@ public class AboutDialog extends javax.swing.JDialog {
         if (last_mp3_loop != null) {
             Audio.unmuteLoopMp3(last_mp3_loop);
         }
+
+        memory_timer.stop();
     }//GEN-LAST:event_formWindowClosed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -459,6 +492,7 @@ public class AboutDialog extends javax.swing.JDialog {
     private javax.swing.JPanel jPanel4;
     private javax.swing.JLabel jvm;
     private javax.swing.JScrollPane main_scroll_panel;
+    private javax.swing.JProgressBar memory_bar;
     private javax.swing.JLabel merecemos;
     private javax.swing.JLabel mod_label;
     // End of variables declaration//GEN-END:variables

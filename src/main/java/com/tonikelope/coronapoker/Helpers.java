@@ -230,6 +230,33 @@ public class Helpers {
 
     }
 
+    public static long getMaxMemory() {
+        return Runtime.getRuntime().maxMemory();
+    }
+
+    public static long getUsedMemory() {
+        return Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+    }
+
+    public static String getMemoryUsage() {
+        return formatBytes(getUsedMemory()) + " / " + formatBytes(getMaxMemory());
+    }
+
+    public static String formatBytes(Long bytes) {
+
+        String[] units = {"B", "KB", "MB", "GB", "TB"};
+
+        bytes = Math.max(bytes, 0L);
+
+        int pow = Math.min((int) ((bytes > 0L ? Math.log(bytes) : 0) / Math.log(1024)), units.length - 1);
+
+        Double bytes_double = (double) bytes / (1L << (10 * pow));
+
+        DecimalFormat df = new DecimalFormat("#.##");
+
+        return df.format(bytes_double) + ' ' + units[pow];
+    }
+
     public static int getGIFLength(URL url) throws IOException, ImageProcessingException {
 
         Metadata metadata = ImageMetadataReader.readMetadata(url.openStream());

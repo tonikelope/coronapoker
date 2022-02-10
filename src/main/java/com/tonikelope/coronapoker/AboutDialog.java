@@ -39,6 +39,7 @@ public class AboutDialog extends javax.swing.JDialog {
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
+    public static final int MEM_TIMER = 2000;
     private volatile String last_mp3_loop = null;
     private volatile int c = 0;
     private volatile Timer memory_timer = null;
@@ -54,8 +55,9 @@ public class AboutDialog extends javax.swing.JDialog {
 
         main_scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         main_scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
-        memory_bar.setMaximum((int) Math.round(Helpers.getMaxMemory() / 1000f));
-        memory_bar.setValue((int) Math.round(Helpers.getUsedMemory() / 1000f));
+        memory_bar.setMaximum((int) Math.round((float) Helpers.getMaxMemory() / 1024));
+        memory_bar.setValue((int) Math.round((float) Helpers.getUsedMemory() / 1024));
+        memory_usage.setText(Helpers.getMemoryUsage());
 
         if (Init.MOD != null) {
             mod_label.setText(Init.MOD.get("name") + " " + Init.MOD.get("version"));
@@ -98,11 +100,12 @@ public class AboutDialog extends javax.swing.JDialog {
 
         setResizable(false);
 
-        memory_timer = new Timer(2000, new ActionListener() {
+        memory_timer = new Timer(MEM_TIMER, new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent ae) {
-                memory_bar.setValue((int) Math.round(Helpers.getUsedMemory() / 1000f));
+                memory_usage.setText(Helpers.getMemoryUsage());
+                memory_bar.setValue((int) Math.round((float) Helpers.getUsedMemory() / 1024));
             }
         });
 
@@ -142,6 +145,7 @@ public class AboutDialog extends javax.swing.JDialog {
         jLabel12 = new javax.swing.JLabel();
         jLabel9 = new javax.swing.JLabel();
         memory_bar = new javax.swing.JProgressBar();
+        memory_usage = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("¿De dónde ha salido esto?");
@@ -314,6 +318,9 @@ public class AboutDialog extends javax.swing.JDialog {
 
         memory_bar.setDoubleBuffered(true);
 
+        memory_usage.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        memory_usage.setText("jLabel1");
+
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
@@ -327,7 +334,7 @@ public class AboutDialog extends javax.swing.JDialog {
                 .addComponent(jvm))
             .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(merecemos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, 922, Short.MAX_VALUE)
+            .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jLabel6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jLabel7, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jLabel8, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -337,7 +344,10 @@ public class AboutDialog extends javax.swing.JDialog {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addComponent(memory_bar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addComponent(memory_bar, javax.swing.GroupLayout.PREFERRED_SIZE, 788, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(memory_usage, javax.swing.GroupLayout.PREFERRED_SIZE, 150, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -367,16 +377,17 @@ public class AboutDialog extends javax.swing.JDialog {
                 .addGap(18, 18, 18)
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 73, Short.MAX_VALUE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addGap(0, 70, Short.MAX_VALUE)
                         .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(jvm)
-                            .addComponent(jLabel3))
-                        .addGap(0, 0, 0)
-                        .addComponent(memory_bar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 0, 0))))
+                            .addComponent(jLabel3)))
+                    .addGroup(jPanel2Layout.createSequentialGroup()
+                        .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(memory_usage)
+                    .addComponent(memory_bar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(0, 0, 0))
         );
 
         main_scroll_panel.setViewportView(jPanel2);
@@ -493,6 +504,7 @@ public class AboutDialog extends javax.swing.JDialog {
     private javax.swing.JLabel jvm;
     private javax.swing.JScrollPane main_scroll_panel;
     private javax.swing.JProgressBar memory_bar;
+    private javax.swing.JLabel memory_usage;
     private javax.swing.JLabel merecemos;
     private javax.swing.JLabel mod_label;
     // End of variables declaration//GEN-END:variables

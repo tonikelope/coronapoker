@@ -25,7 +25,7 @@ import javax.swing.JLabel;
  *
  * @author tonikelope
  */
-public class TTSNotifyPanel extends javax.swing.JPanel {
+public class CHATNotifyPanel extends javax.swing.JPanel {
 
     @Override
     public void paint(Graphics g) {
@@ -54,7 +54,7 @@ public class TTSNotifyPanel extends javax.swing.JPanel {
     /**
      * Creates new form TTSNotifyPanel
      */
-    public TTSNotifyPanel() {
+    public CHATNotifyPanel() {
         initComponents();
     }
 

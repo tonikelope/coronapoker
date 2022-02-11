@@ -69,7 +69,6 @@ public class Audio {
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
-    public static final ConcurrentLinkedQueue<String> TTS_BLOCKED_USERS = new ConcurrentLinkedQueue<>();
     public static final ConcurrentLinkedQueue<Object[]> TTS_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final Object TTS_LOCK = new Object();
@@ -659,7 +658,7 @@ public class Audio {
 
     }
 
-    public static void TTS(String mensaje, TTSNotifyDialog nick_dialog) {
+    public static void TTS(String mensaje, CHATNotifyDialog nick_dialog) {
 
         synchronized (TTS_LOCK) {
 

@@ -17,7 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.Helpers.TapetePopupMenu.BARAJAS_MENU;
-import static com.tonikelope.coronapoker.TTSNotifyDialog.MAX_IMAGE_WIDTH;
+import static com.tonikelope.coronapoker.CHATNotifyDialog.MAX_IMAGE_WIDTH;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -180,7 +180,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean game_over_dialog = false;
     private volatile WheelFrame full_screen_frame = null;
     private volatile AboutDialog about_dialog = null;
-    private volatile TTSNotifyDialog nick_dialog = null;
+    private volatile CHATNotifyDialog nick_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
     private volatile ShortcutsDialog shortcuts_dialog = null;
@@ -1706,7 +1706,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         // TODO add your handling code here:
                         Audio.TTS_PLAYER.stop();
                     } catch (Exception ex) {
-                        Logger.getLogger(TTSNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(CHATNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
 
@@ -2068,7 +2068,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         getRegistro().print(Translator.translate("COMIENZA LA TIMBA -> ") + Helpers.getFechaHoraActual());
     }
 
-    public TTSNotifyDialog getNick_dialog() {
+    public CHATNotifyDialog getNick_dialog() {
         return nick_dialog;
     }
 
@@ -2109,7 +2109,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     @Override
                                     public void run() {
 
-                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image);
+                                        nick_dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image);
                                         nick_dialog.setLocation(nick_dialog.getParent().getLocation());
                                         nick_dialog.setVisible(true);
                                     }
@@ -2121,12 +2121,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         } else {
 
-                            if (!((String) tts[1]).isBlank() && GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                            if (!((String) tts[1]).isBlank() && GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) {
 
                                 Helpers.GUIRunAndWait(new Runnable() {
                                     @Override
                                     public void run() {
-                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]));
+                                        nick_dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER ? null : (String) tts[1]));
                                         nick_dialog.setLocation(nick_dialog.getParent().getLocation());
                                         nick_dialog.setVisible(true);
                                     }
@@ -2134,14 +2134,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 Audio.TTS((String) tts[1], nick_dialog);
 
-                            } else if (!Audio.TTS_BLOCKED_USERS.contains((String) tts[0])) {
+                            } else {
 
                                 timeout = TTS_NO_SOUND_TIMEOUT;
 
                                 Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
-                                        nick_dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !Audio.TTS_BLOCKED_USERS.contains((String) tts[0]) ? null : (String) tts[1]));
+                                        nick_dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER ? null : (String) tts[1]));
                                         nick_dialog.setLocation(nick_dialog.getParent().getLocation());
                                         nick_dialog.setVisible(true);
                                     }
@@ -3582,15 +3582,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (GameFrame.SONIDOS_TTS) {
 
-            Audio.TTS_BLOCKED_USERS.clear();
-
             if (!GameFrame.TTS_SERVER && GameFrame.getInstance().isPartida_local()) {
 
                 GameFrame.TTS_SERVER = true;
 
                 tts_menu.setEnabled(false);
 
-                TTSNotifyDialog dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, true);
+                CHATNotifyDialog dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, true);
 
                 dialog.setLocation(dialog.getParent().getLocation());
 
@@ -3628,7 +3626,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             tts_menu.setEnabled(false);
 
-            TTSNotifyDialog dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, false);
+            CHATNotifyDialog dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, false);
 
             dialog.setLocation(dialog.getParent().getLocation());
 

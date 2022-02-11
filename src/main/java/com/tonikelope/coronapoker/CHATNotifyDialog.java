@@ -29,29 +29,26 @@ import javax.swing.Timer;
  *
  * @author tonikelope
  */
-public class TTSNotifyDialog extends javax.swing.JDialog {
+public class CHATNotifyDialog extends javax.swing.JDialog {
 
     public static final int AVATAR_SIZE = 80;
     public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.2f);
 
-    private volatile String player = null;
     private volatile Timer timer = null;
 
     /**
      * Creates new form NickTTSDialog
      */
-    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, String msg) {
+    public CHATNotifyDialog(java.awt.Frame parent, boolean modal, String nick, String msg) {
         super(parent, modal);
-
-        this.player = nick;
 
         initComponents();
 
         int avatar_size = Math.round(AVATAR_SIZE * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP));
 
-        Helpers.setResourceIconLabel(tts_panel.getSound_icon(), getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Audio.TTS_BLOCKED_USERS.contains(nick)) ? "/images/mute.png" : "/images/sound.png"), Math.round(avatar_size * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(avatar_size * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+        Helpers.setResourceIconLabel(tts_panel.getSound_icon(), getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER) ? "/images/mute.png" : "/images/sound.png"), Math.round(avatar_size * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(avatar_size * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-        if ((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER || Audio.TTS_BLOCKED_USERS.contains(nick))) {
+        if ((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER)) {
 
             tts_panel.getMessage().setText("[" + nick + (msg != null ? "]: " + msg : "]"));
         } else {
@@ -86,7 +83,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
     }
 
-    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, boolean tts) {
+    public CHATNotifyDialog(java.awt.Frame parent, boolean modal, boolean tts) {
         super(parent, modal);
 
         initComponents();
@@ -119,10 +116,8 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
     }
 
-    public TTSNotifyDialog(java.awt.Frame parent, boolean modal, String nick, ImageIcon image) {
+    public CHATNotifyDialog(java.awt.Frame parent, boolean modal, String nick, ImageIcon image) {
         super(parent, modal);
-
-        this.player = nick;
 
         initComponents();
 
@@ -153,7 +148,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
             }
 
         }
-
+        
         tts_panel.getImage_label().setIcon(image);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
@@ -171,7 +166,7 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        tts_panel = new com.tonikelope.coronapoker.TTSNotifyPanel();
+        tts_panel = new com.tonikelope.coronapoker.CHATNotifyPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setAutoRequestFocus(false);
@@ -207,26 +202,23 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
 
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
 
-        if (player != null && !Audio.TTS_BLOCKED_USERS.contains(player) && !GameFrame.getInstance().getLocalPlayer().getNickname().equals(player)) {
-
-            if (Audio.TTS_PLAYER != null) {
-                try {
-                    // TODO add your handling code here:
-                    Audio.TTS_PLAYER.stop();
-                } catch (Exception ex) {
-                    Logger.getLogger(TTSNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
+        if (Audio.TTS_PLAYER != null) {
+            try {
+                Audio.TTS_PLAYER.stop();
+            } catch (Exception ex) {
+                Logger.getLogger(CHATNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
+        }
 
-            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿IGNORAR LOS MENSAJES TTS DE ESTE USUARIO?") == 0) {
+        if (timer != null) {
+            timer.stop();
+        }
 
-                Audio.TTS_BLOCKED_USERS.add(player);
-            }
+        setVisible(false);
 
-            if (timer != null) {
-                timer.stop();
-                dispose();
-            }
+        if (GameFrame.getInstance().getSala_espera().getChat_notifications().isSelected() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿DESACTIVAR NOTIFICACIONES DEL CHAT?") == 0) {
+
+            GameFrame.getInstance().getSala_espera().getChat_notifications().doClick();
         }
     }//GEN-LAST:event_formMouseClicked
 
@@ -239,6 +231,6 @@ public class TTSNotifyDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private com.tonikelope.coronapoker.TTSNotifyPanel tts_panel;
+    private com.tonikelope.coronapoker.CHATNotifyPanel tts_panel;
     // End of variables declaration//GEN-END:variables
 }

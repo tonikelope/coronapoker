@@ -1640,7 +1640,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                     Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
 
                                                                     if (GameFrame.SONIDOS_TTS) {
-                                                                        TTSNotifyDialog dialog = new TTSNotifyDialog(GameFrame.getInstance().getFrame(), false, GameFrame.TTS_SERVER);
+                                                                        CHATNotifyDialog dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, GameFrame.TTS_SERVER);
 
                                                                         dialog.setLocation(dialog.getParent().getLocation());
 
@@ -2718,6 +2718,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
+            }
+            public void windowDeiconified(java.awt.event.WindowEvent evt) {
+                formWindowDeiconified(evt);
             }
             public void windowOpened(java.awt.event.WindowEvent evt) {
                 formWindowOpened(evt);
@@ -3815,7 +3818,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
         if (auto_focus) {
 
-            this.setVisible(false);
+            setVisible(false);
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
@@ -3831,6 +3834,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             });
         }
     }//GEN-LAST:event_formWindowDeactivated
+
+    private void formWindowDeiconified(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeiconified
+        // TODO add your handling code here:
+        if (auto_focus) {
+            auto_focus = false;
+            setVisible(false);
+        }
+    }//GEN-LAST:event_formWindowDeiconified
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

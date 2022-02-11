@@ -152,6 +152,8 @@ public class NewGameDialog extends javax.swing.JDialog {
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
 
+        pack();
+
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 
         int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
@@ -161,12 +163,12 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             setPreferredSize(getSize());
 
+            pack();
+
             if (scroll_panel.getHorizontalScrollBar().isVisible()) {
                 Helpers.windowAutoIncreaseWidthToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
             }
         }
-
-        pack();
 
         init = true;
 
@@ -330,6 +332,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         Helpers.setResourceIconButton(vamos, getClass().getResource("/images/action/vamos.png"), Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f));
 
+        pack();
+
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 
         int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
@@ -339,12 +343,12 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             setPreferredSize(getSize());
 
+            pack();
+
             if (scroll_panel.getHorizontalScrollBar().isVisible()) {
                 Helpers.windowAutoIncreaseWidthToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
             }
         }
-
-        pack();
 
         init = true;
 

@@ -390,7 +390,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Enviar imagen");
-        setAlwaysOnTop(true);
         setModal(true);
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
@@ -406,7 +405,9 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
             }
         });
 
+        send_button.setBackground(new java.awt.Color(0, 130, 0));
         send_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        send_button.setForeground(new java.awt.Color(255, 255, 255));
         send_button.setText("Enviar");
         send_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         send_button.setDoubleBuffered(true);
@@ -552,7 +553,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                     try {
                                         Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(url)});
                                     } catch (MalformedURLException ex) {
-                                        Logger.getLogger(FastChatDialog.class.getName()).log(Level.SEVERE, null, ex);
+                                        Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
                                     }
                                     synchronized (Audio.TTS_CHAT_QUEUE) {
                                         Audio.TTS_CHAT_QUEUE.notifyAll();
@@ -646,7 +647,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
-        THIS.historial_panel.removeAll();
         WaitingRoomFrame.getInstance().getChat_box().requestFocus();
     }//GEN-LAST:event_formWindowClosing
 

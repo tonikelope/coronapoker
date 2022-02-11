@@ -322,6 +322,7 @@ public class Helpers {
 
                     window.setSize(Math.round(width * (1.0f + increment * i)), window.getHeight());
                     window.setPreferredSize(window.getSize());
+                    window.pack();
 
                     if (hbar.isVisible() && window.getWidth() < max_width) {
                         Helpers.pausar(125);

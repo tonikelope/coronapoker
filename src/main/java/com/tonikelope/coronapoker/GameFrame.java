@@ -879,7 +879,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             public void actionPerformed(ActionEvent e) {
 
                 if (!fastchat_dialog.isVisible()) {
-                    fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog);
+                    if (fastchat_dialog.getParent() != getFrame()) {
+                        fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog);
+                    }
                     fastchat_dialog.setVisible(true);
                 } else {
                     fastchat_dialog.setVisible(false);

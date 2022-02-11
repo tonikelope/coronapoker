@@ -264,7 +264,7 @@ public class FastChatDialog extends javax.swing.JDialog {
 
                         if (focusing) {
 
-                            Helpers.pausar(250);
+                            Helpers.pausar(125);
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {

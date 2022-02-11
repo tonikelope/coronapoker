@@ -141,6 +141,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final String background_chat_src;
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
+    private volatile boolean auto_focus = false;
 
     public String getBackground_chat_src() {
         return background_chat_src;
@@ -2715,6 +2716,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
             }
+            public void windowDeactivated(java.awt.event.WindowEvent evt) {
+                formWindowDeactivated(evt);
+            }
             public void windowOpened(java.awt.event.WindowEvent evt) {
                 formWindowOpened(evt);
             }
@@ -3330,6 +3334,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
+        auto_focus = false;
 
         if (!barra.isVisible() || !booting) {
 
@@ -3394,6 +3399,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 lock_client_reconnect.notifyAll();
             }
         }
+
     }//GEN-LAST:event_formWindowClosing
 
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
@@ -3727,7 +3733,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
-        if (!chat_text.toString().isEmpty()) {
+        if (!chat_text.toString().isEmpty() && !auto_focus) {
             refreshChatPanel();
         }
 
@@ -3749,6 +3755,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             }
         });
+
+        auto_focus = isPartida_empezada();
     }//GEN-LAST:event_formComponentShown
 
     private void max_min_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_max_min_labelMouseClicked
@@ -3774,8 +3782,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
         // TODO add your handling code here:
 
-        chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
-        chat_box.requestFocus();
+        if (!auto_focus) {
+            chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
+            chat_box.requestFocus();
+        }
     }//GEN-LAST:event_formComponentHidden
 
     private void formWindowStateChanged(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowStateChanged
@@ -3800,6 +3810,27 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             chat.requestFocus();
         }
     }//GEN-LAST:event_chatMouseClicked
+
+    private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
+        // TODO add your handling code here:
+        if (auto_focus) {
+
+            this.setVisible(false);
+
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            setVisible(true);
+                        }
+                    });
+
+                }
+            });
+        }
+    }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

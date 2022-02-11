@@ -141,7 +141,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final String background_chat_src;
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
-    private volatile boolean auto_focus = false;
+    private volatile boolean protect_focus = false;
 
     public String getBackground_chat_src() {
         return background_chat_src;
@@ -3337,7 +3337,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
-        auto_focus = false;
+        protect_focus = false;
 
         if (!barra.isVisible() || !booting) {
 
@@ -3429,11 +3429,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void logoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_logoMouseClicked
         // TODO add your handling code here:
+
+        boolean auto_f = protect_focus;
+
+        protect_focus = false;
+
         AboutDialog dialog = new AboutDialog(this, true);
 
         dialog.setLocationRelativeTo(this);
 
         dialog.setVisible(true);
+
+        protect_focus = auto_f;
     }//GEN-LAST:event_logoMouseClicked
 
     private void new_bot_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_new_bot_buttonActionPerformed
@@ -3501,11 +3508,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void video_chat_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_video_chat_buttonActionPerformed
         // TODO add your handling code here:
 
+        boolean auto_f = protect_focus;
+
+        protect_focus = false;
+
         QRChatDialog chat_dialog = new QRChatDialog(this, true, this.getVideo_chat_link(), server);
 
         chat_dialog.setLocationRelativeTo(this);
 
         chat_dialog.setVisible(true);
+
+        protect_focus = auto_f;
 
         if (server && !chat_dialog.isCancel() && chat_dialog.getLink() != null) {
 
@@ -3699,10 +3712,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void image_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_image_buttonActionPerformed
         // TODO add your handling code here:
+        boolean auto_f = protect_focus;
 
+        protect_focus = false;
         ChatImageURLDialog chat_image_dialog = new ChatImageURLDialog(this, true);
         chat_image_dialog.setLocationRelativeTo(this);
         chat_image_dialog.setVisible(true);
+
+        protect_focus = auto_f;
 
     }//GEN-LAST:event_image_buttonActionPerformed
 
@@ -3736,7 +3753,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
-        if (!chat_text.toString().isEmpty() && !auto_focus) {
+        if (!chat_text.toString().isEmpty() && !protect_focus) {
             refreshChatPanel();
         }
 
@@ -3759,7 +3776,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        auto_focus = isPartida_empezada();
+        protect_focus = isPartida_empezada();
+
+        setAlwaysOnTop(protect_focus);
     }//GEN-LAST:event_formComponentShown
 
     private void max_min_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_max_min_labelMouseClicked
@@ -3785,7 +3804,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
         // TODO add your handling code here:
 
-        if (!auto_focus) {
+        if (!protect_focus) {
             chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
             chat_box.requestFocus();
         }
@@ -3816,7 +3835,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
         // TODO add your handling code here:
-        if (auto_focus) {
+        if (protect_focus) {
 
             setVisible(false);
 
@@ -3825,7 +3844,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
-
                             setVisible(true);
                         }
                     });
@@ -3837,8 +3855,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void formWindowDeiconified(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeiconified
         // TODO add your handling code here:
-        if (auto_focus) {
-            auto_focus = false;
+        if (protect_focus) {
+            protect_focus = false;
             setVisible(false);
         }
     }//GEN-LAST:event_formWindowDeiconified

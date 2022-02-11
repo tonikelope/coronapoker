@@ -148,7 +148,7 @@ public class CHATNotifyDialog extends javax.swing.JDialog {
             }
 
         }
-        
+
         tts_panel.getImage_label().setIcon(image);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);

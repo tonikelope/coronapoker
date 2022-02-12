@@ -51,20 +51,6 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         pack();
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-
-                        pintarJugada();
-
-                    }
-                });
-
-            }
-        });
-
     }
 
     public Card[] getCartas() {
@@ -554,6 +540,11 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         card3 = new com.tonikelope.coronapoker.Card();
 
         setResizable(false);
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentShown(java.awt.event.ComponentEvent evt) {
+                formComponentShown(evt);
+            }
+        });
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowActivated(java.awt.event.WindowEvent evt) {
                 formWindowActivated(evt);
@@ -735,6 +726,28 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             }
         }
     }//GEN-LAST:event_formWindowDeactivated
+
+    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
+        // TODO add your handling code here:
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+
+                VALOR_JUGADA = 9;
+                pintarJugada();
+
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        pack();
+
+                    }
+                });
+
+            }
+        });
+    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.Card card1;

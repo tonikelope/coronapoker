@@ -140,7 +140,7 @@ public class Init extends javax.swing.JFrame {
             Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Huevos is not present!");
         }
 
-        //Precargamos los emojis
+        //Precargamos los emojis (COMENTAR ESTO DURANTE LAS PRUEBAS EN NETBEANS PARA QUE NO DEN ERROR LOS FORMULARIOS)
         try {
             Class.forName(EmojiPanel.class.getName(), true, EmojiPanel.class.getClassLoader());
         } catch (ClassNotFoundException ex) {

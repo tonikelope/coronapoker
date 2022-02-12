@@ -1988,7 +1988,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 } else {
                     WaitingRoomFrame.getInstance().closeClientSocket();
                 }
-                
+
                 GameLogDialog.resetLOG();
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -2897,9 +2897,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (!registro_dialog.isVisible()) {
 
-            this.registro_dialog.setLocationRelativeTo(getFrame());
+            registro_dialog.setSize(Math.round(0.8f * getFrame().getWidth()), Math.round(0.8f * getFrame().getHeight()));
 
-            this.registro_dialog.setVisible(true);
+            registro_dialog.setPreferredSize(registro_dialog.getSize());
+
+            registro_dialog.pack();
+
+            registro_dialog.setLocationRelativeTo(getFrame());
+
+            registro_dialog.setVisible(true);
         }
 
     }//GEN-LAST:event_registro_menuActionPerformed

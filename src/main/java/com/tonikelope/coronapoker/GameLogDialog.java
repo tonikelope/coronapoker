@@ -49,10 +49,10 @@ public final class GameLogDialog extends javax.swing.JDialog {
     private volatile boolean utf8_cards = false;
     private volatile boolean fin_transmision = false;
 
-    public static void resetLOG(){
+    public static void resetLOG() {
         LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n";
     }
-    
+
     public void setFin_transmision(boolean fin_transmision) {
         this.fin_transmision = fin_transmision;
     }
@@ -84,10 +84,6 @@ public final class GameLogDialog extends javax.swing.JDialog {
         Helpers.translateComponents(this, false);
 
         getTextArea().setText(GameLogDialog.LOG_TEXT);
-
-        setSize(Math.round(0.8f * parent.getWidth()), Math.round(0.8f * parent.getHeight()));
-
-        setPreferredSize(getSize());
 
         pack();
 

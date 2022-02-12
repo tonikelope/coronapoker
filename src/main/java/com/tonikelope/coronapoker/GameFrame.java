@@ -2887,15 +2887,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void registro_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_registro_menuActionPerformed
         // TODO add your handling code here:
 
-        this.registro_dialog.setVisible(false);
+        if (registro_dialog.getParent() != getFrame()) {
+            registro_dialog.setVisible(false);
+            registro_dialog.dispose();
+            registro_dialog = new GameLogDialog(getFrame(), false);
+        }
 
-        this.registro_dialog.setPreferredSize(new Dimension(Math.round(0.7f * getFrame().getWidth()), Math.round(0.7f * getFrame().getHeight())));
+        if (!registro_dialog.isVisible()) {
 
-        this.registro_dialog.pack();
+            this.registro_dialog.setLocationRelativeTo(getFrame());
 
-        this.registro_dialog.setLocationRelativeTo(getFrame());
-
-        this.registro_dialog.setVisible(true);
+            this.registro_dialog.setVisible(true);
+        }
 
     }//GEN-LAST:event_registro_menuActionPerformed
 
@@ -3000,39 +3003,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void jugadas_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jugadas_menuActionPerformed
         // TODO add your handling code here:
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        if (jugadas_dialog == null) {
+            jugadas_dialog = new HandGeneratorDialog(GameFrame.getInstance(), false);
+        } else if (jugadas_dialog.getParent() != getFrame()) {
+            jugadas_dialog.setVisible(false);
+            jugadas_dialog.dispose();
+            jugadas_dialog = new HandGeneratorDialog(GameFrame.getInstance(), false);
+        }
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
-
-                        if (jugadas_dialog == null) {
-                            jugadas_dialog = new HandGeneratorDialog(GameFrame.getInstance(), false);
-
-                            jugadas_dialog.pintarJugada();
-                        } else {
-                            jugadas_dialog.setVisible(false);
-                        }
-
-                    }
-                });
-
-                for (Card carta : jugadas_dialog.getCartas()) {
-                    carta.refreshCard();
-                }
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        jugadas_dialog.pack();
-
-                        jugadas_dialog.setLocationRelativeTo(getFrame());
-
-                        jugadas_dialog.setVisible(true);
-                    }
-                });
-
-            }
-        });
+        if (!jugadas_dialog.isVisible()) {
+            jugadas_dialog.setLocationRelativeTo(getFrame());
+            jugadas_dialog.setVisible(true);
+        }
     }//GEN-LAST:event_jugadas_menuActionPerformed
 
     private void full_screen_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_full_screen_menuActionPerformed

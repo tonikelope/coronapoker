@@ -165,9 +165,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             pack();
 
-            if (scroll_panel.getHorizontalScrollBar().isVisible()) {
-                Helpers.windowAutoIncreaseWidthToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
-            }
+            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+
         }
 
         init = true;
@@ -345,9 +344,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             pack();
 
-            if (scroll_panel.getHorizontalScrollBar().isVisible()) {
-                Helpers.windowAutoIncreaseWidthToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
-            }
+            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+
         }
 
         init = true;

@@ -29,7 +29,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
     public final static String[] PALOS = {"P", "C", "T", "D"};
     public final static String[] VALORES = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"};
     private volatile Card[] cartas = null;
-    private volatile int valor_jugada = 9;
+    private volatile static int VALOR_JUGADA = 9;
 
     /**
      * Creates new form HandGenerator
@@ -51,6 +51,20 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         pack();
 
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+
+                        pintarJugada();
+
+                    }
+                });
+
+            }
+        });
+
     }
 
     public Card[] getCartas() {
@@ -63,45 +77,45 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             carta.resetearCarta();
         }
 
-        switch (valor_jugada) {
+        switch (VALOR_JUGADA) {
 
             case 0:
-                cartaAlta(valor_jugada);
+                cartaAlta(VALOR_JUGADA);
                 break;
             case 1:
-                pareja(valor_jugada);
+                pareja(VALOR_JUGADA);
                 break;
             case 2:
-                doblePareja(valor_jugada);
+                doblePareja(VALOR_JUGADA);
                 break;
             case 3:
-                trio(valor_jugada);
+                trio(VALOR_JUGADA);
                 break;
             case 4:
-                escalera(valor_jugada);
+                escalera(VALOR_JUGADA);
                 break;
             case 5:
-                color(valor_jugada);
+                color(VALOR_JUGADA);
                 break;
             case 6:
-                full(valor_jugada);
+                full(VALOR_JUGADA);
                 break;
             case 7:
-                poker(valor_jugada);
+                poker(VALOR_JUGADA);
                 break;
             case 8:
-                escaleraColor(valor_jugada);
+                escaleraColor(VALOR_JUGADA);
                 break;
             case 9:
-                escaleraColorReal(valor_jugada);
+                escaleraColorReal(VALOR_JUGADA);
                 break;
         }
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                inferior_button.setEnabled(valor_jugada > 0);
-                superior_button.setEnabled(valor_jugada < 9);
+                inferior_button.setEnabled(VALOR_JUGADA > 0);
+                superior_button.setEnabled(VALOR_JUGADA < 9);
 
             }
         });
@@ -671,8 +685,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
     private void inferior_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_inferior_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (this.valor_jugada > 0) {
-            this.valor_jugada--;
+        if (HandGeneratorDialog.VALOR_JUGADA > 0) {
+            HandGeneratorDialog.VALOR_JUGADA--;
 
         }
 
@@ -688,8 +702,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
     private void superior_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_superior_buttonActionPerformed
         // TODO add your handling code here:
 
-        if (this.valor_jugada <= 10) {
-            this.valor_jugada++;
+        if (HandGeneratorDialog.VALOR_JUGADA <= 10) {
+            HandGeneratorDialog.VALOR_JUGADA++;
 
         }
         Helpers.threadRun(new Runnable() {

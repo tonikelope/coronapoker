@@ -41,10 +41,10 @@ import javax.swing.JTextArea;
  *
  * @author tonikelope
  */
-public class GameLogDialog extends javax.swing.JDialog {
+public final class GameLogDialog extends javax.swing.JDialog {
 
     public final static String TITLE = "REGISTRO DE LA TIMBA";
-    private volatile String text = "";
+    private static volatile String LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n";
     private volatile boolean auto_scroll = true;
     private volatile boolean utf8_cards = false;
     private volatile boolean fin_transmision = false;
@@ -79,7 +79,11 @@ public class GameLogDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
-        getTextArea().setText("[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n");
+        getTextArea().setText(GameLogDialog.LOG_TEXT);
+
+        setSize(Math.round(0.7f * parent.getWidth()), Math.round(0.7f * parent.getHeight()));
+
+        setPreferredSize(getSize());
 
         pack();
 
@@ -90,7 +94,7 @@ public class GameLogDialog extends javax.swing.JDialog {
     }
 
     public String getText() {
-        return text;
+        return LOG_TEXT;
     }
 
     public synchronized void actualizarCartasPerdedores(ConcurrentHashMap<Player, Hand> perdedores) {
@@ -114,19 +118,20 @@ public class GameLogDialog extends javax.swing.JDialog {
 
                     String lajugada = this.utf8_cards ? this.translateNormalCards2UTF8(jugada.toString()) : jugada.toString();
 
-                    this.text = this.text.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)] +(\\w+ .+)", perdedor.getNickname().replace("$", "\\$") + " (" + lascartas + ") $1 -> " + lajugada);
+                    GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)] +(\\w+ .+)", perdedor.getNickname().replace("$", "\\$") + " (" + lascartas + ") $1 -> " + lajugada);
 
                 } else {
 
-                    this.text = this.text.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)]", perdedor.getNickname().replace("$", "\\$") + " (***)");
+                    GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)]", perdedor.getNickname().replace("$", "\\$") + " (***)");
 
                 }
             }
 
             Helpers.GUIRunAndWait(new Runnable() {
+                @Override
                 public void run() {
 
-                    getTextArea().setText(text);
+                    getTextArea().setText(GameLogDialog.LOG_TEXT);
 
                     if (auto_scroll) {
                         getTextArea().setCaretPosition(getTextArea().getText().length());
@@ -142,7 +147,7 @@ public class GameLogDialog extends javax.swing.JDialog {
 
             String message = this.utf8_cards ? this.translateNormalCards2UTF8(Translator.translate(msg)) : Translator.translate(msg);
 
-            text += message + "\n\n";
+            GameLogDialog.LOG_TEXT += message + "\n\n";
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
@@ -160,12 +165,12 @@ public class GameLogDialog extends javax.swing.JDialog {
 
     private synchronized void disableUTF8Cards() {
 
-        this.text = translateUTF8Cards2Normal(this.text);
+        GameLogDialog.LOG_TEXT = translateUTF8Cards2Normal(GameLogDialog.LOG_TEXT);
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
-                getTextArea().setText(text);
+                getTextArea().setText(LOG_TEXT);
 
                 if (auto_scroll) {
                     getTextArea().setCaretPosition(getTextArea().getText().length());
@@ -177,12 +182,12 @@ public class GameLogDialog extends javax.swing.JDialog {
 
     private synchronized void enableUTF8Cards() {
 
-        this.text = translateNormalCards2UTF8(this.text);
+        GameLogDialog.LOG_TEXT = translateNormalCards2UTF8(GameLogDialog.LOG_TEXT);
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
-                getTextArea().setText(text);
+                getTextArea().setText(GameLogDialog.LOG_TEXT);
 
                 if (auto_scroll) {
                     getTextArea().setCaretPosition(getTextArea().getText().length());

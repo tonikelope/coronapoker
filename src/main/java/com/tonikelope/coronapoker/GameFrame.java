@@ -1988,6 +1988,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 } else {
                     WaitingRoomFrame.getInstance().closeClientSocket();
                 }
+                
+                GameLogDialog.resetLOG();
 
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {

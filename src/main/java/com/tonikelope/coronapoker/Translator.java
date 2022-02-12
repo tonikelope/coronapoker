@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿DESACTIVAR NOTIFICACIONES DEL CHAT?", "DISABLE CHAT NOTIFICATIONS?"},
             {"ESPERA UN POCO", "WAIT A BIT"},
             {"IMAGEN NO INSERTABLE", "IMAGE CANNOT BE INSERTED"},
             {"ABANDONA LA TIMBA", "LEAVES THE GAME"},

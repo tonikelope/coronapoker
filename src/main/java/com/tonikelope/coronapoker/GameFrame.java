@@ -3006,11 +3006,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
 
         if (jugadas_dialog == null) {
-            jugadas_dialog = new HandGeneratorDialog(GameFrame.getInstance(), false);
+            jugadas_dialog = new HandGeneratorDialog(getFrame(), false);
         } else if (jugadas_dialog.getParent() != getFrame()) {
             jugadas_dialog.setVisible(false);
             jugadas_dialog.dispose();
-            jugadas_dialog = new HandGeneratorDialog(GameFrame.getInstance(), false);
+            jugadas_dialog = new HandGeneratorDialog(getFrame(), false);
         }
 
         if (!jugadas_dialog.isVisible()) {

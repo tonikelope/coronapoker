@@ -310,26 +310,29 @@ public class Helpers {
         UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
     }
 
-    public static void windowAutoIncreaseWidthToRemoveHScrollBar(Window window, JScrollBar hbar, int max_width, float increment) {
+    public static void windowAutoFitToRemoveHScrollBar(Window window, JScrollBar hbar, int max_width, float increment) {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                int i = 1;
-                int width = window.getWidth();
+                if (hbar.isVisible()) {
+                    int i = 1;
+                    int new_width;
 
-                do {
+                    do {
 
-                    window.setSize(Math.round(width * (1.0f + increment * i)), window.getHeight());
-                    window.setPreferredSize(window.getSize());
-                    window.pack();
+                        new_width = Math.round(window.getWidth() * (1.0f + increment * i));
 
-                    if (hbar.isVisible() && window.getWidth() < max_width) {
-                        Helpers.pausar(125);
+                        if (new_width < max_width) {
+                            window.setSize(new_width, window.getHeight());
+                            window.setPreferredSize(window.getSize());
+                            window.pack();
+                        }
+
                         i++;
-                    }
 
-                } while (hbar.isVisible() && window.getWidth() < max_width);
+                    } while (hbar.isVisible() && new_width < max_width);
+                }
 
             }
         });

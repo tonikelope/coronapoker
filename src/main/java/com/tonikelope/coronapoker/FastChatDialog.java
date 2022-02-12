@@ -34,15 +34,10 @@ public class FastChatDialog extends javax.swing.JDialog {
     /**
      * Creates new form FastChatDialog
      */
-    public FastChatDialog(java.awt.Frame parent, boolean modal, FastChatDialog old) {
+    public FastChatDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
         initComponents();
-
-        if (old != null) {
-            chat_box.setText(old.chat_box.getText());
-            old.dispose();
-        }
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
@@ -292,15 +287,15 @@ public class FastChatDialog extends javax.swing.JDialog {
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
-        chat_panel.setPreferredSize(new Dimension((int) Math.round(getParent().getWidth() * 0.3f), chat_box.getHeight()));
+        chat_panel.setPreferredSize(new Dimension((int) Math.round(GameFrame.getInstance().getFrame().getWidth() * 0.3f), chat_box.getHeight()));
 
         refreshColors();
 
-        setPreferredSize(new Dimension((int) Math.round(getParent().getWidth() * 0.3f), chat_box.getHeight()));
+        setPreferredSize(new Dimension((int) Math.round(GameFrame.getInstance().getFrame().getWidth() * 0.3f), chat_box.getHeight()));
 
         pack();
 
-        setLocation(getParent().getX(), getParent().getY() + getParent().getHeight() - getHeight());
+        setLocation(GameFrame.getInstance().getFrame().getX(), GameFrame.getInstance().getFrame().getY() + GameFrame.getInstance().getFrame().getHeight() - getHeight());
     }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

@@ -196,8 +196,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean retry = false;
     private volatile boolean fin = false;
 
-    public static synchronized void resetInstance() {
+    public static void resetInstance() {
+
+        if (THIS != THIS.getFrame()) {
+            THIS.getFrame().setVisible(false);
+            THIS.getFrame().dispose();
+        }
+
         THIS.dispose();
+
         THIS = null;
     }
 
@@ -879,12 +886,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             public void actionPerformed(ActionEvent e) {
 
                 if (!fastchat_dialog.isVisible()) {
-                    if (fastchat_dialog.getParent() != getFrame()) {
-                        fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog);
-                    }
+
                     fastchat_dialog.setVisible(true);
-                } else {
-                    fastchat_dialog.setVisible(false);
                 }
 
             }
@@ -2027,9 +2030,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
-                registro_dialog = new GameLogDialog(GameFrame.getInstance(), false);
+                registro_dialog = new GameLogDialog(getFrame(), false);
 
-                fastchat_dialog = new FastChatDialog(GameFrame.getInstance(), false, null);
+                fastchat_dialog = new FastChatDialog(getFrame(), false);
 
             }
         });

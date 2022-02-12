@@ -196,6 +196,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     }
 
     public static void resetInstance() {
+        THIS.protect_focus = false;
+        THIS.setVisible(false);
         THIS.dispose();
         THIS = null;
     }
@@ -778,9 +780,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             pack();
 
-            if (main_scroll_panel.getHorizontalScrollBar().isVisible()) {
-                Helpers.windowAutoIncreaseWidthToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
-            }
+            Helpers.windowAutoFitToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+
         }
 
         Audio.muteLoopMp3("misc/background_music.mp3");

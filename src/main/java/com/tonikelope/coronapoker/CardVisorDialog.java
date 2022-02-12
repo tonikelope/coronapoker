@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Cursor;
-import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
@@ -40,7 +39,6 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
     private final static String PALOS = "PCTD";
     private final static int CORNER = 100;
-    private final static int WIDTH = 1100;
     private final HashMap<String, Integer> valores = new HashMap<>();
     private int carta = 0;
 
@@ -59,8 +57,6 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
-        setPreferredSize(new Dimension(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight())));
-
         valores.put("A", 1);
         valores.put("J", 11);
         valores.put("Q", 12);
@@ -77,7 +73,13 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         showCard(carta);
 
+        setSize(Math.min(Math.round(0.9f * parent.getWidth()), card.getIcon().getIconWidth()), Math.round(0.75f * parent.getHeight()));
+
+        setPreferredSize(getSize());
+
         pack();
+
+        Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth(), 0.1f);
 
     }
 
@@ -93,8 +95,6 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
 
-        setPreferredSize(new Dimension(Math.min(Math.round(0.6f * parent.getWidth()), WIDTH), Math.round(0.75f * parent.getHeight())));
-
         valores.put("A", 1);
         valores.put("J", 11);
         valores.put("Q", 12);
@@ -109,7 +109,13 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         showCard(carta);
 
+        setSize(Math.min(Math.round(0.9f * parent.getWidth()), card.getIcon().getIconWidth()), Math.round(0.75f * parent.getHeight()));
+
+        setPreferredSize(getSize());
+
         pack();
+
+        Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth(), 0.1f);
 
     }
 

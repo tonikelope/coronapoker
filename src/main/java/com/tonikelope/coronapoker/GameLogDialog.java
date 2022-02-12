@@ -85,7 +85,7 @@ public final class GameLogDialog extends javax.swing.JDialog {
 
         getTextArea().setText(GameLogDialog.LOG_TEXT);
 
-        setSize(Math.round(0.7f * parent.getWidth()), Math.round(0.7f * parent.getHeight()));
+        setSize(Math.round(0.8f * parent.getWidth()), Math.round(0.8f * parent.getHeight()));
 
         setPreferredSize(getSize());
 

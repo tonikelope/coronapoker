@@ -53,15 +53,15 @@ public class Crupier implements Runnable {
 
     public static final Map.Entry<String, Object[][]> ALLIN_CINEMATICS = new HashMap.SimpleEntry<String, Object[][]>("allin/",
             new Object[][]{
-                {"rounders.gif", 3500L},
-                {"hulk.gif", 1100L},
-                {"nicolas_cage.gif", 1000L},
-                {"nicolas_cage2.gif", 2000L},
-                {"training_day.gif", 2000L},
-                {"wallstreet.gif", 1500L},
-                {"casinoroyale.gif", 4550L},
-                {"joker.gif", 3100L},
-                {"terminator2.gif", 3000L}
+                {"rounders.gif"},
+                {"hulk.gif"},
+                {"nicolas_cage.gif"},
+                {"nicolas_cage2.gif"},
+                {"training_day.gif"},
+                {"wallstreet.gif"},
+                {"casinoroyale.gif"},
+                {"joker.gif"},
+                {"terminator2.gif"}
             });
 
     public static volatile Map.Entry<String, Object[][]> ALLIN_CINEMATICS_MOD = null;
@@ -383,24 +383,19 @@ public class Crupier implements Runnable {
         }
     }
 
-    public static void loadMODCinematics() {
+    public static void loadMODCinematicsAllin() {
 
         if (Init.MOD != null) {
 
-            HashMap<String, HashMap<String, Object>> cinematics_mod = (HashMap<String, HashMap<String, Object>>) Init.MOD.get("cinematics");
+            ArrayList<Object[]> cinematics = new ArrayList<>();
+
+            File cinematics_folder = new File(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin");
 
             //ALLIN CINEMATICS
-            if (!cinematics_mod.isEmpty()) {
+            if (cinematics_folder.isDirectory() && cinematics_folder.canRead() && cinematics_folder.listFiles(File::isFile).length > 0) {
 
-                ArrayList<Object[]> cinematics = new ArrayList<>();
-
-                for (Map.Entry<String, HashMap<String, Object>> entry : cinematics_mod.entrySet()) {
-
-                    HashMap<String, Object> mapa = entry.getValue();
-
-                    if (mapa.get("event").equals("allin")) {
-                        cinematics.add(new Object[]{mapa.get("name"), mapa.get("time")});
-                    }
+                for (final File fileEntry : cinematics_folder.listFiles(File::isFile)) {
+                    cinematics.add(new Object[]{fileEntry.getName()});
                 }
 
                 if (FUSION_MOD_CINEMATICS) {
@@ -637,13 +632,34 @@ public class Crupier implements Runnable {
 
             String filename = (String) allin_cinematics[r - 1][0];
 
-            long pausa = (long) allin_cinematics[r - 1][1];
+            long pausa = 0L;
+
+            if (allin_cinematics[r - 1].length > 1) {
+
+                pausa = (long) allin_cinematics[r - 1][1];
+
+            } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename)) && !Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")))) {
+
+                try {
+                    pausa = Helpers.getGIFLength(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename).toUri().toURL());
+
+                } catch (Exception ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            } else if (getClass().getResource("/cinematics/allin/" + filename) != null && getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) == null) {
+                try {
+                    pausa = Helpers.getGIFLength(getClass().getResource("/cinematics/allin/" + filename).toURI().toURL());
+
+                } catch (Exception ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
 
             try {
 
                 this.current_local_cinematic_b64 = Base64.encodeBase64String((Base64.encodeBase64String(filename.getBytes("UTF-8")) + "#" + String.valueOf(pausa)).getBytes("UTF-8"));
 
-                if (pausa == 0L || Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null) {
+                if (pausa == 0L) {
                     Helpers.threadRun(new Runnable() {
 
                         public void run() {
@@ -2196,10 +2212,16 @@ public class Crupier implements Runnable {
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 public void run() {
-                                    GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), 2500);
+                                    try {
+                                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), Helpers.getGIFLength(getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
 
-                                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                                    gif_dialog.setVisible(true);
+                                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+
+                                        gif_dialog.setVisible(true);
+
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
                                 }
                             });
 
@@ -2340,10 +2362,14 @@ public class Crupier implements Runnable {
 
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
-                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), 3000);
+                        try {
+                            GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFLength(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
 
-                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                        gif_dialog.setVisible(true);
+                            gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                            gif_dialog.setVisible(true);
+                        } catch (Exception ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
                 });
 

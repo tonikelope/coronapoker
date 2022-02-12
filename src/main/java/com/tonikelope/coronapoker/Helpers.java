@@ -1660,7 +1660,7 @@ public class Helpers {
                         Element el = (Element) nodeList.item(i);
                         HashMap<String, Object> baraja = new HashMap<>();
                         baraja.put("name", el.getElementsByTagName("name").item(0).getTextContent().trim());
-                        baraja.put("aspect", Float.parseFloat(el.getElementsByTagName("aspect").item(0).getTextContent().trim()));
+                        baraja.put("aspect", el.getElementsByTagName("aspect").item(0) != null ? Float.parseFloat(el.getElementsByTagName("aspect").item(0).getTextContent().trim()) : Helpers.getDeckMODAspectRatio(el.getElementsByTagName("name").item(0).getTextContent().trim()));
 
                         if (el.getElementsByTagName("sound").item(0) != null) {
 
@@ -1671,32 +1671,22 @@ public class Helpers {
                     }
                 }
 
-                mod.put("decks", decks.isEmpty() ? null : decks);
+                File decks_folder = new File(Helpers.getCurrentJarParentPath() + "/mod/decks");
 
-                //CINEMATICS
-                HashMap<String, Object> cinematics = new HashMap<>();
+                if (decks_folder.isDirectory() && decks_folder.canRead() && decks_folder.listFiles(File::isDirectory).length > 0) {
 
-                nodeList = document.getElementsByTagName("cinematics").item(0).getChildNodes();
+                    for (final File fileEntry : decks_folder.listFiles(File::isDirectory)) {
 
-                for (int i = 0; i < nodeList.getLength(); i++) {
-
-                    if (nodeList.item(i).getNodeType() == Node.ELEMENT_NODE) {
-                        Element el = (Element) nodeList.item(i);
-                        HashMap<String, Object> animation = new HashMap<>();
-                        animation.put("name", el.getElementsByTagName("name").item(0).getTextContent().trim());
-                        animation.put("time", Long.parseLong(el.getElementsByTagName("time").item(0).getTextContent().trim()));
-
-                        if (el.getElementsByTagName("event") != null) {
-                            animation.put("event", el.getElementsByTagName("event").item(0).getTextContent().trim());
-                        } else {
-                            animation.put("event", "misc");
+                        if (!decks.containsKey(fileEntry.getName())) {
+                            HashMap<String, Object> baraja = new HashMap<>();
+                            baraja.put("name", fileEntry.getName());
+                            baraja.put("aspect", Helpers.getDeckMODAspectRatio(fileEntry.getName()));
+                            decks.put((String) baraja.get("name"), baraja);
                         }
-
-                        cinematics.put((String) animation.get("name"), animation);
                     }
                 }
 
-                mod.put("cinematics", cinematics.isEmpty() ? null : cinematics);
+                mod.put("decks", decks.isEmpty() ? null : decks);
 
                 Logger.getLogger(Helpers.class.getName()).log(Level.INFO, mod.get("name") + " " + mod.get("version") + " cargado {0}", mod);
 
@@ -1706,6 +1696,18 @@ public class Helpers {
             } catch (IOException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
+        }
+
+        return null;
+    }
+
+    public static Float getDeckMODAspectRatio(String deck_name) {
+
+        if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + deck_name))) {
+
+            ImageIcon image = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + deck_name + "/A_C.jpg");
+
+            return Helpers.floatClean((float) image.getIconHeight() / image.getIconWidth(), 2);
         }
 
         return null;

@@ -2112,44 +2112,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 ImageIcon image = new ImageIcon(new URL(url + "#" + Helpers.genRandomString(20)));
 
-                                int max_width = GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getWidth();
+                                int max_width = GameFrame.getInstance().getLocalPlayer().getNickname().equals((String) tts[0]) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getWidth() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getWidth();
 
-                                int max_height = GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
+                                int max_height = GameFrame.getInstance().getLocalPlayer().getNickname().equals((String) tts[0]) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getHeight() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
 
-                                if (image.getIconWidth() >= image.getIconHeight()) {
+                                if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
 
-                                    if (image.getIconWidth() > max_width) {
+                                    int new_height = max_height;
 
-                                        int new_width = max_width;
+                                    int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
 
-                                        int new_height = (int) Math.round((image.getIconHeight() * max_width) / image.getIconWidth());
+                                    if (new_width > max_width) {
 
-                                        if (new_height > max_height) {
+                                        new_height = (int) Math.round((new_height * max_width) / new_width);
 
-                                            new_width = (int) Math.round((new_width * max_height) / new_height);
-
-                                            new_height = max_height;
-                                        }
-
-                                        image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                        new_width = max_width;
                                     }
 
-                                } else {
-                                    if (image.getIconHeight() > max_height) {
-
-                                        int new_height = max_height;
-
-                                        int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
-
-                                        if (new_width > max_width) {
-
-                                            new_height = (int) Math.round((new_height * max_width) / new_width);
-
-                                            new_width = max_width;
-                                        }
-
-                                        image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-                                    }
+                                    image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                 }
 
                                 timeout = (gif_l != -1 || Helpers.isImageURLGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;

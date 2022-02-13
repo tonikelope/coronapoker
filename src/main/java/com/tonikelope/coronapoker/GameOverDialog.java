@@ -207,7 +207,9 @@ public class GameOverDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         GameFrame.getInstance().getTapete().hideALL();
 
-        GameFrame.getInstance().getFastchat_dialog().setVisible(false);
+        if (GameFrame.getInstance().getFastchat_dialog() != null) {
+            GameFrame.getInstance().getFastchat_dialog().setVisible(false);
+        }
 
         if (GameFrame.getInstance().getRegistro_dialog() != null) {
             GameFrame.getInstance().getRegistro_dialog().setVisible(false);
@@ -219,6 +221,14 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         if (GameFrame.getInstance().getShortcuts_dialog() != null) {
             GameFrame.getInstance().getShortcuts_dialog().setVisible(false);
+        }
+
+        if (GameFrame.getInstance().getTTS_dialog() != null && GameFrame.getInstance().getTTS_dialog().isVisible()) {
+            GameFrame.getInstance().getTTS_dialog().setVisible(false);
+        }
+
+        for (ChatNotifyDialog d : GameFrame.getInstance().getChat_notify_image_dialogs()) {
+            d.setVisible(false);
         }
 
         continue_button.requestFocus();

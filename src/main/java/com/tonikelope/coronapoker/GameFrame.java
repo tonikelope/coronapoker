@@ -2093,8 +2093,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         getRegistro().print(Translator.translate("COMIENZA LA TIMBA -> ") + Helpers.getFechaHoraActual());
     }
 
-    public ChatNotifyDialog getNick_dialog() {
+    public ChatNotifyDialog getTTS_dialog() {
         return tts_dialog;
+    }
+
+    public ConcurrentLinkedQueue<ChatNotifyDialog> getChat_notify_image_dialogs() {
+        return chat_notify_image_dialogs;
     }
 
     private void TTSWatchdog() {

@@ -1643,6 +1643,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 }
                                                             });
 
+                                                            Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), GameFrame.TTS_SERVER ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR");
+
                                                             break;
 
                                                         case "VIDEOCHAT":

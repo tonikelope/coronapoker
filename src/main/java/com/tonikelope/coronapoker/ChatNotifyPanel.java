@@ -61,7 +61,7 @@ public class ChatNotifyPanel extends javax.swing.JPanel {
 
         image_label = new javax.swing.JLabel();
 
-        setBackground(new java.awt.Color(0, 0, 0));
+        setBackground(new java.awt.Color(255, 255, 0));
 
         image_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         image_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));

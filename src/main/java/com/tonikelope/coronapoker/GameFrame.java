@@ -2123,7 +2123,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 int max_width = GameFrame.getInstance().getLocalPlayer().getNickname().equals((String) tts[0]) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getWidth() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getWidth();
 
-                                int max_height = GameFrame.getInstance().getLocalPlayer().getNickname().equals((String) tts[0]) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getHeight() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
+                                int max_height = GameFrame.getInstance().getLocalPlayer().getNickname().equals((String) tts[0]) ? Math.round((float) GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getHeight() / 2 + GameFrame.getInstance().getTapete().getLocalPlayer().getPlayer_action().getHeight()) : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
 
                                 if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
 
@@ -2152,8 +2152,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     public void run() {
                                         final ChatNotifyDialog dialog = new ChatNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image);
                                         chat_notify_image_dialogs.add(dialog);
-                                        dialog.setLocation(GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen());
+
+                                        var loc = GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen();
+
+                                        int h = GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getHeight();
+
+                                        dialog.setLocation((int) loc.getX(), (int) (loc.getY() + h / 2));
+
                                         dialog.setVisible(true);
+
                                         Helpers.threadRun(new Runnable() {
                                             @Override
                                             public void run() {
@@ -2185,7 +2192,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     @Override
                                     public void run() {
                                         tts_dialog = new ChatNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
-                                        tts_dialog.setLocation(GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen());
+
+                                        var loc = GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen();
+
+                                        int h = GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getHeight();
+
+                                        tts_dialog.setLocation((int) loc.getX(), (int) (loc.getY() + h / 2));
+
                                         tts_dialog.setVisible(true);
                                     }
                                 });
@@ -2198,7 +2211,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     @Override
                                     public void run() {
                                         tts_dialog = new ChatNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
-                                        tts_dialog.setLocation(GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen());
+                                        var loc = GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen();
+
+                                        int h = GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getHeight();
+
+                                        tts_dialog.setLocation((int) loc.getX(), (int) (loc.getY() + h / 2));
+
                                         tts_dialog.setVisible(true);
 
                                         Helpers.threadRun(new Runnable() {

@@ -38,9 +38,9 @@ public class ChatNotifyDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        int sound_icon_size = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getHeight() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
+        int sound_icon_size = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? Math.round((float) GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getHeight() / 2 + GameFrame.getInstance().getTapete().getLocalPlayer().getPlayer_action().getHeight()) : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
 
-        Helpers.setResourceIconLabel(tts_panel.getImage_label(), getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER) ? "/images/mute.png" : "/images/sound.png"), sound_icon_size, sound_icon_size);
+        Helpers.setResourceIconLabel(tts_panel.getImage_label(), getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER) ? "/images/mute_b.png" : "/images/sound_b.png"), sound_icon_size, sound_icon_size);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 

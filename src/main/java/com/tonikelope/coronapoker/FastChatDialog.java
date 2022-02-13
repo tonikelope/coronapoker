@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
-import java.awt.Dimension;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JTextField;
@@ -27,21 +26,38 @@ import javax.swing.text.BadLocationException;
  *
  * @author tonikelope
  */
-public class FastChatDialog extends javax.swing.JDialog {
+public final class FastChatDialog extends javax.swing.JDialog {
 
     private volatile boolean focusing = false;
 
     /**
      * Creates new form FastChatDialog
      */
-    public FastChatDialog(java.awt.Frame parent, boolean modal) {
+    public FastChatDialog(java.awt.Frame parent, boolean modal, JTextField text) {
         super(parent, modal);
 
         initComponents();
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        if (text != null) {
+            chat_box.setText(text.getText());
+            chat_box.setCaretPosition(text.getCaretPosition());
+        }
+
+        Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+
+        pack();
 
         Helpers.setResourceIconLabel(icono, getClass().getResource("/images/chat.png"), chat_box.getHeight(), chat_box.getHeight());
+
+        chat_panel.setSize((int) Math.round(GameFrame.getInstance().getFrame().getWidth() * 0.3f), chat_box.getHeight());
+
+        chat_panel.setPreferredSize(chat_panel.getSize());
+
+        setSize(chat_panel.getSize());
+
+        setPreferredSize(getSize());
+
+        refreshColors();
 
         pack();
 
@@ -90,18 +106,15 @@ public class FastChatDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         chat_panel = new javax.swing.JPanel();
-        chat_box = new javax.swing.JTextField();
         icono = new javax.swing.JLabel();
+        chat_box = new javax.swing.JTextField();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setUndecorated(true);
-        addComponentListener(new java.awt.event.ComponentAdapter() {
-            public void componentShown(java.awt.event.ComponentEvent evt) {
-                formComponentShown(evt);
-            }
-        });
 
         chat_panel.setBackground(new java.awt.Color(255, 255, 255));
+
+        icono.setDoubleBuffered(true);
 
         chat_box.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
         chat_box.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -125,14 +138,12 @@ public class FastChatDialog extends javax.swing.JDialog {
             }
         });
 
-        icono.setDoubleBuffered(true);
-
         javax.swing.GroupLayout chat_panelLayout = new javax.swing.GroupLayout(chat_panel);
         chat_panel.setLayout(chat_panelLayout);
         chat_panelLayout.setHorizontalGroup(
             chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(chat_panelLayout.createSequentialGroup()
-                .addContainerGap()
+                .addGap(0, 0, 0)
                 .addComponent(icono)
                 .addGap(0, 0, 0)
                 .addComponent(chat_box))
@@ -142,7 +153,7 @@ public class FastChatDialog extends javax.swing.JDialog {
             .addGroup(chat_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addGroup(chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(chat_box, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(chat_box)
                     .addComponent(icono))
                 .addGap(0, 0, Short.MAX_VALUE))
         );
@@ -157,7 +168,7 @@ public class FastChatDialog extends javax.swing.JDialog {
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(chat_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addComponent(chat_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();
@@ -284,19 +295,6 @@ public class FastChatDialog extends javax.swing.JDialog {
             refreshColors();
         }
     }//GEN-LAST:event_chat_boxFocusGained
-
-    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
-        // TODO add your handling code here:
-        chat_panel.setPreferredSize(new Dimension((int) Math.round(GameFrame.getInstance().getFrame().getWidth() * 0.3f), chat_box.getHeight()));
-
-        refreshColors();
-
-        setPreferredSize(new Dimension((int) Math.round(GameFrame.getInstance().getFrame().getWidth() * 0.3f), chat_box.getHeight()));
-
-        pack();
-
-        setLocation(GameFrame.getInstance().getFrame().getX(), GameFrame.getInstance().getFrame().getY() + GameFrame.getInstance().getFrame().getHeight() - getHeight());
-    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextField chat_box;

@@ -885,10 +885,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
 
-                if (!fastchat_dialog.isVisible()) {
+                fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog != null ? fastchat_dialog.getChat_box() : null);
 
-                    fastchat_dialog.setVisible(true);
-                }
+                fastchat_dialog.setLocation(getFrame().getX(), getFrame().getY() + getFrame().getHeight() - fastchat_dialog.getHeight());
+
+                fastchat_dialog.setVisible(true);
 
             }
         });
@@ -2033,8 +2034,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             public void run() {
 
                 registro_dialog = new GameLogDialog(getFrame(), false);
-
-                fastchat_dialog = new FastChatDialog(getFrame(), false);
 
             }
         });

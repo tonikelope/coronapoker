@@ -96,6 +96,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile String player_action_icon = null;
     private volatile Timer icon_zoom_timer = null;
 
+    public JPanel getPanel_cartas() {
+        return panel_cartas;
+    }
+
     public boolean isBotonMostrarActivado() {
         return getPlayer_allin_button().isEnabled() && isBoton_mostrar();
     }

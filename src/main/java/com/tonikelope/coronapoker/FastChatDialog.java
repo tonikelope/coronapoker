@@ -259,8 +259,8 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
-                                if (GameFrame.getInstance().getFastchat_dialog().isVisible() && !GameFrame.getInstance().getFastchat_dialog().getChat_box().isFocusOwner()) {
-                                    GameFrame.getInstance().getFastchat_dialog().getChat_box().requestFocus();
+                                if (isVisible() && !getChat_box().isFocusOwner()) {
+                                    getChat_box().requestFocus();
                                 } else {
                                     focusing = false;
                                 }
@@ -273,7 +273,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
-                                    if (!GameFrame.getInstance().getFastchat_dialog().isVisible() || GameFrame.getInstance().getFastchat_dialog().getChat_box().isFocusOwner()) {
+                                    if (!isVisible() || getChat_box().isFocusOwner()) {
                                         focusing = false;
                                     }
                                 }
@@ -289,7 +289,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
     private void chat_boxFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_chat_boxFocusGained
         // TODO add your handling code here:
         if (!this.isVisible()) {
-            GameFrame.getInstance().getFastchat_dialog().getChat_box().grabFocus();
+            getChat_box().grabFocus();
         } else {
             refreshColors();
         }

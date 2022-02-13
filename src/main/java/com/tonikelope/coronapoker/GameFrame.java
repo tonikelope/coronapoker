@@ -3011,6 +3011,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void jugadas_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jugadas_menuActionPerformed
         // TODO add your handling code here:
 
+        jugadas_menu.setEnabled(false);
+
         if (jugadas_dialog == null) {
             jugadas_dialog = new HandGeneratorDialog(getFrame(), false);
         } else if (jugadas_dialog.getParent() != getFrame()) {
@@ -3020,8 +3022,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         if (!jugadas_dialog.isVisible()) {
-            jugadas_dialog.setLocationRelativeTo(getFrame());
-            jugadas_dialog.setVisible(true);
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+                    jugadas_dialog.pintarJugada();
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            jugadas_dialog.pack();
+                            jugadas_dialog.setLocationRelativeTo(getFrame());
+                            jugadas_dialog.setVisible(true);
+                            jugadas_menu.setEnabled(true);
+                        }
+                    });
+                }
+            });
         }
     }//GEN-LAST:event_jugadas_menuActionPerformed
 

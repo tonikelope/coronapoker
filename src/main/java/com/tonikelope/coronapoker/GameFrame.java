@@ -180,7 +180,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean game_over_dialog = false;
     private volatile WheelFrame full_screen_frame = null;
     private volatile AboutDialog about_dialog = null;
-    private volatile CHATNotifyDialog tts_dialog = null;
+    private volatile ChatNotifyDialog tts_dialog = null;
+    private volatile ConcurrentLinkedQueue<ChatNotifyDialog> chat_notify_image_dialogs = new ConcurrentLinkedQueue<>();
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
     private volatile ShortcutsDialog shortcuts_dialog = null;
@@ -1720,7 +1721,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         // TODO add your handling code here:
                         Audio.TTS_PLAYER.stop();
                     } catch (Exception ex) {
-                        Logger.getLogger(CHATNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(ChatNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
 
@@ -1758,6 +1759,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         if (GameFrame.getInstance().getFastchat_dialog() != null) {
                             GameFrame.getInstance().getFastchat_dialog().setVisible(false);
+                        }
+
+                        if (tts_dialog != null && tts_dialog.isVisible()) {
+                            tts_dialog.setVisible(false);
+                        }
+
+                        for (ChatNotifyDialog d : chat_notify_image_dialogs) {
+                            d.setVisible(false);
                         }
 
                         exit_menu.setEnabled(false);
@@ -2084,7 +2093,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         getRegistro().print(Translator.translate("COMIENZA LA TIMBA -> ") + Helpers.getFechaHoraActual());
     }
 
-    public CHATNotifyDialog getNick_dialog() {
+    public ChatNotifyDialog getNick_dialog() {
         return tts_dialog;
     }
 
@@ -2141,7 +2150,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
-                                        final CHATNotifyDialog dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image);
+                                        final ChatNotifyDialog dialog = new ChatNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image);
+                                        chat_notify_image_dialogs.add(dialog);
                                         dialog.setLocation(GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen());
                                         dialog.setVisible(true);
                                         Helpers.threadRun(new Runnable() {
@@ -2153,6 +2163,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                                     @Override
                                                     public void run() {
                                                         dialog.setVisible(false);
+                                                        chat_notify_image_dialogs.remove(dialog);
                                                     }
                                                 });
 
@@ -2173,7 +2184,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 Helpers.GUIRunAndWait(new Runnable() {
                                     @Override
                                     public void run() {
-                                        tts_dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
+                                        tts_dialog = new ChatNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
                                         tts_dialog.setLocation(GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen());
                                         tts_dialog.setVisible(true);
                                     }
@@ -2186,7 +2197,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
-                                        tts_dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
+                                        tts_dialog = new ChatNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
                                         tts_dialog.setLocation(GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen());
                                         tts_dialog.setVisible(true);
 

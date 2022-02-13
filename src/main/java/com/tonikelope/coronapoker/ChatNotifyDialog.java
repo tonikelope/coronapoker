@@ -19,25 +19,26 @@ package com.tonikelope.coronapoker;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 /**
  *
  * @author tonikelope
  */
-public class CHATNotifyDialog extends javax.swing.JDialog {
+public class ChatNotifyDialog extends javax.swing.JDialog {
 
     private volatile Timer timer = null;
 
     /**
      * Creates new form NickTTSDialog
      */
-    public CHATNotifyDialog(java.awt.Frame parent, boolean modal, String nick) {
+    public ChatNotifyDialog(java.awt.Frame parent, boolean modal, String nick) {
         super(parent, modal);
 
         initComponents();
 
-        int sound_icon_size = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPlayingCard1().getWidth() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
+        int sound_icon_size = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getHeight() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
 
         Helpers.setResourceIconLabel(tts_panel.getImage_label(), getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER) ? "/images/mute.png" : "/images/sound.png"), sound_icon_size, sound_icon_size);
 
@@ -47,7 +48,7 @@ public class CHATNotifyDialog extends javax.swing.JDialog {
 
     }
 
-    public CHATNotifyDialog(java.awt.Frame parent, boolean modal, String nick, ImageIcon image) {
+    public ChatNotifyDialog(java.awt.Frame parent, boolean modal, String nick, ImageIcon image) {
         super(parent, modal);
 
         initComponents();
@@ -67,7 +68,7 @@ public class CHATNotifyDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        tts_panel = new com.tonikelope.coronapoker.CHATNotifyPanel();
+        tts_panel = new com.tonikelope.coronapoker.ChatNotifyPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setAutoRequestFocus(false);
@@ -103,23 +104,21 @@ public class CHATNotifyDialog extends javax.swing.JDialog {
 
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
 
-        if (Audio.TTS_PLAYER != null) {
-            try {
-                Audio.TTS_PLAYER.stop();
-            } catch (Exception ex) {
-                Logger.getLogger(CHATNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
+        if (SwingUtilities.isRightMouseButton(evt)) {
+
+            if (Audio.TTS_PLAYER != null) {
+                try {
+                    Audio.TTS_PLAYER.stop();
+                } catch (Exception ex) {
+                    Logger.getLogger(ChatNotifyDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
-        }
 
-        if (timer != null) {
-            timer.stop();
-        }
+            if (timer != null) {
+                timer.stop();
+            }
 
-        setVisible(false);
-
-        if (GameFrame.getInstance().getSala_espera().getChat_notifications().isSelected() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿DESACTIVAR NOTIFICACIONES DEL CHAT?") == 0) {
-
-            GameFrame.getInstance().getSala_espera().getChat_notifications().doClick();
+            setVisible(false);
         }
     }//GEN-LAST:event_formMouseClicked
 
@@ -132,6 +131,6 @@ public class CHATNotifyDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private com.tonikelope.coronapoker.CHATNotifyPanel tts_panel;
+    private com.tonikelope.coronapoker.ChatNotifyPanel tts_panel;
     // End of variables declaration//GEN-END:variables
 }

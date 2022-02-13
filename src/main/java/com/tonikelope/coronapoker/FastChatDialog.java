@@ -109,7 +109,6 @@ public final class FastChatDialog extends javax.swing.JDialog {
         icono = new javax.swing.JLabel();
         chat_box = new javax.swing.JTextField();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setUndecorated(true);
 
         chat_panel.setBackground(new java.awt.Color(255, 255, 255));

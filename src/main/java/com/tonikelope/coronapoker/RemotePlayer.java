@@ -73,6 +73,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer iwtsth_blink_timer = null;
     private final Object zoom_lock = new Object();
 
+    public JPanel getPanel_cartas() {
+        return panel_cartas;
+    }
+
     public boolean isTimeout() {
         return timeout;
     }

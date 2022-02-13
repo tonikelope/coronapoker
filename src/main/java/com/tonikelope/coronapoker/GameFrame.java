@@ -17,7 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.Helpers.TapetePopupMenu.BARAJAS_MENU;
-import static com.tonikelope.coronapoker.CHATNotifyDialog.MAX_IMAGE_WIDTH;
+
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -180,7 +180,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean game_over_dialog = false;
     private volatile WheelFrame full_screen_frame = null;
     private volatile AboutDialog about_dialog = null;
-    private volatile CHATNotifyDialog nick_dialog = null;
+    private volatile CHATNotifyDialog tts_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
     private volatile ShortcutsDialog shortcuts_dialog = null;
@@ -885,7 +885,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
 
-                fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog != null ? fastchat_dialog.getChat_box() : null);
+                if (fastchat_dialog != null) {
+
+                    FastChatDialog old_dialog = fastchat_dialog;
+
+                    fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog.getChat_box());
+
+                    old_dialog.dispose();
+
+                } else {
+                    fastchat_dialog = new FastChatDialog(getFrame(), false, null);
+                }
 
                 fastchat_dialog.setLocation(getFrame().getX(), getFrame().getY() + getFrame().getHeight() - fastchat_dialog.getHeight());
 
@@ -1746,7 +1756,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             pausa_dialog.setVisible(false);
                         }
 
-                        GameFrame.getInstance().getFastchat_dialog().setVisible(false);
+                        if (GameFrame.getInstance().getFastchat_dialog() != null) {
+                            GameFrame.getInstance().getFastchat_dialog().setVisible(false);
+                        }
 
                         exit_menu.setEnabled(false);
 
@@ -2073,7 +2085,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public CHATNotifyDialog getNick_dialog() {
-        return nick_dialog;
+        return tts_dialog;
     }
 
     private void TTSWatchdog() {
@@ -2100,22 +2112,51 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 ImageIcon image = new ImageIcon(new URL(url + "#" + Helpers.genRandomString(20)));
 
-                                if (image.getIconWidth() > MAX_IMAGE_WIDTH) {
+                                int max_width = GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getWidth();
 
-                                    image = new ImageIcon(image.getImage().getScaledInstance(MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * MAX_IMAGE_WIDTH) / image.getIconWidth()), Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                int max_height = GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
+
+                                if (image.getIconWidth() >= image.getIconHeight()) {
+
+                                    if (image.getIconWidth() > max_width) {
+
+                                        image = new ImageIcon(image.getImage().getScaledInstance(max_width, (int) Math.round((image.getIconHeight() * max_width) / image.getIconWidth()), Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                    }
+
+                                } else {
+                                    if (image.getIconHeight() > max_height) {
+
+                                        image = new ImageIcon(image.getImage().getScaledInstance((int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight()), max_height, Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                    }
                                 }
 
                                 timeout = (gif_l != -1 || Helpers.isImageURLGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
 
                                 ImageIcon final_image = image;
 
+                                Integer t = timeout;
+
                                 Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
+                                        final CHATNotifyDialog dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image);
+                                        dialog.setLocation(GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen());
+                                        dialog.setVisible(true);
+                                        Helpers.threadRun(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                Helpers.pausar(t);
 
-                                        nick_dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image);
-                                        nick_dialog.setLocation(nick_dialog.getParent().getLocation());
-                                        nick_dialog.setVisible(true);
+                                                Helpers.GUIRun(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        dialog.setVisible(false);
+                                                    }
+                                                });
+
+                                            }
+                                        });
+
                                     }
                                 });
 
@@ -2130,41 +2171,42 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 Helpers.GUIRunAndWait(new Runnable() {
                                     @Override
                                     public void run() {
-                                        nick_dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER ? null : (String) tts[1]));
-                                        nick_dialog.setLocation(nick_dialog.getParent().getLocation());
-                                        nick_dialog.setVisible(true);
+                                        tts_dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
+                                        tts_dialog.setLocation(GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen());
+                                        tts_dialog.setVisible(true);
                                     }
                                 });
 
-                                Audio.TTS((String) tts[1], nick_dialog);
+                                Audio.TTS((String) tts[1], tts_dialog);
 
                             } else {
-
-                                timeout = TTS_NO_SOUND_TIMEOUT;
 
                                 Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
-                                        nick_dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER ? null : (String) tts[1]));
-                                        nick_dialog.setLocation(nick_dialog.getParent().getLocation());
-                                        nick_dialog.setVisible(true);
+                                        tts_dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0]);
+                                        tts_dialog.setLocation(GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen());
+                                        tts_dialog.setVisible(true);
+
+                                        Helpers.threadRun(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                Helpers.pausar(TTS_NO_SOUND_TIMEOUT);
+
+                                                Helpers.GUIRun(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        tts_dialog.setVisible(false);
+                                                    }
+                                                });
+
+                                            }
+                                        });
                                     }
                                 });
 
                             }
 
-                        }
-
-                        if (timeout != null) {
-
-                            Helpers.pausar(timeout);
-
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
-                                    nick_dialog.setVisible(false);
-                                }
-                            });
                         }
 
                     }
@@ -3594,12 +3636,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 tts_menu.setEnabled(false);
 
-                CHATNotifyDialog dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, true);
-
-                dialog.setLocation(dialog.getParent().getLocation());
-
-                dialog.setVisible(true);
-
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
@@ -3631,12 +3667,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.TTS_SERVER = false;
 
             tts_menu.setEnabled(false);
-
-            CHATNotifyDialog dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, false);
-
-            dialog.setLocation(dialog.getParent().getLocation());
-
-            dialog.setVisible(true);
 
             Helpers.threadRun(new Runnable() {
                 public void run() {

@@ -1640,14 +1640,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                                     Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
 
-                                                                    if (GameFrame.SONIDOS_TTS) {
-                                                                        CHATNotifyDialog dialog = new CHATNotifyDialog(GameFrame.getInstance().getFrame(), false, GameFrame.TTS_SERVER);
-
-                                                                        dialog.setLocation(dialog.getParent().getLocation());
-
-                                                                        dialog.setVisible(true);
-                                                                    }
-
                                                                 }
                                                             });
 

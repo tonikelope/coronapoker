@@ -45,7 +45,7 @@
     </DimensionLayout>
   </Layout>
   <SubComponents>
-    <Component class="com.tonikelope.coronapoker.CHATNotifyPanel" name="tts_panel">
+    <Component class="com.tonikelope.coronapoker.ChatNotifyPanel" name="tts_panel">
     </Component>
   </SubComponents>
 </Form>

@@ -25,7 +25,7 @@ import javax.swing.JLabel;
  *
  * @author tonikelope
  */
-public class CHATNotifyPanel extends javax.swing.JPanel {
+public class ChatNotifyPanel extends javax.swing.JPanel {
 
     @Override
     public void paint(Graphics g) {
@@ -46,7 +46,7 @@ public class CHATNotifyPanel extends javax.swing.JPanel {
     /**
      * Creates new form TTSNotifyPanel
      */
-    public CHATNotifyPanel() {
+    public ChatNotifyPanel() {
         initComponents();
     }
 
@@ -64,6 +64,7 @@ public class CHATNotifyPanel extends javax.swing.JPanel {
         setBackground(new java.awt.Color(0, 0, 0));
 
         image_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        image_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         image_label.setDoubleBuffered(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);

@@ -656,7 +656,7 @@ public class Audio {
 
     }
 
-    public static void TTS(String mensaje, CHATNotifyDialog tts_dialog) {
+    public static void TTS(String mensaje, ChatNotifyDialog tts_dialog) {
 
         synchronized (TTS_LOCK) {
 

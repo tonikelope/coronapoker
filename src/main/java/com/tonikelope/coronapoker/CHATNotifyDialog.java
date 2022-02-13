@@ -37,7 +37,7 @@ public class CHATNotifyDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        int sound_icon_size = GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
+        int sound_icon_size = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPlayingCard1().getWidth() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
 
         Helpers.setResourceIconLabel(tts_panel.getImage_label(), getClass().getResource((!GameFrame.SONIDOS || !GameFrame.SONIDOS_TTS || !GameFrame.TTS_SERVER) ? "/images/mute.png" : "/images/sound.png"), sound_icon_size, sound_icon_size);
 

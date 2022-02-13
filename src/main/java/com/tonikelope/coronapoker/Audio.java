@@ -87,8 +87,6 @@ public class Audio {
 
         Map<String, String> tts_es_replace = new HashMap<>();
 
-        tts_es_replace.put("asi", "así"); //LOWERCASE ALL
-
         TTS_ES_WORD_REPLACE = Collections.unmodifiableMap(tts_es_replace);
 
         VOLUME_TIMER = new Timer(250, new ActionListener() {
@@ -658,7 +656,7 @@ public class Audio {
 
     }
 
-    public static void TTS(String mensaje, CHATNotifyDialog nick_dialog) {
+    public static void TTS(String mensaje, CHATNotifyDialog tts_dialog) {
 
         synchronized (TTS_LOCK) {
 
@@ -774,7 +772,7 @@ public class Audio {
 
                                         GameFrame.getInstance().getSonidos_menu().setEnabled(false);
 
-                                        nick_dialog.setVisible(true);
+                                        tts_dialog.setVisible(true);
                                     }
                                 });
                             }
@@ -786,12 +784,14 @@ public class Audio {
 
                         unmuteAll();
 
+                        Helpers.pausar(500);
+
                         Helpers.GUIRun(new Runnable() {
                             @Override
                             public void run() {
 
                                 GameFrame.getInstance().getSonidos_menu().setEnabled(true);
-                                nick_dialog.setVisible(false);
+                                tts_dialog.setVisible(false);
                             }
                         });
 

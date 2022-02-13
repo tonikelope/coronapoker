@@ -2120,13 +2120,35 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     if (image.getIconWidth() > max_width) {
 
-                                        image = new ImageIcon(image.getImage().getScaledInstance(max_width, (int) Math.round((image.getIconHeight() * max_width) / image.getIconWidth()), Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                        int new_width = max_width;
+
+                                        int new_height = (int) Math.round((image.getIconHeight() * max_width) / image.getIconWidth());
+
+                                        if (new_height > max_height) {
+
+                                            new_width = (int) Math.round((new_width * max_height) / new_height);
+
+                                            new_height = max_height;
+                                        }
+
+                                        image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                     }
 
                                 } else {
                                     if (image.getIconHeight() > max_height) {
 
-                                        image = new ImageIcon(image.getImage().getScaledInstance((int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight()), max_height, Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                        int new_height = max_height;
+
+                                        int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
+
+                                        if (new_width > max_width) {
+
+                                            new_height = (int) Math.round((new_height * max_width) / new_width);
+
+                                            new_width = max_width;
+                                        }
+
+                                        image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                     }
                                 }
 

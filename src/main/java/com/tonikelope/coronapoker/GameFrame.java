@@ -2215,13 +2215,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                             var panel_cartas = ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0])).getPanel_cartas();
 
-                                            var icon_size = panel_cartas.getSize();
+                                            var icon_size = panel_cartas.getHeight();
 
                                             var panel_loc = panel_cartas.getLocationOnScreen();
 
                                             var panel_size = panel_cartas.getSize();
 
-                                            tts_dialog.setLocation((int) panel_loc.getX() + (int) ((panel_size.getWidth() - icon_size.getWidth()) / 2), (int) panel_loc.getY() + (int) ((panel_size.getHeight() - icon_size.getHeight()) / 2));
+                                            tts_dialog.setLocation((int) panel_loc.getX() + (int) ((panel_size.getWidth() - icon_size) / 2), (int) panel_loc.getY() + (int) ((panel_size.getHeight() - icon_size) / 2));
 
                                         }
 
@@ -2247,13 +2247,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                         } else {
                                             var panel_cartas = ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0])).getPanel_cartas();
 
-                                            var icon_size = panel_cartas.getSize();
+                                            var icon_size = panel_cartas.getHeight();
 
                                             var panel_loc = panel_cartas.getLocationOnScreen();
 
                                             var panel_size = panel_cartas.getSize();
 
-                                            tts_dialog.setLocation((int) panel_loc.getX() + (int) ((panel_size.getWidth() - icon_size.getWidth()) / 2), (int) panel_loc.getY() + (int) ((panel_size.getHeight() - icon_size.getHeight()) / 2));
+                                            tts_dialog.setLocation((int) panel_loc.getX() + (int) ((panel_size.getWidth() - icon_size) / 2), (int) panel_loc.getY() + (int) ((panel_size.getHeight() - icon_size) / 2));
 
                                         }
 

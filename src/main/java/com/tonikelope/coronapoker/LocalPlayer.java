@@ -521,8 +521,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 chat_notify_label.setDoubleBuffered(true);
 
-                chat_notify_label.setBackground(Color.YELLOW);
-
                 chat_notify_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
                 chat_notify_label.addMouseListener(new MouseAdapter() {

@@ -395,7 +395,9 @@ public class Crupier implements Runnable {
             if (cinematics_folder.isDirectory() && cinematics_folder.canRead() && cinematics_folder.listFiles(File::isFile).length > 0) {
 
                 for (final File fileEntry : cinematics_folder.listFiles(File::isFile)) {
-                    cinematics.add(new Object[]{fileEntry.getName()});
+                    if (fileEntry.getName().toLowerCase().endsWith(".gif")) {
+                        cinematics.add(new Object[]{fileEntry.getName()});
+                    }
                 }
 
                 if (FUSION_MOD_CINEMATICS) {

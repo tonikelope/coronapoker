@@ -2157,13 +2157,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                         final ChatNotifyDialog dialog = new ChatNotifyDialog(GameFrame.getInstance().getFrame(), false, (String) tts[0], final_image);
                                         chat_notify_image_dialogs.add(dialog);
                                         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals((String) tts[0])) {
-                                            var loc = GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen();
+                                            var card1_loc = GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getLocationOnScreen();
 
-                                            int h = GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getHeight();
+                                            int card1_height = GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0]).getPlayingCard1().getHeight();
 
-                                            dialog.setLocation((int) loc.getX(), (int) (loc.getY() + h / 2));
+                                            dialog.setLocation((int) card1_loc.getX(), (int) (card1_loc.getY() + card1_height / 2));
                                         } else {
-                                            dialog.setLocation(((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0])).getPanel_cartas().getLocationOnScreen());
+
+                                            var panel_loc = ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0])).getPanel_cartas().getLocationOnScreen();
+
+                                            var panel_size = ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0])).getPanel_cartas().getSize();
+
+                                            dialog.setLocation((int) panel_loc.getX() + (int) ((panel_size.getWidth() - final_image.getIconWidth()) / 2), (int) panel_loc.getY() + (int) ((panel_size.getHeight() - final_image.getIconHeight()) / 2));
                                         }
 
                                         dialog.setVisible(true);
@@ -2207,7 +2212,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                             tts_dialog.setLocation((int) loc.getX(), (int) (loc.getY() + h / 2));
                                         } else {
-                                            tts_dialog.setLocation(((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0])).getPanel_cartas().getLocationOnScreen());
+
+                                            var panel_cartas = ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0])).getPanel_cartas();
+
+                                            var icon_size = panel_cartas.getSize();
+
+                                            var panel_loc = panel_cartas.getLocationOnScreen();
+
+                                            var panel_size = panel_cartas.getSize();
+
+                                            tts_dialog.setLocation((int) panel_loc.getX() + (int) ((panel_size.getWidth() - icon_size.getWidth()) / 2), (int) panel_loc.getY() + (int) ((panel_size.getHeight() - icon_size.getHeight()) / 2));
+
                                         }
 
                                         tts_dialog.setVisible(true);
@@ -2230,7 +2245,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                             tts_dialog.setLocation((int) loc.getX(), (int) (loc.getY() + h / 2));
                                         } else {
-                                            tts_dialog.setLocation(((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0])).getPanel_cartas().getLocationOnScreen());
+                                            var panel_cartas = ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get((String) tts[0])).getPanel_cartas();
+
+                                            var icon_size = panel_cartas.getSize();
+
+                                            var panel_loc = panel_cartas.getLocationOnScreen();
+
+                                            var panel_size = panel_cartas.getSize();
+
+                                            tts_dialog.setLocation((int) panel_loc.getX() + (int) ((panel_size.getWidth() - icon_size.getWidth()) / 2), (int) panel_loc.getY() + (int) ((panel_size.getHeight() - icon_size.getHeight()) / 2));
+
                                         }
 
                                         tts_dialog.setVisible(true);

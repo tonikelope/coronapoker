@@ -2250,9 +2250,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                         sound_icon_size = player.getPanel_cartas().getHeight();
 
-                                        pos_x = panel_cartas.getWidth() - sound_icon_size;
+                                        pos_x = Math.round((panel_cartas.getWidth() - sound_icon_size) / 2);
 
-                                        pos_y = Math.round(panel_cartas.getHeight() / 2);
+                                        pos_y = Math.round((panel_cartas.getHeight() - sound_icon_size) / 2);
 
                                     }
 

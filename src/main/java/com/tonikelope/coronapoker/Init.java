@@ -139,13 +139,15 @@ public class Init extends javax.swing.JFrame {
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Huevos is not present!");
         }
-        /*
-        //Precargamos los emojis (COMENTAR ESTO DURANTE LAS PRUEBAS EN NETBEANS PARA QUE NO DEN ERROR LOS FORMULARIOS)
-        try {
-            Class.forName(EmojiPanel.class.getName(), true, EmojiPanel.class.getClassLoader());
-        } catch (ClassNotFoundException ex) {
-            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-        }*/
+
+        if (!DEV_MODE) {
+            //Precargamos los emojis
+            try {
+                Class.forName(EmojiPanel.class.getName(), true, EmojiPanel.class.getClassLoader());
+            } catch (ClassNotFoundException ex) {
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
     }
 
     public static String coronaHMACJ1(byte[] a, byte[] b) {

@@ -31,7 +31,7 @@ public class ChatNotifyDialog extends javax.swing.JDialog {
     private volatile Timer timer = null;
 
     /**
-     * Creates new form NickTTSDialog
+     * Creates new form ChatNotifyDialog
      */
     public ChatNotifyDialog(java.awt.Frame parent, boolean modal, String nick) {
         super(parent, modal);

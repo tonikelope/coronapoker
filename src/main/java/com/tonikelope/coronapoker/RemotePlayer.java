@@ -27,6 +27,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 import javax.swing.border.LineBorder;
@@ -72,8 +73,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer icon_zoom_timer = null;
     private volatile Timer iwtsth_blink_timer = null;
     private final Object zoom_lock = new Object();
+    private final JLabel chat_notify_label = new JLabel();
 
-    public JPanel getPanel_cartas() {
+    public JLabel getChat_notify_label() {
+        return chat_notify_label;
+    }
+
+    public JLayeredPane getPanel_cartas() {
         return panel_cartas;
     }
 
@@ -602,6 +608,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setBackground(null);
 
+                chat_notify_label.setVisible(false);
+
+                chat_notify_label.setDoubleBuffered(true);
+
+                chat_notify_label.setBackground(Color.YELLOW);
+
+                panel_cartas.add(chat_notify_label, JLayeredPane.POPUP_LAYER);
+
                 border_color = ((LineBorder) getBorder()).getLineColor();
 
                 danger.setVisible(false);
@@ -716,7 +730,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        panel_cartas = new javax.swing.JPanel();
+        panel_cartas = new javax.swing.JLayeredPane();
         playingCard1 = new com.tonikelope.coronapoker.Card();
         playingCard2 = new com.tonikelope.coronapoker.Card();
         indicadores_arriba = new javax.swing.JPanel();
@@ -734,31 +748,32 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         setFocusable(false);
         setOpaque(false);
 
-        panel_cartas.setFocusable(false);
-        panel_cartas.setOpaque(false);
-
         playingCard1.setFocusable(false);
 
         playingCard2.setFocusable(false);
+
+        panel_cartas.setLayer(playingCard1, javax.swing.JLayeredPane.DEFAULT_LAYER);
+        panel_cartas.setLayer(playingCard2, javax.swing.JLayeredPane.DEFAULT_LAYER);
 
         javax.swing.GroupLayout panel_cartasLayout = new javax.swing.GroupLayout(panel_cartas);
         panel_cartas.setLayout(panel_cartasLayout);
         panel_cartasLayout.setHorizontalGroup(
             panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_cartasLayout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
+                .addGap(0, 0, 0)
                 .addComponent(playingCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(playingCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, Short.MAX_VALUE))
+                .addGap(0, 0, 0))
         );
         panel_cartasLayout.setVerticalGroup(
             panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_cartasLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
                 .addGroup(panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(playingCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(playingCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(12, 12, 12))
         );
 
         indicadores_arriba.setFocusable(false);
@@ -910,14 +925,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(danger, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(panel_cartas, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(indicadores_arriba, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(player_action, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(player_action, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addGap(0, 0, 0)
+                        .addComponent(panel_cartas, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap())
-            .addComponent(danger, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1013,7 +1030,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel danger;
     private javax.swing.JPanel indicadores_arriba;
     private javax.swing.JPanel nick_panel;
-    private javax.swing.JPanel panel_cartas;
+    private javax.swing.JLayeredPane panel_cartas;
     private javax.swing.JLabel player_action;
     private javax.swing.JLabel player_name;
     private javax.swing.JLabel player_pot;

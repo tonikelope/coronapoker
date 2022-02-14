@@ -35,6 +35,7 @@ import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
@@ -95,8 +96,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean player_stack_click = false;
     private volatile String player_action_icon = null;
     private volatile Timer icon_zoom_timer = null;
+    private final JLabel chat_notify_label = new JLabel();
 
-    public JPanel getPanel_cartas() {
+    public JLayeredPane getPanel_cartas() {
         return panel_cartas;
     }
 
@@ -498,6 +500,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_stackMouseClicked(null);
     }
 
+    public JLabel getChat_notify_label() {
+        return chat_notify_label;
+    }
+
     /**
      * Creates new form JugadorLocalView
      */
@@ -510,6 +516,24 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 setOpaque(false);
 
                 setBackground(null);
+
+                chat_notify_label.setVisible(false);
+
+                chat_notify_label.setDoubleBuffered(true);
+
+                chat_notify_label.setBackground(Color.YELLOW);
+
+                chat_notify_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                chat_notify_label.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+
+                        chat_notify_label.setVisible(false);
+                    }
+                });
+
+                panel_cartas.add(chat_notify_label, JLayeredPane.POPUP_LAYER);
 
                 border_color = ((LineBorder) getBorder()).getLineColor();
 
@@ -1658,9 +1682,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        panel_cartas = new javax.swing.JPanel();
-        playingCard2 = new com.tonikelope.coronapoker.Card();
-        playingCard1 = new com.tonikelope.coronapoker.Card();
         indicadores_arriba = new javax.swing.JPanel();
         avatar_panel = new javax.swing.JPanel();
         avatar = new javax.swing.JLabel();
@@ -1676,37 +1697,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_bet_button = new javax.swing.JButton();
         bet_spinner = new javax.swing.JSpinner();
         player_action = new javax.swing.JLabel();
+        panel_cartas = new javax.swing.JLayeredPane();
+        playingCard2 = new com.tonikelope.coronapoker.Card();
+        playingCard1 = new com.tonikelope.coronapoker.Card();
 
         setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204, 75), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL*com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
         setFocusable(false);
         setOpaque(false);
-
-        panel_cartas.setFocusable(false);
-        panel_cartas.setOpaque(false);
-
-        playingCard2.setFocusable(false);
-
-        playingCard1.setFocusable(false);
-
-        javax.swing.GroupLayout panel_cartasLayout = new javax.swing.GroupLayout(panel_cartas);
-        panel_cartas.setLayout(panel_cartasLayout);
-        panel_cartasLayout.setHorizontalGroup(
-            panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panel_cartasLayout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
-                .addComponent(playingCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addComponent(playingCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, Short.MAX_VALUE))
-        );
-        panel_cartasLayout.setVerticalGroup(
-            panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panel_cartasLayout.createSequentialGroup()
-                .addGroup(panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(playingCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(playingCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
 
         indicadores_arriba.setFocusable(false);
         indicadores_arriba.setOpaque(false);
@@ -1920,6 +1917,34 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
         player_action.setOpaque(true);
 
+        playingCard2.setFocusable(false);
+
+        playingCard1.setFocusable(false);
+
+        panel_cartas.setLayer(playingCard2, javax.swing.JLayeredPane.DEFAULT_LAYER);
+        panel_cartas.setLayer(playingCard1, javax.swing.JLayeredPane.DEFAULT_LAYER);
+
+        javax.swing.GroupLayout panel_cartasLayout = new javax.swing.GroupLayout(panel_cartas);
+        panel_cartas.setLayout(panel_cartasLayout);
+        panel_cartasLayout.setHorizontalGroup(
+            panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panel_cartasLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(playingCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(playingCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0))
+        );
+        panel_cartasLayout.setVerticalGroup(
+            panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panel_cartasLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(playingCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(playingCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap())
+        );
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -1930,8 +1955,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     .addComponent(player_action, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(panel_cartas, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(indicadores_arriba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                            .addComponent(indicadores_arriba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(panel_cartas))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(botonera, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addContainerGap())
@@ -1948,7 +1973,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     .addComponent(botonera, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(0, 0, 0)
                 .addComponent(player_action, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
     }// </editor-fold>//GEN-END:initComponents
 
@@ -2367,7 +2392,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JPanel botonera;
     private javax.swing.JPanel indicadores_arriba;
     private javax.swing.JPanel nick_panel;
-    private javax.swing.JPanel panel_cartas;
+    private javax.swing.JLayeredPane panel_cartas;
     private javax.swing.JLabel player_action;
     private javax.swing.JButton player_allin_button;
     private javax.swing.JButton player_bet_button;

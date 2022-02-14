@@ -223,14 +223,6 @@ public class GameOverDialog extends javax.swing.JDialog {
             GameFrame.getInstance().getShortcuts_dialog().setVisible(false);
         }
 
-        if (GameFrame.getInstance().getTTS_dialog() != null && GameFrame.getInstance().getTTS_dialog().isVisible()) {
-            GameFrame.getInstance().getTTS_dialog().setVisible(false);
-        }
-
-        for (ChatNotifyDialog d : GameFrame.getInstance().getChat_notify_image_dialogs()) {
-            d.setVisible(false);
-        }
-
         continue_button.requestFocus();
 
         Helpers.threadRun(new Runnable() {

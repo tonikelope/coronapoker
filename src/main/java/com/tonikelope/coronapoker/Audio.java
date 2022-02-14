@@ -45,6 +45,7 @@ import java.util.regex.Pattern;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
+import javax.swing.JLabel;
 import javax.swing.Timer;
 import javazoom.jlgui.basicplayer.BasicController;
 import javazoom.jlgui.basicplayer.BasicPlayer;
@@ -656,7 +657,7 @@ public class Audio {
 
     }
 
-    public static void TTS(String mensaje, ChatNotifyDialog tts_dialog) {
+    public static void TTS(String mensaje, JLabel chat_notify_label) {
 
         synchronized (TTS_LOCK) {
 
@@ -772,7 +773,7 @@ public class Audio {
 
                                         GameFrame.getInstance().getSonidos_menu().setEnabled(false);
 
-                                        tts_dialog.setVisible(true);
+                                        chat_notify_label.setVisible(true);
                                     }
                                 });
                             }
@@ -791,7 +792,7 @@ public class Audio {
                             public void run() {
 
                                 GameFrame.getInstance().getSonidos_menu().setEnabled(true);
-                                tts_dialog.setVisible(false);
+                                chat_notify_label.setVisible(false);
                             }
                         });
 

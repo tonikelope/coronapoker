@@ -612,8 +612,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 chat_notify_label.setDoubleBuffered(true);
 
-                chat_notify_label.setBackground(Color.YELLOW);
-
                 panel_cartas.add(chat_notify_label, JLayeredPane.POPUP_LAYER);
 
                 border_color = ((LineBorder) getBorder()).getLineColor();

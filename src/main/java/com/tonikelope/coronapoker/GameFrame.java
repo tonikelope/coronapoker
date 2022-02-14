@@ -2256,11 +2256,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     }
 
-                                    Helpers.setResourceIconLabel(notify_label, getClass().getResource((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? "/images/sound_b.png" : "/images/mute_b.png"), sound_icon_size, sound_icon_size);
+                                    Helpers.setResourceIconLabel(notify_label, getClass().getResource((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? "/images/sound_b.png" : "/images/mute.png"), sound_icon_size, sound_icon_size);
 
                                     notify_label.setSize(sound_icon_size, sound_icon_size);
 
                                     notify_label.setPreferredSize(notify_label.getSize());
+                                    
+                                    notify_label.setBackground((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER)?Color.YELLOW:Color.RED);
 
                                     notify_label.setOpaque(true);
 

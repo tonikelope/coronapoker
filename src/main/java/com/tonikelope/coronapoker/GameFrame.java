@@ -2129,7 +2129,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 int max_width = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getWidth() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getWidth();
 
-                                int max_height = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? Math.round(GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getHeight() / 2) : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getHeight();
+                                int max_height = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? Math.round(GameFrame.getInstance().getTapete().getLocalPlayer().getPlayingCard1().getHeight() / 2) : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPlayingCard1().getHeight();
 
                                 if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
 
@@ -2173,7 +2173,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                             pos_x = panel_cartas.getWidth() - final_image.getIconWidth();
 
-                                            pos_y = Math.round(panel_cartas.getHeight() / 2);
+                                            pos_y = Math.round(player.getPlayingCard1().getHeight() / 2);
 
                                         } else {
 
@@ -2185,7 +2185,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                             pos_x = Math.round((panel_cartas.getWidth() - final_image.getIconWidth()) / 2);
 
-                                            pos_y = Math.round((panel_cartas.getHeight() - final_image.getIconHeight()) / 2);
+                                            pos_y = Math.round((player.getPlayingCard1().getHeight() - final_image.getIconHeight()) / 2);
 
                                         }
 
@@ -2250,11 +2250,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                         notify_label = player.getChat_notify_label();
 
-                                        sound_icon_size = Math.round(player.getPanel_cartas().getHeight() / 2);
+                                        sound_icon_size = Math.round(player.getPlayingCard1().getHeight() / 2);
 
                                         pos_x = panel_cartas.getWidth() - sound_icon_size;
 
-                                        pos_y = Math.round(panel_cartas.getHeight() / 2);
+                                        pos_y = Math.round(player.getPlayingCard1().getHeight() / 2);
 
                                     } else {
 
@@ -2264,11 +2264,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                         notify_label = player.getChat_notify_label();
 
-                                        sound_icon_size = player.getPanel_cartas().getHeight();
+                                        sound_icon_size = player.getPlayingCard1().getHeight();
 
                                         pos_x = Math.round((panel_cartas.getWidth() - sound_icon_size) / 2);
 
-                                        pos_y = Math.round((panel_cartas.getHeight() - sound_icon_size) / 2);
+                                        pos_y = 0;
 
                                     }
 

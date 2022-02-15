@@ -28,6 +28,7 @@ import javax.swing.Timer;
 public class PauseDialog extends javax.swing.JDialog {
 
     private volatile Timer timer = null;
+    private volatile Float last_zoom = null;
 
     /**
      * Creates new form Pausa
@@ -41,11 +42,19 @@ public class PauseDialog extends javax.swing.JDialog {
 
         pausa_label.setBackground(new Color(0, 0, 0, 0));
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+        last_zoom = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+
+        Helpers.preserveOriginalFontSizes(this);
+
+        Helpers.updateFonts(this, Helpers.GUI_FONT, last_zoom);
 
         Helpers.translateComponents(this, false);
 
+        Helpers.setResourceIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
+
         pack();
+
+        PauseDialog tthis = this;
 
         timer = new Timer(1000, new ActionListener() {
 
@@ -55,7 +64,34 @@ public class PauseDialog extends javax.swing.JDialog {
                 pausa_label.setVisible(!pausa_label.isVisible());
 
                 if (pausa_label.isVisible()) {
-                    pack();
+
+                    if (last_zoom != 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) {
+                        last_zoom = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
+                        pausa_label.setIcon(null);
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                Helpers.zoomFonts(pausa_label, last_zoom, null);
+
+                                Helpers.GUIRun(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        Helpers.setResourceIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
+                                        pack();
+                                        Helpers.setLocationContainerRelativeTo(getParent(), tthis);
+
+                                    }
+                                });
+
+                            }
+                        });
+
+                    } else {
+                        pack();
+                    }
+
                 }
 
             }
@@ -152,10 +188,6 @@ public class PauseDialog extends javax.swing.JDialog {
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
-
-        Helpers.setResourceIconLabel(pausa_label, getClass().getResource("/images/pause.png"), getHeight(), getHeight());
-
-        pack();
 
         this.timer.start();
     }//GEN-LAST:event_formWindowOpened

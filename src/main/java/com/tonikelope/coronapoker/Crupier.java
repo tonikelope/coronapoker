@@ -248,7 +248,6 @@ public class Crupier implements Runnable {
     private volatile int sqlite_id_game = -1;
     private volatile int sqlite_id_hand = -1;
     private volatile String permutation_key = null;
-    private volatile GifAnimationDialog gif_dialog = null;
     private volatile GameOverDialog gameover_dialog = null;
     private volatile String dealer_nick = null;
     private volatile String bb_nick = null;
@@ -775,10 +774,12 @@ public class Crupier implements Runnable {
                 if (icon != null) {
 
                     Helpers.threadRun(new Runnable() {
+                        private volatile GifAnimationDialog gif_dialog;
 
                         public void run() {
 
                             Helpers.GUIRun(new Runnable() {
+
                                 public void run() {
 
                                     gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, pausa > 0L ? (int) pausa : null);
@@ -2698,6 +2699,8 @@ public class Crupier implements Runnable {
             barajando = true;
 
             Helpers.threadRun(new Runnable() {
+                private volatile GifAnimationDialog gif_dialog;
+
                 public void run() {
                     if (GameFrame.CINEMATICAS) {
 
@@ -2708,6 +2711,7 @@ public class Crupier implements Runnable {
                         if (icon != null) {
 
                             Helpers.GUIRun(new Runnable() {
+
                                 public void run() {
                                     gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, 2500);
 

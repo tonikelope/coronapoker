@@ -22,13 +22,13 @@ public class ChatNotifyDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        msg.setText(message);
+        panel.getMsg().setText(message);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, (1f + ZOOM_LEVEL * ZOOM_STEP));
 
         Helpers.translateComponents(this, false);
 
-        Helpers.setResourceIconLabel(msg, getClass().getResource("/images/mute.png"), msg.getHeight(), msg.getHeight());
+        Helpers.setResourceIconLabel(panel.getMsg(), getClass().getResource("/images/mute.png"), panel.getMsg().getHeight(), panel.getMsg().getHeight());
 
         pack();
     }
@@ -42,53 +42,34 @@ public class ChatNotifyDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        panel = new javax.swing.JPanel();
-        msg = new javax.swing.JLabel();
+        panel = new com.tonikelope.coronapoker.ChatNotifyPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setAutoRequestFocus(false);
+        setFocusCycleRoot(false);
+        setFocusable(false);
+        setFocusableWindowState(false);
         setUndecorated(true);
-
-        panel.setBackground(new java.awt.Color(255, 0, 0));
-        panel.setForeground(new java.awt.Color(255, 255, 255));
-
-        msg.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
-        msg.setForeground(new java.awt.Color(255, 255, 255));
-        msg.setText("NICK: bla bla bla");
-        msg.setDoubleBuffered(true);
-
-        javax.swing.GroupLayout panelLayout = new javax.swing.GroupLayout(panel);
-        panel.setLayout(panelLayout);
-        panelLayout.setHorizontalGroup(
-            panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(msg)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-        panelLayout.setVerticalGroup(
-            panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(msg, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addContainerGap())
-        );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JLabel msg;
-    private javax.swing.JPanel panel;
+    private com.tonikelope.coronapoker.ChatNotifyPanel panel;
     // End of variables declaration//GEN-END:variables
 }

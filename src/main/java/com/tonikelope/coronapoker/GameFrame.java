@@ -1819,6 +1819,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
 
                 try {
+
+                    if (Files.exists(Paths.get(log_file))) {
+                        Files.move(Paths.get(log_file), Paths.get(log_file + ".bak" + String.valueOf(System.currentTimeMillis())));
+                    }
+
                     Files.writeString(Paths.get(log_file), getRegistro().getText());
                 } catch (IOException ex1) {
                     Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
@@ -1829,6 +1834,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".html";
 
                     try {
+
+                        if (Files.exists(Paths.get(chat_file))) {
+                            Files.move(Paths.get(log_file), Paths.get(chat_file + ".bak" + String.valueOf(System.currentTimeMillis())));
+                        }
+
                         Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");
 
                     } catch (IOException ex1) {
@@ -2088,6 +2098,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void TTSWatchdog() {
 
         Helpers.threadRun(new Runnable() {
+            private volatile ChatNotifyDialog notify_dialog;
+
             @Override
             public void run() {
 
@@ -2286,6 +2298,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                         JLabel notify_label = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getLocalPlayer().getChat_notify_label() : ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick)).getChat_notify_label();
 
                                         notify_label.setVisible(true);
+
+                                        notify_dialog = new ChatNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]));
+
+                                        notify_dialog.setLocation(getFrame().getLocation());
+
+                                        notify_dialog.setVisible(true);
                                     }
                                 });
 
@@ -2300,6 +2318,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                                 JLabel notify_label = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getLocalPlayer().getChat_notify_label() : ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick)).getChat_notify_label();
 
                                                 notify_label.setVisible(false);
+
+                                                notify_dialog.setVisible(false);
                                             }
                                         });
 

@@ -80,6 +80,10 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
+        setSize(getWidth(), Math.round(getParent().getHeight() * 0.9f));
+
+        setPreferredSize(getSize());
+
         pack();
 
         THIS = this;
@@ -399,7 +403,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Enviar imagen");
-        setModal(true);
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);

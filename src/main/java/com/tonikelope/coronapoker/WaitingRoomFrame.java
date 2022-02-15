@@ -1640,10 +1640,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                                     Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
 
+                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, GameFrame.TTS_SERVER ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR", Color.WHITE, Color.BLACK, null, 2000);
+
+                                                                    dialog.setVisible(true);
                                                                 }
                                                             });
-
-                                                            Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), GameFrame.TTS_SERVER ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR");
 
                                                             break;
 

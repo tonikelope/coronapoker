@@ -14,7 +14,7 @@ import javax.swing.JLabel;
  *
  * @author tonikelope
  */
-public class ChatNotifyPanel extends javax.swing.JPanel {
+public class InGameNotifyPanel extends javax.swing.JPanel {
 
     @Override
     public void paint(Graphics g) {
@@ -35,7 +35,7 @@ public class ChatNotifyPanel extends javax.swing.JPanel {
     /**
      * Creates new form ChatNotifyPanel
      */
-    public ChatNotifyPanel() {
+    public InGameNotifyPanel() {
         initComponents();
     }
 

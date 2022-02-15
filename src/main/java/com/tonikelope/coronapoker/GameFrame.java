@@ -196,9 +196,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile JLayer<JComponent> frame_layer = null;
     private volatile boolean retry = false;
     private volatile boolean fin = false;
-    private volatile ChatNotifyDialog notify_dialog = null;
+    private volatile InGameNotifyDialog notify_dialog = null;
 
-    public ChatNotifyDialog getNotify_dialog() {
+    public InGameNotifyDialog getNotify_dialog() {
         return notify_dialog;
     }
 
@@ -2303,7 +2303,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                         notify_label.setVisible(true);
 
-                                        notify_dialog = new ChatNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]));
+                                        notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
 
                                         notify_dialog.setLocation(getFrame().getLocation());
 
@@ -2314,7 +2314,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 Helpers.threadRun(new Runnable() {
                                     @Override
                                     public void run() {
-                                        Helpers.pausar(TTS_NO_SOUND_TIMEOUT);
+                                        Helpers.pausar(Math.max((long) Math.ceil(WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
 
                                         Helpers.GUIRun(new Runnable() {
                                             @Override
@@ -3779,6 +3779,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(null);
 
+                                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "TTS ACTIVADO POR EL SERVIDOR", new Color(0, 130, 0), Color.WHITE, null, 2000);
+
+                                dialog.setVisible(true);
+
                             }
                         });
 
@@ -3810,6 +3814,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(Color.RED);
 
                             Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(true);
+
+                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "TTS DESACTIVADO POR EL SERVIDOR", Color.RED, Color.WHITE, null, 2000);
+
+                            dialog.setVisible(true);
                         }
                     });
                 }

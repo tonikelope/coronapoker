@@ -341,11 +341,11 @@ public class Helpers {
 
     public static void setLocationContainerRelativeTo(Container reference, Container current) {
 
-        int reference_center_x = (int) (reference.getLocation().getX() + Math.round(reference.getWidth() / 2));
-        int reference_center_y = (int) (reference.getLocation().getY() + Math.round(reference.getHeight() / 2));
-
         Helpers.GUIRun(new Runnable() {
             public void run() {
+                int reference_center_x = (int) (reference.getLocation().getX() + Math.round(reference.getWidth() / 2));
+                int reference_center_y = (int) (reference.getLocation().getY() + Math.round(reference.getHeight() / 2));
+
                 current.setLocation(new Point(reference_center_x - Math.round(current.getWidth() / 2), reference_center_y - Math.round(current.getHeight() / 2)));
             }
         });

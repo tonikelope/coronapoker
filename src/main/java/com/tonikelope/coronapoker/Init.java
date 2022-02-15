@@ -383,6 +383,8 @@ public class Init extends javax.swing.JFrame {
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
+        pack();
+
         Helpers.setResourceIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
 
         setEnabled(false);

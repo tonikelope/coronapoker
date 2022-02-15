@@ -50,6 +50,8 @@ public class PauseDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
+        pack();
+
         Helpers.setResourceIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
 
         pack();
@@ -77,19 +79,16 @@ public class PauseDialog extends javax.swing.JDialog {
                                 Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
-
+                                        pack();
                                         Helpers.setResourceIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
                                         pack();
                                         Helpers.setLocationContainerRelativeTo(getParent(), tthis);
-
                                     }
                                 });
 
                             }
                         });
 
-                    } else {
-                        pack();
                     }
 
                 }
@@ -107,13 +106,12 @@ public class PauseDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jPanel1 = new javax.swing.JPanel();
+        panel = new javax.swing.JPanel();
         pausa_label = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         setUndecorated(true);
-        setResizable(false);
         addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 formMouseClicked(evt);
@@ -137,7 +135,7 @@ public class PauseDialog extends javax.swing.JDialog {
             }
         });
 
-        jPanel1.setBackground(new java.awt.Color(255, 102, 0));
+        panel.setBackground(new java.awt.Color(255, 102, 0));
 
         pausa_label.setFont(new java.awt.Font("Dialog", 1, 52)); // NOI18N
         pausa_label.setForeground(new java.awt.Color(255, 255, 255));
@@ -145,20 +143,20 @@ public class PauseDialog extends javax.swing.JDialog {
         pausa_label.setText("TIMBA PAUSADA");
         pausa_label.setDoubleBuffered(true);
 
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
+        javax.swing.GroupLayout panelLayout = new javax.swing.GroupLayout(panel);
+        panel.setLayout(panelLayout);
+        panelLayout.setHorizontalGroup(
+            panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(pausa_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
         );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
+        panelLayout.setVerticalGroup(
+            panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(pausa_label)
+                .addComponent(pausa_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
         );
 
@@ -166,11 +164,11 @@ public class PauseDialog extends javax.swing.JDialog {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();
@@ -216,7 +214,7 @@ public class PauseDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel panel;
     private javax.swing.JLabel pausa_label;
     // End of variables declaration//GEN-END:variables
 }

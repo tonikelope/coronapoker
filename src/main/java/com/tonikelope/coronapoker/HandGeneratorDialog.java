@@ -41,6 +41,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
         Helpers.setTranslatedTitle(this, TITLE);
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
+        pack();
         cartas = new Card[]{card1, card2, card3, card4, card5};
         for (Card c : cartas) {
             c.setCompactable(false);

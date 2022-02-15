@@ -117,11 +117,13 @@ public class StatsDialog extends javax.swing.JDialog {
 
         original_dialog_font = res_table.getFont();
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.translateComponents(this, false);
+        pack();
         res_table.setFont(original_dialog_font);
         showdown_table.setFont(original_dialog_font);
         hand_comcards_val.setFont(original_dialog_font);
         game_textarea.setFont(original_dialog_font);
-        Helpers.translateComponents(this, false);
+
         setTitle("CoronaPoker " + AboutDialog.VERSION + " - " + Translator.translate(getTitle()));
         stats_combo.setSelectedIndex(-1);
 

@@ -2261,8 +2261,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     notify_label.setSize(sound_icon_size, sound_icon_size);
 
                                     notify_label.setPreferredSize(notify_label.getSize());
-                                    
-                                    notify_label.setBackground((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER)?Color.YELLOW:Color.RED);
+
+                                    notify_label.setBackground((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? Color.YELLOW : Color.RED);
 
                                     notify_label.setOpaque(true);
 

@@ -174,9 +174,10 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         if (!(STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url))) {
 
             IMAGE_THREAD_POOL.submit(new Runnable() {
-                public void run() {
+                private volatile ImageIcon image;
+                private volatile Boolean isgif;
 
-                    ImageIcon image;
+                public void run() {
 
                     try {
 
@@ -184,20 +185,27 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                         if ((STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
-                            Boolean isgif = null;
+                            isgif = null;
 
                             if (image.getIconWidth() > ChatImageURLDialog.MAX_IMAGE_WIDTH) {
 
-                                image = new ImageIcon(image.getImage().getScaledInstance(ChatImageURLDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageURLDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), (isgif = Helpers.isImageURLGIF(new URL(url))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-                            }
+                                isgif = Helpers.isImageURLGIF(new URL(url));
 
-                            ImageIcon final_image = image;
+                                Helpers.GUIRun(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        image = new ImageIcon(image.getImage().getScaledInstance(ChatImageURLDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageURLDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                    }
+                                });
+
+                            }
 
                             Helpers.GUIRun(new Runnable() {
                                 @Override
                                 public void run() {
 
-                                    label.setIcon(final_image);
+                                    label.setIcon(image);
                                 }
                             });
 

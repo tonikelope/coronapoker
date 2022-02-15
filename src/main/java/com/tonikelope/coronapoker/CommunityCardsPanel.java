@@ -804,6 +804,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 GameFrame.getInstance().getFastchat_dialog().refreshColors();
             }
 
+            if (GameFrame.getInstance().getNotify_dialog() != null) {
+                GameFrame.getInstance().getNotify_dialog().repaint();
+            }
+
             GameFrame.getInstance().getTapete().repaint();
         }
 

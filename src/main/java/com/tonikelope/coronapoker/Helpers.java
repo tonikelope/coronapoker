@@ -339,7 +339,7 @@ public class Helpers {
 
     }
 
-    public static void containerSetLocationRelativeTo(Container reference, Container current) {
+    public static void setLocationContainerRelativeTo(Container reference, Container current) {
 
         int reference_center_x = (int) (reference.getLocation().getX() + Math.round(reference.getWidth() / 2));
         int reference_center_y = (int) (reference.getLocation().getY() + Math.round(reference.getHeight() / 2));
@@ -1790,7 +1790,7 @@ public class Helpers {
         return THREAD_POOL.submit(c);
     }
 
-    public static void loadOriginalFontSizes(final Component component) {
+    public static void preserveOriginalFontSizes(final Component component) {
 
         if (component != null) {
 
@@ -1799,7 +1799,7 @@ public class Helpers {
                 for (Component child : ((javax.swing.JMenu) component).getMenuComponents()) {
                     if (child instanceof JMenuItem) {
 
-                        loadOriginalFontSizes(child);
+                        preserveOriginalFontSizes(child);
                     }
                 }
 
@@ -1808,7 +1808,7 @@ public class Helpers {
                 for (Component child : ((Container) component).getComponents()) {
                     if (child instanceof Container) {
 
-                        loadOriginalFontSizes(child);
+                        preserveOriginalFontSizes(child);
                     }
                 }
             }

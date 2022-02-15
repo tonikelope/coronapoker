@@ -160,10 +160,8 @@ public class GifAnimationDialog extends javax.swing.JDialog {
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
         // TODO add your handling code here
 
-        if (SwingUtilities.isRightMouseButton(evt)) {
+        setVisible(false);
 
-            setVisible(false);
-        }
     }//GEN-LAST:event_formMouseClicked
 
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated

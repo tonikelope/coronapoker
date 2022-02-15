@@ -196,6 +196,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile JLayer<JComponent> frame_layer = null;
     private volatile boolean retry = false;
     private volatile boolean fin = false;
+    private volatile ChatNotifyDialog notify_dialog = null;
+
+    public ChatNotifyDialog getNotify_dialog() {
+        return notify_dialog;
+    }
 
     public static void resetInstance() {
 
@@ -1312,7 +1317,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     setupGlobalShortcuts();
 
-                    Helpers.loadOriginalFontSizes(frame);
+                    Helpers.preserveOriginalFontSizes(frame);
 
                     Helpers.updateFonts(frame, Helpers.GUI_FONT, null);
 
@@ -1459,7 +1464,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 Helpers.GUIRun(new Runnable() {
                                     public void run() {
                                         try {
-                                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon((byte[]) Init.M2.invoke(null, "e")), 12000);
+                                            gif_dialog = new GifAnimationDialog(getFrame(), false, new ImageIcon((byte[]) Init.M2.invoke(null, "e")), 12000);
                                             gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                             gif_dialog.setVisible(true);
                                         } catch (Exception ex) {
@@ -1674,7 +1679,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         addMouseWheelListener(this);
 
-        Helpers.loadOriginalFontSizes(THIS);
+        Helpers.preserveOriginalFontSizes(THIS);
 
         Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
 
@@ -1960,7 +1965,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Helpers.GUIRun(new Runnable() {
                     public void run() {
-                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon);
+                        gif_dialog = new GifAnimationDialog(getFrame(), true, icon);
 
                         gif_dialog.addMouseListener(new MouseAdapter() {
                             @Override
@@ -2098,7 +2103,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void TTSWatchdog() {
 
         Helpers.threadRun(new Runnable() {
-            private volatile ChatNotifyDialog notify_dialog;
 
             @Override
             public void run() {
@@ -3708,7 +3712,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             shortcuts_dialog = new ShortcutsDialog(GameFrame.getInstance().getFrame(), false);
 
-            Helpers.loadOriginalFontSizes(shortcuts_dialog);
+            Helpers.preserveOriginalFontSizes(shortcuts_dialog);
 
         }
 

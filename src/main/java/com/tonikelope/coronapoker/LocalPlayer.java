@@ -715,6 +715,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             player_check_button.setText("PASAR");
                             player_check_button.setBackground(new Color(0, 130, 0));
                             player_check_button.setForeground(Color.WHITE);
+
+                            if (pre_pulsado == Player.FOLD) {
+                                desPrePulsarBoton(player_fold_button);
+                            }
+
                             player_fold_button.setEnabled(false);
                         } else {
                             player_check_button.setText(Translator.translate("IR") + " (+" + Helpers.float2String(call_required) + ")");
@@ -724,6 +729,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             player_fold_button.setForeground(Color.WHITE);
                         }
 
+                    } else {
+
+                        if (pre_pulsado == Player.CHECK) {
+                            desPrePulsarBoton(player_check_button);
+                        }
+
+                        player_check_button.setIcon(null);
+                        player_check_button.setText(" ");
+                        player_check_button.setEnabled(false);
                     }
 
                     guardarColoresBotonesAccion();
@@ -946,28 +960,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         if (!auto_pause && GameFrame.AUTO_ACTION_BUTTONS && pre_pulsado != Player.NODEC) {
 
-                            if (pre_pulsado == Player.FOLD) {
+                            if (player_fold_button.isEnabled() && pre_pulsado == Player.FOLD) {
 
-                                if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                                    player_fold_button.doClick();
-                                } else {
-                                    player_check_button.doClick();
-                                }
+                                player_fold_button.doClick();
 
-                            } else if (pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getFase() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0))) {
+                            } else if (player_check_button.isEnabled() && pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getFase() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0))) {
 
                                 player_check_button.doClick();
 
                             } else {
 
                                 desPrePulsarTodo();
-
-                                player_check_button.setBackground(null);
-                                player_check_button.setForeground(null);
-                                player_fold_button.setBackground(Color.DARK_GRAY);
-                                player_fold_button.setForeground(Color.WHITE);
                             }
-
                         }
 
                         if (auto_pause) {

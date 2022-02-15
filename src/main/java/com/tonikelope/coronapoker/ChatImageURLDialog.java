@@ -175,7 +175,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
             IMAGE_THREAD_POOL.submit(new Runnable() {
                 private volatile ImageIcon image;
-                private volatile Boolean isgif;
 
                 public void run() {
 
@@ -185,13 +184,13 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                         if ((STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
-                            isgif = null;
+                            Boolean isgif;
 
                             if (image.getIconWidth() > ChatImageURLDialog.MAX_IMAGE_WIDTH) {
 
                                 isgif = Helpers.isImageURLGIF(new URL(url));
 
-                                Helpers.GUIRun(new Runnable() {
+                                Helpers.GUIRunAndWait(new Runnable() {
                                     @Override
                                     public void run() {
 
@@ -199,6 +198,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                     }
                                 });
 
+                            } else {
+                                isgif = GIF_CACHE.containsKey(url);
                             }
 
                             Helpers.GUIRun(new Runnable() {
@@ -209,9 +210,9 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                 }
                             });
 
-                            if ((isgif != null && isgif) || (!GIF_CACHE.containsKey(url) && Helpers.isImageURLGIF(new URL(url)))) {
+                            if (isgif || (!GIF_CACHE.containsKey(url) && Helpers.isImageURLGIF(new URL(url)))) {
 
-                                GIF_CACHE.put(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
+                                GIF_CACHE.putIfAbsent(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
 
                             } else if (!GIF_CACHE.containsKey(url)) {
 

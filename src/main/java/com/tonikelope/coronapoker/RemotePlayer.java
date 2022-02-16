@@ -201,6 +201,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     setPlayerActionIcon("exit.png");
                     player_action.setVisible(true);
 
+                    chip_label.setVisible(false);
+
                 }
             });
 
@@ -1107,7 +1109,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             setAvatar();
                             utgIconZoom();
                             actionIconZoom();
-                            nickIconZoom();
+                            nickChipIconZoom();
                             refreshChipLabel();
 
                         }
@@ -1277,17 +1279,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
 
-                        if (GameFrame.LOCAL_POSITION_CHIP) {
-                            chip_label.setIcon(Helpers.IMAGEN_DEALER);
-                            chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
-                            chip_label.setLocation(0, 0);
-                            chip_label.revalidate();
-                            chip_label.repaint();
+                        chip_label.setIcon(Helpers.IMAGEN_DEALER);
+                        chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
+                        chip_label.setLocation(0, 0);
+                        chip_label.revalidate();
+                        chip_label.repaint();
 
-                            chip_label.setVisible(true);
-                        } else {
-                            chip_label.setVisible(false);
-                        }
+                        chip_label.setVisible(true);
+
                     }
                 });
 
@@ -1314,18 +1313,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
 
-                        if (GameFrame.LOCAL_POSITION_CHIP) {
-                            chip_label.setIcon(Helpers.IMAGEN_BB);
-                            chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
-                            chip_label.setLocation(0, 0);
-                            chip_label.revalidate();
-                            chip_label.repaint();
-                            chip_label.setVisible(true);
-                        } else {
-
-                            chip_label.setVisible(false);
-
-                        }
+                        chip_label.setIcon(Helpers.IMAGEN_BB);
+                        chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
+                        chip_label.setLocation(0, 0);
+                        chip_label.revalidate();
+                        chip_label.repaint();
+                        chip_label.setVisible(true);
 
                     }
                 });
@@ -1348,18 +1341,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     public void run() {
 
                         Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-                        if (GameFrame.LOCAL_POSITION_CHIP) {
-                            chip_label.setIcon(Helpers.IMAGEN_SB);
-                            chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
-                            chip_label.setLocation(0, 0);
-                            chip_label.revalidate();
-                            chip_label.repaint();
-                            chip_label.setVisible(true);
-                        } else {
 
-                            chip_label.setVisible(false);
+                        chip_label.setIcon(Helpers.IMAGEN_SB);
+                        chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
+                        chip_label.setLocation(0, 0);
+                        chip_label.revalidate();
+                        chip_label.repaint();
+                        chip_label.setVisible(true);
 
-                        }
                     }
                 });
 
@@ -1545,25 +1534,25 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             icon = null;
         }
 
-        if (icon != null) {
-
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                if (isActivo() && icon != null) {
                     chip_label.setIcon(icon);
                     chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
                     chip_label.setLocation(0, 0);
                     chip_label.revalidate();
                     chip_label.repaint();
+                    chip_label.setVisible(true);
 
-                    if (GameFrame.LOCAL_POSITION_CHIP) {
-                        chip_label.setVisible(true);
-                    }
+                } else {
 
+                    chip_label.setVisible(false);
                 }
-            });
-        }
+
+            }
+        });
+
     }
 
     public void resetBetDecision() {
@@ -1674,6 +1663,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_name.setBackground(null);
                     player_name.setIcon(null);
 
+                    chip_label.setVisible(false);
+
                     if (buyin > GameFrame.BUYIN) {
                         player_stack.setBackground(Color.CYAN);
 
@@ -1757,18 +1748,27 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    private void nickIconZoom() {
+    private void nickChipIconZoom() {
 
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
-                    Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-                } else if (nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
-                    Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-                } else if (nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
-                    Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+                if (isActivo()) {
+                    if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
+                        Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+                    } else if (nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+                        Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+                    } else if (nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
+                        Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+                    } else {
+                        player_name.setIcon(null);
+                    }
+                } else {
+                    player_name.setIcon(null);
                 }
+
+                player_name.revalidate();
+                player_name.repaint();
             }
         });
     }

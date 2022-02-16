@@ -22,6 +22,8 @@ import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -74,6 +76,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer iwtsth_blink_timer = null;
     private final Object zoom_lock = new Object();
     private final JLabel chat_notify_label = new JLabel();
+    private final JLabel chip_label = new JLabel();
+
+    public JLabel getChip_label() {
+        return chip_label;
+    }
 
     public JLabel getChat_notify_label() {
         return chat_notify_label;
@@ -612,7 +619,27 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 chat_notify_label.setDoubleBuffered(true);
 
+                chat_notify_label.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+
+                        chat_notify_label.setVisible(false);
+                    }
+                });
+
                 panel_cartas.add(chat_notify_label, JLayeredPane.POPUP_LAYER);
+
+                chip_label.setVisible(false);
+
+                chip_label.setDoubleBuffered(true);
+
+                chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                chip_label.setOpaque(false);
+
+                chip_label.setSize(new Dimension(100, 100));
+
+                panel_cartas.add(chip_label, JLayeredPane.POPUP_LAYER);
 
                 border_color = ((LineBorder) getBorder()).getLineColor();
 
@@ -1058,6 +1085,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             utgIconZoom();
                             actionIconZoom();
                             nickIconZoom();
+                            refreshPos();
 
                         }
                     });
@@ -1096,6 +1124,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         utg_icon.setVisible(false);
 
                         player_name.setIcon(null);
+
+                        chip_label.setVisible(false);
                     }
                 });
 
@@ -1218,16 +1248,25 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         switch (pos) {
             case Player.DEALER:
-
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
 
                         Helpers.setResourceIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+
+                        if (GameFrame.LOCAL_POSITION_CHIP) {
+                            chip_label.setIcon(Helpers.IMAGEN_DEALER);
+                            chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
+                            chip_label.setLocation(0, 0);
+                            chip_label.revalidate();
+                            chip_label.repaint();
+
+                            chip_label.setVisible(true);
+                        } else {
+                            chip_label.setVisible(false);
+                        }
                     }
                 });
-
-                this.getPlayingCard1().setPosChip(Player.DEALER, 1);
 
                 if (GameFrame.getInstance().getCrupier().getDealer_nick().equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
                     if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
@@ -1237,6 +1276,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         //Vamos ALLIN
                         setDecision(Player.ALLIN);
+
                         setBet(stack);
                     }
                 } else {
@@ -1245,16 +1285,27 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 break;
             case Player.BIG_BLIND:
-
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
 
                         Helpers.setResourceIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+
+                        if (GameFrame.LOCAL_POSITION_CHIP) {
+                            chip_label.setIcon(Helpers.IMAGEN_BB);
+                            chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
+                            chip_label.setLocation(0, 0);
+                            chip_label.revalidate();
+                            chip_label.repaint();
+                            chip_label.setVisible(true);
+                        } else {
+
+                            chip_label.setVisible(false);
+
+                        }
+
                     }
                 });
-
-                this.getPlayingCard1().setPosChip(Player.BIG_BLIND, 1);
 
                 if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0) {
                     setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
@@ -1263,21 +1314,31 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     //Vamos ALLIN
                     setDecision(Player.ALLIN);
+
                     setBet(stack);
                 }
 
                 break;
             case Player.SMALL_BLIND:
-
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
 
                         Helpers.setResourceIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+                        if (GameFrame.LOCAL_POSITION_CHIP) {
+                            chip_label.setIcon(Helpers.IMAGEN_SB);
+                            chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
+                            chip_label.setLocation(0, 0);
+                            chip_label.revalidate();
+                            chip_label.repaint();
+                            chip_label.setVisible(true);
+                        } else {
+
+                            chip_label.setVisible(false);
+
+                        }
                     }
                 });
-
-                this.getPlayingCard1().setPosChip(Player.SMALL_BLIND, 1);
 
                 if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
                     setBet(GameFrame.getInstance().getCrupier().getCiega_pequeña());
@@ -1295,6 +1356,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
+
                         player_name.setOpaque(false);
                         player_name.setBackground(null);
 
@@ -1305,10 +1367,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         }
 
                         player_name.setIcon(null);
+
+                        chip_label.setVisible(false);
                     }
                 });
-
-                this.getPlayingCard1().resetPosChip();
 
                 setBet(0f);
 
@@ -1746,9 +1808,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Audio.playWavResource("misc/uncover.wav", false);
             }
 
-            getPlayingCard1().setPosChip_visible(false);
+            chip_label.setVisible(false);
+
             getPlayingCard1().destapar(false);
-            getPlayingCard2().setPosChip_visible(false);
+
             getPlayingCard2().destapar(false);
 
             if (iwtsth_blink_timer.isRunning()) {

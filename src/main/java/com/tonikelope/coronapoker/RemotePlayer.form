@@ -29,7 +29,7 @@
               <Group type="103" groupAlignment="0" attributes="0">
                   <Component id="indicadores_arriba" alignment="1" max="32767" attributes="0"/>
                   <Component id="player_action" alignment="0" max="32767" attributes="0"/>
-                  <Component id="panel_cartas" alignment="1" min="-2" max="-2" attributes="0"/>
+                  <Component id="panel_cartas" alignment="1" max="32767" attributes="0"/>
               </Group>
               <EmptySpace max="-2" attributes="0"/>
           </Group>
@@ -43,7 +43,7 @@
               <EmptySpace max="-2" attributes="0"/>
               <Component id="indicadores_arriba" min="-2" max="-2" attributes="0"/>
               <EmptySpace type="unrelated" max="-2" attributes="0"/>
-              <Component id="panel_cartas" min="-2" max="-2" attributes="0"/>
+              <Component id="panel_cartas" max="32767" attributes="0"/>
               <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
               <Component id="player_action" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
@@ -53,6 +53,9 @@
   </Layout>
   <SubComponents>
     <Container class="javax.swing.JLayeredPane" name="panel_cartas">
+      <Properties>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
+      </Properties>
 
       <Layout>
         <DimensionLayout dim="0">
@@ -74,7 +77,7 @@
                       <Component id="playingCard1" min="-2" max="-2" attributes="0"/>
                       <Component id="playingCard2" min="-2" max="-2" attributes="0"/>
                   </Group>
-                  <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
+                  <EmptySpace max="-2" attributes="0"/>
               </Group>
           </Group>
         </DimensionLayout>

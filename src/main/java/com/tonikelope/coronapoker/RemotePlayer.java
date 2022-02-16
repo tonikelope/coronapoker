@@ -624,6 +624,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 chat_notify_label.setVisible(false);
 
                 chat_notify_label.setDoubleBuffered(true);
+                
+                chat_notify_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
                 chat_notify_label.addMouseListener(new MouseAdapter() {
                     @Override

@@ -48,7 +48,7 @@
                   <Group type="102" attributes="0">
                       <Component id="indicadores_arriba" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                      <Component id="panel_cartas" min="-2" max="-2" attributes="0"/>
+                      <Component id="panel_cartas" max="32767" attributes="0"/>
                   </Group>
                   <Component id="botonera" max="32767" attributes="0"/>
               </Group>
@@ -409,6 +409,9 @@
       </Properties>
     </Component>
     <Container class="javax.swing.JLayeredPane" name="panel_cartas">
+      <Properties>
+        <Property name="doubleBuffered" type="boolean" value="true"/>
+      </Properties>
 
       <Layout>
         <DimensionLayout dim="0">

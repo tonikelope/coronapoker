@@ -87,8 +87,8 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
 
         pack();
 
-        Helpers.setResourceIconButton(yes, getClass().getResource("/images/action/plug.png"), yes.getHeight(), yes.getHeight());
-        Helpers.setResourceIconButton(exit_button, getClass().getResource("/images/exit.png"), exit_button.getHeight(), exit_button.getHeight());
+        Helpers.setScaledIconButton(yes, getClass().getResource("/images/action/plug.png"), yes.getHeight(), yes.getHeight());
+        Helpers.setScaledIconButton(exit_button, getClass().getResource("/images/exit.png"), exit_button.getHeight(), exit_button.getHeight());
 
         pack();
 

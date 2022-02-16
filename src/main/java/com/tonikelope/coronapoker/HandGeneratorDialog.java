@@ -47,8 +47,8 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             c.setCompactable(false);
         }
 
-        Helpers.setResourceIconButton(inferior_button, getClass().getResource("/images/down.png"), inferior_button.getHeight(), inferior_button.getHeight());
-        Helpers.setResourceIconButton(superior_button, getClass().getResource("/images/up.png"), superior_button.getHeight(), superior_button.getHeight());
+        Helpers.setScaledIconButton(inferior_button, getClass().getResource("/images/down.png"), inferior_button.getHeight(), inferior_button.getHeight());
+        Helpers.setScaledIconButton(superior_button, getClass().getResource("/images/up.png"), superior_button.getHeight(), superior_button.getHeight());
 
         pack();
 

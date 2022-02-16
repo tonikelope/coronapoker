@@ -65,6 +65,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -285,7 +286,7 @@ public class Helpers {
 
     }
 
-    public static boolean isImageURLGIF(URL url) {
+    public static boolean isImageGIF(URL url) {
 
         try {
             ImageInputStream iis = ImageIO.createImageInputStream(url.openStream());
@@ -360,26 +361,34 @@ public class Helpers {
                 .collect(Collectors.joining());
     }
 
-    public static void setResourceIconLabel(JLabel label, String path, int width, int height) {
+    public static void setScaledIconLabel(JLabel label, String path, int width, int height) {
 
-        label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH)));
+        try {
+            label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+        } catch (MalformedURLException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
-    public static void setResourceIconLabel(JLabel label, URL path, int width, int height) {
+    public static void setScaledIconLabel(JLabel label, URL path, int width, int height) {
 
-        label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH)));
-
-    }
-
-    public static void setResourceIconButton(JButton button, String path, int width, int height) {
-
-        button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH)));
+        label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
 
     }
 
-    public static void setResourceIconButton(JButton button, URL path, int width, int height) {
+    public static void setScaledIconButton(JButton button, String path, int width, int height) {
 
-        button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH)));
+        try {
+            button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+        } catch (MalformedURLException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    public static void setScaledIconButton(JButton button, URL path, int width, int height) {
+
+        button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
 
     }
 

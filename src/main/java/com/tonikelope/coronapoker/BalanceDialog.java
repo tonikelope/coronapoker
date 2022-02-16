@@ -86,15 +86,15 @@ public class BalanceDialog extends javax.swing.JDialog {
 
             if (!"".equals(avatar_path) && !"*".equals(avatar_path)) {
 
-                Helpers.setResourceIconLabel(label, avatar_path, NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledIconLabel(label, avatar_path, NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             } else if ("*".equals(avatar_path)) {
 
-                Helpers.setResourceIconLabel(label, getClass().getResource("/images/avatar_bot.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledIconLabel(label, getClass().getResource("/images/avatar_bot.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             } else {
 
-                Helpers.setResourceIconLabel(label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledIconLabel(label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             }
 
             ranking.add(new Object[]{ganancia, label});
@@ -115,13 +115,13 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         pack();
 
-        Helpers.setResourceIconButton(log_button, getClass().getResource("/images/log.png"), log_button.getHeight(), log_button.getHeight());
+        Helpers.setScaledIconButton(log_button, getClass().getResource("/images/log.png"), log_button.getHeight(), log_button.getHeight());
 
-        Helpers.setResourceIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
+        Helpers.setScaledIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
 
-        Helpers.setResourceIconButton(exit_button, getClass().getResource("/images/exit.png"), exit_button.getHeight(), exit_button.getHeight());
+        Helpers.setScaledIconButton(exit_button, getClass().getResource("/images/exit.png"), exit_button.getHeight(), exit_button.getHeight());
 
-        Helpers.setResourceIconButton(retry_button, getClass().getResource("/images/start.png"), retry_button.getHeight(), retry_button.getHeight());
+        Helpers.setScaledIconButton(retry_button, getClass().getResource("/images/start.png"), retry_button.getHeight(), retry_button.getHeight());
 
         pack();
 

@@ -42,7 +42,7 @@ public class InGameNotifyDialog extends javax.swing.JDialog {
         pack();
 
         if (icon_path != null) {
-            Helpers.setResourceIconLabel(panel.getMsg(), icon_path, panel.getMsg().getHeight(), panel.getMsg().getHeight());
+            Helpers.setScaledIconLabel(panel.getMsg(), icon_path, panel.getMsg().getHeight(), panel.getMsg().getHeight());
             pack();
         }
 

@@ -605,9 +605,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         emoji_button.setEnabled(false);
 
-        Helpers.setResourceIconLabel(send_label, getClass().getResource("/images/start.png"), chat_box.getHeight(), chat_box.getHeight());
+        Helpers.setScaledIconLabel(send_label, getClass().getResource("/images/start.png"), chat_box.getHeight(), chat_box.getHeight());
 
-        Helpers.setResourceIconLabel(max_min_label, getClass().getResource("/images/maximize.png"), chat_box.getHeight(), chat_box.getHeight());
+        Helpers.setScaledIconLabel(max_min_label, getClass().getResource("/images/maximize.png"), chat_box.getHeight(), chat_box.getHeight());
 
         send_label.setVisible(false);
 
@@ -676,7 +676,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             pass_icon.setVisible(false);
         }
 
-        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
         kick_user.setEnabled(false);
 
@@ -688,7 +688,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (avatar != null) {
             avatar_label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            Helpers.setResourceIconLabel(avatar_label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+            Helpers.setScaledIconLabel(avatar_label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             try {
                 ImageIO.write(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(local_avatar.getAbsolutePath()).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()), "png", new File(local_avatar.getAbsolutePath() + "_chat"));
                 local_avatar_chat_src = new File(local_avatar.getAbsolutePath() + "_chat").toURI().toURL().toExternalForm();
@@ -700,7 +700,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         } else {
             avatar_label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            Helpers.setResourceIconLabel(avatar_label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+            Helpers.setScaledIconLabel(avatar_label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             local_avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         }
 
@@ -733,9 +733,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
 
             if (local_avatar != null) {
-                Helpers.setResourceIconLabel(label, local_avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledIconLabel(label, local_avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             } else {
-                Helpers.setResourceIconLabel(label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledIconLabel(label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             }
 
             listModel.addElement(label);
@@ -761,9 +761,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         Helpers.translateComponents(this, false);
 
-        Helpers.setResourceIconButton(empezar_timba, getClass().getResource("/images/start.png"), Math.round(empezar_timba.getHeight() * 0.8f), Math.round(empezar_timba.getHeight() * 0.8f));
+        Helpers.setScaledIconButton(empezar_timba, getClass().getResource("/images/start.png"), Math.round(empezar_timba.getHeight() * 0.8f), Math.round(empezar_timba.getHeight() * 0.8f));
 
-        Helpers.setResourceIconButton(kick_user, getClass().getResource("/images/kick.png"), kick_user.getHeight(), kick_user.getHeight());
+        Helpers.setScaledIconButton(kick_user, getClass().getResource("/images/kick.png"), kick_user.getHeight(), kick_user.getHeight());
 
         chat_box.setPreferredSize(new Dimension(Math.round((float) (chat_box.getSize().getWidth() * 0.5f)), (int) chat_box.getSize().getHeight()));
 
@@ -2626,9 +2626,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
 
                 if (avatar != null) {
-                    Helpers.setResourceIconLabel(label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                    Helpers.setScaledIconLabel(label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
                 } else {
-                    Helpers.setResourceIconLabel(label, getClass().getResource((server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                    Helpers.setScaledIconLabel(label, getClass().getResource((server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
                 }
 
                 ((DefaultListModel) conectados.getModel()).addElement(label);
@@ -3410,7 +3410,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         Helpers.savePropertiesFile();
 
-        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
         if (!GameFrame.SONIDOS) {
 
@@ -3747,7 +3747,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
 
-        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
         if (!chat_text.toString().isEmpty() && !protect_focus) {
             refreshChatPanel();
@@ -3780,7 +3780,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void max_min_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_max_min_labelMouseClicked
         // TODO add your handling code here:
         panel_arriba.setVisible(!panel_arriba.isVisible());
-        Helpers.setResourceIconLabel(max_min_label, getClass().getResource("/images/" + (panel_arriba.isVisible() ? "maximize" : "minimize") + ".png"), chat_box.getHeight(), chat_box.getHeight());
+        Helpers.setScaledIconLabel(max_min_label, getClass().getResource("/images/" + (panel_arriba.isVisible() ? "maximize" : "minimize") + ".png"), chat_box.getHeight(), chat_box.getHeight());
 
         Helpers.threadRun(new Runnable() {
             public void run() {

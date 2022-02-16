@@ -127,7 +127,7 @@ public class StatsDialog extends javax.swing.JDialog {
         setTitle("CoronaPoker " + AboutDialog.VERSION + " - " + Translator.translate(getTitle()));
         stats_combo.setSelectedIndex(-1);
 
-        Helpers.setResourceIconLabel(title, getClass().getResource("/images/stats.png"), title.getHeight(), title.getHeight());
+        Helpers.setScaledIconLabel(title, getClass().getResource("/images/stats.png"), title.getHeight(), title.getHeight());
 
         cargando.setIndeterminate(true);
 

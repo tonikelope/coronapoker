@@ -2103,6 +2103,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void TTSWatchdog() {
 
         Helpers.threadRun(new Runnable() {
+            private volatile boolean temp_notify_blocked;
 
             @Override
             public void run() {
@@ -2119,116 +2120,122 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         if (tts[1] instanceof URL) {
 
-                            try {
+                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) || !((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick)).isNotify_blocked()) {
 
-                                String url = ((URL) tts[1]).toString();
+                                try {
 
-                                int gif_l = ChatImageURLDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageURLDialog.GIF_CACHE.get(url)[1] : -1;
+                                    String url = ((URL) tts[1]).toString();
 
-                                ImageIcon image = new ImageIcon(new URL(url + "#" + Helpers.genRandomString(20)));
+                                    int gif_l = ChatImageURLDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageURLDialog.GIF_CACHE.get(url)[1] : -1;
 
-                                int max_width = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getWidth() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getWidth();
+                                    ImageIcon image = new ImageIcon(new URL(url + "#" + Helpers.genRandomString(20)));
 
-                                int max_height = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? Math.round(GameFrame.getInstance().getTapete().getLocalPlayer().getPlayingCard1().getHeight() / 2) : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPlayingCard1().getHeight();
+                                    int max_width = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getWidth() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getWidth();
 
-                                if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
+                                    int max_height = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? Math.round(GameFrame.getInstance().getTapete().getLocalPlayer().getPlayingCard1().getHeight() / 2) : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPlayingCard1().getHeight();
 
-                                    int new_height = max_height;
+                                    if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
 
-                                    int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
+                                        int new_height = max_height;
 
-                                    if (new_width > max_width) {
+                                        int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
 
-                                        new_height = (int) Math.round((new_height * max_width) / new_width);
+                                        if (new_width > max_width) {
 
-                                        new_width = max_width;
-                                    }
+                                            new_height = (int) Math.round((new_height * max_width) / new_width);
 
-                                    image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-                                }
-
-                                timeout = (gif_l != -1 || Helpers.isImageGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
-
-                                ImageIcon final_image = image;
-
-                                Integer t = timeout;
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        JLabel notify_label;
-
-                                        JLayeredPane panel_cartas;
-
-                                        int pos_x, pos_y;
-
-                                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
-
-                                            var player = GameFrame.getInstance().getLocalPlayer();
-
-                                            notify_label = player.getChat_notify_label();
-
-                                            panel_cartas = player.getPanel_cartas();
-
-                                            pos_x = panel_cartas.getWidth() - final_image.getIconWidth();
-
-                                            pos_y = Math.round(player.getPlayingCard1().getHeight() / 2);
-
-                                        } else {
-
-                                            var player = ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick));
-
-                                            notify_label = player.getChat_notify_label();
-
-                                            panel_cartas = player.getPanel_cartas();
-
-                                            pos_x = Math.round((panel_cartas.getWidth() - final_image.getIconWidth()) / 2);
-
-                                            pos_y = Math.round((player.getPlayingCard1().getHeight() - final_image.getIconHeight()) / 2);
-
+                                            new_width = max_width;
                                         }
 
-                                        notify_label.setIcon(final_image);
+                                        image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                    }
 
-                                        notify_label.setSize(final_image.getIconWidth(), final_image.getIconHeight());
+                                    timeout = (gif_l != -1 || Helpers.isImageGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
 
-                                        notify_label.setPreferredSize(notify_label.getSize());
+                                    ImageIcon final_image = image;
 
-                                        notify_label.setOpaque(false);
+                                    Integer t = timeout;
 
-                                        notify_label.revalidate();
+                                    Helpers.GUIRunAndWait(new Runnable() {
+                                        @Override
+                                        public void run() {
 
-                                        notify_label.repaint();
+                                            JLabel notify_label;
 
-                                        notify_label.setLocation(pos_x, pos_y);
+                                            JLayeredPane panel_cartas;
 
-                                        notify_label.setVisible(true);
+                                            int pos_x, pos_y;
 
-                                        Helpers.threadRun(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                Helpers.pausar(t);
+                                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
 
-                                                Helpers.GUIRun(new Runnable() {
-                                                    @Override
-                                                    public void run() {
-                                                        notify_label.setVisible(false);
+                                                var player = GameFrame.getInstance().getLocalPlayer();
 
-                                                    }
-                                                });
+                                                notify_label = player.getChat_notify_label();
+
+                                                panel_cartas = player.getPanel_cartas();
+
+                                                pos_x = panel_cartas.getWidth() - final_image.getIconWidth();
+
+                                                pos_y = Math.round(player.getPlayingCard1().getHeight() / 2);
+
+                                            } else {
+
+                                                var player = ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick));
+
+                                                notify_label = player.getChat_notify_label();
+
+                                                panel_cartas = player.getPanel_cartas();
+
+                                                pos_x = Math.round((panel_cartas.getWidth() - final_image.getIconWidth()) / 2);
+
+                                                pos_y = Math.round((player.getPlayingCard1().getHeight() - final_image.getIconHeight()) / 2);
 
                                             }
-                                        });
 
-                                    }
-                                });
+                                            notify_label.setIcon(final_image);
 
-                            } catch (Exception ex) {
-                                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                            notify_label.setSize(final_image.getIconWidth(), final_image.getIconHeight());
+
+                                            notify_label.setPreferredSize(notify_label.getSize());
+
+                                            notify_label.setOpaque(false);
+
+                                            notify_label.revalidate();
+
+                                            notify_label.repaint();
+
+                                            notify_label.setLocation(pos_x, pos_y);
+
+                                            notify_label.setVisible(true);
+
+                                            Helpers.threadRun(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    Helpers.pausar(t);
+
+                                                    Helpers.GUIRun(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            notify_label.setVisible(false);
+
+                                                        }
+                                                    });
+
+                                                }
+                                            });
+
+                                        }
+                                    });
+
+                                } catch (Exception ex) {
+                                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+
                             }
 
                         } else {
+
+                            temp_notify_blocked = false;
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
@@ -2270,6 +2277,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                         pos_y = 0;
 
+                                        temp_notify_blocked = player.isNotify_blocked();
+
                                     }
 
                                     Helpers.setScaledIconLabel(notify_label, getClass().getResource((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? "/images/sound_b.png" : "/images/mute.png"), sound_icon_size, sound_icon_size);
@@ -2291,7 +2300,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 }
                             });
 
-                            if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) {
+                            if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !temp_notify_blocked) {
                                 Audio.TTS((String) tts[1], GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getLocalPlayer().getChat_notify_label() : ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick)).getChat_notify_label());
                             } else {
 
@@ -2299,11 +2308,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     @Override
                                     public void run() {
 
-                                        JLabel notify_label = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getLocalPlayer().getChat_notify_label() : ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick)).getChat_notify_label();
+                                        if (temp_notify_blocked) {
+                                            notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.YELLOW, Color.BLACK, getClass().getResource("/images/sound_b.png"), null);
 
-                                        notify_label.setVisible(true);
-
-                                        notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
+                                        } else {
+                                            notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
+                                        }
 
                                         notify_dialog.setLocation(getFrame().getLocation());
 
@@ -2319,9 +2329,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                         Helpers.GUIRun(new Runnable() {
                                             @Override
                                             public void run() {
-                                                JLabel notify_label = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getLocalPlayer().getChat_notify_label() : ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick)).getChat_notify_label();
-
-                                                notify_label.setVisible(false);
 
                                                 notify_dialog.setVisible(false);
                                             }

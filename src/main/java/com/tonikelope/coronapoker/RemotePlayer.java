@@ -1085,7 +1085,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             utgIconZoom();
                             actionIconZoom();
                             nickIconZoom();
-                            refreshPos();
+                            refreshChipLabel();
 
                         }
                     });
@@ -1504,6 +1504,41 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         }
 
+    }
+
+    public void refreshChipLabel() {
+
+        ImageIcon icon;
+
+        if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
+            icon = Helpers.IMAGEN_BB;
+        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+            icon = Helpers.IMAGEN_SB;
+        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
+            icon = Helpers.IMAGEN_DEALER;
+        } else {
+            icon = null;
+        }
+
+        if (icon != null) {
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    chip_label.setIcon(icon);
+                    chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
+                    chip_label.setLocation(0, 0);
+                    chip_label.revalidate();
+                    chip_label.repaint();
+
+                    if (GameFrame.LOCAL_POSITION_CHIP) {
+                        chip_label.setVisible(true);
+                    }
+
+                }
+            });
+        }
     }
 
     public void resetBetDecision() {

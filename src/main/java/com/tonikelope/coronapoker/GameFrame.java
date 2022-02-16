@@ -914,7 +914,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
 
-                ChatImageURLDialog chat_image_dialog = new ChatImageURLDialog(getFrame(), false);
+                ChatImageURLDialog chat_image_dialog = new ChatImageURLDialog(getFrame(), true);
                 chat_image_dialog.setLocationRelativeTo(getFrame());
                 chat_image_dialog.setVisible(true);
 

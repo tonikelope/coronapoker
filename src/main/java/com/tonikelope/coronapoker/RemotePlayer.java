@@ -31,6 +31,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.border.LineBorder;
 
@@ -74,9 +75,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile String player_action_icon = null;
     private volatile Timer icon_zoom_timer = null;
     private volatile Timer iwtsth_blink_timer = null;
+    private volatile boolean notify_blocked = false;
     private final Object zoom_lock = new Object();
     private final JLabel chat_notify_label = new JLabel();
     private final JLabel chip_label = new JLabel();
+
+    public boolean isNotify_blocked() {
+        return notify_blocked;
+    }
 
     public JLabel getChip_label() {
         return chip_label;
@@ -624,6 +630,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     public void mouseClicked(MouseEvent e) {
 
                         chat_notify_label.setVisible(false);
+
+                        if (SwingUtilities.isRightMouseButton(e)) {
+                            notify_blocked = true;
+                        }
                     }
                 });
 
@@ -1411,6 +1421,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void nuevaMano() {
 
         this.decision = Player.NODEC;
+
+        this.notify_blocked = false;
 
         this.winner = false;
 

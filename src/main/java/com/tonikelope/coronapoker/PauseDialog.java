@@ -52,7 +52,7 @@ public class PauseDialog extends javax.swing.JDialog {
 
         pack();
 
-        Helpers.setResourceIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
+        Helpers.setScaledIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
 
         pack();
 
@@ -80,7 +80,7 @@ public class PauseDialog extends javax.swing.JDialog {
                                     @Override
                                     public void run() {
                                         pack();
-                                        Helpers.setResourceIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
+                                        Helpers.setScaledIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
                                         pack();
                                         Helpers.setLocationContainerRelativeTo(getParent(), tthis);
                                     }

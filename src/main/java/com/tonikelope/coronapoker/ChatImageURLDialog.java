@@ -192,7 +192,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                             if (image.getIconWidth() > ChatImageURLDialog.MAX_IMAGE_WIDTH) {
 
-                                isgif = Helpers.isImageURLGIF(new URL(url));
+                                isgif = Helpers.isImageGIF(new URL(url));
 
                                 Helpers.GUIRunAndWait(new Runnable() {
                                     @Override
@@ -214,7 +214,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                 }
                             });
 
-                            if (isgif || (!GIF_CACHE.containsKey(url) && Helpers.isImageURLGIF(new URL(url)))) {
+                            if (isgif || (!GIF_CACHE.containsKey(url) && Helpers.isImageGIF(new URL(url)))) {
 
                                 GIF_CACHE.putIfAbsent(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
 

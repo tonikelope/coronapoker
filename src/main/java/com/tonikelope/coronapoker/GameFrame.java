@@ -1385,7 +1385,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 @Override
                 public void run() {
                     tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(tapete.getCommunityCards().getBlinds_label().getHeight(), tapete.getCommunityCards().getBlinds_label().getHeight()));
-                    Helpers.setResourceIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), tapete.getCommunityCards().getBlinds_label().getHeight(), tapete.getCommunityCards().getBlinds_label().getHeight());
+                    Helpers.setScaledIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), tapete.getCommunityCards().getBlinds_label().getHeight(), tapete.getCommunityCards().getBlinds_label().getHeight());
                 }
             });
         } else {
@@ -1393,7 +1393,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 @Override
                 public void run() {
                     tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH));
-                    Helpers.setResourceIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH);
+                    Helpers.setScaledIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH);
                 }
             });
         }
@@ -2144,10 +2144,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                         new_width = max_width;
                                     }
 
-                                    image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageURLGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                    image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                 }
 
-                                timeout = (gif_l != -1 || Helpers.isImageURLGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
+                                timeout = (gif_l != -1 || Helpers.isImageGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
 
                                 ImageIcon final_image = image;
 
@@ -2272,7 +2272,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     }
 
-                                    Helpers.setResourceIconLabel(notify_label, getClass().getResource((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? "/images/sound_b.png" : "/images/mute.png"), sound_icon_size, sound_icon_size);
+                                    Helpers.setScaledIconLabel(notify_label, getClass().getResource((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? "/images/sound_b.png" : "/images/mute.png"), sound_icon_size, sound_icon_size);
 
                                     notify_label.setSize(sound_icon_size, sound_icon_size);
 

@@ -280,18 +280,18 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             if (avatar.exists() && avatar.canRead() && avatar.length() <= AVATAR_MAX_FILESIZE * 1024) {
                 avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                Helpers.setResourceIconLabel(avatar_img, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledIconLabel(avatar_img, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             } else {
                 avatar = null;
                 avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                Helpers.setResourceIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             }
         } else {
             avatar = null;
             avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            Helpers.setResourceIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+            Helpers.setScaledIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
         }
 
@@ -329,7 +329,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
-        Helpers.setResourceIconButton(vamos, getClass().getResource("/images/action/vamos.png"), Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f));
+        Helpers.setScaledIconButton(vamos, getClass().getResource("/images/action/vamos.png"), Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f));
 
         pack();
 
@@ -1180,7 +1180,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 this.avatar = selectedFile;
 
                 avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                Helpers.setResourceIconLabel(avatar_img, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledIconLabel(avatar_img, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             }
 
@@ -1189,7 +1189,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             this.avatar = null;
 
             avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            Helpers.setResourceIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+            Helpers.setScaledIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
         }
     }//GEN-LAST:event_avatar_imgMouseClicked

@@ -381,13 +381,13 @@ public class Init extends javax.swing.JFrame {
         });
         quote_timer.setInitialDelay(0);
 
-        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), 30, 30);
+        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), 30, 30);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         pack();
 
-        Helpers.setResourceIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
+        Helpers.setScaledIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
 
         setEnabled(false);
 
@@ -755,7 +755,7 @@ public class Init extends javax.swing.JFrame {
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), 30, 30);
+                Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), 30, 30);
 
             }
         });
@@ -811,7 +811,7 @@ public class Init extends javax.swing.JFrame {
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
 
-        Helpers.setResourceIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), 30, 30);
+        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), 30, 30);
 
         if (quote_timer.isRunning()) {
             quote_timer.restart();

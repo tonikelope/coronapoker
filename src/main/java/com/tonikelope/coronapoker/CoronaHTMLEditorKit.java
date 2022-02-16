@@ -122,7 +122,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                             if (ChatImageURLDialog.STATIC_IMAGE_CACHE.containsKey(url) || (USE_GIF_CACHE && ChatImageURLDialog.GIF_CACHE.containsKey(url)) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
                                                 if (image.getIconWidth() > ChatImageURLDialog.MAX_IMAGE_WIDTH) {
-                                                    image = new ImageIcon(image.getImage().getScaledInstance(ChatImageURLDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageURLDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), ((isgif != null && isgif) || (isgif = Helpers.isImageURLGIF(new URL(url)))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                                    image = new ImageIcon(image.getImage().getScaledInstance(ChatImageURLDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageURLDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), ((isgif != null && isgif) || (isgif = Helpers.isImageGIF(new URL(url)))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                                 }
 
                                                 ImageIcon final_image = image;
@@ -135,7 +135,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                                     }
                                                 });
 
-                                                if (!ChatImageURLDialog.GIF_CACHE.containsKey(url) && ((isgif != null && isgif) || Helpers.isImageURLGIF(new URL(url)))) {
+                                                if (!ChatImageURLDialog.GIF_CACHE.containsKey(url) && ((isgif != null && isgif) || Helpers.isImageGIF(new URL(url)))) {
 
                                                     ChatImageURLDialog.GIF_CACHE.put(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
 

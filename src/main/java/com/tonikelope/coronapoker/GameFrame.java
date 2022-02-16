@@ -2340,19 +2340,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     }
                                 });
 
-                                Helpers.threadRun(new Runnable() {
+                                Helpers.pausar(Math.max((long) Math.ceil(WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
+
+                                Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
-                                        Helpers.pausar(Math.max((long) Math.ceil(WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
 
-                                        Helpers.GUIRun(new Runnable() {
-                                            @Override
-                                            public void run() {
-
-                                                notify_dialog.setVisible(false);
-                                            }
-                                        });
-
+                                        notify_dialog.setVisible(false);
                                     }
                                 });
 

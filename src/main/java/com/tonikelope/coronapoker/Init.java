@@ -105,6 +105,7 @@ public class Init extends javax.swing.JFrame {
     static {
 
         try {
+            Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading CoronaHMAC...");
             CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
         } catch (Exception ex) {
 
@@ -114,11 +115,11 @@ public class Init extends javax.swing.JFrame {
                     System.setOut(fileOut);
                     System.setErr(fileOut);
                 } catch (FileNotFoundException ex1) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex1);
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
                 }
             }
 
-            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
+            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
         }
 
         try {
@@ -133,16 +134,17 @@ public class Init extends javax.swing.JFrame {
 
             } catch (Exception ex) {
 
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         } catch (Exception ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Huevos is not present!");
+            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Huevos is not present!");
         }
 
-        if (!DEV_MODE) {
+        if (!Init.DEV_MODE) {
             //Precargamos los emojis
             try {
+                Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading emojis...");
                 Class.forName(EmojiPanel.class.getName(), true, EmojiPanel.class.getClassLoader());
             } catch (ClassNotFoundException ex) {
                 Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
@@ -157,7 +159,7 @@ public class Init extends javax.swing.JFrame {
             try {
                 return (String) CORONA_HMAC_J1.invoke(null, a, b);
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -889,10 +891,12 @@ public class Init extends javax.swing.JFrame {
             }
             //</editor-fold>
 
+            Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading SQLITE DB...");
+
             Helpers.initSQLITE();
 
             try {
-
+                Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading CSPRNG...");
                 Security.setProperty("securerandom.drbg.config", "Hash_DRBG,SHA-512,256,none");
                 Helpers.CSPRNG_GENERATOR = SecureRandom.getInstance("DRBG");
 
@@ -905,6 +909,8 @@ public class Init extends javax.swing.JFrame {
             Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
 
             Helpers.updateCoronaDialogsFont();
+
+            Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading MOD...");
 
             Init.MOD = Helpers.loadMOD();
 
@@ -965,6 +971,8 @@ public class Init extends javax.swing.JFrame {
             Audio.playWavResource("misc/init.wav");
             Audio.playLoopMp3Resource("misc/background_music.mp3");
 
+            Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading INIT WINDOW...");
+
             VENTANA_INICIO = new Init();
 
             Helpers.GUIRun(new Runnable() {
@@ -979,11 +987,15 @@ public class Init extends javax.swing.JFrame {
                 }
             });
 
+            Logger.getLogger(Init.class.getName()).log(Level.INFO, "CHECKING UPDATE...");
+
             UPDATE();
 
             if (!Helpers.OSValidator.isMac()) {
                 antiScreensaver();
             }
+
+            Logger.getLogger(Init.class.getName()).log(Level.INFO, "LET'S GO");
 
         }
     }

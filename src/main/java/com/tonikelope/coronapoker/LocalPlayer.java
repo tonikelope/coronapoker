@@ -204,6 +204,41 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return loser;
     }
 
+    public void refreshChipLabel() {
+
+        ImageIcon icon;
+
+        if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
+            icon = Helpers.IMAGEN_BB;
+        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+            icon = Helpers.IMAGEN_SB;
+        } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
+            icon = Helpers.IMAGEN_DEALER;
+        } else {
+            icon = null;
+        }
+
+        if (icon != null) {
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    chip_label.setIcon(icon);
+                    chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
+                    chip_label.setLocation(0, getPlayingCard1().getHeight() - chip_label.getHeight());
+                    chip_label.revalidate();
+                    chip_label.repaint();
+
+                    if (GameFrame.LOCAL_POSITION_CHIP) {
+                        chip_label.setVisible(true);
+                    }
+
+                }
+            });
+        }
+    }
+
     public void activar_boton_mostrar(boolean parguela) {
 
         boton_mostrar = true;
@@ -545,6 +580,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
                 chip_label.setOpaque(false);
+
+                chip_label.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+
+                        player_nameMouseClicked(e);
+                    }
+                });
 
                 panel_cartas.add(chip_label, JLayeredPane.POPUP_LAYER);
 
@@ -1495,7 +1538,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             actionIconZoom();
                             buttonIconZoom();
                             nickIconZoom();
-                            refreshPos();
+                            refreshChipLabel();
 
                         }
                     });

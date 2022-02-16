@@ -57,9 +57,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private static volatile ImageIcon IMAGEN_TRASERA = null;
     private static volatile ImageIcon IMAGEN_TRASERA_B = null;
     private static volatile ImageIcon IMAGEN_JOKER = null;
-    private static volatile ImageIcon IMAGEN_BB = null;
-    private static volatile ImageIcon IMAGEN_SB = null;
-    private static volatile ImageIcon IMAGEN_DEALER = null;
     private static volatile List<String> CARTAS_SONIDO = null;
     private static volatile float CURRENT_ZOOM = 0f;
 
@@ -70,10 +67,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile boolean desenfocada = false;
     private volatile boolean visible_card = false;
     private volatile boolean compactable = true;
-    private volatile JLabel pos_chip_label = null;
-    private volatile int pos_chip = -1;
-    private volatile int pos_chip_location = 1;
-    private volatile boolean pos_chip_visible = true;
     private volatile boolean gui = true;
     private volatile ImageIcon image = null;
     private volatile ImageIcon image_b = null;
@@ -101,54 +94,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         refreshCard();
     }
 
-    public boolean isPosChip_visible() {
-        return pos_chip_visible;
-    }
-
-    public void setPosChip_visible(boolean chip_visible) {
-        this.pos_chip_visible = chip_visible;
-
-        if (!this.pos_chip_visible) {
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    pos_chip_label.setVisible(false);
-                }
-            });
-        } else if (pos_chip > 0) {
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    pos_chip_label.setVisible(true);
-                }
-            });
-        }
-    }
-
-    public int getPosChipLocation() {
-        return pos_chip_location;
-    }
-
-    public int getPosChip() {
-        return pos_chip;
-    }
-
-    public void resetPosChip() {
-        setPosChip(-1, 1);
-    }
-
-    public void setPosChip(int pos, int location) {
-        this.pos_chip = pos;
-        this.pos_chip_location = location;
-
-        if (this.pos_chip < 0) {
-            this.pos_chip_visible = true;
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    pos_chip_label.setVisible(false);
-                }
-            });
-        }
-    }
-
     public void setCompactable(boolean compactable) {
         this.compactable = compactable;
     }
@@ -164,9 +109,9 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             IMAGEN_TRASERA = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
             IMAGEN_TRASERA_B = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera_b.jpg");
             IMAGEN_JOKER = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/joker.jpg");
-            IMAGEN_BB = createPositionChipImageIcon(Player.BIG_BLIND);
-            IMAGEN_SB = createPositionChipImageIcon(Player.SMALL_BLIND);
-            IMAGEN_DEALER = createPositionChipImageIcon(Player.DEALER);
+            Helpers.IMAGEN_BB = createPositionChipImageIcon(Player.BIG_BLIND);
+            Helpers.IMAGEN_SB = createPositionChipImageIcon(Player.SMALL_BLIND);
+            Helpers.IMAGEN_DEALER = createPositionChipImageIcon(Player.DEALER);
 
             if (((Object[]) BARAJAS.get(GameFrame.BARAJA))[2] != null) {
                 CARTAS_SONIDO = Arrays.asList(((String) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[2]).split(" *, *"));
@@ -240,15 +185,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             public void run() {
                 initComponents();
 
-                if (gui) {
-                    pos_chip_label = new JLabel("");
-                    pos_chip_label.setDoubleBuffered(true);
-                    pos_chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                    pos_chip_label.setOpaque(false);
-                    pos_chip_label.setVisible(false);
-                    add(pos_chip_label, JLayeredPane.POPUP_LAYER);
-                    pos_chip_label.setSize(new Dimension(100, 100));
-                }
             }
         });
 
@@ -258,13 +194,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
-                pos_chip_label = new JLabel("");
-                pos_chip_label.setDoubleBuffered(true);
-                pos_chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                pos_chip_label.setOpaque(false);
-                pos_chip_label.setVisible(false);
-                add(pos_chip_label, JLayeredPane.POPUP_LAYER);
-                pos_chip_label.setSize(new Dimension(100, 100));
+
             }
         });
     }
@@ -399,7 +329,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                             card_image.setIcon(img);
                             card_image.setVisible(isVisible_card());
                             setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                            updatePositionChip((GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT);
                             revalidate();
                             repaint();
                         }
@@ -485,7 +414,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             invalidateImagePrecache();
         }
 
-        resetPosChip();
         refreshCard();
     }
 
@@ -713,49 +641,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             this.desenfocada = true;
 
             this.refreshCard();
-        }
-
-    }
-
-    private void updatePositionChip(int card_height) {
-
-        ImageIcon image = null;
-
-        if (pos_chip > 0) {
-
-            switch (pos_chip) {
-
-                case Player.DEALER:
-
-                    image = IMAGEN_DEALER;
-                    break;
-
-                case Player.BIG_BLIND:
-
-                    image = IMAGEN_BB;
-                    break;
-
-                case Player.SMALL_BLIND:
-
-                    image = IMAGEN_SB;
-                    break;
-            }
-
-            pos_chip_label.setSize(new Dimension(image.getIconWidth(), image.getIconHeight()));
-            pos_chip_label.setIcon(image);
-
-            if (pos_chip_location == 1) {
-                pos_chip_label.setLocation(new Point(card_image.getX(), card_image.getY()));
-            } else {
-                pos_chip_label.setLocation(new Point(card_image.getX(), card_height - pos_chip_label.getHeight()));
-            }
-
-            pos_chip_label.setVisible(pos_chip_visible && (pos_chip_location == 1 || GameFrame.LOCAL_POSITION_CHIP));
-
-            pos_chip_label.setCursor(isVisible_card() ? new Cursor(Cursor.HAND_CURSOR) : new Cursor(Cursor.DEFAULT_CURSOR));
-
-        } else {
-            pos_chip_label.setVisible(false);
         }
 
     }

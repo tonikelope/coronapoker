@@ -200,6 +200,9 @@ public class Helpers {
     public static final int DECK_ELEMENTS = 52;
     public static ArrayList<String> POKER_QUOTES_ES = new ArrayList<>();
     public static ArrayList<String> POKER_QUOTES_EN = new ArrayList<>();
+    public static volatile ImageIcon IMAGEN_BB = null;
+    public static volatile ImageIcon IMAGEN_SB = null;
+    public static volatile ImageIcon IMAGEN_DEALER = null;
 
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
     public volatile static int DECK_RANDOM_GENERATOR = Helpers.TRNG_CSPRNG;

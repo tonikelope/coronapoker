@@ -568,6 +568,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     public void mouseClicked(MouseEvent e) {
 
                         chat_notify_label.setVisible(false);
+
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                synchronized (chat_notify_label) {
+
+                                    chat_notify_label.notifyAll();
+                                }
+                            }
+                        });
                     }
                 });
 

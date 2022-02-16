@@ -2156,7 +2156,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     Integer t = timeout;
 
-                                    Helpers.GUIRunAndWait(new Runnable() {
+                                    Helpers.GUIRun(new Runnable() {
                                         @Override
                                         public void run() {
 
@@ -2192,34 +2192,53 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                             }
 
-                                            notify_label.setIcon(final_image);
+                                            synchronized (notify_label) {
 
-                                            notify_label.setSize(final_image.getIconWidth(), final_image.getIconHeight());
-
-                                            notify_label.setPreferredSize(notify_label.getSize());
-
-                                            notify_label.setOpaque(false);
-
-                                            notify_label.revalidate();
-
-                                            notify_label.repaint();
-
-                                            notify_label.setLocation(pos_x, pos_y);
-
-                                            notify_label.setVisible(true);
+                                                notify_label.notifyAll();
+                                            }
 
                                             Helpers.threadRun(new Runnable() {
                                                 @Override
                                                 public void run() {
-                                                    Helpers.pausar(t);
 
-                                                    Helpers.GUIRun(new Runnable() {
-                                                        @Override
-                                                        public void run() {
-                                                            notify_label.setVisible(false);
+                                                    synchronized (notify_label) {
 
+                                                        Helpers.GUIRunAndWait(new Runnable() {
+                                                            @Override
+                                                            public void run() {
+                                                                notify_label.setIcon(final_image);
+
+                                                                notify_label.setSize(final_image.getIconWidth(), final_image.getIconHeight());
+
+                                                                notify_label.setPreferredSize(notify_label.getSize());
+
+                                                                notify_label.setOpaque(false);
+
+                                                                notify_label.revalidate();
+
+                                                                notify_label.repaint();
+
+                                                                notify_label.setLocation(pos_x, pos_y);
+
+                                                                notify_label.setVisible(true);
+
+                                                            }
+                                                        });
+
+                                                        try {
+                                                            notify_label.wait(t);
+                                                        } catch (InterruptedException ex) {
+                                                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                                                         }
-                                                    });
+
+                                                        Helpers.GUIRunAndWait(new Runnable() {
+                                                            @Override
+                                                            public void run() {
+                                                                notify_label.setVisible(false);
+
+                                                            }
+                                                        });
+                                                    }
 
                                                 }
                                             });

@@ -2462,7 +2462,7 @@ public class StatsDialog extends javax.swing.JDialog {
                         String chat_log;
 
                         if (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html"))) {
-                            chat_log = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html"), StandardCharsets.UTF_8).replaceAll("<img[^<>]+avatar[^<>]+>", "<img src='" + avatar_src + "' />");
+                            chat_log = Helpers.updateJarImgSrc(Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html"), StandardCharsets.UTF_8)).replaceAll("<img[^<>]+avatar[^<>]+>", "<img src='" + avatar_src + "' />");
                         } else {
                             chat_log = "<html><body style='background-color:rgb(0,102,153);color:white'>" + Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll("\n", "<br><br>") + "</body></html>";
                         }

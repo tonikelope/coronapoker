@@ -2300,6 +2300,8 @@ public class StatsDialog extends javax.swing.JDialog {
 
             last_button = 1;
 
+            boolean chat_button_enabled = chat_game_button.isEnabled();
+
             chat_game_button.setEnabled(false);
 
             log_game_button.setEnabled(false);
@@ -2329,7 +2331,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                 game_textarea.setCaretPosition(0);
 
-                                chat_game_button.setEnabled(true);
+                                chat_game_button.setEnabled(chat_button_enabled);
 
                                 log_game_button.setEnabled(true);
 
@@ -2438,6 +2440,8 @@ public class StatsDialog extends javax.swing.JDialog {
 
             chat_game_button.setEnabled(false);
 
+            boolean log_button_enabled = log_game_button.isEnabled();
+
             log_game_button.setEnabled(false);
 
             cargando.setVisible(true);
@@ -2479,7 +2483,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
                                 chat_game_button.setEnabled(true);
 
-                                log_game_button.setEnabled(true);
+                                log_game_button.setEnabled(log_button_enabled);
 
                                 cargando.setVisible(false);
 

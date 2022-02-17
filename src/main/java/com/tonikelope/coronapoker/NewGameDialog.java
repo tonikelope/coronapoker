@@ -319,15 +319,22 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             Helpers.setTranslatedTitle(this, "Crear timba");
 
+            Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+            Helpers.translateComponents(this, false);
+
         } else {
             server_port_textfield.setText(Helpers.PROPERTIES.getProperty("server_port", String.valueOf(DEFAULT_PORT)));
             server_ip_textfield.setText(Helpers.PROPERTIES.getProperty("server_ip", "localhost"));
             Helpers.setTranslatedTitle(this, "Unirme a timba");
+            Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+
+            Helpers.translateComponents(this, false);
+            pack();
+            setPreferredSize(new Dimension(700, getHeight()));
         }
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-
-        Helpers.translateComponents(this, false);
+        pack();
 
         Helpers.setScaledIconButton(vamos, getClass().getResource("/images/action/vamos.png"), Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f));
 
@@ -444,7 +451,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("CoronaPoker - Nueva timba");
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
-        setMinimumSize(new java.awt.Dimension(533, 0));
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowActivated(java.awt.event.WindowEvent evt) {
                 formWindowActivated(evt);

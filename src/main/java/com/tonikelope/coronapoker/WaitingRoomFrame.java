@@ -782,6 +782,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             Helpers.windowAutoFitToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
 
+        } else {
+            Helpers.windowAutoFitToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
         }
 
         Audio.muteLoopMp3("misc/background_music.mp3");
@@ -2748,6 +2750,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        logo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         logo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_15.png"))); // NOI18N
         logo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         logo.setDoubleBuffered(true);

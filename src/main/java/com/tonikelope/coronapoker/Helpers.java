@@ -234,6 +234,29 @@ public class Helpers {
 
     }
 
+    public static String updateJarImgSrc(String html) {
+
+        String msg = html;
+
+        Pattern pattern = Pattern.compile("src='jar:file:[^!]+!([^']+)'");
+
+        Matcher matcher = pattern.matcher(html);
+
+        ArrayList<String> lista = new ArrayList<>();
+
+        while (matcher.find()) {
+
+            if (!lista.contains(matcher.group(0))) {
+
+                msg = msg.replaceAll(Pattern.quote(matcher.group(0)), "src='" + Helpers.class.getResource(matcher.group(1)).toExternalForm() + "'");
+
+                lista.add(matcher.group(0));
+            }
+        }
+
+        return msg;
+    }
+
     public static long getMaxMemory() {
         return Runtime.getRuntime().maxMemory();
     }

@@ -104,52 +104,47 @@ public class Init extends javax.swing.JFrame {
 
     static {
 
-        try {
-            Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading CoronaHMAC...");
-            CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
-        } catch (Exception ex) {
-
-            if (!Init.DEV_MODE) {
-                try {
-                    PrintStream fileOut = new PrintStream(new File(Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
-                    System.setOut(fileOut);
-                    System.setErr(fileOut);
-                } catch (FileNotFoundException ex1) {
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
-                }
-            }
-
-            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
-        }
-
-        try {
-
-            M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});
-
-            M2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M2", new Class<?>[]{String.class});
-
+        if (CORONA_HMAC_J1 == null) {
             try {
-
-                I1 = ImageIO.read(new ByteArrayInputStream((byte[]) M2.invoke(null, "d")));
-
+                Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading CoronaHMAC...");
+                CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
             } catch (Exception ex) {
 
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-            }
+                if (!Init.DEV_MODE) {
+                    try {
+                        PrintStream fileOut = new PrintStream(new File(Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
+                        System.setOut(fileOut);
+                        System.setErr(fileOut);
+                    } catch (FileNotFoundException ex1) {
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
+                    }
+                }
 
-        } catch (Exception ex) {
-            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Huevos is not present!");
+                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
+            }
         }
 
-        if (!Init.DEV_MODE) {
-            //Precargamos los emojis
+        if (M1 == null) {
             try {
-                Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading emojis...");
-                Class.forName(EmojiPanel.class.getName(), true, EmojiPanel.class.getClassLoader());
-            } catch (ClassNotFoundException ex) {
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+
+                M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});
+
+                M2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M2", new Class<?>[]{String.class});
+
+                try {
+
+                    I1 = ImageIO.read(new ByteArrayInputStream((byte[]) M2.invoke(null, "d")));
+
+                } catch (Exception ex) {
+
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            } catch (Exception ex) {
+                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Huevos is not present!");
             }
         }
+
     }
 
     public static String coronaHMACJ1(byte[] a, byte[] b) {
@@ -873,6 +868,8 @@ public class Init extends javax.swing.JFrame {
         if (!INIT) {
 
             INIT = true;
+
+            EmojiPanel.initClass();
 
             /* Set the Nimbus look and feel */
             //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">

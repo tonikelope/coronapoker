@@ -25,11 +25,12 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class EmojiPanel extends javax.swing.JPanel {
 
-    public static final int EMOJI_COUNT = 1826;
     public static final int MAX_HIST = 15;
-    public static final ArrayList<String> EMOJI_SRC = createEmojisImageSrcs();
-    public static final ArrayList<ImageIcon> EMOJI_ICON = createEmojisImageIcons();
-    public static final ArrayDeque<Integer> HISTORIAL = cargarHistorial();
+    public static ArrayList<String> EMOJI_SRC;
+    private static ArrayList<ImageIcon> EMOJI_ICON;
+    private static ArrayDeque<Integer> HISTORIAL;
+    private static final int EMOJI_COUNT = 1826;
+    private static boolean INIT = false;
 
     /**
      * Creates new form EmojiPanel
@@ -39,32 +40,54 @@ public class EmojiPanel extends javax.swing.JPanel {
         populateEmojis();
     }
 
+    public static void initClass() {
+
+        if (!INIT) {
+
+            INIT = true;
+
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+                    synchronized (EmojiPanel.class) {
+                        EMOJI_SRC = crearEmojisImageSrcs();
+                        EMOJI_ICON = crearEmojisImageIcons();
+                        HISTORIAL = crearHistorial();
+                    }
+                }
+            });
+
+        }
+
+    }
+
     private void populateEmojis() {
 
         Helpers.threadRun(new Runnable() {
             public void run() {
+                synchronized (EmojiPanel.class) {
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        history_panel.removeAll();
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            history_panel.removeAll();
 
-                        for (Integer i : HISTORIAL) {
-                            createEmoji(history_panel, i);
+                            for (Integer i : HISTORIAL) {
+                                createEmoji(history_panel, i);
+                            }
+
+                            emoji_panel.removeAll();
+
+                            for (int i = 1; i <= EMOJI_COUNT; i++) {
+                                createEmoji(emoji_panel, i);
+                            }
+
+                            revalidate();
+
+                            repaint();
+
+                            WaitingRoomFrame.getInstance().getEmoji_button().setEnabled(WaitingRoomFrame.getInstance().getChat_box().isEnabled());
                         }
-
-                        emoji_panel.removeAll();
-
-                        for (int i = 1; i <= EMOJI_COUNT; i++) {
-                            createEmoji(emoji_panel, i);
-                        }
-
-                        revalidate();
-
-                        repaint();
-
-                        WaitingRoomFrame.getInstance().getEmoji_button().setEnabled(WaitingRoomFrame.getInstance().getChat_box().isEnabled());
-                    }
-                });
+                    });
+                }
             }
         });
     }
@@ -83,37 +106,40 @@ public class EmojiPanel extends javax.swing.JPanel {
     }
 
     private void createEmoji(JPanel panel, int i) {
-        JLabel label = new JLabel();
 
-        label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        if (i >= 0 && i < EMOJI_ICON.size()) {
+            JLabel label = new JLabel();
 
-        label.setIcon(EMOJI_ICON.get(i - 1));
+            label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        final int j = i;
+            label.setIcon(EMOJI_ICON.get(i - 1));
 
-        label.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                try {
+            final int j = i;
 
-                    WaitingRoomFrame.getInstance().getChat_box().getDocument().insertString(WaitingRoomFrame.getInstance().getChat_box().getCaretPosition(), " #" + j + "# ", null);
-                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+            label.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    try {
 
-                    Helpers.threadRun(new Runnable() {
-                        @Override
-                        public void run() {
-                            updateHistorial(j);
-                        }
-                    });
+                        WaitingRoomFrame.getInstance().getChat_box().getDocument().insertString(WaitingRoomFrame.getInstance().getChat_box().getCaretPosition(), " #" + j + "# ", null);
+                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
 
-                } catch (BadLocationException ex) {
-                    Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+                                updateHistorial(j);
+                            }
+                        });
+
+                    } catch (BadLocationException ex) {
+                        Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
                 }
+            });
 
-            }
-        });
-
-        panel.add(label);
+            panel.add(label);
+        }
     }
 
     private void updateHistorial(int j) {
@@ -154,7 +180,7 @@ public class EmojiPanel extends javax.swing.JPanel {
         }
     }
 
-    public static ArrayDeque<Integer> cargarHistorial() {
+    private static ArrayDeque<Integer> crearHistorial() {
 
         ArrayDeque<Integer> historial = new ArrayDeque<>();
 
@@ -169,7 +195,12 @@ public class EmojiPanel extends javax.swing.JPanel {
                 String[] hist_numbers = hist.split(",");
 
                 for (String s : hist_numbers) {
-                    historial.addLast(Integer.parseInt(s));
+
+                    int i = Integer.parseInt(s);
+
+                    if (i >= 0 && i < EMOJI_ICON.size()) {
+                        historial.addLast(Integer.parseInt(s));
+                    }
                 }
 
                 while (historial.size() > MAX_HIST) {
@@ -185,7 +216,7 @@ public class EmojiPanel extends javax.swing.JPanel {
 
     }
 
-    public static ArrayList<String> createEmojisImageSrcs() {
+    private static ArrayList<String> crearEmojisImageSrcs() {
 
         ArrayList<String> image_src_list = new ArrayList<>();
 
@@ -197,7 +228,7 @@ public class EmojiPanel extends javax.swing.JPanel {
         return image_src_list;
     }
 
-    public static ArrayList<ImageIcon> createEmojisImageIcons() {
+    private static ArrayList<ImageIcon> crearEmojisImageIcons() {
 
         ArrayList<ImageIcon> image_icon_list = new ArrayList<>();
 

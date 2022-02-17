@@ -91,7 +91,6 @@ public class Init extends javax.swing.JFrame {
     public static volatile Method CORONA_HMAC_J1 = null;
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
-    public static volatile Method M3 = null;
     public static volatile Image I1 = null;
     public static volatile boolean PLAYING_CINEMATIC = false;
     public static volatile VolumeControlDialog VOLUME_DIALOG = null;
@@ -104,45 +103,41 @@ public class Init extends javax.swing.JFrame {
 
     static {
 
-        if (CORONA_HMAC_J1 == null) {
-            try {
-                Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading CoronaHMAC...");
-                CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
-            } catch (Exception ex) {
+        try {
+            Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading CoronaHMAC...");
+            CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
+        } catch (Exception ex) {
 
-                if (!Init.DEV_MODE) {
-                    try {
-                        PrintStream fileOut = new PrintStream(new File(Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
-                        System.setOut(fileOut);
-                        System.setErr(fileOut);
-                    } catch (FileNotFoundException ex1) {
-                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
-                    }
+            if (!Init.DEV_MODE) {
+                try {
+                    PrintStream fileOut = new PrintStream(new File(Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
+                    System.setOut(fileOut);
+                    System.setErr(fileOut);
+                } catch (FileNotFoundException ex1) {
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
                 }
-
-                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
             }
+
+            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
         }
 
-        if (M1 == null) {
+        try {
+
+            M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});
+
+            M2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M2", new Class<?>[]{String.class});
+
             try {
 
-                M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});
-
-                M2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M2", new Class<?>[]{String.class});
-
-                try {
-
-                    I1 = ImageIO.read(new ByteArrayInputStream((byte[]) M2.invoke(null, "d")));
-
-                } catch (Exception ex) {
-
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                I1 = ImageIO.read(new ByteArrayInputStream((byte[]) M2.invoke(null, "d")));
 
             } catch (Exception ex) {
-                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Huevos is not present!");
+
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
             }
+
+        } catch (Exception ex) {
+            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Huevos is not present!");
         }
 
     }

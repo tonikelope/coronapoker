@@ -2300,6 +2300,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     }
 
+                                    synchronized (notify_label) {
+
+                                        notify_label.notifyAll();
+                                    }
+
                                     Helpers.setScaledIconLabel(notify_label, getClass().getResource((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? "/images/sound_b.png" : "/images/mute.png"), sound_icon_size, sound_icon_size);
 
                                     notify_label.setSize(sound_icon_size, sound_icon_size);

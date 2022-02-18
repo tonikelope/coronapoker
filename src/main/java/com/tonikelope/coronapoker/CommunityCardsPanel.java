@@ -195,6 +195,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                         Helpers.setScaledIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
                         Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
                         Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+                        Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
                         Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
 
                         ready = true;
@@ -321,7 +322,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         pot_label.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
         pot_label.setForeground(new java.awt.Color(153, 204, 0));
-        pot_label.setText("BOTE");
+        pot_label.setText(" ");
         pot_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
         pot_label.setDoubleBuffered(true);
         pot_label.setFocusable(false);
@@ -856,6 +857,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                             Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
                             Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
                             Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
+                            Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
 
                         }
                     });
@@ -903,6 +905,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     pot_label.setIcon(null);
                     bet_label.setIcon(null);
                     lights_label.setIcon(null);
+                    blinds_label.setIcon(null);
                 }
             });
 

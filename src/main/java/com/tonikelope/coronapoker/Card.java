@@ -270,10 +270,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void refreshCard() {
 
-        refreshCard(true);
+        refreshCard(true, null);
     }
 
-    public void refreshCard(boolean pre_cache) {
+    public void refreshCard(boolean pre_cache, final ConcurrentLinkedQueue<Long> notifier) {
         if (this.gui) {
 
             Helpers.threadRun(new Runnable() {
@@ -323,16 +323,36 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                     }
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-                            card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                            card_image.setIcon(img);
-                            card_image.setVisible(isVisible_card());
-                            setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                            revalidate();
-                            repaint();
+                    if (notifier == null) {
+
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+                                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                                card_image.setIcon(img);
+                                card_image.setVisible(isVisible_card());
+                                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                                revalidate();
+                                repaint();
+                            }
+                        });
+                    } else {
+                        Helpers.GUIRunAndWait(new Runnable() {
+                            public void run() {
+                                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                                card_image.setIcon(img);
+                                card_image.setVisible(isVisible_card());
+                                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                                revalidate();
+                                repaint();
+                            }
+                        });
+
+                        synchronized (notifier) {
+                            notifier.add(Thread.currentThread().getId());
+                            notifier.notifyAll();
                         }
-                    });
+
+                    }
 
                     if (pre_cache) {
 
@@ -651,7 +671,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         Helpers.threadRun(new Runnable() {
             public void run() {
 
-                refreshCard(false);
+                refreshCard(false, null);
 
                 if (notifier != null) {
 

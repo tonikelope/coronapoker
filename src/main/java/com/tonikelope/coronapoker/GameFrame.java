@@ -654,14 +654,31 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         RemotePlayer[] players = tapete.getRemotePlayers();
 
+        final ConcurrentLinkedQueue<Long> notifier = new ConcurrentLinkedQueue<>();
+
         for (RemotePlayer jugador : players) {
 
-            jugador.getPlayingCard1().refreshCard();
-            jugador.getPlayingCard2().refreshCard();
+            jugador.getPlayingCard1().refreshCard(true, notifier);
+            jugador.getPlayingCard2().refreshCard(true, notifier);
         }
 
         for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {
             carta.refreshCard();
+        }
+
+        while (notifier.size() < players.length * 2) {
+            synchronized (notifier) {
+                try {
+                    notifier.wait(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
+        for (RemotePlayer jugador : players) {
+
+            jugador.refreshSecPotLabel();
         }
     }
 

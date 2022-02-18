@@ -99,7 +99,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
 
-                    int pos_y = Math.round((getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
+                    int pos_y = Math.round(GameFrame.VISTA_COMPACTA ? (getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) : ((getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) / 2));
 
                     sec_pot_win_label.setLocation(pos_x, pos_y);
 
@@ -1858,7 +1858,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 sec_pot_win_label.setPreferredSize(player_action.getSize());
                 Helpers.setScaledIconLabel(sec_pot_win_label, getClass().getResource("/images/pot.png"), sec_pot_win_label.getHeight(), sec_pot_win_label.getHeight());
                 int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
-                int pos_y = Math.round((getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
+                int pos_y = Math.round(GameFrame.VISTA_COMPACTA ? (getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) : ((getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) / 2));
                 sec_pot_win_label.setLocation(pos_x, pos_y);
             }
         });

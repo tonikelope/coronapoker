@@ -79,6 +79,40 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private final Object zoom_lock = new Object();
     private final JLabel chat_notify_label = new JLabel();
     private final JLabel chip_label = new JLabel();
+    private final JLabel sec_pot_win_label = new JLabel();
+
+    public void refreshSecPotLabel() {
+
+        if (Helpers.float1DSecureCompare(0f, pagar) < 0 && GameFrame.getInstance().getCrupier().getBote().getSide_pot_count() > 0) {
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    sec_pot_win_label.setBackground(Color.BLACK);
+
+                    sec_pot_win_label.setForeground(Color.WHITE);
+
+                    sec_pot_win_label.setSize(player_action.getSize());
+
+                    sec_pot_win_label.setPreferredSize(sec_pot_win_label.getSize());
+
+                    int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
+
+                    int pos_y = Math.round((getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
+
+                    sec_pot_win_label.setLocation(pos_x, pos_y);
+
+                    sec_pot_win_label.setText(Translator.translate("BOTE:") + " " + Helpers.float2String(pagar));
+
+                    Helpers.setScaledIconLabel(sec_pot_win_label, getClass().getResource("/images/pot.png"), sec_pot_win_label.getHeight(), sec_pot_win_label.getHeight());
+
+                    sec_pot_win_label.setVisible(true);
+                }
+            });
+
+        }
+    }
 
     public boolean isNotify_blocked() {
         return notify_blocked;
@@ -202,6 +236,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setVisible(true);
 
                     chip_label.setVisible(false);
+                    sec_pot_win_label.setVisible(false);
 
                 }
             });
@@ -623,6 +658,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setBackground(null);
 
+                sec_pot_win_label.setVisible(false);
+
+                sec_pot_win_label.setDoubleBuffered(true);
+
+                sec_pot_win_label.setHorizontalAlignment(JLabel.CENTER);
+
+                sec_pot_win_label.setOpaque(true);
+
+                sec_pot_win_label.setFont(player_action.getFont());
+
+                panel_cartas.add(sec_pot_win_label, new Integer(1003));
+
                 chat_notify_label.setVisible(false);
 
                 chat_notify_label.setDoubleBuffered(true);
@@ -652,7 +699,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 });
 
-                panel_cartas.add(chat_notify_label, JLayeredPane.POPUP_LAYER);
+                panel_cartas.add(chat_notify_label, new Integer(1002));
 
                 chip_label.setVisible(false);
 
@@ -664,7 +711,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 chip_label.setSize(new Dimension(100, 100));
 
-                panel_cartas.add(chip_label, JLayeredPane.POPUP_LAYER);
+                panel_cartas.add(chip_label, new Integer(1001));
 
                 border_color = ((LineBorder) getBorder()).getLineColor();
 
@@ -1111,6 +1158,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             actionIconZoom();
                             nickChipIconZoom();
                             refreshChipLabel();
+                            secPotIconZoom();
 
                         }
                     });
@@ -1151,6 +1199,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_name.setIcon(null);
 
                         chip_label.setVisible(false);
+
+                        sec_pot_win_label.setIcon(null);
                     }
                 });
 
@@ -1210,8 +1260,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setText(msg);
 
                 setPlayerActionIcon("action/happy.png");
+
             }
         });
+
     }
 
     public Timer getIwtsth_blink_timer() {
@@ -1246,6 +1298,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setText(msg);
                 setPlayerActionIcon("action/cry.png");
+
             }
         });
 
@@ -1266,6 +1319,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void pagar(float pasta) {
 
         this.pagar += pasta;
+
+        refreshSecPotLabel();
 
     }
 
@@ -1444,6 +1499,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
+
+                sec_pot_win_label.setVisible(false);
 
                 setOpaque(false);
 
@@ -1665,6 +1722,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     chip_label.setVisible(false);
 
+                    sec_pot_win_label.setVisible(false);
+
                     if (buyin > GameFrame.BUYIN) {
                         player_stack.setBackground(Color.CYAN);
 
@@ -1786,6 +1845,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 utg_icon.setPreferredSize(new Dimension((int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight()));
 
                 utg_icon.setVisible(utg);
+            }
+        });
+    }
+
+    private void secPotIconZoom() {
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                sec_pot_win_label.setSize(player_action.getSize());
+                sec_pot_win_label.setPreferredSize(player_action.getSize());
+                Helpers.setScaledIconLabel(sec_pot_win_label, getClass().getResource("/images/pot.png"), sec_pot_win_label.getHeight(), sec_pot_win_label.getHeight());
+                int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
+                int pos_y = Math.round((getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
+                sec_pot_win_label.setLocation(pos_x, pos_y);
             }
         });
     }

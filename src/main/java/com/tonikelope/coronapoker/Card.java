@@ -184,7 +184,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
-
+                setLayer(card_image, new Integer(1000));
             }
         });
 

@@ -33,6 +33,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"GANAS:", "YOU WIN:"},
+            {"GANA:", "WINS:"},
             {"Visor de cartas", "Card visor"},
             {"Servidor:", "Server:"},
             {"ENVIAR IMAGEN POR CHAT", "SEND IMAGE ON CHAT"},

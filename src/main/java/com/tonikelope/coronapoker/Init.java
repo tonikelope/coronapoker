@@ -48,7 +48,6 @@ import java.security.Security;
 import java.sql.Connection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
@@ -784,7 +783,7 @@ public class Init extends javax.swing.JFrame {
 
         Crupier.loadMODSounds();
 
-        Locale.setDefault(Locale.Category.FORMAT, Locale.ENGLISH);
+        Helpers.setCoronaLocale();
 
         printQuote();
     }//GEN-LAST:event_language_comboboxActionPerformed
@@ -865,6 +864,8 @@ public class Init extends javax.swing.JFrame {
             INIT = true;
 
             EmojiPanel.initClass();
+
+            Helpers.setCoronaLocale();
 
             /* Set the Nimbus look and feel */
             //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">

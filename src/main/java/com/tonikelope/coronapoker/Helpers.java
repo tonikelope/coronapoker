@@ -96,6 +96,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
@@ -335,6 +336,22 @@ public class Helpers {
     public static void updateCoronaDialogsFont() {
         UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
         UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
+    }
+
+    public static void setCoronaLocale() {
+
+        Locale locale;
+
+        if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
+            locale = new Locale("es", "ES");
+        } else {
+            locale = new Locale("en", "EN");
+        }
+
+        Locale.setDefault(locale);
+
+        JOptionPane.setDefaultLocale(locale);
+
     }
 
     public static void windowAutoFitToRemoveHScrollBar(Window window, JScrollBar hbar, int max_width, float increment) {

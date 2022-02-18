@@ -46,6 +46,11 @@ public final class Pot {
     private volatile float diff = 0f;
     private volatile float bet = 0f;
     private volatile Pot sidePot = null;
+    private volatile int side_pot_count = 0;
+
+    public int getSide_pot_count() {
+        return side_pot_count;
+    }
 
     public Pot(float dif) {
         this.diff = dif;
@@ -136,6 +141,8 @@ public final class Pot {
                     bet = apuesta_menor; // Actualizamos la apuesta del bote
 
                     sidePot = new Pot(jugadores_hijo, this.diff + bet);
+
+                    side_pot_count++;
 
                     sidePot.genSidePots();
                 }

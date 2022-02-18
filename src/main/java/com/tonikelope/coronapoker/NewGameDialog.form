@@ -269,11 +269,13 @@
                           <Component id="random_panel" min="-2" max="-2" attributes="0"/>
                           <EmptySpace type="separate" max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
-                              <Component id="manos_checkbox" alignment="1" pref="39" max="32767" attributes="0"/>
                               <Component id="manos_spinner" alignment="0" min="-2" max="-2" attributes="0"/>
-                              <Component id="jLabel4" min="-2" max="-2" attributes="0"/>
+                              <Group type="103" alignment="0" groupAlignment="1" max="-2" attributes="0">
+                                  <Component id="manos_checkbox" alignment="0" max="32767" attributes="0"/>
+                                  <Component id="jLabel4" alignment="0" max="32767" attributes="0"/>
+                              </Group>
                           </Group>
-                          <EmptySpace max="-2" attributes="0"/>
+                          <EmptySpace pref="23" max="32767" attributes="0"/>
                       </Group>
                   </Group>
                 </DimensionLayout>
@@ -509,7 +511,7 @@
                                       </Group>
                                       <EmptySpace max="-2" attributes="0"/>
                                       <Group type="103" groupAlignment="0" attributes="0">
-                                          <Component id="ciegas_combobox" pref="384" max="32767" attributes="0"/>
+                                          <Component id="ciegas_combobox" pref="394" max="32767" attributes="0"/>
                                           <Component id="buyin_spinner" max="32767" attributes="0"/>
                                       </Group>
                                   </Group>
@@ -688,7 +690,7 @@
                               </Group>
                               <EmptySpace max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="0" attributes="0">
-                                  <Component id="random_combobox" pref="522" max="32767" attributes="0"/>
+                                  <Component id="random_combobox" pref="532" max="32767" attributes="0"/>
                                   <Component id="randomorg_apikey" max="32767" attributes="0"/>
                               </Group>
                               <EmptySpace max="-2" attributes="0"/>
@@ -794,7 +796,7 @@
                       <Font name="Dialog" size="16" style="1"/>
                     </Property>
                     <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                      <Image iconType="3" name="/images/emoji_chat/184.png"/>
+                      <Image iconType="3" name="/images/menu/meter.png"/>
                     </Property>
                     <Property name="text" type="java.lang.String" value="L&#xed;mite de manos:"/>
                     <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">

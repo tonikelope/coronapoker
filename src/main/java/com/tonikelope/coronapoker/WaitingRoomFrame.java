@@ -655,13 +655,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         danger_server.setVisible(false);
 
         if (GameFrame.isRECOVER()) {
-            game_info.setText("(CONTINUANDO TIMBA ANTERIOR)");
+            game_info_buyin.setText("(CONTINUANDO TIMBA ANTERIOR)");
+            game_info_buyin.setIcon(null);
+            game_info_blinds.setVisible(false);
+            game_info_hands.setVisible(false);
         }
 
         if (server) {
 
-            if (GameFrame.isRECOVER()) {
-                game_info.setToolTipText("Click para actualizar datos de la timba");
+            if (!GameFrame.isRECOVER()) {
+                game_info_buyin.setToolTipText("Click para actualizar datos de la timba");
+                game_info_blinds.setToolTipText("Click para actualizar datos de la timba");
+                game_info_hands.setToolTipText("Click para actualizar datos de la timba");
+
             }
 
             pass_icon.setVisible(true);
@@ -716,10 +722,20 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             status.setText("Esperando jugadores...");
 
-            gameinfo_original = GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : "");
+            gameinfo_original = GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY|" : "|") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : "") + (GameFrame.MANOS != -1 ? "|" + String.valueOf(GameFrame.MANOS) : "");
 
-            if (game_info.isEnabled() && !GameFrame.isRECOVER()) {
-                game_info.setText(gameinfo_original);
+            if (game_info_buyin.isEnabled() && !GameFrame.isRECOVER()) {
+
+                String[] game_info = gameinfo_original.split("\\|");
+
+                game_info_buyin.setText(game_info[0]);
+                game_info_blinds.setText(game_info[1]);
+
+                if (game_info.length > 2) {
+                    game_info_hands.setText(game_info[2]);
+                } else {
+                    game_info_hands.setVisible(false);
+                }
             }
 
             participantes.put(local_nick, null);
@@ -1408,7 +1424,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
                                     status.setText(Translator.translate("Recibiendo info del servidor..."));
-                                    game_info.setText(gameinfo_original);
+                                    String[] game_info = gameinfo_original.split("\\|");
+
+                                    game_info_buyin.setText(game_info[0]);
+                                    game_info_blinds.setText(game_info[1]);
+
+                                    if (game_info.length > 2) {
+                                        game_info_hands.setText(game_info[2]);
+                                    } else {
+                                        game_info_hands.setVisible(false);
+                                    }
                                 }
                             });
 
@@ -1736,29 +1761,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                         case "GAMEINFO":
 
                                                             String ginfo = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
-                                                            if (!ginfo.equals(game_info.getText())) {
+                                                            String[] game_info = ginfo.split("\\|");
 
-                                                                Helpers.GUIRun(new Runnable() {
-                                                                    public void run() {
+                                                            Helpers.GUIRun(new Runnable() {
+                                                                public void run() {
 
-                                                                        game_info.setText(ginfo);
+                                                                    game_info_buyin.setText(game_info[0]);
+                                                                    game_info_blinds.setText(game_info[1]);
 
-                                                                        if (!gameinfo_original.equals(game_info.getText())) {
-                                                                            game_info.setOpaque(true);
-                                                                            game_info.setBackground(Color.YELLOW);
-                                                                        } else {
-                                                                            game_info.setOpaque(false);
-                                                                            game_info.setBackground(null);
-                                                                        }
+                                                                    if (game_info.length > 2) {
+                                                                        game_info_hands.setText(game_info[2]);
+                                                                    } else {
+                                                                        game_info_hands.setVisible(false);
                                                                     }
-                                                                });
 
-                                                                if (gameinfo_original.equals(ginfo)) {
-                                                                    Audio.playWavResource("misc/last_hand_off.wav");
-                                                                } else {
-                                                                    Audio.playWavResource("misc/last_hand_on.wav");
                                                                 }
-                                                            }
+                                                            });
 
                                                             break;
                                                         case "VIDEOCHAT":
@@ -2200,7 +2218,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             String jar_hmac = Init.coronaHMACJ1(Base64.decodeBase64(client_jar_hmac), hmac_key.getEncoded());
 
-                            writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1") + "#" + jar_hmac + "#" + Base64.encodeBase64String(game_info.getText().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
+                            writeCommandFromServer(Helpers.encryptCommand("NICKOK#" + (password == null ? "0" : "1") + "#" + jar_hmac + "#" + Base64.encodeBase64String((game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|" + game_info_hands.getText()).getBytes("UTF-8")), aes_key, hmac_key), client_socket);
 
                             byte[] avatar_bytes = null;
 
@@ -2227,7 +2245,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     Helpers.GUIRunAndWait(new Runnable() {
                                         public void run() {
                                             empezar_timba.setEnabled(false);
-                                            game_info.setEnabled(false);
+                                            game_info_buyin.setEnabled(false);
+                                            game_info_blinds.setEnabled(false);
+                                            game_info_hands.setEnabled(false);
 
                                         }
                                     });
@@ -2292,7 +2312,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                         public void run() {
 
                                             empezar_timba.setEnabled((participantes.size() > 1));
-                                            game_info.setEnabled(true);
+                                            game_info_buyin.setEnabled(true);
+                                            game_info_blinds.setEnabled(true);
+                                            game_info_hands.setEnabled(true);
                                         }
                                     });
                                 }
@@ -2675,8 +2697,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         kick_user = new javax.swing.JButton();
         empezar_timba = new javax.swing.JButton();
         tot_conectados = new javax.swing.JLabel();
-        game_info = new javax.swing.JLabel();
+        game_info_buyin = new javax.swing.JLabel();
         barra = new javax.swing.JProgressBar();
+        game_info_blinds = new javax.swing.JLabel();
+        game_info_hands = new javax.swing.JLabel();
         danger_server = new javax.swing.JLabel();
         chat_notifications = new javax.swing.JCheckBox();
         chat_scroll = new javax.swing.JScrollPane();
@@ -2842,8 +2866,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         panel_conLayout.setVerticalGroup(
             panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_conLayout.createSequentialGroup()
-                .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 316, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(panel_conectados, javax.swing.GroupLayout.PREFERRED_SIZE, 328, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(kick_user)
                 .addGap(0, 0, 0))
         );
@@ -2860,17 +2884,37 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        tot_conectados.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        tot_conectados.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
         tot_conectados.setForeground(new java.awt.Color(0, 102, 255));
         tot_conectados.setText("0/10");
 
-        game_info.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        game_info.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        game_info.setText(" ");
-        game_info.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        game_info.addMouseListener(new java.awt.event.MouseAdapter() {
+        game_info_buyin.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        game_info_buyin.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1202.png"))); // NOI18N
+        game_info_buyin.setText(" ");
+        game_info_buyin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        game_info_buyin.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
-                game_infoMouseClicked(evt);
+                game_info_buyinMouseClicked(evt);
+            }
+        });
+
+        game_info_blinds.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        game_info_blinds.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/ciegas.png"))); // NOI18N
+        game_info_blinds.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        game_info_blinds.setDoubleBuffered(true);
+        game_info_blinds.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                game_info_blindsMouseClicked(evt);
+            }
+        });
+
+        game_info_hands.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        game_info_hands.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png"))); // NOI18N
+        game_info_hands.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        game_info_hands.setDoubleBuffered(true);
+        game_info_hands.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                game_info_handsMouseClicked(evt);
             }
         });
 
@@ -2879,17 +2923,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         panel_arribaLayout.setHorizontalGroup(
             panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_arribaLayout.createSequentialGroup()
-                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(new_bot_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(game_info, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panel_arribaLayout.createSequentialGroup()
                         .addComponent(pass_icon)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(tot_conectados))
-                    .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(panel_arribaLayout.createSequentialGroup()
+                        .addComponent(game_info_buyin)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(game_info_blinds)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(game_info_hands)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(panel_con, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addComponent(empezar_timba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2903,7 +2952,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_arribaLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(panel_arribaLayout.createSequentialGroup()
                         .addComponent(logo)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -2913,12 +2962,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 .addComponent(status1))
                             .addComponent(pass_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(game_info)
+                        .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(game_info_buyin)
+                            .addComponent(game_info_blinds)
+                            .addComponent(game_info_hands, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(new_bot_button, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(video_chat_button))
-                    .addComponent(panel_con, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(panel_con, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -3580,12 +3632,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_status1MouseClicked
 
-    private void game_infoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_game_infoMouseClicked
+    private void game_info_buyinMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_game_info_buyinMouseClicked
         // TODO add your handling code here:
 
-        if (server && !GameFrame.isRECOVER() && !isPartida_empezada() && !isPartida_empezando() && game_info.isEnabled()) {
+        if (server && !GameFrame.isRECOVER() && !isPartida_empezada() && !isPartida_empezando() && game_info_buyin.isEnabled()) {
 
-            game_info.setEnabled(false);
+            game_info_buyin.setEnabled(false);
+
+            game_info_blinds.setEnabled(false);
+
+            game_info_hands.setEnabled(false);
 
             NewGameDialog dialog = new NewGameDialog(this, true);
 
@@ -3595,21 +3651,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             if (dialog.isDialog_ok()) {
 
-                game_info.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY | " : "| ") + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : "") + (GameFrame.MANOS != -1 ? " | " + String.valueOf(GameFrame.MANOS) : ""));
+                game_info_buyin.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY" : ""));
 
-                if (!gameinfo_original.equals(game_info.getText())) {
-                    game_info.setOpaque(true);
-                    game_info.setBackground(Color.YELLOW);
-                } else {
-                    game_info.setOpaque(false);
-                    game_info.setBackground(null);
-                }
+                game_info_blinds.setText(Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : ""));
+
+                game_info_hands.setText(GameFrame.MANOS != -1 ? String.valueOf(GameFrame.MANOS) : "");
+
+                game_info_hands.setVisible(game_info_hands.getText() != "");
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {
 
                         try {
-                            broadcastASYNCGAMECommandFromServer("GAMEINFO#" + Base64.encodeBase64String(game_info.getText().getBytes("UTF-8")), null);
+                            broadcastASYNCGAMECommandFromServer("GAMEINFO#" + Base64.encodeBase64String((game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|" + game_info_hands.getText()).getBytes("UTF-8")), null);
                         } catch (UnsupportedEncodingException ex) {
                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -3617,18 +3671,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
 
-                                game_info.setEnabled(true);
+                                game_info_buyin.setEnabled(true);
+                                game_info_blinds.setEnabled(true);
+                                game_info_hands.setEnabled(true);
                             }
                         });
                     }
                 });
             } else {
-                game_info.setEnabled(true);
+                game_info_buyin.setEnabled(true);
+                game_info_blinds.setEnabled(true);
+                game_info_hands.setEnabled(true);
             }
 
         }
 
-    }//GEN-LAST:event_game_infoMouseClicked
+    }//GEN-LAST:event_game_info_buyinMouseClicked
 
     private void chat_notificationsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_notificationsActionPerformed
         // TODO add your handling code here:
@@ -3860,6 +3918,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_formWindowDeiconified
 
+    private void game_info_blindsMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_game_info_blindsMouseClicked
+        // TODO add your handling code here:
+        game_info_buyinMouseClicked(evt);
+    }//GEN-LAST:event_game_info_blindsMouseClicked
+
+    private void game_info_handsMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_game_info_handsMouseClicked
+        // TODO add your handling code here:
+        game_info_buyinMouseClicked(evt);
+    }//GEN-LAST:event_game_info_handsMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
     private javax.swing.JProgressBar barra;
@@ -3874,7 +3942,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private com.tonikelope.coronapoker.EmojiPanel emoji_panel;
     private javax.swing.JScrollPane emoji_scroll_panel;
     private javax.swing.JButton empezar_timba;
-    private javax.swing.JLabel game_info;
+    private javax.swing.JLabel game_info_blinds;
+    private javax.swing.JLabel game_info_buyin;
+    private javax.swing.JLabel game_info_hands;
     private javax.swing.JButton image_button;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JButton kick_user;

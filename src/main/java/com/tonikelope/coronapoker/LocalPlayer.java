@@ -99,6 +99,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final JLabel chat_notify_label = new JLabel();
     private final JLabel chip_label = new JLabel();
     private final JLabel sec_pot_win_label = new JLabel();
+    private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
 
     public JLabel getChip_label() {
         return chip_label;
@@ -570,7 +571,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 sec_pot_win_label.setOpaque(true);
 
-                sec_pot_win_label.setFont(player_action.getFont());
+                sec_pot_win_label.setFont(player_action.getFont().deriveFont(player_action.getFont().getStyle(), Math.round(player_action.getFont().getSize() * 0.7f)));
 
                 panel_cartas.add(sec_pot_win_label, new Integer(1003));
 
@@ -1359,6 +1360,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.decision = Player.NODEC;
 
+        this.botes_secundarios.clear();
+
         this.muestra = false;
 
         this.winner = false;
@@ -1594,7 +1597,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             buttonIconZoom();
                             nickChipIconZoom();
                             refreshChipLabel();
-                            secPotIconZoom();
 
                         }
                     });
@@ -1640,8 +1642,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_name.setIcon(null);
 
                         chip_label.setVisible(false);
-
-                        sec_pot_win_label.setIcon(null);
 
                     }
                 });
@@ -2586,9 +2586,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     sec_pot_win_label.setLocation(pos_x, pos_y);
 
-                    sec_pot_win_label.setText(Translator.translate("BOTE:") + " " + Helpers.float2String(pagar));
+                    String[] botes = new String[botes_secundarios.size()];
 
-                    Helpers.setScaledIconLabel(sec_pot_win_label, getClass().getResource("/images/pot.png"), sec_pot_win_label.getHeight(), sec_pot_win_label.getHeight());
+                    int i = 0;
+
+                    for (Integer b : botes_secundarios) {
+                        botes[i++] = "#" + String.valueOf(b);
+                    }
+
+                    sec_pot_win_label.setText(String.join("+", botes) + " " + Helpers.float2String(pagar) + " (" + Helpers.float2String(pagar - bote) + ")");
 
                     sec_pot_win_label.setVisible(true);
                 }
@@ -2622,22 +2628,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public void setBoteSecundario(String msg) {
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                player_action.setText(player_action.getText() + " " + msg);
-            }
-        });
-    }
-
-    @Override
-    public void pagar(float pasta) {
+    public void pagar(float pasta, Integer sec_pot) {
 
         this.pagar += pasta;
 
-        refreshSecPotLabel();
+        if (sec_pot != null) {
+            botes_secundarios.add(sec_pot);
+
+            refreshSecPotLabel();
+        }
 
     }
 

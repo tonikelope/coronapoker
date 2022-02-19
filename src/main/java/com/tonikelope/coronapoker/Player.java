@@ -74,9 +74,7 @@ public interface Player {
 
     public void setLoser(String msg);
 
-    public void setBoteSecundario(String msg);
-
-    public void pagar(float pasta);
+    public void pagar(float pasta, Integer sec_pot);
 
     public float getBet();
 

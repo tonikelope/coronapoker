@@ -560,6 +560,10 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                         WaitingRoomFrame.getInstance().chatHTMLAppend(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
 
+                                        if (!HISTORIAL.contains(url)) {
+                                            Helpers.mostrarMensajeInformativo(THIS, "IMAGEN AÑADIDA Y ENVIADA CORRECTAMENTE");
+                                        }
+
                                         THIS.setVisible(false);
 
                                         if (WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()) {

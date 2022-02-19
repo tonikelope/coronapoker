@@ -156,25 +156,28 @@ public class Init extends javax.swing.JFrame {
     }
 
     private void printQuote() {
-
-        if (conta_quote % Helpers.POKER_QUOTES_ES.size() == 0) {
-            conta_quote = 0;
-            Collections.shuffle(Helpers.POKER_QUOTES_ES, Helpers.CSPRNG_GENERATOR);
-            Collections.shuffle(Helpers.POKER_QUOTES_EN, Helpers.CSPRNG_GENERATOR);
-        }
-
-        String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(conta_quote++).trim().split("#");
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
+        Helpers.threadRun(new Runnable() {
             public void run() {
-
-                try {
-                    quote.setText("\"" + new String(quote_parts[0].getBytes(), "UTF-8") + "\" (" + new String(quote_parts[1].getBytes(), "UTF-8") + ")");
-                } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                if (conta_quote % Helpers.POKER_QUOTES_ES.size() == 0) {
+                    conta_quote = 0;
+                    Collections.shuffle(Helpers.POKER_QUOTES_ES, Helpers.CSPRNG_GENERATOR);
+                    Collections.shuffle(Helpers.POKER_QUOTES_EN, Helpers.CSPRNG_GENERATOR);
                 }
 
+                String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(conta_quote++).trim().split("#");
+
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        try {
+                            quote.setText("\"" + new String(quote_parts[0].getBytes(), "UTF-8") + "\" (" + new String(quote_parts[1].getBytes(), "UTF-8") + ")");
+                        } catch (UnsupportedEncodingException ex) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                    }
+                });
             }
         });
 
@@ -189,11 +192,20 @@ public class Init extends javax.swing.JFrame {
 
         setTitle(Init.WINDOW_TITLE);
 
-        var tthis = this;
+        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+            language_combobox.setSelectedIndex(0);
+        } else {
+            language_combobox.setSelectedIndex(1);
+        }
+
+        VENTANA_INICIO = this;
 
         StyledDocument doc = quote.getStyledDocument();
+
         SimpleAttributeSet center = new SimpleAttributeSet();
+
         StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
+
         doc.setParagraphAttributes(0, doc.getLength(), center, false);
 
         quote.setOpaque(false);
@@ -316,7 +328,7 @@ public class Init extends javax.swing.JFrame {
 
                     FORCE_CLOSE_DIALOG = true;
 
-                    if (Helpers.mostrarMensajeInformativoSINO(tthis, "¿FORZAR CIERRE?") == 0) {
+                    if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "¿FORZAR CIERRE?") == 0) {
                         System.exit(1);
                     }
 
@@ -353,12 +365,6 @@ public class Init extends javax.swing.JFrame {
         }
         );
 
-        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
-            language_combobox.setSelectedIndex(0);
-        } else {
-            language_combobox.setSelectedIndex(1);
-        }
-
         quote_timer = new Timer(QUOTE_DELAY, new ActionListener() {
 
             @Override
@@ -368,21 +374,16 @@ public class Init extends javax.swing.JFrame {
 
             }
         });
+
         quote_timer.setInitialDelay(0);
 
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), 30, 30);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
-        pack();
+        Helpers.translateComponents(this, false);
 
         Helpers.setScaledIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
-
-        setEnabled(false);
-
-        pack();
-
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
 
     }
 
@@ -771,21 +772,24 @@ public class Init extends javax.swing.JFrame {
 
     private void language_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_language_comboboxActionPerformed
         // TODO add your handling code here:
-        GameFrame.LANGUAGE = language_combobox.getSelectedIndex() == 0 ? "es" : "en";
+        if (VENTANA_INICIO != null) {
 
-        Helpers.PROPERTIES.setProperty("lenguaje", GameFrame.LANGUAGE);
+            GameFrame.LANGUAGE = language_combobox.getSelectedIndex() == 0 ? "es" : "en";
 
-        Helpers.savePropertiesFile();
+            Helpers.PROPERTIES.setProperty("lenguaje", GameFrame.LANGUAGE);
 
-        Helpers.translateComponents(this, true);
+            Helpers.savePropertiesFile();
 
-        translateGlobalLabels();
+            Helpers.translateComponents(this, true);
 
-        Crupier.loadMODSounds();
+            translateGlobalLabels();
 
-        Helpers.setCoronaLocale();
+            Crupier.loadMODSounds();
 
-        printQuote();
+            Helpers.setCoronaLocale();
+
+            printQuote();
+        }
     }//GEN-LAST:event_language_comboboxActionPerformed
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
@@ -801,11 +805,12 @@ public class Init extends javax.swing.JFrame {
         // TODO add your handling code here:
 
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), 30, 30);
-
-        if (quote_timer.isRunning()) {
-            quote_timer.restart();
-        } else {
-            quote_timer.start();
+        if (quote_timer != null) {
+            if (quote_timer.isRunning()) {
+                quote_timer.restart();
+            } else {
+                quote_timer.start();
+            }
         }
 
     }//GEN-LAST:event_formComponentShown
@@ -826,7 +831,7 @@ public class Init extends javax.swing.JFrame {
                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                         gif_dialog.setVisible(true);
                     } catch (Exception ex) {
-                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
             });
@@ -968,11 +973,9 @@ public class Init extends javax.swing.JFrame {
 
             VENTANA_INICIO = new Init();
 
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
-
-                    Helpers.centrarJFrame(VENTANA_INICIO, 0);
 
                     VENTANA_INICIO.setExtendedState(VENTANA_INICIO.getExtendedState() | JFrame.MAXIMIZED_BOTH);
 
@@ -1041,7 +1044,7 @@ public class Init extends javax.swing.JFrame {
             @Override
             public void run() {
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
 

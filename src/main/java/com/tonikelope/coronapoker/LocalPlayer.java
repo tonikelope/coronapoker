@@ -72,6 +72,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean spectator = false;
     private volatile float pagar = 0f;
     private volatile float bote = 0f;
+    private volatile Float last_bote = null;
     private volatile boolean exit = false;
     private volatile boolean turno = false;
     private volatile Timer auto_action = null;
@@ -206,26 +207,32 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return loser;
     }
 
-    public void refreshChipLabel() {
+    public void refreshPositionChipIcons() {
 
-        ImageIcon icon;
+        ImageIcon chip_label_icon;
 
         if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
-            icon = Helpers.IMAGEN_BB;
+            Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+
+            chip_label_icon = Helpers.IMAGEN_BB;
         } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
-            icon = Helpers.IMAGEN_SB;
+            Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+
+            chip_label_icon = Helpers.IMAGEN_SB;
         } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
-            icon = Helpers.IMAGEN_DEALER;
+            Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+
+            chip_label_icon = Helpers.IMAGEN_DEALER;
         } else {
-            icon = null;
+            chip_label_icon = null;
         }
 
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
 
-                if (isActivo() && icon != null) {
-                    chip_label.setIcon(icon);
+                if (isActivo() && chip_label_icon != null) {
+                    chip_label.setIcon(chip_label_icon);
                     chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
                     chip_label.setLocation(0, getPlayingCard1().getHeight() - chip_label.getHeight());
                     chip_label.revalidate();
@@ -1370,6 +1377,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.bote = 0f;
 
+        this.last_bote = null;
+
         this.bet = 0f;
 
         if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
@@ -1596,7 +1605,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             actionIconZoom();
                             buttonIconZoom();
                             nickChipIconZoom();
-                            refreshChipLabel();
+                            refreshPositionChipIcons();
+                            refreshSecPotLabel();
 
                         }
                     });
@@ -1692,22 +1702,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         switch (pos) {
             case Player.DEALER:
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-
-                        chip_label.setIcon(Helpers.IMAGEN_DEALER);
-                        chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
-                        chip_label.setLocation(0, getPlayingCard1().getHeight() - chip_label.getHeight());
-                        chip_label.revalidate();
-                        chip_label.repaint();
-
-                        chip_label.setVisible(GameFrame.LOCAL_POSITION_CHIP);
-
-                    }
-                });
 
                 if (GameFrame.getInstance().getCrupier().getDealer_nick().equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
                     if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
@@ -1726,21 +1720,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 break;
             case Player.BIG_BLIND:
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-
-                        chip_label.setIcon(Helpers.IMAGEN_BB);
-                        chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
-                        chip_label.setLocation(0, getPlayingCard1().getHeight() - chip_label.getHeight());
-                        chip_label.revalidate();
-                        chip_label.repaint();
-                        chip_label.setVisible(GameFrame.LOCAL_POSITION_CHIP);
-
-                    }
-                });
 
                 if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0) {
                     setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
@@ -1755,21 +1734,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 break;
             case Player.SMALL_BLIND:
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-
-                        chip_label.setIcon(Helpers.IMAGEN_SB);
-                        chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
-                        chip_label.setLocation(0, getPlayingCard1().getHeight() - chip_label.getHeight());
-                        chip_label.revalidate();
-                        chip_label.repaint();
-                        chip_label.setVisible(GameFrame.LOCAL_POSITION_CHIP);
-
-                    }
-                });
 
                 if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
                     setBet(GameFrame.getInstance().getCrupier().getCiega_pequeña());
@@ -1784,29 +1748,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 break;
             default:
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        player_name.setOpaque(false);
-                        player_name.setBackground(null);
-
-                        if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
-                            player_name.setForeground(Color.YELLOW);
-                        } else {
-                            player_name.setForeground(Color.WHITE);
-                        }
-
-                        player_name.setIcon(null);
-
-                        chip_label.setVisible(false);
-                    }
-                });
 
                 setBet(0f);
 
                 break;
         }
+
+        refreshPositionChipIcons();
 
     }
 
@@ -2453,7 +2401,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             GameFrame.LOCAL_POSITION_CHIP = !GameFrame.LOCAL_POSITION_CHIP;
 
-            this.refreshPos();
+            this.refreshPositionChipIcons();
 
             Helpers.PROPERTIES.setProperty("local_pos_chip", String.valueOf(GameFrame.LOCAL_POSITION_CHIP));
 
@@ -2594,7 +2542,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         botes[i++] = "#" + String.valueOf(b);
                     }
 
-                    sec_pot_win_label.setText(String.join("+", botes) + " " + Helpers.float2String(pagar) + " (" + Helpers.float2String(pagar - bote) + ")");
+                    float mibote = last_bote != null ? last_bote : bote;
+
+                    sec_pot_win_label.setText(String.join("+", botes) + " = " + Helpers.float2String(pagar) + " (" + Helpers.float2String(pagar - mibote) + ")");
 
                     sec_pot_win_label.setVisible(true);
                 }
@@ -2780,6 +2730,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void resetBote() {
         this.bet = 0f;
+        this.last_bote = this.bote;
         this.bote = 0f;
     }
 

@@ -80,6 +80,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private final JLabel chat_notify_label = new JLabel();
     private final JLabel chip_label = new JLabel();
     private final JLabel sec_pot_win_label = new JLabel();
+    private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
 
     public void refreshSecPotLabel() {
 
@@ -103,15 +104,22 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     sec_pot_win_label.setLocation(pos_x, pos_y);
 
-                    sec_pot_win_label.setText(Translator.translate("BOTE:") + " " + Helpers.float2String(pagar));
+                    String[] botes = new String[botes_secundarios.size()];
 
-                    Helpers.setScaledIconLabel(sec_pot_win_label, getClass().getResource("/images/pot.png"), sec_pot_win_label.getHeight(), sec_pot_win_label.getHeight());
+                    int i = 0;
+
+                    for (Integer b : botes_secundarios) {
+                        botes[i++] = "#" + String.valueOf(b);
+                    }
+
+                    sec_pot_win_label.setText(String.join("+", botes) + " " + Helpers.float2String(pagar) + " (" + Helpers.float2String(pagar - bote) + ")");
 
                     sec_pot_win_label.setVisible(true);
                 }
             });
 
         }
+
     }
 
     public boolean isNotify_blocked() {
@@ -666,7 +674,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 sec_pot_win_label.setOpaque(true);
 
-                sec_pot_win_label.setFont(player_action.getFont());
+                sec_pot_win_label.setFont(player_action.getFont().deriveFont(player_action.getFont().getStyle(), Math.round(player_action.getFont().getSize() * 0.7f)));
 
                 panel_cartas.add(sec_pot_win_label, new Integer(1003));
 
@@ -859,11 +867,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         panel_cartasLayout.setHorizontalGroup(
             panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_cartasLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
+                .addGap(0, 0, Short.MAX_VALUE)
                 .addComponent(playingCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(playingCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, 0))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
         panel_cartasLayout.setVerticalGroup(
             panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1158,7 +1166,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             actionIconZoom();
                             nickChipIconZoom();
                             refreshChipLabel();
-                            secPotIconZoom();
 
                         }
                     });
@@ -1199,8 +1206,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_name.setIcon(null);
 
                         chip_label.setVisible(false);
-
-                        sec_pot_win_label.setIcon(null);
                     }
                 });
 
@@ -1305,22 +1310,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public void setBoteSecundario(String msg) {
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                player_action.setText(player_action.getText() + " " + msg);
-            }
-        });
-    }
-
-    @Override
-    public void pagar(float pasta) {
+    public void pagar(float pasta, Integer sec_pot) {
 
         this.pagar += pasta;
 
-        refreshSecPotLabel();
+        if (sec_pot != null) {
+            botes_secundarios.add(sec_pot);
+
+            refreshSecPotLabel();
+        }
 
     }
 
@@ -1481,6 +1479,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         this.notify_blocked = false;
 
+        this.botes_secundarios.clear();
+
         this.winner = false;
 
         this.loser = false;
@@ -1594,7 +1594,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                if (isActivo() && icon != null) {
+                if (isActivo() && playingCard1.isTapada() && icon != null) {
                     chip_label.setIcon(icon);
                     chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
                     chip_label.setLocation(0, 0);
@@ -1845,21 +1845,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 utg_icon.setPreferredSize(new Dimension((int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight()));
 
                 utg_icon.setVisible(utg);
-            }
-        });
-    }
-
-    private void secPotIconZoom() {
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                sec_pot_win_label.setSize(player_action.getSize());
-                sec_pot_win_label.setPreferredSize(player_action.getSize());
-                Helpers.setScaledIconLabel(sec_pot_win_label, getClass().getResource("/images/pot.png"), sec_pot_win_label.getHeight(), sec_pot_win_label.getHeight());
-                int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
-                int pos_y = Math.round(GameFrame.VISTA_COMPACTA ? (getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) : ((getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) / 2));
-                sec_pot_win_label.setLocation(pos_x, pos_y);
             }
         });
     }

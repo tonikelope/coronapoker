@@ -195,7 +195,10 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                 THIS.historial_panel.remove(label);
                                                 THIS.historial_panel.revalidate();
                                                 THIS.historial_panel.repaint();
-                                                last_focused.requestFocus();
+                                                
+                                                if(last_focused!=null){
+                                                    last_focused.requestFocus();
+                                                }
 
                                                 Helpers.threadRun(new Runnable() {
                                                     @Override

@@ -95,8 +95,6 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         setPreferredSize(getSize());
 
-        pack();
-
         THIS = this;
 
         cargarHistorialPanel();
@@ -674,7 +672,9 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
-        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+        synchronized (ChatImageURLDialog.class) {
+            WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+        }
     }//GEN-LAST:event_formWindowClosing
 
     private void image_urlActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_image_urlActionPerformed

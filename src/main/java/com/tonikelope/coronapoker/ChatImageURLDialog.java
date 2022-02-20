@@ -168,6 +168,32 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                     WaitingRoomFrame.getInstance().getChat_box().requestFocus();
                                                 }
                                             }
+                                        } else if (ke.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
+
+                                            label.setBorder(new LineBorder(Color.RED, 5));
+
+                                            if (Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+
+                                                THIS.historial_panel.remove(label);
+                                                THIS.historial_panel.revalidate();
+                                                THIS.historial_panel.repaint();
+
+                                                if (last_focused != null) {
+                                                    last_focused.requestFocus();
+                                                }
+
+                                                Helpers.threadRun(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        ChatImageURLDialog.removeFromHistory(h);
+                                                    }
+                                                });
+                                            } else {
+
+                                                label.setBorder(new EmptyBorder(10, 0, 10, 0));
+
+                                                THIS.image_url.requestFocus();
+                                            }
                                         }
                                     }
 
@@ -195,8 +221,8 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                 THIS.historial_panel.remove(label);
                                                 THIS.historial_panel.revalidate();
                                                 THIS.historial_panel.repaint();
-                                                
-                                                if(last_focused!=null){
+
+                                                if (last_focused != null) {
                                                     last_focused.requestFocus();
                                                 }
 
@@ -485,6 +511,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         image_url.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 image_urlActionPerformed(evt);
+            }
+        });
+        image_url.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyPressed(java.awt.event.KeyEvent evt) {
+                image_urlKeyPressed(evt);
             }
         });
 
@@ -802,6 +833,18 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         image_url.requestFocus();
 
     }//GEN-LAST:event_auto_recibir_checkboxActionPerformed
+
+    private void image_urlKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_image_urlKeyPressed
+        // TODO add your handling code here:
+        if (evt.getKeyCode() == KeyEvent.VK_1 && evt.isControlDown()) {
+            THIS.dispose();
+            synchronized (ChatImageURLDialog.class) {
+                if (WaitingRoomFrame.getInstance().isVisible()) {
+                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+                }
+            }
+        }
+    }//GEN-LAST:event_image_urlKeyPressed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JCheckBox auto_recibir_checkbox;

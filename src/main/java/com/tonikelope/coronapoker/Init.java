@@ -23,6 +23,7 @@ import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.MouseInfo;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -76,6 +77,7 @@ public class Init extends javax.swing.JFrame {
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
+    public static final String SCREENSHOTS_DIR = CORONA_DIR + "/Screenshots";
     public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
@@ -225,6 +227,35 @@ public class Init extends javax.swing.JFrame {
         update_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/gears.gif")).getImage().getScaledInstance(64, 64, Image.SCALE_DEFAULT)));
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("SCREENSHOT") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                if (GameFrame.getInstance() != null) {
+
+                    Audio.playWavResource("misc/screenshot.wav");
+
+                    Helpers.threadRun(new Runnable() {
+
+                        public void run() {
+
+                            Helpers.snapshot(new Rectangle(GameFrame.getInstance().getTapete().getLocationOnScreen(), GameFrame.getInstance().getTapete().getSize()), null);
+
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+
+                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "CAPTURA CREADA CORRECTAMENTE", Color.WHITE, Color.BLACK, getClass().getResource("/images/screenshot.png"), 2000);
+                                    dialog.setVisible(true);
+
+                                }
+                            });
+                        }
+                    });
+                }
+
+            }
+        });
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK), new AbstractAction("SOUND-SWITCH") {
             @Override

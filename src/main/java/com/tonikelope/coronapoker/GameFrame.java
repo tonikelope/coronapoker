@@ -122,6 +122,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int GUI_ZOOM_WAIT = 250;
     public static final boolean TEST_MODE = false;
     public static final int TTS_NO_SOUND_TIMEOUT = 3000;
+    public static final ConcurrentLinkedQueue<Object[]> NOTIFY_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
 
     public static volatile float CIEGA_PEQUEÑA = 0.10f;
     public static volatile float CIEGA_GRANDE = 0.20f;
@@ -2127,9 +2128,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 while (!crupier.isFin_de_la_transmision()) {
 
-                    while (!Audio.TTS_CHAT_QUEUE.isEmpty()) {
+                    while (!GameFrame.NOTIFY_CHAT_QUEUE.isEmpty()) {
 
-                        Object[] tts = Audio.TTS_CHAT_QUEUE.poll();
+                        Object[] tts = GameFrame.NOTIFY_CHAT_QUEUE.poll();
 
                         String nick = (String) tts[0];
 
@@ -2378,10 +2379,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     }
 
-                    synchronized (Audio.TTS_CHAT_QUEUE) {
+                    synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
 
                         try {
-                            Audio.TTS_CHAT_QUEUE.wait(1000);
+                            GameFrame.NOTIFY_CHAT_QUEUE.wait(1000);
                         } catch (InterruptedException ex) {
                             Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                         }

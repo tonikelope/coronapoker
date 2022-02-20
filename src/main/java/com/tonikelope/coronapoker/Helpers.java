@@ -26,6 +26,7 @@ import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
+import static com.tonikelope.coronapoker.Init.SCREENSHOTS_DIR;
 import static com.tonikelope.coronapoker.Init.SQLITE;
 import static com.tonikelope.coronapoker.Init.SQL_FILE;
 import java.awt.AlphaComposite;
@@ -40,7 +41,9 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.datatransfer.Clipboard;
@@ -820,6 +823,21 @@ public class Helpers {
         return (command != null && command.charAt(0) == '*') ? Helpers.decryptString(command.trim().substring(1), aes_key, hmac_key) : command;
     }
 
+    public static void snapshot(Rectangle rectangle, Integer delay) {
+        try {
+            Robot robot = new Robot();
+
+            if (delay != null) {
+                Helpers.pausar(delay);
+            }
+
+            BufferedImage image = robot.createScreenCapture(rectangle);
+            ImageIO.write(image, "png", new File(SCREENSHOTS_DIR + "/coronapoker_screenshot_" + String.valueOf(System.currentTimeMillis()) + ".png"));
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
     public static void createIfNoExistsCoronaDirs() {
 
         File f = new File(CORONA_DIR);
@@ -835,6 +853,12 @@ public class Helpers {
         }
 
         f = new File(DEBUG_DIR);
+
+        if (!f.exists()) {
+            f.mkdir();
+        }
+
+        f = new File(SCREENSHOTS_DIR);
 
         if (!f.exists()) {
             f.mkdir();

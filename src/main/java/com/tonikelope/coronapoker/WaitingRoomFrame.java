@@ -2480,7 +2480,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     if (msg.startsWith("img://") || msg.startsWith("imgs://")) {
 
                         try {
-                            Audio.TTS_CHAT_QUEUE.add(new Object[]{nick, new URL(msg.replaceAll("^img", "http"))});
+                            GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, new URL(msg.replaceAll("^img", "http"))});
                         } catch (MalformedURLException ex) {
                             Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -2489,12 +2489,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         String tts_msg = cleanTTSChatMessage(msg);
 
-                        Audio.TTS_CHAT_QUEUE.add(new Object[]{nick, tts_msg});
+                        GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, tts_msg});
 
                     }
 
-                    synchronized (Audio.TTS_CHAT_QUEUE) {
-                        Audio.TTS_CHAT_QUEUE.notifyAll();
+                    synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
+                        GameFrame.NOTIFY_CHAT_QUEUE.notifyAll();
                     }
                 }
             }

@@ -33,7 +33,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
-            {"IMAGEN AÑADIDA Y ENVIADA CORRECTAMENTE", "IMAGE ADDED AND SENT SUCCESSFULLY"},
+            {"CAPTURA CREADA CORRECTAMENTE", "SCREENSHOT OK"},
+            {"IMAGEN AÑADIDA CORRECTAMENTE", "IMAGE ADDED SUCCESSFULLY"},
             {"GANAS:", "YOU WIN:"},
             {"GANA:", "WINS:"},
             {"Visor de cartas", "Card visor"},

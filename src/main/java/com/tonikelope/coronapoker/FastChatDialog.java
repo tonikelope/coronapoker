@@ -192,10 +192,10 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
                 String tts_msg = GameFrame.getInstance().getSala_espera().cleanTTSChatMessage(mensaje);
 
-                Audio.TTS_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), tts_msg});
+                GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), tts_msg});
 
-                synchronized (Audio.TTS_CHAT_QUEUE) {
-                    Audio.TTS_CHAT_QUEUE.notifyAll();
+                synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
+                    GameFrame.NOTIFY_CHAT_QUEUE.notifyAll();
                 }
             }
 

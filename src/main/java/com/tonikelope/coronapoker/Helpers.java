@@ -343,17 +343,23 @@ public class Helpers {
 
     public static void setCoronaLocale() {
 
-        Locale locale;
-
         if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
-            locale = new Locale("es", "ES");
+            Locale locale = new Locale("es", "ES");
+            Locale.setDefault(locale);
+            JOptionPane.setDefaultLocale(locale);
+            UIManager.put("OptionPane.cancelButtonText", "Cancelar");
+            UIManager.put("OptionPane.noButtonText", "No");
+            UIManager.put("OptionPane.okButtonText", "Vale");
+            UIManager.put("OptionPane.yesButtonText", "Sí");
         } else {
-            locale = new Locale("en", "EN");
+            Locale locale = new Locale("en", "EN");
+            Locale.setDefault(locale);
+            JOptionPane.setDefaultLocale(locale);
+            UIManager.put("OptionPane.cancelButtonText", "Cancel");
+            UIManager.put("OptionPane.noButtonText", "No");
+            UIManager.put("OptionPane.okButtonText", "OK");
+            UIManager.put("OptionPane.yesButtonText", "Yes");
         }
-
-        Locale.setDefault(locale);
-
-        JOptionPane.setDefaultLocale(locale);
 
     }
 

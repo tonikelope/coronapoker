@@ -21,6 +21,10 @@ import java.awt.Cursor;
 import java.awt.Image;
 import java.awt.MediaTracker;
 import java.awt.Toolkit;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.UnsupportedEncodingException;
@@ -56,6 +60,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     private volatile static boolean AUTO_REC;
     private volatile static int ANTI_FLOOD_WAIT = 0;
     private volatile static ChatImageURLDialog THIS;
+    private volatile JLabel last_focused = null;
 
     /**
      * Creates new form ChatImageURLDialog
@@ -121,11 +126,57 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                         Helpers.GUIRunAndWait(new Runnable() {
                             @Override
                             public void run() {
-
+                                label.setFocusable(true);
                                 label.setAlignmentX(0.5f);
                                 label.setBorder(new EmptyBorder(10, 0, 10, 0));
                                 label.setCursor(new Cursor(Cursor.HAND_CURSOR));
                                 label.setIcon((STATIC_IMAGE_CACHE.containsKey(h) || GIF_CACHE.containsKey(h)) ? getImageFromCache(h) : new ImageIcon(getClass().getResource("/images/loading.gif")));
+
+                                label.addFocusListener(new FocusListener() {
+                                    @Override
+                                    public void focusGained(FocusEvent fe) {
+                                        label.setBorder(new LineBorder(Color.YELLOW, 5));
+                                        THIS.historial_panel.scrollRectToVisible(label.getBounds());
+                                    }
+
+                                    @Override
+                                    public void focusLost(FocusEvent fe) {
+                                        if (label.getBorder() instanceof LineBorder && ((LineBorder) label.getBorder()).getLineColor() == Color.YELLOW) {
+                                            label.setBorder(new EmptyBorder(10, 0, 10, 0));
+                                            last_focused = label;
+                                        }
+                                    }
+                                });
+
+                                label.addKeyListener(new KeyListener() {
+                                    @Override
+                                    public void keyTyped(KeyEvent ke) {
+
+                                    }
+
+                                    @Override
+                                    public void keyPressed(KeyEvent ke) {
+
+                                        if (ke.getKeyCode() == KeyEvent.VK_ENTER || ke.getKeyCode() == KeyEvent.VK_SPACE) {
+                                            image_url.setText(h);
+                                            image_url.setEnabled(false);
+                                            send_buttonActionPerformed(null);
+                                        } else if (ke.getKeyCode() == KeyEvent.VK_1) {
+                                            THIS.dispose();
+                                            synchronized (ChatImageURLDialog.class) {
+                                                if (WaitingRoomFrame.getInstance().isVisible()) {
+                                                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    @Override
+                                    public void keyReleased(KeyEvent ke) {
+
+                                    }
+                                });
+
                                 label.addMouseListener(new MouseAdapter() {
                                     @Override
                                     public void mouseClicked(MouseEvent e) {
@@ -144,6 +195,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                 THIS.historial_panel.remove(label);
                                                 THIS.historial_panel.revalidate();
                                                 THIS.historial_panel.repaint();
+                                                last_focused.requestFocus();
 
                                                 Helpers.threadRun(new Runnable() {
                                                     @Override
@@ -151,11 +203,12 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                                         ChatImageURLDialog.removeFromHistory(h);
                                                     }
                                                 });
+                                            } else {
+
+                                                label.setBorder(new EmptyBorder(10, 0, 10, 0));
+
+                                                THIS.image_url.requestFocus();
                                             }
-
-                                            label.setBorder(new EmptyBorder(10, 0, 10, 0));
-
-                                            THIS.image_url.requestFocus();
                                         }
                                     }
                                 });
@@ -438,6 +491,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         send_button.setText("Enviar");
         send_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         send_button.setDoubleBuffered(true);
+        send_button.setFocusable(false);
         send_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 send_buttonActionPerformed(evt);
@@ -446,25 +500,32 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel1.setText("URL:");
+        jLabel1.setDoubleBuffered(true);
+        jLabel1.setFocusable(false);
 
         jLabel2.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setText("Nota: también puedes buscar desde aquí imágenes en Google introduciendo palabras clave.");
         jLabel2.setDoubleBuffered(true);
+        jLabel2.setFocusable(false);
 
         scroll_panel.setBorder(null);
         scroll_panel.setDoubleBuffered(true);
+        scroll_panel.setFocusCycleRoot(true);
 
+        historial_panel.setFocusCycleRoot(true);
         historial_panel.setLayout(new javax.swing.BoxLayout(historial_panel, javax.swing.BoxLayout.Y_AXIS));
         scroll_panel.setViewportView(historial_panel);
 
         barra.setDoubleBuffered(true);
+        barra.setFocusable(false);
 
         clear_button.setBackground(new java.awt.Color(255, 0, 0));
         clear_button.setForeground(new java.awt.Color(255, 255, 255));
         clear_button.setText("Borrar historial");
         clear_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         clear_button.setDoubleBuffered(true);
+        clear_button.setFocusable(false);
         clear_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 clear_buttonActionPerformed(evt);
@@ -474,6 +535,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         auto_recibir_checkbox.setText("Añadir imágenes recibidas al historial");
         auto_recibir_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         auto_recibir_checkbox.setDoubleBuffered(true);
+        auto_recibir_checkbox.setFocusable(false);
         auto_recibir_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 auto_recibir_checkboxActionPerformed(evt);
@@ -684,7 +746,9 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
         synchronized (ChatImageURLDialog.class) {
-            WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+            if (WaitingRoomFrame.getInstance().isVisible()) {
+                WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+            }
         }
     }//GEN-LAST:event_formWindowClosing
 

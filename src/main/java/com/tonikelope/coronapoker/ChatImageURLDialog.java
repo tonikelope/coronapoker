@@ -639,12 +639,10 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                 } else {
                                     Helpers.mostrarMensajeError(THIS, "ERROR: LA IMAGEN NO ES VÁLIDA");
-
                                 }
                             } catch (MalformedURLException ex) {
                                 Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
                                 Helpers.mostrarMensajeError(THIS, "ERROR: LA IMAGEN NO ES VÁLIDA");
-
                             }
 
                             Helpers.GUIRun(new Runnable() {

@@ -35,7 +35,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "13.72";
+    public static final String VERSION = "13.73";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -56,7 +56,7 @@ public class AboutDialog extends javax.swing.JDialog {
         main_scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         main_scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
         memory_usage.setText(Helpers.getMemoryUsage());
-        threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + " threads");
+        threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + "/" + String.valueOf(Helpers.THREAD_POOL.getPoolSize() + 2) + " threads");
 
         if (Init.MOD != null) {
             mod_label.setText(Init.MOD.get("name") + " " + Init.MOD.get("version"));
@@ -106,7 +106,7 @@ public class AboutDialog extends javax.swing.JDialog {
             @Override
             public void actionPerformed(ActionEvent ae) {
                 memory_usage.setText(Helpers.getMemoryUsage());
-                threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + " threads");
+                threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + "/" + String.valueOf(Helpers.THREAD_POOL.getPoolSize() + 2) + " threads");
             }
         });
 

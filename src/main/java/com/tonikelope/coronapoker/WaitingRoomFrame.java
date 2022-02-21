@@ -771,6 +771,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             conectados.setModel(listModel);
             conectados.revalidate();
             conectados.repaint();
+            game_info_buyin.setToolTipText(null);
+            game_info_blinds.setToolTipText(null);
+            game_info_hands.setToolTipText(null);
         }
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
@@ -1426,14 +1429,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     status.setText(Translator.translate("Recibiendo info del servidor..."));
                                     String[] game_info = gameinfo_original.split("\\|");
 
-                                    game_info_buyin.setText(game_info[0]);
-                                    game_info_blinds.setText(game_info[1]);
+                                    if (game_info[0].trim().matches("[0-9.,]+")) {
 
-                                    if (game_info.length > 2) {
-                                        game_info_hands.setText(game_info[2]);
+                                        game_info_buyin.setText(game_info[0]);
+                                        game_info_blinds.setText(game_info[1]);
+
+                                        if (game_info.length > 2) {
+                                            game_info_hands.setText(game_info[2]);
+                                        } else {
+                                            game_info_hands.setVisible(false);
+                                        }
                                     } else {
-                                        game_info_hands.setVisible(false);
+                                        game_info_blinds.setVisible(false);
+                                        game_info_blinds.setVisible(false);
+                                        game_info_buyin.setIcon(null);
                                     }
+
                                 }
                             });
 
@@ -1766,13 +1777,20 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             Helpers.GUIRun(new Runnable() {
                                                                 public void run() {
 
-                                                                    game_info_buyin.setText(game_info[0]);
-                                                                    game_info_blinds.setText(game_info[1]);
+                                                                    if (game_info[0].trim().matches("[0-9.,]+")) {
 
-                                                                    if (game_info.length > 2) {
-                                                                        game_info_hands.setText(game_info[2]);
+                                                                        game_info_buyin.setText(game_info[0]);
+                                                                        game_info_blinds.setText(game_info[1]);
+
+                                                                        if (game_info.length > 2) {
+                                                                            game_info_hands.setText(game_info[2]);
+                                                                        } else {
+                                                                            game_info_hands.setVisible(false);
+                                                                        }
                                                                     } else {
-                                                                        game_info_hands.setVisible(false);
+                                                                        game_info_blinds.setVisible(false);
+                                                                        game_info_blinds.setVisible(false);
+                                                                        game_info_buyin.setIcon(null);
                                                                     }
 
                                                                 }
@@ -2684,23 +2702,24 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         main_scroll_panel = new javax.swing.JScrollPane();
         main_panel = new javax.swing.JPanel();
         panel_arriba = new javax.swing.JPanel();
-        pass_icon = new javax.swing.JLabel();
-        new_bot_button = new javax.swing.JButton();
-        logo = new javax.swing.JLabel();
         status = new javax.swing.JLabel();
-        status1 = new javax.swing.JLabel();
         sound_icon = new javax.swing.JLabel();
-        video_chat_button = new javax.swing.JButton();
         panel_con = new javax.swing.JPanel();
         panel_conectados = new javax.swing.JScrollPane();
         conectados = new javax.swing.JList<>();
         kick_user = new javax.swing.JButton();
         empezar_timba = new javax.swing.JButton();
-        tot_conectados = new javax.swing.JLabel();
-        game_info_buyin = new javax.swing.JLabel();
         barra = new javax.swing.JProgressBar();
+        jPanel2 = new javax.swing.JPanel();
+        new_bot_button = new javax.swing.JButton();
         game_info_blinds = new javax.swing.JLabel();
+        tot_conectados = new javax.swing.JLabel();
         game_info_hands = new javax.swing.JLabel();
+        video_chat_button = new javax.swing.JButton();
+        status1 = new javax.swing.JLabel();
+        logo = new javax.swing.JLabel();
+        game_info_buyin = new javax.swing.JLabel();
+        pass_icon = new javax.swing.JLabel();
         danger_server = new javax.swing.JLabel();
         chat_notifications = new javax.swing.JCheckBox();
         chat_scroll = new javax.swing.JScrollPane();
@@ -2752,52 +2771,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         main_scroll_panel.setBorder(null);
         main_scroll_panel.setDoubleBuffered(true);
 
-        pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
-        pass_icon.setToolTipText("Click para gestionar contraseña");
-        pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        pass_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                pass_iconMouseClicked(evt);
-            }
-        });
-
-        new_bot_button.setBackground(new java.awt.Color(51, 51, 51));
-        new_bot_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        new_bot_button.setForeground(new java.awt.Color(255, 255, 255));
-        new_bot_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/robot.png"))); // NOI18N
-        new_bot_button.setText("AÑADIR BOT");
-        new_bot_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        new_bot_button.setDoubleBuffered(true);
-        new_bot_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                new_bot_buttonActionPerformed(evt);
-            }
-        });
-
-        logo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        logo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_15.png"))); // NOI18N
-        logo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        logo.setDoubleBuffered(true);
-        logo.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                logoMouseClicked(evt);
-            }
-        });
-
         status.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         status.setForeground(new java.awt.Color(51, 153, 0));
         status.setDoubleBuffered(true);
-
-        status1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        status1.setText("1.1.1.1");
-        status1.setToolTipText("Click para obtener datos de conexión");
-        status1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        status1.setDoubleBuffered(true);
-        status1.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                status1MouseClicked(evt);
-            }
-        });
 
         sound_icon.setBackground(new java.awt.Color(153, 153, 153));
         sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
@@ -2807,20 +2783,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 sound_iconMouseClicked(evt);
-            }
-        });
-
-        video_chat_button.setBackground(new java.awt.Color(102, 153, 255));
-        video_chat_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        video_chat_button.setForeground(new java.awt.Color(255, 255, 255));
-        video_chat_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/duo.png"))); // NOI18N
-        video_chat_button.setText("Videollamada");
-        video_chat_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        video_chat_button.setDoubleBuffered(true);
-        video_chat_button.setFocusable(false);
-        video_chat_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                video_chat_buttonActionPerformed(evt);
             }
         });
 
@@ -2861,13 +2823,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addGap(0, 0, 0)
                 .addGroup(panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(panel_conectados)))
+                    .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 298, Short.MAX_VALUE)))
         );
         panel_conLayout.setVerticalGroup(
             panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_conLayout.createSequentialGroup()
                 .addComponent(panel_conectados, javax.swing.GroupLayout.PREFERRED_SIZE, 328, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 11, Short.MAX_VALUE)
                 .addComponent(kick_user)
                 .addGap(0, 0, 0))
         );
@@ -2884,17 +2846,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        tot_conectados.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
-        tot_conectados.setForeground(new java.awt.Color(0, 102, 255));
-        tot_conectados.setText("0/10");
-
-        game_info_buyin.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        game_info_buyin.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1202.png"))); // NOI18N
-        game_info_buyin.setText(" ");
-        game_info_buyin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        game_info_buyin.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                game_info_buyinMouseClicked(evt);
+        new_bot_button.setBackground(new java.awt.Color(51, 51, 51));
+        new_bot_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        new_bot_button.setForeground(new java.awt.Color(255, 255, 255));
+        new_bot_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/robot.png"))); // NOI18N
+        new_bot_button.setText("AÑADIR BOT");
+        new_bot_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        new_bot_button.setDoubleBuffered(true);
+        new_bot_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                new_bot_buttonActionPerformed(evt);
             }
         });
 
@@ -2908,6 +2869,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        tot_conectados.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
+        tot_conectados.setForeground(new java.awt.Color(0, 102, 255));
+        tot_conectados.setText("0/10");
+
         game_info_hands.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         game_info_hands.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png"))); // NOI18N
         game_info_hands.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -2918,28 +2883,114 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        javax.swing.GroupLayout panel_arribaLayout = new javax.swing.GroupLayout(panel_arriba);
-        panel_arriba.setLayout(panel_arribaLayout);
-        panel_arribaLayout.setHorizontalGroup(
-            panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panel_arribaLayout.createSequentialGroup()
-                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+        video_chat_button.setBackground(new java.awt.Color(102, 153, 255));
+        video_chat_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        video_chat_button.setForeground(new java.awt.Color(255, 255, 255));
+        video_chat_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/duo.png"))); // NOI18N
+        video_chat_button.setText("Videollamada");
+        video_chat_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        video_chat_button.setDoubleBuffered(true);
+        video_chat_button.setFocusable(false);
+        video_chat_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                video_chat_buttonActionPerformed(evt);
+            }
+        });
+
+        status1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        status1.setText("1.1.1.1");
+        status1.setToolTipText("Click para obtener datos de conexión");
+        status1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        status1.setDoubleBuffered(true);
+        status1.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                status1MouseClicked(evt);
+            }
+        });
+
+        logo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        logo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_15.png"))); // NOI18N
+        logo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        logo.setDoubleBuffered(true);
+        logo.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                logoMouseClicked(evt);
+            }
+        });
+
+        game_info_buyin.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        game_info_buyin.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1202.png"))); // NOI18N
+        game_info_buyin.setText(" ");
+        game_info_buyin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        game_info_buyin.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                game_info_buyinMouseClicked(evt);
+            }
+        });
+
+        pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
+        pass_icon.setToolTipText("Click para gestionar contraseña");
+        pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        pass_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                pass_iconMouseClicked(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
+        jPanel2.setLayout(jPanel2Layout);
+        jPanel2Layout.setHorizontalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(new_bot_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panel_arribaLayout.createSequentialGroup()
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
                         .addComponent(pass_icon)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(tot_conectados))
                     .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(panel_arribaLayout.createSequentialGroup()
+                    .addGroup(jPanel2Layout.createSequentialGroup()
                         .addComponent(game_info_buyin)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(game_info_blinds)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(game_info_hands)))
+                        .addComponent(game_info_hands))))
+        );
+        jPanel2Layout.setVerticalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(logo)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(tot_conectados)
+                        .addComponent(status1))
+                    .addComponent(pass_icon, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(game_info_blinds)
+                    .addComponent(game_info_hands, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(game_info_buyin))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(new_bot_button, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(video_chat_button)
+                .addGap(0, 0, 0))
+        );
+
+        javax.swing.GroupLayout panel_arribaLayout = new javax.swing.GroupLayout(panel_arriba);
+        panel_arriba.setLayout(panel_arribaLayout);
+        panel_arribaLayout.setHorizontalGroup(
+            panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panel_arribaLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(panel_con, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addComponent(empezar_timba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2952,25 +3003,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_arribaLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addGroup(panel_arribaLayout.createSequentialGroup()
-                        .addComponent(logo)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                .addComponent(tot_conectados)
-                                .addComponent(status1))
-                            .addComponent(pass_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(game_info_buyin)
-                            .addComponent(game_info_blinds)
-                            .addComponent(game_info_hands, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(new_bot_button, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(video_chat_button))
-                    .addComponent(panel_con, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(panel_con, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -3187,7 +3222,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(main_scroll_panel, javax.swing.GroupLayout.Alignment.TRAILING)
+            .addComponent(main_scroll_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 634, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -3325,6 +3360,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 this.empezar_timba.setVisible(false);
                 this.new_bot_button.setEnabled(false);
                 this.new_bot_button.setVisible(false);
+                game_info_buyin.setToolTipText(null);
+                game_info_blinds.setToolTipText(null);
+                game_info_hands.setToolTipText(null);
                 this.kick_user.setEnabled(false);
                 this.kick_user.setVisible(false);
                 this.sound_icon.setVisible(false);
@@ -3947,6 +3985,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private javax.swing.JLabel game_info_hands;
     private javax.swing.JButton image_button;
     private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel jPanel2;
     private javax.swing.JButton kick_user;
     private javax.swing.JLabel logo;
     private javax.swing.JPanel main_panel;

@@ -33,6 +33,10 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"SEGUIR JUGANDO", "CONTINUE PLAYING"},
+            {"SALIR DE LA TIMBA", "EXIT GAME"},
+            {"¡CUIDADO! ERES EL ANFITRIÓN Y SI SALES SE TERMINARÁ LA TIMBA.", "WARNING! YOU'RE THE HOST AND IF YOU COME OUT THE GAME WILL BE OVER"},
+            {"Si sales no podrás volver a entrar.", "If you get out of the game you won't be able to get back in."},
             {"[ ESPACIO ] = PASAR / IR / MOSTRAR", "[ SPACE ] = CHECK / CALL / SHOW CARDS"},
             {"[ ARRIBA/ABAJO ] -> [ ENTER ] = SUBIR/BAJAR APUESTA -> CONFIRMAR", "[ UP/DOWN ] -> [ ENTER ] = RAISE/LOWER BET -> CONFIRM"},
             {"[ ESCAPE ] = NO IR", "[ ESCAPE ] = FOLD"},

@@ -171,7 +171,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                         label.setBorder(new LineBorder(Color.RED, 5));
 
-                                        if (Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+                                        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
 
                                             THIS.historial_panel.remove(label);
                                             THIS.historial_panel.revalidate();
@@ -213,7 +213,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
                                         label.setBorder(new LineBorder(Color.RED, 5));
 
-                                        if (Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+                                        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
 
                                             THIS.historial_panel.remove(label);
                                             THIS.historial_panel.revalidate();

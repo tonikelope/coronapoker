@@ -326,7 +326,6 @@
                     <Property name="doubleBuffered" type="boolean" value="true"/>
                   </Properties>
                   <Events>
-                    <EventHandler event="itemStateChanged" listener="java.awt.event.ItemListener" parameters="java.awt.event.ItemEvent" handler="manos_checkboxItemStateChanged"/>
                     <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="manos_checkboxActionPerformed"/>
                   </Events>
                 </Component>

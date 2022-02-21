@@ -567,11 +567,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         manos_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         manos_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         manos_checkbox.setDoubleBuffered(true);
-        manos_checkbox.addItemListener(new java.awt.event.ItemListener() {
-            public void itemStateChanged(java.awt.event.ItemEvent evt) {
-                manos_checkboxItemStateChanged(evt);
-            }
-        });
         manos_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 manos_checkboxActionPerformed(evt);
@@ -1048,6 +1043,8 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             setVisible(false);
 
+            WaitingRoomFrame.getInstance().pack();
+
         } else {
 
             if (!this.nick.getText().trim().isEmpty() && !this.server_ip_textfield.getText().trim().isEmpty() && !this.server_port_textfield.getText().trim().isEmpty()) {
@@ -1104,6 +1101,8 @@ public class NewGameDialog extends javax.swing.JDialog {
                 if (this.manos_checkbox.isSelected()) {
 
                     GameFrame.MANOS = (int) this.manos_spinner.getValue();
+                } else {
+                    GameFrame.MANOS = -1;
                 }
 
                 GameFrame.REBUY = this.rebuy_checkbox.isSelected();
@@ -1334,12 +1333,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         pack();
     }//GEN-LAST:event_game_comboItemStateChanged
 
-    private void manos_checkboxItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_manos_checkboxItemStateChanged
-        // TODO add your handling code here:
-
-        this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
-    }//GEN-LAST:event_manos_checkboxItemStateChanged
-
     private void server_port_textfieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_server_port_textfieldActionPerformed
         // TODO add your handling code here:
         vamos.doClick();
@@ -1459,6 +1452,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
     private void manos_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_manos_checkboxActionPerformed
         // TODO add your handling code here:
+        this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
     }//GEN-LAST:event_manos_checkboxActionPerformed
 
     private void recover_checkbox_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_recover_checkbox_labelMouseClicked

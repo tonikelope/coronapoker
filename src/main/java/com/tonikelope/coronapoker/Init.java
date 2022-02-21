@@ -240,12 +240,12 @@ public class Init extends javax.swing.JFrame {
 
                         public void run() {
 
-                            Helpers.snapshot(new Rectangle(GameFrame.getInstance().getTapete().getLocationOnScreen(), GameFrame.getInstance().getTapete().getSize()), null);
+                            Helpers.screenshot(new Rectangle(GameFrame.getInstance().getTapete().getLocationOnScreen(), GameFrame.getInstance().getTapete().getSize()), null);
 
                             Helpers.GUIRun(new Runnable() {
                                 public void run() {
 
-                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "CAPTURA CREADA CORRECTAMENTE", Color.WHITE, Color.BLACK, getClass().getResource("/images/screenshot.png"), 2000);
+                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "CAPTURA OK", Color.WHITE, Color.BLACK, getClass().getResource("/images/screenshot.png"), 2000);
                                     dialog.setVisible(true);
 
                                 }

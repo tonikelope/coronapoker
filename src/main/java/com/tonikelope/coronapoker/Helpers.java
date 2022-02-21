@@ -829,7 +829,7 @@ public class Helpers {
         return (command != null && command.charAt(0) == '*') ? Helpers.decryptString(command.trim().substring(1), aes_key, hmac_key) : command;
     }
 
-    public static void snapshot(Rectangle rectangle, Integer delay) {
+    public static void screenshot(Rectangle rectangle, Integer delay) {
         try {
             Robot robot = new Robot();
 

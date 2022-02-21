@@ -189,9 +189,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                             });
                                         } else {
 
-                                            label.setBorder(new EmptyBorder(10, 0, 10, 0));
-
-                                            THIS.image_url.requestFocus();
+                                            label.requestFocus();
                                         }
                                     }
                                 }

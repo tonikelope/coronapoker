@@ -33,7 +33,18 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
-            {"CAPTURA CREADA CORRECTAMENTE", "SCREENSHOT OK"},
+            {"[ ESPACIO ] = PASAR / IR / MOSTRAR", "[ SPACE ] = CHECK / CALL / SHOW CARDS"},
+            {"[ ARRIBA/ABAJO ] -> [ ENTER ] = SUBIR/BAJAR APUESTA -> CONFIRMAR", "[ UP/DOWN ] -> [ ENTER ] = RAISE/LOWER BET -> CONFIRM"},
+            {"[ ESCAPE ] = NO IR", "[ ESCAPE ] = FOLD"},
+            {"[ S ] = VER TU BUYIN", "[ S ] = SEE YOUR BUYIN"},
+            {"[ º ] = ACTIVAR VENTANA DE CHAT RÁPIDO", "[ º ] = ENABLE FAST CHAT DIALOG"},
+            {"[ 1 ] = ACTIVAR VENTANA PARA ENVIAR IMAGEN POR CHAT", "[ 1 ] = ENABLE SEND IMAGE DIALOG"},
+            {"[ TAB ] = RECORRER IMÁGENES (ABAJO)", "[ TAB ] = BROWSE IMAGES (DOWN)"},
+            {"[ SHIFT ] + [ TAB ] = RECORRER IMÁGENES (ARRIBA)", "[ SHIFT ] + [ TAB ] = BROWSE IMAGES (UP)"},
+            {"[ S ] = ENVIAR IMAGEN SELECCIONADA", "[ S ] = SEND SELECTED IMAGE"},
+            {"[ RETROCESO ] = ELIMINAR IMAGEN SELECCIONADA", "[ BACK SPACE ] = DELETE SELECTED IMAGE"},
+            {"ENVIAR IMAGEN", "SEND IMAGE"},
+            {"CAPTURA OK", "SCREENSHOT OK"},
             {"IMAGEN AÑADIDA CORRECTAMENTE", "IMAGE ADDED SUCCESSFULLY"},
             {"GANAS:", "YOU WIN:"},
             {"GANA:", "WINS:"},

@@ -35,7 +35,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.JFileChooser;
-import javax.swing.JFrame;
 import javax.swing.JSpinner.DefaultEditor;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.event.DocumentEvent;
@@ -1140,7 +1139,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 espera.setVisible(true);
 
             } else {
-                Helpers.mostrarMensajeError((JFrame) this.getParent(), "Te falta algún campo obligatorio por completar");
+                Helpers.mostrarMensajeError(getContentPane(), "Te falta algún campo obligatorio por completar");
             }
 
         }
@@ -1181,7 +1180,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             File selectedFile = fileChooser.getSelectedFile();
 
             if (selectedFile.length() > NewGameDialog.AVATAR_MAX_FILESIZE * 1024) {
-                Helpers.mostrarMensajeError((JFrame) this.getParent(), "MAX: " + NewGameDialog.AVATAR_MAX_FILESIZE + " KB");
+                Helpers.mostrarMensajeError(getContentPane(), "MAX: " + NewGameDialog.AVATAR_MAX_FILESIZE + " KB");
             } else {
                 this.avatar = selectedFile;
 
@@ -1254,7 +1253,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 pack();
 
-                Helpers.mostrarMensajeInformativo((JFrame) this.getParent(), "En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos.\nSi esto no es posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).");
+                Helpers.mostrarMensajeInformativo(this, "En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos.\nSi esto no es posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).");
 
             } else {
 

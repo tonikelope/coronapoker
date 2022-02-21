@@ -27,7 +27,6 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.ImageIcon;
-import javax.swing.JFrame;
 
 /**
  *
@@ -269,7 +268,7 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
             }
 
             Helpers.copyTextToClipboard(this.link);
-            Helpers.mostrarMensajeInformativo((JFrame) getParent(), "¡ENLACE COPIADO EN EL PORTAPAPELES!");
+            Helpers.mostrarMensajeInformativo(this, "¡ENLACE COPIADO EN EL PORTAPAPELES!");
 
             if (cboard_monitor) {
                 Helpers.CLIPBOARD_SPY.attachObserver(this);
@@ -287,7 +286,7 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
 
             Helpers.copyTextToClipboard(this.link);
 
-            Helpers.mostrarMensajeInformativo((JFrame) getParent(), "¡ENLACE COPIADO EN EL PORTAPAPELES!");
+            Helpers.mostrarMensajeInformativo(this, "¡ENLACE COPIADO EN EL PORTAPAPELES!");
 
         } else if (cboard_monitor) {
             Helpers.openBrowserURL("https://duo.google.com");

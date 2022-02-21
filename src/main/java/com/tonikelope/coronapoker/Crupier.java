@@ -3925,7 +3925,7 @@ public class Crupier implements Runnable {
                 this.waitSyncConfirmations(id, pendientes);
 
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                    int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
+                    int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
                     // 0=yes, 1=no, 2=cancel
                     if (input == 1) {
@@ -7063,7 +7063,7 @@ public class Crupier implements Runnable {
 
                 GameFrame.getInstance().getRegistro().print("LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
 
-                Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
+                Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
 
                 fin_de_la_transmision = true;
             }

@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
-import java.awt.Dialog;
 import java.awt.Font;
 import java.awt.Toolkit;
 import java.io.IOException;
@@ -2281,7 +2280,7 @@ public class StatsDialog extends javax.swing.JDialog {
                         }
                     });
 
-                    Helpers.mostrarMensajeError((JFrame) getParent(), "NO HAY TIMBAS EN LAS CUALES HAYA PARTICIPADO ESE JUGADOR");
+                    Helpers.mostrarMensajeError(getContentPane(), "NO HAY TIMBAS EN LAS CUALES HAYA PARTICIPADO ESE JUGADOR");
                 }
 
             }
@@ -2314,7 +2313,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
             String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
-            Dialog tthis = this;
+            
             Helpers.threadRun(new Runnable() {
 
                 public void run() {
@@ -2340,7 +2339,7 @@ public class StatsDialog extends javax.swing.JDialog {
                         });
 
                     } catch (IOException ex) {
-                        Helpers.mostrarMensajeError(tthis, Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log");
+                        Helpers.mostrarMensajeError(getContentPane(), Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log");
                         Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         Helpers.GUIRun(new Runnable() {
 
@@ -2391,7 +2390,7 @@ public class StatsDialog extends javax.swing.JDialog {
                             }
                         });
 
-                        Helpers.mostrarMensajeInformativo((JFrame) getParent(), "SE HAN BORRADO TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR");
+                        Helpers.mostrarMensajeInformativo(getContentPane(), "SE HAN BORRADO TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR");
 
                         Helpers.GUIRunAndWait(new Runnable() {
 
@@ -2454,9 +2453,6 @@ public class StatsDialog extends javax.swing.JDialog {
 
             String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
-            String avatar_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
-
-            Dialog tthis = this;
 
             Helpers.threadRun(new Runnable() {
 
@@ -2491,7 +2487,7 @@ public class StatsDialog extends javax.swing.JDialog {
                         });
 
                     } catch (IOException ex) {
-                        Helpers.mostrarMensajeError(tthis, Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log");
+                        Helpers.mostrarMensajeError(getContentPane(), Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log");
                         Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         Helpers.GUIRun(new Runnable() {
 

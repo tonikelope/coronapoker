@@ -2853,7 +2853,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void exit_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_menuActionPerformed
         // TODO add your handling code here:
 
-        if (getLocalPlayer().isExit() && Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+        if (getLocalPlayer().isExit() && Helpers.mostrarMensajeInformativoSINO(getFrame(), "¿FORZAR CIERRE?") == 0) {
             System.exit(1);
         }
 
@@ -3843,7 +3843,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             }
 
-        } else if (GameFrame.getInstance().isPartida_local() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿DESACTIVAR EL CHAT DE VOZ PARA TODOS?") == 0) {
+        } else if (GameFrame.getInstance().isPartida_local() && Helpers.mostrarMensajeInformativoSINO(getFrame(), "¿DESACTIVAR EL CHAT DE VOZ PARA TODOS?") == 0) {
 
             GameFrame.TTS_SERVER = false;
 

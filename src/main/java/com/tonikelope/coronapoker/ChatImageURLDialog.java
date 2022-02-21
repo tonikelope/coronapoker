@@ -161,7 +161,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                                             image_url.setText(h);
                                             image_url.setEnabled(false);
                                             send_buttonActionPerformed(null);
-                                        } else if (ke.getKeyCode() == KeyEvent.VK_1) {
+                                        } else if (ke.getKeyCode() == KeyEvent.VK_ESCAPE) {
                                             THIS.dispose();
                                             synchronized (ChatImageURLDialog.class) {
                                                 if (WaitingRoomFrame.getInstance().isVisible()) {
@@ -836,7 +836,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     private void image_urlKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_image_urlKeyPressed
         // TODO add your handling code here:
-        if (evt.getKeyCode() == KeyEvent.VK_1 && evt.isControlDown()) {
+        if (evt.getKeyCode() == KeyEvent.VK_ESCAPE) {
             THIS.dispose();
             synchronized (ChatImageURLDialog.class) {
                 if (WaitingRoomFrame.getInstance().isVisible()) {

@@ -111,144 +111,141 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         Helpers.threadRun(new Runnable() {
             public void run() {
 
-                synchronized (ChatImageURLDialog.class) {
+                Helpers.GUIRunAndWait(new Runnable() {
+                    @Override
+                    public void run() {
+                        THIS.historial_panel.removeAll();
+                    }
+                });
+
+                for (String h : HISTORIAL) {
+
+                    final JLabel label = new JLabel();
+
                     Helpers.GUIRunAndWait(new Runnable() {
                         @Override
                         public void run() {
-                            THIS.historial_panel.removeAll();
+                            label.setFocusable(true);
+                            label.setAlignmentX(0.5f);
+                            label.setBorder(new EmptyBorder(10, 0, 10, 0));
+                            label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                            label.setIcon((STATIC_IMAGE_CACHE.containsKey(h) || GIF_CACHE.containsKey(h)) ? getImageFromCache(h) : new ImageIcon(getClass().getResource("/images/loading.gif")));
+
+                            label.addFocusListener(new FocusListener() {
+                                @Override
+                                public void focusGained(FocusEvent fe) {
+                                    label.setBorder(new LineBorder(Color.YELLOW, 5));
+                                    THIS.historial_panel.scrollRectToVisible(label.getBounds());
+                                }
+
+                                @Override
+                                public void focusLost(FocusEvent fe) {
+                                    if (label.getBorder() instanceof LineBorder && ((LineBorder) label.getBorder()).getLineColor() == Color.YELLOW) {
+                                        label.setBorder(new EmptyBorder(10, 0, 10, 0));
+                                        last_focused = label;
+                                    }
+                                }
+                            });
+
+                            label.addKeyListener(new KeyListener() {
+                                @Override
+                                public void keyTyped(KeyEvent ke) {
+
+                                }
+
+                                @Override
+                                public void keyPressed(KeyEvent ke) {
+
+                                    if (ke.getKeyCode() == KeyEvent.VK_ENTER || ke.getKeyCode() == KeyEvent.VK_SPACE) {
+                                        THIS.image_url.setText(h);
+                                        THIS.image_url.setEnabled(false);
+                                        send_buttonActionPerformed(null);
+                                    } else if (ke.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                                        THIS.dispose();
+
+                                        if (WaitingRoomFrame.getInstance().isVisible()) {
+                                            WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+                                        }
+
+                                    } else if (ke.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
+
+                                        label.setBorder(new LineBorder(Color.RED, 5));
+
+                                        if (Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+
+                                            THIS.historial_panel.remove(label);
+                                            THIS.historial_panel.revalidate();
+                                            THIS.historial_panel.repaint();
+
+                                            if (last_focused != null) {
+                                                last_focused.requestFocus();
+                                            }
+
+                                            Helpers.threadRun(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    ChatImageURLDialog.removeFromHistory(h);
+                                                }
+                                            });
+                                        } else {
+
+                                            label.setBorder(new EmptyBorder(10, 0, 10, 0));
+
+                                            THIS.image_url.requestFocus();
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void keyReleased(KeyEvent ke) {
+
+                                }
+                            });
+
+                            label.addMouseListener(new MouseAdapter() {
+                                @Override
+                                public void mouseClicked(MouseEvent e) {
+
+                                    if (SwingUtilities.isLeftMouseButton(e)) {
+                                        THIS.image_url.setText(h);
+                                        THIS.image_url.setEnabled(false);
+                                        send_buttonActionPerformed(null);
+
+                                    } else if (SwingUtilities.isRightMouseButton(e)) {
+
+                                        label.setBorder(new LineBorder(Color.RED, 5));
+
+                                        if (Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+
+                                            THIS.historial_panel.remove(label);
+                                            THIS.historial_panel.revalidate();
+                                            THIS.historial_panel.repaint();
+
+                                            if (last_focused != null) {
+                                                last_focused.requestFocus();
+                                            }
+
+                                            Helpers.threadRun(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    ChatImageURLDialog.removeFromHistory(h);
+                                                }
+                                            });
+                                        } else {
+
+                                            label.setBorder(new EmptyBorder(10, 0, 10, 0));
+
+                                            THIS.image_url.requestFocus();
+                                        }
+                                    }
+                                }
+                            });
+
+                            THIS.historial_panel.add(label);
                         }
                     });
 
-                    for (String h : HISTORIAL) {
-
-                        final JLabel label = new JLabel();
-
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            @Override
-                            public void run() {
-                                label.setFocusable(true);
-                                label.setAlignmentX(0.5f);
-                                label.setBorder(new EmptyBorder(10, 0, 10, 0));
-                                label.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                                label.setIcon((STATIC_IMAGE_CACHE.containsKey(h) || GIF_CACHE.containsKey(h)) ? getImageFromCache(h) : new ImageIcon(getClass().getResource("/images/loading.gif")));
-
-                                label.addFocusListener(new FocusListener() {
-                                    @Override
-                                    public void focusGained(FocusEvent fe) {
-                                        label.setBorder(new LineBorder(Color.YELLOW, 5));
-                                        THIS.historial_panel.scrollRectToVisible(label.getBounds());
-                                    }
-
-                                    @Override
-                                    public void focusLost(FocusEvent fe) {
-                                        if (label.getBorder() instanceof LineBorder && ((LineBorder) label.getBorder()).getLineColor() == Color.YELLOW) {
-                                            label.setBorder(new EmptyBorder(10, 0, 10, 0));
-                                            last_focused = label;
-                                        }
-                                    }
-                                });
-
-                                label.addKeyListener(new KeyListener() {
-                                    @Override
-                                    public void keyTyped(KeyEvent ke) {
-
-                                    }
-
-                                    @Override
-                                    public void keyPressed(KeyEvent ke) {
-
-                                        if (ke.getKeyCode() == KeyEvent.VK_ENTER || ke.getKeyCode() == KeyEvent.VK_SPACE) {
-                                            image_url.setText(h);
-                                            image_url.setEnabled(false);
-                                            send_buttonActionPerformed(null);
-                                        } else if (ke.getKeyCode() == KeyEvent.VK_ESCAPE) {
-                                            THIS.dispose();
-                                            synchronized (ChatImageURLDialog.class) {
-                                                if (WaitingRoomFrame.getInstance().isVisible()) {
-                                                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-                                                }
-                                            }
-                                        } else if (ke.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
-
-                                            label.setBorder(new LineBorder(Color.RED, 5));
-
-                                            if (Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
-
-                                                THIS.historial_panel.remove(label);
-                                                THIS.historial_panel.revalidate();
-                                                THIS.historial_panel.repaint();
-
-                                                if (last_focused != null) {
-                                                    last_focused.requestFocus();
-                                                }
-
-                                                Helpers.threadRun(new Runnable() {
-                                                    @Override
-                                                    public void run() {
-                                                        ChatImageURLDialog.removeFromHistory(h);
-                                                    }
-                                                });
-                                            } else {
-
-                                                label.setBorder(new EmptyBorder(10, 0, 10, 0));
-
-                                                THIS.image_url.requestFocus();
-                                            }
-                                        }
-                                    }
-
-                                    @Override
-                                    public void keyReleased(KeyEvent ke) {
-
-                                    }
-                                });
-
-                                label.addMouseListener(new MouseAdapter() {
-                                    @Override
-                                    public void mouseClicked(MouseEvent e) {
-
-                                        if (SwingUtilities.isLeftMouseButton(e)) {
-                                            image_url.setText(h);
-                                            image_url.setEnabled(false);
-                                            send_buttonActionPerformed(null);
-
-                                        } else if (SwingUtilities.isRightMouseButton(e)) {
-
-                                            label.setBorder(new LineBorder(Color.RED, 5));
-
-                                            if (Helpers.mostrarMensajeInformativoSINO(label.getParent().getParent(), "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
-
-                                                THIS.historial_panel.remove(label);
-                                                THIS.historial_panel.revalidate();
-                                                THIS.historial_panel.repaint();
-
-                                                if (last_focused != null) {
-                                                    last_focused.requestFocus();
-                                                }
-
-                                                Helpers.threadRun(new Runnable() {
-                                                    @Override
-                                                    public void run() {
-                                                        ChatImageURLDialog.removeFromHistory(h);
-                                                    }
-                                                });
-                                            } else {
-
-                                                label.setBorder(new EmptyBorder(10, 0, 10, 0));
-
-                                                THIS.image_url.requestFocus();
-                                            }
-                                        }
-                                    }
-                                });
-
-                                THIS.historial_panel.add(label);
-                            }
-                        });
-
-                        loadImage(label, h);
-                    }
-
+                    loadImage(label, h);
                 }
 
                 Helpers.GUIRun(new Runnable() {
@@ -256,10 +253,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                     public void run() {
 
                         if (barra.isIndeterminate()) {
-                            barra.setVisible(false);
+                            THIS.barra.setVisible(false);
                         }
-                        send_button.setEnabled(true);
-                        clear_button.setEnabled(!HISTORIAL.isEmpty());
+
+                        THIS.send_button.setEnabled(true);
+                        THIS.clear_button.setEnabled(!HISTORIAL.isEmpty());
                         THIS.revalidate();
                         THIS.repaint();
 
@@ -779,11 +777,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
-        synchronized (ChatImageURLDialog.class) {
-            if (WaitingRoomFrame.getInstance().isVisible()) {
-                WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-            }
+
+        if (WaitingRoomFrame.getInstance().isVisible()) {
+            WaitingRoomFrame.getInstance().getChat_box().requestFocus();
         }
+
     }//GEN-LAST:event_formWindowClosing
 
     private void image_urlActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_image_urlActionPerformed
@@ -838,11 +836,11 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         if (evt.getKeyCode() == KeyEvent.VK_ESCAPE) {
             THIS.dispose();
-            synchronized (ChatImageURLDialog.class) {
-                if (WaitingRoomFrame.getInstance().isVisible()) {
-                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-                }
+
+            if (WaitingRoomFrame.getInstance().isVisible()) {
+                WaitingRoomFrame.getInstance().getChat_box().requestFocus();
             }
+
         }
     }//GEN-LAST:event_image_urlKeyPressed
 

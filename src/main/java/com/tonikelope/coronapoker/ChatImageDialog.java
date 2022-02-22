@@ -700,25 +700,25 @@ public class ChatImageDialog extends javax.swing.JDialog {
     private void send_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_send_buttonActionPerformed
         // TODO add your handling code here:
 
-        String url = image_url.getText().trim();
+        String url = THIS.image_url.getText().trim();
 
         if (url.startsWith("http")) {
 
             if (ANTI_FLOOD_WAIT > 0) {
                 Helpers.mostrarMensajeError(THIS, "ESPERA UN POCO");
 
-                if (!image_url.isEnabled()) {
-                    image_url.setText("");
-                    image_url.setEnabled(true);
+                if (!THIS.image_url.isEnabled()) {
+                    THIS.image_url.setText("");
+                    THIS.image_url.setEnabled(true);
                 }
 
             } else {
 
-                send_button.setEnabled(false);
+                THIS.send_button.setEnabled(false);
 
-                image_url.setEnabled(false);
+                THIS.image_url.setEnabled(false);
 
-                barra.setVisible(true);
+                THIS.barra.setVisible(true);
 
                 Helpers.threadRun(new Runnable() {
 
@@ -737,14 +737,14 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                         public void run() {
 
                                             synchronized (LOAD_IMAGES_LOCK) {
-                                                exit = true;
+                                                THIS.exit = true;
                                             }
 
                                             Helpers.GUIRun(new Runnable() {
 
                                                 public void run() {
 
-                                                    dispose();
+                                                    THIS.dispose();
 
                                                     if (WaitingRoomFrame.getInstance().isVisible()) {
                                                         WaitingRoomFrame.getInstance().getChat_box().requestFocus();
@@ -822,12 +822,12 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
                                     updateHistorialEnviados(url);
 
-                                    cargarHistorialPanel();
+                                    THIS.cargarHistorialPanel();
 
                                     Helpers.GUIRun(new Runnable() {
 
                                         public void run() {
-                                            image_url.setText("");
+                                            THIS.image_url.setText("");
                                         }
                                     });
 
@@ -842,10 +842,10 @@ public class ChatImageDialog extends javax.swing.JDialog {
                             Helpers.GUIRun(new Runnable() {
 
                                 public void run() {
-                                    barra.setVisible(false);
-                                    image_url.setEnabled(true);
-                                    send_button.setEnabled(true);
-                                    image_url.requestFocus();
+                                    THIS.barra.setVisible(false);
+                                    THIS.image_url.setEnabled(true);
+                                    THIS.send_button.setEnabled(true);
+                                    THIS.image_url.requestFocus();
                                 }
                             });
 
@@ -857,8 +857,8 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
         } else if (!url.isBlank()) {
 
-            send_button.setEnabled(false);
-            barra.setVisible(true);
+            THIS.send_button.setEnabled(false);
+            THIS.barra.setVisible(true);
 
             try {
                 Helpers.openBrowserURL("https://www.google.com/search?q=" + URLEncoder.encode(url, "UTF-8") + "&tbm=isch");
@@ -866,11 +866,11 @@ public class ChatImageDialog extends javax.swing.JDialog {
                 Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            barra.setVisible(false);
-            send_button.setEnabled(true);
-            image_url.requestFocus();
+            THIS.barra.setVisible(false);
+            THIS.send_button.setEnabled(true);
+            THIS.image_url.requestFocus();
         } else {
-            image_url.requestFocus();
+            THIS.image_url.requestFocus();
         }
 
     }//GEN-LAST:event_send_buttonActionPerformed

@@ -2313,7 +2313,6 @@ public class StatsDialog extends javax.swing.JDialog {
 
             String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
-            
             Helpers.threadRun(new Runnable() {
 
                 public void run() {
@@ -2452,7 +2451,6 @@ public class StatsDialog extends javax.swing.JDialog {
             String[] parts = item.split("@");
 
             String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
-
 
             Helpers.threadRun(new Runnable() {
 

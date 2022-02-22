@@ -104,13 +104,13 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                             String url = new String(Base64.decodeBase64(text.split("@")[0]), "UTF-8");
 
-                            label.setIcon(ChatImageURLDialog.STATIC_IMAGE_CACHE.containsKey(url) ? ChatImageURLDialog.STATIC_IMAGE_CACHE.get(url) : new ImageIcon(getClass().getResource("/images/loading.gif")));
+                            label.setIcon(ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url) ? ChatImageDialog.STATIC_IMAGE_CACHE.get(url) : new ImageIcon(getClass().getResource("/images/loading.gif")));
 
                             float align = Float.parseFloat(text.split("@")[1]);
 
                             label.setAlignmentX(align);
 
-                            if (!ChatImageURLDialog.STATIC_IMAGE_CACHE.containsKey(url)) {
+                            if (!ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url)) {
 
                                 Helpers.threadRun(new Runnable() {
                                     public void run() {
@@ -121,18 +121,18 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                                             boolean isgif = false;
 
-                                            if (ChatImageURLDialog.STATIC_IMAGE_CACHE.containsKey(url)) {
-                                                image = ChatImageURLDialog.STATIC_IMAGE_CACHE.get(url);
-                                            } else if ((isgif = ChatImageURLDialog.GIF_CACHE.containsKey(url)) && USE_GIF_CACHE) {
-                                                image = (ImageIcon) ChatImageURLDialog.GIF_CACHE.get(url)[0];
+                                            if (ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url)) {
+                                                image = ChatImageDialog.STATIC_IMAGE_CACHE.get(url);
+                                            } else if ((isgif = ChatImageDialog.GIF_CACHE.containsKey(url)) && USE_GIF_CACHE) {
+                                                image = (ImageIcon) ChatImageDialog.GIF_CACHE.get(url)[0];
                                             } else {
                                                 image = new ImageIcon(new URL(url + "#" + Helpers.genRandomString(20)));
                                             }
 
-                                            if (ChatImageURLDialog.STATIC_IMAGE_CACHE.containsKey(url) || (USE_GIF_CACHE && ChatImageURLDialog.GIF_CACHE.containsKey(url)) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
+                                            if (ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url) || (USE_GIF_CACHE && ChatImageDialog.GIF_CACHE.containsKey(url)) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
-                                                if (image.getIconWidth() > ChatImageURLDialog.MAX_IMAGE_WIDTH) {
-                                                    image = new ImageIcon(image.getImage().getScaledInstance(ChatImageURLDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageURLDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), (isgif || (isgif = Helpers.isImageGIF(new URL(url)))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                                if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
+                                                    image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), (isgif || (isgif = Helpers.isImageGIF(new URL(url)))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                                 }
 
                                                 ImageIcon final_image = image;
@@ -145,13 +145,13 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                                     }
                                                 });
 
-                                                if (!ChatImageURLDialog.GIF_CACHE.containsKey(url) && (isgif || Helpers.isImageGIF(new URL(url)))) {
+                                                if (!ChatImageDialog.GIF_CACHE.containsKey(url) && (isgif || Helpers.isImageGIF(new URL(url)))) {
 
-                                                    ChatImageURLDialog.GIF_CACHE.put(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
+                                                    ChatImageDialog.GIF_CACHE.put(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
 
-                                                } else if (!ChatImageURLDialog.GIF_CACHE.containsKey(url)) {
+                                                } else if (!ChatImageDialog.GIF_CACHE.containsKey(url)) {
 
-                                                    ChatImageURLDialog.STATIC_IMAGE_CACHE.putIfAbsent(url, image);
+                                                    ChatImageDialog.STATIC_IMAGE_CACHE.putIfAbsent(url, image);
                                                 }
 
                                             } else {

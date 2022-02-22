@@ -932,7 +932,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
 
-                ChatImageURLDialog chat_image_dialog = new ChatImageURLDialog(getFrame(), true, getFrame().getHeight());
+                ChatImageDialog chat_image_dialog = new ChatImageDialog(getFrame(), true, getFrame().getHeight());
                 chat_image_dialog.setLocation((int) (getFrame().getLocation().getX() + getFrame().getWidth()) - chat_image_dialog.getWidth(), (int) getFrame().getLocation().getY());
                 chat_image_dialog.setVisible(true);
 
@@ -2144,7 +2144,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     String url = ((URL) tts[1]).toString();
 
-                                    int gif_l = ChatImageURLDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageURLDialog.GIF_CACHE.get(url)[1] : -1;
+                                    int gif_l = ChatImageDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageDialog.GIF_CACHE.get(url)[1] : -1;
 
                                     ImageIcon image = new ImageIcon(new URL(url + "#" + Helpers.genRandomString(20)));
 

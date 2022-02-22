@@ -512,7 +512,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 @Override
                 public void run() {
 
-                    ChatImageURLDialog.updateHistorialRecibidos(img_src_lista);
+                    ChatImageDialog.updateHistorialRecibidos(img_src_lista);
                 }
             });
         }
@@ -2500,7 +2500,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         try {
                             GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, new URL(msg.replaceAll("^img", "http"))});
                         } catch (MalformedURLException ex) {
-                            Logger.getLogger(ChatImageURLDialog.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
                     } else {
@@ -3810,7 +3810,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         boolean auto_f = protect_focus;
 
         protect_focus = false;
-        ChatImageURLDialog chat_image_dialog = new ChatImageURLDialog(this, true, (int) Math.round(this.getHeight() * 0.9f));
+        ChatImageDialog chat_image_dialog = new ChatImageDialog(this, true, (int) Math.round(this.getHeight() * 0.9f));
         chat_image_dialog.setLocationRelativeTo(this);
         chat_image_dialog.setVisible(true);
 

@@ -3810,7 +3810,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         boolean auto_f = protect_focus;
 
         protect_focus = false;
-        ChatImageURLDialog chat_image_dialog = new ChatImageURLDialog(this, true);
+        ChatImageURLDialog chat_image_dialog = new ChatImageURLDialog(this, true, (int) Math.round(this.getHeight() * 0.9f));
         chat_image_dialog.setLocationRelativeTo(this);
         chat_image_dialog.setVisible(true);
 

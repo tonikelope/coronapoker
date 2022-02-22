@@ -65,7 +65,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
     /**
      * Creates new form ChatImageURLDialog
      */
-    public ChatImageURLDialog(java.awt.Frame parent, boolean modal) {
+    public ChatImageURLDialog(java.awt.Frame parent, boolean modal, int h) {
         super(parent, modal);
         initComponents();
 
@@ -96,11 +96,15 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
 
         Helpers.translateComponents(this, false);
 
-        setSize(getWidth(), Math.round(getParent().getHeight() * 0.9f));
+        setSize(getWidth(), h);
 
         setPreferredSize(getSize());
 
+        pack();
+
         THIS = this;
+
+        Helpers.windowAutoFitToRemoveHScrollBar(THIS, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
 
         cargarHistorialPanel();
 
@@ -585,7 +589,7 @@ public class ChatImageURLDialog extends javax.swing.JDialog {
                         .addComponent(image_url)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(send_button))
-                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 776, Short.MAX_VALUE)
+                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(auto_recibir_checkbox)
                     .addGroup(layout.createSequentialGroup()

@@ -356,14 +356,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
                                     isgif = (isgif || Helpers.isImageGIF(new URL(url)));
 
-                                    Helpers.GUIRunAndWait(new Runnable() {
-                                        @Override
-                                        public void run() {
-
-                                            image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-                                        }
-                                    });
-
+                                    image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                 }
 
                                 Helpers.GUIRun(new Runnable() {

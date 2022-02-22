@@ -64,7 +64,7 @@
               <EmptySpace max="-2" attributes="0"/>
               <Component id="barra" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
-              <Component id="scroll_panel" pref="366" max="32767" attributes="0"/>
+              <Component id="scroll_panel" pref="22" max="32767" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
               <Group type="103" groupAlignment="3" attributes="0">
                   <Component id="clear_button" alignment="3" min="-2" max="-2" attributes="0"/>

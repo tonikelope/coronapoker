@@ -63,6 +63,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
     private volatile static ChatImageDialog THIS;
     private volatile JLabel last_focused = null;
     private volatile boolean exit = false;
+    private volatile boolean exiting = false;
 
     /**
      * Creates new form ChatImageURLDialog
@@ -289,48 +290,79 @@ public class ChatImageDialog extends javax.swing.JDialog {
                 private volatile ImageIcon image;
                 private volatile boolean isgif;
 
+                @Override
                 public void run() {
+                    if (!exit) {
 
-                    try {
+                        try {
 
-                        image = (STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) ? getImageFromCache(url) : new ImageIcon(new URL(url));
+                            image = (STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) ? getImageFromCache(url) : new ImageIcon(new URL(url));
 
-                        if ((STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
+                            if ((STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
-                            isgif = GIF_CACHE.containsKey(url);
+                                isgif = GIF_CACHE.containsKey(url);
 
-                            if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
+                                if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
 
-                                isgif = (isgif || Helpers.isImageGIF(new URL(url)));
+                                    isgif = (isgif || Helpers.isImageGIF(new URL(url)));
 
-                                Helpers.GUIRunAndWait(new Runnable() {
+                                    Helpers.GUIRunAndWait(new Runnable() {
+                                        @Override
+                                        public void run() {
+
+                                            image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                        }
+                                    });
+
+                                }
+
+                                Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
 
-                                        image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                        label.setIcon(image);
                                     }
                                 });
 
-                            }
+                                if (isgif || Helpers.isImageGIF(new URL(url))) {
 
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
+                                    GIF_CACHE.putIfAbsent(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
 
-                                    label.setIcon(image);
+                                } else if (!GIF_CACHE.containsKey(url)) {
+
+                                    STATIC_IMAGE_CACHE.putIfAbsent(url, image);
                                 }
-                            });
 
-                            if (isgif || Helpers.isImageGIF(new URL(url))) {
+                            } else {
 
-                                GIF_CACHE.putIfAbsent(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
+                                Helpers.threadRun(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        synchronized (LOAD_IMAGES_LOCK) {
 
-                            } else if (!GIF_CACHE.containsKey(url)) {
+                                            if (!exit) {
 
-                                STATIC_IMAGE_CACHE.putIfAbsent(url, image);
+                                                Helpers.GUIRunAndWait(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+
+                                                        THIS.historial_panel.remove(label);
+                                                        THIS.revalidate();
+                                                        THIS.repaint();
+
+                                                    }
+                                                });
+
+                                                ChatImageDialog.removeFromHistory(url);
+                                            }
+                                        }
+                                    }
+                                });
+
+                                Logger.getLogger(ChatImageDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + url);
                             }
 
-                        } else {
+                        } catch (Exception ex) {
 
                             Helpers.threadRun(new Runnable() {
                                 @Override
@@ -358,38 +390,6 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
                             Logger.getLogger(ChatImageDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + url);
                         }
-
-                    } catch (Exception ex) {
-
-                        Helpers.threadRun(new Runnable() {
-                            @Override
-                            public void run() {
-                                synchronized (LOAD_IMAGES_LOCK) {
-
-                                    if (!exit) {
-
-                                        Helpers.GUIRunAndWait(new Runnable() {
-                                            @Override
-                                            public void run() {
-
-                                                THIS.historial_panel.remove(label);
-                                                THIS.revalidate();
-                                                THIS.repaint();
-
-                                            }
-                                        });
-
-                                        ChatImageDialog.removeFromHistory(url);
-                                    }
-                                }
-                            }
-                        });
-
-                        Logger.getLogger(ChatImageDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + url);
-                    }
-
-                    synchronized (LOAD_IMAGES_LOCK) {
-                        LOAD_IMAGES_LOCK.notifyAll();
                     }
                 }
             });
@@ -682,15 +682,38 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
                                     WaitingRoomFrame.getInstance().chatHTMLAppend(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
 
-                                    THIS.setVisible(false);
+                                    Helpers.threadRun(new Runnable() {
 
-                                    if (WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()) {
-                                        WaitingRoomFrame.getInstance().getEmoji_button().doClick();
-                                    }
+                                        public void run() {
 
-                                    if (WaitingRoomFrame.getInstance().isVisible()) {
-                                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-                                    }
+                                            synchronized (LOAD_IMAGES_LOCK) {
+                                                exit = true;
+                                            }
+
+                                            Helpers.GUIRun(new Runnable() {
+
+                                                public void run() {
+
+                                                    dispose();
+
+                                                    if (WaitingRoomFrame.getInstance().isVisible()) {
+                                                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+                                                    }
+
+                                                    if (WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()) {
+                                                        WaitingRoomFrame.getInstance().getEmoji_button().doClick();
+                                                    }
+
+                                                    if (WaitingRoomFrame.getInstance().isVisible()) {
+                                                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+                                                    }
+
+                                                }
+                                            });
+
+                                        }
+                                    });
+
                                 }
                             });
 
@@ -805,22 +828,15 @@ public class ChatImageDialog extends javax.swing.JDialog {
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
 
-        if (!exit) {
-
-            exit = true;
+        if (!exiting) {
+            exiting = true;
 
             Helpers.threadRun(new Runnable() {
 
                 public void run() {
 
-                    while (IMAGE_THREAD_POOL.getActiveCount() > 0) {
-                        synchronized (LOAD_IMAGES_LOCK) {
-                            try {
-                                LOAD_IMAGES_LOCK.wait(500);
-                            } catch (InterruptedException ex) {
-                                Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                        }
+                    synchronized (LOAD_IMAGES_LOCK) {
+                        exit = true;
                     }
 
                     Helpers.GUIRun(new Runnable() {

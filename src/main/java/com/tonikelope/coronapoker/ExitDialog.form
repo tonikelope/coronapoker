@@ -57,7 +57,7 @@
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Component id="message" max="32767" attributes="0"/>
                       <Group type="102" alignment="1" attributes="0">
-                          <EmptySpace min="0" pref="8" max="32767" attributes="0"/>
+                          <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                           <Component id="continue_button" min="-2" max="-2" attributes="0"/>
                           <EmptySpace type="separate" max="-2" attributes="0"/>
                           <Component id="exit_checkbox" min="-2" max="-2" attributes="0"/>
@@ -78,7 +78,7 @@
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Component id="continue_button" alignment="0" min="-2" max="-2" attributes="0"/>
                       <Component id="exit_button" min="-2" max="-2" attributes="0"/>
-                      <Component id="exit_checkbox" min="-2" max="-2" attributes="0"/>
+                      <Component id="exit_checkbox" alignment="1" min="-2" max="-2" attributes="0"/>
                   </Group>
                   <EmptySpace pref="20" max="32767" attributes="0"/>
               </Group>

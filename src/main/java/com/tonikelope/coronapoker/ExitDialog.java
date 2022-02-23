@@ -103,7 +103,7 @@ public class ExitDialog extends javax.swing.JDialog {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(message, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                        .addGap(0, 8, Short.MAX_VALUE)
+                        .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(continue_button)
                         .addGap(18, 18, 18)
                         .addComponent(exit_checkbox)
@@ -120,7 +120,7 @@ public class ExitDialog extends javax.swing.JDialog {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(continue_button)
                     .addComponent(exit_button)
-                    .addComponent(exit_checkbox))
+                    .addComponent(exit_checkbox, javax.swing.GroupLayout.Alignment.TRAILING))
                 .addContainerGap(20, Short.MAX_VALUE))
         );
 

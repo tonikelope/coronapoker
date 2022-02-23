@@ -677,6 +677,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 sec_pot_win_label.setOpaque(true);
 
+                sec_pot_win_label.setFocusable(false);
+
                 sec_pot_win_label.setFont(player_action.getFont().deriveFont(player_action.getFont().getStyle(), Math.round(player_action.getFont().getSize() * 0.7f)));
 
                 panel_cartas.add(sec_pot_win_label, new Integer(1003));
@@ -684,6 +686,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 chat_notify_label.setVisible(false);
 
                 chat_notify_label.setDoubleBuffered(true);
+
+                chat_notify_label.setFocusable(false);
 
                 chat_notify_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
@@ -719,6 +723,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
                 chip_label.setOpaque(false);
+
+                chip_label.setFocusable(false);
 
                 chip_label.setSize(new Dimension(100, 100));
 
@@ -1029,6 +1035,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         danger.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         danger.setText("POSIBLE TRAMPOS@");
         danger.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        danger.setFocusable(false);
         danger.setOpaque(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);

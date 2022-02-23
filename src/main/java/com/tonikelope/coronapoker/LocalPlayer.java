@@ -578,6 +578,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 sec_pot_win_label.setOpaque(true);
 
+                sec_pot_win_label.setFocusable(false);
+
                 sec_pot_win_label.setFont(player_action.getFont().deriveFont(player_action.getFont().getStyle(), Math.round(player_action.getFont().getSize() * 0.7f)));
 
                 panel_cartas.add(sec_pot_win_label, new Integer(1003));
@@ -585,6 +587,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 chat_notify_label.setVisible(false);
 
                 chat_notify_label.setDoubleBuffered(true);
+
+                chat_notify_label.setFocusable(false);
 
                 chat_notify_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
@@ -616,6 +620,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
                 chip_label.setOpaque(false);
+
+                chip_label.setFocusable(false);
 
                 chip_label.addMouseListener(new MouseAdapter() {
                     @Override

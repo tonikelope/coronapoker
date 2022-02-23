@@ -69,66 +69,81 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         setResizable(false);
 
         jPanel1.setBackground(new java.awt.Color(255, 255, 255));
+        jPanel1.setFocusable(false);
 
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel1.setText("[ ESPACIO ] = PASAR / IR / MOSTRAR");
         jLabel1.setDoubleBuffered(true);
+        jLabel1.setFocusable(false);
 
         jLabel2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setText("[ ARRIBA/ABAJO ] -> [ ENTER ] = SUBIR/BAJAR APUESTA -> CONFIRMAR");
         jLabel2.setDoubleBuffered(true);
+        jLabel2.setFocusable(false);
 
         jLabel3.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel3.setText("[ SHIFT ] + [ ENTER ] = ALL IN");
         jLabel3.setDoubleBuffered(true);
+        jLabel3.setFocusable(false);
 
         jLabel4.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel4.setText("[ ESCAPE ] = NO IR");
         jLabel4.setDoubleBuffered(true);
+        jLabel4.setFocusable(false);
 
         jLabel5.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel5.setText("[ º ] = ACTIVAR VENTANA DE CHAT RÁPIDO");
         jLabel5.setDoubleBuffered(true);
+        jLabel5.setFocusable(false);
 
         jLabel6.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel6.setText("[ S ] = VER TU BUYIN");
         jLabel6.setDoubleBuffered(true);
+        jLabel6.setFocusable(false);
 
         jLabel7.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel7.setText("[ CTRL ] + [ P ] = SCREENSHOT");
         jLabel7.setDoubleBuffered(true);
+        jLabel7.setFocusable(false);
 
         jLabel8.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel8.setText("[ 1 ] = ACTIVAR VENTANA PARA ENVIAR IMAGEN POR CHAT");
         jLabel8.setDoubleBuffered(true);
+        jLabel8.setFocusable(false);
+
+        send_image_panel.setFocusable(false);
 
         jLabel9.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel9.setText("[ TAB ] = RECORRER IMÁGENES (ABAJO)");
         jLabel9.setDoubleBuffered(true);
+        jLabel9.setFocusable(false);
 
         jLabel10.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel10.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel10.setText("[ SHIFT ] + [ TAB ] = RECORRER IMÁGENES (ARRIBA)");
         jLabel10.setDoubleBuffered(true);
+        jLabel10.setFocusable(false);
 
         jLabel11.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel11.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel11.setText("[ S ] = ENVIAR IMAGEN SELECCIONADA");
         jLabel11.setDoubleBuffered(true);
+        jLabel11.setFocusable(false);
 
         jLabel12.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel12.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel12.setText("[ RETROCESO ] = ELIMINAR IMAGEN SELECCIONADA");
         jLabel12.setDoubleBuffered(true);
+        jLabel12.setFocusable(false);
 
         javax.swing.GroupLayout send_image_panelLayout = new javax.swing.GroupLayout(send_image_panel);
         send_image_panel.setLayout(send_image_panelLayout);

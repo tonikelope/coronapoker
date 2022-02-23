@@ -337,6 +337,7 @@
             <EmptyBorder bottom="5" left="5" right="5" top="5"/>
           </Border>
         </Property>
+        <Property name="focusable" type="boolean" value="false"/>
         <Property name="opaque" type="boolean" value="true"/>
       </Properties>
     </Component>

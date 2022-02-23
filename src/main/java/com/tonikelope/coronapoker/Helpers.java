@@ -2453,9 +2453,9 @@ public class Helpers {
 
         }
 
-        public static void addTo(TablePanel tapete) {
+        public static void addTo(TablePanel tapete, boolean reset) {
 
-            if (popup == null) {
+            if (popup == null || reset) {
 
                 popup = new JPopupMenu();
 
@@ -2793,6 +2793,11 @@ public class Helpers {
                 JMenuItem rules = new JMenuItem(rulesAction);
                 rules.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/book.png")));
                 popup.add(rules);
+
+                popup.addSeparator();
+                JMenuItem exit_menu = new JMenuItem(exitAction);
+                exit_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));
+                popup.add(exit_menu);
 
                 Helpers.updateFonts(popup, Helpers.GUI_FONT, 1.05f);
             }

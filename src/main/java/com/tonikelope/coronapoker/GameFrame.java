@@ -1331,7 +1331,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             break;
                     }
 
-                    Helpers.TapetePopupMenu.addTo(tapete);
+                    Helpers.TapetePopupMenu.addTo(tapete, false);
 
                     setupGlobalShortcuts();
 
@@ -1668,7 +1668,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         setupGlobalShortcuts();
 
-        Helpers.TapetePopupMenu.addTo(tapete);
+        Helpers.TapetePopupMenu.addTo(tapete, true);
 
         rebuy_now_menu.setEnabled(GameFrame.REBUY);
 

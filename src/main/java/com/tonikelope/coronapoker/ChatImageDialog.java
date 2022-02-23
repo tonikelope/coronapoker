@@ -742,14 +742,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                                     THIS.dispose();
 
                                                     if (WaitingRoomFrame.getInstance().isVisible()) {
-                                                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-                                                    }
-
-                                                    if (WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()) {
                                                         WaitingRoomFrame.getInstance().getEmoji_button().doClick();
-                                                    }
-
-                                                    if (WaitingRoomFrame.getInstance().isVisible()) {
                                                         WaitingRoomFrame.getInstance().getChat_box().requestFocus();
                                                     }
 

@@ -75,6 +75,8 @@ public class GifPanel extends javax.swing.JPanel {
 
         gif = new javax.swing.JLabel();
 
+        setFocusable(false);
+
         gif.setDoubleBuffered(true);
         gif.setFocusable(false);
 

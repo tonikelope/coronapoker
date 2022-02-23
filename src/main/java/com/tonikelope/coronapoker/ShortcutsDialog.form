@@ -50,6 +50,7 @@
         <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
           <Color blue="ff" green="ff" red="ff" type="rgb"/>
         </Property>
+        <Property name="focusable" type="boolean" value="false"/>
       </Properties>
 
       <Layout>
@@ -107,6 +108,7 @@
             <Property name="horizontalAlignment" type="int" value="0"/>
             <Property name="text" type="java.lang.String" value="[ ESPACIO ] = PASAR / IR / MOSTRAR"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel2">
@@ -117,6 +119,7 @@
             <Property name="horizontalAlignment" type="int" value="0"/>
             <Property name="text" type="java.lang.String" value="[ ARRIBA/ABAJO ] -&gt; [ ENTER ] = SUBIR/BAJAR APUESTA -&gt; CONFIRMAR"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel3">
@@ -127,6 +130,7 @@
             <Property name="horizontalAlignment" type="int" value="0"/>
             <Property name="text" type="java.lang.String" value="[ SHIFT ] + [ ENTER ] = ALL IN"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel4">
@@ -137,6 +141,7 @@
             <Property name="horizontalAlignment" type="int" value="0"/>
             <Property name="text" type="java.lang.String" value="[ ESCAPE ] = NO IR"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel5">
@@ -147,6 +152,7 @@
             <Property name="horizontalAlignment" type="int" value="0"/>
             <Property name="text" type="java.lang.String" value="[ &#xba; ] = ACTIVAR VENTANA DE CHAT R&#xc1;PIDO"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel6">
@@ -157,6 +163,7 @@
             <Property name="horizontalAlignment" type="int" value="0"/>
             <Property name="text" type="java.lang.String" value="[ S ] = VER TU BUYIN"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel7">
@@ -167,6 +174,7 @@
             <Property name="horizontalAlignment" type="int" value="0"/>
             <Property name="text" type="java.lang.String" value="[ CTRL ] + [ P ] = SCREENSHOT"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel8">
@@ -177,9 +185,13 @@
             <Property name="horizontalAlignment" type="int" value="0"/>
             <Property name="text" type="java.lang.String" value="[ 1 ] = ACTIVAR VENTANA PARA ENVIAR IMAGEN POR CHAT"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
           </Properties>
         </Component>
         <Container class="javax.swing.JPanel" name="send_image_panel">
+          <Properties>
+            <Property name="focusable" type="boolean" value="false"/>
+          </Properties>
 
           <Layout>
             <DimensionLayout dim="0">
@@ -221,6 +233,7 @@
                 <Property name="horizontalAlignment" type="int" value="0"/>
                 <Property name="text" type="java.lang.String" value="[ TAB ] = RECORRER IM&#xc1;GENES (ABAJO)"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
               </Properties>
             </Component>
             <Component class="javax.swing.JLabel" name="jLabel10">
@@ -231,6 +244,7 @@
                 <Property name="horizontalAlignment" type="int" value="0"/>
                 <Property name="text" type="java.lang.String" value="[ SHIFT ] + [ TAB ] = RECORRER IM&#xc1;GENES (ARRIBA)"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
               </Properties>
             </Component>
             <Component class="javax.swing.JLabel" name="jLabel11">
@@ -241,6 +255,7 @@
                 <Property name="horizontalAlignment" type="int" value="0"/>
                 <Property name="text" type="java.lang.String" value="[ S ] = ENVIAR IMAGEN SELECCIONADA"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
               </Properties>
             </Component>
             <Component class="javax.swing.JLabel" name="jLabel12">
@@ -251,6 +266,7 @@
                 <Property name="horizontalAlignment" type="int" value="0"/>
                 <Property name="text" type="java.lang.String" value="[ RETROCESO ] = ELIMINAR IMAGEN SELECCIONADA"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
               </Properties>
             </Component>
           </SubComponents>

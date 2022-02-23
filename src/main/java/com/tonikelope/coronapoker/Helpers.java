@@ -2426,6 +2426,8 @@ public class Helpers {
 
         private static void generarBarajasMenu() {
 
+            BARAJAS_MENU.removeAll();
+
             for (Map.Entry<String, Object[]> entry : Card.BARAJAS.entrySet()) {
 
                 javax.swing.JRadioButtonMenuItem menu_item = new javax.swing.JRadioButtonMenuItem(entry.getKey());
@@ -2759,6 +2761,7 @@ public class Helpers {
                 TAPETE_AZUL = new JRadioButtonMenuItem(tapeteAzulAction);
                 TAPETE_ROJO = new JRadioButtonMenuItem(tapeteRojoAction);
                 TAPETE_MADERA = new JRadioButtonMenuItem(tapeteMaderaAction);
+                TAPETES_MENU.removeAll();
                 TAPETES_MENU.add(TAPETE_VERDE);
                 TAPETES_MENU.add(TAPETE_AZUL);
                 TAPETES_MENU.add(TAPETE_ROJO);

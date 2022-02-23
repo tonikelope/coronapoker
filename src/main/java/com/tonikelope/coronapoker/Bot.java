@@ -67,7 +67,8 @@ public class Bot {
                 b = Helpers.floatClean((3 + GameFrame.getInstance().getCrupier().getLimpersCount()) * GameFrame.getInstance().getCrupier().getCiega_grande()); //Classic
                 break;
             default:
-                b = Helpers.floatClean(GameFrame.getInstance().getCrupier().getBote_total() / 3); //Gentle because we don't want a quick massacre
+
+                b = (float) (Math.ceil(Math.ceil(GameFrame.getInstance().getCrupier().getBote_total() / GameFrame.CIEGA_PEQUEÑA) / 3) * GameFrame.CIEGA_PEQUEÑA);
                 break;
         }
 

@@ -2530,8 +2530,6 @@ public class Crupier implements Runnable {
 
         this.destapar_resistencia = false;
 
-        this.apuesta_actual = this.ciega_grande;
-
         this.ultimo_raise = 0f;
 
         this.partial_raise_cum = 0f;
@@ -2665,6 +2663,8 @@ public class Crupier implements Runnable {
 
             this.game_recovered = 1;
         }
+
+        this.apuesta_actual = this.ciega_grande;
 
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
 

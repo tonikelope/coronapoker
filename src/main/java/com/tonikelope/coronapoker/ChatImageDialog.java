@@ -51,7 +51,7 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class ChatImageDialog extends javax.swing.JDialog {
 
-    public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.2f);
+    public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.20f);
     public static final ConcurrentHashMap<String, ImageIcon> STATIC_IMAGE_CACHE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Object[]> GIF_CACHE = new ConcurrentHashMap<>();
     public static final int ANTI_FLOOD_IMAGE = 5;
@@ -742,7 +742,11 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                                     THIS.dispose();
 
                                                     if (WaitingRoomFrame.getInstance().isVisible()) {
-                                                        WaitingRoomFrame.getInstance().getEmoji_button().doClick();
+                                                        
+                                                        if(WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()){
+                                                            WaitingRoomFrame.getInstance().getEmoji_button().doClick();
+                                                        }
+                                                        
                                                         WaitingRoomFrame.getInstance().getChat_box().requestFocus();
                                                     }
 

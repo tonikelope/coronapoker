@@ -1209,15 +1209,28 @@ public class Helpers {
 
     public static String float2String(float cantidad) {
 
-        cantidad = Helpers.floatClean(cantidad);
+        if (cantidad < 1000f) {
 
-        DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
+            cantidad = Helpers.floatClean(cantidad);
 
-        otherSymbols.setDecimalSeparator('.');
+            DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
 
-        DecimalFormat df = new DecimalFormat("0.00", otherSymbols);
+            otherSymbols.setDecimalSeparator('.');
 
-        return df.format(cantidad).replaceAll("\\.00$", "");
+            DecimalFormat df = new DecimalFormat("0.00", otherSymbols);
+
+            return df.format(cantidad).replaceAll("\\.00$", "");
+        } else {
+            cantidad = Helpers.floatClean(cantidad / 1000f);
+
+            DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
+
+            otherSymbols.setDecimalSeparator('.');
+
+            DecimalFormat df = new DecimalFormat("0.000", otherSymbols);
+
+            return df.format(cantidad).replaceAll("(?:(\\.[^.0]+)|\\.)0*$", "$1") + "K";
+        }
 
     }
 

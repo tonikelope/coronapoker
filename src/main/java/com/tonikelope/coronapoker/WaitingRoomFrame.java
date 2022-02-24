@@ -728,7 +728,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 String[] game_info = gameinfo_original.split("\\|");
 
-                game_info_buyin.setText(game_info[0]);
+                game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0])));
                 game_info_blinds.setText(game_info[1]);
 
                 if (game_info.length > 2) {
@@ -1432,7 +1432,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                     if (game_info[0].trim().matches("[0-9.,]+")) {
 
-                                        game_info_buyin.setText(game_info[0]);
+                                        game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0])));
                                         game_info_blinds.setText(game_info[1]);
 
                                         if (game_info.length > 2) {
@@ -1781,7 +1781,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                                     if (game_info[0].trim().matches("[0-9.,]+")) {
 
-                                                                        game_info_buyin.setText(game_info[0]);
+                                                                        game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0])));
                                                                         game_info_blinds.setText(game_info[1]);
 
                                                                         if (game_info.length > 2) {
@@ -3691,7 +3691,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             if (dialog.isDialog_ok()) {
 
-                game_info_buyin.setText(GameFrame.BUYIN + " " + (!GameFrame.REBUY ? "NO-REBUY" : ""));
+                game_info_buyin.setText(Helpers.float2String((float) GameFrame.BUYIN) + " " + (!GameFrame.REBUY ? "NO-REBUY" : ""));
 
                 game_info_blinds.setText(Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : ""));
 

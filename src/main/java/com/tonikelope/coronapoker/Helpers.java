@@ -1209,7 +1209,7 @@ public class Helpers {
 
     public static String float2String(float cantidad) {
 
-        if (cantidad < 1000f) {
+        if (Math.abs(cantidad) < 1000f) {
 
             cantidad = Helpers.floatClean(cantidad);
 

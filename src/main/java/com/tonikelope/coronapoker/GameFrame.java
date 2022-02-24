@@ -3947,7 +3947,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 if (rebuy_dialog.isRebuy()) {
                     player.getPlayer_stack().setBackground(Color.YELLOW);
                     player.getPlayer_stack().setForeground(Color.BLACK);
-                    player.getPlayer_stack().setText(Helpers.float2String(player.getStack()) + " + " + (int) rebuy_dialog.getRebuy_spinner().getValue());
+                    player.getPlayer_stack().setText(Helpers.float2String(player.getStack()) + " + " + Helpers.float2String(new Float((int) rebuy_dialog.getRebuy_spinner().getValue())));
                     this.rebuy_now_menu.setBackground(Color.YELLOW);
                     this.rebuy_now_menu.setOpaque(true);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(Color.YELLOW);

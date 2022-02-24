@@ -56,6 +56,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     public final static int MAX_NICK_LENGTH = 20;
     public final static int MAX_PASS_LENGTH = 30;
     public final static int MAX_PORT_LENGTH = 5;
+    public static volatile int BUYIN_SPINNER_STEP;
 
     private final HashMap<String, HashMap<String, Object>> game = new HashMap<>();
     private volatile boolean dialog_ok = false;
@@ -138,7 +139,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             i++;
         }
 
-        buyin_spinner.setModel(new SpinnerNumberModel((int) GameFrame.BUYIN, (int) (GameFrame.CIEGA_GRANDE * 10f), (int) (GameFrame.CIEGA_GRANDE * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 3))));
+        buyin_spinner.setModel(new SpinnerNumberModel((int) GameFrame.BUYIN, (int) (GameFrame.CIEGA_GRANDE * 10f), (int) (GameFrame.CIEGA_GRANDE * 100f), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
         ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
@@ -310,7 +311,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             float ciega_grande = Float.valueOf(valores[1].trim().replace(",", "."));
 
-            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4))));
+            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
@@ -1419,7 +1420,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             float ciega_grande = Float.valueOf(valores[1].replace(",", ".").trim());
 
-            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4))));
+            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 

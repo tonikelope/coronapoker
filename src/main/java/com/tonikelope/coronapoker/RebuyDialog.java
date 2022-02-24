@@ -83,8 +83,6 @@ public class RebuyDialog extends javax.swing.JDialog {
 
         barra.setVisible(false);
 
-        rebuy_spinner.setModel(new SpinnerNumberModel(GameFrame.BUYIN, 1, GameFrame.BUYIN, 1));
-
         ((JSpinner.DefaultEditor) rebuy_spinner.getEditor()).getTextField().setEditable(false);
 
         if (!cancel) {
@@ -187,7 +185,7 @@ public class RebuyDialog extends javax.swing.JDialog {
         barra.setDoubleBuffered(true);
 
         rebuy_spinner.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        rebuy_spinner.setModel(new javax.swing.SpinnerNumberModel());
+        rebuy_spinner.setModel(new SpinnerNumberModel(GameFrame.BUYIN, 1, GameFrame.BUYIN, NewGameDialog.BUYIN_SPINNER_STEP) );
         rebuy_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_spinner.setDoubleBuffered(true);
         rebuy_spinner.addChangeListener(new javax.swing.event.ChangeListener() {

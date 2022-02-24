@@ -2422,7 +2422,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (!player_stack_click) {
             player_stack_click = true;
 
-            player_stack.setText(String.valueOf(this.buyin));
+            player_stack.setText(Helpers.float2String((float) this.buyin));
             player_stack.setBackground(Color.GRAY);
             player_stack.setForeground(Color.WHITE);
 
@@ -2438,7 +2438,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
                                 player_stack.setBackground(Color.YELLOW);
                                 player_stack.setForeground(Color.BLACK);
-                                player_stack.setText(Helpers.float2String(stack) + " + " + (int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()));
+                                player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
 
                             } else {
 

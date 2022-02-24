@@ -84,14 +84,8 @@
       </Layout>
       <SubComponents>
         <Component class="com.tonikelope.coronapoker.Card" name="playingCard1">
-          <Properties>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
         </Component>
         <Component class="com.tonikelope.coronapoker.Card" name="playingCard2">
-          <Properties>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
         </Component>
       </SubComponents>
     </Container>

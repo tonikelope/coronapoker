@@ -1215,21 +1215,35 @@ public class Helpers {
 
             DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
 
-            otherSymbols.setDecimalSeparator('.');
+            DecimalFormat df;
 
-            DecimalFormat df = new DecimalFormat("0.00", otherSymbols);
+            if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
+                otherSymbols.setDecimalSeparator(',');
+                df = new DecimalFormat("0.00", otherSymbols);
+                return df.format(cantidad).replaceAll("\\,00$", "");
+            } else {
+                otherSymbols.setDecimalSeparator('.');
+                df = new DecimalFormat("0.00", otherSymbols);
+                return df.format(cantidad).replaceAll("\\.00$", "");
+            }
 
-            return df.format(cantidad).replaceAll("\\.00$", "");
         } else {
             cantidad = Helpers.floatClean(cantidad / 1000f);
 
             DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
 
-            otherSymbols.setDecimalSeparator('.');
+            DecimalFormat df;
 
-            DecimalFormat df = new DecimalFormat("0.000", otherSymbols);
+            if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
+                otherSymbols.setDecimalSeparator(',');
+                df = new DecimalFormat("0.000", otherSymbols);
+                return df.format(cantidad).replaceAll("(?:(\\,[^,0]+)|\\,)0*$", "$1") + "K";
+            } else {
+                otherSymbols.setDecimalSeparator('.');
+                df = new DecimalFormat("0.000", otherSymbols);
+                return df.format(cantidad).replaceAll("(?:(\\.[^.0]+)|\\.)0*$", "$1") + "K";
+            }
 
-            return df.format(cantidad).replaceAll("(?:(\\.[^.0]+)|\\.)0*$", "$1") + "K";
         }
 
     }

@@ -308,7 +308,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
 
-            float ciega_grande = Float.valueOf(valores[1].trim());
+            float ciega_grande = Float.valueOf(valores[1].trim().replace(",", "."));
 
             buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4))));
 
@@ -688,7 +688,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         });
 
         ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "0.10 / 0.20", "0.20 / 0.40", "0.30 / 0.60", "0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000" }));
+        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,10 / 0,20":"0.10 / 0.20", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,20 / 0,40":"0.20 / 0.40", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,30 / 0,60":"0.30 / 0.60", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,50 / 1":"0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000" }));
         ciegas_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ciegas_combobox.setDoubleBuffered(true);
         ciegas_combobox.addActionListener(new java.awt.event.ActionListener() {
@@ -1110,9 +1110,9 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).split("/");
 
-                GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
+                GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].replace(",", ".").trim());
 
-                GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].trim());
+                GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].replace(",", ".").trim());
 
                 if (this.doblar_checkbox.isSelected()) {
 
@@ -1417,7 +1417,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
 
-            float ciega_grande = Float.valueOf(valores[1].trim());
+            float ciega_grande = Float.valueOf(valores[1].replace(",", ".").trim());
 
             buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4))));
 

@@ -122,9 +122,9 @@ public class BalanceDialog extends javax.swing.JDialog {
         Helpers.setScaledIconButton(exit_button, getClass().getResource("/images/exit.png"), exit_button.getHeight(), exit_button.getHeight());
 
         Helpers.setScaledIconButton(retry_button, getClass().getResource("/images/start.png"), retry_button.getHeight(), retry_button.getHeight());
-        
-        setSize(getWidth(), Math.round(getParent().getHeight()*0.9f));
-        
+
+        setSize(getWidth(), Math.round(getParent().getHeight() * 0.9f));
+
         setPreferredSize(getSize());
 
         pack();

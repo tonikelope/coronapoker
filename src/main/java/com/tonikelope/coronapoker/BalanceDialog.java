@@ -47,7 +47,7 @@ public class BalanceDialog extends javax.swing.JDialog {
 
         exit_button.requestFocus();
 
-        jScrollPane1.getVerticalScrollBar().setUnitIncrement(20);
+        scroll_panel.getVerticalScrollBar().setUnitIncrement(20);
 
         ArrayList<Object[]> ranking = new ArrayList<>();
 
@@ -122,8 +122,14 @@ public class BalanceDialog extends javax.swing.JDialog {
         Helpers.setScaledIconButton(exit_button, getClass().getResource("/images/exit.png"), exit_button.getHeight(), exit_button.getHeight());
 
         Helpers.setScaledIconButton(retry_button, getClass().getResource("/images/start.png"), retry_button.getHeight(), retry_button.getHeight());
+        
+        setSize(getWidth(), Math.round(getParent().getHeight()*0.9f));
+        
+        setPreferredSize(getSize());
 
         pack();
+
+        Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth(), 0.1f);
 
     }
 
@@ -146,7 +152,7 @@ public class BalanceDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         title = new javax.swing.JLabel();
-        jScrollPane1 = new javax.swing.JScrollPane();
+        scroll_panel = new javax.swing.JScrollPane();
         jugadores = new javax.swing.JPanel();
         exit_button = new javax.swing.JButton();
         stats_button = new javax.swing.JButton();
@@ -175,15 +181,15 @@ public class BalanceDialog extends javax.swing.JDialog {
         title.setFocusable(false);
         title.setOpaque(true);
 
-        jScrollPane1.setBorder(null);
-        jScrollPane1.setDoubleBuffered(true);
-        jScrollPane1.setFocusable(false);
+        scroll_panel.setBorder(null);
+        scroll_panel.setDoubleBuffered(true);
+        scroll_panel.setFocusable(false);
 
         jugadores.setBackground(new java.awt.Color(245, 245, 245));
         jugadores.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         jugadores.setFocusable(false);
         jugadores.setLayout(new java.awt.GridLayout(0, 1));
-        jScrollPane1.setViewportView(jugadores);
+        scroll_panel.setViewportView(jugadores);
 
         exit_button.setBackground(new java.awt.Color(255, 0, 0));
         exit_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
@@ -240,7 +246,7 @@ public class BalanceDialog extends javax.swing.JDialog {
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(jScrollPane1)
+            .addComponent(scroll_panel)
             .addGroup(layout.createSequentialGroup()
                 .addComponent(retry_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -253,7 +259,7 @@ public class BalanceDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addComponent(title)
                 .addGap(0, 0, 0)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(log_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -322,10 +328,10 @@ public class BalanceDialog extends javax.swing.JDialog {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton exit_button;
-    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JPanel jugadores;
     private javax.swing.JButton log_button;
     private javax.swing.JButton retry_button;
+    private javax.swing.JScrollPane scroll_panel;
     private javax.swing.JButton stats_button;
     private javax.swing.JLabel title;
     // End of variables declaration//GEN-END:variables

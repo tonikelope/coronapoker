@@ -196,6 +196,7 @@ public class Helpers {
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
     public static final int RANDOMORG_TIMEOUT = 15000;
+    public static final int HTTP_TIMEOUT = 15000;
     public static final int CSPRNG = 3;
     public static final int TRNG = 2;
     public static final int TRNG_CSPRNG = 1;
@@ -1341,6 +1342,10 @@ public class Helpers {
             con = (HttpURLConnection) mb_url.openConnection();
 
             con.setUseCaches(false);
+
+            con.setConnectTimeout(HTTP_TIMEOUT);
+            
+            con.setReadTimeout(HTTP_TIMEOUT);
 
             try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
 

@@ -1219,30 +1219,49 @@ public class Helpers {
             DecimalFormat df;
 
             if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
+
                 otherSymbols.setDecimalSeparator(',');
+
                 df = new DecimalFormat("0.00", otherSymbols);
+
                 return df.format(cantidad).replaceAll("\\,00$", "");
+
             } else {
+
                 otherSymbols.setDecimalSeparator('.');
+
                 df = new DecimalFormat("0.00", otherSymbols);
+
                 return df.format(cantidad).replaceAll("\\.00$", "");
             }
 
         } else {
-            cantidad = Helpers.floatClean(cantidad / 1000f, 3);
+
+            float cantidad_format_k = Helpers.floatClean(cantidad / 1000f, 3);
 
             DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
 
             DecimalFormat df;
 
             if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
+
                 otherSymbols.setDecimalSeparator(',');
+
                 df = new DecimalFormat("0.000", otherSymbols);
-                return df.format(cantidad).replaceAll("(?:(\\,[^,0]+)|\\,)0*$", "$1") + "K";
+
+                String f = df.format(cantidad_format_k).replaceAll("(?:(\\,[1-9])00$)|\\,000$", "$1K");
+
+                return f.equals(df.format(cantidad_format_k)) ? df.format(cantidad).replaceAll("\\,000$", "") : f;
+
             } else {
+
                 otherSymbols.setDecimalSeparator('.');
+
                 df = new DecimalFormat("0.000", otherSymbols);
-                return df.format(cantidad).replaceAll("(?:(\\.[^.0]+)|\\.)0*$", "$1") + "K";
+
+                String f = df.format(cantidad_format_k).replaceAll("(?:(\\.[1-9])00$)|\\.000$", "$1K");
+
+                return f.equals(df.format(cantidad_format_k)) ? df.format(cantidad).replaceAll("\\.000$", "") : f;
             }
 
         }
@@ -1344,7 +1363,7 @@ public class Helpers {
             con.setUseCaches(false);
 
             con.setConnectTimeout(HTTP_TIMEOUT);
-            
+
             con.setReadTimeout(HTTP_TIMEOUT);
 
             try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {

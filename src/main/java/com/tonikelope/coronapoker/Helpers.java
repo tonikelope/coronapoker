@@ -1228,7 +1228,7 @@ public class Helpers {
             }
 
         } else {
-            cantidad = Helpers.floatClean(cantidad / 1000f);
+            cantidad = Helpers.floatClean(cantidad / 1000f, 3);
 
             DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
 

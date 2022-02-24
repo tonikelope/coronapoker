@@ -1075,11 +1075,9 @@ public class Init extends javax.swing.JFrame {
             @Override
             public void run() {
 
-                Helpers.GUIRunAndWait(new Runnable() {
+                Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-
-                        VENTANA_INICIO.setEnabled(false);
 
                         VENTANA_INICIO.update_label.setVisible(true);
 
@@ -1091,7 +1089,7 @@ public class Init extends javax.swing.JFrame {
 
                 if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
 
-                    if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?") == 0) {
+                    if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?") == 0) {
 
                         Helpers.GUIRun(new Runnable() {
                             @Override
@@ -1141,8 +1139,6 @@ public class Init extends javax.swing.JFrame {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-
-                        VENTANA_INICIO.setEnabled(true);
 
                         VENTANA_INICIO.update_label.setVisible(false);
                     }

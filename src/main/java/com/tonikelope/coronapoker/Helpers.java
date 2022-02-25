@@ -2452,8 +2452,8 @@ public class Helpers {
 
     public static class TapetePopupMenu {
 
-        public static JMenu BARAJAS_MENU = new JMenu("Barajas");
-        public static JMenu TAPETES_MENU = new JMenu("Tapetes");
+        public static JMenu BARAJAS_MENU;
+        public static JMenu TAPETES_MENU;
         public static JMenuItem MAX_HANDS_MENU;
         public static JCheckBoxMenuItem FULLSCREEN_MENU;
         public static JCheckBoxMenuItem SONIDOS_MENU;
@@ -2477,7 +2477,7 @@ public class Helpers {
 
         private static void generarBarajasMenu() {
 
-            BARAJAS_MENU.removeAll();
+            BARAJAS_MENU = new JMenu("Barajas");
 
             for (Map.Entry<String, Object[]> entry : Card.BARAJAS.entrySet()) {
 
@@ -2812,7 +2812,7 @@ public class Helpers {
                 TAPETE_AZUL = new JRadioButtonMenuItem(tapeteAzulAction);
                 TAPETE_ROJO = new JRadioButtonMenuItem(tapeteRojoAction);
                 TAPETE_MADERA = new JRadioButtonMenuItem(tapeteMaderaAction);
-                TAPETES_MENU.removeAll();
+                TAPETES_MENU = new JMenu("Tapetes");
                 TAPETES_MENU.add(TAPETE_VERDE);
                 TAPETES_MENU.add(TAPETE_AZUL);
                 TAPETES_MENU.add(TAPETE_ROJO);
@@ -2854,6 +2854,8 @@ public class Helpers {
                 popup.add(exit_menu);
 
                 Helpers.updateFonts(popup, Helpers.GUI_FONT, 1.05f);
+
+                Helpers.translateComponents(popup, false);
             }
 
             tapete.setComponentPopupMenu(popup);

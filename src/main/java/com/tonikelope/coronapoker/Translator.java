@@ -33,16 +33,17 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"ATAJOS DE TECLADO", "KEYBOARD SHORTCUTS"},
             {"SEGUIR JUGANDO", "CONTINUE PLAYING"},
             {"SALIR DE LA TIMBA", "EXIT GAME"},
             {"¡CUIDADO! ERES EL ANFITRIÓN Y SI SALES SE TERMINARÁ LA TIMBA.", "WARNING! YOU'RE THE HOST AND IF YOU COME OUT THE GAME WILL BE OVER"},
             {"Si sales no podrás volver a entrar.", "If you get out of the game you won't be able to get back in."},
             {"[ ESPACIO ] = PASAR / IR / MOSTRAR", "[ SPACE ] = CHECK / CALL / SHOW CARDS"},
-            {"[ ARRIBA/ABAJO ] -> [ ENTER ] = SUBIR/BAJAR APUESTA -> CONFIRMAR", "[ UP/DOWN ] -> [ ENTER ] = RAISE/LOWER BET -> CONFIRM"},
+            {"[ ARRIBA/ABAJO ] -> [ ENTER ] = SUBIR/BAJAR APUESTA -> OK", "[ UP/DOWN ] -> [ ENTER ] = RAISE/LOWER BET -> OK"},
             {"[ ESCAPE ] = NO IR", "[ ESCAPE ] = FOLD"},
             {"[ S ] = VER TU BUYIN", "[ S ] = SEE YOUR BUYIN"},
-            {"[ º ] = ACTIVAR VENTANA DE CHAT RÁPIDO", "[ º ] = ENABLE FAST CHAT DIALOG"},
-            {"[ 1 ] = ACTIVAR VENTANA PARA ENVIAR IMAGEN POR CHAT", "[ 1 ] = ENABLE SEND IMAGE DIALOG"},
+            {"[ º ] = VENTANA DE CHAT RÁPIDO", "[ º ] = FAST CHAT DIALOG"},
+            {"[ 1 ] = VENTANA ENVIAR IMAGEN", "[ 1 ] = SEND IMAGE DIALOG"},
             {"[ TAB ] = RECORRER IMÁGENES (ABAJO)", "[ TAB ] = BROWSE IMAGES (DOWN)"},
             {"[ SHIFT ] + [ TAB ] = RECORRER IMÁGENES (ARRIBA)", "[ SHIFT ] + [ TAB ] = BROWSE IMAGES (UP)"},
             {"[ S ] = ENVIAR IMAGEN SELECCIONADA", "[ S ] = SEND SELECTED IMAGE"},

@@ -2139,7 +2139,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     int gif_l = ChatImageDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageDialog.GIF_CACHE.get(url)[1] : -1;
 
-                                    ImageIcon image = new ImageIcon(new URL(url + "#" + Helpers.genRandomString(20)));
+                                    ImageIcon image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
 
                                     int max_width = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getWidth() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getWidth();
 
@@ -3755,9 +3755,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (shortcuts_dialog == null) {
 
-            shortcuts_dialog = new ShortcutsDialog(GameFrame.getInstance().getFrame(), false);
-
-            Helpers.preserveOriginalFontSizes(shortcuts_dialog);
+            shortcuts_dialog = new ShortcutsDialog(getFrame(), false);
 
         }
 
@@ -3768,14 +3766,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
+
                     Helpers.zoomFonts(shortcuts_dialog, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
 
                     Helpers.GUIRun(new Runnable() {
                         @Override
                         public void run() {
-                            shortcuts_dialog.pack();
 
-                            shortcuts_dialog.setLocation(GameFrame.getInstance().getFrame().getX() + GameFrame.getInstance().getFrame().getWidth() - shortcuts_dialog.getWidth(), GameFrame.getInstance().getFrame().getY() + GameFrame.getInstance().getFrame().getHeight() - shortcuts_dialog.getHeight());
+                            shortcuts_dialog.setLocation(getFrame().getX() + getFrame().getWidth() - shortcuts_dialog.getWidth(), getFrame().getY() + getFrame().getHeight() - shortcuts_dialog.getHeight());
 
                             shortcuts_dialog.setVisible(true);
 

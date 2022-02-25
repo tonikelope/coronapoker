@@ -32,7 +32,8 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         initComponents();
         send_image_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("ENVIAR IMAGEN")));
         Helpers.setTranslatedTitle(this, getTitle());
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.preserveOriginalFontSizes(this);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         Helpers.translateComponents(this, false);
         pack();
     }
@@ -60,6 +61,7 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         jLabel10 = new javax.swing.JLabel();
         jLabel11 = new javax.swing.JLabel();
         jLabel12 = new javax.swing.JLabel();
+        jLabel13 = new javax.swing.JLabel();
 
         setTitle("Atajos");
         setAutoRequestFocus(false);
@@ -68,82 +70,117 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         setFocusableWindowState(false);
         setResizable(false);
 
-        jPanel1.setBackground(new java.awt.Color(255, 255, 255));
         jPanel1.setFocusable(false);
 
+        jLabel1.setBackground(new java.awt.Color(255, 255, 255));
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel1.setForeground(new java.awt.Color(0, 0, 0));
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel1.setText("[ ESPACIO ] = PASAR / IR / MOSTRAR");
         jLabel1.setDoubleBuffered(true);
         jLabel1.setFocusable(false);
+        jLabel1.setOpaque(true);
 
+        jLabel2.setBackground(new java.awt.Color(255, 255, 255));
         jLabel2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel2.setForeground(new java.awt.Color(0, 0, 0));
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel2.setText("[ ARRIBA/ABAJO ] -> [ ENTER ] = SUBIR/BAJAR APUESTA -> CONFIRMAR");
+        jLabel2.setText("[ ARRIBA/ABAJO ] -> [ ENTER ] = SUBIR/BAJAR APUESTA -> OK");
         jLabel2.setDoubleBuffered(true);
         jLabel2.setFocusable(false);
+        jLabel2.setOpaque(true);
 
+        jLabel3.setBackground(new java.awt.Color(255, 255, 255));
         jLabel3.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel3.setForeground(new java.awt.Color(0, 0, 0));
         jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel3.setText("[ SHIFT ] + [ ENTER ] = ALL IN");
         jLabel3.setDoubleBuffered(true);
         jLabel3.setFocusable(false);
+        jLabel3.setOpaque(true);
 
+        jLabel4.setBackground(new java.awt.Color(255, 255, 255));
         jLabel4.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel4.setForeground(new java.awt.Color(0, 0, 0));
         jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel4.setText("[ ESCAPE ] = NO IR");
         jLabel4.setDoubleBuffered(true);
         jLabel4.setFocusable(false);
+        jLabel4.setOpaque(true);
 
+        jLabel5.setBackground(new java.awt.Color(255, 255, 255));
         jLabel5.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel5.setForeground(new java.awt.Color(0, 0, 0));
         jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel5.setText("[ º ] = ACTIVAR VENTANA DE CHAT RÁPIDO");
+        jLabel5.setText("[ º ] = VENTANA DE CHAT RÁPIDO");
         jLabel5.setDoubleBuffered(true);
         jLabel5.setFocusable(false);
+        jLabel5.setOpaque(true);
 
+        jLabel6.setBackground(new java.awt.Color(255, 255, 255));
         jLabel6.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel6.setForeground(new java.awt.Color(0, 0, 0));
         jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel6.setText("[ S ] = VER TU BUYIN");
         jLabel6.setDoubleBuffered(true);
         jLabel6.setFocusable(false);
+        jLabel6.setOpaque(true);
 
+        jLabel7.setBackground(new java.awt.Color(255, 255, 255));
         jLabel7.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel7.setForeground(new java.awt.Color(0, 0, 0));
         jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel7.setText("[ CTRL ] + [ P ] = SCREENSHOT");
         jLabel7.setDoubleBuffered(true);
         jLabel7.setFocusable(false);
+        jLabel7.setOpaque(true);
 
+        jLabel8.setBackground(new java.awt.Color(255, 255, 255));
         jLabel8.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel8.setForeground(new java.awt.Color(0, 0, 0));
         jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel8.setText("[ 1 ] = ACTIVAR VENTANA PARA ENVIAR IMAGEN POR CHAT");
+        jLabel8.setText("[ 1 ] = VENTANA ENVIAR IMAGEN");
         jLabel8.setDoubleBuffered(true);
         jLabel8.setFocusable(false);
+        jLabel8.setOpaque(true);
 
         send_image_panel.setFocusable(false);
 
-        jLabel9.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel9.setBackground(new java.awt.Color(255, 255, 255));
+        jLabel9.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        jLabel9.setForeground(new java.awt.Color(0, 0, 0));
         jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel9.setText("[ TAB ] = RECORRER IMÁGENES (ABAJO)");
         jLabel9.setDoubleBuffered(true);
         jLabel9.setFocusable(false);
+        jLabel9.setOpaque(true);
 
-        jLabel10.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel10.setBackground(new java.awt.Color(255, 255, 255));
+        jLabel10.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        jLabel10.setForeground(new java.awt.Color(0, 0, 0));
         jLabel10.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel10.setText("[ SHIFT ] + [ TAB ] = RECORRER IMÁGENES (ARRIBA)");
         jLabel10.setDoubleBuffered(true);
         jLabel10.setFocusable(false);
+        jLabel10.setOpaque(true);
 
-        jLabel11.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel11.setBackground(new java.awt.Color(255, 255, 255));
+        jLabel11.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        jLabel11.setForeground(new java.awt.Color(0, 0, 0));
         jLabel11.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel11.setText("[ S ] = ENVIAR IMAGEN SELECCIONADA");
         jLabel11.setDoubleBuffered(true);
         jLabel11.setFocusable(false);
+        jLabel11.setOpaque(true);
 
-        jLabel12.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel12.setBackground(new java.awt.Color(255, 255, 255));
+        jLabel12.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        jLabel12.setForeground(new java.awt.Color(0, 0, 0));
         jLabel12.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel12.setText("[ RETROCESO ] = ELIMINAR IMAGEN SELECCIONADA");
         jLabel12.setDoubleBuffered(true);
         jLabel12.setFocusable(false);
+        jLabel12.setOpaque(true);
 
         javax.swing.GroupLayout send_image_panelLayout = new javax.swing.GroupLayout(send_image_panel);
         send_image_panel.setLayout(send_image_panelLayout);
@@ -172,6 +209,14 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
                 .addContainerGap())
         );
 
+        jLabel13.setBackground(new java.awt.Color(102, 102, 102));
+        jLabel13.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        jLabel13.setForeground(new java.awt.Color(255, 255, 255));
+        jLabel13.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel13.setText("ATAJOS DE TECLADO");
+        jLabel13.setDoubleBuffered(true);
+        jLabel13.setOpaque(true);
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
@@ -189,11 +234,13 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
                     .addComponent(send_image_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
+            .addComponent(jLabel13, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addContainerGap()
+                .addComponent(jLabel13)
+                .addGap(18, 18, 18)
                 .addComponent(jLabel1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jLabel2)
@@ -202,7 +249,7 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jLabel4)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel6, javax.swing.GroupLayout.PREFERRED_SIZE, 17, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jLabel6)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jLabel7, javax.swing.GroupLayout.PREFERRED_SIZE, 23, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -224,10 +271,7 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, 0))
+            .addComponent(jPanel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();
@@ -238,6 +282,7 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
     private javax.swing.JLabel jLabel12;
+    private javax.swing.JLabel jLabel13;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
@@ -257,9 +302,22 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                pack();
+                setVisible(false);
             }
         });
+
+        Helpers.pausar(250);
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                pack();
+                setLocation(getParent().getX() + getParent().getWidth() - getWidth(), getParent().getY() + getParent().getHeight() - getHeight());
+                setVisible(true);
+
+            }
+        });
+
     }
 
 }

@@ -419,14 +419,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         config_partida_panel = new javax.swing.JPanel();
         recover_checkbox = new javax.swing.JCheckBox();
         game_combo = new javax.swing.JComboBox<>();
-        manos_checkbox = new javax.swing.JCheckBox();
-        manos_spinner = new javax.swing.JSpinner();
-        jPanel1 = new javax.swing.JPanel();
-        doblar_checkbox = new javax.swing.JCheckBox();
-        doblar_ciegas_spinner_minutos = new javax.swing.JSpinner();
-        double_blinds_radio_minutos = new javax.swing.JRadioButton();
-        double_blinds_radio_manos = new javax.swing.JRadioButton();
-        doblar_ciegas_spinner_manos = new javax.swing.JSpinner();
         jPanel3 = new javax.swing.JPanel();
         ciegas_label = new javax.swing.JLabel();
         buyin_label = new javax.swing.JLabel();
@@ -434,13 +426,21 @@ public class NewGameDialog extends javax.swing.JDialog {
         buyin_spinner = new javax.swing.JSpinner();
         ciegas_combobox = new javax.swing.JComboBox<>();
         jLabel2 = new javax.swing.JLabel();
+        jPanel1 = new javax.swing.JPanel();
+        doblar_checkbox = new javax.swing.JCheckBox();
+        doblar_ciegas_spinner_minutos = new javax.swing.JSpinner();
+        double_blinds_radio_minutos = new javax.swing.JRadioButton();
+        double_blinds_radio_manos = new javax.swing.JRadioButton();
+        doblar_ciegas_spinner_manos = new javax.swing.JSpinner();
+        manos_checkbox = new javax.swing.JCheckBox();
+        jLabel4 = new javax.swing.JLabel();
+        manos_spinner = new javax.swing.JSpinner();
         random_panel = new javax.swing.JPanel();
         randomorg_label = new javax.swing.JLabel();
         random_label = new javax.swing.JLabel();
         randomorg_apikey = new javax.swing.JTextField();
         random_combobox = new javax.swing.JComboBox<>();
         recover_checkbox_label = new javax.swing.JLabel();
-        jLabel4 = new javax.swing.JLabel();
         nick_pass_panel = new javax.swing.JPanel();
         avatar_img = new javax.swing.JLabel();
         nick = new javax.swing.JTextField();
@@ -564,18 +564,55 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
-        manos_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        manos_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        manos_checkbox.setDoubleBuffered(true);
-        manos_checkbox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                manos_checkboxActionPerformed(evt);
+        jPanel3.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
+
+        ciegas_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        ciegas_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/ciegas.png"))); // NOI18N
+        ciegas_label.setText("Ciegas iniciales:");
+        ciegas_label.setDoubleBuffered(true);
+
+        buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        buyin_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1202.png"))); // NOI18N
+        buyin_label.setText("Compra inicial (10 a 100 CGs):");
+        buyin_label.setToolTipText("[10-100] ciegas grandes");
+        buyin_label.setDoubleBuffered(true);
+
+        rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        rebuy_checkbox.setToolTipText("Si algún jugador se queda sin fichas");
+        rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        rebuy_checkbox.setDoubleBuffered(true);
+        rebuy_checkbox.setOpaque(false);
+
+        buyin_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        buyin_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 5, null, 1));
+        buyin_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buyin_spinner.setDoubleBuffered(true);
+        buyin_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                buyin_spinnerStateChanged(evt);
             }
         });
 
-        manos_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        manos_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
-        manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,10 / 0,20":"0.10 / 0.20", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,20 / 0,40":"0.20 / 0.40", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,30 / 0,60":"0.30 / 0.60", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,50 / 1":"0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000" }));
+        ciegas_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        ciegas_combobox.setDoubleBuffered(true);
+        ciegas_combobox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                ciegas_comboboxActionPerformed(evt);
+            }
+        });
+
+        jLabel2.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        jLabel2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rebuy.png"))); // NOI18N
+        jLabel2.setText("Recomprar");
+        jLabel2.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        jLabel2.setDoubleBuffered(true);
+        jLabel2.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                jLabel2MouseClicked(evt);
+            }
+        });
 
         jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
@@ -632,15 +669,14 @@ public class NewGameDialog extends javax.swing.JDialog {
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addComponent(doblar_checkbox)
                         .addGap(0, 0, Short.MAX_VALUE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(double_blinds_radio_minutos)
                             .addComponent(double_blinds_radio_manos))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.DEFAULT_SIZE, 209, Short.MAX_VALUE)
-                            .addComponent(doblar_ciegas_spinner_manos))))
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(doblar_ciegas_spinner_manos)
+                            .addComponent(doblar_ciegas_spinner_minutos))))
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -656,102 +692,85 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(double_blinds_radio_minutos)
                     .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap())
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        jPanel3.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
-
-        ciegas_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        ciegas_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/ciegas.png"))); // NOI18N
-        ciegas_label.setText("Ciegas iniciales:");
-        ciegas_label.setDoubleBuffered(true);
-
-        buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        buyin_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1202.png"))); // NOI18N
-        buyin_label.setText("Compra inicial (10 a 100 ciegas grandes):");
-        buyin_label.setToolTipText("[10-100] ciegas grandes");
-        buyin_label.setDoubleBuffered(true);
-
-        rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        rebuy_checkbox.setToolTipText("Si algún jugador se queda sin fichas");
-        rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        rebuy_checkbox.setDoubleBuffered(true);
-        rebuy_checkbox.setOpaque(false);
-
-        buyin_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        buyin_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 5, null, 1));
-        buyin_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        buyin_spinner.setDoubleBuffered(true);
-        buyin_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                buyin_spinnerStateChanged(evt);
-            }
-        });
-
-        ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,10 / 0,20":"0.10 / 0.20", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,20 / 0,40":"0.20 / 0.40", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,30 / 0,60":"0.30 / 0.60", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,50 / 1":"0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000" }));
-        ciegas_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        ciegas_combobox.setDoubleBuffered(true);
-        ciegas_combobox.addActionListener(new java.awt.event.ActionListener() {
+        manos_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        manos_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        manos_checkbox.setDoubleBuffered(true);
+        manos_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ciegas_comboboxActionPerformed(evt);
+                manos_checkboxActionPerformed(evt);
             }
         });
 
-        jLabel2.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        jLabel2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rebuy.png"))); // NOI18N
-        jLabel2.setText("Permitir recomprar");
-        jLabel2.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        jLabel2.setDoubleBuffered(true);
-        jLabel2.addMouseListener(new java.awt.event.MouseAdapter() {
+        jLabel4.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        jLabel4.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png"))); // NOI18N
+        jLabel4.setText("Límite de manos:");
+        jLabel4.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        jLabel4.setDoubleBuffered(true);
+        jLabel4.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
-                jLabel2MouseClicked(evt);
+                jLabel4MouseClicked(evt);
             }
         });
+
+        manos_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        manos_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
+        manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
         jPanel3.setLayout(jPanel3Layout);
         jPanel3Layout.setHorizontalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel3Layout.createSequentialGroup()
-                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(rebuy_checkbox)
-                        .addGap(0, 0, 0)
-                        .addComponent(jLabel2)
-                        .addGap(5, 5, 5))
+                .addContainerGap()
+                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(jPanel3Layout.createSequentialGroup()
-                        .addContainerGap()
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(buyin_label)
                             .addComponent(ciegas_label))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(ciegas_combobox, 0, 394, Short.MAX_VALUE)
-                            .addComponent(buyin_spinner))))
+                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(buyin_spinner, javax.swing.GroupLayout.DEFAULT_SIZE, 240, Short.MAX_VALUE)
+                            .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                    .addGroup(jPanel3Layout.createSequentialGroup()
+                        .addComponent(rebuy_checkbox)
+                        .addGap(0, 0, 0)
+                        .addComponent(jLabel2)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(manos_checkbox)
+                        .addGap(0, 0, 0)
+                        .addComponent(jLabel4)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(manos_spinner, javax.swing.GroupLayout.DEFAULT_SIZE, 170, Short.MAX_VALUE)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(ciegas_label)
-                    .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(18, 18, 18)
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(buyin_label)
-                    .addGroup(jPanel3Layout.createSequentialGroup()
-                        .addComponent(buyin_spinner)
-                        .addGap(2, 2, 2)))
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel3Layout.createSequentialGroup()
-                        .addComponent(jLabel2)
-                        .addGap(0, 4, Short.MAX_VALUE))
-                    .addGroup(jPanel3Layout.createSequentialGroup()
-                        .addGap(3, 3, 3)
-                        .addComponent(rebuy_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(ciegas_label)
+                            .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(18, 18, 18)
+                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(buyin_label)
+                            .addGroup(jPanel3Layout.createSequentialGroup()
+                                .addComponent(buyin_spinner)
+                                .addGap(18, 18, 18)))
+                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                            .addComponent(manos_spinner)
+                            .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(manos_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(rebuy_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
 
@@ -791,7 +810,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                     .addComponent(randomorg_label))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(random_combobox, 0, 532, Short.MAX_VALUE)
+                    .addComponent(random_combobox, 0, 585, Short.MAX_VALUE)
                     .addComponent(randomorg_apikey))
                 .addContainerGap())
         );
@@ -820,17 +839,6 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
-        jLabel4.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        jLabel4.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png"))); // NOI18N
-        jLabel4.setText("Límite de manos:");
-        jLabel4.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        jLabel4.setDoubleBuffered(true);
-        jLabel4.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                jLabel4MouseClicked(evt);
-            }
-        });
-
         javax.swing.GroupLayout config_partida_panelLayout = new javax.swing.GroupLayout(config_partida_panel);
         config_partida_panel.setLayout(config_partida_panelLayout);
         config_partida_panelLayout.setHorizontalGroup(
@@ -838,13 +846,6 @@ public class NewGameDialog extends javax.swing.JDialog {
             .addGroup(config_partida_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, config_partida_panelLayout.createSequentialGroup()
-                        .addComponent(manos_checkbox)
-                        .addGap(0, 0, 0)
-                        .addComponent(jLabel4)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 534, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(config_partida_panelLayout.createSequentialGroup()
                         .addComponent(recover_checkbox)
                         .addGap(0, 0, 0)
@@ -867,16 +868,8 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addGap(18, 18, 18)
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
                 .addComponent(random_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                        .addComponent(manos_checkbox, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(jLabel4, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                .addContainerGap(23, Short.MAX_VALUE))
+                .addContainerGap())
         );
 
         avatar_img.setToolTipText("Haz click para cambiar el avatar");
@@ -971,7 +964,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addComponent(url_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(config_partida_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, 14, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(vamos, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)

@@ -140,7 +140,7 @@ public class Translator {
             {"Minutos:", "Minutes:"},
             {"Manos:", "Hands:"},
             {"Límite de manos:", "Hands limit:"},
-            {"Compra inicial (10 a 100 ciegas grandes):", "Buy-in (10 to 100 big blinds):"},
+            {"Compra inicial (10 a 100 CGs):", "Buy-in (10 to 100 BBs):"},
             {"Ciegas iniciales:", "Initial blinds:"},
             {"API KEY (opcional):", "API KEY (optional):"},
             {"RANDOM.ORG API KEY NO VÁLIDA (se usará el CSPRNG)", "NOT VALID RANDOM.ORG API KEY (it will be used CSPRNG instead)"},

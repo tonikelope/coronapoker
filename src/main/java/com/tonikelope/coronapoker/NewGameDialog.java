@@ -279,19 +279,19 @@ public class NewGameDialog extends javax.swing.JDialog {
             avatar = new File(avatar_path);
 
             if (avatar.exists() && avatar.canRead() && avatar.length() <= AVATAR_MAX_FILESIZE * 1024) {
-                avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                Helpers.setScaledIconLabel(avatar_img, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                avatar_label.setPreferredSize(new Dimension(nick_pass_panel.getHeight(), nick_pass_panel.getHeight()));
+                Helpers.setScaledIconLabel(avatar_label, avatar.getAbsolutePath(), nick_pass_panel.getHeight(), nick_pass_panel.getHeight());
 
             } else {
                 avatar = null;
-                avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                Helpers.setScaledIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                avatar_label.setPreferredSize(new Dimension(nick_pass_panel.getHeight(), nick_pass_panel.getHeight()));
+                Helpers.setScaledIconLabel(avatar_label, getClass().getResource("/images/avatar_default.png"), nick_pass_panel.getHeight(), nick_pass_panel.getHeight());
 
             }
         } else {
             avatar = null;
-            avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            Helpers.setScaledIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+            avatar_label.setPreferredSize(new Dimension(nick_pass_panel.getHeight(), nick_pass_panel.getHeight()));
+            Helpers.setScaledIconLabel(avatar_label, getClass().getResource("/images/avatar_default.png"), nick_pass_panel.getHeight(), nick_pass_panel.getHeight());
 
         }
 
@@ -442,11 +442,11 @@ public class NewGameDialog extends javax.swing.JDialog {
         random_combobox = new javax.swing.JComboBox<>();
         recover_checkbox_label = new javax.swing.JLabel();
         nick_pass_panel = new javax.swing.JPanel();
-        avatar_img = new javax.swing.JLabel();
         nick = new javax.swing.JTextField();
-        jLabel1 = new javax.swing.JLabel();
+        nick_label = new javax.swing.JLabel();
         password = new javax.swing.JLabel();
         pass_text = new javax.swing.JPasswordField();
+        avatar_label = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("CoronaPoker - Nueva timba");
@@ -543,7 +543,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         );
 
         config_partida_panel.setVisible(false);
-        config_partida_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
         config_partida_panel.setOpaque(false);
 
         recover_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
@@ -564,7 +563,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
-        jPanel3.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
+        jPanel3.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153), 2));
 
         ciegas_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         ciegas_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/ciegas.png"))); // NOI18N
@@ -684,7 +683,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(doblar_checkbox)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(double_blinds_radio_manos)
                     .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -692,7 +691,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(double_blinds_radio_minutos)
                     .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
 
         manos_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
@@ -735,7 +734,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                         .addGap(0, 0, 0)
                         .addComponent(jLabel4)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(manos_spinner))
+                        .addComponent(manos_spinner, javax.swing.GroupLayout.DEFAULT_SIZE, 104, Short.MAX_VALUE))
                     .addGroup(jPanel3Layout.createSequentialGroup()
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(buyin_label)
@@ -774,7 +773,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 .addContainerGap())
         );
 
-        random_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
+        random_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153), 2));
 
         randomorg_label.setFont(new java.awt.Font("Dialog", 3, 16)); // NOI18N
         randomorg_label.setText("API KEY (opcional):");
@@ -810,7 +809,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                     .addComponent(randomorg_label))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(random_combobox, 0, 585, Short.MAX_VALUE)
+                    .addComponent(random_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(randomorg_apikey))
                 .addContainerGap())
         );
@@ -844,7 +843,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         config_partida_panelLayout.setHorizontalGroup(
             config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(config_partida_panelLayout.createSequentialGroup()
-                .addContainerGap()
+                .addGap(0, 0, 0)
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(config_partida_panelLayout.createSequentialGroup()
                         .addComponent(recover_checkbox)
@@ -854,33 +853,23 @@ public class NewGameDialog extends javax.swing.JDialog {
                         .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(random_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
+                .addGap(0, 0, 0))
         );
         config_partida_panelLayout.setVerticalGroup(
             config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(config_partida_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(recover_checkbox, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0)
+                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(game_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(recover_checkbox_label)))
+                        .addComponent(recover_checkbox_label))
+                    .addComponent(recover_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(18, 18, 18)
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(random_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
+                .addGap(0, 0, 0))
         );
-
-        avatar_img.setToolTipText("Haz click para cambiar el avatar");
-        avatar_img.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        avatar_img.setDoubleBuffered(true);
-        avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-        avatar_img.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                avatar_imgMouseClicked(evt);
-            }
-        });
 
         nick.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         nick.setDoubleBuffered(true);
@@ -890,14 +879,14 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
-        jLabel1.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        jLabel1.setText("Nick:");
-        jLabel1.setToolTipText("Haz click para cambiar el avatar");
-        jLabel1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        jLabel1.setDoubleBuffered(true);
-        jLabel1.addMouseListener(new java.awt.event.MouseAdapter() {
+        nick_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        nick_label.setText("Nick:");
+        nick_label.setToolTipText("Haz click para cambiar el avatar");
+        nick_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        nick_label.setDoubleBuffered(true);
+        nick_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
-                jLabel1MouseClicked(evt);
+                nick_labelMouseClicked(evt);
             }
         });
 
@@ -914,48 +903,59 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
+        avatar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        avatar_label.setDoubleBuffered(true);
+        avatar_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                avatar_labelMouseClicked(evt);
+            }
+        });
+
         javax.swing.GroupLayout nick_pass_panelLayout = new javax.swing.GroupLayout(nick_pass_panel);
         nick_pass_panel.setLayout(nick_pass_panelLayout);
         nick_pass_panelLayout.setHorizontalGroup(
             nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(nick_pass_panelLayout.createSequentialGroup()
-                .addComponent(avatar_img, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0)
+                .addComponent(avatar_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(password)
-                    .addComponent(jLabel1))
-                .addGap(6, 6, 6)
+                    .addComponent(nick_label))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(pass_text)
-                    .addComponent(nick))
+                    .addComponent(nick)
+                    .addComponent(pass_text))
                 .addGap(0, 0, 0))
         );
         nick_pass_panelLayout.setVerticalGroup(
             nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(nick_pass_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(avatar_img, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(jLabel1)
-                        .addComponent(nick, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(password)
-                    .addComponent(pass_text, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(nick_pass_panelLayout.createSequentialGroup()
+                        .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(nick_label)
+                            .addComponent(nick, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(password)
+                            .addComponent(pass_text, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
         );
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(url_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(nick_pass_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                    .addComponent(config_partida_panel, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(nick_pass_panel, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(0, 0, 0))
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1158,7 +1158,15 @@ public class NewGameDialog extends javax.swing.JDialog {
         }
     }//GEN-LAST:event_random_comboboxActionPerformed
 
-    private void avatar_imgMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatar_imgMouseClicked
+    private void doblar_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_doblar_checkboxActionPerformed
+        // TODO add your handling code here:
+        this.doblar_ciegas_spinner_minutos.setEnabled(this.doblar_checkbox.isSelected() && this.double_blinds_radio_minutos.isSelected());
+        this.doblar_ciegas_spinner_manos.setEnabled(this.doblar_checkbox.isSelected() && this.double_blinds_radio_manos.isSelected());
+        this.double_blinds_radio_manos.setEnabled(this.doblar_checkbox.isSelected());
+        this.double_blinds_radio_minutos.setEnabled(this.doblar_checkbox.isSelected());
+    }//GEN-LAST:event_doblar_checkboxActionPerformed
+
+    private void nick_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_nick_labelMouseClicked
         // TODO add your handling code here:
         JFileChooser fileChooser = new JFileChooser();
 
@@ -1178,8 +1186,8 @@ public class NewGameDialog extends javax.swing.JDialog {
             } else {
                 this.avatar = selectedFile;
 
-                avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-                Helpers.setScaledIconLabel(avatar_img, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                avatar_label.setPreferredSize(new Dimension(nick_pass_panel.getHeight(), nick_pass_panel.getHeight()));
+                Helpers.setScaledIconLabel(avatar_label, avatar.getAbsolutePath(), nick_pass_panel.getHeight(), nick_pass_panel.getHeight());
 
             }
 
@@ -1187,24 +1195,11 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             this.avatar = null;
 
-            avatar_img.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
-            Helpers.setScaledIconLabel(avatar_img, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+            avatar_label.setPreferredSize(new Dimension(nick_pass_panel.getHeight(), nick_pass_panel.getHeight()));
+            Helpers.setScaledIconLabel(avatar_label, getClass().getResource("/images/avatar_default.png"), nick_pass_panel.getHeight(), nick_pass_panel.getHeight());
 
         }
-    }//GEN-LAST:event_avatar_imgMouseClicked
-
-    private void doblar_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_doblar_checkboxActionPerformed
-        // TODO add your handling code here:
-        this.doblar_ciegas_spinner_minutos.setEnabled(this.doblar_checkbox.isSelected() && this.double_blinds_radio_minutos.isSelected());
-        this.doblar_ciegas_spinner_manos.setEnabled(this.doblar_checkbox.isSelected() && this.double_blinds_radio_manos.isSelected());
-        this.double_blinds_radio_manos.setEnabled(this.doblar_checkbox.isSelected());
-        this.double_blinds_radio_minutos.setEnabled(this.doblar_checkbox.isSelected());
-    }//GEN-LAST:event_doblar_checkboxActionPerformed
-
-    private void jLabel1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jLabel1MouseClicked
-        // TODO add your handling code here:
-        avatar_imgMouseClicked(evt);
-    }//GEN-LAST:event_jLabel1MouseClicked
+    }//GEN-LAST:event_nick_labelMouseClicked
 
     private void recover_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_recover_checkboxActionPerformed
         // TODO add your handling code here:
@@ -1300,11 +1295,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         }
 
     }//GEN-LAST:event_recover_checkboxActionPerformed
-
-    private void nickActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nickActionPerformed
-        // TODO add your handling code here:
-        vamos.doClick();
-    }//GEN-LAST:event_nickActionPerformed
 
     private void pass_textActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pass_textActionPerformed
         // TODO add your handling code here:
@@ -1463,8 +1453,18 @@ public class NewGameDialog extends javax.swing.JDialog {
         manos_checkbox.doClick();
     }//GEN-LAST:event_jLabel4MouseClicked
 
+    private void nickActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nickActionPerformed
+        // TODO add your handling code here:
+        vamos.doClick();
+    }//GEN-LAST:event_nickActionPerformed
+
+    private void avatar_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatar_labelMouseClicked
+        // TODO add your handling code here:
+        this.nick_labelMouseClicked(evt);
+    }//GEN-LAST:event_avatar_labelMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JLabel avatar_img;
+    private javax.swing.JLabel avatar_label;
     private javax.swing.JLabel buyin_label;
     private javax.swing.JSpinner buyin_spinner;
     private javax.swing.JComboBox<String> ciegas_combobox;
@@ -1476,7 +1476,6 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JRadioButton double_blinds_radio_manos;
     private javax.swing.JRadioButton double_blinds_radio_minutos;
     private javax.swing.JComboBox<String> game_combo;
-    private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
@@ -1486,6 +1485,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;
     private javax.swing.JTextField nick;
+    private javax.swing.JLabel nick_label;
     private javax.swing.JPanel nick_pass_panel;
     private javax.swing.JPasswordField pass_text;
     private javax.swing.JLabel password;

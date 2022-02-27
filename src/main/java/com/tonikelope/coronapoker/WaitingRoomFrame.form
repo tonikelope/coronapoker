@@ -67,7 +67,7 @@
                           <Component id="danger_server" alignment="0" max="32767" attributes="0"/>
                           <Component id="panel_arriba" alignment="0" max="32767" attributes="0"/>
                           <Component id="chat_notifications" alignment="0" max="32767" attributes="0"/>
-                          <Component id="chat_scroll" alignment="0" pref="0" max="32767" attributes="0"/>
+                          <Component id="chat_scroll" alignment="0" max="32767" attributes="0"/>
                           <Component id="jPanel1" alignment="0" max="32767" attributes="0"/>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
@@ -84,7 +84,7 @@
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="chat_notifications" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
-                      <Component id="chat_scroll" max="32767" attributes="0"/>
+                      <Component id="chat_scroll" pref="50" max="32767" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="jPanel1" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>

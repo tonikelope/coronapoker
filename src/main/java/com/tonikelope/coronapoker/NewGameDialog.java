@@ -306,9 +306,9 @@ public class NewGameDialog extends javax.swing.JDialog {
             ((DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
             ((DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
 
-            String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
+            String[] valores = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-            float ciega_grande = Float.valueOf(valores[1].trim().replace(",", "."));
+            float ciega_grande = Float.valueOf(valores[1].trim());
 
             buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
@@ -563,6 +563,11 @@ public class NewGameDialog extends javax.swing.JDialog {
         rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_checkbox.setDoubleBuffered(true);
         rebuy_checkbox.setOpaque(false);
+        rebuy_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                rebuy_checkboxActionPerformed(evt);
+            }
+        });
 
         buyin_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         buyin_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 5, null, 1));
@@ -961,11 +966,10 @@ public class NewGameDialog extends javax.swing.JDialog {
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                .addComponent(url_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(config_partida_panel, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(nick_pass_panel, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addComponent(url_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(nick_pass_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(vamos, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(recover_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         jPanel2Layout.setVerticalGroup(
@@ -1025,7 +1029,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
             GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
-            String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).split("/");
+            String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
             GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
 
@@ -1115,11 +1119,11 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
-                String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).split("/");
+                String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-                GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].replace(",", ".").trim());
+                GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
 
-                GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].replace(",", ".").trim());
+                GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].trim());
 
                 if (this.doblar_checkbox.isSelected()) {
 
@@ -1412,9 +1416,9 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         if (init) {
 
-            String[] valores = ((String) ciegas_combobox.getSelectedItem()).split("/");
+            String[] valores = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-            float ciega_grande = Float.valueOf(valores[1].replace(",", ".").trim());
+            float ciega_grande = Float.valueOf(valores[1].trim());
 
             buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
@@ -1475,6 +1479,10 @@ public class NewGameDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         this.nick_labelMouseClicked(evt);
     }//GEN-LAST:event_avatar_labelMouseClicked
+
+    private void rebuy_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rebuy_checkboxActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_rebuy_checkboxActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

@@ -563,11 +563,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_checkbox.setDoubleBuffered(true);
         rebuy_checkbox.setOpaque(false);
-        rebuy_checkbox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                rebuy_checkboxActionPerformed(evt);
-            }
-        });
 
         buyin_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         buyin_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 5, null, 1));
@@ -1479,10 +1474,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         this.nick_labelMouseClicked(evt);
     }//GEN-LAST:event_avatar_labelMouseClicked
-
-    private void rebuy_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rebuy_checkboxActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_rebuy_checkboxActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

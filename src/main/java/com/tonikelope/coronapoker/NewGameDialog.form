@@ -64,12 +64,10 @@
           <Layout>
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="103" groupAlignment="1" attributes="0">
-                      <Component id="url_panel" max="32767" attributes="0"/>
-                      <Component id="config_partida_panel" alignment="0" max="32767" attributes="0"/>
-                      <Component id="nick_pass_panel" alignment="0" max="32767" attributes="0"/>
-                      <Component id="vamos" max="32767" attributes="0"/>
-                  </Group>
+                  <Component id="url_panel" alignment="1" max="32767" attributes="0"/>
+                  <Component id="config_partida_panel" alignment="0" max="32767" attributes="0"/>
+                  <Component id="nick_pass_panel" alignment="0" max="32767" attributes="0"/>
+                  <Component id="vamos" alignment="1" max="32767" attributes="0"/>
                   <Component id="recover_panel" max="32767" attributes="0"/>
               </Group>
             </DimensionLayout>
@@ -361,6 +359,9 @@
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                         <Property name="opaque" type="boolean" value="false"/>
                       </Properties>
+                      <Events>
+                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="rebuy_checkboxActionPerformed"/>
+                      </Events>
                     </Component>
                     <Component class="javax.swing.JSpinner" name="buyin_spinner">
                       <Properties>

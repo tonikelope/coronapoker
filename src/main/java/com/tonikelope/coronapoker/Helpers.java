@@ -2452,8 +2452,8 @@ public class Helpers {
 
     public static class TapetePopupMenu {
 
-        public static JMenu BARAJAS_MENU;
-        public static JMenu TAPETES_MENU;
+        public static JMenu BARAJAS_MENU = null;
+        public static JMenu TAPETES_MENU = null;
         public static JMenuItem MAX_HANDS_MENU;
         public static JCheckBoxMenuItem FULLSCREEN_MENU;
         public static JCheckBoxMenuItem SONIDOS_MENU;
@@ -2477,33 +2477,90 @@ public class Helpers {
 
         private static void generarBarajasMenu() {
 
-            BARAJAS_MENU = new JMenu("Barajas");
+            if (BARAJAS_MENU == null) {
 
-            for (Map.Entry<String, Object[]> entry : Card.BARAJAS.entrySet()) {
+                BARAJAS_MENU = new JMenu("Barajas");
+                BARAJAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
 
-                javax.swing.JRadioButtonMenuItem menu_item = new javax.swing.JRadioButtonMenuItem(entry.getKey());
+                for (Map.Entry<String, Object[]> entry : Card.BARAJAS.entrySet()) {
 
-                menu_item.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
+                    javax.swing.JRadioButtonMenuItem menu_item = new javax.swing.JRadioButtonMenuItem(entry.getKey());
 
-                        for (Component menu : GameFrame.getInstance().getMenu_barajas().getMenuComponents()) {
-                            if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(menu_item.getText())) {
-                                ((javax.swing.JRadioButtonMenuItem) menu).doClick();
+                    menu_item.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+
+                            for (Component menu : GameFrame.getInstance().getMenu_barajas().getMenuComponents()) {
+                                if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(menu_item.getText())) {
+                                    ((javax.swing.JRadioButtonMenuItem) menu).doClick();
+                                }
                             }
-                        }
 
-                        for (Component menu : BARAJAS_MENU.getMenuComponents()) {
-                            ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
-                        }
+                            for (Component menu : BARAJAS_MENU.getMenuComponents()) {
+                                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
+                            }
 
-                        menu_item.setSelected(true);
+                            menu_item.setSelected(true);
+                        }
+                    });
+
+                    if (((javax.swing.JRadioButtonMenuItem) menu_item).getText().equals(GameFrame.BARAJA)) {
+                        ((javax.swing.JRadioButtonMenuItem) menu_item).setSelected(true);
+                    } else {
+                        ((javax.swing.JRadioButtonMenuItem) menu_item).setSelected(false);
                     }
-                });
 
-                BARAJAS_MENU.add(menu_item);
+                    BARAJAS_MENU.add(menu_item);
+                }
             }
 
+        }
+
+        private static void generarTapetesMenu() {
+
+            if (TAPETES_MENU == null) {
+                Action tapeteVerdeAction = new AbstractAction("Verde") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getMenu_tapete_verde().doClick();
+                    }
+                };
+
+                Action tapeteAzulAction = new AbstractAction("Azul") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getMenu_tapete_azul().doClick();
+                    }
+                };
+
+                Action tapeteRojoAction = new AbstractAction("Rojo") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getMenu_tapete_rojo().doClick();
+                    }
+                };
+
+                Action tapeteMaderaAction = new AbstractAction("Sin tapete") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getMenu_tapete_madera().doClick();
+                    }
+                };
+                TAPETE_VERDE = new JRadioButtonMenuItem(tapeteVerdeAction);
+                TAPETE_AZUL = new JRadioButtonMenuItem(tapeteAzulAction);
+                TAPETE_ROJO = new JRadioButtonMenuItem(tapeteRojoAction);
+                TAPETE_MADERA = new JRadioButtonMenuItem(tapeteMaderaAction);
+                TAPETES_MENU = new JMenu("Tapetes");
+                TAPETES_MENU.add(TAPETE_VERDE);
+                TAPETES_MENU.add(TAPETE_AZUL);
+                TAPETES_MENU.add(TAPETE_ROJO);
+                TAPETES_MENU.add(TAPETE_MADERA);
+                TAPETE_VERDE.setSelected(GameFrame.COLOR_TAPETE.startsWith("verde"));
+                TAPETE_AZUL.setSelected(GameFrame.COLOR_TAPETE.startsWith("azul"));
+                TAPETE_ROJO.setSelected(GameFrame.COLOR_TAPETE.startsWith("rojo"));
+                TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.startsWith("madera"));
+                TAPETES_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tapetes.png")));
+            }
         }
 
         public static void addTo(TablePanel tapete, boolean reset) {
@@ -2511,6 +2568,10 @@ public class Helpers {
             if (popup == null || reset) {
 
                 popup = new JPopupMenu();
+
+                generarBarajasMenu();
+
+                generarTapetesMenu();
 
                 Action shortcutsAction = new AbstractAction("Ver atajos") {
                     @Override
@@ -2680,34 +2741,6 @@ public class Helpers {
                     }
                 };
 
-                Action tapeteVerdeAction = new AbstractAction("Verde") {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getMenu_tapete_verde().doClick();
-                    }
-                };
-
-                Action tapeteAzulAction = new AbstractAction("Azul") {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getMenu_tapete_azul().doClick();
-                    }
-                };
-
-                Action tapeteRojoAction = new AbstractAction("Rojo") {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getMenu_tapete_rojo().doClick();
-                    }
-                };
-
-                Action tapeteMaderaAction = new AbstractAction("Sin tapete") {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getMenu_tapete_madera().doClick();
-                    }
-                };
-
                 JMenuItem chat = new JMenuItem(chatAction);
                 chat.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat.png")));
                 popup.add(chat);
@@ -2805,23 +2838,8 @@ public class Helpers {
 
                 popup.addSeparator();
 
-                generarBarajasMenu();
-                BARAJAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
                 popup.add(BARAJAS_MENU);
-                TAPETE_VERDE = new JRadioButtonMenuItem(tapeteVerdeAction);
-                TAPETE_AZUL = new JRadioButtonMenuItem(tapeteAzulAction);
-                TAPETE_ROJO = new JRadioButtonMenuItem(tapeteRojoAction);
-                TAPETE_MADERA = new JRadioButtonMenuItem(tapeteMaderaAction);
-                TAPETES_MENU = new JMenu("Tapetes");
-                TAPETES_MENU.add(TAPETE_VERDE);
-                TAPETES_MENU.add(TAPETE_AZUL);
-                TAPETES_MENU.add(TAPETE_ROJO);
-                TAPETES_MENU.add(TAPETE_MADERA);
-                TAPETE_VERDE.setSelected(GameFrame.COLOR_TAPETE.startsWith("verde"));
-                TAPETE_AZUL.setSelected(GameFrame.COLOR_TAPETE.startsWith("azul"));
-                TAPETE_ROJO.setSelected(GameFrame.COLOR_TAPETE.startsWith("rojo"));
-                TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.startsWith("madera"));
-                TAPETES_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tapetes.png")));
+
                 popup.add(TAPETES_MENU);
 
                 popup.addSeparator();

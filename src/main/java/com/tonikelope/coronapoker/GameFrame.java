@@ -1466,7 +1466,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     menu_item.setSelected(true);
 
-                    for (Component menu : BARAJAS_MENU.getMenuComponents()) {
+                    for (Component menu : Helpers.TapetePopupMenu.BARAJAS_MENU.getMenuComponents()) {
 
                         ((javax.swing.JRadioButtonMenuItem) menu).setSelected(((javax.swing.JRadioButtonMenuItem) menu).getText().equals(menu_item.getText()));
                     }
@@ -1497,6 +1497,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     });
                 }
             });
+
+            if (((javax.swing.JRadioButtonMenuItem) menu_item).getText().equals(GameFrame.BARAJA)) {
+                ((javax.swing.JRadioButtonMenuItem) menu_item).setSelected(true);
+            } else {
+                ((javax.swing.JRadioButtonMenuItem) menu_item).setSelected(false);
+            }
 
             menu_barajas.add(menu_item);
 
@@ -1598,15 +1604,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         tts_menu.setEnabled(sonidos_menu.isSelected());
 
         generarBarajasMenu();
-
-        for (Component menu : menu_barajas.getMenuComponents()) {
-
-            if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(GameFrame.BARAJA)) {
-                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(true);
-            } else {
-                ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
-            }
-        }
 
         menu_tapete_verde.setSelected(false);
         menu_tapete_azul.setSelected(false);

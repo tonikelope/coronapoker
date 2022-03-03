@@ -722,13 +722,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             status.setText("Esperando jugadores...");
 
-            gameinfo_original = GameFrame.BUYIN + "|" + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : "") + (GameFrame.MANOS != -1 ? "|" + String.valueOf(GameFrame.MANOS) : "");
+            gameinfo_original = GameFrame.BUYIN + (GameFrame.REBUY ? "" : "*") + "|" + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : "") + (GameFrame.MANOS != -1 ? "|" + String.valueOf(GameFrame.MANOS) : "");
 
             if (game_info_buyin.isEnabled() && !GameFrame.isRECOVER()) {
 
                 String[] game_info = gameinfo_original.split("\\|");
 
-                game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0])) + (GameFrame.REBUY ? "" : " NO-REBUY"));
+                boolean rebuy = !game_info[0].trim().endsWith("*");
+
+                game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0].replace("*", ""))) + (rebuy ? "" : "*"));
+
                 game_info_blinds.setText(game_info[1]);
 
                 if (game_info.length > 2) {
@@ -1430,9 +1433,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     status.setText(Translator.translate("Recibiendo info del servidor..."));
                                     String[] game_info = gameinfo_original.split("\\|");
 
-                                    if (game_info[0].trim().matches("[0-9.,]+")) {
-
-                                        game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0])) + (GameFrame.REBUY ? "" : " NO-REBUY"));
+                                    if (game_info[0].trim().matches("[0-9,.*]+")) {
+                                        boolean rebuy = !game_info[0].trim().endsWith("*");
+                                        game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0].replace("*", ""))) + (rebuy ? "" : "*"));
                                         game_info_blinds.setText(game_info[1]);
 
                                         if (game_info.length > 2) {
@@ -1441,8 +1444,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             game_info_hands.setVisible(false);
                                         }
                                     } else {
+
                                         game_info_blinds.setVisible(false);
-                                        game_info_blinds.setVisible(false);
+                                        game_info_hands.setVisible(false);
                                         game_info_buyin.setIcon(null);
                                     }
 
@@ -1779,9 +1783,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             Helpers.GUIRun(new Runnable() {
                                                                 public void run() {
 
-                                                                    if (game_info[0].trim().matches("[0-9.,]+")) {
+                                                                    if (game_info[0].trim().matches("[0-9,.*]+")) {
 
-                                                                        game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0])) + (GameFrame.REBUY ? "" : " NO-REBUY"));
+                                                                        boolean rebuy = !game_info[0].trim().endsWith("*");
+                                                                        game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0].replace("*", ""))) + (rebuy ? "" : "*"));
                                                                         game_info_blinds.setText(game_info[1]);
 
                                                                         if (game_info.length > 2) {
@@ -3705,7 +3710,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             if (dialog.isDialog_ok()) {
 
-                game_info_buyin.setText(Helpers.float2String((float) GameFrame.BUYIN) + (GameFrame.REBUY ? "" : " NO-REBUY"));
+                game_info_buyin.setText(Helpers.float2String((float) GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*"));
 
                 game_info_blinds.setText(Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / " + Helpers.float2String(GameFrame.CIEGA_GRANDE) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") : ""));
 

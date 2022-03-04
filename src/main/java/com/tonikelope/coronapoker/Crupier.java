@@ -4519,7 +4519,7 @@ public class Crupier implements Runnable {
 
                             String comando = null;
                             try {
-                                comando = "ACTION#" + Base64.encodeBase64String(current_player.getNickname().getBytes("UTF-8")) + "#" + String.valueOf(decision) + (decision == Player.BET ? "#" + Helpers.float2String(current_player.getBet()).replace(",", ".") : "");
+                                comando = "ACTION#" + Base64.encodeBase64String(current_player.getNickname().getBytes("UTF-8")) + "#" + String.valueOf(decision) + (decision == Player.BET ? "#" + String.valueOf(current_player.getBet()) : "");
                             } catch (UnsupportedEncodingException ex) {
                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
@@ -4651,7 +4651,7 @@ public class Crupier implements Runnable {
 
                                 String comando = null;
                                 try {
-                                    comando = "ACTION#" + Base64.encodeBase64String(current_player.getNickname().getBytes("UTF-8")) + "#" + String.valueOf(decision) + (decision == Player.BET ? "#" + Helpers.float2String((float) action[1]).replace(",", ".") : "");
+                                    comando = "ACTION#" + Base64.encodeBase64String(current_player.getNickname().getBytes("UTF-8")) + "#" + String.valueOf(decision) + (decision == Player.BET ? "#" + String.valueOf((float) action[1]) : "");
                                 } catch (UnsupportedEncodingException ex) {
                                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                 }
@@ -4725,7 +4725,7 @@ public class Crupier implements Runnable {
                     }
 
                     try {
-                        this.acciones.add(Base64.encodeBase64String(current_player.getNickname().getBytes("UTF-8")) + "#" + String.valueOf(current_player.getDecision()) + (current_player.getDecision() == Player.BET ? "#" + Helpers.float2String(current_player.getBet()).replace(",", ".") : ""));
+                        this.acciones.add(Base64.encodeBase64String(current_player.getNickname().getBytes("UTF-8")) + "#" + String.valueOf(current_player.getDecision()) + (current_player.getDecision() == Player.BET ? "#" + String.valueOf(current_player.getBet()) : ""));
                     } catch (UnsupportedEncodingException ex) {
                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -4734,7 +4734,7 @@ public class Crupier implements Runnable {
                     resisten.remove(current_player);
 
                     try {
-                        this.acciones.add(Base64.encodeBase64String(current_player.getNickname().getBytes("UTF-8")) + "#" + String.valueOf(current_player.getDecision()) + (current_player.getDecision() == Player.BET ? "#" + Helpers.float2String(current_player.getBet()).replace(",", ".") : ""));
+                        this.acciones.add(Base64.encodeBase64String(current_player.getNickname().getBytes("UTF-8")) + "#" + String.valueOf(current_player.getDecision()) + (current_player.getDecision() == Player.BET ? "#" + String.valueOf(current_player.getBet()) : ""));
                     } catch (UnsupportedEncodingException ex) {
                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -4755,7 +4755,7 @@ public class Crupier implements Runnable {
                         this.sqlNewAction(current_player);
                     } else if (GameFrame.getInstance().isPartida_local()) {
 
-                        String recover_action = current_player.getNickname() + " " + String.valueOf(current_player.getDecision()) + " " + Helpers.float2String(current_player.getBet()).replace(",", ".") + " COUNTER: " + String.valueOf(this.conta_accion) + " HAND ID: " + String.valueOf(this.sqlite_id_hand);
+                        String recover_action = current_player.getNickname() + " " + String.valueOf(current_player.getDecision()) + " " + String.valueOf(current_player.getBet()) + " COUNTER: " + String.valueOf(this.conta_accion) + " HAND ID: " + String.valueOf(this.sqlite_id_hand);
 
                         if (this.sqlCheckGenuineRecoverAction(current_player)) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "RECOVER ACTION OK -> " + recover_action);

@@ -372,9 +372,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 try {
                     editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
-                    chat.revalidate();
-                    chat.repaint();
-                } catch (Exception ex) {}
+                    THIS.revalidate();
+                    THIS.repaint();
+                } catch (Exception ex) {
+                }
 
             }
         });

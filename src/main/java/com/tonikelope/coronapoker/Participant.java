@@ -407,7 +407,7 @@ public class Participant implements Runnable {
 
             try {
 
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
+                Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
 
                 //Mandamos el chat
                 sock.getOutputStream().write((Helpers.encryptCommand(WaitingRoomFrame.getInstance().getChat().getText().isEmpty() ? "*" : Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat().getText().getBytes("UTF-8")), aes_k, hmac_k) + "\n").getBytes("UTF-8"));
@@ -676,7 +676,7 @@ public class Participant implements Runnable {
                             try {
                                 GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
                             } catch (UnsupportedEncodingException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
                             if (!reset_socket) {

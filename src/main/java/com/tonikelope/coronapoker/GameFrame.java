@@ -2374,7 +2374,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         try {
                             GameFrame.NOTIFY_CHAT_QUEUE.wait(1000);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                         }
                     }
 

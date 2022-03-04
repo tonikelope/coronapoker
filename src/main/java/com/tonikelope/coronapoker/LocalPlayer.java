@@ -1686,7 +1686,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         mynotifier.wait(1000);
 
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
             }

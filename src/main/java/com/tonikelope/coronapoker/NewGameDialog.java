@@ -384,7 +384,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                     game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
 
                 } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(NewGameDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
@@ -392,7 +392,7 @@ public class NewGameDialog extends javax.swing.JDialog {
             statement.close();
 
         } catch (SQLException ex) {
-            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(NewGameDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
 
     }

@@ -491,11 +491,11 @@ public class Helpers {
 
             if ((ret = UPnP.closePortTCP(port))) {
 
-                Logger.getLogger(Init.class.getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
+                Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
 
             } else {
 
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, "ERROR al (Des)mapear por UPnP el puerto TCP {0}", String.valueOf(port));
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR al (Des)mapear por UPnP el puerto TCP {0}", String.valueOf(port));
             }
         }
 
@@ -511,19 +511,19 @@ public class Helpers {
             if (!UPnP.isMappedTCP(port)) {
                 if (UPnP.openPortTCP(port)) {
 
-                    Logger.getLogger(Init.class.getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
+                    Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
 
                 } else {
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP {0}", String.valueOf(port));
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP {0}", String.valueOf(port));
                     upnp = false;
                 }
 
             } else {
-                Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP {0}", String.valueOf(port));
+                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP {0}", String.valueOf(port));
             }
 
         } else {
-            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "UPnP NO DISPONIBLE");
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "UPnP NO DISPONIBLE");
         }
 
         return upnp;
@@ -548,7 +548,7 @@ public class Helpers {
                 return SQLITE;
 
             } catch (SQLException ex) {
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             return null;
@@ -564,7 +564,7 @@ public class Helpers {
                 }
 
             } catch (SQLException ex) {
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             SQLITE = null;
@@ -596,7 +596,7 @@ public class Helpers {
             statement.close();
 
         } catch (SQLException | ClassNotFoundException ex) {
-            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -2018,7 +2018,7 @@ public class Helpers {
                     try {
                         mynotifier.wait(1000);
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
             }
@@ -2108,7 +2108,7 @@ public class Helpers {
                     try {
                         mynotifier.wait(1000);
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
             }

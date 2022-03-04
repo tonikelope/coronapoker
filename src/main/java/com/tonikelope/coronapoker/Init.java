@@ -105,7 +105,6 @@ public class Init extends javax.swing.JFrame {
     static {
 
         try {
-            Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading CoronaHMAC...");
             CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
         } catch (Exception ex) {
 
@@ -899,10 +898,6 @@ public class Init extends javax.swing.JFrame {
 
             INIT = true;
 
-            EmojiPanel.initClass();
-
-            Helpers.setCoronaLocale();
-
             /* Set the Nimbus look and feel */
             //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
             /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
@@ -916,9 +911,13 @@ public class Init extends javax.swing.JFrame {
                     }
                 }
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
-                java.util.logging.Logger.getLogger(Init.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+                Logger.getLogger(Init.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
             }
             //</editor-fold>
+
+            EmojiPanel.initClass();
+
+            Helpers.setCoronaLocale();
 
             Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading SQLITE DB...");
 

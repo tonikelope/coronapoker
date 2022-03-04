@@ -174,7 +174,7 @@ public class Audio {
             try {
                 return new FileInputStream(sound);
             } catch (FileNotFoundException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -185,7 +185,7 @@ public class Audio {
                 try {
                     return new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/sounds/" + sound);
                 } catch (FileNotFoundException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/" + sound))) {
@@ -193,7 +193,7 @@ public class Audio {
                 try {
                     return new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/cinematics/" + sound);
                 } catch (FileNotFoundException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 
@@ -205,7 +205,7 @@ public class Audio {
             return is;
         }
 
-        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "NO se encuentra el SONIDO {0}", sound);
+        Logger.getLogger(Audio.class.getName()).log(Level.INFO, "NO se encuentra el SONIDO {0}", sound);
 
         return null;
     }
@@ -263,7 +263,7 @@ public class Audio {
                         setClipVolume(entry.getKey(), c, false);
                     }
                 } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -276,7 +276,7 @@ public class Audio {
             try {
                 setMP3PlayerVolume(entry.getKey(), entry.getValue());
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         }
@@ -290,7 +290,7 @@ public class Audio {
             try {
                 setMP3LoopPlayerVolume(entry.getKey(), entry.getValue());
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         }
@@ -371,7 +371,7 @@ public class Audio {
                                             entry.stop();
 
                                         } catch (Exception ex) {
-                                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                                         }
                                     }
                                 }
@@ -397,8 +397,8 @@ public class Audio {
                     return true;
 
                 } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -490,14 +490,14 @@ public class Audio {
                                     try {
                                         player_wait.wait(1000);
                                     } catch (InterruptedException ex) {
-                                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                                     }
                                 }
                             } while (player.getStatus() == BasicPlayer.PLAYING || player.getStatus() == BasicPlayer.PAUSED);
 
                         } catch (Exception ex) {
-                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
-                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
+                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
                     } while (MP3_LOOP.containsKey(sound));
@@ -567,14 +567,14 @@ public class Audio {
                         try {
                             player_wait.wait(1000);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                         }
                     }
                 } while (player.getStatus() == BasicPlayer.PLAYING || player.getStatus() == BasicPlayer.PAUSED);
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             } finally {
                 if (tts) {
                     TTS_PLAYER = null;
@@ -617,8 +617,8 @@ public class Audio {
 
             } catch (Exception ex) {
 
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
 
             }
 
@@ -636,8 +636,8 @@ public class Audio {
 
         } catch (Exception ex) {
             error = true;
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
+            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
 
         } finally {
 
@@ -648,7 +648,7 @@ public class Audio {
             try {
                 Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"));
             } catch (IOException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -723,16 +723,16 @@ public class Audio {
 
                                 } catch (Exception ex) {
 
-                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                                    Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
+                                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                                    Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
                                     error = true;
                                     conta_service++;
                                 }
 
                             } catch (Exception ex) {
 
-                                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
+                                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
                                 error = true;
                                 conta_service++;
 
@@ -761,7 +761,7 @@ public class Audio {
                                         try {
                                             TTS_PLAYER_NOTIFIER.wait(1000);
                                         } catch (InterruptedException ex) {
-                                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                                         }
                                     }
                                 }
@@ -799,7 +799,7 @@ public class Audio {
                             Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
 
                         } catch (IOException ex) {
-                            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
                     }
@@ -852,7 +852,7 @@ public class Audio {
                 player.stop();
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -867,7 +867,7 @@ public class Audio {
                 player.pause();
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -883,7 +883,7 @@ public class Audio {
                 player.setGain(0f);
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -902,7 +902,7 @@ public class Audio {
                 }
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -918,7 +918,7 @@ public class Audio {
                 player.resume();
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         } else {
@@ -936,7 +936,7 @@ public class Audio {
                 try {
                     entry.getValue().pause();
                 } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
@@ -960,7 +960,7 @@ public class Audio {
                 entry.getValue().stop();
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
@@ -1003,7 +1003,7 @@ public class Audio {
                         gainControl.setValue(gainControl.getMinimum());
                     }
                 } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -1018,7 +1018,7 @@ public class Audio {
             try {
                 entry.getValue().setGain(0f);
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         }
@@ -1034,7 +1034,7 @@ public class Audio {
             try {
                 entry.getValue().setGain(0f);
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         }
@@ -1054,7 +1054,7 @@ public class Audio {
                 }
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
@@ -1072,7 +1072,7 @@ public class Audio {
                 }
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
@@ -1095,7 +1095,7 @@ public class Audio {
                     }
 
                 } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }

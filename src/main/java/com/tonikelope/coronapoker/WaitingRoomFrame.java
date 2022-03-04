@@ -372,10 +372,27 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 try {
                     editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
-                    THIS.revalidate();
-                    THIS.repaint();
                 } catch (Exception ex) {
                 }
+
+                Helpers.threadRun(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                chat.revalidate();
+                                chat_scroll.revalidate();
+                                chat.repaint();
+                                chat_scroll.repaint();
+
+                            }
+                        });
+
+                    }
+                });
 
             }
         });
@@ -3072,6 +3089,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         chat.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         chat.setDoubleBuffered(true);
         chat.setFocusable(false);
+        chat.addCaretListener(new javax.swing.event.CaretListener() {
+            public void caretUpdate(javax.swing.event.CaretEvent evt) {
+                chatCaretUpdate(evt);
+            }
+        });
         chat.addFocusListener(new java.awt.event.FocusAdapter() {
             public void focusLost(java.awt.event.FocusEvent evt) {
                 chatFocusLost(evt);
@@ -3998,6 +4020,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
         game_info_buyinMouseClicked(evt);
     }//GEN-LAST:event_game_info_handsMouseClicked
+
+    private void chatCaretUpdate(javax.swing.event.CaretEvent evt) {//GEN-FIRST:event_chatCaretUpdate
+        // TODO add your handling code here:
+        chat.revalidate();
+        chat.repaint();
+        chat_scroll.revalidate();
+        chat_scroll.repaint();
+    }//GEN-LAST:event_chatCaretUpdate
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

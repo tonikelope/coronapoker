@@ -584,6 +584,7 @@
                     <Property name="focusable" type="boolean" value="false"/>
                   </Properties>
                   <Events>
+                    <EventHandler event="caretUpdate" listener="javax.swing.event.CaretListener" parameters="javax.swing.event.CaretEvent" handler="chatCaretUpdate"/>
                     <EventHandler event="focusLost" listener="java.awt.event.FocusListener" parameters="java.awt.event.FocusEvent" handler="chatFocusLost"/>
                     <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="chatMouseClicked"/>
                   </Events>

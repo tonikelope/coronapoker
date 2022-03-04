@@ -361,7 +361,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     }
 
     private void HTMLEditorKitAppend(String text) {
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
 
@@ -371,6 +371,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 try {
                     editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
+                    chat.revalidate();
+                    chat.repaint();
                     chat_scroll.revalidate();
                     chat_scroll.repaint();
                 } catch (Exception ex) {

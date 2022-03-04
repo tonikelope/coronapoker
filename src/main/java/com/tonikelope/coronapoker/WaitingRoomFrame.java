@@ -362,27 +362,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void HTMLEditorKitAppend(String text) {
 
-        Helpers.threadRun(new Runnable() {
+        Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
 
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
+                HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
 
-                        HTMLEditorKit editor = (HTMLEditorKit) chat.getEditorKit();
+                StringReader reader = new StringReader(text);
 
-                        StringReader reader = new StringReader(text);
-
-                        try {
-                            editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
-                            chat_scroll.revalidate();
-                            chat_scroll.repaint();
-                        } catch (Exception ex) {
-                        }
-
-                    }
-                });
+                try {
+                    editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
+                    chat.revalidate();
+                    chat.repaint();
+                } catch (Exception ex) {}
 
             }
         });

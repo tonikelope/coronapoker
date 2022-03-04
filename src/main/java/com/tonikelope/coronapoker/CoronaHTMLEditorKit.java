@@ -57,8 +57,8 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
         CoronaHTMLDocument doc = new CoronaHTMLDocument(ss);
         doc.setParser(getParser());
-        doc.setAsynchronousLoadPriority(4);
-        doc.setTokenThreshold(100);
+        doc.setAsynchronousLoadPriority(-1);
+        //doc.setTokenThreshold(100);
         return doc;
     }
 

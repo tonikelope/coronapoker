@@ -2882,7 +2882,7 @@ public class Crupier implements Runnable {
             statement.close();
 
         } catch (SQLException ex) {
-            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
 
     }
@@ -2940,7 +2940,7 @@ public class Crupier implements Runnable {
             statement.close();
 
         } catch (SQLException ex) {
-            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         return ret;
@@ -3239,7 +3239,7 @@ public class Crupier implements Runnable {
             statement.close();
 
         } catch (SQLException ex) {
-            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -3295,7 +3295,7 @@ public class Crupier implements Runnable {
             statement.close();
 
         } catch (SQLException ex) {
-            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         if (this.conta_mano == 1) {

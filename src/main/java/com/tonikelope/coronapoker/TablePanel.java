@@ -71,7 +71,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                 tile = Helpers.toBufferedImage(Init.I1);
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
             }
         } else {
             try {
@@ -83,7 +83,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                 try {
                     tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
                 } catch (IOException ex1) {
-                    Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex1);
+                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
                 }
             }
         }
@@ -301,7 +301,7 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                     mynotifier.wait(1000);
 
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }

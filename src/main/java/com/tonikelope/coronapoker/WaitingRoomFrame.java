@@ -371,8 +371,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 try {
                     editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
+                    chat.revalidate();
+                    chat.repaint();
                 } catch (Exception ex) {
                 }
+
             }
         });
     }
@@ -843,7 +846,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             statement.close();
 
         } catch (SQLException ex) {
-            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
 
     }
@@ -871,7 +874,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             statement.close();
 
         } catch (SQLException ex) {
-            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         return ret;
@@ -895,7 +898,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             statement.close();
 
         } catch (SQLException ex) {
-            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -1476,7 +1479,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 sqlSavePermutationkey();
 
                             } catch (IOException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
                             //Leemos el avatar del server
@@ -2507,7 +2510,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         try {
                             GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, new URL(msg.replaceAll("^img", "http"))});
                         } catch (MalformedURLException ex) {
-                            Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
                     } else {

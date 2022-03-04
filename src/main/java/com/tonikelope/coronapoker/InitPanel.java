@@ -48,7 +48,7 @@ public class InitPanel extends javax.swing.JPanel {
                 tile = Helpers.toBufferedImage(Init.I1);
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex);
             }
         } else {
             try {
@@ -127,7 +127,7 @@ public class InitPanel extends javax.swing.JPanel {
                                     try {
                                         tile = Helpers.toBufferedImage(Init.I1.getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
                                     } catch (Exception ex) {
-                                        Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                                        Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex);
                                     }
                                 } else {
                                     try {
@@ -139,7 +139,7 @@ public class InitPanel extends javax.swing.JPanel {
                                         try {
                                             tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
                                         } catch (IOException ex1) {
-                                            Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
+                                            Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex1);
                                         }
                                     }
                                 }
@@ -186,7 +186,7 @@ public class InitPanel extends javax.swing.JPanel {
                 }
 
             } catch (Exception ex) {
-                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         } while (!ok);

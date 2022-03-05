@@ -374,26 +374,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
                 } catch (Exception ex) {
                 }
-
-                Helpers.threadRun(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
-
-                                chat.revalidate();
-                                chat_scroll.revalidate();
-                                chat.repaint();
-                                chat_scroll.repaint();
-
-                            }
-                        });
-
-                    }
-                });
-
             }
         });
 
@@ -4023,10 +4003,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void chatCaretUpdate(javax.swing.event.CaretEvent evt) {//GEN-FIRST:event_chatCaretUpdate
         // TODO add your handling code here:
+
         chat.revalidate();
         chat.repaint();
-        chat_scroll.revalidate();
-        chat_scroll.repaint();
     }//GEN-LAST:event_chatCaretUpdate
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

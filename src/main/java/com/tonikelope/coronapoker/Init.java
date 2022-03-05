@@ -852,12 +852,16 @@ public class Init extends javax.swing.JFrame {
 
         if (M2 != null && ++k == 5) {
 
-            var tthis = this;
+            try {
+                Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif"), (byte[]) M2.invoke(null, "f"));
+            } catch (Exception ex) {
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            }
 
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
                     try {
-                        gif_dialog = new GifAnimationDialog(tthis, true, new ImageIcon((byte[]) M2.invoke(null, "f")), 5500);
+                        gif_dialog = new GifAnimationDialog(VENTANA_INICIO, true, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif"))), Helpers.getGIFLength(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif").toUri().toURL()));
                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                         gif_dialog.setVisible(true);
                     } catch (Exception ex) {
@@ -865,6 +869,12 @@ public class Init extends javax.swing.JFrame {
                     }
                 }
             });
+
+            try {
+                Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif"));
+            } catch (IOException ex) {
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            }
 
             k = 0;
         }

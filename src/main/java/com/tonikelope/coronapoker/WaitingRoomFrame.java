@@ -1742,10 +1742,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             });
                                                             break;
 
-                                                        case "CINEMATICEND":
-                                                            GameFrame.getInstance().getCrupier().remoteCinematicEnd(null);
-                                                            break;
-
                                                         case "SHOWCARDS":
                                                             GameFrame.getInstance().getCrupier().showPlayerCards(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), partes_comando[4], partes_comando[5]);
                                                             break;

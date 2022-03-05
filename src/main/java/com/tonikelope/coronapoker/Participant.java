@@ -570,10 +570,6 @@ public class Participant implements Runnable {
                                             //ES UN PING DE JUEGO -> NO tenemos que hacer nada más
                                             break;
 
-                                        case "CINEMATICEND":
-                                            GameFrame.getInstance().getCrupier().remoteCinematicEnd(nick);
-                                            break;
-
                                         case "PERMUTATIONKEY":
                                             Helpers.threadRun(new Runnable() {
                                                 public void run() {

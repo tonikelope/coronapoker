@@ -560,21 +560,6 @@ public class Crupier implements Runnable {
 
     }
 
-    public void remoteCinematicEnd(String nick) {
-
-        if (GameFrame.getInstance().isPartida_local()) {
-
-            broadcastGAMECommandFromServer("CINEMATICEND", nick);
-        }
-
-        Init.PLAYING_CINEMATIC = false;
-
-        synchronized (Init.LOCK_CINEMATICS) {
-            Init.LOCK_CINEMATICS.notifyAll();
-        }
-
-    }
-
     public boolean isFin_de_la_transmision() {
         return fin_de_la_transmision;
     }
@@ -657,40 +642,25 @@ public class Crupier implements Runnable {
                 }
             }
 
-            try {
+            if (pausa != 0L) {
 
-                this.current_local_cinematic_b64 = Base64.encodeBase64String((Base64.encodeBase64String(filename.getBytes("UTF-8")) + "#" + String.valueOf(pausa)).getBytes("UTF-8"));
+                try {
 
-                if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) == null) {
-                    Helpers.threadRun(new Runnable() {
+                    this.current_local_cinematic_b64 = Base64.encodeBase64String((Base64.encodeBase64String(filename.getBytes("UTF-8")) + "#" + String.valueOf(pausa)).getBytes("UTF-8"));
 
-                        public void run() {
+                    if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) == null) {
 
-                            if (Audio.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
+                        Audio.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
+                    }
 
-                                if (GameFrame.getInstance().isPartida_local()) {
+                    return _cinematicAllin(filename, pausa);
 
-                                    broadcastGAMECommandFromServer("CINEMATICEND", null);
-
-                                } else {
-
-                                    sendGAMECommandToServer("CINEMATICEND");
-                                }
-
-                                Init.PLAYING_CINEMATIC = false;
-
-                                synchronized (Init.LOCK_CINEMATICS) {
-                                    Init.LOCK_CINEMATICS.notifyAll();
-                                }
-                            }
-                        }
-                    });
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    Init.PLAYING_CINEMATIC = false;
+                    this.current_local_cinematic_b64 = null;
                 }
-
-                return _cinematicAllin(filename, pausa);
-
-            } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            } else {
                 Init.PLAYING_CINEMATIC = false;
                 this.current_local_cinematic_b64 = null;
             }
@@ -778,24 +748,26 @@ public class Crupier implements Runnable {
 
                         public void run() {
 
-                            Helpers.GUIRun(new Runnable() {
+                            if (pausa != 0L) {
+                                Helpers.GUIRun(new Runnable() {
 
-                                public void run() {
+                                    public void run() {
 
-                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, pausa > 0L ? (int) pausa : null);
-                                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                                    gif_dialog.setVisible(true);
-                                }
-                            });
+                                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, (int) pausa);
+                                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                                        gif_dialog.setVisible(true);
+                                    }
+                                });
 
-                            while (Init.PLAYING_CINEMATIC) {
+                                while (Init.PLAYING_CINEMATIC) {
 
-                                synchronized (Init.LOCK_CINEMATICS) {
+                                    synchronized (Init.LOCK_CINEMATICS) {
 
-                                    try {
-                                        Init.LOCK_CINEMATICS.wait(1000);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                        try {
+                                            Init.LOCK_CINEMATICS.wait(1000);
+                                        } catch (InterruptedException ex) {
+                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
                                     }
                                 }
                             }

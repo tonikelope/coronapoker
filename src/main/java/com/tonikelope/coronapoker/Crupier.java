@@ -266,6 +266,10 @@ public class Crupier implements Runnable {
     private volatile int limpers;
     private volatile int game_recovered = 0;
 
+    public void setCurrent_local_cinematic_b64(String current_local_cinematic_b64) {
+        this.current_local_cinematic_b64 = current_local_cinematic_b64;
+    }
+
     public int getLimpersCount() {
         return limpers;
     }
@@ -615,15 +619,15 @@ public class Crupier implements Runnable {
 
             Object[][] allin_cinematics = map.get("allin/");
 
-            int r = Helpers.CSPRNG_GENERATOR.nextInt(allin_cinematics.length) + 1;
+            int r = Helpers.CSPRNG_GENERATOR.nextInt(allin_cinematics.length);
 
-            String filename = (String) allin_cinematics[r - 1][0];
+            String filename = (String) allin_cinematics[r][0];
 
             long pausa = 0L;
 
-            if (allin_cinematics[r - 1].length > 1) {
+            if (allin_cinematics[r].length > 1) {
 
-                pausa = (long) allin_cinematics[r - 1][1];
+                pausa = (long) allin_cinematics[r][1];
 
             } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
 
@@ -648,6 +652,10 @@ public class Crupier implements Runnable {
 
                     this.current_local_cinematic_b64 = Base64.encodeBase64String((Base64.encodeBase64String(filename.getBytes("UTF-8")) + "#" + String.valueOf(pausa)).getBytes("UTF-8"));
 
+                    synchronized (getLock_apuestas()) {
+                        getLock_apuestas().notifyAll();
+                    }
+
                     if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null) {
 
                         Audio.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
@@ -655,7 +663,7 @@ public class Crupier implements Runnable {
 
                     return _cinematicAllin(filename, pausa);
 
-                } catch (UnsupportedEncodingException ex) {
+                } catch (Exception ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                     Init.PLAYING_CINEMATIC = false;
                     this.current_local_cinematic_b64 = null;
@@ -4450,9 +4458,20 @@ public class Crupier implements Runnable {
                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
-                            if (decision == Player.ALLIN && this.current_local_cinematic_b64 != null) {
+                            if (decision == Player.ALLIN && GameFrame.CINEMATICAS) {
+
+                                while (this.current_local_cinematic_b64 == null) {
+                                    synchronized (getLock_apuestas()) {
+                                        try {
+                                            getLock_apuestas().wait(WAIT_QUEUES);
+                                        } catch (InterruptedException ex) {
+                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+                                    }
+                                }
 
                                 comando += "#" + this.current_local_cinematic_b64;
+
                             }
 
                             if (GameFrame.getInstance().isPartida_local()) {
@@ -6925,7 +6944,7 @@ public class Crupier implements Runnable {
 
                         if (getJugadoresActivos() > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
 
-                            this.pausaConBarra(GameFrame.PAUSA_ENTRE_MANOS);
+                            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? GameFrame.PAUSA_ENTRE_MANOS : Math.round(1.5f * GameFrame.PAUSA_ENTRE_MANOS));
 
                         }
 

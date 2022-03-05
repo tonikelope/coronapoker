@@ -648,7 +648,7 @@ public class Crupier implements Runnable {
 
                     this.current_local_cinematic_b64 = Base64.encodeBase64String((Base64.encodeBase64String(filename.getBytes("UTF-8")) + "#" + String.valueOf(pausa)).getBytes("UTF-8"));
 
-                    if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) == null) {
+                    if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) != null) {
 
                         Audio.playWavResource("allin/" + filename.replaceAll("\\.gif$", ".wav"));
                     }
@@ -683,27 +683,7 @@ public class Crupier implements Runnable {
 
                 String[] partes = animationb64.split("#");
 
-                String filename = new String(Base64.decodeBase64(partes[0]), "UTF-8");
-
-                long pausa = Long.parseLong(partes[1]);
-
-                if (pausa == 0L) {
-                    Helpers.threadRun(new Runnable() {
-
-                        public void run() {
-
-                            if (Audio.playWavResourceAndWait("allin/" + filename.replaceAll("\\.gif$", ".wav"))) {
-
-                                Init.PLAYING_CINEMATIC = false;
-                                synchronized (Init.LOCK_CINEMATICS) {
-                                    Init.LOCK_CINEMATICS.notifyAll();
-                                }
-                            }
-                        }
-                    });
-                }
-
-                return _cinematicAllin(filename, pausa);
+                return _cinematicAllin(new String(Base64.decodeBase64(partes[0]), "UTF-8"), Long.parseLong(partes[1]));
 
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);

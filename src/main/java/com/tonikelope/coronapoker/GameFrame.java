@@ -1539,8 +1539,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Player[] players = tapete.getPlayers();
 
-        Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD) : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
-
         zoomables = new ZoomableInterface[]{tapete};
 
         jugadores = new ArrayList<>();
@@ -1581,14 +1579,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         compact_menu.setSelected(GameFrame.VISTA_COMPACTA);
 
-        if (!map.containsKey("allin/") || map.get("allin/").length == 0) {
-            GameFrame.CINEMATICAS = false;
-            menu_cinematicas.setSelected(false);
-            menu_cinematicas.setEnabled(false);
-
-        } else {
-            menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
-        }
+        menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
 
         last_hand_menu.setSelected(false);
 

@@ -798,26 +798,10 @@ public class Crupier implements Runnable {
                     Helpers.threadRun(new Runnable() {
 
                         public void run() {
-                            if (current_remote_cinematic_b64 != null) {
+                            if (current_remote_cinematic_b64 != null && pausa != 0L) {
 
-                                if (pausa != 0L) {
-                                    Helpers.pausar(pausa);
-                                    Init.PLAYING_CINEMATIC = false;
-                                } else {
-
-                                    while (Init.PLAYING_CINEMATIC) {
-
-                                        synchronized (Init.LOCK_CINEMATICS) {
-
-                                            try {
-                                                Init.LOCK_CINEMATICS.wait(1000);
-                                            } catch (InterruptedException ex) {
-                                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                            }
-                                        }
-                                    }
-                                }
-
+                                Helpers.pausar(pausa);
+                                Init.PLAYING_CINEMATIC = false;
                             }
 
                             current_remote_cinematic_b64 = null;
@@ -845,19 +829,6 @@ public class Crupier implements Runnable {
                         if (pausa != 0L) {
                             Helpers.pausar(pausa);
                             Init.PLAYING_CINEMATIC = false;
-                        } else {
-
-                            while (Init.PLAYING_CINEMATIC) {
-
-                                synchronized (Init.LOCK_CINEMATICS) {
-
-                                    try {
-                                        Init.LOCK_CINEMATICS.wait(1000);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            }
                         }
 
                         current_remote_cinematic_b64 = null;

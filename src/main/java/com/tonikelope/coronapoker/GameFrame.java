@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.Helpers.TapetePopupMenu.BARAJAS_MENU;
+import static com.tonikelope.coronapoker.Init.M2;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -1477,12 +1478,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                             if (Init.M2 != null && GameFrame.BARAJA.equals("interstate60") && i60_c == 5) {
 
+                                try {
+                                    Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"), (byte[]) M2.invoke(null, "e"));
+                                } catch (Exception ex) {
+                                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+
                                 i60_c = 0;
 
-                                Helpers.GUIRun(new Runnable() {
+                                Helpers.GUIRunAndWait(new Runnable() {
                                     public void run() {
                                         try {
-                                            gif_dialog = new GifAnimationDialog(getFrame(), false, new ImageIcon((byte[]) Init.M2.invoke(null, "e")), 12000);
+                                            gif_dialog = new GifAnimationDialog(getFrame(), false, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFLength(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
                                             gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                             gif_dialog.setVisible(true);
                                         } catch (Exception ex) {
@@ -1491,6 +1498,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     }
                                 });
+
+                                try {
+                                    Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"));
+                                } catch (IOException ex) {
+                                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
 
                         }

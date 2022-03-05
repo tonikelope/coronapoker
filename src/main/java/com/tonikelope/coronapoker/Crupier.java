@@ -640,7 +640,7 @@ public class Crupier implements Runnable {
 
                 pausa = (long) allin_cinematics[r - 1][1];
 
-            } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename)) && !Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")))) {
+            } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
 
                 try {
                     pausa = Helpers.getGIFLength(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename).toUri().toURL());
@@ -648,7 +648,7 @@ public class Crupier implements Runnable {
                 } catch (Exception ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
-            } else if (getClass().getResource("/cinematics/allin/" + filename) != null && getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) == null) {
+            } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
                 try {
                     pausa = Helpers.getGIFLength(getClass().getResource("/cinematics/allin/" + filename).toURI().toURL());
 
@@ -661,7 +661,7 @@ public class Crupier implements Runnable {
 
                 this.current_local_cinematic_b64 = Base64.encodeBase64String((Base64.encodeBase64String(filename.getBytes("UTF-8")) + "#" + String.valueOf(pausa)).getBytes("UTF-8"));
 
-                if (pausa == 0L) {
+                if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav"))) || getClass().getResource("/cinematics/allin/" + filename.replaceAll("\\.gif$", ".wav")) == null) {
                     Helpers.threadRun(new Runnable() {
 
                         public void run() {
@@ -691,7 +691,6 @@ public class Crupier implements Runnable {
 
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-
                 Init.PLAYING_CINEMATIC = false;
                 this.current_local_cinematic_b64 = null;
             }
@@ -2715,11 +2714,15 @@ public class Crupier implements Runnable {
                             Helpers.GUIRun(new Runnable() {
 
                                 public void run() {
-                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, 2500);
+                                    try {
+                                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, Helpers.getGIFLength(getClass().getResource("/cinematics/misc/shuffle.gif")));
 
-                                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
 
-                                    gif_dialog.setVisible(true);
+                                        gif_dialog.setVisible(true);
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
                                 }
                             });
 

@@ -4750,8 +4750,7 @@ public class Crupier implements Runnable {
             synchronized (getLock_apuestas()) {
                 try {
                     getLock_apuestas().wait();
-                } catch (InterruptedException ex) {
-                }
+                } catch (InterruptedException ex) {}
             }
         }
 

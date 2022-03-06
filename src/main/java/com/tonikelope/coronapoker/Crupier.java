@@ -4721,7 +4721,7 @@ public class Crupier implements Runnable {
                     }
                 }
 
-            } while (conta_pos != end_pos && resisten.size() > 1);
+            } while (conta_pos != end_pos && resisten.size() > 1 && !isFin_de_la_transmision());
 
             this.apuestas = 0f;
 
@@ -4744,6 +4744,15 @@ public class Crupier implements Runnable {
 
         if (this.fase == Crupier.PREFLOP) {
             nick2player.get(this.utg_nick).disableUTG();
+        }
+
+        if (isFin_de_la_transmision()) {
+            synchronized (getLock_apuestas()) {
+                try {
+                    getLock_apuestas().wait();
+                } catch (InterruptedException ex) {
+                }
+            }
         }
 
         return (resisten.size() > 1 && fase < RIVER && getJugadoresActivos() > 1) ? rondaApuestas(fase + 1, resisten) : resisten;

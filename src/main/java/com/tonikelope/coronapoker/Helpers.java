@@ -473,13 +473,13 @@ public class Helpers {
 
         THREAD_POOL.shutdown();
 
-        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "FORCING THREAD-POOL SHUTDOWN (you can ignore interrupted exceptions, if any)");
+        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "THREAD-POOL SHUTDOWN (you can ignore interrupted exceptions, if any)");
 
         THREAD_POOL.shutdownNow();
 
         THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
 
-        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "NEW THREAD-POOL CREATED. LET'S GO!");
+        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "********** NEW THREAD-POOL CREATED. LET'S GO! **********");
 
     }
 

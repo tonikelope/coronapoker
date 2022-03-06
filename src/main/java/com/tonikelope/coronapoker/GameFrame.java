@@ -2018,6 +2018,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         new Thread(new Runnable() {
             public void run() {
 
+                synchronized (crupier.getLock_apuestas()) {
+                    crupier.getLock_apuestas().notifyAll();
+                }
+
                 Audio.stopAllCurrentLoopMp3Resource();
 
                 Audio.stopAllWavResources();

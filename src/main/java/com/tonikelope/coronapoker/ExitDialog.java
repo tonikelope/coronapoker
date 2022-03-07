@@ -142,6 +142,8 @@ public class ExitDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
 
         exit_button.setEnabled(exit_checkbox.isSelected());
+
+        Audio.playWavResource("misc/button_" + (exit_checkbox.isSelected() ? "on" : "off") + ".wav");
     }//GEN-LAST:event_exit_checkboxActionPerformed
 
     private void continue_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_continue_buttonActionPerformed

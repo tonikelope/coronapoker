@@ -858,17 +858,13 @@ public class Init extends javax.swing.JFrame {
                 Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            Helpers.GUIRunAndWait(new Runnable() {
-                public void run() {
-                    try {
-                        gif_dialog = new GifAnimationDialog(VENTANA_INICIO, true, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif"))), Helpers.getGIFLength(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif").toUri().toURL()));
-                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                        gif_dialog.setVisible(true);
-                    } catch (Exception ex) {
-                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
-            });
+            try {
+                gif_dialog = new GifAnimationDialog(VENTANA_INICIO, true, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif"))), Helpers.getGIFLength(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif").toUri().toURL()));
+                gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                gif_dialog.setVisible(true);
+            } catch (Exception ex) {
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            }
 
             try {
                 Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif"));

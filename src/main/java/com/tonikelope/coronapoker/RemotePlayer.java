@@ -448,7 +448,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    public void setDecision(int dec) {
+    private void setDecision(int dec) {
 
         this.decision = dec;
 

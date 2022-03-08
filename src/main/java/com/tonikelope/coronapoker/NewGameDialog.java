@@ -1056,7 +1056,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 vamos.setEnabled(false);
 
-                Audio.playWavResource("misc/allin.wav");
+                Audio.playWavResource("misc/laser.wav");
 
                 String elnick = this.nick.getText().trim().replaceAll("\\$", "");
 

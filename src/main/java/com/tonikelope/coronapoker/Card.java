@@ -147,7 +147,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                 break;
         }
 
-        return new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.75f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.75f), Image.SCALE_SMOOTH));
+        return new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Image.SCALE_SMOOTH));
 
     }
 

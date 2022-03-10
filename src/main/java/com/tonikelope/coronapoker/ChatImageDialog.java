@@ -54,7 +54,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
     public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.20f);
     public static final ConcurrentHashMap<String, ImageIcon> STATIC_IMAGE_CACHE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Object[]> GIF_CACHE = new ConcurrentHashMap<>();
-    public static final int ANTI_FLOOD_IMAGE = 5;
+    public static final int ANTI_FLOOD_IMAGE = 4;
     private static final ThreadPoolExecutor IMAGE_THREAD_POOL = (ThreadPoolExecutor) Executors.newFixedThreadPool(5);
     private static final ArrayDeque<String> HISTORIAL = cargarHistorial();
     private static final Object LOAD_IMAGES_LOCK = new Object();

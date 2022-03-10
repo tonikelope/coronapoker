@@ -3248,6 +3248,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     });
                 }
             });
+        } else {
+            jugadas_menu.setEnabled(true);
         }
     }//GEN-LAST:event_jugadas_menuActionPerformed
 

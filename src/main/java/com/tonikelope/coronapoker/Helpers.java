@@ -2536,7 +2536,7 @@ public class Helpers {
                     GameFrame.getInstance().getMenu_tapete_rojo().doClick();
                 }
             };
-            
+
             Action tapeteNegroAction = new AbstractAction("Negro") {
                 @Override
                 public void actionPerformed(ActionEvent ae) {

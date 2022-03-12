@@ -33,6 +33,45 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Cuando empecé a desarrollar el juego, una de las cosas que más me preocupaba era poder barajar las cartas de la \n"
+                + "forma más \"aleatoria\" posible teniendo en cuenta la mala \"fama\" que tienen los ordenadores generando números \n"
+                + "aleatorios. Entre mis amigos había coñas con este asunto y yo quería zanjar cualquier suspicacia.\n"
+                + "\n"
+                + "¿En qué consisten los 3 modos de barajado de CoronaPoker?\n"
+                + "\n"
+                + "MODO NORMAL: este modo utiliza el algoritmo de Fischer-Yates para mezclar una baraja inicialmente ordenada y para\n"
+                + "obtener los números aleatorios necesarios hace uso de un generador de números PSEUDOALEATORIOS criptográficamente\n"
+                + "seguro basado en el algoritmo HASH DRBG SHA-512. Este método de barajar genera de forma equiprobable y no predecible\n"
+                + "cualquiera de las posibles permutaciones de una baraja de póker, a saber:\n"
+                + "52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
+                + "\n"
+                + "MODO SEGURO: este modo utiliza la API de Random.org para obtener una permutación de 52 elementos. La aleatoriedad\n"
+                + "de Random.org proviene de un generador de números ALEATORIOS AUTÉNTICOS obtenidos a partir de RUIDO ATMOSFÉRICO y\n"
+                + "al igual que el MODO NORMAL cada permutación de la baraja generada es completamente impredecible y equiprobable.\n"
+                + "\n"
+                + "MODO PARANOICO: este modo es un HÍBRIDO entre el MODO SEGURO y el NORMAL. Primero se baraja usando el MODO SEGURO \n"
+                + "y después se vuelve a barajar usando el MODO NORMAL. De esta forma, en un hipotético y MUY improbable caso de que\n"
+                + "la permutación devuelta por Random.org no fuera totalmente aleatoria por cualquier motivo (fortuito o malicioso),\n"
+                + "al volver a barajar quedaría neutralizado.", "When I started to develop the game, one of the things that worried me the most was to be able to shuffle \n"
+                + "the cards as \"randomly\" as possible considering the bad \"reputation\" that computers have for generating \n"
+                + "random numbers. Among my friends there were jokes about this issue and I wanted to eliminate any suspicion.\n"
+                + "\n"
+                + "What are the 3 shuffling modes of CoronaPoker?\n"
+                + "\n"
+                + "NORMAL MODE: this mode uses the Fischer-Yates algorithm to shuffle an initially sorted deck and to and \n"
+                + "to obtain the necessary random numbers it makes use of a cryptographically secure PSEUDO RANDOM number \n"
+                + "generator based on the HASH DRBG SHA-512 algorithm. This shuffling method generates in an equiprobable \n"
+                + "and non-predictable manner any of the possible permutations of a poker deck, namely:\n"
+                + "52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
+                + "\n"
+                + "SAFE MODE: this mode uses the Random.org API to obtain a permutation of 52 elements. The randomness of\n"
+                + "Random.org comes from an TRUE RANDOM number generator obtained from ATMOSPHERICAL NOISE and like the \n"
+                + "NORMAL MODE each permutation of the generated deck is completely unpredictable and equiprobable.\n"
+                + "\n"
+                + "PARANOID MODE: this mode is a HYBRID between SAFE MODE and NORMAL MODE. It is first shuffled using the \n"
+                + "SAFE MODE and then shuffle again using the NORMAL MODE. In this way, in a hypothetical and VERY unlikely \n"
+                + "event that the permutation returned by Random.org was not completely random for any reason (fortuitous or \n"
+                + "malicious), it would be neutralized upon reshuffling."},
             {"Negro", "Black"},
             {"Recomprar", "Rebuy"},
             {"ATAJOS DE TECLADO", "KEYBOARD SHORTCUTS"},
@@ -302,9 +341,9 @@ public class Translator {
             {"RECUPERAR ÚLTIMA TIMBA", "RECOVER LAST GAME"},
             {"¡VAMOS!", "GO!"},
             {"Seguro", "Safe"},
-            {"TRNG [RANDOM.ORG] (Muy seguro)", "TRNG [RANDOM.ORG] (Very secure)"},
-            {"CSPRNG [DRBG SHA-512] (Seguro)", "CSPRNG [DRBG SHA-512] (Secure)"},
-            {"Muy seguro", "Very safe"},
+            {"MODO PARANOICO [TRNG + CSPRNG] (10/10)", "PARANOID MODE [TRNG + CSPRNG] (10/10)"},
+            {"MODO SEGURO [TRNG] (9.9/10)", "SAFE MDOE [TRNG] (9.9/10)"},
+            {"MODO NORMAL [CSPRNG HASH-DRBG SHA-512] (9.5/10)", "NORMAL MODE [CSPRNG HASH-DRBG SHA-512] (9.5/10)"},
             {"LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)", "GAME IS OVER (NO PLAYERS LEFT)"},
             {"En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos.\nSi esto no es posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).", "In the RECOVERY MODE the previous game will be continued from where it was stopped:\n\n1) It is MANDATORY that the old players use the SAME NICKS.\n\n2) In order to continue from the EXACT POINT (with the same cards) it is MANDATORY that ALL the old players connect.\nIf this is not possible, the hand that was in progress when the game was interrupted will be lost.\n\n3) New players are allowed to join the game (they will be the first hand as spectators)."},
             {"¡A LA PUTA CALLE!", "GET OUT OF HERE!"},

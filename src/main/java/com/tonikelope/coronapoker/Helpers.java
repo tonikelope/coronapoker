@@ -2472,6 +2472,7 @@ public class Helpers {
         public static JRadioButtonMenuItem TAPETE_VERDE;
         public static JRadioButtonMenuItem TAPETE_AZUL;
         public static JRadioButtonMenuItem TAPETE_ROJO;
+        public static JRadioButtonMenuItem TAPETE_NEGRO;
         public static JRadioButtonMenuItem TAPETE_MADERA;
         public static JPopupMenu popup = null;
 
@@ -2535,6 +2536,13 @@ public class Helpers {
                     GameFrame.getInstance().getMenu_tapete_rojo().doClick();
                 }
             };
+            
+            Action tapeteNegroAction = new AbstractAction("Negro") {
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+                    GameFrame.getInstance().getMenu_tapete_negro().doClick();
+                }
+            };
 
             Action tapeteMaderaAction = new AbstractAction("Sin tapete") {
                 @Override
@@ -2545,15 +2553,18 @@ public class Helpers {
             TAPETE_VERDE = new JRadioButtonMenuItem(tapeteVerdeAction);
             TAPETE_AZUL = new JRadioButtonMenuItem(tapeteAzulAction);
             TAPETE_ROJO = new JRadioButtonMenuItem(tapeteRojoAction);
+            TAPETE_NEGRO = new JRadioButtonMenuItem(tapeteNegroAction);
             TAPETE_MADERA = new JRadioButtonMenuItem(tapeteMaderaAction);
             TAPETES_MENU = new JMenu("Tapetes");
             TAPETES_MENU.add(TAPETE_VERDE);
             TAPETES_MENU.add(TAPETE_AZUL);
             TAPETES_MENU.add(TAPETE_ROJO);
+            TAPETES_MENU.add(TAPETE_NEGRO);
             TAPETES_MENU.add(TAPETE_MADERA);
             TAPETE_VERDE.setSelected(GameFrame.COLOR_TAPETE.startsWith("verde"));
             TAPETE_AZUL.setSelected(GameFrame.COLOR_TAPETE.startsWith("azul"));
             TAPETE_ROJO.setSelected(GameFrame.COLOR_TAPETE.startsWith("rojo"));
+            TAPETE_NEGRO.setSelected(GameFrame.COLOR_TAPETE.startsWith("negro"));
             TAPETE_MADERA.setSelected(GameFrame.COLOR_TAPETE.startsWith("madera"));
             TAPETES_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tapetes.png")));
 

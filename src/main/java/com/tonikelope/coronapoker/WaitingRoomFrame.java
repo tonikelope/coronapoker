@@ -2465,7 +2465,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     Helpers.UPnPClose(server_port);
                 }
 
-                Helpers.GUIRunAndWait(new Runnable() {
+                Helpers.GUIRun(new Runnable() {
                     public void run() {
 
                         Init.VENTANA_INICIO.setVisible(true);

@@ -665,8 +665,14 @@
                           <Image iconType="3" name="/images/emoji_chat/1058.png"/>
                         </Property>
                         <Property name="text" type="java.lang.String" value="ALGORITMO para barajar:"/>
+                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                          <Color id="Cursor de Mano"/>
+                        </Property>
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
+                      <Events>
+                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="random_labelMouseClicked"/>
+                      </Events>
                     </Component>
                     <Component class="javax.swing.JTextField" name="randomorg_apikey">
                       <Properties>
@@ -683,9 +689,9 @@
                         </Property>
                         <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.editors2.ComboBoxModelEditor">
                           <StringArray count="3">
-                            <StringItem index="0" value="Random.org + Fisher-Yates [TRNG + CSPRNG] (10/10)"/>
-                            <StringItem index="1" value="Random.org [TRNG] (9.9/10)"/>
-                            <StringItem index="2" value="Fisher-Yates [CSPRNG HASH-DRBG SHA-512] (9.5/10)"/>
+                            <StringItem index="0" value="MODO PARANOICO [TRNG + CSPRNG] (10/10)"/>
+                            <StringItem index="1" value="MODO SEGURO [TRNG] (9.9/10)"/>
+                            <StringItem index="2" value="MODO NORMAL [CSPRNG] (9.5/10)"/>
                           </StringArray>
                         </Property>
                         <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">

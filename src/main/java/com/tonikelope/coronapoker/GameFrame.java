@@ -443,7 +443,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public JRadioButtonMenuItem getMenu_tapete_negro() {
         return menu_tapete_negro;
     }
-    
+
     public JCheckBoxMenuItem getAuto_action_menu() {
         return auto_action_menu;
     }
@@ -1325,7 +1325,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         case "rojo":
                             cambiarColorContadoresTapete(new Color(255, 204, 51));
                             break;
-                            
+
                         case "negro":
                             cambiarColorContadoresTapete(Color.LIGHT_GRAY);
                             break;
@@ -1645,7 +1645,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             cambiarColorContadoresTapete(GameFrame.COLOR_TAPETE.endsWith("*") ? Color.WHITE : Color.LIGHT_GRAY);
 
-        }else if (GameFrame.COLOR_TAPETE.startsWith("madera")) {
+        } else if (GameFrame.COLOR_TAPETE.startsWith("madera")) {
 
             menu_tapete_madera.setSelected(true);
 

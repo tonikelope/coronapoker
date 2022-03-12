@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Negro", "Black"},
             {"Recomprar", "Rebuy"},
             {"ATAJOS DE TECLADO", "KEYBOARD SHORTCUTS"},
             {"SEGUIR JUGANDO", "CONTINUE PLAYING"},

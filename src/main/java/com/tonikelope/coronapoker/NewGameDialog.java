@@ -777,7 +777,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         randomorg_apikey.setDoubleBuffered(true);
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "MODO PARANOICO [TRNG + CSPRNG] (10/10)", "MODO SEGURO [TRNG] (9.9/10)", "MODO NORMAL [CSPRNG] (9.5/10)" }));
+        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "MODO PARANOICO [TRNG + CSPRNG] (10/10)", "MODO CASINO [TRNG] (9.9/10)", "MODO NORMAL [CSPRNG] (9.5/10)" }));
         random_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_combobox.setDoubleBuffered(true);
         random_combobox.addActionListener(new java.awt.event.ActionListener() {
@@ -1487,7 +1487,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 + "forma más \"aleatoria\" posible teniendo en cuenta la mala \"fama\" que tienen los ordenadores generando números \n"
                 + "aleatorios. Entre mis amigos había coñas con este asunto y yo quería zanjar cualquier suspicacia.\n"
                 + "\n"
-                + "¿En qué consisten los 3 modos de barajado de CoronaPoker?\n"
+                + "¿En qué consisten los modos de barajado de CoronaPoker?\n"
                 + "\n"
                 + "MODO NORMAL: este modo utiliza el algoritmo de Fischer-Yates para mezclar una baraja inicialmente ordenada y para\n"
                 + "obtener los números aleatorios necesarios hace uso de un generador de números PSEUDOALEATORIOS criptográficamente\n"
@@ -1495,11 +1495,11 @@ public class NewGameDialog extends javax.swing.JDialog {
                 + "cualquiera de las posibles permutaciones de una baraja de póker, a saber:\n"
                 + "52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
                 + "\n"
-                + "MODO SEGURO: este modo utiliza la API de Random.org para obtener una permutación de 52 elementos. La aleatoriedad\n"
+                + "MODO CASINO: este modo utiliza la API de Random.org para obtener una permutación de 52 elementos. La aleatoriedad\n"
                 + "de Random.org proviene de un generador de números ALEATORIOS AUTÉNTICOS obtenidos a partir de RUIDO ATMOSFÉRICO y\n"
                 + "al igual que el MODO NORMAL cada permutación de la baraja generada es completamente impredecible y equiprobable.\n"
                 + "\n"
-                + "MODO PARANOICO: este modo es un HÍBRIDO entre el MODO SEGURO y el NORMAL. Primero se baraja usando el MODO SEGURO \n"
+                + "MODO PARANOICO: este modo es un HÍBRIDO entre el MODO CASINO y el NORMAL. Primero se baraja usando el MODO CASINO \n"
                 + "y después se vuelve a barajar usando el MODO NORMAL. De esta forma, en un hipotético y MUY improbable caso de que\n"
                 + "la permutación devuelta por Random.org no fuera totalmente aleatoria por cualquier motivo (fortuito o malicioso),\n"
                 + "al volver a barajar quedaría neutralizado.");

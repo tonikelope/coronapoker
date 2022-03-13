@@ -690,7 +690,7 @@
                         <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.editors2.ComboBoxModelEditor">
                           <StringArray count="3">
                             <StringItem index="0" value="MODO PARANOICO [TRNG + CSPRNG] (10/10)"/>
-                            <StringItem index="1" value="MODO SEGURO [TRNG] (9.9/10)"/>
+                            <StringItem index="1" value="MODO CASINO [TRNG] (9.9/10)"/>
                             <StringItem index="2" value="MODO NORMAL [CSPRNG] (9.5/10)"/>
                           </StringArray>
                         </Property>

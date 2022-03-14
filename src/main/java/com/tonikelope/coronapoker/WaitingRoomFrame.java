@@ -2604,6 +2604,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 chat.setText(html);
                 CoronaHTMLEditorKit.USE_GIF_CACHE = false;
                 chat_box_panel.setVisible(true);
+                chat.revalidate();
+                chat.repaint();
+                chat_scroll.revalidate();
+                chat_scroll.repaint();
             }
         });
 
@@ -4000,28 +4004,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             refreshChatPanel();
         }
 
+        protect_focus = isPartida_empezada();
+
+        setAlwaysOnTop(protect_focus);
+
+        main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
+
         chat_box.requestFocus();
 
         revalidate();
 
         repaint();
-
-        Helpers.threadRun(new Runnable() {
-            public void run() {
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-
-                        main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
-                    }
-                });
-
-            }
-        });
-
-        protect_focus = isPartida_empezada();
-
-        setAlwaysOnTop(protect_focus);
     }//GEN-LAST:event_formComponentShown
 
     private void max_min_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_max_min_labelMouseClicked

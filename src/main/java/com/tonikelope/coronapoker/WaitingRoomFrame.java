@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.Image;
@@ -1292,6 +1293,104 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         return barra;
     }
 
+    private void mostrarMensajeInformativo(Container container, String msg) {
+
+        boolean focus_protection = this.protect_focus;
+
+        this.protect_focus = false;
+
+        Helpers.mostrarMensajeInformativo(container, msg, "center", null);
+
+        this.protect_focus = focus_protection;
+    }
+
+    private void mostrarMensajeInformativo(Container container, String msg, String align, Integer width) {
+
+        boolean focus_protection = this.protect_focus;
+
+        this.protect_focus = false;
+
+        Helpers.mostrarMensajeInformativo(container, msg, align, width);
+
+        this.protect_focus = focus_protection;
+    }
+
+    private int mostrarMensajeInformativoSINO(Container container, String msg) {
+
+        boolean focus_protection = this.protect_focus;
+
+        this.protect_focus = false;
+
+        int r = Helpers.mostrarMensajeInformativoSINO(container, msg, "center", null);
+
+        this.protect_focus = focus_protection;
+
+        return r;
+    }
+
+    private int mostrarMensajeInformativoSINO(Container container, String msg, String align, Integer width) {
+
+        boolean focus_protection = this.protect_focus;
+
+        this.protect_focus = false;
+
+        int r = Helpers.mostrarMensajeInformativoSINO(container, msg, align, width);
+
+        this.protect_focus = focus_protection;
+
+        return r;
+    }
+
+    private void mostrarMensajeError(Container container, String msg) {
+
+        boolean focus_protection = this.protect_focus;
+
+        this.protect_focus = false;
+
+        Helpers.mostrarMensajeError(container, msg, "center", null);
+
+        this.protect_focus = focus_protection;
+
+    }
+
+    private void mostrarMensajeError(Container container, String msg, String align, Integer width) {
+
+        boolean focus_protection = this.protect_focus;
+
+        this.protect_focus = false;
+
+        Helpers.mostrarMensajeError(container, msg, align, width);
+
+        this.protect_focus = focus_protection;
+
+    }
+
+    private int mostrarMensajeErrorSINO(Container container, String msg) {
+
+        boolean focus_protection = this.protect_focus;
+
+        this.protect_focus = false;
+
+        int r = Helpers.mostrarMensajeErrorSINO(container, msg, "center", null);
+
+        this.protect_focus = focus_protection;
+
+        return r;
+    }
+
+    private int mostrarMensajeErrorSINO(Container container, String msg, String align, Integer width) {
+
+        boolean focus_protection = this.protect_focus;
+
+        this.protect_focus = false;
+
+        int r = Helpers.mostrarMensajeErrorSINO(container, msg, align, width);
+
+        this.protect_focus = focus_protection;
+
+        return r;
+    }
+
     private void cliente() {
 
         Helpers.threadRun(new Runnable() {
@@ -1407,22 +1506,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         if (partes[0].equals("BADVERSION")) {
                             exit = true;
-                            Helpers.mostrarMensajeError(THIS, Translator.translate("Versión de CoronaPoker incorrecta") + "(" + partes[1] + ")");
+                            mostrarMensajeError(THIS, Translator.translate("Versión de CoronaPoker incorrecta") + "(" + partes[1] + ")");
                         } else if (partes[0].equals("YOUARELATE")) {
                             exit = true;
-                            Helpers.mostrarMensajeError(THIS, "Llegas TARDE. La partida ya ha empezado.");
+                            mostrarMensajeError(THIS, "Llegas TARDE. La partida ya ha empezado.");
 
                         } else if (partes[0].equals("NOSPACE")) {
                             exit = true;
-                            Helpers.mostrarMensajeError(THIS, "NO HAY SITIO");
+                            mostrarMensajeError(THIS, "NO HAY SITIO");
 
                         } else if (partes[0].equals("NICKFAIL")) {
                             exit = true;
-                            Helpers.mostrarMensajeError(THIS, "El nick elegido ya lo está usando otro usuario.");
+                            mostrarMensajeError(THIS, "El nick elegido ya lo está usando otro usuario.");
 
                         } else if (partes[0].equals("BADPASSWORD")) {
                             exit = true;
-                            Helpers.mostrarMensajeError(THIS, "PASSWORD INCORRECTA");
+                            mostrarMensajeError(THIS, "PASSWORD INCORRECTA");
                         } else if (partes[0].equals("NICKOK")) {
 
                             String server_jar_hmac = Init.coronaHMACJ1(Base64.decodeBase64(jar_hmac), local_client_hmac_key.getEncoded());
@@ -1434,7 +1533,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 Helpers.threadRun(new Runnable() {
                                     public void run() {
 
-                                        Helpers.mostrarMensajeInformativo(THIS, "CUIDADO: el ejecutable del juego del servidor es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)");
+                                        mostrarMensajeInformativo(THIS, "CUIDADO: el ejecutable del juego del servidor es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)");
                                     }
                                 });
                             }
@@ -1643,7 +1742,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                             exit = true;
 
-                                            Helpers.mostrarMensajeError(THIS, "El servidor ha cancelado la timba antes de empezar.");
+                                            mostrarMensajeError(THIS, "El servidor ha cancelado la timba antes de empezar.");
 
                                         } else if (partes_comando[0].equals("KICKED")) {
 
@@ -1651,7 +1750,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                             Audio.playWavResource("loser/payaso.wav");
 
-                                            Helpers.mostrarMensajeInformativo(THIS, "¡A LA PUTA CALLE!");
+                                            mostrarMensajeInformativo(THIS, "¡A LA PUTA CALLE!");
 
                                         } else if (partes_comando[0].equals("GAME")) {
 
@@ -1776,7 +1875,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             exit = true;
 
                                                             if (!GameFrame.CINEMATICAS) {
-                                                                Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA TERMINADO LA TIMBA");
+                                                                mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA TERMINADO LA TIMBA");
                                                             }
                                                             break;
 
@@ -1981,7 +2080,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         //Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                     } catch (Exception ex) {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-                        Helpers.mostrarMensajeError(THIS, "ERROR INESPERADO");
+                        mostrarMensajeError(THIS, "ERROR INESPERADO");
                         System.exit(1);
                     }
 
@@ -2029,7 +2128,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         } else {
 
-                            Helpers.mostrarMensajeError(THIS, "ALGO HA FALLADO. Has perdido la conexión con el servidor.");
+                            mostrarMensajeError(THIS, "ALGO HA FALLADO. Has perdido la conexión con el servidor.");
                         }
                     }
 
@@ -2337,7 +2436,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             Helpers.threadRun(new Runnable() {
                                                 public void run() {
 
-                                                    Helpers.mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
+                                                    mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
                                                 }
                                             });
 
@@ -2425,7 +2524,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     }
                                 });
 
-                                Helpers.mostrarMensajeError(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás activar UPnP en tu router o mapear el puerto de forma manual)");
+                                mostrarMensajeError(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás activar UPnP en tu router o mapear el puerto de forma manual)");
                             }
                         }
 
@@ -2453,7 +2552,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             exit = true;
 
-                            Helpers.mostrarMensajeError(THIS, "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
+                            mostrarMensajeError(THIS, "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
                         }
 
                     } catch (Exception ex) {
@@ -3330,14 +3429,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         if (password != null && !participantes.get(expulsado).isCpu()) {
                             Helpers.copyTextToClipboard(password);
-                            Helpers.mostrarMensajeInformativo(THIS, "NUEVA PASSWORD COPIADA EN EL PORTAPAPELES");
+                            mostrarMensajeInformativo(THIS, "NUEVA PASSWORD COPIADA EN EL PORTAPAPELES");
                         }
                     }
                 });
             }
         } else {
 
-            Helpers.mostrarMensajeError(THIS, "Tienes que seleccionar algún participante antes");
+            mostrarMensajeError(THIS, "Tienes que seleccionar algún participante antes");
             chat_box.requestFocus();
         }
 
@@ -3346,7 +3445,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void empezar_timbaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_empezar_timbaActionPerformed
         // TODO add your handling code here:
 
-        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES EMPEZAR YA?") == 0 && participantes.size() >= 2 && !WaitingRoomFrame.getInstance().isPartida_empezada() && !WaitingRoomFrame.getInstance().isPartida_empezando()) {
+        if (mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES EMPEZAR YA?") == 0 && participantes.size() >= 2 && !WaitingRoomFrame.getInstance().isPartida_empezada() && !WaitingRoomFrame.getInstance().isPartida_empezando()) {
 
             String missing_players = "";
 
@@ -3393,7 +3492,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 }
             }
 
-            boolean vamos = ("".equals(missing_players) || Helpers.mostrarMensajeInformativoSINO(this, missing_players + Translator.translate("Hay jugadores de la timba anterior que no se han vuelto a conectar.\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n¿EMPEZAMOS YA?")) == 0);
+            boolean vamos = ("".equals(missing_players) || mostrarMensajeInformativoSINO(this, missing_players + Translator.translate("Hay jugadores de la timba anterior que no se han vuelto a conectar.\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n¿EMPEZAMOS YA?")) == 0);
 
             if (vamos) {
 
@@ -3480,13 +3579,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     if (exit || reconnecting) {
 
-                        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+                        if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
                             exit = true;
                             Helpers.savePropertiesFile();
                             System.exit(1);
                         }
 
-                    } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES SALIR AHORA?") == 0) {
+                    } else if (mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES SALIR AHORA?") == 0) {
 
                         exit = true;
 
@@ -3525,7 +3624,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     setVisible(false);
                 }
 
-            } else if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+            } else if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
                 exit = true;
                 Helpers.savePropertiesFile();
                 System.exit(1);
@@ -3681,7 +3780,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
 
         if (server && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-            if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("¿GENERAR CONTRASEÑA NUEVA?")) == 0) {
+            if (mostrarMensajeInformativoSINO(this, Translator.translate("¿GENERAR CONTRASEÑA NUEVA?")) == 0) {
                 password = Helpers.genRandomString(GEN_PASS_LENGTH);
                 pass_icon.setToolTipText(password);
             }
@@ -3689,15 +3788,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             if (password != null) {
                 pass_icon.setEnabled(true);
                 Helpers.copyTextToClipboard(password);
-                Helpers.mostrarMensajeInformativo(this, Translator.translate("PASSWORD COPIADA EN EL PORTAPAPELES"));
+                mostrarMensajeInformativo(this, Translator.translate("PASSWORD COPIADA EN EL PORTAPAPELES"));
             }
         }
     }//GEN-LAST:event_pass_iconMouseClicked
 
     private void tts_warningMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tts_warningMouseClicked
         // TODO add your handling code here:
-        Helpers.mostrarMensajeInformativo(this,
-                "Aunque CoronaPoker usa cifrado extremo a extremo en todas las comunicaciones, el chat de\nvoz utiliza APIs externas TTS para convertir el texto en audio, por lo que los mensajes\nenviados a esos servidores podrían ser (en teoría) leidos por terceros.\n\nPOR FAVOR, TENLO EN CUENTA A LA HORA DE USAR EL CHAT");
+
+        mostrarMensajeInformativo(this, "Aunque CoronaPoker usa cifrado extremo a extremo en todas las comunicaciones, el chat de voz utiliza APIs externas TTS para convertir el texto en audio, por lo que los mensajes enviados a esos servidores podrían ser (en teoría) leidos por terceros.\n\nPOR FAVOR, TENLO EN CUENTA A LA HORA DE USAR EL CHAT", "justify", (int) Math.round(getWidth() * 0.8f));
     }//GEN-LAST:event_tts_warningMouseClicked
 
     private void status1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_status1MouseClicked
@@ -3707,7 +3806,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 // TODO add your handling code here:
 
                 Helpers.copyTextToClipboard("[CoronaPoker] INTERNET -> " + Helpers.getMyPublicIP() + ":" + String.valueOf(server_socket.getLocalPort()) + "\n\nRED LOCAL -> " + InetAddress.getLocalHost().getHostAddress() + ":" + String.valueOf(server_socket.getLocalPort()));
-                Helpers.mostrarMensajeInformativo(this, Translator.translate("DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES"));
+                mostrarMensajeInformativo(this, Translator.translate("DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES"));
             } catch (UnknownHostException ex) {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }

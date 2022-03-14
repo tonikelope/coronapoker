@@ -1649,35 +1649,49 @@ public class Helpers {
     }
 
     public static void mostrarMensajeInformativo(Container container, String msg) {
+        mostrarMensajeInformativo(container, msg, "center", null);
+    }
+
+    public static void mostrarMensajeInformativo(Container container, String msg, String align, Integer width) {
 
         final String mensaje = Translator.translate(msg);
 
         Audio.playWavResource("misc/warning.wav");
 
+        JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
+        Helpers.updateFonts(label, GUI_FONT, 1.2f);
+
         if (SwingUtilities.isEventDispatchThread()) {
 
-            JOptionPane.showMessageDialog(container, mensaje);
+            JOptionPane.showMessageDialog(container, label);
 
         } else {
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
-                    JOptionPane.showMessageDialog(container, mensaje);
+                    JOptionPane.showMessageDialog(container, label);
                 }
             });
         }
     }
 
-    // 0=yes, 1=no, 2=cancel
     public static int mostrarMensajeInformativoSINO(Container container, String msg) {
+        return mostrarMensajeInformativoSINO(container, msg, "center", null);
+    }
+
+    // 0=yes, 1=no, 2=cancel
+    public static int mostrarMensajeInformativoSINO(Container container, String msg, String align, Integer width) {
 
         final String mensaje = Translator.translate(msg);
 
         Audio.playWavResource("misc/warning.wav");
 
+        JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
+        Helpers.updateFonts(label, GUI_FONT, 1.2f);
+
         if (SwingUtilities.isEventDispatchThread()) {
 
-            return JOptionPane.showConfirmDialog(container, mensaje, "Info", JOptionPane.YES_NO_OPTION);
+            return JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION);
 
         } else {
 
@@ -1687,7 +1701,7 @@ public class Helpers {
                 @Override
                 public void run() {
 
-                    res[0] = JOptionPane.showConfirmDialog(container, mensaje, "Info", JOptionPane.YES_NO_OPTION);
+                    res[0] = JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION);
                 }
             });
 
@@ -1707,37 +1721,53 @@ public class Helpers {
     }
 
     public static void mostrarMensajeError(Container container, String msg) {
+        mostrarMensajeError(container, msg, "center", null);
+    }
+
+    public static void mostrarMensajeError(Container container, String msg, String align, Integer width) {
 
         final String mensaje = Translator.translate(msg);
 
         Audio.playWavResource("misc/warning.wav");
 
+        JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
+
+        Helpers.updateFonts(label, GUI_FONT, 1.2f);
+
         if (SwingUtilities.isEventDispatchThread()) {
 
-            JOptionPane.showMessageDialog(container, mensaje, "ERROR", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(container, label, "ERROR", JOptionPane.ERROR_MESSAGE);
 
         } else {
 
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
-                    JOptionPane.showMessageDialog(container, mensaje, "ERROR", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(container, label, "ERROR", JOptionPane.ERROR_MESSAGE);
                 }
             });
         }
 
     }
 
-    // 0=yes, 1=no, 2=cancel
     public static int mostrarMensajeErrorSINO(Container container, String msg) {
+        return mostrarMensajeErrorSINO(container, msg, "center", null);
+    }
+
+    // 0=yes, 1=no, 2=cancel
+    public static int mostrarMensajeErrorSINO(Container container, String msg, String align, Integer width) {
 
         final String mensaje = Translator.translate(msg);
 
         Audio.playWavResource("misc/warning.wav");
 
+        JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
+
+        Helpers.updateFonts(label, GUI_FONT, 1.2f);
+
         if (SwingUtilities.isEventDispatchThread()) {
 
-            return JOptionPane.showConfirmDialog(container, mensaje, "ERROR", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+            return JOptionPane.showConfirmDialog(container, label, "ERROR", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
 
         } else {
 
@@ -1747,7 +1777,7 @@ public class Helpers {
                 @Override
                 public void run() {
 
-                    res[0] = JOptionPane.showConfirmDialog(container, mensaje, "ERROR", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+                    res[0] = JOptionPane.showConfirmDialog(container, label, "ERROR", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
                 }
             });
 

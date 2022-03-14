@@ -1260,7 +1260,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 pack();
 
-                Helpers.mostrarMensajeInformativo(this, "En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos.\nSi esto no es posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).");
+                Helpers.mostrarMensajeInformativo(this, "En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos.\nSi esto no es posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).", "justify", (int) Math.round(getWidth() * 0.8f));
 
             } else {
 
@@ -1483,26 +1483,13 @@ public class NewGameDialog extends javax.swing.JDialog {
 
     private void random_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_random_labelMouseClicked
         // TODO add your handling code here:
-        Helpers.mostrarMensajeInformativo(this, "Cuando empecé a desarrollar el juego, una de las cosas que más me preocupaba era poder barajar las cartas de la \n"
-                + "forma más \"aleatoria\" posible teniendo en cuenta la mala \"fama\" que tienen los ordenadores generando números \n"
-                + "aleatorios. Entre mis amigos había coñas con este asunto y yo quería zanjar cualquier suspicacia.\n"
+        Helpers.mostrarMensajeInformativo(this, "Cuando empecé a desarrollar el juego, una de las cosas que me preocupaba era conseguir barajar las cartas de la mejor forma posible teniendo en cuenta la mala fama que tienen los ordenadores generando números aleatorios. Entre mis amigos había coñas con este asunto y yo quería zanjar cualquier suspicacia.\n"
+                + "<h2>¿En qué consisten los modos de barajado de CoronaPoker?</h2>"
+                + "<b>MODO NORMAL:</b> este modo utiliza el algoritmo de Fischer-Yates para mezclar una baraja inicialmente ordenada y para obtener los números aleatorios necesarios hace uso de un generador de números PSEUDOALEATORIOS criptográficamente seguro basado en el algoritmo HASH DRBG SHA-512. Este método de barajar genera de forma equiprobable y no predecible cualquiera de las posibles permutaciones de una baraja de póker, a saber: 52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
                 + "\n"
-                + "¿En qué consisten los modos de barajado de CoronaPoker?\n"
+                + "<b>MODO CASINO:</b> este modo utiliza la API de Random.org para obtener una permutación de 52 elementos. La aleatoriedad de Random.org proviene de un generador de números ALEATORIOS AUTÉNTICOS obtenidos a partir de RUIDO ATMOSFÉRICO y al igual que el MODO NORMAL cada permutación de la baraja generada es completamente impredecible y equiprobable.\n"
                 + "\n"
-                + "MODO NORMAL: este modo utiliza el algoritmo de Fischer-Yates para mezclar una baraja inicialmente ordenada y para\n"
-                + "obtener los números aleatorios necesarios hace uso de un generador de números PSEUDOALEATORIOS criptográficamente\n"
-                + "seguro basado en el algoritmo HASH DRBG SHA-512. Este método de barajar genera de forma equiprobable y no predecible\n"
-                + "cualquiera de las posibles permutaciones de una baraja de póker, a saber:\n"
-                + "52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
-                + "\n"
-                + "MODO CASINO: este modo utiliza la API de Random.org para obtener una permutación de 52 elementos. La aleatoriedad\n"
-                + "de Random.org proviene de un generador de números ALEATORIOS AUTÉNTICOS obtenidos a partir de RUIDO ATMOSFÉRICO y\n"
-                + "al igual que el MODO NORMAL cada permutación de la baraja generada es completamente impredecible y equiprobable.\n"
-                + "\n"
-                + "MODO PARANOICO: este modo es un HÍBRIDO entre el MODO CASINO y el NORMAL. Primero se baraja usando el MODO CASINO \n"
-                + "y después se vuelve a barajar usando el MODO NORMAL. De esta forma, en un hipotético y MUY improbable caso de que\n"
-                + "la permutación devuelta por Random.org no fuera totalmente aleatoria por cualquier motivo (fortuito o malicioso),\n"
-                + "al volver a barajar quedaría neutralizado.");
+                + "<b>MODO PARANOICO:</b> este modo es un HÍBRIDO entre el MODO CASINO y el NORMAL. Primero se baraja usando el MODO CASINO y después se vuelve a barajar usando el MODO NORMAL. De esta forma, en un hipotético y MUY improbable caso de que la permutación devuelta por Random.org no fuera totalmente aleatoria por cualquier motivo (fortuito o malicioso), al volver a barajar quedaría neutralizado.", "justify", (int) Math.round(getWidth() * 0.8f));
     }//GEN-LAST:event_random_labelMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

@@ -41,7 +41,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JFrame;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -2190,7 +2189,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
         delete_game_button.setEnabled(false);
 
-        if (Helpers.mostrarMensajeInformativoSINO((JFrame) this.getParent(), "¿ELIMINAR ESTA TIMBA?\n(Nota: las timbas eliminadas no se pueden continuar)") == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), "¿ELIMINAR ESTA TIMBA?\n(Nota: las timbas eliminadas no se pueden continuar)") == 0) {
 
             Audio.playWavResource("misc/toilet.wav");
 
@@ -2362,7 +2361,7 @@ public class StatsDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         purge_games_button.setEnabled(false);
 
-        if (Helpers.mostrarMensajeInformativoSINO((JFrame) this.getParent(), Translator.translate("¿ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR?\n(Nota: las timbas eliminadas no se pueden continuar)")) == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("¿ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR?\n(Nota: las timbas eliminadas no se pueden continuar)")) == 0) {
             Audio.playWavResource("misc/toilet.wav");
 
             Helpers.threadRun(new Runnable() {

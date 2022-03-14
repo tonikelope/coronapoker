@@ -33,45 +33,19 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
-            {"Cuando empecé a desarrollar el juego, una de las cosas que más me preocupaba era poder barajar las cartas de la \n"
-                + "forma más \"aleatoria\" posible teniendo en cuenta la mala \"fama\" que tienen los ordenadores generando números \n"
-                + "aleatorios. Entre mis amigos había coñas con este asunto y yo quería zanjar cualquier suspicacia.\n"
+            {"Cuando empecé a desarrollar el juego, una de las cosas que me preocupaba era conseguir barajar las cartas de la mejor forma posible teniendo en cuenta la mala fama que tienen los ordenadores generando números aleatorios. Entre mis amigos había coñas con este asunto y yo quería zanjar cualquier suspicacia.\n"
+                + "<h2>¿En qué consisten los modos de barajado de CoronaPoker?</h2>"
+                + "<b>MODO NORMAL:</b> este modo utiliza el algoritmo de Fischer-Yates para mezclar una baraja inicialmente ordenada y para obtener los números aleatorios necesarios hace uso de un generador de números PSEUDOALEATORIOS criptográficamente seguro basado en el algoritmo HASH DRBG SHA-512. Este método de barajar genera de forma equiprobable y no predecible cualquiera de las posibles permutaciones de una baraja de póker, a saber: 52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
                 + "\n"
-                + "¿En qué consisten los modos de barajado de CoronaPoker?\n"
+                + "<b>MODO CASINO:</b> este modo utiliza la API de Random.org para obtener una permutación de 52 elementos. La aleatoriedad de Random.org proviene de un generador de números ALEATORIOS AUTÉNTICOS obtenidos a partir de RUIDO ATMOSFÉRICO y al igual que el MODO NORMAL cada permutación de la baraja generada es completamente impredecible y equiprobable.\n"
                 + "\n"
-                + "MODO NORMAL: este modo utiliza el algoritmo de Fischer-Yates para mezclar una baraja inicialmente ordenada y para\n"
-                + "obtener los números aleatorios necesarios hace uso de un generador de números PSEUDOALEATORIOS criptográficamente\n"
-                + "seguro basado en el algoritmo HASH DRBG SHA-512. Este método de barajar genera de forma equiprobable y no predecible\n"
-                + "cualquiera de las posibles permutaciones de una baraja de póker, a saber:\n"
-                + "52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
+                + "<b>MODO PARANOICO:</b> este modo es un HÍBRIDO entre el MODO CASINO y el NORMAL. Primero se baraja usando el MODO CASINO y después se vuelve a barajar usando el MODO NORMAL. De esta forma, en un hipotético y MUY improbable caso de que la permutación devuelta por Random.org no fuera totalmente aleatoria por cualquier motivo (fortuito o malicioso), al volver a barajar quedaría neutralizado.", "When I started to develop the game, one of the things that worried me was to get the cards shuffled in the best possible way taking into account the bad reputation that computers have for generating random numbers. Among my friends there were jokes about this subject and I wanted to put an end to any suspicion.\n"
+                + "<h2>What are the shuffling modes of CoronaPoker?</h2>"
+                + "<b>NORMAL MODE:</b> this mode uses the Fischer-Yates algorithm to shuffle an initially sorted deck and to obtain the necessary random numbers it makes use of a cryptographically secure PSEUDORANDOM number generator based on the HASH DRBG SHA-512 algorithm. This shuffling method generates in a uniform and non-predictable way any of the possible permutations of a poker deck, namely: 52! = 80 658 175 170 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000 000.\n"
                 + "\n"
-                + "MODO CASINO: este modo utiliza la API de Random.org para obtener una permutación de 52 elementos. La aleatoriedad\n"
-                + "de Random.org proviene de un generador de números ALEATORIOS AUTÉNTICOS obtenidos a partir de RUIDO ATMOSFÉRICO y\n"
-                + "al igual que el MODO NORMAL cada permutación de la baraja generada es completamente impredecible y equiprobable.\n"
+                + "<b>CASINO MODE:</b> this mode uses the Random.org API to obtain a permutation of 52 elements. Random.org randomness comes from an AUTHENTIC RANDOM number generator obtained from ATMOSPHERIC NOISE and like the NORMAL MODE each permutation of the generated deck is completely unpredictable and uniform.\n"
                 + "\n"
-                + "MODO PARANOICO: este modo es un HÍBRIDO entre el MODO CASINO y el NORMAL. Primero se baraja usando el MODO CASINO \n"
-                + "y después se vuelve a barajar usando el MODO NORMAL. De esta forma, en un hipotético y MUY improbable caso de que\n"
-                + "la permutación devuelta por Random.org no fuera totalmente aleatoria por cualquier motivo (fortuito o malicioso),\n"
-                + "al volver a barajar quedaría neutralizado.", "When I started to develop the game, one of the things that worried me the most was to be able to shuffle \n"
-                + "the cards as \"randomly\" as possible considering the bad \"reputation\" that computers have for generating \n"
-                + "random numbers. Among my friends there were jokes about this issue and I wanted to eliminate any suspicion.\n"
-                + "\n"
-                + "What are the shuffling modes of CoronaPoker?\n"
-                + "\n"
-                + "NORMAL MODE: this mode uses the Fischer-Yates algorithm to shuffle an initially sorted deck and to and \n"
-                + "to obtain the necessary random numbers it makes use of a cryptographically secure PSEUDO RANDOM number \n"
-                + "generator based on the HASH DRBG SHA-512 algorithm. This shuffling method generates in an equiprobable \n"
-                + "and non-predictable manner any of the possible permutations of a poker deck, namely:\n"
-                + "52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
-                + "\n"
-                + "CASINO MODE: this mode uses the Random.org API to obtain a permutation of 52 elements. The randomness of\n"
-                + "Random.org comes from an TRUE RANDOM number generator obtained from ATMOSPHERICAL NOISE and like the \n"
-                + "NORMAL MODE each permutation of the generated deck is completely unpredictable and equiprobable.\n"
-                + "\n"
-                + "PARANOID MODE: this mode is a HYBRID between CASINO MODE and NORMAL MODE. It is first shuffled using the \n"
-                + "CASINO MODE and then shuffle again using the NORMAL MODE. In this way, in a hypothetical and VERY unlikely \n"
-                + "event that the permutation returned by Random.org was not completely random for any reason (fortuitous or \n"
-                + "malicious), it would be neutralized upon reshuffling."},
+                + "<b>PARANOID MODE:</b> this mode is a HYBRID between CASINO MODE and NORMAL MODE. First it is shuffled with the CASINO MODE and then it is shuffled again with the NORMAL MODE. In this way, in a hypothetical and VERY unlikely case that the permutation returned by Random.org was not totally random for any reason (fortuitous or malicious), when shuffling again it would be neutralized."},
             {"Negro", "Black"},
             {"Recomprar", "Rebuy"},
             {"ATAJOS DE TECLADO", "KEYBOARD SHORTCUTS"},
@@ -213,7 +187,7 @@ public class Translator {
             {"HA FALLADO LA AUTO-RECONEXIÓN. ¿QUIERES INTENTAR UNA RECONEXIÓN MANUAL?", "AUTO-RECONNECTION FAILED. DO YOU WANT TO TRY A MANUAL RECONNECTION?"},
             {"HAS PERDIDO LA CONEXIÓN CON EL SERVIDOR. ¡ADIÓS!", "YOU HAVE LOST THE CONNECTION TO THE SERVER. BYE!"},
             {"Aviso: la privacidad del CHAT no está garantizada si algún jugador usa la función de voz TTS (click para más info).", "Notice: CHAT privacy is not guaranteed if any player uses the TTS voice function (click for more info)."},
-            {"Aunque CoronaPoker usa cifrado extremo a extremo en todas las comunicaciones, el chat de\nvoz utiliza APIs externas TTS para convertir el texto en audio, por lo que los mensajes\nenviados a esos servidores podrían ser (en teoría) leidos por terceros.\n\nPOR FAVOR, TENLO EN CUENTA A LA HORA DE USAR EL CHAT", "Although CoronaPoker uses end-to-end encryption on all communications, the voice chat\nuses external TTS APIs to convert text to audio, so messages sent to those servers could\n(in theory) be read by third parties.\n\n PLEASE KEEP THIS IN MIND WHEN USING THE CHAT"},
+            {"Aunque CoronaPoker usa cifrado extremo a extremo en todas las comunicaciones, el chat de voz utiliza APIs externas TTS para convertir el texto en audio, por lo que los mensajes enviados a esos servidores podrían ser (en teoría) leidos por terceros.\n\nPOR FAVOR, TENLO EN CUENTA A LA HORA DE USAR EL CHAT", "Although CoronaPoker uses end-to-end encryption on all communications, the voice chat uses external TTS APIs to convert text to audio, so messages sent to those servers could (in theory) be read by third parties.\n\n PLEASE KEEP THIS IN MIND WHEN USING THE CHAT"},
             {"RECOMPRAR", "REBUY"},
             {"Aceptar", "OK"},
             {"Cancelar", "Cancel"},

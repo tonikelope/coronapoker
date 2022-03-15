@@ -765,6 +765,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         random_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         random_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1058.png"))); // NOI18N
         random_label.setText("ALGORITMO para barajar:");
+        random_label.setToolTipText("Click para más info");
         random_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_label.setDoubleBuffered(true);
         random_label.addMouseListener(new java.awt.event.MouseAdapter() {

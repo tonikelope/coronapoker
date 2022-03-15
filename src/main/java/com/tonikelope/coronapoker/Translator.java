@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Click para más info", "Click for more info"},
             {"Cuando empecé a desarrollar el juego, una de las cosas que me preocupaba era conseguir barajar las cartas de la mejor forma posible teniendo en cuenta la mala fama que tienen los ordenadores generando números aleatorios. Entre mis amigos había coñas con este asunto y yo quería zanjar cualquier suspicacia.\n"
                 + "<h2>¿En qué consisten los modos de barajado de CoronaPoker?</h2>"
                 + "<b>MODO NORMAL:</b> este modo utiliza el algoritmo de Fischer-Yates para mezclar una baraja inicialmente ordenada y para obtener los números aleatorios necesarios hace uso de un generador de números PSEUDOALEATORIOS criptográficamente seguro basado en el algoritmo HASH DRBG SHA-512. Este método de barajar genera de forma equiprobable y no predecible cualquiera de las posibles permutaciones de una baraja de póker, a saber: 52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
@@ -43,7 +44,7 @@ public class Translator {
                 + "<h2>What are the shuffling modes of CoronaPoker?</h2>"
                 + "<b>NORMAL MODE:</b> this mode uses the Fischer-Yates algorithm to shuffle an initially sorted deck and to obtain the necessary random numbers it makes use of a cryptographically secure PSEUDORANDOM number generator based on the HASH DRBG SHA-512 algorithm. This shuffling method generates in a uniform and non-predictable way any of the possible permutations of a poker deck, namely: 52! = 80 658 175 170 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000 000.\n"
                 + "\n"
-                + "<b>CASINO MODE:</b> this mode uses the Random.org API to obtain a permutation of 52 elements. Random.org randomness comes from an AUTHENTIC RANDOM number generator obtained from ATMOSPHERIC NOISE and like the NORMAL MODE each permutation of the generated deck is completely unpredictable and uniform.\n"
+                + "<b>CASINO MODE:</b> this mode uses the Random.org API to obtain a permutation of 52 elements. Random.org randomness comes from an AUTHENTIC RANDOM number generator obtained from ATMOSPHERIC NOISE and like the NORMAL MODE each permutation generated is completely unpredictable and equally probable.\n"
                 + "\n"
                 + "<b>PARANOID MODE:</b> this mode is a HYBRID between CASINO MODE and NORMAL MODE. First it is shuffled with the CASINO MODE and then it is shuffled again with the NORMAL MODE. In this way, in a hypothetical and VERY unlikely case that the permutation returned by Random.org was not totally random for any reason (fortuitous or malicious), when shuffling again it would be neutralized."},
             {"Negro", "Black"},

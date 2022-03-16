@@ -245,6 +245,7 @@ public class Init extends javax.swing.JFrame {
                                 public void run() {
 
                                     InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "CAPTURA OK", Color.WHITE, Color.BLACK, getClass().getResource("/images/screenshot.png"), 2000);
+                                    dialog.setLocation(dialog.getParent().getLocation());
                                     dialog.setVisible(true);
 
                                 }

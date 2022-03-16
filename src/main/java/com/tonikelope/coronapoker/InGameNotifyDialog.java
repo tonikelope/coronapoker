@@ -96,11 +96,6 @@ public class InGameNotifyDialog extends javax.swing.JDialog {
                 formMouseClicked(evt);
             }
         });
-        addComponentListener(new java.awt.event.ComponentAdapter() {
-            public void componentShown(java.awt.event.ComponentEvent evt) {
-                formComponentShown(evt);
-            }
-        });
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
@@ -144,11 +139,6 @@ public class InGameNotifyDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         dispose();
     }//GEN-LAST:event_formMouseClicked
-
-    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
-        // TODO add your handling code here:
-        setLocation(getParent().getLocation());
-    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.InGameNotifyPanel panel;

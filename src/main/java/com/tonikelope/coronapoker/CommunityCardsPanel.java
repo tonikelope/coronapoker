@@ -133,7 +133,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 }
 
                 bet_label.setForeground(color);
-                blinds_label.setForeground(color);
+
+                if (!blinds_label.isOpaque()) {
+                    blinds_label.setForeground(color);
+                }
+
                 tiempo_partida.setForeground(color);
 
                 if (!hand_label.isOpaque()) {

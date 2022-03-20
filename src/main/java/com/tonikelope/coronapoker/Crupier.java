@@ -217,6 +217,8 @@ public class Crupier implements Runnable {
     private volatile float apuestas = 0f;
     private volatile float ciega_grande = GameFrame.CIEGA_GRANDE;
     private volatile float ciega_pequeña = GameFrame.CIEGA_PEQUEÑA;
+    private volatile Float new_ciega_grande = null;
+    private volatile Float new_ciega_pequeña = null;
     private volatile Integer[] permutacion_baraja = null;
     private volatile float apuesta_actual = 0f;
     private volatile float ultimo_raise = 0f;
@@ -265,6 +267,14 @@ public class Crupier implements Runnable {
     private volatile Long last_iwtsth_rejected = null;
     private volatile int limpers;
     private volatile int game_recovered = 0;
+
+    public Float getNew_ciega_grande() {
+        return new_ciega_grande;
+    }
+
+    public Float getNew_ciega_pequeña() {
+        return new_ciega_pequeña;
+    }
 
     public void setCurrent_local_cinematic_b64(String current_local_cinematic_b64) {
         this.current_local_cinematic_b64 = current_local_cinematic_b64;
@@ -1975,6 +1985,17 @@ public class Crupier implements Runnable {
         return ultimo_raise;
     }
 
+    public void updateBlinds(float sb, float bb) {
+        if (this.ciega_grande == bb) {
+            this.new_ciega_pequeña = null;
+            this.new_ciega_grande = null;
+        } else {
+
+            this.new_ciega_pequeña = sb;
+            this.new_ciega_grande = bb;
+        }
+    }
+
     private boolean checkDoblarCiegas() {
 
         if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
@@ -2392,6 +2413,13 @@ public class Crupier implements Runnable {
         });
 
         readyForNextHand();
+
+        if (this.new_ciega_grande != null) {
+            this.ciega_grande = this.new_ciega_grande;
+            this.ciega_pequeña = this.new_ciega_pequeña;
+            this.new_ciega_grande = null;
+            this.new_ciega_pequeña = null;
+        }
 
         this.iwtsth = false;
 

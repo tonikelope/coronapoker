@@ -338,8 +338,14 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         blinds_label.setForeground(new java.awt.Color(153, 204, 0));
         blinds_label.setText(" ");
         blinds_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
+        blinds_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         blinds_label.setDoubleBuffered(true);
         blinds_label.setFocusable(false);
+        blinds_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                blinds_labelMouseClicked(evt);
+            }
+        });
 
         hand_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         hand_label.setForeground(new java.awt.Color(153, 204, 0));
@@ -394,16 +400,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         cards_panel.setFocusable(false);
         cards_panel.setOpaque(false);
-
-        flop3.setFocusable(false);
-
-        river.setFocusable(false);
-
-        flop2.setFocusable(false);
-
-        turn.setFocusable(false);
-
-        flop1.setFocusable(false);
 
         javax.swing.GroupLayout cards_panelLayout = new javax.swing.GroupLayout(cards_panel);
         cards_panel.setLayout(cards_panelLayout);
@@ -813,6 +809,19 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         }
 
     }//GEN-LAST:event_lights_labelMouseReleased
+
+    private void blinds_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_blinds_labelMouseClicked
+        // TODO add your handling code here:
+
+        if (GameFrame.getInstance().isPartida_local()) {
+            EditBlindsDialog dialog = new EditBlindsDialog(GameFrame.getInstance().getFrame(), true);
+
+            dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
+
+            dialog.setVisible(true);
+        }
+
+    }//GEN-LAST:event_blinds_labelMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JProgressBar barra_tiempo;

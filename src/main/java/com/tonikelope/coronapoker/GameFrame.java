@@ -1393,6 +1393,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
+
+                if (crupier.getNew_ciega_grande() != null) {
+                    tapete.getCommunityCards().getBlinds_label().setOpaque(true);
+                    tapete.getCommunityCards().getBlinds_label().setBackground(Color.YELLOW);
+                    tapete.getCommunityCards().getBlinds_label().setForeground(Color.BLACK);
+                } else {
+                    tapete.getCommunityCards().getBlinds_label().setOpaque(false);
+                    tapete.getCommunityCards().getBlinds_label().setBackground(null);
+                    tapete.getCommunityCards().getBlinds_label().setForeground(tapete.getCommunityCards().getPot_label().getForeground());
+                }
+
                 tapete.getCommunityCards().getBlinds_label().setText(Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
             }
         });

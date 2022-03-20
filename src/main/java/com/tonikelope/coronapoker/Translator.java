@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"ACTUALIZAR CIEGAS", "UPDATE BLINDS"},
             {"Click para más info", "Click for more info"},
             {"Cuando empecé a desarrollar el juego, una de las cosas que me preocupaba era conseguir barajar las cartas de la mejor forma posible teniendo en cuenta la mala fama que tienen los ordenadores generando números aleatorios. Entre mis amigos había coñas con este asunto y yo quería zanjar cualquier suspicacia.\n"
                 + "<h2>¿En qué consisten los modos de barajado de CoronaPoker?</h2>"

@@ -1871,6 +1871,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                             break;
 
+                                                        case "UPDATEBLINDS":
+
+                                                            GameFrame.CIEGAS_DOUBLE = Integer.parseInt(partes_comando[3]);
+
+                                                            GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(partes_comando[4]);
+
+                                                            GameFrame.getInstance().getCrupier().updateBlinds(Float.parseFloat(partes_comando[5]), Float.parseFloat(partes_comando[6]));
+
+                                                            GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+                                                            
+                                                            break;
+
                                                         case "SERVEREXIT":
                                                             exit = true;
 

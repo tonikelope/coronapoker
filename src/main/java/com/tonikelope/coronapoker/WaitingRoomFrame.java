@@ -901,27 +901,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     }
 
-    public void sqlRemovePermutationkey() {
-
-        try {
-
-            String sql = "DELETE FROM permutationkey WHERE hash=?";
-
-            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
-            statement.setQueryTimeout(30);
-
-            statement.setString(1, this.local_client_permutation_key_hash);
-
-            statement.executeUpdate();
-
-            statement.close();
-
-        } catch (SQLException ex) {
-            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-
     public void writeCommandToServer(String command) throws IOException {
 
         while (this.reconnecting) {

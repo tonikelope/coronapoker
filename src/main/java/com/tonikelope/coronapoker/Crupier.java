@@ -7023,10 +7023,6 @@ public class Crupier implements Runnable {
 
                         } else {
 
-                            if (!GameFrame.getInstance().isPartida_local()) {
-                                GameFrame.getInstance().getSala_espera().sqlRemovePermutationkey();
-                            }
-
                             fin_de_la_transmision = true;
                         }
 

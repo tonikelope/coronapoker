@@ -198,6 +198,7 @@ public class Crupier implements Runnable {
     private final ConcurrentHashMap<String, Integer> rebuy_now = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
     private final HashMap<String, Float[]> auditor = new HashMap<>();
+    private final Object lock_ciegas = new Object();
     private final Object lock_apuestas = new Object();
     private final Object lock_contabilidad = new Object();
     private final Object lock_mostrar = new Object();
@@ -217,8 +218,6 @@ public class Crupier implements Runnable {
     private volatile float apuestas = 0f;
     private volatile float ciega_grande = GameFrame.CIEGA_GRANDE;
     private volatile float ciega_pequeña = GameFrame.CIEGA_PEQUEÑA;
-    private volatile Float new_ciega_grande = null;
-    private volatile Float new_ciega_pequeña = null;
     private volatile Integer[] permutacion_baraja = null;
     private volatile float apuesta_actual = 0f;
     private volatile float ultimo_raise = 0f;
@@ -267,13 +266,14 @@ public class Crupier implements Runnable {
     private volatile Long last_iwtsth_rejected = null;
     private volatile int limpers;
     private volatile int game_recovered = 0;
+    private volatile Object[] ciegas_update = null;
 
-    public Float getNew_ciega_grande() {
-        return new_ciega_grande;
+    public Object[] getCiegas_update() {
+        return ciegas_update;
     }
 
-    public Float getNew_ciega_pequeña() {
-        return new_ciega_pequeña;
+    public Object getLock_ciegas() {
+        return lock_ciegas;
     }
 
     public void setCurrent_local_cinematic_b64(String current_local_cinematic_b64) {
@@ -1985,23 +1985,28 @@ public class Crupier implements Runnable {
         return ultimo_raise;
     }
 
-    public void updateBlinds(float sb, float bb) {
-        if (this.ciega_grande == bb) {
-            this.new_ciega_pequeña = null;
-            this.new_ciega_grande = null;
-        } else {
+    public void actualizarCiegasManualmente(float sb, float bb, int double_val, int double_type) {
+        synchronized (lock_ciegas) {
 
-            this.new_ciega_pequeña = sb;
-            this.new_ciega_grande = bb;
+            if (this.ciega_pequeña != sb || this.ciega_grande != bb || GameFrame.CIEGAS_DOUBLE != double_val || GameFrame.CIEGAS_DOUBLE_TYPE != double_type) {
+
+                this.ciegas_update = new Object[]{sb, bb, double_val, double_type};
+
+            } else {
+
+                this.ciegas_update = null;
+            }
         }
     }
 
     private boolean checkDoblarCiegas() {
 
-        if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
-            return (GameFrame.CIEGAS_DOUBLE > 0 && (int) Math.floor((float) GameFrame.getInstance().getConta_tiempo_juego() / (GameFrame.CIEGAS_DOUBLE * 60)) > this.ciegas_double);
-        } else {
-            return (GameFrame.CIEGAS_DOUBLE > 0 && this.conta_mano > 1 && ((int) Math.floor((float) (this.conta_mano - 1)) / GameFrame.CIEGAS_DOUBLE) > this.ciegas_double);
+        synchronized (lock_ciegas) {
+            if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
+                return (GameFrame.CIEGAS_DOUBLE > 0 && (int) Math.floor((float) GameFrame.getInstance().getConta_tiempo_juego() / (GameFrame.CIEGAS_DOUBLE * 60)) > this.ciegas_double);
+            } else {
+                return (GameFrame.CIEGAS_DOUBLE > 0 && this.conta_mano > 1 && ((int) Math.floor((float) (this.conta_mano - 1)) / GameFrame.CIEGAS_DOUBLE) > this.ciegas_double);
+            }
         }
     }
 
@@ -2414,11 +2419,26 @@ public class Crupier implements Runnable {
 
         readyForNextHand();
 
-        if (this.new_ciega_grande != null) {
-            this.ciega_grande = this.new_ciega_grande;
-            this.ciega_pequeña = this.new_ciega_pequeña;
-            this.new_ciega_grande = null;
-            this.new_ciega_pequeña = null;
+        if (this.ciegas_update != null) {
+
+            synchronized (lock_ciegas) {
+
+                GameFrame.CIEGAS_DOUBLE = (int) ciegas_update[2];
+
+                GameFrame.CIEGAS_DOUBLE_TYPE = (int) ciegas_update[3];
+
+                this.ciega_pequeña = (float) ciegas_update[0];
+
+                this.ciega_grande = (float) ciegas_update[1];
+
+                this.ciegas_update = null;
+
+                GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+
+                Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO");
+
+                GameFrame.getInstance().getRegistro().print(Translator.translate("LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO"));
+            }
         }
 
         this.iwtsth = false;

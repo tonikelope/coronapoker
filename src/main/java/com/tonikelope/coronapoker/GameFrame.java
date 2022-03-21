@@ -1394,7 +1394,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
-                if (crupier.getNew_ciega_grande() != null) {
+                if (crupier.getCiegas_update() != null) {
                     tapete.getCommunityCards().getBlinds_label().setOpaque(true);
                     tapete.getCommunityCards().getBlinds_label().setBackground(Color.YELLOW);
                     tapete.getCommunityCards().getBlinds_label().setForeground(Color.BLACK);
@@ -3964,54 +3964,45 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         } else {
 
-            if (Helpers.float1DSecureCompare(player.getStack() + (player.getDecision() != Player.FOLD ? player.getBote() : 0f) + player.getPagar(), (float) GameFrame.BUYIN) >= 0) {
-                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("PARA RECOMPRAR DEBES TENER MENOS DE ") + GameFrame.BUYIN);
+            rebuy_dialog = new RebuyDialog(GameFrame.getInstance().getFrame(), true, true, -1);
+
+            rebuy_dialog.setLocationRelativeTo(rebuy_dialog.getParent());
+
+            rebuy_dialog.setVisible(true);
+
+            if (rebuy_dialog.isRebuy()) {
+                player.getPlayer_stack().setBackground(Color.YELLOW);
+                player.getPlayer_stack().setForeground(Color.BLACK);
+                player.getPlayer_stack().setText(Helpers.float2String(player.getStack()) + " + " + Helpers.float2String(new Float((int) rebuy_dialog.getRebuy_spinner().getValue())));
+                this.rebuy_now_menu.setBackground(Color.YELLOW);
+                this.rebuy_now_menu.setOpaque(true);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(Color.YELLOW);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(true);
+
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
+                        crupier.rebuyNow(player.getNickname(), (int) rebuy_dialog.getRebuy_spinner().getValue());
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+                                rebuy_now_menu.setEnabled(true);
+                                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                                rebuy_dialog = null;
+                            }
+                        });
+                        Audio.playWavResource("misc/button_on.wav");
+
+                    }
+                });
+            } else {
                 rebuy_now_menu.setEnabled(true);
                 rebuy_now_menu.setSelected(false);
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
-            } else {
-
-                rebuy_dialog = new RebuyDialog(GameFrame.getInstance().getFrame(), true, true, -1);
-
-                rebuy_dialog.setLocationRelativeTo(rebuy_dialog.getParent());
-
-                rebuy_dialog.setVisible(true);
-
-                if (rebuy_dialog.isRebuy()) {
-                    player.getPlayer_stack().setBackground(Color.YELLOW);
-                    player.getPlayer_stack().setForeground(Color.BLACK);
-                    player.getPlayer_stack().setText(Helpers.float2String(player.getStack()) + " + " + Helpers.float2String(new Float((int) rebuy_dialog.getRebuy_spinner().getValue())));
-                    this.rebuy_now_menu.setBackground(Color.YELLOW);
-                    this.rebuy_now_menu.setOpaque(true);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(Color.YELLOW);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(true);
-
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
-                            crupier.rebuyNow(player.getNickname(), (int) rebuy_dialog.getRebuy_spinner().getValue());
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-                                    rebuy_now_menu.setEnabled(true);
-                                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
-                                    rebuy_dialog = null;
-                                }
-                            });
-                            Audio.playWavResource("misc/button_on.wav");
-
-                        }
-                    });
-                } else {
-                    rebuy_now_menu.setEnabled(true);
-                    rebuy_now_menu.setSelected(false);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
-                    this.rebuy_now_menu.setBackground(null);
-                    this.rebuy_now_menu.setOpaque(false);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
-                    rebuy_dialog = null;
-                }
+                this.rebuy_now_menu.setBackground(null);
+                this.rebuy_now_menu.setOpaque(false);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
+                rebuy_dialog = null;
             }
 
         }

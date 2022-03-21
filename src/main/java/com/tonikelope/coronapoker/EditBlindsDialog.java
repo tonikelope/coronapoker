@@ -36,23 +36,41 @@ public class EditBlindsDialog extends javax.swing.JDialog {
         ((JSpinner.DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
         ((JSpinner.DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
 
-        this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
+        float peque, grande;
 
-        double_blinds_radio_minutos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
+        int ciegas_double, ciegas_double_type;
 
-        double_blinds_radio_manos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
+        if (GameFrame.getInstance().getCrupier().getCiegas_update() != null) {
 
-        if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
-            doblar_ciegas_spinner_minutos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-            doblar_ciegas_spinner_minutos.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_DOUBLE > 0 ? GameFrame.CIEGAS_DOUBLE : 60, 1, null, 1));
+            peque = (float) GameFrame.getInstance().getCrupier().getCiegas_update()[0];
+            grande = (float) GameFrame.getInstance().getCrupier().getCiegas_update()[1];
+            ciegas_double = (int) GameFrame.getInstance().getCrupier().getCiegas_update()[2];
+            ciegas_double_type = (int) GameFrame.getInstance().getCrupier().getCiegas_update()[3];
+
+        } else {
+            peque = GameFrame.getInstance().getCrupier().getCiega_pequeña();
+            grande = GameFrame.getInstance().getCrupier().getCiega_grande();
+            ciegas_double = GameFrame.CIEGAS_DOUBLE;
+            ciegas_double_type = GameFrame.CIEGAS_DOUBLE_TYPE;
+        }
+
+        this.doblar_checkbox.setSelected(ciegas_double > 0);
+
+        double_blinds_radio_minutos.setEnabled(ciegas_double > 0);
+
+        double_blinds_radio_manos.setEnabled(ciegas_double > 0);
+
+        if (ciegas_double_type <= 1) {
+            doblar_ciegas_spinner_minutos.setEnabled(ciegas_double > 0);
+            doblar_ciegas_spinner_minutos.setModel(new SpinnerNumberModel(ciegas_double > 0 ? ciegas_double : 60, 1, null, 1));
             ((JSpinner.DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
             doblar_ciegas_spinner_manos.setEnabled(false);
             ((JSpinner.DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
             double_blinds_radio_minutos.setSelected(true);
             double_blinds_radio_manos.setSelected(false);
         } else {
-            doblar_ciegas_spinner_manos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-            doblar_ciegas_spinner_manos.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_DOUBLE > 0 ? GameFrame.CIEGAS_DOUBLE : 60, 1, null, 1));
+            doblar_ciegas_spinner_manos.setEnabled(ciegas_double > 0);
+            doblar_ciegas_spinner_manos.setModel(new SpinnerNumberModel(ciegas_double > 0 ? ciegas_double : 60, 1, null, 1));
             ((JSpinner.DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
             doblar_ciegas_spinner_minutos.setEnabled(false);
             ((JSpinner.DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
@@ -60,13 +78,7 @@ public class EditBlindsDialog extends javax.swing.JDialog {
             double_blinds_radio_manos.setSelected(true);
         }
 
-        String ciegas;
-
-        if (GameFrame.getInstance().getCrupier().getNew_ciega_grande() != null) {
-            ciegas = (GameFrame.getInstance().getCrupier().getNew_ciega_pequeña() >= 1 ? String.valueOf((int) Math.round(GameFrame.getInstance().getCrupier().getNew_ciega_pequeña())) : Helpers.float2String(GameFrame.getInstance().getCrupier().getNew_ciega_pequeña())) + " / " + (GameFrame.getInstance().getCrupier().getNew_ciega_grande() >= 1 ? String.valueOf((int) Math.round(GameFrame.getInstance().getCrupier().getNew_ciega_grande())) : Helpers.float2String(GameFrame.getInstance().getCrupier().getNew_ciega_grande()));
-        } else {
-            ciegas = (GameFrame.getInstance().getCrupier().getCiega_pequeña() >= 1 ? String.valueOf((int) Math.round(GameFrame.getInstance().getCrupier().getCiega_pequeña())) : Helpers.float2String(GameFrame.getInstance().getCrupier().getCiega_pequeña())) + " / " + (GameFrame.getInstance().getCrupier().getCiega_grande() >= 1 ? String.valueOf((int) Math.round(GameFrame.getInstance().getCrupier().getCiega_grande())) : Helpers.float2String(GameFrame.getInstance().getCrupier().getCiega_grande()));
-        }
+        String ciegas = (peque >= 1 ? String.valueOf((int) Math.round(peque)) : Helpers.float2String(peque)) + " / " + (grande >= 1 ? String.valueOf((int) Math.round(grande)) : Helpers.float2String(grande));
 
         int i = 0, t = this.ciegas_combobox.getModel().getSize();
 
@@ -102,17 +114,22 @@ public class EditBlindsDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        jPanel2 = new javax.swing.JPanel();
         jPanel1 = new javax.swing.JPanel();
         doblar_checkbox = new javax.swing.JCheckBox();
         doblar_ciegas_spinner_minutos = new javax.swing.JSpinner();
         double_blinds_radio_minutos = new javax.swing.JRadioButton();
         double_blinds_radio_manos = new javax.swing.JRadioButton();
         doblar_ciegas_spinner_manos = new javax.swing.JSpinner();
-        jButton1 = new javax.swing.JButton();
+        vamos_button = new javax.swing.JButton();
         ciegas_combobox = new javax.swing.JComboBox<>();
         jLabel1 = new javax.swing.JLabel();
+        cancel_button = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setUndecorated(true);
+
+        jPanel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 51, 255), 8));
 
         jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
@@ -168,7 +185,7 @@ public class EditBlindsDialog extends javax.swing.JDialog {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addComponent(doblar_checkbox)
-                        .addGap(0, 143, Short.MAX_VALUE))
+                        .addGap(0, 0, Short.MAX_VALUE))
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(double_blinds_radio_minutos)
@@ -195,13 +212,15 @@ public class EditBlindsDialog extends javax.swing.JDialog {
                 .addContainerGap())
         );
 
-        jButton1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jButton1.setText("GUARDAR");
-        jButton1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        jButton1.setDoubleBuffered(true);
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
+        vamos_button.setBackground(new java.awt.Color(0, 130, 0));
+        vamos_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        vamos_button.setForeground(new java.awt.Color(255, 255, 255));
+        vamos_button.setText("GUARDAR");
+        vamos_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        vamos_button.setDoubleBuffered(true);
+        vamos_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
+                vamos_buttonActionPerformed(evt);
             }
         });
 
@@ -211,37 +230,64 @@ public class EditBlindsDialog extends javax.swing.JDialog {
         ciegas_combobox.setDoubleBuffered(true);
 
         jLabel1.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel1.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        jLabel1.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/ciegas.png"))); // NOI18N
         jLabel1.setText("ACTUALIZAR CIEGAS");
         jLabel1.setDoubleBuffered(true);
         jLabel1.setOpaque(true);
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
+        cancel_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        cancel_button.setText("Cancelar");
+        cancel_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        cancel_button.setDoubleBuffered(true);
+        cancel_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                cancel_buttonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
+        jPanel2.setLayout(jPanel2Layout);
+        jPanel2Layout.setHorizontalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jButton1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(jPanel2Layout.createSequentialGroup()
+                        .addComponent(vamos_button)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(cancel_button))
+                    .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
-            .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
+        jPanel2Layout.setVerticalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addContainerGap()
                 .addComponent(jLabel1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jButton1)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(vamos_button)
+                    .addComponent(cancel_button))
                 .addContainerGap())
+        );
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jPanel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();
@@ -249,56 +295,63 @@ public class EditBlindsDialog extends javax.swing.JDialog {
 
     private void doblar_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_doblar_checkboxActionPerformed
         // TODO add your handling code here:
-        this.doblar_ciegas_spinner_minutos.setEnabled(this.doblar_checkbox.isSelected() && this.double_blinds_radio_minutos.isSelected());
-        this.doblar_ciegas_spinner_manos.setEnabled(this.doblar_checkbox.isSelected() && this.double_blinds_radio_manos.isSelected());
-        this.double_blinds_radio_manos.setEnabled(this.doblar_checkbox.isSelected());
-        this.double_blinds_radio_minutos.setEnabled(this.doblar_checkbox.isSelected());
+        if (init) {
+            this.doblar_ciegas_spinner_minutos.setEnabled(this.double_blinds_radio_minutos.isSelected() && this.doblar_checkbox.isSelected());
+            this.doblar_ciegas_spinner_manos.setEnabled(this.double_blinds_radio_manos.isSelected() && this.doblar_checkbox.isSelected());
+            this.double_blinds_radio_manos.setEnabled(this.doblar_checkbox.isSelected());
+            this.double_blinds_radio_minutos.setEnabled(this.doblar_checkbox.isSelected());
+        }
     }//GEN-LAST:event_doblar_checkboxActionPerformed
 
     private void double_blinds_radio_minutosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_double_blinds_radio_minutosActionPerformed
         // TODO add your handling code here:
-
-        if (this.double_blinds_radio_minutos.isSelected()) {
-            this.doblar_ciegas_spinner_minutos.setEnabled(true);
-            this.double_blinds_radio_manos.setSelected(false);
-            this.doblar_ciegas_spinner_manos.setEnabled(false);
-        } else {
-            this.double_blinds_radio_minutos.setSelected(true);
+        if (init) {
+            if (this.double_blinds_radio_minutos.isSelected()) {
+                this.doblar_ciegas_spinner_minutos.setEnabled(true);
+                this.double_blinds_radio_manos.setSelected(false);
+                this.doblar_ciegas_spinner_manos.setEnabled(false);
+            } else {
+                this.double_blinds_radio_minutos.setSelected(true);
+            }
         }
     }//GEN-LAST:event_double_blinds_radio_minutosActionPerformed
 
     private void double_blinds_radio_manosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_double_blinds_radio_manosActionPerformed
         // TODO add your handling code here:
-
-        if (this.double_blinds_radio_manos.isSelected()) {
-            this.doblar_ciegas_spinner_manos.setEnabled(true);
-            this.double_blinds_radio_minutos.setSelected(false);
-            this.doblar_ciegas_spinner_minutos.setEnabled(false);
-        } else {
-            this.double_blinds_radio_manos.setSelected(true);
+        if (init) {
+            if (this.double_blinds_radio_manos.isSelected()) {
+                this.doblar_ciegas_spinner_manos.setEnabled(true);
+                this.double_blinds_radio_minutos.setSelected(false);
+                this.doblar_ciegas_spinner_minutos.setEnabled(false);
+            } else {
+                this.double_blinds_radio_manos.setSelected(true);
+            }
         }
     }//GEN-LAST:event_double_blinds_radio_manosActionPerformed
 
-    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+    private void vamos_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_vamos_buttonActionPerformed
         // TODO add your handling code here:
+
+        int ciegas_double, ciegas_double_type;
 
         if (this.doblar_checkbox.isSelected()) {
 
             if (this.double_blinds_radio_minutos.isSelected()) {
-                GameFrame.CIEGAS_DOUBLE = (int) this.doblar_ciegas_spinner_minutos.getValue();
-                GameFrame.CIEGAS_DOUBLE_TYPE = 1;
+                ciegas_double = (int) this.doblar_ciegas_spinner_minutos.getValue();
+                ciegas_double_type = 1;
             } else {
-                GameFrame.CIEGAS_DOUBLE = (int) this.doblar_ciegas_spinner_manos.getValue();
-                GameFrame.CIEGAS_DOUBLE_TYPE = 2;
+                ciegas_double = (int) this.doblar_ciegas_spinner_manos.getValue();
+                ciegas_double_type = 2;
             }
         } else {
-            GameFrame.CIEGAS_DOUBLE_TYPE = 1;
-            GameFrame.CIEGAS_DOUBLE = 0;
+            ciegas_double = 0;
+            ciegas_double_type = 1;
+
         }
 
         String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-        GameFrame.getInstance().getCrupier().updateBlinds(Float.valueOf(valores_ciegas[0].trim()), Float.valueOf(valores_ciegas[1].trim()));
+        GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Float.valueOf(valores_ciegas[0].trim()), Float.valueOf(valores_ciegas[1].trim()), ciegas_double, ciegas_double_type);
 
         setVisible(false);
 
@@ -306,23 +359,30 @@ public class EditBlindsDialog extends javax.swing.JDialog {
 
             public void run() {
 
-                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + valores_ciegas[0].trim() + "#" + valores_ciegas[1].trim(), null);
+                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(ciegas_double) + "#" + String.valueOf(ciegas_double_type) + "#" + valores_ciegas[0].trim() + "#" + valores_ciegas[1].trim(), null);
 
                 GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
             }
         });
 
-    }//GEN-LAST:event_jButton1ActionPerformed
+    }//GEN-LAST:event_vamos_buttonActionPerformed
+
+    private void cancel_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancel_buttonActionPerformed
+        // TODO add your handling code here:
+        setVisible(false);
+    }//GEN-LAST:event_cancel_buttonActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton cancel_button;
     private javax.swing.JComboBox<String> ciegas_combobox;
     private javax.swing.JCheckBox doblar_checkbox;
     private javax.swing.JSpinner doblar_ciegas_spinner_manos;
     private javax.swing.JSpinner doblar_ciegas_spinner_minutos;
     private javax.swing.JRadioButton double_blinds_radio_manos;
     private javax.swing.JRadioButton double_blinds_radio_minutos;
-    private javax.swing.JButton jButton1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel jPanel2;
+    private javax.swing.JButton vamos_button;
     // End of variables declaration//GEN-END:variables
 }

@@ -153,6 +153,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile Boolean MAC_NATIVE_FULLSCREEN = null;
     public static volatile boolean TTS_SERVER = true;
     public static volatile int RECOVER_ID = -1;
+    public static volatile String UGI = null;
+    public final static int UGI_LENGTH = 50;
     public static volatile long GAME_START_TIMESTAMP;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
     private static final Object ZOOM_LOCK = new Object();

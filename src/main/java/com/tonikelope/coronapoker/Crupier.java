@@ -1697,23 +1697,31 @@ public class Crupier implements Runnable {
                 }
             }
 
-            permutacion_recuperada = this.recuperarPermutacion();
+            if ((Long) map.get("hand_end") == 0L) {
 
-            if (permutacion_recuperada == null) {
+                permutacion_recuperada = this.recuperarPermutacion();
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
-                    }
-                });
+                if (permutacion_recuperada == null) {
 
+                    Helpers.threadRun(new Runnable() {
+                        public void run() {
+                            Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
+                        }
+                    });
+
+                    map.put("permutation_key", false);
+
+                    saltar_primera_mano = true;
+
+                } else {
+
+                    map.put("permutation_key", true);
+                }
+
+            } else {
                 map.put("permutation_key", false);
 
                 saltar_primera_mano = true;
-
-            } else {
-
-                map.put("permutation_key", true);
             }
 
             enviarDatosClaveRecuperados(pendientes, map);
@@ -1722,14 +1730,10 @@ public class Crupier implements Runnable {
 
             map = recibirDatosClaveRecuperados();
 
-            if (!((boolean) map.get("permutation_key"))) {
+            if (!((boolean) map.get("permutation_key")) || (Long) map.get("hand_end") != 0L) {
 
                 saltar_primera_mano = true;
             }
-        }
-
-        if ((Long) map.get("hand_end") != 0L) {
-            saltar_primera_mano = true;
         }
 
         this.sqlite_id_hand = (int) map.get("hand_id");
@@ -2577,10 +2581,6 @@ public class Crupier implements Runnable {
 
             recuperarDatosClavePartida();
 
-            if (!GameFrame.getInstance().isPartida_local()) {
-                sqlNewGame();
-            }
-
             if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
 
                 if (GameFrame.getInstance().isPartida_local() || GameFrame.getInstance().getLocalPlayer().isActivo()) {
@@ -3181,7 +3181,7 @@ public class Crupier implements Runnable {
 
         try {
 
-            String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -3213,6 +3213,8 @@ public class Crupier implements Runnable {
             statement.setString(7, GameFrame.getInstance().getSala_espera().getServer_nick());
 
             statement.setInt(8, GameFrame.CIEGAS_DOUBLE_TYPE);
+
+            statement.setString(9, GameFrame.UGI);
 
             statement.executeUpdate();
 
@@ -4940,6 +4942,27 @@ public class Crupier implements Runnable {
         }
     }
 
+    public void sqlRemovePermutationkey() {
+
+        try {
+
+            String sql = "DELETE FROM permutationkey WHERE hash=?";
+
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setString(1, GameFrame.getInstance().getSala_espera().getLocal_client_permutation_key_hash());
+
+            statement.executeUpdate();
+
+            statement.close();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
     public void broadcastGAMECommandFromServer(String command, String skip_nick) {
 
         broadcastGAMECommandFromServer(command, skip_nick, true);
@@ -6439,6 +6462,67 @@ public class Crupier implements Runnable {
         }
     }
 
+    public Integer sqlUGI2GID(String ugi) {
+        Integer ret = null;
+
+        try {
+            String sql = "SELECT id from game WHERE ugi=?";
+
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setString(1, ugi);
+
+            ResultSet rs = statement.executeQuery();
+
+            rs.next();
+
+            ret = rs.getInt("id");
+
+            statement.close();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return ret;
+
+    }
+
+    public String getUGI() {
+
+        if (GameFrame.isRECOVER()) {
+            String ret = null;
+
+            try {
+                String sql = "SELECT ugi from game WHERE id=?";
+
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+
+                statement.setQueryTimeout(30);
+
+                statement.setInt(1, GameFrame.RECOVER_ID);
+
+                ResultSet rs = statement.executeQuery();
+
+                rs.next();
+
+                ret = rs.getString("ugi");
+
+                statement.close();
+
+            } catch (SQLException ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            return ret;
+        } else {
+            return Helpers.genRandomString(GameFrame.UGI_LENGTH);
+        }
+    }
+
+    //RUN CRUPIER
     @Override
     public void run() {
 
@@ -6451,36 +6535,29 @@ public class Crupier implements Runnable {
 
         if (GameFrame.getInstance().isPartida_local()) {
 
-            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS), null);
+            GameFrame.UGI = this.getUGI();
+
+            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS), null);
 
         }
 
-        if (GameFrame.RECOVER && GameFrame.getInstance().isPartida_local()) {
+        if (GameFrame.RECOVER) {
 
-            this.sqlite_id_game = GameFrame.RECOVER_ID;
+            if (GameFrame.getInstance().isPartida_local()) {
 
-            if (this.sqlite_id_game == -1) {
-                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR FATAL: NO SE HA PODIDO RECUPERAR LA TIMBA");
+                this.sqlite_id_game = GameFrame.RECOVER_ID;
 
-                if (GameFrame.getInstance().getJugadores().size() > 1) {
+            } else {
 
-                    //Hay que avisar a los clientes de que la timba ha terminado
-                    broadcastGAMECommandFromServer("SERVEREXIT", null, false);
+                Integer gid = sqlUGI2GID(GameFrame.UGI);
 
-                    GameFrame.getInstance().getLocalPlayer().setExit();
+                if (gid == null) {
 
-                    GameFrame.getInstance().finTransmision(true);
+                    this.sqlNewGame();
 
                 } else {
 
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
-
-                            GameFrame.getInstance().getLocalPlayer().setExit();
-
-                            GameFrame.getInstance().finTransmision(true);
-                        }
-                    });
+                    this.sqlite_id_game = gid;
                 }
             }
         }
@@ -7022,6 +7099,10 @@ public class Crupier implements Runnable {
                             updateExitPlayers();
 
                         } else {
+
+                            if (!GameFrame.getInstance().isPartida_local()) {
+                                sqlRemovePermutationkey();
+                            }
 
                             fin_de_la_transmision = true;
                         }

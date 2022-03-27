@@ -144,6 +144,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile Border chat_scroll_border = null;
     private volatile boolean protect_focus = false;
 
+    public String getLocal_client_permutation_key_hash() {
+        return local_client_permutation_key_hash;
+    }
+
     public String getBackground_chat_src() {
         return background_chat_src;
     }
@@ -2005,6 +2009,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(ciegas_double[1]);
 
                                                             GameFrame.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
+
+                                                            GameFrame.UGI = partes_comando[7].split("@")[1];
 
                                                             GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
 

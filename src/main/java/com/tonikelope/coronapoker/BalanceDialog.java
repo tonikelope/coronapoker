@@ -84,11 +84,11 @@ public class BalanceDialog extends javax.swing.JDialog {
 
             String avatar_path = GameFrame.getInstance().getNick2avatar().get(entry.getKey());
 
-            if (!"".equals(avatar_path) && !"*".equals(avatar_path)) {
+            if (avatar_path != null && !"".equals(avatar_path) && !"*".equals(avatar_path)) {
 
                 Helpers.setScaledIconLabel(label, avatar_path, NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
-            } else if ("*".equals(avatar_path)) {
+            } else if (avatar_path != null && "*".equals(avatar_path)) {
 
                 Helpers.setScaledIconLabel(label, getClass().getResource("/images/avatar_bot.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 

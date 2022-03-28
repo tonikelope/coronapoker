@@ -2437,6 +2437,8 @@ public class Crupier implements Runnable {
 
                 this.ciegas_update = null;
 
+                sqlUpdateGameDoubleBlinds();
+
                 GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
 
                 Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO");
@@ -5293,6 +5295,28 @@ public class Crupier implements Runnable {
         }
 
         return null;
+    }
+
+    private void sqlUpdateGameDoubleBlinds() {
+
+        try {
+            String sql = "UPDATE game SET blinds_time_type=?, blinds_time=? WHERE id=?";
+
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setInt(1, GameFrame.CIEGAS_DOUBLE_TYPE);
+            statement.setInt(2, GameFrame.CIEGAS_DOUBLE);
+            statement.setInt(3, this.sqlite_id_game);
+            statement.executeUpdate();
+
+            statement.close();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
     }
 
     private void sqlUpdateGameLastDeck(String deck) {

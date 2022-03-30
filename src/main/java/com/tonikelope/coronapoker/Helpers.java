@@ -1672,7 +1672,7 @@ public class Helpers {
             JOptionPane.showMessageDialog(container, label);
 
         } else {
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
                     JOptionPane.showMessageDialog(container, label);
@@ -1746,7 +1746,7 @@ public class Helpers {
 
         } else {
 
-            Helpers.GUIRun(new Runnable() {
+            Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
                     JOptionPane.showMessageDialog(container, label, "ERROR", JOptionPane.ERROR_MESSAGE);

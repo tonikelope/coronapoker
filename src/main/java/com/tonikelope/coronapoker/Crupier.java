@@ -2441,9 +2441,16 @@ public class Crupier implements Runnable {
 
                 GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
 
-                Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO");
-
                 GameFrame.getInstance().getRegistro().print(Translator.translate("LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO"));
+
+                Helpers.threadRun(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO");
+                    }
+                });
+
             }
         }
 

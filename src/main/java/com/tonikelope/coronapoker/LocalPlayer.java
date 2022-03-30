@@ -302,14 +302,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (buyin > GameFrame.BUYIN) {
                         player_stack.setBackground(Color.CYAN);
-
                         player_stack.setForeground(Color.BLACK);
                     } else {
 
                         player_stack.setBackground(new Color(51, 153, 0));
-
                         player_stack.setForeground(Color.WHITE);
                     }
+
+                    player_stack.setText(Helpers.float2String(stack));
 
                     if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
                         player_name.setForeground(Color.YELLOW);

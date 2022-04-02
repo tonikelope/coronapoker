@@ -1607,7 +1607,7 @@ public class Helpers {
 
                     Collections.shuffle(permutacion, Helpers.CSPRNG_GENERATOR); //Fisher-Yates
 
-                    return permutacion.toArray(new Integer[permutacion.size()]);
+                    return permutacion.toArray(new Integer[0]);
                 }
 
             default:

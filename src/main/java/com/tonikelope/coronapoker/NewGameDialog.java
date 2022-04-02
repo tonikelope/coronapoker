@@ -1374,7 +1374,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 conta_history++;
 
-                String[] history = SERVER_HISTORY_QUEUE.toArray(new String[SERVER_HISTORY_QUEUE.size()]);
+                String[] history = SERVER_HISTORY_QUEUE.toArray(new String[0]);
 
                 String[] parts = history[conta_history].split(":");
 
@@ -1391,7 +1391,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 conta_history--;
 
-                String[] history = SERVER_HISTORY_QUEUE.toArray(new String[SERVER_HISTORY_QUEUE.size()]);
+                String[] history = SERVER_HISTORY_QUEUE.toArray(new String[0]);
 
                 String[] parts = history[conta_history].split(":");
 

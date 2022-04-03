@@ -42,6 +42,7 @@ import java.lang.reflect.Proxy;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -1766,7 +1767,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             if (Audio.TTS_PLAYER != null) {
                 try {
-                    // TODO add your handling code here:
                     Audio.TTS_PLAYER.stop();
                 } catch (Exception ex) {
                     Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -1868,11 +1868,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             try {
 
+                String previous_log_data = "";
+
                 if (Files.exists(Paths.get(log_file))) {
-                    Files.move(Paths.get(log_file), Paths.get(log_file + ".bak" + String.valueOf(System.currentTimeMillis())));
+
+                    previous_log_data = "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + log_file + "\n" + Files.readString(Paths.get(log_file)) + "\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<" + log_file + "\n";
+                    Files.writeString(Paths.get(log_file), previous_log_data + getRegistro().getText(), StandardOpenOption.TRUNCATE_EXISTING);
+                } else {
+                    Files.writeString(Paths.get(log_file), getRegistro().getText());
                 }
 
-                Files.writeString(Paths.get(log_file), getRegistro().getText());
             } catch (IOException ex1) {
                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
             }
@@ -1883,11 +1888,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 try {
 
-                    if (Files.exists(Paths.get(chat_file))) {
-                        Files.move(Paths.get(log_file), Paths.get(chat_file + ".bak" + String.valueOf(System.currentTimeMillis())));
-                    }
+                    String previous_chat_data = "";
 
-                    Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");
+                    if (Files.exists(Paths.get(chat_file))) {
+
+                        previous_chat_data = Files.readString(Paths.get(chat_file)).replaceAll("<html><body.*?>(.*?)</body></html>", "$1");
+                        Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + previous_chat_data + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>", StandardOpenOption.TRUNCATE_EXISTING);
+
+                    } else {
+                        Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");
+
+                    }
 
                 } catch (IOException ex1) {
                     Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);

@@ -2581,7 +2581,7 @@ public class Crupier implements Runnable {
 
             Helpers.GUIRun(new Runnable() {
                 public void run() {
-                    recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
+                    recover_dialog = new RecoverDialog(GameFrame.getInstance().getFrame(), true);
                     recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
                     recover_dialog.setVisible(true);
 

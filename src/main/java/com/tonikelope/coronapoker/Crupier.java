@@ -7405,7 +7405,7 @@ public class Crupier implements Runnable {
             }
         }
 
-        if (candidatos.size() == 1) {
+        if (candidatos.size() == 1 || jugada_max == Hand.ESCALERA_COLOR_REAL) {
 
             return candidatos;
 
@@ -7414,7 +7414,6 @@ public class Crupier implements Runnable {
             //Si hay varios con la jugada máxima intentamos desempatar
             switch (jugada_max) {
                 case Hand.ESCALERA_COLOR:
-                case Hand.ESCALERA:
                     return desempatarEscalera(candidatos);
                 case Hand.POKER:
                     return desempatarRepetidas(candidatos, CARTAS_POKER);
@@ -7422,6 +7421,8 @@ public class Crupier implements Runnable {
                     return desempatarFull(candidatos);
                 case Hand.COLOR:
                     return desempatarCartaAlta(candidatos, 0);
+                case Hand.ESCALERA:
+                    return desempatarEscalera(candidatos);
                 case Hand.TRIO:
                     return desempatarRepetidas(candidatos, CARTAS_TRIO);
                 case Hand.DOBLE_PAREJA:

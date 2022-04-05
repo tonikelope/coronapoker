@@ -16,6 +16,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import javax.swing.ImageIcon;
+
 /**
  *
  * @author tonikelope
@@ -29,9 +31,15 @@ public class RecoverDialog extends javax.swing.JDialog {
         super(parent, modal);
 
         initComponents();
-        progreso.setIndeterminate(true);
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-        Helpers.translateComponents(this, false);
+
+        ImageIcon icon = new ImageIcon(getClass().getResource("/images/recover_" + GameFrame.LANGUAGE.toLowerCase() + ".gif") != null ? getClass().getResource("/images/recover_" + GameFrame.LANGUAGE.toLowerCase() + ".gif") : getClass().getResource("/images/recover.gif"));
+
+        gif.setGifIcon(icon, icon.getIconWidth(), icon.getIconHeight());
+
+        setSize(icon.getIconWidth(), icon.getIconHeight());
+
+        setPreferredSize(getSize());
+
         pack();
 
     }
@@ -45,12 +53,13 @@ public class RecoverDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        mantenimiento = new javax.swing.JLabel();
-        jLabel1 = new javax.swing.JLabel();
-        mantenimiento1 = new javax.swing.JLabel();
-        progreso = new javax.swing.JProgressBar();
+        gif = new com.tonikelope.coronapoker.GifPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        setAutoRequestFocus(false);
+        setFocusCycleRoot(false);
+        setFocusable(false);
+        setFocusableWindowState(false);
         setUndecorated(true);
         setResizable(false);
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -62,51 +71,15 @@ public class RecoverDialog extends javax.swing.JDialog {
             }
         });
 
-        mantenimiento.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
-        mantenimiento.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        mantenimiento.setText("RECUPERANDO TIMBA");
-        mantenimiento.setDoubleBuffered(true);
-
-        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/dragon.png"))); // NOI18N
-        jLabel1.setDoubleBuffered(true);
-
-        mantenimiento1.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        mantenimiento1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        mantenimiento1.setText("POR FAVOR, ESPERA");
-        mantenimiento1.setDoubleBuffered(true);
-
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(jLabel1)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(mantenimiento, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(mantenimiento1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                    .addComponent(progreso, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
+            .addComponent(gif, javax.swing.GroupLayout.DEFAULT_SIZE, 467, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addGroup(layout.createSequentialGroup()
-                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(mantenimiento)
-                        .addGap(18, 18, 18)
-                        .addComponent(mantenimiento1)
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addGroup(layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(jLabel1)))
-                .addComponent(progreso, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
+            .addComponent(gif, javax.swing.GroupLayout.DEFAULT_SIZE, 419, Short.MAX_VALUE)
         );
 
         pack();
@@ -130,9 +103,6 @@ public class RecoverDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel mantenimiento;
-    private javax.swing.JLabel mantenimiento1;
-    private javax.swing.JProgressBar progreso;
+    private com.tonikelope.coronapoker.GifPanel gif;
     // End of variables declaration//GEN-END:variables
 }

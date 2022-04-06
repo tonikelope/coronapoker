@@ -2579,11 +2579,27 @@ public class Crupier implements Runnable {
 
             GameFrame.getInstance().getRegistro().print("RECUPERANDO TIMBA...");
 
+            final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
+
             Helpers.GUIRun(new Runnable() {
                 public void run() {
+                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+
+                        GameFrame.getInstance().getTapete().repaint();
+                    }
+
                     recover_dialog = new RecoverDialog(GameFrame.getInstance().getFrame(), true);
                     recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
                     recover_dialog.setVisible(true);
+
+                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
+
+                        GameFrame.getInstance().getTapete().repaint();
+                    }
+
+                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
 
                 }
             });

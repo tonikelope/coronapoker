@@ -211,6 +211,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     }
 
+    public void refreshLightsIcon() {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
+
+            }
+        });
+    }
+
     public void last_hand_on() {
         GameFrame.getInstance().getCrupier().setLast_hand(true);
 

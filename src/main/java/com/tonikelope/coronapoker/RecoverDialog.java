@@ -53,13 +53,9 @@ public class RecoverDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        gif = new com.tonikelope.coronapoker.GifPanel();
+        gif = new com.tonikelope.coronapoker.GifPanel(false);
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
-        setAutoRequestFocus(false);
-        setFocusCycleRoot(false);
-        setFocusable(false);
-        setFocusableWindowState(false);
         setUndecorated(true);
         setResizable(false);
         addWindowListener(new java.awt.event.WindowAdapter() {

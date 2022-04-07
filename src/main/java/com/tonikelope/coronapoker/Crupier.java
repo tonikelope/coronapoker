@@ -4306,8 +4306,6 @@ public class Crupier implements Runnable {
 
         this.fase = fase;
 
-        sqlUpdateHandPlayers(resisten);
-
         if (fase > PREFLOP) {
 
             if (GameFrame.getInstance().isPartida_local()) {
@@ -4392,6 +4390,8 @@ public class Crupier implements Runnable {
             destaparCartaComunitaria(fase);
 
         }
+
+        sqlUpdateHandPlayers(resisten);
 
         if (puedenApostar(resisten) > 0 && !this.cartas_resistencia) {
 

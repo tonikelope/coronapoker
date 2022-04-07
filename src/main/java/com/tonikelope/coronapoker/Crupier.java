@@ -6558,7 +6558,7 @@ public class Crupier implements Runnable {
 
             rs.next();
 
-            ret = rs.getInt("id");
+            ret = rs.getInt("hand_id");
 
             statement.close();
 

@@ -2573,7 +2573,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     }
 
     public void refreshChatPanel() {
-        
+
         String status_text = status.getText();
 
         Helpers.GUIRun(new Runnable() {
@@ -2601,7 +2601,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 chat.repaint();
                 chat_scroll.revalidate();
                 chat_scroll.repaint();
-                
+
                 if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
                     status.setText(status_text);
                 }

@@ -1683,7 +1683,7 @@ public class Crupier implements Runnable {
 
         if (GameFrame.getInstance().isPartida_local()) {
 
-            map = sqlRecoverGameKeyData();
+            map = sqlRecoverServerLocalGameKeyData();
 
             GameFrame.GAME_START_TIMESTAMP = (long) map.get("start");
 
@@ -3689,7 +3689,11 @@ public class Crupier implements Runnable {
                             ByteArrayInputStream byteIn = new ByteArrayInputStream(Base64.decodeBase64(partes[3]));
                             in = new ObjectInputStream(byteIn);
                             map = (HashMap<String, Object>) in.readObject();
-                            map.put("hand_id", -1);
+
+                            Integer hand_id = this.getHandIdFromUGI(GameFrame.UGI);
+
+                            map.put("hand_id", hand_id != null ? hand_id : -1);
+
                         } catch (IOException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         } catch (ClassNotFoundException ex) {
@@ -5248,7 +5252,7 @@ public class Crupier implements Runnable {
 
             String[] sitiosb64 = this.sqlRecoverGameSeats().split("#");
 
-            String preflop_players = (String) this.sqlRecoverGameKeyData().get("preflop_players");
+            String preflop_players = (String) this.sqlRecoverServerLocalGameKeyData().get("preflop_players");
 
             ArrayList<String> permutados = new ArrayList<>();
 
@@ -5475,7 +5479,7 @@ public class Crupier implements Runnable {
         return ret;
     }
 
-    public HashMap<String, Object> sqlRecoverGameKeyData() {
+    public HashMap<String, Object> sqlRecoverServerLocalGameKeyData() {
 
         HashMap<String, Object> map = null;
 
@@ -6514,6 +6518,35 @@ public class Crupier implements Runnable {
 
         try {
             String sql = "SELECT id from game WHERE ugi=?";
+
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+
+            statement.setQueryTimeout(30);
+
+            statement.setString(1, ugi);
+
+            ResultSet rs = statement.executeQuery();
+
+            rs.next();
+
+            ret = rs.getInt("id");
+
+            statement.close();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return ret;
+
+    }
+
+    public Integer getHandIdFromUGI(String ugi) {
+
+        Integer ret = null;
+
+        try {
+            String sql = "SELECT max(hand.id) as hand_id from game,hand WHERE game.ugi=? AND hand.id_game=game.id";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 

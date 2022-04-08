@@ -32,7 +32,7 @@ public class RecoverDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        ImageIcon icon = new ImageIcon(getClass().getResource("/images/recover_" + GameFrame.LANGUAGE.toLowerCase() + ".gif") != null ? getClass().getResource("/images/recover_" + GameFrame.LANGUAGE.toLowerCase() + ".gif") : getClass().getResource("/images/recover.gif"));
+        ImageIcon icon = new ImageIcon(getClass().getResource("/cinematics/misc/recover_" + GameFrame.LANGUAGE.toLowerCase() + ".gif") != null ? getClass().getResource("/cinematics/misc/recover_" + GameFrame.LANGUAGE.toLowerCase() + ".gif") : getClass().getResource("/cinematics/misc/recover.gif"));
 
         gif.setGifIcon(icon, icon.getIconWidth(), icon.getIconHeight());
 

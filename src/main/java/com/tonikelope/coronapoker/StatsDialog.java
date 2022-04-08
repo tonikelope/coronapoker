@@ -866,6 +866,8 @@ public class StatsDialog extends javax.swing.JDialog {
                                     }
 
                                     hand_preflop_players_val.setText(players.replaceAll("  \\|  $", ""));
+                                } else {
+                                    hand_preflop_players_val.setText("");
                                 }
 
                                 if (rs.getString("flop_players") != null) {
@@ -879,6 +881,8 @@ public class StatsDialog extends javax.swing.JDialog {
                                     }
 
                                     hand_flop_players_val.setText(players.replaceAll("  \\|  $", ""));
+                                } else {
+                                    hand_flop_players_val.setText("");
                                 }
 
                                 if (rs.getString("turn_players") != null) {
@@ -893,6 +897,8 @@ public class StatsDialog extends javax.swing.JDialog {
                                     }
 
                                     hand_turn_players_val.setText(players.replaceAll("  \\|  $", ""));
+                                } else {
+                                    hand_turn_players_val.setText("");
                                 }
 
                                 if (rs.getString("river_players") != null) {
@@ -907,6 +913,8 @@ public class StatsDialog extends javax.swing.JDialog {
                                     }
 
                                     hand_river_players_val.setText(players.replaceAll("  \\|  $", ""));
+                                } else {
+                                    hand_river_players_val.setText("");
                                 }
 
                                 hand_blinds_val.setText(String.valueOf(rs.getFloat("sbval")) + " / " + String.valueOf(rs.getFloat("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")");
@@ -931,6 +939,8 @@ public class StatsDialog extends javax.swing.JDialog {
                                     }
 
                                     hand_comcards_val.setText(Card.collection2String(cartas));
+                                } else {
+                                    hand_comcards_val.setText("");
                                 }
 
                                 hand_bote_val.setText(String.valueOf(Helpers.floatClean(rs.getFloat("pot"))));

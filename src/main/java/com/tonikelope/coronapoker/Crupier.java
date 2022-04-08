@@ -48,7 +48,8 @@ import org.apache.commons.codec.binary.Base64;
 
 /**
  *
- * @author tonikelope
+ * @author tonikelope This croupier does too many things, but at least he does
+ * them well.
  */
 public class Crupier implements Runnable {
 
@@ -3110,12 +3111,12 @@ public class Crupier implements Runnable {
 
     private void sqlUpdateHandPlayers(ArrayList<Player> resistencia) {
 
-        String jugadores = "";
+        ArrayList<String> jugadores = new ArrayList<>();
 
         for (Player jugador : resistencia) {
 
             try {
-                jugadores += "#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8"));
+                jugadores.add(Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")));
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -3126,24 +3127,33 @@ public class Crupier implements Runnable {
 
         String sql = "";
 
-        if (this.fase == PREFLOP) {
-            sql = "UPDATE hand SET preflop_players=?, com_cards=? WHERE id=?";
-        } else if (this.fase == FLOP) {
-            sql = "UPDATE hand SET flop_players=?, com_cards=? WHERE id=?";
-            cards = Card.collection2ShortString(new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes())).subList(0, 3));
-        } else if (this.fase == TURN) {
-            sql = "UPDATE hand SET turn_players=?, com_cards=? WHERE id=?";
-            cards = Card.collection2ShortString(new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes())).subList(0, 4));
-        } else if (this.fase == RIVER) {
-            sql = "UPDATE hand SET river_players=?, com_cards=? WHERE id=?";
-            cards = Card.collection2ShortString(new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes())));
+        switch (this.fase) {
+
+            case PREFLOP:
+                sql = "UPDATE hand SET preflop_players=?, com_cards=? WHERE id=?";
+                break;
+
+            case FLOP:
+                sql = "UPDATE hand SET flop_players=?, com_cards=? WHERE id=?";
+                cards = Card.collection2ShortString(new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes())).subList(0, 3));
+                break;
+
+            case TURN:
+                sql = "UPDATE hand SET turn_players=?, com_cards=? WHERE id=?";
+                cards = Card.collection2ShortString(new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes())).subList(0, 4));
+                break;
+
+            case RIVER:
+                sql = "UPDATE hand SET river_players=?, com_cards=? WHERE id=?";
+                cards = Card.collection2ShortString(new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes())));
+                break;
         }
 
         PreparedStatement statement;
         try {
             statement = Helpers.getSQLITE().prepareStatement(sql);
             statement.setQueryTimeout(30);
-            statement.setString(1, jugadores.substring(1));
+            statement.setString(1, String.join("#", jugadores.toArray(new String[0])));
             statement.setString(2, cards);
             statement.setInt(3, this.sqlite_id_hand);
             statement.executeUpdate();
@@ -3216,16 +3226,16 @@ public class Crupier implements Runnable {
 
             statement.setLong(1, GameFrame.GAME_START_TIMESTAMP);
 
-            String players = "";
+            ArrayList<String> players = new ArrayList<>();
 
             for (String nick : nicks_permutados) {
 
                 if (nick2player.get(nick).isActivo()) {
-                    players += "#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
+                    players.add(Base64.encodeBase64String(nick.getBytes("UTF-8")));
                 }
             }
 
-            statement.setString(2, players.substring(1));
+            statement.setString(2, String.join("#", players.toArray(new String[0])));
 
             statement.setInt(3, GameFrame.BUYIN);
 
@@ -3257,14 +3267,14 @@ public class Crupier implements Runnable {
 
     private void sqlNewHand() {
 
-        String jugadores = "";
+        ArrayList<String> jugadores = new ArrayList<>();
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
             if (jugador.isActivo()) {
 
                 try {
-                    jugadores += "#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8"));
+                    jugadores.add(Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")));
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -3295,7 +3305,7 @@ public class Crupier implements Runnable {
 
             statement.setLong(8, System.currentTimeMillis());
 
-            statement.setString(9, jugadores);
+            statement.setString(9, String.join("#", jugadores.toArray(new String[0])));
 
             statement.executeUpdate();
 

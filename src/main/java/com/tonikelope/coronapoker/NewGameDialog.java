@@ -362,7 +362,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         try {
 
-            String sql = "SELECT id,start,server FROM game ORDER BY start DESC";
+            String sql = "SELECT id,start,server FROM game WHERE (ugi IS NOT NULL AND local == 1) ORDER BY start DESC";
 
             Statement statement = Helpers.getSQLITE().createStatement();
 
@@ -1268,6 +1268,7 @@ public class NewGameDialog extends javax.swing.JDialog {
                 this.recover_checkbox.setSelected(false);
                 this.game_combo.setEnabled(false);
                 this.recover_checkbox.setEnabled(false);
+                Helpers.mostrarMensajeError(this, "NO HAY TIMBAS QUE SE PUEDAN CONTINUAR");
 
                 pack();
 

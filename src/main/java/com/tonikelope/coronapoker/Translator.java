@@ -161,7 +161,7 @@ public class Translator {
             {"Límite de manos:", "Hands limit:"},
             {"Compra inicial (10 a 100 CGs):", "Buy-in (10 to 100 BBs):"},
             {"Ciegas iniciales:", "Initial blinds:"},
-            {"API KEY (opcional):", "API KEY (optional):"},
+            {"RANDOM.ORG API KEY (opcional):", "RANDOM.ORG API KEY (optional):"},
             {"RANDOM.ORG API KEY NO VÁLIDA (se usará el CSPRNG)", "NOT VALID RANDOM.ORG API KEY (it will be used CSPRNG instead)"},
             {"SE HA REACTIVADO RANDOM.ORG", "RANDOM.ORG RE-ENABLED"},
             {"(CONTINUANDO TIMBA)", "(RESUMING GAME)"},

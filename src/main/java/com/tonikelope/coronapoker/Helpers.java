@@ -593,10 +593,15 @@ public class Helpers {
 
             statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
 
-            //ACTUALIZACIÓN 27/03/2022
+            //ACTUALIZACIÓN 
             try {
                 statement.execute("ALTER TABLE game ADD ugi TEXT");
-            } catch (Exception ex2) {
+            } catch (Exception ex) {
+            }
+
+            try {
+                statement.execute("ALTER TABLE game ADD local INTEGER DEFAULT 0");
+            } catch (Exception ex) {
             }
 
             statement.close();

@@ -3216,7 +3216,7 @@ public class Crupier implements Runnable {
 
         try {
 
-            String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi, local) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -3250,6 +3250,8 @@ public class Crupier implements Runnable {
             statement.setInt(8, GameFrame.CIEGAS_DOUBLE_TYPE);
 
             statement.setString(9, GameFrame.UGI);
+
+            statement.setInt(10, GameFrame.getInstance().isPartida_local() ? 1 : 0);
 
             statement.executeUpdate();
 

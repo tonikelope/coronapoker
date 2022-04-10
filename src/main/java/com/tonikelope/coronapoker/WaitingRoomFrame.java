@@ -74,6 +74,7 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JEditorPane;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
@@ -94,8 +95,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public static final int MAX_PARTICIPANTES = 10;
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
-    public static final int PING_PONG_TIMEOUT = 15000;
-    public static final int MAX_PING_PONG_ERROR = 3;
+    public static final int PING_PONG_TIMEOUT = 10000;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
     public static final int CLIENT_REC_WAIT = 15;
@@ -1640,6 +1640,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             //Cada X segundos mandamos un comando KEEP ALIVE al server 
                             Helpers.threadRun(new Runnable() {
+
                                 public void run() {
 
                                     while (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
@@ -1665,7 +1666,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                         if (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
 
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
-
                                         }
 
                                     }
@@ -2706,6 +2706,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             }
         });
+    }
+
+    public JList<String> getConectados() {
+        return conectados;
     }
 
     public synchronized void borrarParticipante(String nick) {

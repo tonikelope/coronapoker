@@ -69,6 +69,11 @@ public class Participant implements Runnable {
     private volatile boolean unsecure_player = false;
     private volatile boolean reset_socket = false;
     private volatile String avatar_chat_src;
+    private volatile boolean ping_error = false;
+
+    public boolean isPing_error() {
+        return (ping_error && !WaitingRoomFrame.getInstance().isPartida_empezada());
+    }
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
@@ -126,6 +131,7 @@ public class Participant implements Runnable {
                     int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
                     writeCommandFromServer("PING#" + String.valueOf(ping));
+
                     if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
                         synchronized (keep_alive_lock) {
                             try {
@@ -135,13 +141,49 @@ public class Participant implements Runnable {
                             }
                         }
                     }
+
                     if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
 
                         Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "{0} NO respondió al PING {1} {2}", new Object[]{nick, String.valueOf(ping), String.valueOf(pong)});
 
+                        if (!ping_error) {
+                            ping_error = true;
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+
+                                    WaitingRoomFrame.getInstance().getConectados().revalidate();
+                                    WaitingRoomFrame.getInstance().getConectados().repaint();
+
+                                }
+                            });
+                        }
+
+                    } else {
+
+                        if (ping_error) {
+                            ping_error = false;
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+
+                                    WaitingRoomFrame.getInstance().getConectados().revalidate();
+                                    WaitingRoomFrame.getInstance().getConectados().repaint();
+
+                                }
+                            });
+                        }
                     }
 
                 }
+
+                ping_error = false;
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+
+                        WaitingRoomFrame.getInstance().getConectados().revalidate();
+                        WaitingRoomFrame.getInstance().getConectados().repaint();
+
+                    }
+                });
             }
         });
     }

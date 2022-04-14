@@ -57,7 +57,7 @@ public class Participant implements Runnable {
     private volatile Socket socket = null;
     private volatile boolean exit = false;
     private volatile BufferedReader input_stream = null;
-    private volatile int pong;
+    private volatile Integer pong;
     private volatile boolean cpu = false;
     private volatile Boolean resetting_socket = false;
     private volatile SecretKeySpec aes_key = null;
@@ -125,7 +125,10 @@ public class Participant implements Runnable {
 
                     int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
+                    pong = null;
+
                     writeCommandFromServer("PING#" + String.valueOf(ping));
+
                     if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
                         synchronized (keep_alive_lock) {
                             try {
@@ -135,7 +138,7 @@ public class Participant implements Runnable {
                             }
                         }
                     }
-                    if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
+                    if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && pong != null && ping + 1 != pong) {
 
                         Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "{0} NO respondió al PING {1} {2}", new Object[]{nick, String.valueOf(ping), String.valueOf(pong)});
 
@@ -166,10 +169,7 @@ public class Participant implements Runnable {
                         pendientes.add(getNick());
 
                         do {
-                            synchronized (getParticipant_socket_lock()) {
-
-                                writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()));
-                            }
+                            writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()));
                             waitAsyncConfirmations(id, pendientes);
 
                         } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
@@ -290,7 +290,7 @@ public class Participant implements Runnable {
             try {
 
                 if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                    this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()), false);
+                    this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
                 }
                 this.socketClose();
             } catch (IOException ex) {
@@ -318,39 +318,25 @@ public class Participant implements Runnable {
 
     public void writeCommandFromServer(String command) {
 
-        writeCommandFromServer(command, true);
-
-    }
-
-    public void writeCommandFromServer(String command, boolean retry) {
-        boolean ok;
-        do {
-            ok = true;
-            while (resetting_socket) {
-                synchronized (getParticipant_socket_lock()) {
-                    try {
-                        getParticipant_socket_lock().wait(1000);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
-            }
-            try {
-                synchronized (getParticipant_socket_lock()) {
-                    this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
-                }
-            } catch (IOException ex) {
-
-                ok = false;
-
-                if (retry && !resetting_socket && !isExit() && !WaitingRoomFrame.getInstance().isExit()) {
-
+        while (resetting_socket) {
+            synchronized (getParticipant_socket_lock()) {
+                try {
+                    getParticipant_socket_lock().wait(1000);
+                } catch (InterruptedException ex) {
                     Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-
-                    Helpers.pausar(1000);
                 }
             }
-        } while (retry && !ok && !isExit() && !WaitingRoomFrame.getInstance().isExit());
+        }
+
+        try {
+            synchronized (getParticipant_socket_lock()) {
+                this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+            }
+        } catch (IOException ex) {
+
+            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+
+        }
     }
 
     public String readCommandFromClient() throws KeyException, IOException {

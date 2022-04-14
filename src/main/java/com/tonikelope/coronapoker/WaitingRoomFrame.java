@@ -127,7 +127,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile Reconnect2ServerDialog reconnect_dialog = null;
     private volatile boolean reconnecting = false;
     private volatile boolean unsecure_server = false;
-    private volatile int pong;
+    private volatile Integer pong;
     private volatile String gameinfo_original = null;
     private volatile String video_chat_link = null;
     private volatile boolean chat_enabled = true;
@@ -1646,6 +1646,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                         int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
+                                        pong = null;
+
                                         try {
 
                                             writeCommandToServer("PING#" + String.valueOf(ping));
@@ -1662,7 +1664,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             }
                                         }
 
-                                        if (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada() && ping + 1 != pong) {
+                                        if (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada() && pong != null && ping + 1 != pong) {
 
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
 
@@ -3402,7 +3404,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             if (!participantes.get(expulsado).isCpu()) {
 
                                 String comando = "KICKED#" + Base64.encodeBase64String(expulsado.getBytes("UTF-8"));
-                                participantes.get(expulsado).writeCommandFromServer(Helpers.encryptCommand(comando, participantes.get(expulsado).getAes_key(), participantes.get(expulsado).getHmac_key()), false);
+                                participantes.get(expulsado).writeCommandFromServer(Helpers.encryptCommand(comando, participantes.get(expulsado).getAes_key(), participantes.get(expulsado).getHmac_key()));
                             }
 
                             participantes.get(expulsado).exitAndCloseSocket();

@@ -69,6 +69,7 @@ public class Participant implements Runnable {
     private volatile boolean unsecure_player = false;
     private volatile boolean reset_socket = false;
     private volatile String avatar_chat_src;
+    private volatile boolean async_wait = false;
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
@@ -108,6 +109,27 @@ public class Participant implements Runnable {
 
         } else {
             avatar_chat_src = cpu ? getClass().getResource("/images/avatar_bot_chat.png").toExternalForm() : getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
+        }
+
+    }
+
+    public boolean isAsync_wait() {
+        return async_wait;
+    }
+
+    public void setAsync_wait(boolean async_w) {
+
+        if (this.async_wait != async_w) {
+
+            this.async_wait = async_w;
+
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+                    WaitingRoomFrame.getInstance().getConectados().revalidate();
+                    WaitingRoomFrame.getInstance().getConectados().repaint();
+                }
+            });
         }
 
     }
@@ -176,6 +198,10 @@ public class Participant implements Runnable {
 
                         getAsync_command_queue().poll();
 
+                    }
+
+                    synchronized (WaitingRoomFrame.getInstance().getLock_client_async_wait()) {
+                        WaitingRoomFrame.getInstance().getLock_client_async_wait().notifyAll();
                     }
 
                     if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {

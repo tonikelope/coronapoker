@@ -74,6 +74,7 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JEditorPane;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
@@ -95,6 +96,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public static final int MAX_PARTICIPANTES = 10;
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final int PING_PONG_TIMEOUT = 15000;
+    public static final int ASYNC_WAIT_LOCK = 5000;
     public static final int MAX_PING_PONG_ERROR = 3;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
@@ -110,6 +112,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private final Object lock_new_client = new Object();
     private final Object lock_reconnect = new Object();
     private final Object lock_client_reconnect = new Object();
+    private final Object lock_client_async_wait = new Object();
     private final boolean server;
     private final String local_nick;
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
@@ -144,6 +147,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private volatile Border chat_scroll_border = null;
     private volatile boolean protect_focus = false;
 
+    public Object getLock_client_async_wait() {
+        return lock_client_async_wait;
+    }
+
     public String getLocal_client_permutation_key_hash() {
         return local_client_permutation_key_hash;
     }
@@ -162,6 +169,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public StringBuffer getChat_text() {
         return chat_text;
+    }
+
+    public JList<String> getConectados() {
+        return conectados;
     }
 
     public void soundIconClick() {
@@ -3530,11 +3541,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                     Participant p = entry.getValue();
 
-                                    if (p != null && !p.isCpu() && !p.getAsync_command_queue().isEmpty()) {
+                                    if (p != null && !p.isCpu()) {
 
-                                        ocupados = true;
+                                        if (!p.getAsync_command_queue().isEmpty()) {
 
-                                        break;
+                                            ocupados = true;
+
+                                            p.setAsync_wait(true);
+
+                                        } else {
+
+                                            p.setAsync_wait(false);
+                                        }
 
                                     }
 
@@ -3543,7 +3561,14 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 if (ocupados) {
 
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Hay algun participante con comandos sin confirmar. NO podemos empezar aún...");
-                                    Helpers.pausar(1000);
+
+                                    synchronized (lock_client_async_wait) {
+                                        try {
+                                            lock_client_async_wait.wait(ASYNC_WAIT_LOCK);
+                                        } catch (InterruptedException ex) {
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+                                    }
                                 }
 
                             } while (ocupados);
@@ -3576,7 +3601,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         if (!barra.isVisible() || !booting) {
 
-            if (!booting && client_threads.isEmpty()) {
+            if (!booting && client_threads.isEmpty() && !partida_empezando) {
 
                 if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
@@ -4044,6 +4069,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         if (!protect_focus) {
             chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
             chat_box.requestFocus();
+        }
+        
+        if(partida_empezando)
+        {
+            partida_empezando = false;
         }
     }//GEN-LAST:event_formComponentHidden
 

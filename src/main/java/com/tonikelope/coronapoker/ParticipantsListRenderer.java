@@ -42,11 +42,21 @@ public class ParticipantsListRenderer extends JLabel implements ListCellRenderer
             this.setIcon(((JLabel) value).getIcon());
             this.setFont(list.getFont());
 
-            if (isSelected) {
+            if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()) != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()).isAsync_wait()) {
                 this.setOpaque(true);
-                this.setBackground(Color.ORANGE);
+                this.setBackground(Color.RED);
+                this.setForeground(Color.WHITE);
+
+            } else if (isSelected) {
+
+                this.setOpaque(true);
+                this.setBackground(Color.YELLOW);
+
             } else {
+
                 this.setOpaque(false);
+                this.setForeground(Color.black);
+
             }
 
             this.revalidate();

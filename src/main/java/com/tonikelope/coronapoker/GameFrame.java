@@ -141,7 +141,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
     public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
-    public static volatile boolean VISTA_COMPACTA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("vista_compacta", "false")) && !TEST_MODE;
+    public static volatile int VISTA_COMPACTA = Integer.parseInt(Helpers.isNumeric(Helpers.PROPERTIES.getProperty("vista_compacta", "0")) ? Helpers.PROPERTIES.getProperty("vista_compacta", "0") : "0") % 3;
     public static volatile boolean ANIMACION_REPARTIR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
     public static volatile boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
@@ -1598,7 +1598,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         getContentPane().add(frame_layer);
 
-        compact_menu.setSelected(GameFrame.VISTA_COMPACTA);
+        compact_menu.setSelected(GameFrame.VISTA_COMPACTA > 0);
 
         menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
 
@@ -1688,6 +1688,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         tapete.getLocalPlayer().getPlayingCard1().setCompactable(false);
         tapete.getLocalPlayer().getPlayingCard2().setCompactable(false);
+
+        if (GameFrame.VISTA_COMPACTA != 2) {
+            for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {
+                carta.setCompactable(false);
+            }
+        }
 
         //Metemos la pasta a todos (el BUY IN se podría parametrizar)
         for (Player jugador : jugadores) {
@@ -3327,9 +3333,29 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void compact_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_compact_menuActionPerformed
         // TODO add your handling code here:
-        GameFrame.VISTA_COMPACTA = this.compact_menu.isSelected();
 
-        Audio.playWavResource("misc/power_" + (GameFrame.VISTA_COMPACTA ? "down" : "up") + ".wav");
+        GameFrame.VISTA_COMPACTA = (GameFrame.VISTA_COMPACTA + 1) % 3;
+
+        if (GameFrame.VISTA_COMPACTA > 0) {
+
+            this.compact_menu.setSelected(true);
+
+            if (GameFrame.VISTA_COMPACTA == 2) {
+                for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {
+                    carta.setCompactable(true);
+                }
+            }
+
+        } else {
+
+            this.compact_menu.setSelected(false);
+
+            for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {
+                carta.setCompactable(false);
+            }
+        }
+
+        Audio.playWavResource("misc/power_" + (GameFrame.VISTA_COMPACTA > 0 ? "down" : "up") + ".wav");
 
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(GameFrame.VISTA_COMPACTA));
 
@@ -3341,7 +3367,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        Helpers.TapetePopupMenu.COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA);
+        Helpers.TapetePopupMenu.COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA > 0);
     }//GEN-LAST:event_compact_menuActionPerformed
 
     private void confirmar_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_confirmar_menuActionPerformed

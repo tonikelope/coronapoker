@@ -98,6 +98,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         this.compactable = compactable;
     }
 
+    public boolean isCompactable() {
+        return compactable;
+    }
+
     public static synchronized void updateCachedImages(float zoom, boolean force) {
 
         if (force || CURRENT_ZOOM != zoom) {
@@ -327,10 +331,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
-                                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                                 card_image.setIcon(img);
                                 card_image.setVisible(isVisible_card());
-                                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                                 revalidate();
                                 repaint();
                             }
@@ -338,10 +342,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                     } else {
                         Helpers.GUIRunAndWait(new Runnable() {
                             public void run() {
-                                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                                 card_image.setIcon(img);
                                 card_image.setVisible(isVisible_card());
-                                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                                 revalidate();
                                 repaint();
                             }

@@ -4070,9 +4070,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
             chat_box.requestFocus();
         }
-        
-        if(partida_empezando)
-        {
+
+        if (partida_empezando) {
             partida_empezando = false;
         }
     }//GEN-LAST:event_formComponentHidden

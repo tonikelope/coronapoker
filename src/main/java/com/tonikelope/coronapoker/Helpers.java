@@ -2826,7 +2826,7 @@ public class Helpers {
                 popup.addSeparator();
 
                 COMPACTA_MENU = new JCheckBoxMenuItem(compactAction);
-                COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA);
+                COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA > 0);
                 COMPACTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tiny.png")));
                 popup.add(COMPACTA_MENU);
 

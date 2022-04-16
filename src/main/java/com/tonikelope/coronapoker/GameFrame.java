@@ -1283,7 +1283,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     }
 
-    public void refreshTapete() {
+    public void downgradeAndRefreshTapete() {
 
         TablePanel nuevo_tapete = TablePanelFactory.downgradePanel(tapete);
 

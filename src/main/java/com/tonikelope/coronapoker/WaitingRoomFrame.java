@@ -96,7 +96,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public static final int MAX_PARTICIPANTES = 10;
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final int PING_PONG_TIMEOUT = 15000;
-    public static final int ASYNC_WAIT_LOCK = 5000;
+    public static final int ASYNC_WAIT_LOCK = 15000;
     public static final int MAX_PING_PONG_ERROR = 3;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
@@ -974,6 +974,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 if (!local_client_socket.isClosed()) {
                     try {
+                        local_client_socket.shutdownInput();
+                        local_client_socket.shutdownOutput();
                         local_client_socket.close();
 
                     } catch (Exception ex) {
@@ -2067,6 +2069,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     recibido = null;
 
                                 } finally {
+
+                                    if (recibido == null) {
+                                        last_received.clear();
+                                    }
+
                                     if (recibido == null && (!exit && (!isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit())) && !reconectarCliente()) {
                                         exit = true;
                                     }

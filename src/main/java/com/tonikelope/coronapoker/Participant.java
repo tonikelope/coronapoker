@@ -56,7 +56,7 @@ public class Participant implements Runnable {
 
     private volatile Socket socket = null;
     private volatile boolean exit = false;
-    private volatile BufferedReader input_stream = null;
+    private volatile BufferedReader input_stream_reader = null;
     private volatile Integer pong;
     private volatile boolean cpu = false;
     private volatile Boolean resetting_socket = false;
@@ -182,17 +182,26 @@ public class Participant implements Runnable {
 
                         String command = getAsync_command_queue().peek();
 
-                        int id = Helpers.CSPRNG_GENERATOR.nextInt();
-
-                        String full_command = "GAME#" + String.valueOf(id) + "#" + command;
-
                         ArrayList<String> pendientes = new ArrayList<>();
 
                         pendientes.add(getNick());
 
                         do {
-                            writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()));
-                            waitAsyncConfirmations(id, pendientes);
+                            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+
+                            String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+
+                            if (!writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
+
+                                waitAsyncConfirmations(id, pendientes);
+
+                                if (!pendientes.isEmpty()) {
+                                    Logger.getLogger(Participant.class.getName()).log(Level.WARNING, getNick() + " COMANDO ASYNC CONFIRMATION ERROR!");
+                                }
+
+                            } else {
+                                Logger.getLogger(Participant.class.getName()).log(Level.WARNING, getNick() + " COMANDO ASYNC SOCKET ERROR!");
+                            }
 
                         } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
 
@@ -285,7 +294,7 @@ public class Participant implements Runnable {
 
     }
 
-    public BufferedReader getInput_stream() {
+    public BufferedReader getInput_stream_reader() {
 
         while (resetting_socket) {
             synchronized (getParticipant_socket_lock()) {
@@ -297,7 +306,7 @@ public class Participant implements Runnable {
             }
         }
 
-        return input_stream;
+        return input_stream_reader;
     }
 
     public boolean isCpu() {
@@ -342,7 +351,7 @@ public class Participant implements Runnable {
         return nick;
     }
 
-    public void writeCommandFromServer(String command) {
+    public boolean writeCommandFromServer(String command) {
 
         while (resetting_socket) {
             synchronized (getParticipant_socket_lock()) {
@@ -355,12 +364,15 @@ public class Participant implements Runnable {
         }
 
         try {
-            synchronized (getParticipant_socket_lock()) {
-                this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
-            }
-        } catch (IOException ex) {
+
+            this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+            return false;
+
+        } catch (Exception ex) {
 
             Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+            Helpers.pausar(1000);
+            return true;
 
         }
     }
@@ -377,7 +389,7 @@ public class Participant implements Runnable {
             }
         }
 
-        return Helpers.decryptCommand(this.getInput_stream().readLine(), this.getAes_key(), this.getHmac_key());
+        return Helpers.decryptCommand(this.getInput_stream_reader().readLine(), this.getAes_key(), this.getHmac_key());
     }
 
     public void socketClose() throws IOException {
@@ -394,7 +406,7 @@ public class Participant implements Runnable {
             if (this.socket != null) {
 
                 try {
-                    this.input_stream = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+                    this.input_stream_reader = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
                 } catch (IOException ex) {
                     Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -409,6 +421,9 @@ public class Participant implements Runnable {
         if (this.socket != null && !this.socket.isClosed()) {
 
             try {
+
+                this.socket.shutdownInput();
+                this.socket.shutdownOutput();
                 this.socket.close();
             } catch (Exception ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
@@ -426,7 +441,7 @@ public class Participant implements Runnable {
 
                 this.socket = sock;
 
-                this.input_stream = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+                this.input_stream_reader = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
 
                 this.aes_key = aes_k;
 

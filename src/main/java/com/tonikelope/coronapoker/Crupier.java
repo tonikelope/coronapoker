@@ -6241,7 +6241,7 @@ public class Crupier implements Runnable {
         }
 
         if (exit > 0) {
-            GameFrame.getInstance().refreshTapete();
+            GameFrame.getInstance().downgradeAndRefreshTapete();
 
             nick2player.clear();
 

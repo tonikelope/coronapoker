@@ -2360,15 +2360,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                         notify_label.notifyAll();
                                     }
 
-                                    Helpers.setScaledIconLabel(notify_label, getClass().getResource((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? "/images/sound_b.png" : "/images/mute.png"), sound_icon_size, sound_icon_size);
+                                    Helpers.setScaledIconLabel(notify_label, getClass().getResource((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? "/images/talk.png" : "/images/mute.png"), sound_icon_size, sound_icon_size);
 
                                     notify_label.setSize(sound_icon_size, sound_icon_size);
 
                                     notify_label.setPreferredSize(notify_label.getSize());
 
-                                    notify_label.setBackground((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? Color.YELLOW : Color.RED);
-
-                                    notify_label.setOpaque(true);
+                                    if (!(GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER)) {
+                                        notify_label.setOpaque(true);
+                                        notify_label.setBackground(Color.RED);
+                                    } else {
+                                        notify_label.setOpaque(false);
+                                    }
 
                                     notify_label.revalidate();
 
@@ -3179,6 +3182,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void chat_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_menuActionPerformed
         // TODO add your handling code here:
+
+        if (fastchat_dialog != null && fastchat_dialog.isVisible()) {
+            fastchat_dialog.setVisible(false);
+        }
 
         if (!this.sala_espera.isActive()) {
             this.sala_espera.setVisible(false);

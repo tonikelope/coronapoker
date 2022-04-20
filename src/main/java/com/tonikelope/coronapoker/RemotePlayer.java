@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
@@ -24,6 +25,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.net.URL;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -77,11 +79,162 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer icon_zoom_timer = null;
     private volatile Timer iwtsth_blink_timer = null;
     private volatile boolean notify_blocked = false;
+    private volatile URL chat_notify_image_url = null;
     private final Object zoom_lock = new Object();
     private final JLabel chat_notify_label = new JLabel();
     private final JLabel chip_label = new JLabel();
     private final JLabel sec_pot_win_label = new JLabel();
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
+
+    public void refreshNotifyChatLabelZoom() {
+
+        if (getChat_notify_label().isVisible()) {
+            if (chat_notify_image_url != null) {
+                setNotifyImageChatLabel(chat_notify_image_url);
+            } else {
+                setNotifyTTSChatLabel();
+            }
+        }
+
+    }
+
+    public void setNotifyTTSChatLabel() {
+
+        chat_notify_image_url = null;
+
+        int sound_icon_size = getPlayingCard1().getHeight();
+
+        int pos_x = Math.round((panel_cartas.getWidth() - sound_icon_size) / 2);
+
+        int pos_y = 0;
+
+        synchronized (getChat_notify_label()) {
+
+            getChat_notify_label().notifyAll();
+        }
+
+        Helpers.setScaledIconLabel(getChat_notify_label(), getClass().getResource("/images/talk.png"), sound_icon_size, sound_icon_size);
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+
+                getChat_notify_label().setSize(sound_icon_size, sound_icon_size);
+
+                getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+
+                getChat_notify_label().setOpaque(false);
+
+                getChat_notify_label().revalidate();
+
+                getChat_notify_label().repaint();
+
+                getChat_notify_label().setLocation(pos_x, pos_y);
+            }
+        });
+    }
+
+    @Override
+    public void setNotifyImageChatLabel(URL u) {
+
+        if (!this.isNotify_blocked()) {
+
+            try {
+
+                chat_notify_image_url = u;
+
+                String url = chat_notify_image_url.toString();
+
+                int gif_l = ChatImageDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageDialog.GIF_CACHE.get(url)[1] : -1;
+
+                ImageIcon image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
+
+                int max_width = panel_cartas.getWidth();
+
+                int max_height = playingCard1.getHeight();
+
+                if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
+
+                    int new_height = max_height;
+
+                    int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
+
+                    if (new_width > max_width) {
+
+                        new_height = (int) Math.round((new_height * max_width) / new_width);
+
+                        new_width = max_width;
+                    }
+
+                    image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                }
+
+                int timeout = (gif_l != -1 || Helpers.isImageGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
+
+                int pos_x = Math.round((panel_cartas.getWidth() - image.getIconWidth()) / 2);
+
+                int pos_y = Math.round((getPlayingCard1().getHeight() - image.getIconHeight()) / 2);
+
+                final ImageIcon fimage = image;
+
+                synchronized (getChat_notify_label()) {
+
+                    getChat_notify_label().notifyAll();
+                }
+
+                Helpers.threadRun(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        synchronized (getChat_notify_label()) {
+
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                @Override
+                                public void run() {
+                                    getChat_notify_label().setIcon(fimage);
+
+                                    getChat_notify_label().setSize(fimage.getIconWidth(), fimage.getIconHeight());
+
+                                    getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+
+                                    getChat_notify_label().setOpaque(false);
+
+                                    getChat_notify_label().revalidate();
+
+                                    getChat_notify_label().repaint();
+
+                                    getChat_notify_label().setLocation(pos_x, pos_y);
+
+                                    getChat_notify_label().setVisible(true);
+
+                                }
+                            });
+
+                            try {
+                                getChat_notify_label().wait(timeout);
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                @Override
+                                public void run() {
+                                    getChat_notify_label().setVisible(false);
+
+                                }
+                            });
+                        }
+
+                    }
+                });
+
+            } catch (Exception ex) {
+                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
+
+    }
 
     public void refreshSecPotLabel() {
 
@@ -751,6 +904,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         zoomIcons();
                         playingCard1.updateImagePreloadCache();
                         playingCard2.updateImagePreloadCache();
+                        refreshNotifyChatLabelZoom();
 
                     }
                 });

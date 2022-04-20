@@ -24,7 +24,6 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.Window;
@@ -62,9 +61,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JLayer;
-import javax.swing.JLayeredPane;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JProgressBar;
@@ -2171,247 +2168,50 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         String nick = (String) tts[0];
 
-                        Integer timeout = null;
+                        Player jugador = GameFrame.getInstance().getCrupier().getNick2player().get(nick);
 
-                        if (tts[1] instanceof URL) {
+                        if (jugador != null) {
+                            if (tts[1] instanceof URL) {
 
-                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) || !((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick)).isNotify_blocked()) {
+                                jugador.setNotifyImageChatLabel((URL) tts[1]);
 
-                                try {
+                            } else {
 
-                                    String url = ((URL) tts[1]).toString();
+                                temp_notify_blocked = (GameFrame.getInstance().getLocalPlayer() != jugador && ((RemotePlayer) jugador).isNotify_blocked());
 
-                                    int gif_l = ChatImageDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageDialog.GIF_CACHE.get(url)[1] : -1;
+                                jugador.setNotifyTTSChatLabel();
 
-                                    ImageIcon image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
-
-                                    int max_width = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getTapete().getLocalPlayer().getPanel_cartas().getWidth() : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPanel_cartas().getWidth();
-
-                                    int max_height = GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? Math.round(GameFrame.getInstance().getTapete().getLocalPlayer().getPlayingCard1().getHeight() / 2) : GameFrame.getInstance().getTapete().getRemotePlayers()[0].getPlayingCard1().getHeight();
-
-                                    if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
-
-                                        int new_height = max_height;
-
-                                        int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
-
-                                        if (new_width > max_width) {
-
-                                            new_height = (int) Math.round((new_height * max_width) / new_width);
-
-                                            new_width = max_width;
-                                        }
-
-                                        image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-                                    }
-
-                                    timeout = (gif_l != -1 || Helpers.isImageGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
-
-                                    ImageIcon final_image = image;
-
-                                    Integer t = timeout;
+                                if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !temp_notify_blocked) {
+                                    Audio.TTS((String) tts[1], jugador.getChat_notify_label());
+                                } else {
 
                                     Helpers.GUIRun(new Runnable() {
                                         @Override
                                         public void run() {
 
-                                            JLabel notify_label;
-
-                                            JLayeredPane panel_cartas;
-
-                                            int pos_x, pos_y;
-
-                                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
-
-                                                var player = GameFrame.getInstance().getLocalPlayer();
-
-                                                notify_label = player.getChat_notify_label();
-
-                                                panel_cartas = player.getPanel_cartas();
-
-                                                pos_x = panel_cartas.getWidth() - final_image.getIconWidth();
-
-                                                pos_y = Math.round(player.getPlayingCard1().getHeight() / 2);
-
+                                            if (temp_notify_blocked) {
+                                                notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.YELLOW, Color.BLACK, getClass().getResource("/images/sound_b.png"), null);
                                             } else {
-
-                                                var player = ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick));
-
-                                                notify_label = player.getChat_notify_label();
-
-                                                panel_cartas = player.getPanel_cartas();
-
-                                                pos_x = Math.round((panel_cartas.getWidth() - final_image.getIconWidth()) / 2);
-
-                                                pos_y = Math.round((player.getPlayingCard1().getHeight() - final_image.getIconHeight()) / 2);
-
+                                                notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
                                             }
 
-                                            synchronized (notify_label) {
+                                            notify_dialog.setLocation(notify_dialog.getParent().getLocation());
 
-                                                notify_label.notifyAll();
-                                            }
-
-                                            Helpers.threadRun(new Runnable() {
-                                                @Override
-                                                public void run() {
-
-                                                    synchronized (notify_label) {
-
-                                                        Helpers.GUIRunAndWait(new Runnable() {
-                                                            @Override
-                                                            public void run() {
-                                                                notify_label.setIcon(final_image);
-
-                                                                notify_label.setSize(final_image.getIconWidth(), final_image.getIconHeight());
-
-                                                                notify_label.setPreferredSize(notify_label.getSize());
-
-                                                                notify_label.setOpaque(false);
-
-                                                                notify_label.revalidate();
-
-                                                                notify_label.repaint();
-
-                                                                notify_label.setLocation(pos_x, pos_y);
-
-                                                                notify_label.setVisible(true);
-
-                                                            }
-                                                        });
-
-                                                        try {
-                                                            notify_label.wait(t);
-                                                        } catch (InterruptedException ex) {
-                                                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                                        }
-
-                                                        Helpers.GUIRunAndWait(new Runnable() {
-                                                            @Override
-                                                            public void run() {
-                                                                notify_label.setVisible(false);
-
-                                                            }
-                                                        });
-                                                    }
-
-                                                }
-                                            });
-
+                                            notify_dialog.setVisible(true);
                                         }
                                     });
 
-                                } catch (Exception ex) {
-                                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                }
+                                    Helpers.pausar(Math.max((long) Math.ceil(WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
 
-                            }
+                                    Helpers.GUIRun(new Runnable() {
+                                        @Override
+                                        public void run() {
 
-                        } else {
-
-                            temp_notify_blocked = false;
-
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                @Override
-                                public void run() {
-
-                                    JLabel notify_label;
-
-                                    JLayeredPane panel_cartas;
-
-                                    int sound_icon_size;
-
-                                    int pos_x, pos_y;
-
-                                    if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)) {
-
-                                        var player = GameFrame.getInstance().getLocalPlayer();
-
-                                        panel_cartas = player.getPanel_cartas();
-
-                                        notify_label = player.getChat_notify_label();
-
-                                        sound_icon_size = Math.round(player.getPlayingCard1().getHeight() / 2);
-
-                                        pos_x = panel_cartas.getWidth() - sound_icon_size;
-
-                                        pos_y = Math.round(player.getPlayingCard1().getHeight() / 2);
-
-                                    } else {
-
-                                        var player = ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick));
-
-                                        panel_cartas = player.getPanel_cartas();
-
-                                        notify_label = player.getChat_notify_label();
-
-                                        sound_icon_size = player.getPlayingCard1().getHeight();
-
-                                        pos_x = Math.round((panel_cartas.getWidth() - sound_icon_size) / 2);
-
-                                        pos_y = 0;
-
-                                        temp_notify_blocked = player.isNotify_blocked();
-
-                                    }
-
-                                    synchronized (notify_label) {
-
-                                        notify_label.notifyAll();
-                                    }
-
-                                    Helpers.setScaledIconLabel(notify_label, getClass().getResource((GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER) ? "/images/talk.png" : "/images/mute.png"), sound_icon_size, sound_icon_size);
-
-                                    notify_label.setSize(sound_icon_size, sound_icon_size);
-
-                                    notify_label.setPreferredSize(notify_label.getSize());
-
-                                    if (!(GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER)) {
-                                        notify_label.setOpaque(true);
-                                        notify_label.setBackground(Color.RED);
-                                    } else {
-                                        notify_label.setOpaque(false);
-                                    }
-
-                                    notify_label.revalidate();
-
-                                    notify_label.repaint();
-
-                                    notify_label.setLocation(pos_x, pos_y);
-
-                                }
-                            });
-
-                            if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !temp_notify_blocked) {
-                                Audio.TTS((String) tts[1], GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick) ? GameFrame.getInstance().getLocalPlayer().getChat_notify_label() : ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick)).getChat_notify_label());
-                            } else {
-
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        if (temp_notify_blocked) {
-                                            notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.YELLOW, Color.BLACK, getClass().getResource("/images/sound_b.png"), null);
-
-                                        } else {
-                                            notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
+                                            notify_dialog.setVisible(false);
                                         }
+                                    });
 
-                                        notify_dialog.setLocation(notify_dialog.getParent().getLocation());
-
-                                        notify_dialog.setVisible(true);
-                                    }
-                                });
-
-                                Helpers.pausar(Math.max((long) Math.ceil(WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
-
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        notify_dialog.setVisible(false);
-                                    }
-                                });
+                                }
 
                             }
 

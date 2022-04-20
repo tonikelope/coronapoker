@@ -16,7 +16,9 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.net.URL;
 import javax.swing.ImageIcon;
+import javax.swing.JLabel;
 
 /**
  *
@@ -123,5 +125,11 @@ public interface Player {
     public void setPlayerActionIcon(String icon);
 
     public void hidePlayerActionIcon();
+
+    public void setNotifyImageChatLabel(URL u);
+
+    public void setNotifyTTSChatLabel();
+
+    public JLabel getChat_notify_label();
 
 }

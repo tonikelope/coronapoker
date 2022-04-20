@@ -412,34 +412,43 @@ public class Helpers {
     }
 
     public static void setScaledIconLabel(JLabel label, String path, int width, int height) {
-
-        try {
-            label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
-        } catch (MalformedURLException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                try {
+                    label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+                } catch (MalformedURLException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
     }
 
     public static void setScaledIconLabel(JLabel label, URL path, int width, int height) {
-
-        label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
-
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+            }
+        });
     }
 
     public static void setScaledIconButton(JButton button, String path, int width, int height) {
-
-        try {
-            button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
-        } catch (MalformedURLException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                try {
+                    button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+                } catch (MalformedURLException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
     }
 
     public static void setScaledIconButton(JButton button, URL path, int width, int height) {
-
-        button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
-
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+            }
+        });
     }
 
     public static String getLocalTimeString() {

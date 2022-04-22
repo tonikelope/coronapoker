@@ -1240,8 +1240,6 @@ public class NewGameDialog extends javax.swing.JDialog {
 
                 this.buyin_label.setEnabled(false);
 
-                this.rebuy_checkbox.setEnabled(false);
-
                 this.ciegas_label.setEnabled(false);
 
                 this.ciegas_combobox.setEnabled(false);
@@ -1283,8 +1281,6 @@ public class NewGameDialog extends javax.swing.JDialog {
             this.buyin_spinner.setEnabled(true);
 
             this.buyin_label.setEnabled(true);
-
-            this.rebuy_checkbox.setEnabled(true);
 
             this.ciegas_label.setEnabled(true);
 

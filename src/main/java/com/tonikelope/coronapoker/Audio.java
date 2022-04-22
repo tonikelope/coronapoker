@@ -596,7 +596,7 @@ public class Audio {
 
         try {
 
-            URL url_api = new URL(url.replace("__TTS__", URLEncoder.encode(URLEncoder.encode(text, "UTF-8").replace("+", "%20"))));
+            URL url_api = new URL(url.replace("__TTS__", URLEncoder.encode(URLEncoder.encode(text.replaceAll("\\.*$", "."), "UTF-8").replace("+", "%20"))));
 
             con = (HttpURLConnection) url_api.openConnection();
 

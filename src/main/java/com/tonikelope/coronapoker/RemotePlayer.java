@@ -86,7 +86,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private final JLabel sec_pot_win_label = new JLabel();
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
 
-    public void refreshNotifyChatLabelZoom() {
+    public void refreshNotifyChatLabel() {
 
         if (getChat_notify_label().isVisible()) {
             if (chat_notify_image_url != null) {
@@ -904,7 +904,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         zoomIcons();
                         playingCard1.updateImagePreloadCache();
                         playingCard2.updateImagePreloadCache();
-                        refreshNotifyChatLabelZoom();
+                        refreshNotifyChatLabel();
 
                     }
                 });

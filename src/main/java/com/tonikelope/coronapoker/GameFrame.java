@@ -684,6 +684,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         for (RemotePlayer jugador : players) {
 
             jugador.refreshSecPotLabel();
+            jugador.refreshNotifyChatLabel();
         }
     }
 

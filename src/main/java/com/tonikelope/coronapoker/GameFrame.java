@@ -1385,6 +1385,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             public void run() {
 
                 tapete.getCommunityCards().getBet_label().setVisible(false);
+                tapete.getCommunityCards().getBet_label().revalidate();
+                tapete.getCommunityCards().getBet_label().repaint();
             }
         });
 

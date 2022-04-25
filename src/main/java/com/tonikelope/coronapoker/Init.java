@@ -223,7 +223,7 @@ public class Init extends javax.swing.JFrame {
 
         update_button.setIcon(new ImageIcon(getClass().getResource("/images/update.png")));
 
-        update_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/gears.gif")).getImage().getScaledInstance(64, 64, Image.SCALE_DEFAULT)));
+        update_label.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 

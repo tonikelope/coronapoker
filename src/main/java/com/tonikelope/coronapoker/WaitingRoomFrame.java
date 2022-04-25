@@ -2008,6 +2008,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                     setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                                                                     sound_icon.setVisible(false);
                                                                     status.setText(Translator.translate("Inicializando timba..."));
+                                                                    status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
                                                                     barra.setVisible(true);
 
                                                                 }
@@ -3534,6 +3535,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 this.sound_icon.setVisible(false);
                 this.status.setText(Translator.translate("Inicializando timba..."));
                 this.barra.setVisible(true);
+                status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
 
                 Helpers.threadRun(new Runnable() {
                     public void run() {

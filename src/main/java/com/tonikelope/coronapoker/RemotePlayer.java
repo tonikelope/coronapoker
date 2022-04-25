@@ -81,6 +81,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer iwtsth_blink_timer = null;
     private volatile boolean notify_blocked = false;
     private volatile URL chat_notify_image_url = null;
+    private volatile Long chat_notify_thread = null;
     private final Object zoom_lock = new Object();
     private final JLabel chat_notify_label = new JLabel();
     private final JLabel chip_label = new JLabel();
@@ -88,6 +89,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
 
     public void refreshNotifyChatLabel() {
+
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
@@ -165,16 +167,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 int timeout = (isgif = (gif_l != -1 || Helpers.isImageGIF(new URL(url)))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
 
-                synchronized (getChat_notify_label()) {
-
-                    getChat_notify_label().notifyAll();
-                }
-
                 Helpers.threadRun(new Runnable() {
                     @Override
                     public void run() {
 
+                        chat_notify_thread = Thread.currentThread().getId();
+
                         synchronized (getChat_notify_label()) {
+
+                            getChat_notify_label().notifyAll();
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
@@ -235,6 +236,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
+                        }
+
+                        if (Thread.currentThread().getId() == chat_notify_thread) {
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
                                 public void run() {

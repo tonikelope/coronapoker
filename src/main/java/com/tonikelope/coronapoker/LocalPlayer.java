@@ -25,6 +25,7 @@ import java.awt.Image;
 import java.awt.event.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -105,15 +106,27 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final JLabel sec_pot_win_label = new JLabel();
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
 
-    public void refreshNotifyChatLabelZoom() {
+    public void refreshNotifyChatLabel() {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                if (getChat_notify_label().isVisible()) {
 
-        if (getChat_notify_label().isVisible()) {
-            if (chat_notify_image_url != null) {
-                setNotifyImageChatLabel(chat_notify_image_url);
-            } else {
-                setNotifyTTSChatLabel();
+                    Helpers.threadRun(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            if (chat_notify_image_url != null) {
+                                setNotifyImageChatLabel(chat_notify_image_url);
+                            } else {
+                                setNotifyTTSChatLabel();
+                            }
+                        }
+                    });
+
+                }
             }
-        }
+        });
 
     }
 
@@ -121,22 +134,22 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         chat_notify_image_url = null;
 
-        int sound_icon_size = Math.round(getPlayingCard1().getHeight() / 2);
-
-        int pos_x = panel_cartas.getWidth() - sound_icon_size;
-
-        int pos_y = Math.round(getPlayingCard1().getHeight() / 2);
-
         synchronized (getChat_notify_label()) {
 
             getChat_notify_label().notifyAll();
         }
 
-        Helpers.setScaledIconLabel(getChat_notify_label(), getClass().getResource("/images/talk.png"), sound_icon_size, sound_icon_size);
-
-        Helpers.GUIRunAndWait(new Runnable() {
+        Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
+
+                int sound_icon_size = Math.round(getPlayingCard1().getHeight() / 2);
+
+                int pos_x = panel_cartas.getWidth() - sound_icon_size;
+
+                int pos_y = Math.round(getPlayingCard1().getHeight() / 2);
+
+                getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size, sound_icon_size, Image.SCALE_SMOOTH)));
 
                 getChat_notify_label().setSize(sound_icon_size, sound_icon_size);
 
@@ -162,37 +175,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             String url = chat_notify_image_url.toString();
 
+            final boolean isgif;
+
             int gif_l = ChatImageDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageDialog.GIF_CACHE.get(url)[1] : -1;
 
-            ImageIcon image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
-
-            int max_width = panel_cartas.getWidth();
-
-            int max_height = Math.round(getPlayingCard1().getHeight() / 2);
-
-            if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
-
-                int new_height = max_height;
-
-                int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
-
-                if (new_width > max_width) {
-
-                    new_height = (int) Math.round((new_height * max_width) / new_width);
-
-                    new_width = max_width;
-                }
-
-                image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, Helpers.isImageGIF(new URL(url)) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-            }
-
-            int timeout = (gif_l != -1 || Helpers.isImageGIF(new URL(url))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
-
-            int pos_x = panel_cartas.getWidth() - image.getIconWidth();
-
-            int pos_y = Math.round(getPlayingCard1().getHeight() / 2);
-
-            final ImageIcon fimage = image;
+            int timeout = (isgif = (gif_l != -1 || Helpers.isImageGIF(new URL(url)))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
 
             synchronized (getChat_notify_label()) {
 
@@ -208,21 +195,52 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         Helpers.GUIRunAndWait(new Runnable() {
                             @Override
                             public void run() {
-                                getChat_notify_label().setIcon(fimage);
 
-                                getChat_notify_label().setSize(fimage.getIconWidth(), fimage.getIconHeight());
+                                try {
+                                    ImageIcon image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
 
-                                getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+                                    int max_width = panel_cartas.getWidth();
 
-                                getChat_notify_label().setOpaque(false);
+                                    int max_height = Math.round(getPlayingCard1().getHeight() / 2);
 
-                                getChat_notify_label().revalidate();
+                                    if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
 
-                                getChat_notify_label().repaint();
+                                        int new_height = max_height;
 
-                                getChat_notify_label().setLocation(pos_x, pos_y);
+                                        int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
 
-                                getChat_notify_label().setVisible(true);
+                                        if (new_width > max_width) {
+
+                                            new_height = (int) Math.round((new_height * max_width) / new_width);
+
+                                            new_width = max_width;
+                                        }
+
+                                        image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                    }
+
+                                    int pos_x = panel_cartas.getWidth() - image.getIconWidth();
+
+                                    int pos_y = Math.round(getPlayingCard1().getHeight() / 2);
+
+                                    getChat_notify_label().setIcon(image);
+
+                                    getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
+
+                                    getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+
+                                    getChat_notify_label().setOpaque(false);
+
+                                    getChat_notify_label().revalidate();
+
+                                    getChat_notify_label().repaint();
+
+                                    getChat_notify_label().setLocation(pos_x, pos_y);
+
+                                    getChat_notify_label().setVisible(true);
+                                } catch (MalformedURLException ex) {
+                                    Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                                }
 
                             }
                         });
@@ -811,7 +829,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         zoomIcons();
                         playingCard1.updateImagePreloadCache();
                         playingCard2.updateImagePreloadCache();
-                        refreshNotifyChatLabelZoom();
+                        refreshNotifyChatLabel();
 
                     }
                 });

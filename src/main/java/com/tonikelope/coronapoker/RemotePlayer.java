@@ -113,49 +113,40 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             getChat_notify_label().notifyAll();
         }
 
-        Helpers.threadRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
 
-                synchronized (getChat_notify_label()) {
+                getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size, sound_icon_size, Image.SCALE_SMOOTH)));
 
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        @Override
-                        public void run() {
+                getChat_notify_label().setSize(sound_icon_size, sound_icon_size);
 
-                            getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size, sound_icon_size, Image.SCALE_SMOOTH)));
+                getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
 
-                            getChat_notify_label().setSize(sound_icon_size, sound_icon_size);
+                getChat_notify_label().setOpaque(false);
 
-                            getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+                if (getChat_notify_label().isVisible()) {
 
-                            getChat_notify_label().setOpaque(false);
+                    getChat_notify_label().setVisible(false);
 
-                            if (getChat_notify_label().isVisible()) {
+                    getChat_notify_label().revalidate();
 
-                                getChat_notify_label().setVisible(false);
+                    getChat_notify_label().repaint();
 
-                                getChat_notify_label().revalidate();
+                    getChat_notify_label().setLocation(pos_x, pos_y);
 
-                                getChat_notify_label().repaint();
+                    getChat_notify_label().setVisible(true);
 
-                                getChat_notify_label().setLocation(pos_x, pos_y);
+                } else {
+                    getChat_notify_label().revalidate();
 
-                                getChat_notify_label().setVisible(true);
+                    getChat_notify_label().repaint();
 
-                            } else {
-                                getChat_notify_label().revalidate();
-
-                                getChat_notify_label().repaint();
-
-                                getChat_notify_label().setLocation(pos_x, pos_y);
-                            }
-                        }
-                    });
-
+                    getChat_notify_label().setLocation(pos_x, pos_y);
                 }
             }
         });
+
     }
 
     @Override

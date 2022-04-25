@@ -791,7 +791,9 @@ public class Audio {
                             public void run() {
 
                                 GameFrame.getInstance().getSonidos_menu().setEnabled(true);
+
                                 chat_notify_label.setVisible(false);
+
                             }
                         });
 

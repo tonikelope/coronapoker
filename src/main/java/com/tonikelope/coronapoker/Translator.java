@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Regla IWTSTH", "IWTSTH rule"},
             {"NO HAY TIMBAS QUE SE PUEDAN CONTINUAR", "THERE ARE NO GAMES THAT CAN BE CONTINUED"},
             {"LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO", "THE CONFIGURATION OF THE BLINDS HAS BEEN UPDATED"},
             {"ACTUALIZAR CIEGAS", "UPDATE BLINDS"},

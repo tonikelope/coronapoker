@@ -1782,6 +1782,27 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                             break;
 
+                                                        case "IWTSTHRULE":
+                                                            Helpers.threadRun(new Runnable() {
+                                                                public void run() {
+                                                                    synchronized (GameFrame.getInstance().getCrupier().getIwtsth_lock()) {
+
+                                                                        GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
+
+                                                                        Helpers.GUIRun(new Runnable() {
+                                                                            public void run() {
+                                                                                GameFrame.getInstance().getIwtsth_rule_menu().setSelected(GameFrame.IWTSTH_RULE);
+                                                                                Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
+                                                                            }
+                                                                        });
+
+                                                                    }
+
+                                                                }
+                                                            });
+
+                                                            break;
+
                                                         case "TIMEOUT":
 
                                                             Player jugador = GameFrame.getInstance().getCrupier().getNick2player().get(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));

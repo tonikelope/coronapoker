@@ -2512,6 +2512,7 @@ public class Helpers {
         public static JCheckBoxMenuItem SONIDOS_TTS_MENU;
         public static JCheckBoxMenuItem RELOJ_MENU;
         public static JCheckBoxMenuItem REBUY_NOW_MENU;
+        public static JCheckBoxMenuItem IWTSTH_RULE_MENU;
         public static JCheckBoxMenuItem COMPACTA_MENU;
         public static JCheckBoxMenuItem CONFIRM_MENU;
         public static JCheckBoxMenuItem ANIMACION_MENU;
@@ -2770,6 +2771,13 @@ public class Helpers {
                     }
                 };
 
+                Action iwtsthRuleAction = new AbstractAction("Regla IWTSTH") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getIwtsth_rule_menu().doClick();
+                    }
+                };
+
                 Action confirmAction = new AbstractAction("Confirmar todas las acciones") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -2906,6 +2914,13 @@ public class Helpers {
                 REBUY_NOW_MENU.setSelected(false);
                 REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
                 popup.add(REBUY_NOW_MENU);
+
+                popup.addSeparator();
+
+                IWTSTH_RULE_MENU = new JCheckBoxMenuItem(iwtsthRuleAction);
+                IWTSTH_RULE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/eyes.png")));
+                IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
+                popup.add(IWTSTH_RULE_MENU);
 
                 popup.addSeparator();
 

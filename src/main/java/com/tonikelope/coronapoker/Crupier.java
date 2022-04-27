@@ -2127,6 +2127,10 @@ public class Crupier implements Runnable {
 
     }
 
+    public Object getIwtsth_lock() {
+        return iwtsth_lock;
+    }
+
     public void IWTSTH_HANDLER(String iwtsther) {
 
         iwtsthing = true;
@@ -6509,7 +6513,7 @@ public class Crupier implements Runnable {
 
     public void startIWTSTHPlayersBlinking() {
 
-        if (IWTSTH_BLINKING && isIWTSTH4LocalPlayerAuthorized()) {
+        if (GameFrame.IWTSTH_RULE && IWTSTH_BLINKING && isIWTSTH4LocalPlayerAuthorized()) {
 
             Helpers.GUIRun(new Runnable() {
                 @Override

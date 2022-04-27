@@ -130,6 +130,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
     public static volatile boolean REBUY = true;
     public static volatile int MANOS = -1;
+    public static boolean IWTSTH_RULE = true;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
     public static volatile boolean SONIDOS_TTS = true;
@@ -198,6 +199,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean retry = false;
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
+
+    public JCheckBoxMenuItem getIwtsth_rule_menu() {
+        return iwtsth_rule_menu;
+    }
 
     public InGameNotifyDialog getNotify_dialog() {
         return notify_dialog;
@@ -1602,6 +1607,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
 
+        iwtsth_rule_menu.setSelected(GameFrame.IWTSTH_RULE);
+
         last_hand_menu.setSelected(false);
 
         rebuy_now_menu.setSelected(false);
@@ -1722,6 +1729,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.LAST_HAND_MENU.setEnabled(false);
             max_hands_menu.setEnabled(false);
             Helpers.TapetePopupMenu.MAX_HANDS_MENU.setEnabled(false);
+            iwtsth_rule_menu.setEnabled(false);
+            Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(false);
         }
 
         if (!menu_cinematicas.isEnabled()) {
@@ -2288,6 +2297,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         menu_tapete_madera = new javax.swing.JRadioButtonMenuItem();
         jSeparator4 = new javax.swing.JPopupMenu.Separator();
         rebuy_now_menu = new javax.swing.JCheckBoxMenuItem();
+        jSeparator2 = new javax.swing.JPopupMenu.Separator();
+        iwtsth_rule_menu = new javax.swing.JCheckBoxMenuItem();
         help_menu = new javax.swing.JMenu();
         shortcuts_menu = new javax.swing.JMenuItem();
         robert_rules_menu = new javax.swing.JMenuItem();
@@ -2659,6 +2670,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
         opciones_menu.add(rebuy_now_menu);
+        opciones_menu.add(jSeparator2);
+
+        iwtsth_rule_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        iwtsth_rule_menu.setSelected(true);
+        iwtsth_rule_menu.setText("Regla IWTSTH");
+        iwtsth_rule_menu.setDoubleBuffered(true);
+        iwtsth_rule_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png"))); // NOI18N
+        iwtsth_rule_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                iwtsth_rule_menuActionPerformed(evt);
+            }
+        });
+        opciones_menu.add(iwtsth_rule_menu);
 
         menu_bar.add(opciones_menu);
 
@@ -4003,6 +4027,41 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }//GEN-LAST:event_menu_tapete_negroActionPerformed
 
+    private void iwtsth_rule_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_iwtsth_rule_menuActionPerformed
+        // TODO add your handling code here:
+
+        iwtsth_rule_menu.setEnabled(false);
+
+        Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(false);
+
+        Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(iwtsth_rule_menu.isSelected());
+
+        GameFrame.IWTSTH_RULE = iwtsth_rule_menu.isSelected();
+
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+
+                synchronized (crupier.getIwtsth_lock()) {
+
+                    getCrupier().broadcastGAMECommandFromServer("IWTSTHRULE#" + (GameFrame.IWTSTH_RULE ? "1" : "0"), null);
+
+                    if (isPartida_local()) {
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+
+                                iwtsth_rule_menu.setEnabled(true);
+
+                                Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(true);
+                            }
+                        });
+                    }
+
+                }
+
+            }
+        });
+    }//GEN-LAST:event_iwtsth_rule_menuActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
@@ -4017,7 +4076,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JMenu file_menu;
     private javax.swing.JMenuItem full_screen_menu;
     private javax.swing.JMenu help_menu;
+    private javax.swing.JCheckBoxMenuItem iwtsth_rule_menu;
     private javax.swing.JPopupMenu.Separator jSeparator1;
+    private javax.swing.JPopupMenu.Separator jSeparator2;
     private javax.swing.JPopupMenu.Separator jSeparator3;
     private javax.swing.JPopupMenu.Separator jSeparator4;
     private javax.swing.JPopupMenu.Separator jSeparator5;

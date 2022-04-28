@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?", "CANNOT CHECK FOR NEW VERSION. Shall we try again?"},
             {"Regla IWTSTH", "IWTSTH rule"},
             {"NO HAY TIMBAS QUE SE PUEDAN CONTINUAR", "THERE ARE NO GAMES THAT CAN BE CONTINUED"},
             {"LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO", "THE CONFIGURATION OF THE BLINDS HAS BEEN UPDATED"},
@@ -57,7 +58,7 @@ public class Translator {
             {"SEGUIR JUGANDO", "CONTINUE PLAYING"},
             {"SALIR DE LA TIMBA", "EXIT GAME"},
             {"¡CUIDADO! ERES EL ANFITRIÓN Y SI SALES SE TERMINARÁ LA TIMBA.", "WARNING! YOU'RE THE HOST AND IF YOU COME OUT THE GAME WILL BE OVER"},
-            {"Si sales no podrás volver a entrar.", "If you get out of the game you won't be able to get back in."},
+            {"Si sales no podrás volver a entrar.", "If you leave you will not be able to rejoin."},
             {"[ ESPACIO ] = PASAR / IR / MOSTRAR", "[ SPACE ] = CHECK / CALL / SHOW CARDS"},
             {"[ ARRIBA/ABAJO ] -> [ ENTER ] = SUBIR/BAJAR APUESTA -> OK", "[ UP/DOWN ] -> [ ENTER ] = RAISE/LOWER BET -> OK"},
             {"[ ESCAPE ] = NO IR", "[ ESCAPE ] = FOLD"},

@@ -721,56 +721,45 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
                         if (HISTORIAL.contains(url)) {
 
+                            synchronized (LOAD_IMAGES_LOCK) {
+                                THIS.exit = true;
+                            }
+
                             Helpers.GUIRun(new Runnable() {
 
                                 public void run() {
 
-                                    WaitingRoomFrame.getInstance().chatHTMLAppend(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
+                                    THIS.dispose();
 
-                                    Helpers.threadRun(new Runnable() {
+                                    if (WaitingRoomFrame.getInstance().isVisible()) {
 
-                                        public void run() {
-
-                                            synchronized (LOAD_IMAGES_LOCK) {
-                                                THIS.exit = true;
-                                            }
-
-                                            Helpers.GUIRun(new Runnable() {
-
-                                                public void run() {
-
-                                                    THIS.dispose();
-
-                                                    if (WaitingRoomFrame.getInstance().isVisible()) {
-
-                                                        if (WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()) {
-                                                            WaitingRoomFrame.getInstance().getEmoji_button().doClick();
-                                                        }
-
-                                                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-                                                    }
-
-                                                }
-                                            });
-
+                                        if (WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()) {
+                                            WaitingRoomFrame.getInstance().getEmoji_button().doClick();
                                         }
-                                    });
+
+                                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+
+                                    } else {
+
+                                        try {
+                                            GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(url)});
+                                        } catch (MalformedURLException ex) {
+                                            Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+
+                                        synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
+                                            GameFrame.NOTIFY_CHAT_QUEUE.notifyAll();
+                                        }
+                                    }
+
+                                    WaitingRoomFrame.getInstance().chatHTMLAppend(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
 
                                 }
                             });
 
                             WaitingRoomFrame.getInstance().enviarMensajeChat(WaitingRoomFrame.getInstance().getLocal_nick(), url.replaceAll("^http", "img"));
 
-                            if (!WaitingRoomFrame.getInstance().isVisible()) {
-                                try {
-                                    GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(url)});
-                                } catch (MalformedURLException ex) {
-                                    Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                                synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
-                                    GameFrame.NOTIFY_CHAT_QUEUE.notifyAll();
-                                }
-                            }
+                            updateHistorialEnviados(url);
 
                             ANTI_FLOOD_WAIT = ANTI_FLOOD_IMAGE;
 
@@ -802,8 +791,6 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                     }
                                 }
                             });
-
-                            updateHistorialEnviados(url);
 
                         } else {
 

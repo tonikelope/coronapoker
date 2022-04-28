@@ -48,7 +48,7 @@ import org.apache.commons.codec.binary.Base64;
 
 /**
  *
- * @author tonikelope This croupier does too many things, but at least he does
+ * @author tonikelope This croupier does too many things, but at least it does
  * them well.
  */
 public class Crupier implements Runnable {
@@ -63,7 +63,8 @@ public class Crupier implements Runnable {
                 {"wallstreet.gif"},
                 {"casinoroyale.gif"},
                 {"joker.gif"},
-                {"terminator2.gif"}
+                {"terminator2.gif"},
+                {"rubio.gif"}
             });
 
     public static volatile Map.Entry<String, Object[][]> ALLIN_CINEMATICS_MOD = null;

@@ -1091,56 +1091,58 @@ public class Init extends javax.swing.JFrame {
                     }
                 });
 
-                NEW_VERSION = Helpers.checkNewVersion(AboutDialog.UPDATE_URL);
+                do {
 
-                if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
+                    NEW_VERSION = Helpers.checkNewVersion(AboutDialog.UPDATE_URL);
 
-                    if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?") == 0) {
+                    if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
+
+                        if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?") == 0) {
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    VENTANA_INICIO.update_label.setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
+                                }
+                            });
+
+                            try {
+
+                                String current_jar_path = Helpers.getCurrentJarPath();
+
+                                String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
+
+                                String updater_jar = downloadUpdater();
+
+                                if (updater_jar != null) {
+
+                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, Translator.translate("ACTUALIZANDO >>> ") + NEW_VERSION};
+
+                                    Runtime.getRuntime().exec(cmdArr);
+
+                                    System.exit(0);
+                                } else {
+                                    Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)");
+                                }
+
+                            } catch (Exception ex) {
+                                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                                Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)");
+                            }
+                        }
 
                         Helpers.GUIRun(new Runnable() {
                             @Override
                             public void run() {
 
-                                VENTANA_INICIO.update_label.setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
+                                VENTANA_INICIO.update_button.setVisible(true);
                             }
                         });
 
-                        try {
-
-                            String current_jar_path = Helpers.getCurrentJarPath();
-
-                            String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
-
-                            String updater_jar = downloadUpdater();
-
-                            if (updater_jar != null) {
-
-                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, Translator.translate("ACTUALIZANDO >>> ") + NEW_VERSION};
-
-                                Runtime.getRuntime().exec(cmdArr);
-
-                                System.exit(0);
-                            } else {
-                                Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)");
-                            }
-
-                        } catch (Exception ex) {
-                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                            Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)");
-                        }
                     }
 
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            VENTANA_INICIO.update_button.setVisible(true);
-                        }
-                    });
-
-                } else if (NEW_VERSION == null) {
-                    Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿TIENES CONEXIÓN A INTERNET?");
-                }
+                } while (NEW_VERSION == null && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?") == 0);
 
                 Helpers.GUIRun(new Runnable() {
                     @Override

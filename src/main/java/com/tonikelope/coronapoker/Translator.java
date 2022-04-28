@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Imágenes del chat en el juego", "In-game chat images"},
             {"NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?", "CANNOT CHECK FOR NEW VERSION. Shall we try again?"},
             {"Regla IWTSTH", "IWTSTH rule"},
             {"NO HAY TIMBAS QUE SE PUEDAN CONTINUAR", "THERE ARE NO GAMES THAT CAN BE CONTINUED"},

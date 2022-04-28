@@ -2516,6 +2516,7 @@ public class Helpers {
         public static JCheckBoxMenuItem COMPACTA_MENU;
         public static JCheckBoxMenuItem CONFIRM_MENU;
         public static JCheckBoxMenuItem ANIMACION_MENU;
+        public static JCheckBoxMenuItem CHAT_IMAGE_MENU;
         public static JCheckBoxMenuItem CINEMATICAS_MENU;
         public static JCheckBoxMenuItem AUTO_ACTION_MENU;
         public static JCheckBoxMenuItem LAST_HAND_MENU;
@@ -2799,6 +2800,13 @@ public class Helpers {
                     }
                 };
 
+                Action chatimageAction = new AbstractAction("Imágenes del chat en el juego") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getChat_image_menu().doClick();
+                    }
+                };
+
                 Action autoactAction = new AbstractAction("Botones AUTO") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -2889,10 +2897,16 @@ public class Helpers {
                 CINEMATICAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/video.png")));
                 CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
                 popup.add(CINEMATICAS_MENU);
+
                 ANIMACION_MENU = new JCheckBoxMenuItem(animacionAction);
                 ANIMACION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
                 ANIMACION_MENU.setSelected(GameFrame.ANIMACION_REPARTIR);
                 popup.add(ANIMACION_MENU);
+
+                CHAT_IMAGE_MENU = new JCheckBoxMenuItem(chatimageAction);
+                CHAT_IMAGE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat_image.png")));
+                CHAT_IMAGE_MENU.setSelected(GameFrame.CHAT_IMAGES_INGAME);
+                popup.add(CHAT_IMAGE_MENU);
 
                 popup.addSeparator();
 

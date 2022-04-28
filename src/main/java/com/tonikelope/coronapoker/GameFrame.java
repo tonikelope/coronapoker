@@ -145,6 +145,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
+    public static volatile boolean CHAT_IMAGES_INGAME = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_images_ingame", "true"));
     public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "false"));
     public static volatile boolean LOCAL_POSITION_CHIP = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("local_pos_chip", "true"));
     public static volatile String SERVER_HISTORY = Helpers.PROPERTIES.getProperty("server_history", "");
@@ -199,6 +200,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean retry = false;
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
+
+    public JCheckBoxMenuItem getChat_image_menu() {
+        return chat_image_menu;
+    }
 
     public JCheckBoxMenuItem getIwtsth_rule_menu() {
         return iwtsth_rule_menu;
@@ -942,9 +947,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
 
-                ChatImageDialog chat_image_dialog = new ChatImageDialog(getFrame(), true, getFrame().getHeight());
-                chat_image_dialog.setLocation((int) (getFrame().getLocation().getX() + getFrame().getWidth()) - chat_image_dialog.getWidth(), (int) getFrame().getLocation().getY());
-                chat_image_dialog.setVisible(true);
+                if (GameFrame.CHAT_IMAGES_INGAME) {
+
+                    ChatImageDialog chat_image_dialog = new ChatImageDialog(getFrame(), true, getFrame().getHeight());
+                    chat_image_dialog.setLocation((int) (getFrame().getLocation().getX() + getFrame().getWidth()) - chat_image_dialog.getWidth(), (int) getFrame().getLocation().getY());
+                    chat_image_dialog.setVisible(true);
+                }
 
             }
         });
@@ -1613,6 +1621,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         rebuy_now_menu.setSelected(false);
 
+        chat_image_menu.setSelected(GameFrame.CHAT_IMAGES_INGAME);
+
         animacion_menu.setSelected(GameFrame.ANIMACION_REPARTIR);
 
         confirmar_menu.setSelected(GameFrame.CONFIRM_ACTIONS);
@@ -2185,7 +2195,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         if (jugador != null) {
                             if (tts[1] instanceof URL) {
 
-                                jugador.setNotifyImageChatLabel((URL) tts[1]);
+                                if (GameFrame.CHAT_IMAGES_INGAME) {
+                                    jugador.setNotifyImageChatLabel((URL) tts[1]);
+                                }
 
                             } else {
 
@@ -2285,6 +2297,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         jSeparator7 = new javax.swing.JPopupMenu.Separator();
         menu_cinematicas = new javax.swing.JCheckBoxMenuItem();
         animacion_menu = new javax.swing.JCheckBoxMenuItem();
+        chat_image_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator8 = new javax.swing.JPopupMenu.Separator();
         time_menu = new javax.swing.JCheckBoxMenuItem();
         decks_separator = new javax.swing.JPopupMenu.Separator();
@@ -2569,6 +2582,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
         opciones_menu.add(animacion_menu);
+
+        chat_image_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        chat_image_menu.setSelected(true);
+        chat_image_menu.setText("Imágenes del chat en el juego");
+        chat_image_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/chat_image.png"))); // NOI18N
+        chat_image_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                chat_image_menuActionPerformed(evt);
+            }
+        });
+        opciones_menu.add(chat_image_menu);
 
         jSeparator8.setDoubleBuffered(true);
         opciones_menu.add(jSeparator8);
@@ -4062,12 +4086,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
     }//GEN-LAST:event_iwtsth_rule_menuActionPerformed
 
+    private void chat_image_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_image_menuActionPerformed
+        // TODO add your handling code here:
+        GameFrame.CHAT_IMAGES_INGAME = chat_image_menu.isSelected();
+
+        Helpers.TapetePopupMenu.CHAT_IMAGE_MENU.setSelected(chat_image_menu.isSelected());
+
+        Helpers.PROPERTIES.setProperty("chat_images_ingame", String.valueOf(GameFrame.CHAT_IMAGES_INGAME));
+
+        Helpers.savePropertiesFile();
+    }//GEN-LAST:event_chat_image_menuActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
     private javax.swing.JCheckBoxMenuItem ascensor_menu;
     private javax.swing.JCheckBoxMenuItem auto_action_menu;
     private javax.swing.JCheckBoxMenuItem auto_fit_zoom_menu;
+    private javax.swing.JCheckBoxMenuItem chat_image_menu;
     private javax.swing.JMenuItem chat_menu;
     private javax.swing.JCheckBoxMenuItem compact_menu;
     private javax.swing.JCheckBoxMenuItem confirmar_menu;

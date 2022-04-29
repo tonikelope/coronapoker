@@ -2504,6 +2504,7 @@ public class Helpers {
 
         public static JMenu BARAJAS_MENU = null;
         public static JMenu TAPETES_MENU = null;
+        public static JMenu ZOOM_MENU = null;
         public static JMenuItem MAX_HANDS_MENU;
         public static JCheckBoxMenuItem FULLSCREEN_MENU;
         public static JCheckBoxMenuItem SONIDOS_MENU;
@@ -2832,28 +2833,30 @@ public class Helpers {
                 FULLSCREEN_MENU.setEnabled(true);
                 popup.add(FULLSCREEN_MENU);
 
-                popup.addSeparator();
-
-                JMenuItem zoom_in = new JMenuItem(zoominAction);
-                zoom_in.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_in.png")));
-                popup.add(zoom_in);
-                JMenuItem zoom_out = new JMenuItem(zoomoutAction);
-                zoom_out.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_out.png")));
-                popup.add(zoom_out);
-                JMenuItem zoom_reset = new JMenuItem(zoomresetAction);
-                zoom_reset.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_reset.png")));
-                popup.add(zoom_reset);
-                AUTO_ZOOM_MENU = new JCheckBoxMenuItem(zoomautoAction);
-                AUTO_ZOOM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_auto.png")));
-                AUTO_ZOOM_MENU.setSelected(GameFrame.AUTO_ZOOM);
-                popup.add(AUTO_ZOOM_MENU);
-
-                popup.addSeparator();
-
                 COMPACTA_MENU = new JCheckBoxMenuItem(compactAction);
                 COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA > 0);
                 COMPACTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tiny.png")));
+
                 popup.add(COMPACTA_MENU);
+
+                ZOOM_MENU = new JMenu("ZOOM");
+                ZOOM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom.png")));
+
+                JMenuItem zoom_in = new JMenuItem(zoominAction);
+                zoom_in.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_in.png")));
+                ZOOM_MENU.add(zoom_in);
+                JMenuItem zoom_out = new JMenuItem(zoomoutAction);
+                zoom_out.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_out.png")));
+                ZOOM_MENU.add(zoom_out);
+                JMenuItem zoom_reset = new JMenuItem(zoomresetAction);
+                zoom_reset.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_reset.png")));
+                ZOOM_MENU.add(zoom_reset);
+                AUTO_ZOOM_MENU = new JCheckBoxMenuItem(zoomautoAction);
+                AUTO_ZOOM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_auto.png")));
+                AUTO_ZOOM_MENU.setSelected(GameFrame.AUTO_ZOOM);
+                ZOOM_MENU.add(AUTO_ZOOM_MENU);
+
+                popup.add(ZOOM_MENU);
 
                 popup.addSeparator();
 

@@ -2618,37 +2618,43 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     public void refreshChatPanel() {
 
-        String status_text = status.getText();
-
-        Helpers.GUIRun(new Runnable() {
-
-            public void run() {
-
-                if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                    status.setText(Translator.translate("Refrescando contenido del chat..."));
-                }
-
-                chat_box_panel.setVisible(false);
-            }
-        });
-
-        final String html = "<html><body style='background-image: url(" + background_chat_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
-
-        Helpers.GUIRun(new Runnable() {
+        Helpers.threadRun(new Runnable() {
+            String status_text;
 
             public void run() {
-                CoronaHTMLEditorKit.USE_GIF_CACHE = true;
-                chat.setText(html);
-                CoronaHTMLEditorKit.USE_GIF_CACHE = false;
-                chat_box_panel.setVisible(true);
-                chat.revalidate();
-                chat.repaint();
-                chat_scroll.revalidate();
-                chat_scroll.repaint();
+                status_text = status.getText();
 
-                if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                    status.setText(status_text);
-                }
+                Helpers.GUIRun(new Runnable() {
+
+                    public void run() {
+
+                        if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                            status.setText(Translator.translate("Refrescando contenido del chat..."));
+                        }
+
+                        chat_box_panel.setVisible(false);
+                    }
+                });
+
+                final String html = "<html><body style='background-image: url(" + background_chat_src + ")'>" + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
+
+                Helpers.GUIRun(new Runnable() {
+
+                    public void run() {
+                        CoronaHTMLEditorKit.USE_GIF_CACHE = true;
+                        chat.setText(html);
+                        CoronaHTMLEditorKit.USE_GIF_CACHE = false;
+                        chat_box_panel.setVisible(true);
+                        chat.revalidate();
+                        chat.repaint();
+                        chat_scroll.revalidate();
+                        chat_scroll.repaint();
+
+                        if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                            status.setText(status_text);
+                        }
+                    }
+                });
             }
         });
 

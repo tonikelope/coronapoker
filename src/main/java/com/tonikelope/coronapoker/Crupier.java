@@ -2367,6 +2367,10 @@ public class Crupier implements Runnable {
         iwtsthing = false;
 
         iwtsthing_request = false;
+
+        synchronized (iwtsth_lock) {
+            iwtsth_lock.notifyAll();
+        }
     }
 
     public boolean isIwtsthing_request() {
@@ -7177,6 +7181,16 @@ public class Crupier implements Runnable {
 
                             this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? GameFrame.PAUSA_ENTRE_MANOS : Math.round(1.5f * GameFrame.PAUSA_ENTRE_MANOS));
 
+                        }
+
+                        while (this.iwtsthing) {
+                            synchronized (iwtsth_lock) {
+                                try {
+                                    iwtsth_lock.wait(1000);
+                                } catch (InterruptedException ex) {
+                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            }
                         }
 
                         synchronized (lock_mostrar) {

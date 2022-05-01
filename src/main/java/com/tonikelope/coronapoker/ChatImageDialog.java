@@ -145,11 +145,15 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                     label.setBorder(new EmptyBorder(10, 0, 10, 0));
                                     label.setCursor(new Cursor(Cursor.HAND_CURSOR));
                                     label.setIcon((STATIC_IMAGE_CACHE.containsKey(h) || GIF_CACHE.containsKey(h)) ? getImageFromCache(h) : new ImageIcon(getClass().getResource("/images/loading.gif")));
+                                    label.revalidate();
+                                    label.repaint();
 
                                     label.addFocusListener(new FocusListener() {
                                         @Override
                                         public void focusGained(FocusEvent fe) {
                                             label.setBorder(new LineBorder(Color.YELLOW, 5));
+                                            label.revalidate();
+                                            label.repaint();
                                             THIS.historial_panel.scrollRectToVisible(label.getBounds());
                                         }
 
@@ -366,6 +370,8 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                     public void run() {
 
                                         label.setIcon(image);
+                                        label.revalidate();
+                                        label.repaint();
                                     }
                                 });
 

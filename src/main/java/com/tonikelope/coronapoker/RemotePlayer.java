@@ -2102,6 +2102,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.spectator_bb = bb;
     }
 
+    public void setReconnectingIcon() {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+                player_action.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/action/timeout.gif")).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_DEFAULT)));
+                revalidate();
+                repaint();
+            }
+        });
+    }
+
     @Override
     public void checkGameOver() {
         if (isActivo() && Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0) {

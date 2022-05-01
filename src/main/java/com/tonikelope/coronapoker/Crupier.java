@@ -189,6 +189,7 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
+    public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
@@ -4278,8 +4279,6 @@ public class Crupier implements Runnable {
 
     private void destaparCartaComunitaria(int fase) {
 
-        Helpers.pausar(1000);
-
         GameFrame.getInstance().checkPause();
 
         switch (fase) {
@@ -4408,7 +4407,6 @@ public class Crupier implements Runnable {
 
             //Destapamos una carta
             destaparCartaComunitaria(fase);
-
         }
 
         sqlUpdateHandPlayers(resisten);
@@ -4827,22 +4825,23 @@ public class Crupier implements Runnable {
             actualizarContadoresTapete();
 
             GameFrame.getInstance().hideTapeteApuestas();
-        }
 
-        if (resisten.size() > 1 && puedenApostar(resisten) <= 1) {
+            if (resisten.size() > 1 && puedenApostar(resisten) <= 1) {
 
-            this.destapar_resistencia = true;
+                this.destapar_resistencia = true;
 
-            if (resisten.contains(GameFrame.getInstance().getLocalPlayer())) {
+                if (resisten.contains(GameFrame.getInstance().getLocalPlayer())) {
 
-                GameFrame.getInstance().getLocalPlayer().desactivarControles();
+                    GameFrame.getInstance().getLocalPlayer().desactivarControles();
+                }
+
+                procesarCartasResistencia(resisten, true);
             }
 
-            procesarCartasResistencia(resisten, true);
-        }
+            if (this.fase == Crupier.PREFLOP) {
+                nick2player.get(this.utg_nick).disableUTG();
+            }
 
-        if (this.fase == Crupier.PREFLOP) {
-            nick2player.get(this.utg_nick).disableUTG();
         }
 
         if (isFin_de_la_transmision()) {
@@ -5999,11 +5998,13 @@ public class Crupier implements Runnable {
 
     public void destaparFlop() {
 
+        Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
+
         GameFrame.getInstance().getFlop1().destapar();
 
         GameFrame.getInstance().getFlop1().checkSpecialCardSound();
 
-        Helpers.pausar(1000);
+        Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
 
         GameFrame.getInstance().checkPause();
 
@@ -6011,7 +6012,7 @@ public class Crupier implements Runnable {
 
         GameFrame.getInstance().getFlop2().checkSpecialCardSound();
 
-        Helpers.pausar(1000);
+        Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
 
         GameFrame.getInstance().checkPause();
 
@@ -6032,6 +6033,8 @@ public class Crupier implements Runnable {
 
     public void destaparTurn() {
 
+        Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
+
         GameFrame.getInstance().getTurn().destapar();
 
         GameFrame.getInstance().getTurn().checkSpecialCardSound();
@@ -6040,6 +6043,8 @@ public class Crupier implements Runnable {
     }
 
     public void destaparRiver() {
+
+        Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
 
         GameFrame.getInstance().getRiver().destapar();
 
@@ -7183,6 +7188,10 @@ public class Crupier implements Runnable {
 
                         }
 
+                        synchronized (lock_mostrar) {
+                            this.show_time = false;
+                        }
+
                         while (this.iwtsthing) {
                             synchronized (iwtsth_lock) {
                                 try {
@@ -7191,10 +7200,6 @@ public class Crupier implements Runnable {
                                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                 }
                             }
-                        }
-
-                        synchronized (lock_mostrar) {
-                            this.show_time = false;
                         }
 
                         GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();

@@ -2310,10 +2310,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             if (participantes.containsKey(client_nick)) {
 
-                                if (THIS.isPartida_empezada()) {
-                                    ((RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(client_nick)).setReconnectingIcon();
-                                }
-
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El cliente existe");
 
                                 Mac orig_sha256_HMAC = Mac.getInstance("HmacSHA256");
@@ -2321,6 +2317,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 orig_sha256_HMAC.init(participantes.get(client_nick).getHmac_key_orig());
 
                                 byte[] orig_hmac = orig_sha256_HMAC.doFinal(client_nick.getBytes("UTF-8"));
+
+                                boolean rec_error = true;
 
                                 if (MessageDigest.isEqual(orig_hmac, Base64.decodeBase64(partes[4]))) {
 
@@ -2334,11 +2332,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                         Audio.playWavResource("misc/yahoo.wav");
 
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
+
+                                        rec_error = false;
+
                                     } else {
 
-                                        if (THIS.isPartida_empezada()) {
-                                            GameFrame.getInstance().getCrupier().getNick2player().get(client_nick).setPlayerActionIcon("action/timeout.png");
-                                        }
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR");
 
                                         try {
@@ -2350,10 +2348,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 } else {
 
-                                    if (THIS.isPartida_empezada()) {
-                                        GameFrame.getInstance().getCrupier().getNick2player().get(client_nick).setPlayerActionIcon("action/timeout.png");
-                                    }
-
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR (BAD HMAC)");
 
                                     try {
@@ -2362,11 +2356,17 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     }
                                 }
 
-                            } else {
+                                if (rec_error) {
+                                    Helpers.threadRun(new Runnable() {
+                                        public void run() {
 
-                                if (THIS.isPartida_empezada()) {
-                                    GameFrame.getInstance().getCrupier().getNick2player().get(client_nick).setPlayerActionIcon("action/timeout.png");
+                                            Helpers.mostrarMensajeError(THIS, Translator.translate("ERROR AL INTENTAR RECONECTAR -> ") + client_nick);
+
+                                        }
+                                    });
                                 }
+
+                            } else {
 
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El usuario " + client_nick + " INTENTA RECONECTAR UNA TIMBA ANTERIOR -> DENEGADO");
 

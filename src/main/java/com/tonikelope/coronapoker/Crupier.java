@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import java.awt.Color;
 import java.awt.Image;
@@ -5994,7 +5995,9 @@ public class Crupier implements Runnable {
 
         String baraja = GameFrame.BARAJA;
 
-        if (GameFrame.ANIMACION_CARTAS && getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null) {
+        boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
+
+        if (GameFrame.ANIMACION_CARTAS && ((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
 
             Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA : ((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : PAUSA_DESTAPAR_CARTA));
 
@@ -6004,7 +6007,13 @@ public class Crupier implements Runnable {
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
 
-                        ImageIcon icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
+                        ImageIcon icon;
+
+                        if (baraja_mod) {
+                            icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
+                        } else {
+                            icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
+                        }
 
                         if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
 
@@ -6026,7 +6035,7 @@ public class Crupier implements Runnable {
                     }
                 });
 
-                Helpers.pausar(Helpers.getGIFLength(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")) + 250);
+                Helpers.pausar(Helpers.getGIFLength(baraja_mod ? Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL() : getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")) + 250);
 
                 Helpers.GUIRun(new Runnable() {
                     public void run() {

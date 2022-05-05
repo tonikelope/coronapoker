@@ -140,7 +140,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
     public static volatile int VISTA_COMPACTA = Integer.parseInt(Helpers.isNumeric(Helpers.PROPERTIES.getProperty("vista_compacta", "0")) ? Helpers.PROPERTIES.getProperty("vista_compacta", "0") : "0") % 3;
-    public static volatile boolean ANIMACION_REPARTIR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
+    public static volatile boolean ANIMACION_CARTAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
     public static volatile boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
@@ -665,6 +665,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             });
         }
+
     }
 
     public void vistaCompacta() {
@@ -1625,7 +1626,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         chat_image_menu.setSelected(GameFrame.CHAT_IMAGES_INGAME);
 
-        animacion_menu.setSelected(GameFrame.ANIMACION_REPARTIR);
+        animacion_menu.setSelected(GameFrame.ANIMACION_CARTAS);
 
         confirmar_menu.setSelected(GameFrame.CONFIRM_ACTIONS);
 
@@ -2575,7 +2576,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         animacion_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         animacion_menu.setSelected(true);
-        animacion_menu.setText("Animación al repartir");
+        animacion_menu.setText("Animación de cartas");
         animacion_menu.setDoubleBuffered(true);
         animacion_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/dealer.png"))); // NOI18N
         animacion_menu.addActionListener(new java.awt.event.ActionListener() {
@@ -3249,13 +3250,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void animacion_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_animacion_menuActionPerformed
         // TODO add your handling code here:
 
-        GameFrame.ANIMACION_REPARTIR = this.animacion_menu.isSelected();
+        GameFrame.ANIMACION_CARTAS = this.animacion_menu.isSelected();
 
-        Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(GameFrame.ANIMACION_REPARTIR));
+        Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(GameFrame.ANIMACION_CARTAS));
 
         Helpers.savePropertiesFile();
 
-        Helpers.TapetePopupMenu.ANIMACION_MENU.setSelected(GameFrame.ANIMACION_REPARTIR);
+        Helpers.TapetePopupMenu.ANIMACION_MENU.setSelected(GameFrame.ANIMACION_CARTAS);
     }//GEN-LAST:event_animacion_menuActionPerformed
 
     private void auto_action_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_action_menuActionPerformed

@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -27,13 +28,14 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /**
  *
  * @author tonikelope
  */
-public abstract class TablePanel extends javax.swing.JPanel implements ZoomableInterface {
+public abstract class TablePanel extends javax.swing.JLayeredPane implements ZoomableInterface {
 
     protected volatile TexturePaint tp = null;
 
@@ -42,6 +44,8 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
     protected volatile Player[] players;
 
     protected volatile ZoomableInterface[] zoomables;
+
+    protected final JLabel central_label = new JLabel();
 
     protected volatile boolean invalidate = false;
 
@@ -94,6 +98,14 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 initComponents();
+
+                central_label.setDoubleBuffered(true);
+
+                central_label.setFocusable(false);
+
+                central_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                add(central_label, new Integer(1001));
             }
         });
 
@@ -122,6 +134,10 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
         });
     }
 
+    public JLabel getCentral_label() {
+        return central_label;
+    }
+
     public void hideALL() {
 
         Helpers.GUIRun(new Runnable() {
@@ -132,6 +148,8 @@ public abstract class TablePanel extends javax.swing.JPanel implements ZoomableI
                 }
 
                 getCommunityCards().setVisible(false);
+
+                central_label.setVisible(false);
 
             }
         });

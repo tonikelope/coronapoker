@@ -18,6 +18,7 @@ package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import java.awt.Color;
+import java.awt.Image;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -3362,19 +3363,11 @@ public class Crupier implements Runnable {
 
     private void repartir() {
 
+        boolean animacion = GameFrame.ANIMACION_CARTAS;
+
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-
-                GameFrame.getInstance().getAnimacion_menu().setEnabled(false);
-                Helpers.TapetePopupMenu.ANIMACION_MENU.setEnabled(false);
-
-            }
-        });
-
-        if (!GameFrame.ANIMACION_REPARTIR) {
+        if (!animacion) {
 
             for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                 carta.iniciarCarta();
@@ -3405,7 +3398,7 @@ public class Crupier implements Runnable {
 
             Player jugador = GameFrame.getInstance().getJugadores().get(j);
 
-            if (jugador.isActivo() && GameFrame.ANIMACION_REPARTIR) {
+            if (jugador.isActivo() && animacion) {
 
                 Audio.playWavResource("misc/deal.wav", false);
 
@@ -3461,7 +3454,7 @@ public class Crupier implements Runnable {
 
             Player jugador = GameFrame.getInstance().getJugadores().get(j);
 
-            if (jugador.isActivo() && GameFrame.ANIMACION_REPARTIR) {
+            if (jugador.isActivo() && animacion) {
 
                 Audio.playWavResource("misc/deal.wav", false);
 
@@ -3518,30 +3511,20 @@ public class Crupier implements Runnable {
 
             if (carta == GameFrame.getInstance().getFlop1() || carta == GameFrame.getInstance().getTurn() || carta == GameFrame.getInstance().getRiver()) {
 
-                if (GameFrame.ANIMACION_REPARTIR) {
+                if (animacion) {
                     Audio.playWavResource("misc/deal.wav", false);
                 }
 
                 Helpers.pausar(pausa);
             }
 
-            if (GameFrame.ANIMACION_REPARTIR) {
+            if (animacion) {
                 Audio.playWavResource("misc/deal.wav", false);
                 carta.iniciarCarta();
             }
 
             Helpers.pausar(pausa);
         }
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                GameFrame.getInstance().getAnimacion_menu().setEnabled(true);
-                Helpers.TapetePopupMenu.ANIMACION_MENU.setEnabled(true);
-
-            }
-        });
 
         GameFrame.getInstance().getLocalPlayer().ordenarCartas();
     }
@@ -5996,29 +5979,87 @@ public class Crupier implements Runnable {
         return ciega_pequeña;
     }
 
+    public void ocultarAnimacionReparto() {
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                GameFrame.getInstance().getTapete().getCentral_label().setVisible(false);
+                GameFrame.getInstance().getTapete().getCentral_label().setIcon(null);
+
+            }
+        });
+    }
+
+    public void mostrarAnimacionDestaparCartaComunitaria(Card carta) {
+
+        String baraja = GameFrame.BARAJA;
+
+        if (GameFrame.ANIMACION_CARTAS && getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null) {
+
+            Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA : ((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : PAUSA_DESTAPAR_CARTA));
+
+            try {
+                carta.setVisibleCard(false);
+
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+
+                        ImageIcon icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
+
+                        if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
+
+                            int w = icon.getIconWidth();
+
+                            int h = icon.getIconHeight();
+
+                            icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
+                        }
+
+                        icon.getImage().flush();
+                        GameFrame.getInstance().getTapete().getCentral_label().setIcon(icon);
+                        GameFrame.getInstance().getTapete().getCentral_label().setSize(GameFrame.getInstance().getTapete().getCentral_label().getIcon().getIconWidth(), GameFrame.getInstance().getTapete().getCentral_label().getIcon().getIconHeight());
+                        int pos_x = Math.round((GameFrame.getInstance().getTapete().getWidth() - GameFrame.getInstance().getTapete().getCentral_label().getIcon().getIconWidth()) / 2);
+                        int pos_y = Math.round((GameFrame.getInstance().getTapete().getHeight() - GameFrame.getInstance().getTapete().getCentral_label().getIcon().getIconHeight()) / 2);
+                        GameFrame.getInstance().getTapete().getCentral_label().setLocation(pos_x, pos_y);
+                        GameFrame.getInstance().getTapete().getCentral_label().setVisible(true);
+
+                    }
+                });
+
+                Helpers.pausar(Helpers.getGIFLength(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")) + 250);
+
+                Helpers.GUIRun(new Runnable() {
+                    public void run() {
+                        GameFrame.getInstance().getTapete().getCentral_label().setVisible(false);
+
+                    }
+                });
+
+                carta.destapar(false);
+
+            } catch (Exception ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        } else {
+
+            Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
+
+            carta.destapar();
+        }
+
+        carta.checkSpecialCardSound();
+
+        GameFrame.getInstance().checkPause();
+    }
+
     public void destaparFlop() {
 
-        Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
+        mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop1());
 
-        GameFrame.getInstance().getFlop1().destapar();
+        mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop2());
 
-        GameFrame.getInstance().getFlop1().checkSpecialCardSound();
-
-        Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
-
-        GameFrame.getInstance().checkPause();
-
-        GameFrame.getInstance().getFlop2().destapar();
-
-        GameFrame.getInstance().getFlop2().checkSpecialCardSound();
-
-        Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
-
-        GameFrame.getInstance().checkPause();
-
-        GameFrame.getInstance().getFlop3().destapar();
-
-        GameFrame.getInstance().getFlop3().checkSpecialCardSound();
+        mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop3());
 
         ArrayList<Card> flop = new ArrayList<>();
 
@@ -6033,22 +6074,14 @@ public class Crupier implements Runnable {
 
     public void destaparTurn() {
 
-        Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
-
-        GameFrame.getInstance().getTurn().destapar();
-
-        GameFrame.getInstance().getTurn().checkSpecialCardSound();
+        mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getTurn());
 
         GameFrame.getInstance().getRegistro().print("TURN -> " + GameFrame.getInstance().getTurn());
     }
 
     public void destaparRiver() {
 
-        Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
-
-        GameFrame.getInstance().getRiver().destapar();
-
-        GameFrame.getInstance().getRiver().checkSpecialCardSound();
+        mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getRiver());
 
         GameFrame.getInstance().getRegistro().print("RIVER -> " + GameFrame.getInstance().getRiver());
     }

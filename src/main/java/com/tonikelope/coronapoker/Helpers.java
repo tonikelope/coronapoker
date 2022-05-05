@@ -2794,7 +2794,7 @@ public class Helpers {
                     }
                 };
 
-                Action animacionAction = new AbstractAction("Animación al repartir") {
+                Action animacionAction = new AbstractAction("Animación de cartas") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getAnimacion_menu().doClick();
@@ -2903,7 +2903,7 @@ public class Helpers {
 
                 ANIMACION_MENU = new JCheckBoxMenuItem(animacionAction);
                 ANIMACION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
-                ANIMACION_MENU.setSelected(GameFrame.ANIMACION_REPARTIR);
+                ANIMACION_MENU.setSelected(GameFrame.ANIMACION_CARTAS);
                 popup.add(ANIMACION_MENU);
 
                 CHAT_IMAGE_MENU = new JCheckBoxMenuItem(chatimageAction);

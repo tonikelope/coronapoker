@@ -384,7 +384,7 @@ public class Translator {
             {"Música ambiental", "Background music"},
             {"Confirmar todas las acciones", "Confirm every action"},
             {"Botones AUTO", "AUTO buttons"},
-            {"Animación al repartir", "Dealer animation"},
+            {"Animación de cartas", "Cards animation"},
             {"Mostrar reloj (ALT+W)", "Show clock (ALT+W)"},
             {"Mostrar reloj", "Show clock"},
             {"Barajas", "Decks"},

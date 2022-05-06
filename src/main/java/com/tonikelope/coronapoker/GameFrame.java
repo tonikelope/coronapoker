@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.Helpers.TapetePopupMenu.BARAJAS_MENU;
 import static com.tonikelope.coronapoker.Init.M2;
 
@@ -200,6 +201,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean retry = false;
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
+    private volatile int test_card_count = 0;
 
     public JCheckBoxMenuItem getChat_image_menu() {
         return chat_image_menu;
@@ -1036,12 +1038,59 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
-                    if (getLocalPlayer().getBet_spinner().isEnabled()) {
+
+                    if (Init.DEV_MODE && THIS.isTimba_pausada()) {
+
+                        pausa_dialog.setVisible(false);
+
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                synchronized (getTapete().getCentral_label()) {
+                                    String baraja = GameFrame.BARAJA;
+
+                                    boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
+
+                                    Card carta = new Card(false);
+
+                                    test_card_count--;
+
+                                    if (test_card_count < 1) {
+                                        test_card_count = 52;
+                                    }
+
+                                    carta.iniciarConValorNumerico(test_card_count);
+
+                                    if (((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
+
+                                        ImageIcon icon;
+
+                                        if (baraja_mod) {
+                                            icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
+                                        } else {
+                                            icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
+                                        }
+
+                                        try {
+                                            getTapete().showCentralImage(icon, Helpers.getGIFLength(baraja_mod ? Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL() : getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")) + 250);
+                                        } catch (Exception ex) {
+                                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+
+                                    }
+
+                                }
+                            }
+                        });
+
+                    } else if (getLocalPlayer().getBet_spinner().isEnabled()) {
                         SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
                         if (model.getPreviousValue() != null) {
                             getLocalPlayer().getBet_spinner().setValue(model.getPreviousValue());
                         }
                     }
+
                 }
             }
         });
@@ -1064,12 +1113,59 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!getCrupier().isSincronizando_mano()) {
-                    if (getLocalPlayer().getBet_spinner().isEnabled()) {
+
+                    if (Init.DEV_MODE && THIS.isTimba_pausada()) {
+
+                        pausa_dialog.setVisible(false);
+
+                        Helpers.threadRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                synchronized (getTapete().getCentral_label()) {
+
+                                    String baraja = GameFrame.BARAJA;
+
+                                    boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
+
+                                    Card carta = new Card(false);
+
+                                    test_card_count++;
+
+                                    if (test_card_count > 52) {
+                                        test_card_count = 1;
+                                    }
+
+                                    carta.iniciarConValorNumerico(test_card_count);
+
+                                    if (((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
+
+                                        ImageIcon icon;
+
+                                        if (baraja_mod) {
+                                            icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
+                                        } else {
+                                            icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
+                                        }
+
+                                        try {
+                                            getTapete().showCentralImage(icon, Helpers.getGIFLength(baraja_mod ? Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL() : getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")) + 250);
+                                        } catch (Exception ex) {
+                                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+                                    }
+
+                                }
+
+                            }
+                        });
+                    } else if (getLocalPlayer().getBet_spinner().isEnabled()) {
                         SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
                         if (model.getNextValue() != null) {
                             getLocalPlayer().getBet_spinner().setValue(model.getNextValue());
                         }
                     }
+
                 }
             }
         });

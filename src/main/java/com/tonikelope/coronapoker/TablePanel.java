@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
@@ -46,6 +47,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     protected volatile ZoomableInterface[] zoomables;
 
     protected final JLabel central_label = new JLabel();
+
+    private volatile Long central_label_thread = null;
 
     protected volatile boolean invalidate = false;
 
@@ -132,6 +135,59 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 }
             }
         });
+    }
+
+    public void showCentralImage(ImageIcon icon, long timeout) {
+
+        central_label_thread = Thread.currentThread().getId();
+
+        synchronized (getCentral_label()) {
+            getCentral_label().notify();
+        }
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+
+                ImageIcon final_icon = icon;
+
+                if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
+
+                    int w = icon.getIconWidth();
+
+                    int h = icon.getIconHeight();
+
+                    final_icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
+                }
+
+                final_icon.getImage().flush();
+                getCentral_label().setIcon(final_icon);
+                getCentral_label().setSize(getCentral_label().getIcon().getIconWidth(), getCentral_label().getIcon().getIconHeight());
+                int pos_x = Math.round((getWidth() - getCentral_label().getIcon().getIconWidth()) / 2);
+                int pos_y = Math.round((getHeight() - getCentral_label().getIcon().getIconHeight()) / 2);
+                getCentral_label().setLocation(pos_x, pos_y);
+                getCentral_label().setVisible(true);
+
+            }
+        });
+
+        if (Thread.currentThread().getId() == central_label_thread) {
+            synchronized (getCentral_label()) {
+                try {
+                    getCentral_label().wait(timeout);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            if (Thread.currentThread().getId() == central_label_thread) {
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+                        getCentral_label().setVisible(false);
+
+                    }
+                });
+            }
+        }
     }
 
     public JLabel getCentral_label() {

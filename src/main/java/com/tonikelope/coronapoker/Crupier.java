@@ -19,7 +19,6 @@ package com.tonikelope.coronapoker;
 import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import java.awt.Color;
-import java.awt.Image;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -6004,45 +6003,15 @@ public class Crupier implements Runnable {
             try {
                 carta.setVisibleCard(false);
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
+                ImageIcon icon;
 
-                        ImageIcon icon;
+                if (baraja_mod) {
+                    icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
+                } else {
+                    icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
+                }
 
-                        if (baraja_mod) {
-                            icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
-                        } else {
-                            icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
-                        }
-
-                        if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
-
-                            int w = icon.getIconWidth();
-
-                            int h = icon.getIconHeight();
-
-                            icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
-                        }
-
-                        icon.getImage().flush();
-                        GameFrame.getInstance().getTapete().getCentral_label().setIcon(icon);
-                        GameFrame.getInstance().getTapete().getCentral_label().setSize(GameFrame.getInstance().getTapete().getCentral_label().getIcon().getIconWidth(), GameFrame.getInstance().getTapete().getCentral_label().getIcon().getIconHeight());
-                        int pos_x = Math.round((GameFrame.getInstance().getTapete().getWidth() - GameFrame.getInstance().getTapete().getCentral_label().getIcon().getIconWidth()) / 2);
-                        int pos_y = Math.round((GameFrame.getInstance().getTapete().getHeight() - GameFrame.getInstance().getTapete().getCentral_label().getIcon().getIconHeight()) / 2);
-                        GameFrame.getInstance().getTapete().getCentral_label().setLocation(pos_x, pos_y);
-                        GameFrame.getInstance().getTapete().getCentral_label().setVisible(true);
-
-                    }
-                });
-
-                Helpers.pausar(Helpers.getGIFLength(baraja_mod ? Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL() : getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")) + 250);
-
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        GameFrame.getInstance().getTapete().getCentral_label().setVisible(false);
-
-                    }
-                });
+                GameFrame.getInstance().getTapete().showCentralImage(icon, Helpers.getGIFLength(baraja_mod ? Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL() : getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")) + 250);
 
                 carta.destapar(false);
 

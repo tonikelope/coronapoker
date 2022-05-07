@@ -29,13 +29,17 @@ import javax.swing.ImageIcon;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
+/*
+* SPECIAL THANKS TO -> https://www.3dgifmaker.com/ and http://www.lcdf.org/gifsicle/
+*/
+
 /**
  *
  * @author tonikelope
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "15.3";
+    public static final String VERSION = "15.4";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -240,7 +244,7 @@ public class AboutDialog extends javax.swing.JDialog {
         mod_label.setDoubleBuffered(true);
 
         corona_icon_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        corona_icon_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_16.png"))); // NOI18N
+        corona_icon_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_logo.gif"))); // NOI18N
         corona_icon_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         corona_icon_label.setDoubleBuffered(true);
         corona_icon_label.addMouseListener(new java.awt.event.MouseAdapter() {

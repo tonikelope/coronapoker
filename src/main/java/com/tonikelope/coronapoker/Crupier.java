@@ -191,6 +191,11 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
+    public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
+    public static final int PAUSA_ENTRE_MANOS = 10; //Segundos
+    public static final int PAUSA_ENTRE_MANOS_TEST = 1;
+    public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
+
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
@@ -1306,9 +1311,9 @@ public class Crupier implements Runnable {
 
                     sqlUpdateShowdownHand(jugador, jugada);
 
-                    setTiempo_pausa(GameFrame.TEST_MODE ? GameFrame.PAUSA_ENTRE_MANOS_TEST : GameFrame.PAUSA_ENTRE_MANOS);
+                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
                 } else if (jugador == GameFrame.getInstance().getLocalPlayer()) {
-                    setTiempo_pausa(GameFrame.TEST_MODE ? GameFrame.PAUSA_ENTRE_MANOS_TEST : GameFrame.PAUSA_ENTRE_MANOS);
+                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
                 }
 
             }
@@ -1371,7 +1376,7 @@ public class Crupier implements Runnable {
 
                     sqlUpdateShowdownHand(jugador, jugada);
 
-                    setTiempo_pausa(GameFrame.TEST_MODE ? GameFrame.PAUSA_ENTRE_MANOS_TEST : GameFrame.PAUSA_ENTRE_MANOS);
+                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
 
                 }
             }
@@ -2276,7 +2281,7 @@ public class Crupier implements Runnable {
                     }
                 }
 
-                setTiempo_pausa(GameFrame.TEST_MODE ? GameFrame.PAUSA_ENTRE_MANOS_TEST : GameFrame.PAUSA_ENTRE_MANOS);
+                setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
             }
 
             if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
@@ -4260,19 +4265,19 @@ public class Crupier implements Runnable {
         return tot;
     }
 
-    private void destaparCartaComunitaria(int fase) {
+    private void destaparCartaComunitaria(int fase, ArrayList<Player> resisten) {
 
         GameFrame.getInstance().checkPause();
 
         switch (fase) {
             case FLOP:
-                destaparFlop();
+                destaparFlop(resisten);
                 break;
             case TURN:
-                destaparTurn();
+                destaparTurn(resisten);
                 break;
             case RIVER:
-                destaparRiver();
+                destaparRiver(resisten);
                 break;
             default:
                 break;
@@ -4389,7 +4394,7 @@ public class Crupier implements Runnable {
             }
 
             //Destapamos una carta
-            destaparCartaComunitaria(fase);
+            destaparCartaComunitaria(fase, resisten);
         }
 
         sqlUpdateHandPlayers(resisten);
@@ -4819,6 +4824,8 @@ public class Crupier implements Runnable {
                 }
 
                 procesarCartasResistencia(resisten, true);
+
+                checkJugadasParciales(resisten);
             }
 
             if (this.fase == Crupier.PREFLOP) {
@@ -4837,6 +4844,20 @@ public class Crupier implements Runnable {
         }
 
         return (resisten.size() > 1 && fase < RIVER && getJugadoresActivos() > 1) ? rondaApuestas(fase + 1, resisten) : resisten;
+    }
+
+    private void checkJugadasParciales(ArrayList<Player> resisten) {
+        if (this.destapar_resistencia) {
+
+            HashMap<Player, Hand> jugadas = calcularJugadas(resisten);
+
+            HashMap<Player, Hand> ganadores = calcularGanadores(new HashMap<Player, Hand>(jugadas));
+
+            for (Player p : resisten) {
+                p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p));
+            }
+
+        }
     }
 
     private void sentarParticipantes() {
@@ -5998,7 +6019,7 @@ public class Crupier implements Runnable {
 
         if (GameFrame.ANIMACION_CARTAS && ((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
 
-            Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA : ((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : PAUSA_DESTAPAR_CARTA));
+            Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : ((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : PAUSA_DESTAPAR_CARTA));
 
             try {
                 carta.setVisibleCard(false);
@@ -6021,7 +6042,7 @@ public class Crupier implements Runnable {
 
         } else {
 
-            Helpers.pausar(this.destapar_resistencia ? 2 * PAUSA_DESTAPAR_CARTA : PAUSA_DESTAPAR_CARTA);
+            Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA);
 
             carta.destapar();
         }
@@ -6031,13 +6052,19 @@ public class Crupier implements Runnable {
         GameFrame.getInstance().checkPause();
     }
 
-    public void destaparFlop() {
+    public void destaparFlop(ArrayList<Player> resisten) {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop1());
 
+        checkJugadasParciales(resisten);
+
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop2());
 
+        checkJugadasParciales(resisten);
+
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop3());
+
+        checkJugadasParciales(resisten);
 
         ArrayList<Card> flop = new ArrayList<>();
 
@@ -6050,16 +6077,20 @@ public class Crupier implements Runnable {
         GameFrame.getInstance().getRegistro().print("FLOP -> " + Card.collection2String(flop));
     }
 
-    public void destaparTurn() {
+    public void destaparTurn(ArrayList<Player> resisten) {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getTurn());
+
+        checkJugadasParciales(resisten);
 
         GameFrame.getInstance().getRegistro().print("TURN -> " + GameFrame.getInstance().getTurn());
     }
 
-    public void destaparRiver() {
+    public void destaparRiver(ArrayList<Player> resisten) {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getRiver());
+
+        checkJugadasParciales(resisten);
 
         GameFrame.getInstance().getRegistro().print("RIVER -> " + GameFrame.getInstance().getRiver());
     }
@@ -6889,7 +6920,7 @@ public class Crupier implements Runnable {
                             procesarCartasResistencia(resisten, false);
 
                             if (!this.destapar_resistencia) {
-                                Helpers.pausar(GameFrame.PAUSA_ANTES_DE_SHOWDOWN * 1000);
+                                Helpers.pausar(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);
                             }
 
                             if (this.bote.getSidePot() == null) {
@@ -7195,7 +7226,7 @@ public class Crupier implements Runnable {
 
                         if (getJugadoresActivos() > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
 
-                            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? GameFrame.PAUSA_ENTRE_MANOS : Math.round(1.5f * GameFrame.PAUSA_ENTRE_MANOS));
+                            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? PAUSA_ENTRE_MANOS : Math.round(1.5f * PAUSA_ENTRE_MANOS));
 
                         }
 
@@ -7236,7 +7267,7 @@ public class Crupier implements Runnable {
 
                     } else {
 
-                        this.pausaConBarra(GameFrame.PAUSA_ENTRE_MANOS_TEST);
+                        this.pausaConBarra(Crupier.PAUSA_ENTRE_MANOS_TEST);
 
                         synchronized (lock_mostrar) {
                             this.show_time = false;
@@ -7467,7 +7498,13 @@ public class Crupier implements Runnable {
 
         for (Player jugador : jugadores) {
 
-            ArrayList<Card> cartas_utilizables = new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes()));
+            ArrayList<Card> cartas_utilizables = new ArrayList<>();
+
+            for (Card c : GameFrame.getInstance().getCartas_comunes()) {
+                if (!c.isTapada()) {
+                    cartas_utilizables.add(c);
+                }
+            }
 
             cartas_utilizables.add(jugador.getPlayingCard1());
 
@@ -7712,7 +7749,16 @@ public class Crupier implements Runnable {
 
     private HashMap<Player, Hand> desempatarCartaAlta(HashMap<Player, Hand> jugadores, int start_card) {
 
-        for (int i = start_card; i < CARTAS_MAX; i++) {
+        int cartas_max = CARTAS_MAX;
+
+        for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
+
+            Hand jugada = entry.getValue();
+
+            cartas_max = Math.min(cartas_max, jugada.getMano().size());
+        }
+
+        for (int i = start_card; i < cartas_max; i++) {
 
             int carta_alta = 1;
 

@@ -2349,7 +2349,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                 GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nickname);
                                             } else {
                                                 GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SHOWMYCARDS");
-                                                GameFrame.getInstance().getCrupier().setTiempo_pausa(GameFrame.PAUSA_ENTRE_MANOS);
+                                                GameFrame.getInstance().getCrupier().setTiempo_pausa(Crupier.PAUSA_ENTRE_MANOS);
                                             }
 
                                         }
@@ -3037,6 +3037,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
+    }
+
+    @Override
+    public void setJugadaParcial(Hand jugada, boolean ganador) {
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                player_action.setBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
+                player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
+                player_action.setText(jugada.getName());
+                setPlayerActionIcon(null);
+
+            }
+        });
     }
 
 }

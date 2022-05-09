@@ -31,8 +31,7 @@ import javax.swing.Timer;
 
 /*
 * SPECIAL THANKS TO -> https://www.3dgifmaker.com/ and http://www.lcdf.org/gifsicle/
-*/
-
+ */
 /**
  *
  * @author tonikelope

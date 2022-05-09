@@ -132,4 +132,6 @@ public interface Player {
 
     public JLabel getChat_notify_label();
 
+    public void setJugadaParcial(Hand jugada, boolean ganador);
+
 }

@@ -156,6 +156,8 @@ public class Crupier implements Runnable {
 
     public static volatile Map.Entry<String, String[]> LOSER_SOUNDS_MOD = null;
 
+    public static volatile int GIF_CARD_ANIMATION_LENGTH;
+
     static {
 
         ALLIN_SOUNDS.put("es", ALLIN_SOUNDS_ES);
@@ -170,6 +172,11 @@ public class Crupier implements Runnable {
         LOSER_SOUNDS.put("en", LOSER_SOUNDS_EN);
         SHOWDOWN_SOUNDS.put("en", SHOWDOWN_SOUNDS_EN);
 
+        try {
+            GIF_CARD_ANIMATION_LENGTH = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/A_C.gif"));
+        } catch (Exception ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     public static final int CARTAS_MAX = 5;
@@ -195,7 +202,6 @@ public class Crupier implements Runnable {
     public static final int PAUSA_ENTRE_MANOS = 10; //Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
-
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
@@ -6017,9 +6023,9 @@ public class Crupier implements Runnable {
 
         boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
 
-        if (GameFrame.ANIMACION_CARTAS && ((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
+        Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : ((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : PAUSA_DESTAPAR_CARTA));
 
-            Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : ((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : PAUSA_DESTAPAR_CARTA));
+        if (GameFrame.ANIMACION_CARTAS && ((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
 
             try {
                 carta.setVisibleCard(false);
@@ -6032,7 +6038,7 @@ public class Crupier implements Runnable {
                     icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
                 }
 
-                GameFrame.getInstance().getTapete().showCentralImage(icon, Helpers.getGIFLength(baraja_mod ? Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL() : getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")) + 250);
+                GameFrame.getInstance().getTapete().showCentralImage(icon, GIF_CARD_ANIMATION_LENGTH + 250);
 
                 carta.destapar(false);
 
@@ -6042,9 +6048,27 @@ public class Crupier implements Runnable {
 
         } else {
 
-            Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA);
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
+                }
+            });
 
-            carta.destapar();
+            try {
+
+                Helpers.pausar(GIF_CARD_ANIMATION_LENGTH); //Animation pause
+
+                carta.destapar();
+
+            } catch (Exception ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
+                }
+            });
         }
 
         carta.checkSpecialCardSound();

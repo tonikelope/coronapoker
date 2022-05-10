@@ -3048,7 +3048,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
                 player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
                 player_action.setText(jugada.getName());
-                setPlayerActionIcon(null);
+                setPlayerActionIcon("action/miedo.png");
 
             }
         });

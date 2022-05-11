@@ -2529,8 +2529,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     float bet_spinner_val = Helpers.floatClean(((BigDecimal) bet_spinner.getValue()).floatValue());
 
-                    Audio.playWavResource("misc/bet.wav");
-
                     desactivarControles();
 
                     GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
@@ -2558,8 +2556,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             setDecision(Player.BET);
 
-                            if (!GameFrame.getInstance().getCrupier().isSincronizando_mano() && GameFrame.SONIDOS_CHORRA && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
-                                Audio.playWavResource("misc/raise.wav");
+                            if (!GameFrame.getInstance().getCrupier().isSincronizando_mano() && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
+
+                                Audio.playWavResource("misc/bet_more.wav");
+
+                                if (GameFrame.SONIDOS_CHORRA) {
+                                    Audio.playWavResource("misc/raise.wav");
+                                }
+                            } else {
+                                Audio.playWavResource("misc/bet.wav");
                             }
 
                             finTurno();

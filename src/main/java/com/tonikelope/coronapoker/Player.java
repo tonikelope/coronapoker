@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Color;
 import java.net.URL;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
@@ -37,6 +38,10 @@ public interface Player {
     public static final int BIG_BLIND = 13;
 
     public static final int BORDER = 10;
+
+    public static final Color RERAISE_BACK_COLOR = new Color(125, 5, 225);
+
+    public static final Color RERAISE_FORE_COLOR = Color.WHITE;
 
     public static final ImageIcon IMAGEN_UTG = new ImageIcon(Player.class.getResource("/images/utg.png"));
 

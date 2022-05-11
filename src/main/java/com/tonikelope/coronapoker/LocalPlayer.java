@@ -17,6 +17,8 @@
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
+import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_BACK_COLOR;
+import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_FORE_COLOR;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
@@ -106,6 +108,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final JLabel chip_label = new JLabel();
     private final JLabel sec_pot_win_label = new JLabel();
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
+    private volatile boolean reraise;
 
     public void refreshNotifyChatLabel() {
         Helpers.GUIRun(new Runnable() {
@@ -1402,7 +1405,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if (b == boton) {
                         action_button_armed.put(b, true);
 
-                        b.setBackground(new Color(120, 0, 184));
+                        b.setBackground(Color.BLUE);
                         b.setForeground(Color.WHITE);
 
                     } else {
@@ -2529,6 +2532,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     float bet_spinner_val = Helpers.floatClean(((BigDecimal) bet_spinner.getValue()).floatValue());
 
+                    Audio.playWavResource("misc/bet.wav");
+
                     desactivarControles();
 
                     GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
@@ -2556,15 +2561,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             setDecision(Player.BET);
 
-                            if (!GameFrame.getInstance().getCrupier().isSincronizando_mano() && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
+                            if (GameFrame.SONIDOS_CHORRA && !GameFrame.getInstance().getCrupier().isSincronizando_mano() && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
 
-                                Audio.playWavResource("misc/bet_more.wav");
+                                Audio.playWavResource("misc/raise.wav");
 
-                                if (GameFrame.SONIDOS_CHORRA) {
-                                    Audio.playWavResource("misc/raise.wav");
-                                }
-                            } else {
-                                Audio.playWavResource("misc/bet.wav");
                             }
 
                             finTurno();
@@ -2793,6 +2793,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.decision = dec;
 
+        reraise = false;
+
         switch (dec) {
             case Player.CHECK:
 
@@ -2816,6 +2818,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     public void run() {
                         if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
                             player_action.setText((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
+
+                            if (GameFrame.getInstance().getCrupier().getConta_raise() > 0) {
+                                reraise = true;
+                            }
                         } else {
                             player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
                         }
@@ -2856,13 +2862,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                if (!reraise) {
+                    player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                    player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
 
-                player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
+                    player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                    player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
+                } else {
+                    player_action.setBackground(RERAISE_BACK_COLOR);
+                    player_action.setForeground(RERAISE_FORE_COLOR);
 
-                player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
-
-                player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
+                    player_pot.setBackground(RERAISE_BACK_COLOR);
+                    player_pot.setForeground(RERAISE_FORE_COLOR);
+                }
 
                 revalidate();
                 repaint();

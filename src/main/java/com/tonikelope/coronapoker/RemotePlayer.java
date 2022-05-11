@@ -758,14 +758,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void bet(float new_bet) {
 
-        Audio.playWavResource("misc/bet.wav");
-
         setBet(new_bet);
 
         setDecision(Player.BET);
 
-        if (GameFrame.SONIDOS_CHORRA && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
-            Audio.playWavResource("misc/raise.wav");
+        if (GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
+
+            Audio.playWavResource("misc/bet_more.wav");
+
+            if (GameFrame.SONIDOS_CHORRA) {
+                Audio.playWavResource("misc/raise.wav");
+            }
+        } else {
+            Audio.playWavResource("misc/bet.wav");
         }
 
         finTurno();

@@ -2750,7 +2750,7 @@ public class Crupier implements Runnable {
 
                         if (icon != null) {
 
-                            Helpers.GUIRun(new Runnable() {
+                            Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
                                 public void run() {
 
@@ -2780,7 +2780,7 @@ public class Crupier implements Runnable {
 
                             Init.PLAYING_CINEMATIC = false;
 
-                            Helpers.GUIRun(new Runnable() {
+                            Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
                                 public void run() {
 

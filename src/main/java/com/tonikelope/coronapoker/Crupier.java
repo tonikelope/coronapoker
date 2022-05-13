@@ -2726,55 +2726,82 @@ public class Crupier implements Runnable {
             barajando = true;
 
             Helpers.threadRun(new Runnable() {
-                private volatile GifAnimationDialog gif_dialog;
+
+                private int timeout;
 
                 public void run() {
                     if (GameFrame.CINEMATICAS) {
 
-                        Init.PLAYING_CINEMATIC = true;
+                        String baraja = GameFrame.BARAJA;
 
-                        ImageIcon icon = new ImageIcon(getClass().getResource("/cinematics/misc/shuffle.gif"));
+                        boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
+
+                        ImageIcon icon = null;
+
+                        if (baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
+                            icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif");
+                            timeout = 2600;
+                        } else if (getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
+                            icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif"));
+                            timeout = 2600;
+                        }
+
+                        Init.PLAYING_CINEMATIC = true;
 
                         if (icon != null) {
 
                             Helpers.GUIRun(new Runnable() {
-
+                                @Override
                                 public void run() {
-                                    try {
-                                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, Helpers.getGIFLength(getClass().getResource("/cinematics/misc/shuffle.gif")));
 
-                                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                                    GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
 
-                                        gif_dialog.setVisible(true);
-                                    } catch (Exception ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
                                 }
                             });
 
-                            Audio.playWavResource("misc/shuffle.wav");
+                            try {
 
-                            while (Init.PLAYING_CINEMATIC) {
+                                Helpers.threadRun(new Runnable() {
 
-                                synchronized (Init.LOCK_CINEMATICS) {
+                                    public void run() {
 
-                                    try {
-                                        Init.LOCK_CINEMATICS.wait(1000);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                        Audio.playWavResource("misc/shuffle2.wav");
+                                        Helpers.pausar(1400);
+                                        Audio.stopWavResource("misc/shuffle2.wav");
+
                                     }
-                                }
+                                });
+
+                                GameFrame.getInstance().getTapete().showCentralImage(icon, timeout);
+
+                            } catch (Exception ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
+
+                            Init.PLAYING_CINEMATIC = false;
+
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
+
+                                }
+                            });
 
                         } else {
                             Init.PLAYING_CINEMATIC = false;
 
-                            Audio.playWavResourceAndWait("misc/shuffle.wav");
+                            Audio.playWavResource("misc/shuffle2.wav");
+                            Helpers.pausar(1400);
+                            Audio.stopWavResource("misc/shuffle2.wav");
                         }
 
                     } else {
                         Init.PLAYING_CINEMATIC = false;
-                        Audio.playWavResourceAndWait("misc/shuffle.wav");
+                        Audio.playWavResource("misc/shuffle2.wav");
+                        Helpers.pausar(1400);
+                        Audio.stopWavResource("misc/shuffle2.wav");
                     }
 
                     barajando = false;
@@ -6025,7 +6052,7 @@ public class Crupier implements Runnable {
 
         Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : ((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : PAUSA_DESTAPAR_CARTA));
 
-        if (GameFrame.ANIMACION_CARTAS && ((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
+        if (GameFrame.ANIMACION_CARTAS && ((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
 
             try {
                 carta.setVisibleCard(false);
@@ -6033,7 +6060,7 @@ public class Crupier implements Runnable {
                 ImageIcon icon;
 
                 if (baraja_mod) {
-                    icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
+                    icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
                 } else {
                     icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
                 }

@@ -180,6 +180,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
 
             if (Thread.currentThread().getId() == central_label_thread) {
+
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         getCentral_label().setVisible(false);

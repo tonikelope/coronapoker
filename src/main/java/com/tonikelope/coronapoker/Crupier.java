@@ -158,8 +158,6 @@ public class Crupier implements Runnable {
 
     public static volatile int GIF_CARD_ANIMATION_TIMEOUT;
 
-    public static final int SHUFFLE_SOUND_TIMEOUT = 1500;
-
     public static final int SHUFFLE_ANIMATION_TIMEOUT = 2600;
 
     static {
@@ -2761,18 +2759,9 @@ public class Crupier implements Runnable {
                                 }
                             });
 
+                            Audio.playWavResource("misc/shuffle.wav");
+
                             try {
-
-                                Helpers.threadRun(new Runnable() {
-
-                                    public void run() {
-
-                                        Audio.playWavResource("misc/shuffle.wav");
-                                        Helpers.pausar(Crupier.SHUFFLE_SOUND_TIMEOUT);
-                                        Audio.stopWavResource("misc/shuffle.wav");
-
-                                    }
-                                });
 
                                 GameFrame.getInstance().getTapete().showCentralImage(icon, SHUFFLE_ANIMATION_TIMEOUT);
 
@@ -2793,17 +2782,13 @@ public class Crupier implements Runnable {
 
                         } else {
                             Init.PLAYING_CINEMATIC = false;
+                            Audio.playWavResourceAndWait("misc/shuffle.wav");
 
-                            Audio.playWavResource("misc/shuffle.wav");
-                            Helpers.pausar(Crupier.SHUFFLE_SOUND_TIMEOUT);
-                            Audio.stopWavResource("misc/shuffle.wav");
                         }
 
                     } else {
                         Init.PLAYING_CINEMATIC = false;
-                        Audio.playWavResource("misc/shuffle.wav");
-                        Helpers.pausar(Crupier.SHUFFLE_SOUND_TIMEOUT);
-                        Audio.stopWavResource("misc/shuffle.wav");
+                        Audio.playWavResourceAndWait("misc/shuffle.wav");
                     }
 
                     barajando = false;

@@ -156,7 +156,11 @@ public class Crupier implements Runnable {
 
     public static volatile Map.Entry<String, String[]> LOSER_SOUNDS_MOD = null;
 
-    public static volatile int GIF_CARD_ANIMATION_LENGTH;
+    public static volatile int GIF_CARD_ANIMATION_TIMEOUT;
+
+    public static final int SHUFFLE_SOUND_TIMEOUT = 1500;
+
+    public static final int SHUFFLE_ANIMATION_TIMEOUT = 2600;
 
     static {
 
@@ -173,7 +177,7 @@ public class Crupier implements Runnable {
         SHOWDOWN_SOUNDS.put("en", SHOWDOWN_SOUNDS_EN);
 
         try {
-            GIF_CARD_ANIMATION_LENGTH = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/A_C.gif"));
+            GIF_CARD_ANIMATION_TIMEOUT = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/A_C.gif"));
         } catch (Exception ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -2727,8 +2731,6 @@ public class Crupier implements Runnable {
 
             Helpers.threadRun(new Runnable() {
 
-                private int timeout;
-
                 public void run() {
                     if (GameFrame.CINEMATICAS) {
 
@@ -2740,10 +2742,10 @@ public class Crupier implements Runnable {
 
                         if (baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
                             icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif");
-                            timeout = 2600;
+
                         } else if (getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
                             icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif"));
-                            timeout = 2600;
+
                         }
 
                         Init.PLAYING_CINEMATIC = true;
@@ -2765,14 +2767,14 @@ public class Crupier implements Runnable {
 
                                     public void run() {
 
-                                        Audio.playWavResource("misc/shuffle2.wav");
-                                        Helpers.pausar(1400);
-                                        Audio.stopWavResource("misc/shuffle2.wav");
+                                        Audio.playWavResource("misc/shuffle.wav");
+                                        Helpers.pausar(Crupier.SHUFFLE_SOUND_TIMEOUT);
+                                        Audio.stopWavResource("misc/shuffle.wav");
 
                                     }
                                 });
 
-                                GameFrame.getInstance().getTapete().showCentralImage(icon, timeout);
+                                GameFrame.getInstance().getTapete().showCentralImage(icon, SHUFFLE_ANIMATION_TIMEOUT);
 
                             } catch (Exception ex) {
                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -2792,16 +2794,16 @@ public class Crupier implements Runnable {
                         } else {
                             Init.PLAYING_CINEMATIC = false;
 
-                            Audio.playWavResource("misc/shuffle2.wav");
-                            Helpers.pausar(1400);
-                            Audio.stopWavResource("misc/shuffle2.wav");
+                            Audio.playWavResource("misc/shuffle.wav");
+                            Helpers.pausar(Crupier.SHUFFLE_SOUND_TIMEOUT);
+                            Audio.stopWavResource("misc/shuffle.wav");
                         }
 
                     } else {
                         Init.PLAYING_CINEMATIC = false;
-                        Audio.playWavResource("misc/shuffle2.wav");
-                        Helpers.pausar(1400);
-                        Audio.stopWavResource("misc/shuffle2.wav");
+                        Audio.playWavResource("misc/shuffle.wav");
+                        Helpers.pausar(Crupier.SHUFFLE_SOUND_TIMEOUT);
+                        Audio.stopWavResource("misc/shuffle.wav");
                     }
 
                     barajando = false;
@@ -6065,7 +6067,7 @@ public class Crupier implements Runnable {
                     icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
                 }
 
-                GameFrame.getInstance().getTapete().showCentralImage(icon, GIF_CARD_ANIMATION_LENGTH + 250);
+                GameFrame.getInstance().getTapete().showCentralImage(icon, GIF_CARD_ANIMATION_TIMEOUT + 250);
 
                 carta.destapar(false);
 
@@ -6083,7 +6085,7 @@ public class Crupier implements Runnable {
 
             try {
 
-                Helpers.pausar(GIF_CARD_ANIMATION_LENGTH); //Animation pause
+                Helpers.pausar(GIF_CARD_ANIMATION_TIMEOUT); //Animation pause
 
                 carta.destapar();
 

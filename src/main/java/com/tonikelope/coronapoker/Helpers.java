@@ -239,6 +239,38 @@ public class Helpers {
 
     }
 
+    public static void priorityWait(Object lock, long timeout) {
+
+        int old_priority = Thread.currentThread().getPriority();
+
+        Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+
+        synchronized (lock) {
+            try {
+                lock.wait(timeout);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        Thread.currentThread().setPriority(old_priority);
+    }
+
+    public static void prioritySleep(long time) {
+
+        int old_priority = Thread.currentThread().getPriority();
+
+        Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        Thread.currentThread().setPriority(old_priority);
+    }
+
     public static String updateJarImgSrc(String html) {
 
         String msg = html;

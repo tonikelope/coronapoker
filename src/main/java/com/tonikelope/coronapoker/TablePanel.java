@@ -172,11 +172,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         if (Thread.currentThread().getId() == central_label_thread) {
             synchronized (getCentral_label()) {
-                try {
-                    getCentral_label().wait(timeout);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                Helpers.priorityWait(central_label, timeout);
             }
 
             if (Thread.currentThread().getId() == central_label_thread) {

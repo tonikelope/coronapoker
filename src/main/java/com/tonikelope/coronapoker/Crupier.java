@@ -158,7 +158,7 @@ public class Crupier implements Runnable {
 
     public static volatile int GIF_CARD_ANIMATION_TIMEOUT;
 
-    public static final int SHUFFLE_ANIMATION_TIMEOUT = 2600;
+    public static final int SHUFFLE_ANIMATION_TIMEOUT = 2700;
 
     static {
 

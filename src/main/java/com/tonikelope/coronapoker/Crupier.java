@@ -2730,7 +2730,7 @@ public class Crupier implements Runnable {
             Helpers.threadRun(new Runnable() {
 
                 public void run() {
-                    if (GameFrame.CINEMATICAS) {
+                    if (GameFrame.ANIMACION_CARTAS) {
 
                         String baraja = GameFrame.BARAJA;
 
@@ -2745,8 +2745,6 @@ public class Crupier implements Runnable {
                             icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif"));
 
                         }
-
-                        Init.PLAYING_CINEMATIC = true;
 
                         if (icon != null) {
 
@@ -2769,8 +2767,6 @@ public class Crupier implements Runnable {
                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
-                            Init.PLAYING_CINEMATIC = false;
-
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
                                 public void run() {
@@ -2781,13 +2777,13 @@ public class Crupier implements Runnable {
                             });
 
                         } else {
-                            Init.PLAYING_CINEMATIC = false;
+
                             Audio.playWavResourceAndWait("misc/shuffle.wav");
 
                         }
 
                     } else {
-                        Init.PLAYING_CINEMATIC = false;
+
                         Audio.playWavResourceAndWait("misc/shuffle.wav");
                     }
 

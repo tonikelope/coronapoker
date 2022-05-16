@@ -109,35 +109,40 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 central_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
                 add(central_label, new Integer(1001));
-            }
-        });
 
-        addComponentListener(new ComponentResizeEndListener() {
+                addComponentListener(new ComponentResizeEndListener() {
 
-            @Override
-            public void resizeTimedOut() {
+                    @Override
+                    public void resizeTimedOut() {
 
-                if (GameFrame.AUTO_ZOOM) {
-                    Helpers.threadRun(new Runnable() {
-                        @Override
-                        public void run() {
-                            autoZoom(false);
+                        if (GameFrame.AUTO_ZOOM) {
+                            Helpers.threadRun(new Runnable() {
+                                @Override
+                                public void run() {
+                                    autoZoom(false);
+                                }
+                            });
                         }
-                    });
-                }
 
-                if (GameFrame.COLOR_TAPETE.endsWith("*")) {
-                    invalidate = true;
+                        if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                            invalidate = true;
 
-                    revalidate();
-                    repaint();
+                            revalidate();
+                            repaint();
 
-                }
+                        }
+                    }
+                });
             }
         });
+
     }
 
     public void showCentralImage(ImageIcon icon, long timeout) {
+
+        int old_priority = Thread.currentThread().getPriority();
+
+        Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
 
         central_label_thread = Thread.currentThread().getId();
 
@@ -165,14 +170,23 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 int pos_x = Math.round((getWidth() - getCentral_label().getIcon().getIconWidth()) / 2);
                 int pos_y = Math.round((getHeight() - getCentral_label().getIcon().getIconHeight()) / 2);
                 getCentral_label().setLocation(pos_x, pos_y);
-                getCentral_label().setVisible(true);
+
+                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                    getCentral_label().setVisible(true);
+                }
 
             }
         });
 
-        if (Thread.currentThread().getId() == central_label_thread) {
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().getId() == central_label_thread) {
             synchronized (getCentral_label()) {
-                Helpers.priorityWait(central_label, timeout);
+
+                try {
+                    getCentral_label().wait(timeout);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
             }
 
             if (Thread.currentThread().getId() == central_label_thread) {
@@ -185,6 +199,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 });
             }
         }
+
+        Thread.currentThread().setPriority(old_priority);
+
     }
 
     public JLabel getCentral_label() {

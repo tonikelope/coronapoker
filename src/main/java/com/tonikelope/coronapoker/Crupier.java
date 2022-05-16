@@ -7264,7 +7264,7 @@ public class Crupier implements Runnable {
 
                         if (getJugadoresActivos() > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
 
-                            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? PAUSA_ENTRE_MANOS : Math.round(1.5f * PAUSA_ENTRE_MANOS));
+                            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? (resisten.size() > 1 ? PAUSA_ENTRE_MANOS : Math.round(0.5f * PAUSA_ENTRE_MANOS)) : Math.round(1.5f * PAUSA_ENTRE_MANOS));
 
                         }
 

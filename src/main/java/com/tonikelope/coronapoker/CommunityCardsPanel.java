@@ -180,6 +180,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 icon_zoom_timer.setRepeats(false);
                 icon_zoom_timer.setCoalesce(false);
+
+                setVisible(false);
             }
         });
 

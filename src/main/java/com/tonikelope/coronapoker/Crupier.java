@@ -2778,11 +2778,29 @@ public class Crupier implements Runnable {
 
                         } else {
 
+                            Helpers.GUIRunAndWait(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
+
+                                }
+                            });
+
                             Audio.playWavResourceAndWait("misc/shuffle.wav");
 
                         }
 
                     } else {
+
+                        Helpers.GUIRunAndWait(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
+
+                            }
+                        });
 
                         Audio.playWavResourceAndWait("misc/shuffle.wav");
                     }

@@ -444,7 +444,7 @@ public class Helpers {
     }
 
     public static void setScaledIconLabel(JLabel label, String path, int width, int height) {
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 try {
                     label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
@@ -456,7 +456,7 @@ public class Helpers {
     }
 
     public static void setScaledIconLabel(JLabel label, URL path, int width, int height) {
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
             }
@@ -464,7 +464,7 @@ public class Helpers {
     }
 
     public static void setScaledIconButton(JButton button, String path, int width, int height) {
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 try {
                     button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
@@ -476,7 +476,7 @@ public class Helpers {
     }
 
     public static void setScaledIconButton(JButton button, URL path, int width, int height) {
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
             }

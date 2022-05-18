@@ -39,7 +39,7 @@ public class TablePanel3 extends TablePanel {
                 initComponents();
                 players = new Player[]{localPlayer, remotePlayer1, remotePlayer2};
                 remotePlayers = new RemotePlayer[]{remotePlayer1, remotePlayer2};
-                zoomables = new ZoomableInterface[]{localPlayer, remotePlayer1, remotePlayer2, communityCards};
+                zoomables = new ZoomableInterface[]{localPlayer, remotePlayer1, remotePlayer2, communityCards, chatimagebuttons};
             }
         });
     }

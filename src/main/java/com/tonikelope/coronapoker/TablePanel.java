@@ -30,6 +30,7 @@ import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 
 /**
@@ -47,6 +48,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     protected volatile ZoomableInterface[] zoomables;
 
     protected final JLabel central_label = new JLabel();
+
+    protected final ChatImageTapetePanel chatimagebuttons = new ChatImageTapetePanel();
 
     private volatile Long central_label_thread = null;
 
@@ -102,13 +105,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             public void run() {
                 initComponents();
 
+                add(chatimagebuttons, JLayeredPane.POPUP_LAYER);
+
+                chatimagebuttons.setSize(212, 100);
+
                 central_label.setDoubleBuffered(true);
 
                 central_label.setFocusable(false);
 
                 central_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-                add(central_label, new Integer(1001));
+                add(central_label, JLayeredPane.POPUP_LAYER);
 
                 addComponentListener(new ComponentResizeEndListener() {
 
@@ -131,11 +138,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                             repaint();
 
                         }
+
+                        chatimagebuttons.setLocation(0, getHeight() - chatimagebuttons.getHeight());
+
                     }
                 });
             }
         });
-
     }
 
     public void showCentralImage(ImageIcon icon, long timeout) {
@@ -250,6 +259,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
+
                 revalidate();
                 repaint();
             }

@@ -843,6 +843,42 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return zoom_menu;
     }
 
+    public void showFastChatImage() {
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                if (GameFrame.CHAT_IMAGES_INGAME) {
+
+                    ChatImageDialog chat_image_dialog = new ChatImageDialog(getFrame(), true, getFrame().getHeight());
+                    chat_image_dialog.setLocation((int) (getFrame().getLocation().getX() + getFrame().getWidth()) - chat_image_dialog.getWidth(), (int) getFrame().getLocation().getY());
+                    chat_image_dialog.setVisible(true);
+                }
+            }
+        });
+    }
+
+    public void showFastChatDialog() {
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+
+                if (fastchat_dialog != null) {
+
+                    FastChatDialog old_dialog = fastchat_dialog;
+
+                    fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog.getChat_box());
+
+                    old_dialog.dispose();
+
+                } else {
+                    fastchat_dialog = new FastChatDialog(getFrame(), false, null);
+                }
+
+                fastchat_dialog.setLocation(getFrame().getX(), getFrame().getY() + getFrame().getHeight() - fastchat_dialog.getHeight());
+
+                fastchat_dialog.setVisible(true);
+            }
+        });
+    }
+
     private void setupGlobalShortcuts() {
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
@@ -927,21 +963,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
 
-                if (fastchat_dialog != null) {
-
-                    FastChatDialog old_dialog = fastchat_dialog;
-
-                    fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog.getChat_box());
-
-                    old_dialog.dispose();
-
-                } else {
-                    fastchat_dialog = new FastChatDialog(getFrame(), false, null);
-                }
-
-                fastchat_dialog.setLocation(getFrame().getX(), getFrame().getY() + getFrame().getHeight() - fastchat_dialog.getHeight());
-
-                fastchat_dialog.setVisible(true);
+                showFastChatDialog();
 
             }
         });
@@ -950,12 +972,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
 
-                if (GameFrame.CHAT_IMAGES_INGAME) {
-
-                    ChatImageDialog chat_image_dialog = new ChatImageDialog(getFrame(), true, getFrame().getHeight());
-                    chat_image_dialog.setLocation((int) (getFrame().getLocation().getX() + getFrame().getWidth()) - chat_image_dialog.getWidth(), (int) getFrame().getLocation().getY());
-                    chat_image_dialog.setVisible(true);
-                }
+                showFastChatImage();
 
             }
         });

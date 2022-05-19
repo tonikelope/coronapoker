@@ -33,28 +33,28 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
     public TapeteFastButtons() {
 
         initComponents();
-        botones = new Object[][]{{chat, "chat.png"}, {image, "image.png"}, {compact, "compact.png"}, {zoom_in, "zoom_in.png"}, {zoom_reset, "zoom_reset.png"}, {zoom_out, "zoom_out.png"}, {fullscreen, "fullscreen.png"}};
-        
-        for (Object[] b : botones) {
-                        Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round( (1f + GameFrame.ZOOM_LEVEL*GameFrame.ZOOM_STEP) * H), Math.round( (1f + GameFrame.ZOOM_LEVEL*GameFrame.ZOOM_STEP) * H));
+        botones = new Object[][]{{chat, "chat.png"}, {image, "image.png"}, {compact, "compact.png"}, {zoom_in, "zoom_in.png"}, {zoom_reset, "zoom_reset.png"}, {zoom_out, "zoom_out.png"}, {fullscreen, "fullscreen.png"}, {log, "log.png"}, {rebuy, "rebuy.png"}};
 
-                    }
+        for (Object[] b : botones) {
+            Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H));
+
+        }
         pref_size = getPreferredSize();
         hideButtons();
         setComListeners();
     }
 
     private void zoomIcons(float factor) {
-        
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
-                
-                if(!chat.isVisible()){
+
+                if (!chat.isVisible()) {
                     for (Object[] b : botones) {
                         Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round(factor * H), Math.round(factor * H));
 
                     }
-                    
+
                     zoom_factor = factor;
                 }
 
@@ -92,12 +92,13 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
         for (Object[] b : botones) {
             ((Component) b[0]).setVisible(false);
         }
+
     }
 
     private void showButtons() {
-        
-        if(zoom_factor != (1f + GameFrame.ZOOM_LEVEL*GameFrame.ZOOM_STEP)){
-            zoomIcons(1f + GameFrame.ZOOM_LEVEL*GameFrame.ZOOM_STEP);
+
+        if (zoom_factor != (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)) {
+            zoomIcons(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         }
 
         for (Object[] b : botones) {
@@ -109,11 +110,12 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
             }
         }
 
-        if (this.getPref_size() != this.getPreferredSize()) {
-            this.pref_size = this.getPreferredSize();
-            setSize(this.pref_size);
+        if (getPref_size() != getPreferredSize()) {
+            pref_size = getPreferredSize();
+            setSize(pref_size);
             setLocation(0, (int) (GameFrame.getInstance().getTapete().getHeight() - getSize().getHeight()));
         }
+
     }
 
     /**
@@ -127,6 +129,8 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
 
         chat = new javax.swing.JLabel();
         image = new javax.swing.JLabel();
+        rebuy = new javax.swing.JLabel();
+        log = new javax.swing.JLabel();
         compact = new javax.swing.JLabel();
         zoom_out = new javax.swing.JLabel();
         zoom_reset = new javax.swing.JLabel();
@@ -166,6 +170,28 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
             }
         });
         add(image);
+
+        rebuy.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/rebuy.png"))); // NOI18N
+        rebuy.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        rebuy.setDoubleBuffered(true);
+        rebuy.setFocusable(false);
+        rebuy.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                rebuyMouseClicked(evt);
+            }
+        });
+        add(rebuy);
+
+        log.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/log.png"))); // NOI18N
+        log.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        log.setDoubleBuffered(true);
+        log.setFocusable(false);
+        log.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                logMouseClicked(evt);
+            }
+        });
+        add(log);
 
         compact.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/compact.png"))); // NOI18N
         compact.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -240,7 +266,6 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
     private void chatMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_chatMouseClicked
         // TODO add your handling code here:
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
-            hideButtons();
 
             GameFrame.getInstance().showFastChatDialog();
         }
@@ -249,7 +274,6 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
     private void imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_imageMouseClicked
 
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
-            hideButtons();
 
             GameFrame.getInstance().showFastChatImage();
         }
@@ -257,34 +281,75 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
 
     private void compactMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_compactMouseClicked
         // TODO add your handling code here:
-        GameFrame.getInstance().getCompact_menu().doClick();
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+            GameFrame.getInstance().getCompact_menu().doClick();
+        }
+
     }//GEN-LAST:event_compactMouseClicked
 
     private void zoom_outMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_zoom_outMouseClicked
         // TODO add your handling code here:
-        GameFrame.getInstance().getZoom_menu_out().doClick();
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+            GameFrame.getInstance().getZoom_menu_out().doClick();
+        }
+
     }//GEN-LAST:event_zoom_outMouseClicked
 
     private void zoom_resetMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_zoom_resetMouseClicked
         // TODO add your handling code here:
-        GameFrame.getInstance().getZoom_menu_reset().doClick();
+
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+            GameFrame.getInstance().getZoom_menu_reset().doClick();
+        }
     }//GEN-LAST:event_zoom_resetMouseClicked
 
     private void zoom_inMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_zoom_inMouseClicked
         // TODO add your handling code here:
-        GameFrame.getInstance().getZoom_menu_in().doClick();
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+            GameFrame.getInstance().getZoom_menu_in().doClick();
+        }
+
     }//GEN-LAST:event_zoom_inMouseClicked
 
     private void fullscreenMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_fullscreenMouseClicked
         // TODO add your handling code here:
-        GameFrame.getInstance().getFull_screen_menu().doClick();
+
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+            GameFrame.getInstance().getFull_screen_menu().doClick();
+        }
     }//GEN-LAST:event_fullscreenMouseClicked
+
+    private void rebuyMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_rebuyMouseClicked
+        // TODO add your handling code here:
+
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+            GameFrame.getInstance().getRebuy_now_menu().doClick();
+        }
+
+    }//GEN-LAST:event_rebuyMouseClicked
+
+    private void logMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_logMouseClicked
+        // TODO add your handling code here:
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+            GameFrame.getInstance().getRegistro_menu().doClick();
+        }
+
+    }//GEN-LAST:event_logMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel chat;
     private javax.swing.JLabel compact;
     private javax.swing.JLabel fullscreen;
     private javax.swing.JLabel image;
+    private javax.swing.JLabel log;
+    private javax.swing.JLabel rebuy;
     private javax.swing.JLabel zoom_in;
     private javax.swing.JLabel zoom_out;
     private javax.swing.JLabel zoom_reset;

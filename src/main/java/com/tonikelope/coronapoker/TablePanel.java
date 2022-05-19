@@ -417,6 +417,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     }
 
+    public TapeteFastButtons getFastbuttons() {
+        return fastbuttons;
+    }
+
     public synchronized void autoZoom(boolean reset) {
 
         for (Player jugador : getPlayers()) {

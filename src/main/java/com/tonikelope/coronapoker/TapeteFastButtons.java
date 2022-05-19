@@ -21,6 +21,7 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
     public final static int H = 60;
     private final Object[][] botones;
     private volatile Dimension pref_size;
+    private volatile float zoom_factor;
 
     public Dimension getPref_size() {
         return pref_size;
@@ -33,18 +34,28 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
 
         initComponents();
         botones = new Object[][]{{chat, "chat.png"}, {image, "image.png"}, {compact, "compact.png"}, {zoom_in, "zoom_in.png"}, {zoom_reset, "zoom_reset.png"}, {zoom_out, "zoom_out.png"}, {fullscreen, "fullscreen.png"}};
-        setIcons();
+        
+        for (Object[] b : botones) {
+                        Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round( (1f + GameFrame.ZOOM_LEVEL*GameFrame.ZOOM_STEP) * H), Math.round( (1f + GameFrame.ZOOM_LEVEL*GameFrame.ZOOM_STEP) * H));
+
+                    }
         pref_size = getPreferredSize();
         hideButtons();
         setComListeners();
     }
 
-    private void setIcons() {
+    private void zoomIcons(float factor) {
+        
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
-                for (Object[] b : botones) {
-                    Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H));
+                
+                if(!chat.isVisible()){
+                    for (Object[] b : botones) {
+                        Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round(factor * H), Math.round(factor * H));
 
+                    }
+                    
+                    zoom_factor = factor;
                 }
 
             }
@@ -84,6 +95,10 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
     }
 
     private void showButtons() {
+        
+        if(zoom_factor != (1f + GameFrame.ZOOM_LEVEL*GameFrame.ZOOM_STEP)){
+            zoomIcons(1f + GameFrame.ZOOM_LEVEL*GameFrame.ZOOM_STEP);
+        }
 
         for (Object[] b : botones) {
 
@@ -278,19 +293,7 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
     @Override
     public void zoom(float factor, ConcurrentLinkedQueue<Long> notifier) {
 
-        setIcons();
-
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-
-                if (chat.isVisible() && getPref_size() != getPreferredSize()) {
-                    pref_size = getPreferredSize();
-                    setSize(pref_size);
-                    setLocation(0, (int) (GameFrame.getInstance().getTapete().getHeight() - getSize().getHeight()));
-                }
-
-            }
-        });
+        zoomIcons(factor);
 
         if (notifier != null) {
 

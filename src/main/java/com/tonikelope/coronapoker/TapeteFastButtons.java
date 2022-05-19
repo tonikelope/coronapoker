@@ -27,6 +27,10 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
         return pref_size;
     }
 
+    public boolean esBotoneraVisible() {
+        return chat.isVisible();
+    }
+
     /**
      * Creates new form ChatImageTapetePanel
      */
@@ -87,12 +91,14 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
         }
     }
 
-    private void hideButtons() {
-
-        for (Object[] b : botones) {
-            ((Component) b[0]).setVisible(false);
-        }
-
+    public void hideButtons() {
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+                for (Object[] b : botones) {
+                    ((Component) b[0]).setVisible(false);
+                }
+            }
+        });
     }
 
     private void showButtons() {

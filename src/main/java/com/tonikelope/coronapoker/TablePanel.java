@@ -49,7 +49,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     protected final JLabel central_label = new JLabel();
 
-    protected final ChatImageTapetePanel chatimagebuttons = new ChatImageTapetePanel();
+    protected final TapeteFastButtons fastbuttons = new TapeteFastButtons();
 
     private volatile Long central_label_thread = null;
 
@@ -105,9 +105,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             public void run() {
                 initComponents();
 
-                add(chatimagebuttons, JLayeredPane.POPUP_LAYER);
+                add(fastbuttons, JLayeredPane.POPUP_LAYER);
 
-                chatimagebuttons.setSize(212, 100);
+                fastbuttons.setSize(fastbuttons.getPref_size());
 
                 central_label.setDoubleBuffered(true);
 
@@ -139,7 +139,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                         }
 
-                        chatimagebuttons.setLocation(0, getHeight() - chatimagebuttons.getHeight());
+                        fastbuttons.setLocation(0, (int) (getHeight() - fastbuttons.getSize().getHeight()));
 
                     }
                 });

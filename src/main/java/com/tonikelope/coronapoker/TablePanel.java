@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -384,7 +385,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     private void formMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseEntered
         // TODO add your handling code here:
-        if (fastbuttons.esBotoneraVisible()) {
+        if (((Component) fastbuttons.getBotones()[0][0]).isVisible()) {
             fastbuttons.hideButtons();
         }
     }//GEN-LAST:event_formMouseEntered

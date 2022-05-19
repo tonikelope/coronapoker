@@ -364,6 +364,12 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                formMouseEntered(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -375,6 +381,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             .addGap(0, 300, Short.MAX_VALUE)
         );
     }// </editor-fold>//GEN-END:initComponents
+
+    private void formMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseEntered
+        // TODO add your handling code here:
+        if (fastbuttons.esBotoneraVisible()) {
+            fastbuttons.hideButtons();
+        }
+    }//GEN-LAST:event_formMouseEntered
 
     @Override
     public void zoom(float factor, final ConcurrentLinkedQueue<Long> notifier) {

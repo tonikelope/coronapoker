@@ -113,7 +113,14 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
         chat_panel.setBackground(new java.awt.Color(255, 255, 255));
 
+        icono.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         icono.setDoubleBuffered(true);
+        icono.setFocusable(false);
+        icono.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                iconoMouseClicked(evt);
+            }
+        });
 
         chat_box.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
         chat_box.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -216,6 +223,8 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
                 }
             });
+        } else {
+            setVisible(false);
         }
     }//GEN-LAST:event_chat_boxActionPerformed
 
@@ -294,6 +303,11 @@ public final class FastChatDialog extends javax.swing.JDialog {
             refreshColors();
         }
     }//GEN-LAST:event_chat_boxFocusGained
+
+    private void iconoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_iconoMouseClicked
+        // TODO add your handling code here:
+        setVisible(false);
+    }//GEN-LAST:event_iconoMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextField chat_box;

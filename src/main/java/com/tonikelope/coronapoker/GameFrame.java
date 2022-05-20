@@ -1434,9 +1434,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     frame.getContentPane().add(frame_layer);
 
-                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-
-                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
 
                     updateSoundIcon();
 
@@ -1807,9 +1805,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         updateSoundIcon();
 
-        tapete.getCommunityCards().getBarra_tiempo().setMinimum(0);
-
-        tapete.getCommunityCards().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
+        Helpers.resetBarra(tapete.getCommunityCards().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
 
         server_separator_menu.setVisible(partida_local);
 

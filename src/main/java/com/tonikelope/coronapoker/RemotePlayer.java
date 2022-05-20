@@ -521,9 +521,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     setPlayerActionIcon("action/thinking.png");
 
-                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-
-                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
                 }
             });
 

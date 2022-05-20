@@ -1096,9 +1096,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_allin_button.setIcon(null);
                     }
 
-                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-
-                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
 
                     player_action.setText("HABLAS TÚ");
 

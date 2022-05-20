@@ -685,7 +685,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
 
         barra.setVisible(false);
-        barra.setIndeterminate(true);
+        Helpers.barraIndeterminada(barra);
         tts_warning.setVisible(false);
         chat_notifications.setSelected(CHAT_GAME_NOTIFICATIONS);
         chat_notifications.setVisible(false);
@@ -1399,7 +1399,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         public void run() {
                             status.setForeground(new Color(51, 153, 0));
-                            barra.setIndeterminate(true);
+                            Helpers.barraIndeterminada(barra);
                             status.setText(Translator.translate("Conectando..."));
                         }
                     });
@@ -2133,9 +2133,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 public void run() {
                                     status.setForeground(Color.red);
-                                    barra.setIndeterminate(false);
-                                    barra.setMaximum(CLIENT_REC_WAIT);
-                                    barra.setValue(CLIENT_REC_WAIT);
+
+                                    Helpers.resetBarra(barra, CLIENT_REC_WAIT);
+
                                 }
                             });
 

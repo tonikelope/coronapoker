@@ -26,11 +26,11 @@ import javax.swing.JTextField;
  * @author tonikelope
  */
 public class Reconnect2ServerDialog extends javax.swing.JDialog {
-
+    
     private volatile boolean reconectar = false;
-
+    
     public void reset() {
-
+        
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 getIp_port().setEnabled(true);
@@ -43,31 +43,31 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
             }
         });
     }
-
+    
     public boolean isReconectar() {
         return reconectar;
     }
-
+    
     public void setReconectar(boolean reconectar) {
         this.reconectar = reconectar;
     }
-
+    
     public JTextField getIp_port() {
         return ip_port;
     }
-
+    
     public JButton getYes() {
         return yes;
     }
-
+    
     public JProgressBar getBarra() {
         return barra;
     }
-
+    
     public JLabel getStatus() {
         return status;
     }
-
+    
     public JLabel getStatus2() {
         return status2;
     }
@@ -77,21 +77,21 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
      */
     public Reconnect2ServerDialog(java.awt.Frame parent, boolean modal, String ip_p) {
         super(parent, modal);
-
+        
         initComponents();
         ip_port.setText(ip_p);
         barra.setVisible(false);
-        barra.setIndeterminate(true);
+        Helpers.barraIndeterminada(barra);
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
-
+        
         pack();
-
+        
         Helpers.setScaledIconButton(yes, getClass().getResource("/images/action/plug.png"), yes.getHeight(), yes.getHeight());
         Helpers.setScaledIconButton(exit_button, getClass().getResource("/images/exit.png"), exit_button.getHeight(), exit_button.getHeight());
-
+        
         pack();
-
+        
     }
 
     /**
@@ -215,7 +215,7 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         this.barra.setVisible(true);
         this.reconectar = true;
         pack();
-
+        
         Helpers.threadRun(new Runnable() {
             public void run() {
                 synchronized (WaitingRoomFrame.getInstance().getLock_reconnect()) {
@@ -224,25 +224,25 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
             }
         });
     }//GEN-LAST:event_yesActionPerformed
-
+    
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
         Audio.playWavResource("misc/warning.wav");
     }//GEN-LAST:event_formComponentShown
-
+    
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
         // TODO add your handling code here:
 
         System.exit(1);
     }//GEN-LAST:event_exit_buttonActionPerformed
-
+    
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
         // TODO add your handling code here:
         if (isModal()) {
             Init.CURRENT_MODAL_DIALOG.add(this);
         }
     }//GEN-LAST:event_formWindowActivated
-
+    
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
         // TODO add your handling code here:
         if (isModal()) {

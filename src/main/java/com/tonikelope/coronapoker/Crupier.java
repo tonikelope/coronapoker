@@ -615,12 +615,7 @@ public class Crupier implements Runnable {
         synchronized (lock_tiempo_pausa_barra) {
             this.tiempo_pausa = tiempo;
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    GameFrame.getInstance().getBarra_tiempo().setMaximum(tiempo);
-                    GameFrame.getInstance().getBarra_tiempo().setValue(tiempo);
-                }
-            });
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), tiempo);
         }
 
     }
@@ -737,11 +732,7 @@ public class Crupier implements Runnable {
 
         if (!this.sincronizando_mano) {
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
-                }
-            });
+            Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
             if (GameFrame.CINEMATICAS) {
 
@@ -795,9 +786,7 @@ public class Crupier implements Runnable {
                                         gif_dialog.dispose();
                                     }
 
-                                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
-                                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-                                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
+                                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
                                 }
                             });
 
@@ -820,13 +809,7 @@ public class Crupier implements Runnable {
 
                             current_remote_cinematic_b64 = null;
 
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-                                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
-                                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-                                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
-                                }
-                            });
+                            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
 
                             synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                                 GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -847,13 +830,7 @@ public class Crupier implements Runnable {
 
                         current_remote_cinematic_b64 = null;
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
-                                GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-                                GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
-                            }
-                        });
+                        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
 
                         synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                             GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -1037,11 +1014,7 @@ public class Crupier implements Runnable {
 
     private void recibirRebuys(ArrayList<String> pending) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
-            }
-        });
+        Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
         //Esperamos confirmación
         long start_time = System.currentTimeMillis();
@@ -1171,14 +1144,7 @@ public class Crupier implements Runnable {
 
         }
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
-                GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-                GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
-            }
-        });
-
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
     }
 
     public synchronized void remotePlayerQuit(String nick) {
@@ -2177,7 +2143,7 @@ public class Crupier implements Runnable {
                                     GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
                                 }
 
-                                GameFrame.getInstance().getTapete().getCommunityCards().getBarra_tiempo().setIndeterminate(true);
+                                Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
                             }
                         });
@@ -2398,13 +2364,7 @@ public class Crupier implements Runnable {
 
             iwtsthing_request = true;
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-
-                    GameFrame.getInstance().getTapete().getCommunityCards().getBarra_tiempo().setIndeterminate(true);
-
-                }
-            });
+            Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
             if (!GameFrame.getInstance().isPartida_local()) {
 
@@ -2437,7 +2397,7 @@ public class Crupier implements Runnable {
                 GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(false);
                 GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
 
-                GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
+                Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
                 if (!GameFrame.getInstance().isPartida_local()) {
                     GameFrame.getInstance().getExit_menu().setEnabled(false);
@@ -2864,12 +2824,11 @@ public class Crupier implements Runnable {
 
             repartir();
 
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
-                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
                     GameFrame.getInstance().getExit_menu().setEnabled(true);
                 }
             });
@@ -2891,12 +2850,12 @@ public class Crupier implements Runnable {
 
             }
 
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+
             Helpers.GUIRun(new Runnable() {
                 @Override
                 public void run() {
-                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
-                    GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-                    GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
+
                     GameFrame.getInstance().getExit_menu().setEnabled(true);
                 }
             });
@@ -6076,11 +6035,7 @@ public class Crupier implements Runnable {
 
         } else {
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
-                }
-            });
+            Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
             try {
 
@@ -6725,12 +6680,7 @@ public class Crupier implements Runnable {
     @Override
     public void run() {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                GameFrame.getInstance().getBarra_tiempo().setMaximum(GameFrame.TIEMPO_PENSAR);
-                GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
-            }
-        });
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
 
         if (GameFrame.getInstance().isPartida_local()) {
 

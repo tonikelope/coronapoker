@@ -50,7 +50,7 @@ import org.apache.commons.codec.binary.Base64;
  * @author tonikelope
  */
 public class ChatImageDialog extends javax.swing.JDialog {
-
+    
     public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.20f);
     public static final ConcurrentHashMap<String, ImageIcon> STATIC_IMAGE_CACHE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Object[]> GIF_CACHE = new ConcurrentHashMap<>();
@@ -71,72 +71,70 @@ public class ChatImageDialog extends javax.swing.JDialog {
     public ChatImageDialog(java.awt.Frame parent, boolean modal, int h) {
         super(parent, modal);
         initComponents();
-
+        
         Helpers.setTranslatedTitle(this, "Enviar imagen");
-
+        
         Helpers.JTextFieldRegularPopupMenu.addTo(image_url);
-
+        
         send_button.setEnabled(false);
-
+        
         clear_button.setEnabled(false);
-
+        
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
-
+        
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
-
+        
         auto_recibir_checkbox.setSelected(AUTO_REC);
-
+        
         if (ANTI_FLOOD_WAIT > 0) {
-            barra.setIndeterminate(false);
-            barra.setMaximum(ANTI_FLOOD_IMAGE);
-            barra.setValue(ANTI_FLOOD_WAIT);
+            Helpers.resetBarra(barra, ANTI_FLOOD_IMAGE);
             barra.setVisible(true);
         } else {
-            barra.setIndeterminate(true);
+            Helpers.barraIndeterminada(barra);
         }
-
+        
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-
+        
         Helpers.translateComponents(this, false);
-
+        
         pack();
-
+        
         setSize(getWidth(), h);
-
+        
         setPreferredSize(getSize());
-
+        
         pack();
-
+        
         Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth(), 0.1f);
-
+        
         THIS = this;
-
+        
         cargarHistorialPanel();
-
+        
     }
-
+    
     private void cargarHistorialPanel() {
-
+        
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
                 THIS.historial_panel.removeAll();
             }
         });
-
+        
         Helpers.threadRun(new Runnable() {
-
+            
             public void run() {
-
+                
                 synchronized (LOAD_IMAGES_LOCK) {
-
+                    
                     if (!exit) {
-
+                        
                         for (String h : HISTORIAL) {
-
+                            
                             Helpers.GUIRunAndWait(new Runnable() {
                                 private volatile JLabel label;
-
+                                
                                 @Override
                                 public void run() {
                                     label = new JLabel();
@@ -147,7 +145,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                     label.setIcon((STATIC_IMAGE_CACHE.containsKey(h) || GIF_CACHE.containsKey(h)) ? getImageFromCache(h) : new ImageIcon(getClass().getResource("/images/loading.gif")));
                                     label.revalidate();
                                     label.repaint();
-
+                                    
                                     label.addFocusListener(new FocusListener() {
                                         @Override
                                         public void focusGained(FocusEvent fe) {
@@ -156,7 +154,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                             label.repaint();
                                             THIS.historial_panel.scrollRectToVisible(label.getBounds());
                                         }
-
+                                        
                                         @Override
                                         public void focusLost(FocusEvent fe) {
                                             if (label.getBorder() instanceof LineBorder && ((LineBorder) label.getBorder()).getLineColor() == Color.YELLOW) {
@@ -165,16 +163,16 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                             }
                                         }
                                     });
-
+                                    
                                     label.addKeyListener(new KeyListener() {
                                         @Override
                                         public void keyTyped(KeyEvent ke) {
-
+                                            
                                         }
-
+                                        
                                         @Override
                                         public void keyPressed(KeyEvent ke) {
-
+                                            
                                             if (ke.getKeyCode() == KeyEvent.VK_S) {
                                                 THIS.image_url.setText(h);
                                                 THIS.image_url.setEnabled(false);
@@ -182,274 +180,274 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                             } else if (ke.getKeyCode() == KeyEvent.VK_1) {
                                                 if (!THIS.exiting) {
                                                     THIS.exiting = true;
-
+                                                    
                                                     Helpers.threadRun(new Runnable() {
-
+                                                        
                                                         public void run() {
-
+                                                            
                                                             synchronized (LOAD_IMAGES_LOCK) {
                                                                 THIS.exit = true;
                                                             }
-
+                                                            
                                                             Helpers.GUIRun(new Runnable() {
-
+                                                                
                                                                 public void run() {
-
+                                                                    
                                                                     THIS.dispose();
-
+                                                                    
                                                                     if (WaitingRoomFrame.getInstance().isVisible()) {
                                                                         WaitingRoomFrame.getInstance().getChat_box().requestFocus();
                                                                     }
-
+                                                                    
                                                                 }
                                                             });
-
+                                                            
                                                         }
                                                     });
-
+                                                    
                                                 }
-
+                                                
                                             } else if (ke.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
-
+                                                
                                                 label.setBorder(new LineBorder(Color.RED, 5));
-
+                                                
                                                 if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
-
+                                                    
                                                     Helpers.threadRun(new Runnable() {
                                                         @Override
                                                         public void run() {
                                                             synchronized (LOAD_IMAGES_LOCK) {
-
+                                                                
                                                                 if (!THIS.exit) {
-
+                                                                    
                                                                     Helpers.GUIRunAndWait(new Runnable() {
                                                                         @Override
                                                                         public void run() {
-
+                                                                            
                                                                             THIS.historial_panel.remove(label);
                                                                             THIS.revalidate();
                                                                             THIS.repaint();
-
+                                                                            
                                                                             if (THIS.last_focused != null) {
                                                                                 THIS.last_focused.requestFocus();
                                                                             }
-
+                                                                            
                                                                         }
                                                                     });
-
+                                                                    
                                                                     ChatImageDialog.removeFromHistory(h);
                                                                 }
                                                             }
                                                         }
                                                     });
-
+                                                    
                                                 } else {
-
+                                                    
                                                     label.requestFocus();
                                                 }
                                             }
                                         }
-
+                                        
                                         @Override
                                         public void keyReleased(KeyEvent ke) {
-
+                                            
                                         }
                                     });
-
+                                    
                                     label.addMouseListener(new MouseAdapter() {
                                         @Override
                                         public void mouseClicked(MouseEvent e) {
-
+                                            
                                             if (SwingUtilities.isLeftMouseButton(e)) {
                                                 THIS.image_url.setText(h);
                                                 THIS.image_url.setEnabled(false);
                                                 THIS.send_buttonActionPerformed(null);
-
+                                                
                                             } else if (SwingUtilities.isRightMouseButton(e)) {
-
+                                                
                                                 label.setBorder(new LineBorder(Color.RED, 5));
-
+                                                
                                                 if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
-
+                                                    
                                                     Helpers.threadRun(new Runnable() {
                                                         @Override
                                                         public void run() {
                                                             synchronized (LOAD_IMAGES_LOCK) {
-
+                                                                
                                                                 if (!exit) {
-
+                                                                    
                                                                     Helpers.GUIRunAndWait(new Runnable() {
                                                                         @Override
                                                                         public void run() {
-
+                                                                            
                                                                             THIS.historial_panel.remove(label);
                                                                             THIS.revalidate();
                                                                             THIS.repaint();
-
+                                                                            
                                                                             if (last_focused != null) {
                                                                                 THIS.last_focused.requestFocus();
                                                                             }
-
+                                                                            
                                                                         }
                                                                     });
-
+                                                                    
                                                                     ChatImageDialog.removeFromHistory(h);
                                                                 }
                                                             }
                                                         }
                                                     });
                                                 } else {
-
+                                                    
                                                     label.setBorder(new EmptyBorder(10, 0, 10, 0));
-
+                                                    
                                                     THIS.image_url.requestFocus();
                                                 }
                                             }
                                         }
                                     });
-
+                                    
                                     THIS.historial_panel.add(label);
-
+                                    
                                     loadImage(label, h);
                                 }
                             });
-
+                            
                         }
                     }
                 }
-
+                
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-
+                        
                         if (barra.isIndeterminate()) {
                             THIS.barra.setVisible(false);
                         }
-
+                        
                         THIS.send_button.setEnabled(true);
                         THIS.clear_button.setEnabled(!HISTORIAL.isEmpty());
                         THIS.revalidate();
                         THIS.repaint();
-
+                        
                     }
                 });
-
+                
             }
         });
-
+        
     }
-
+    
     private void loadImage(JLabel label, String url) {
         if (!(STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url))) {
-
+            
             IMAGE_THREAD_POOL.submit(new Runnable() {
                 private volatile ImageIcon image;
                 private volatile boolean isgif;
-
+                
                 @Override
                 public void run() {
                     if (!exit) {
-
+                        
                         try {
-
+                            
                             image = (STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) ? getImageFromCache(url) : new ImageIcon(new URL(url));
-
+                            
                             if ((STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) || image.getImageLoadStatus() != MediaTracker.ERRORED) {
-
+                                
                                 isgif = GIF_CACHE.containsKey(url);
-
+                                
                                 if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
-
+                                    
                                     isgif = (isgif || Helpers.isImageGIF(new URL(url)));
-
+                                    
                                     image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                 }
-
+                                
                                 Helpers.GUIRun(new Runnable() {
                                     @Override
                                     public void run() {
-
+                                        
                                         label.setIcon(image);
                                         label.revalidate();
                                         label.repaint();
                                     }
                                 });
-
+                                
                                 if (isgif || Helpers.isImageGIF(new URL(url))) {
-
+                                    
                                     GIF_CACHE.putIfAbsent(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
-
+                                    
                                 } else if (!GIF_CACHE.containsKey(url)) {
-
+                                    
                                     STATIC_IMAGE_CACHE.putIfAbsent(url, image);
                                 }
-
+                                
                             } else {
-
+                                
                                 Helpers.threadRun(new Runnable() {
                                     @Override
                                     public void run() {
                                         synchronized (LOAD_IMAGES_LOCK) {
-
+                                            
                                             if (!exit) {
-
+                                                
                                                 Helpers.GUIRunAndWait(new Runnable() {
                                                     @Override
                                                     public void run() {
-
+                                                        
                                                         THIS.historial_panel.remove(label);
                                                         THIS.revalidate();
                                                         THIS.repaint();
-
+                                                        
                                                     }
                                                 });
-
+                                                
                                                 ChatImageDialog.removeFromHistory(url);
                                             }
                                         }
                                     }
                                 });
-
+                                
                                 Logger.getLogger(ChatImageDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + url);
                             }
-
+                            
                         } catch (Exception ex) {
-
+                            
                             Helpers.threadRun(new Runnable() {
                                 @Override
                                 public void run() {
                                     synchronized (LOAD_IMAGES_LOCK) {
-
+                                        
                                         if (!exit) {
-
+                                            
                                             Helpers.GUIRunAndWait(new Runnable() {
                                                 @Override
                                                 public void run() {
-
+                                                    
                                                     THIS.historial_panel.remove(label);
                                                     THIS.revalidate();
                                                     THIS.repaint();
-
+                                                    
                                                 }
                                             });
-
+                                            
                                             ChatImageDialog.removeFromHistory(url);
                                         }
                                     }
                                 }
                             });
-
+                            
                             Logger.getLogger(ChatImageDialog.class.getName()).log(Level.WARNING, "ERROR LOADING IMAGE -> " + url);
                         }
                     }
                 }
             });
-
+            
         }
     }
-
+    
     private ImageIcon getImageFromCache(String url) {
-
+        
         if (STATIC_IMAGE_CACHE.containsKey(url)) {
             return STATIC_IMAGE_CACHE.get(url);
         } else if (GIF_CACHE.containsKey(url)) {
@@ -458,88 +456,88 @@ public class ChatImageDialog extends javax.swing.JDialog {
             return null;
         }
     }
-
+    
     public synchronized static void removeFromHistory(String url) {
-
+        
         STATIC_IMAGE_CACHE.remove(url);
-
+        
         GIF_CACHE.remove(url);
-
+        
         HISTORIAL.remove(url);
-
+        
         guardarHistorial();
     }
-
+    
     private synchronized static void updateHistorialEnviados(String url) {
-
+        
         if (HISTORIAL.contains(url)) {
             HISTORIAL.remove(url);
         }
-
+        
         HISTORIAL.addFirst(url);
-
+        
         guardarHistorial();
-
+        
     }
-
+    
     public synchronized static void updateHistorialRecibidos(String url) {
-
+        
         if (AUTO_REC && !HISTORIAL.contains(url)) {
-
+            
             HISTORIAL.addLast(url);
-
+            
             guardarHistorial();
-
+            
         }
     }
-
+    
     public synchronized static void updateHistorialRecibidos(ArrayList<String> urls) {
-
+        
         if (AUTO_REC) {
-
+            
             for (String s : urls) {
                 if (!HISTORIAL.contains(s)) {
                     HISTORIAL.addLast(s);
                 }
             }
-
+            
             guardarHistorial();
         }
     }
-
+    
     public synchronized static void guardarHistorial() {
-
+        
         String[] historial = HISTORIAL.toArray(new String[0]);
-
+        
         for (int i = 0; i < historial.length; i++) {
-
+            
             try {
                 historial[i] = Base64.encodeBase64String(historial[i].getBytes("UTF-8"));
-
+                
             } catch (Exception ex) {
                 Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
-
+            
         }
-
+        
         Helpers.PROPERTIES.setProperty("chat_img_hist", String.join("@", historial));
-
+        
         Helpers.PROPERTIES.setProperty("chat_img_hist_auto_rec", String.valueOf(AUTO_REC));
-
+        
         Helpers.savePropertiesFile();
-
+        
     }
-
+    
     private synchronized static ArrayDeque<String> cargarHistorial() {
-
+        
         ArrayDeque<String> historial = new ArrayDeque<>();
-
+        
         String hist_b64 = Helpers.PROPERTIES.getProperty("chat_img_hist", "");
-
+        
         if (!hist_b64.isBlank()) {
-
+            
             String[] hist = hist_b64.split("@");
-
+            
             for (String h : hist) {
                 try {
                     historial.addLast(new String(Base64.decodeBase64(h), "UTF-8"));
@@ -548,11 +546,11 @@ public class ChatImageDialog extends javax.swing.JDialog {
                 }
             }
         }
-
+        
         AUTO_REC = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_img_hist_auto_rec", "true"));
-
+        
         return historial;
-
+        
     }
 
     /**
@@ -702,120 +700,120 @@ public class ChatImageDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
 
         String url = THIS.image_url.getText().trim();
-
+        
         if (url.startsWith("http")) {
-
+            
             if (ANTI_FLOOD_WAIT > 0) {
                 Helpers.mostrarMensajeError(THIS, "ESPERA UN POCO");
-
+                
                 if (!THIS.image_url.isEnabled()) {
                     THIS.image_url.setText("");
                     THIS.image_url.setEnabled(true);
                 }
-
+                
             } else {
-
+                
                 THIS.send_button.setEnabled(false);
-
+                
                 THIS.image_url.setEnabled(false);
-
+                
                 THIS.barra.setVisible(true);
-
+                
                 Helpers.threadRun(new Runnable() {
-
+                    
                     public void run() {
-
+                        
                         if (HISTORIAL.contains(url)) {
-
+                            
                             synchronized (LOAD_IMAGES_LOCK) {
                                 THIS.exit = true;
                             }
-
+                            
                             Helpers.GUIRun(new Runnable() {
-
+                                
                                 public void run() {
-
+                                    
                                     THIS.dispose();
-
+                                    
                                     if (WaitingRoomFrame.getInstance().isVisible()) {
-
+                                        
                                         if (WaitingRoomFrame.getInstance().getEmoji_scroll_panel().isVisible()) {
                                             WaitingRoomFrame.getInstance().getEmoji_button().doClick();
                                         }
-
+                                        
                                         WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-
+                                        
                                     } else {
-
+                                        
                                         try {
                                             GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{GameFrame.getInstance().getLocalPlayer().getNickname(), new URL(url)});
                                         } catch (MalformedURLException ex) {
                                             Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
                                         }
-
+                                        
                                         synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
                                             GameFrame.NOTIFY_CHAT_QUEUE.notifyAll();
                                         }
                                     }
-
+                                    
                                     WaitingRoomFrame.getInstance().chatHTMLAppend(WaitingRoomFrame.getInstance().getLocal_nick() + ":(" + Helpers.getLocalTimeString() + ") " + url.replaceAll("^http", "img") + "\n");
-
+                                    
                                 }
                             });
-
+                            
                             WaitingRoomFrame.getInstance().enviarMensajeChat(WaitingRoomFrame.getInstance().getLocal_nick(), url.replaceAll("^http", "img"));
-
+                            
                             updateHistorialEnviados(url);
-
+                            
                             ANTI_FLOOD_WAIT = ANTI_FLOOD_IMAGE;
-
+                            
                             Helpers.threadRun(new Runnable() {
                                 public void run() {
-
+                                    
                                     while (ANTI_FLOOD_WAIT > 0) {
-
+                                        
                                         Helpers.pausar(1000);
-
+                                        
                                         ANTI_FLOOD_WAIT--;
-
+                                        
                                         Helpers.GUIRun(new Runnable() {
-
+                                            
                                             public void run() {
-
+                                                
                                                 if (THIS.barra.isVisible()) {
                                                     THIS.barra.setValue(ANTI_FLOOD_WAIT);
-
+                                                    
                                                     if (ANTI_FLOOD_WAIT == 0) {
                                                         THIS.barra.setVisible(false);
-                                                        THIS.barra.setIndeterminate(true);
+                                                        Helpers.barraIndeterminada(THIS.barra);
                                                     }
                                                 }
-
+                                                
                                             }
                                         });
-
+                                        
                                     }
                                 }
                             });
-
+                            
                         } else {
-
+                            
                             try {
                                 ImageIcon image = new ImageIcon(new URL(url));
-
+                                
                                 if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
-
+                                    
                                     updateHistorialEnviados(url);
-
+                                    
                                     THIS.cargarHistorialPanel();
-
+                                    
                                     Helpers.GUIRun(new Runnable() {
-
+                                        
                                         public void run() {
                                             THIS.image_url.setText("");
                                         }
                                     });
-
+                                    
                                 } else {
                                     Helpers.mostrarMensajeError(THIS, "ERROR: LA IMAGEN NO ES VÁLIDA");
                                 }
@@ -823,9 +821,9 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                 Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
                                 Helpers.mostrarMensajeError(THIS, "ERROR: LA IMAGEN NO ES VÁLIDA");
                             }
-
+                            
                             Helpers.GUIRun(new Runnable() {
-
+                                
                                 public void run() {
                                     THIS.barra.setVisible(false);
                                     THIS.image_url.setEnabled(true);
@@ -833,148 +831,148 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                     THIS.image_url.requestFocus();
                                 }
                             });
-
+                            
                         }
-
+                        
                     }
                 });
             }
-
+            
         } else if (!url.isBlank()) {
-
+            
             THIS.send_button.setEnabled(false);
             THIS.barra.setVisible(true);
-
+            
             try {
                 Helpers.openBrowserURL("https://www.google.com/search?q=" + URLEncoder.encode(url, "UTF-8") + "&tbm=isch");
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
-
+            
             THIS.barra.setVisible(false);
             THIS.send_button.setEnabled(true);
             THIS.image_url.requestFocus();
         } else {
             THIS.image_url.requestFocus();
         }
-
+        
     }//GEN-LAST:event_send_buttonActionPerformed
-
+    
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
 
         if (!exiting) {
             exiting = true;
-
+            
             Helpers.threadRun(new Runnable() {
-
+                
                 public void run() {
-
+                    
                     synchronized (LOAD_IMAGES_LOCK) {
                         exit = true;
                     }
-
+                    
                     Helpers.GUIRun(new Runnable() {
-
+                        
                         public void run() {
-
+                            
                             dispose();
-
+                            
                             if (WaitingRoomFrame.getInstance().isVisible()) {
                                 WaitingRoomFrame.getInstance().getChat_box().requestFocus();
                             }
-
+                            
                         }
                     });
-
+                    
                 }
             });
-
+            
         }
-
+        
     }//GEN-LAST:event_formWindowClosing
-
+    
     private void image_urlActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_image_urlActionPerformed
         // TODO add your handling code here:
         send_button.doClick();
     }//GEN-LAST:event_image_urlActionPerformed
-
+    
     private void clear_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clear_buttonActionPerformed
         // TODO add your handling code here:
         if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿BORRAR TODAS LAS IMÁGENES DEL HISTORIAL?\n(Nota: puedes borrar una imagen en concreto haciendo click derecho encima de ella)") == 0) {
-
+            
             STATIC_IMAGE_CACHE.clear();
-
+            
             GIF_CACHE.clear();
-
+            
             HISTORIAL.clear();
-
+            
             historial_panel.removeAll();
-
+            
             clear_button.setEnabled(false);
-
+            
             historial_panel.revalidate();
-
+            
             historial_panel.repaint();
-
+            
             Helpers.threadRun(new Runnable() {
                 @Override
                 public void run() {
-
+                    
                     ChatImageDialog.guardarHistorial();
                 }
             });
         }
-
+        
         image_url.requestFocus();
     }//GEN-LAST:event_clear_buttonActionPerformed
-
+    
     private void auto_recibir_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_recibir_checkboxActionPerformed
         // TODO add your handling code here:
 
         AUTO_REC = auto_recibir_checkbox.isSelected();
-
+        
         Helpers.PROPERTIES.setProperty("chat_img_hist_auto_rec", String.valueOf(AUTO_REC));
-
+        
         Helpers.savePropertiesFile();
-
+        
         image_url.requestFocus();
-
+        
     }//GEN-LAST:event_auto_recibir_checkboxActionPerformed
-
+    
     private void image_urlKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_image_urlKeyPressed
         // TODO add your handling code here:
         if (evt.getKeyCode() == KeyEvent.VK_1 && evt.isControlDown()) {
-
+            
             if (!exiting) {
                 exiting = true;
-
+                
                 Helpers.threadRun(new Runnable() {
-
+                    
                     public void run() {
-
+                        
                         synchronized (LOAD_IMAGES_LOCK) {
                             exit = true;
                         }
-
+                        
                         Helpers.GUIRun(new Runnable() {
-
+                            
                             public void run() {
-
+                                
                                 dispose();
-
+                                
                                 if (WaitingRoomFrame.getInstance().isVisible()) {
                                     WaitingRoomFrame.getInstance().getChat_box().requestFocus();
                                 }
-
+                                
                             }
                         });
-
+                        
                     }
                 });
-
+                
             }
-
+            
         }
     }//GEN-LAST:event_image_urlKeyPressed
 

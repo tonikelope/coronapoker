@@ -41,8 +41,7 @@ public class RebuyDialog extends javax.swing.JDialog {
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 barra.setVisible(true);
-                barra.setMaximum(tiempo);
-                barra.setValue(tiempo);
+                Helpers.resetBarra(barra, tiempo);
                 pack();
             }
         });

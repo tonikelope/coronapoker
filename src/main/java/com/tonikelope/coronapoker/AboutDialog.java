@@ -30,23 +30,24 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 /*
-* SPECIAL THANKS TO: 
+    SPECIAL THANKS TO: 
 
-https://www.3dgifmaker.com/ 
+    https://www.3dgifmaker.com/ 
 
-http://www.lcdf.org/gifsicle/
+    http://www.lcdf.org/gifsicle/
 
-https://www.youtube.com/watch?v=0JnmWfWuMDw
+    https://www.youtube.com/watch?v=0JnmWfWuMDw
 
-https://www.blender.org/
+    https://www.blender.org/
  */
+
 /**
  *
  * @author tonikelope
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "15.26";
+    public static final String VERSION = "15.27";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

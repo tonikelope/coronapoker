@@ -44,6 +44,7 @@ import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.border.LineBorder;
 
@@ -725,7 +726,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void player_stack_click() {
 
-        player_stackMouseClicked(null);
+        MouseEvent me = new MouseEvent(player_stack, // which
+                MouseEvent.MOUSE_CLICKED, // what
+                System.currentTimeMillis(), // when
+                MouseEvent.BUTTON1_MASK,
+                0, 0, // where: at (0, 0}
+                1, // only 1 click 
+                false); // not a popup trigger
+
+        player_stack.dispatchEvent(me);
+
     }
 
     public JLabel getChat_notify_label() {
@@ -2599,50 +2609,55 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
-        if (!player_stack_click) {
-            player_stack_click = true;
 
-            player_stack.setText(Helpers.float2String((float) this.buyin));
-            player_stack.setBackground(Color.GRAY);
-            player_stack.setForeground(Color.WHITE);
+        if (SwingUtilities.isLeftMouseButton(evt)) {
+            if (!player_stack_click) {
+                player_stack_click = true;
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-                    Helpers.pausar(1500);
+                player_stack.setText(Helpers.float2String((float) this.buyin));
+                player_stack.setBackground(Color.GRAY);
+                player_stack.setForeground(Color.WHITE);
 
-                    float s = getStack();
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
+                        Helpers.pausar(1500);
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
+                        float s = getStack();
 
-                            if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
-                                player_stack.setBackground(Color.YELLOW);
-                                player_stack.setForeground(Color.BLACK);
-                                player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
 
-                            } else {
-
-                                if (buyin > GameFrame.BUYIN) {
-                                    player_stack.setBackground(Color.CYAN);
-
+                                if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
+                                    player_stack.setBackground(Color.YELLOW);
                                     player_stack.setForeground(Color.BLACK);
+                                    player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
+
                                 } else {
 
-                                    player_stack.setBackground(new Color(51, 153, 0));
+                                    if (buyin > GameFrame.BUYIN) {
+                                        player_stack.setBackground(Color.CYAN);
 
-                                    player_stack.setForeground(Color.WHITE);
+                                        player_stack.setForeground(Color.BLACK);
+                                    } else {
+
+                                        player_stack.setBackground(new Color(51, 153, 0));
+
+                                        player_stack.setForeground(Color.WHITE);
+                                    }
+
+                                    player_stack.setText(Helpers.float2String(s));
                                 }
 
-                                player_stack.setText(Helpers.float2String(s));
                             }
+                        });
 
-                        }
-                    });
+                        player_stack_click = false;
 
-                    player_stack_click = false;
-
-                }
-            });
+                    }
+                });
+            }
+        } else {
+            GameFrame.getInstance().getRebuy_now_menu().doClick();
         }
     }//GEN-LAST:event_player_stackMouseClicked
 

@@ -27,8 +27,8 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
         return pref_size;
     }
 
-    public Object[][] getBotones() {
-        return botones;
+    public boolean areButtonsVisible() {
+        return chat.isVisible();
     }
 
     /**

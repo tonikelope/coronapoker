@@ -51,7 +51,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     protected final TapeteFastButtons fastbuttons = new TapeteFastButtons();
 
-    private volatile Long central_label_thread = null;
+    protected volatile Long central_label_thread = null;
 
     protected volatile boolean invalidate = false;
 

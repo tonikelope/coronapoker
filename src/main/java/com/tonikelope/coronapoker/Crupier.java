@@ -175,7 +175,7 @@ public class Crupier implements Runnable {
         SHOWDOWN_SOUNDS.put("en", SHOWDOWN_SOUNDS_EN);
 
         try {
-            GIF_CARD_ANIMATION_TIMEOUT = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/A_C.gif"));
+            GIF_CARD_ANIMATION_TIMEOUT = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/A_C.gif")) + 275;
         } catch (Exception ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -6066,7 +6066,7 @@ public class Crupier implements Runnable {
                     icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
                 }
 
-                GameFrame.getInstance().getTapete().showCentralImage(icon, GIF_CARD_ANIMATION_TIMEOUT + 250);
+                GameFrame.getInstance().getTapete().showCentralImage(icon, GIF_CARD_ANIMATION_TIMEOUT);
 
                 carta.destapar(false);
 

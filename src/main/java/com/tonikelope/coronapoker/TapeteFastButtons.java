@@ -18,7 +18,7 @@ import javax.swing.JLabel;
  */
 public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInterface {
 
-    public final static int H = 60;
+    public final static int H = 50;
     private final Object[][] botones;
     private volatile Dimension pref_size;
     private volatile float zoom_factor;

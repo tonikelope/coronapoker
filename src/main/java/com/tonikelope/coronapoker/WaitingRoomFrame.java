@@ -2129,11 +2129,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             booting = false;
 
-                            Helpers.GUIRun(new Runnable() {
+                            Helpers.GUIRunAndWait(new Runnable() {
 
                                 public void run() {
                                     status.setForeground(Color.red);
-
                                     Helpers.resetBarra(barra, CLIENT_REC_WAIT);
 
                                 }

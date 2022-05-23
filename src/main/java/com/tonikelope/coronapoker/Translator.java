@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Escalar animaciones", "Scale animations"},
             {"ERROR AL INTENTAR RECONECTAR -> ", "RECONNECT ERROR -> "},
             {"Imágenes del chat en el juego", "In-game chat images"},
             {"NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?", "CANNOT CHECK FOR NEW VERSION. Shall we try again?"},

@@ -146,6 +146,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static volatile boolean CHAT_IMAGES_INGAME = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_images_ingame", "true"));
     public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "false"));
+    public static volatile boolean ANIMATIONS_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animations_zoom", "false"));
     public static volatile boolean LOCAL_POSITION_CHIP = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("local_pos_chip", "true"));
     public static volatile String SERVER_HISTORY = Helpers.PROPERTIES.getProperty("server_history", "");
     public static volatile boolean RECOVER = false;
@@ -536,6 +537,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         synchronized (ZOOM_LOCK) {
             ZOOM_LEVEL--;
         }
+    }
+
+    public JCheckBoxMenuItem getAnimations_zoom_menu() {
+        return animations_zoom_menu;
     }
 
     public void toggleFullScreen() {
@@ -1723,6 +1728,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         getContentPane().add(frame_layer);
 
+        animations_zoom_menu.setSelected(GameFrame.ANIMATIONS_ZOOM);
+
         compact_menu.setSelected(GameFrame.VISTA_COMPACTA > 0);
 
         menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
@@ -2394,6 +2401,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         zoom_menu_out = new javax.swing.JMenuItem();
         zoom_menu_reset = new javax.swing.JMenuItem();
         auto_fit_zoom_menu = new javax.swing.JCheckBoxMenuItem();
+        animations_zoom_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator6 = new javax.swing.JPopupMenu.Separator();
         compact_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator5 = new javax.swing.JPopupMenu.Separator();
@@ -2560,6 +2568,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
         zoom_menu.add(auto_fit_zoom_menu);
+
+        animations_zoom_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        animations_zoom_menu.setSelected(true);
+        animations_zoom_menu.setText("Escalar animaciones");
+        animations_zoom_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/dealer.png"))); // NOI18N
+        animations_zoom_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                animations_zoom_menuActionPerformed(evt);
+            }
+        });
+        zoom_menu.add(animations_zoom_menu);
 
         jSeparator6.setDoubleBuffered(true);
         zoom_menu.add(jSeparator6);
@@ -4209,9 +4228,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.savePropertiesFile();
     }//GEN-LAST:event_chat_image_menuActionPerformed
 
+    private void animations_zoom_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_animations_zoom_menuActionPerformed
+        // TODO add your handling code here:
+
+        GameFrame.ANIMATIONS_ZOOM = animations_zoom_menu.isSelected();
+
+        Helpers.TapetePopupMenu.ANIMATIONS_ZOOM_MENU.setSelected(animations_zoom_menu.isSelected());
+
+        Helpers.PROPERTIES.setProperty("animations_zoom", String.valueOf(GameFrame.ANIMATIONS_ZOOM));
+
+        Helpers.savePropertiesFile();
+    }//GEN-LAST:event_animations_zoom_menuActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
+    private javax.swing.JCheckBoxMenuItem animations_zoom_menu;
     private javax.swing.JCheckBoxMenuItem ascensor_menu;
     private javax.swing.JCheckBoxMenuItem auto_action_menu;
     private javax.swing.JCheckBoxMenuItem auto_fit_zoom_menu;

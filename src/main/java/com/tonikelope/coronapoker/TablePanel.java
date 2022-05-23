@@ -164,7 +164,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 ImageIcon final_icon = icon;
 
-                if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
+                if (GameFrame.ANIMATIONS_ZOOM && GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
 
                     int w = icon.getIconWidth();
 

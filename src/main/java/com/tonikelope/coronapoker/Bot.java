@@ -66,11 +66,12 @@ public class Bot {
 
         switch (GameFrame.getInstance().getCrupier().getFase()) {
             case Crupier.PREFLOP:
-                b = Helpers.floatClean((3 + GameFrame.getInstance().getCrupier().getLimpersCount()) * GameFrame.getInstance().getCrupier().getCiega_grande()); //Classic
+                b = Helpers.floatClean((1 + Helpers.CSPRNG_GENERATOR.nextInt(2) + GameFrame.getInstance().getCrupier().getLimpersCount()) * GameFrame.getInstance().getCrupier().getCiega_grande());
+
                 break;
             default:
 
-                b = (float) (Math.ceil(Math.ceil(GameFrame.getInstance().getCrupier().getBote_total() / GameFrame.CIEGA_PEQUEÑA) / 3) * GameFrame.CIEGA_PEQUEÑA);
+                b = (float) (Math.ceil(Math.ceil(GameFrame.getInstance().getCrupier().getBote_total() / GameFrame.CIEGA_PEQUEÑA) / (2f + (float) Helpers.CSPRNG_GENERATOR.nextInt(2))) * GameFrame.CIEGA_PEQUEÑA);
                 break;
         }
 
@@ -115,7 +116,7 @@ public class Bot {
                 //Manos buenas (sin ser todas PREMIUM)
                 conta_call++;
 
-                return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET + (Helpers.CSPRNG_GENERATOR.nextBoolean() ? 1 : 0) && (!this.slow_play || cbet)) ? Player.BET : Player.CHECK;
+                return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET + Helpers.CSPRNG_GENERATOR.nextInt(2) && (!this.slow_play || cbet)) ? Player.BET : Player.CHECK;
 
             } else if ((Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 2) <= 0) && (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) >= 13) || (straight && Math.min(valor1, valor2) >= 10) || Math.min(valor1, valor2) >= 11)) {
 
@@ -145,7 +146,7 @@ public class Bot {
                     vamos = Helpers.CSPRNG_GENERATOR.nextInt(10) <= 1;
                 }
 
-                return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET + (Helpers.CSPRNG_GENERATOR.nextBoolean() ? 1 : 0) && vamos && (!this.slow_play || cbet)) ? Player.BET : Player.CHECK;
+                return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET + Helpers.CSPRNG_GENERATOR.nextInt(2) && vamos && (!this.slow_play || cbet)) ? Player.BET : Player.CHECK;
 
             } else if (GameFrame.getInstance().getCrupier().getConta_bet() == 0) {
 
@@ -235,7 +236,7 @@ public class Bot {
 
             conta_call++;
 
-            return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET + (Helpers.CSPRNG_GENERATOR.nextBoolean() ? 1 : 0) && (!this.slow_play || cbet)) ? Player.BET : Player.CHECK;
+            return (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET + Helpers.CSPRNG_GENERATOR.nextInt(2) && (!this.slow_play || cbet)) ? Player.BET : Player.CHECK;
 
         } else if (poseffectiveStrength >= 0.70f && !(effectiveStrength < 0.85f && fase == Crupier.RIVER && Helpers.float1DSecureCompare(cpu_player.getStack(), GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) <= 0)) {
 

@@ -2929,6 +2929,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void showCards(String jugada) {
+        this.muestra = true;
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 player_action.setBackground(new Color(51, 153, 255));

@@ -1290,6 +1290,8 @@ public class Crupier implements Runnable {
                     setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
                 }
 
+                checkJugadasMostrar();
+
             }
         }
     }
@@ -1345,6 +1347,8 @@ public class Crupier implements Runnable {
                     if (!perdedores.containsKey(jugador)) {
                         GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
                     }
+
+                    checkJugadasMostrar();
 
                     sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);
 
@@ -2254,6 +2258,8 @@ public class Crupier implements Runnable {
 
                     }
                 }
+
+                checkJugadasMostrar();
 
                 setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
             }
@@ -4850,6 +4856,36 @@ public class Crupier implements Runnable {
                 p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p));
             }
 
+        }
+    }
+
+    private void checkJugadasMostrar() {
+
+        synchronized (lock_mostrar) {
+            ArrayList<Player> candidatos = new ArrayList<>();
+
+            boolean ganador_tapado = false;
+
+            for (Player p : GameFrame.getInstance().getJugadores()) {
+                if (p.isActivo() && ((p.getDecision() == Player.FOLD && p.isMuestra()) || (p.isWinner() && !p.getPlayingCard1().isTapada()))) {
+                    candidatos.add(p);
+                } else if (p.isWinner() && p.getPlayingCard1().isTapada()) {
+                    ganador_tapado = true;
+                    break;
+                }
+            }
+
+            if (!ganador_tapado && candidatos.size() > 1) {
+                HashMap<Player, Hand> jugadas = calcularJugadas(candidatos);
+
+                HashMap<Player, Hand> ganadores = calcularGanadores(new HashMap<Player, Hand>(jugadas));
+
+                for (Player p : candidatos) {
+                    if (p.getDecision() == Player.FOLD) {
+                        p.setPlayerActionIcon(ganadores.containsKey(p) ? "action/angry.png" : "action/alivio.png");
+                    }
+                }
+            }
         }
     }
 

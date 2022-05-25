@@ -88,6 +88,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private final JLabel sec_pot_win_label = new JLabel();
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
     private volatile boolean reraise;
+    private volatile boolean muestra = false;
 
     public void refreshNotifyChatLabel() {
 
@@ -112,6 +113,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
+    }
+
+    public boolean isMuestra() {
+        return muestra;
     }
 
     public void setNotifyTTSChatLabel() {
@@ -2003,6 +2008,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void showCards(String jugada) {
+        this.muestra = true;
         Helpers.GUIRun(new Runnable() {
             public void run() {
                 player_action.setBackground(new Color(51, 153, 255));

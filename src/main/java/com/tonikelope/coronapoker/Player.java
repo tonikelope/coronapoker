@@ -139,4 +139,8 @@ public interface Player {
 
     public void setJugadaParcial(Hand jugada, boolean ganador);
 
+    public boolean isWinner();
+
+    public boolean isMuestra();
+
 }

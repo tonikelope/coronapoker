@@ -29,6 +29,11 @@ import javax.swing.ImageIcon;
 public class GifAnimationDialog extends javax.swing.JDialog {
 
     private final Object notifier = new Object();
+    private volatile boolean force_exit = false;
+
+    public boolean isForce_exit() {
+        return force_exit;
+    }
 
     /**
      * Creates new form GifAnimation
@@ -103,7 +108,10 @@ public class GifAnimationDialog extends javax.swing.JDialog {
                     }
                 });
 
-                Init.PLAYING_CINEMATIC = false;
+                if (!force_exit) {
+
+                    Init.PLAYING_CINEMATIC = false;
+                }
 
                 synchronized (Init.LOCK_CINEMATICS) {
 
@@ -171,7 +179,18 @@ public class GifAnimationDialog extends javax.swing.JDialog {
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
         // TODO add your handling code here
 
-        dispose();
+        if (Init.PLAYING_CINEMATIC) {
+
+            force_exit = true;
+
+            dispose();
+
+            synchronized (Init.LOCK_CINEMATICS) {
+
+                Init.LOCK_CINEMATICS.notifyAll();
+
+            }
+        }
 
     }//GEN-LAST:event_formMouseClicked
 

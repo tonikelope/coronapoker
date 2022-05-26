@@ -2751,16 +2751,19 @@ public class Crupier implements Runnable {
 
                             GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY);
 
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                @Override
-                                public void run() {
+                            if (!isFin_de_la_transmision()) {
 
-                                    GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
+                                Helpers.GUIRunAndWait(new Runnable() {
+                                    @Override
+                                    public void run() {
 
-                                }
-                            });
+                                        GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
 
-                        } else {
+                                    }
+                                });
+                            }
+
+                        } else if (!isFin_de_la_transmision()) {
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
@@ -2775,7 +2778,7 @@ public class Crupier implements Runnable {
 
                         }
 
-                    } else {
+                    } else if (!isFin_de_la_transmision()) {
 
                         Helpers.GUIRunAndWait(new Runnable() {
                             @Override

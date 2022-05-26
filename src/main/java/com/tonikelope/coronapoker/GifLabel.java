@@ -52,11 +52,11 @@ public class GifLabel extends JLabel {
     public boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h) {
 
         if (!gif_finished) {
-            
+
             if (frames != 0 && (infoflags & FRAMEBITS) != 0 && conta_frames < frames) {
                 conta_frames++;
             }
-            
+
             boolean imageupdate = super.imageUpdate(img, infoflags, x, y, w, h);
 
             gif_finished = !imageupdate || (frames != 0 && conta_frames == frames);

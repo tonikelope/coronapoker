@@ -64,6 +64,10 @@ public class GifPanel extends javax.swing.JPanel {
         setPreferredSize(new Dimension(w, h));
     }
 
+    public GifLabel getGif() {
+        return gif;
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -73,7 +77,7 @@ public class GifPanel extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        gif = new javax.swing.JLabel();
+        gif = new com.tonikelope.coronapoker.GifLabel();
 
         setFocusable(false);
 
@@ -93,6 +97,6 @@ public class GifPanel extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JLabel gif;
+    private com.tonikelope.coronapoker.GifLabel gif;
     // End of variables declaration//GEN-END:variables
 }

@@ -29,7 +29,7 @@
     </DimensionLayout>
   </Layout>
   <SubComponents>
-    <Component class="javax.swing.JLabel" name="gif">
+    <Component class="com.tonikelope.coronapoker.GifLabel" name="gif">
       <Properties>
         <Property name="doubleBuffered" type="boolean" value="true"/>
         <Property name="focusable" type="boolean" value="false"/>

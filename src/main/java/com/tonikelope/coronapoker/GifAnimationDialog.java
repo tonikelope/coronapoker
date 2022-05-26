@@ -17,10 +17,10 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Dimension;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.Image;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.ImageIcon;
-import javax.swing.Timer;
 
 /**
  *
@@ -28,20 +28,20 @@ import javax.swing.Timer;
  */
 public class GifAnimationDialog extends javax.swing.JDialog {
 
-    private volatile Timer timer = null;
+    private final Object notifier = new Object();
 
     /**
      * Creates new form GifAnimation
      */
     public GifAnimationDialog(java.awt.Frame parent, boolean modal, ImageIcon icon) {
-        this(parent, modal, icon, null);
+        this(parent, modal, icon, 0);
 
     }
 
     /**
      * Creates new form GifAnimation
      */
-    public GifAnimationDialog(java.awt.Frame parent, boolean modal, ImageIcon icon, Integer timeout) {
+    public GifAnimationDialog(java.awt.Frame parent, boolean modal, ImageIcon icon, int frames) {
         super(parent, modal);
         initComponents();
 
@@ -49,6 +49,8 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         this.setFocusCycleRoot(modal);
         this.setAutoRequestFocus(modal);
         this.setFocusableWindowState(modal);
+
+        gif_panel.getGif().setNotifier(notifier);
 
         int height, width;
         if (icon.getImage().getHeight(null) > icon.getImage().getWidth(null)) {
@@ -67,34 +69,52 @@ public class GifAnimationDialog extends javax.swing.JDialog {
             height = Math.round(height * (100 - (i - 1) * 0.1f));
         }
 
-        gif_panel.setGifIcon(icon, width, height);
+        gif_panel.getGif().setPreferredSize(new Dimension(width, height));
+
+        gif_panel.setPreferredSize(new Dimension(width, height));
 
         setPreferredSize(new Dimension(width, height));
 
+        gif_panel.getGif().setIcon(new ImageIcon(icon.getImage().getScaledInstance(width, height, Image.SCALE_DEFAULT)), frames);
+
         pack();
 
-        if (timeout != null) {
-            timer = new Timer(timeout, new ActionListener() {
+        Helpers.threadRun(new Runnable() {
+            public void run() {
 
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    timer.stop();
+                int old_priority = Thread.currentThread().getPriority();
 
-                    dispose();
+                Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
 
-                    Init.PLAYING_CINEMATIC = false;
-
-                    synchronized (Init.LOCK_CINEMATICS) {
-
-                        Init.LOCK_CINEMATICS.notifyAll();
-
+                while (!gif_panel.getGif().isGif_finished()) {
+                    synchronized (notifier) {
+                        try {
+                            notifier.wait(1000);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
                 }
-            });
 
-            timer.setRepeats(false);
-            timer.setCoalesce(false);
-        }
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+                        dispose();
+
+                    }
+                });
+
+                Init.PLAYING_CINEMATIC = false;
+
+                synchronized (Init.LOCK_CINEMATICS) {
+
+                    Init.LOCK_CINEMATICS.notifyAll();
+
+                }
+
+                Thread.currentThread().setPriority(old_priority);
+
+            }
+        });
     }
 
     /**
@@ -121,17 +141,9 @@ public class GifAnimationDialog extends javax.swing.JDialog {
                 formMouseClicked(evt);
             }
         });
-        addComponentListener(new java.awt.event.ComponentAdapter() {
-            public void componentShown(java.awt.event.ComponentEvent evt) {
-                formComponentShown(evt);
-            }
-        });
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowActivated(java.awt.event.WindowEvent evt) {
                 formWindowActivated(evt);
-            }
-            public void windowClosed(java.awt.event.WindowEvent evt) {
-                formWindowClosed(evt);
             }
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
@@ -179,21 +191,6 @@ public class GifAnimationDialog extends javax.swing.JDialog {
             }
         }
     }//GEN-LAST:event_formWindowDeactivated
-
-    private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
-        // TODO add your handling code here:
-        if (timer != null && timer.isRunning()) {
-            timer.stop();
-        }
-    }//GEN-LAST:event_formWindowClosed
-
-    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
-        // TODO add your handling code here:
-        if (timer != null) {
-
-            timer.start();
-        }
-    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.GifPanel gif_panel;

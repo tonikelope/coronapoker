@@ -29,7 +29,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
-import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 
@@ -47,7 +46,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     protected volatile ZoomableInterface[] zoomables;
 
-    protected final JLabel central_label = new JLabel();
+    protected final Object central_label_notifier = new Object();
+
+    protected final GifLabel central_label = new GifLabel();
 
     protected final TapeteFastButtons fastbuttons = new TapeteFastButtons();
 
@@ -115,6 +116,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 central_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
+                central_label.setNotifier(central_label_notifier);
+
                 add(central_label, JLayeredPane.POPUP_LAYER);
 
                 addComponentListener(new ComponentResizeEndListener() {
@@ -147,7 +150,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    public void showCentralImage(ImageIcon icon, long timeout) {
+    public void showCentralImage(ImageIcon icon, int frames, int delay_end) {
 
         int old_priority = Thread.currentThread().getPriority();
 
@@ -155,8 +158,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         central_label_thread = Thread.currentThread().getId();
 
-        synchronized (getCentral_label()) {
-            getCentral_label().notify();
+        synchronized (central_label_notifier) {
+            central_label_notifier.notifyAll();
         }
 
         Helpers.GUIRunAndWait(new Runnable() {
@@ -173,29 +176,39 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     final_icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
                 }
 
-                final_icon.getImage().flush();
-                getCentral_label().setIcon(final_icon);
-                getCentral_label().setSize(getCentral_label().getIcon().getIconWidth(), getCentral_label().getIcon().getIconHeight());
-                int pos_x = Math.round((getWidth() - getCentral_label().getIcon().getIconWidth()) / 2);
-                int pos_y = Math.round((getHeight() - getCentral_label().getIcon().getIconHeight()) / 2);
+                getCentral_label().setSize(final_icon.getIconWidth(), final_icon.getIconHeight());
+                
+                int pos_x = Math.round((getWidth() - final_icon.getIconWidth()) / 2);
+                
+                int pos_y = Math.round((getHeight() - final_icon.getIconHeight()) / 2);
+                
                 getCentral_label().setLocation(pos_x, pos_y);
 
                 if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                    final_icon.getImage().flush();
+                    getCentral_label().setIcon(final_icon, frames);
                     getCentral_label().setVisible(true);
                 }
-
             }
         });
 
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().getId() == central_label_thread) {
-            synchronized (getCentral_label()) {
 
-                try {
-                    getCentral_label().wait(timeout);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            while (!central_label.isGif_finished()) {
+
+                synchronized (central_label_notifier) {
+
+                    try {
+                        central_label_notifier.wait(1000);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
                 }
+            }
 
+            if (delay_end > 0) {
+                Helpers.pausar(delay_end);
             }
 
             if (Thread.currentThread().getId() == central_label_thread) {
@@ -213,7 +226,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     }
 
-    public JLabel getCentral_label() {
+    public GifLabel getCentral_label() {
         return central_label;
     }
 

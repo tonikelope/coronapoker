@@ -26,6 +26,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyException;
@@ -158,8 +160,6 @@ public class Crupier implements Runnable {
 
     public static volatile int GIF_CARD_ANIMATION_TIMEOUT;
 
-    public static final int SHUFFLE_ANIMATION_TIMEOUT = 2700;
-
     static {
 
         ALLIN_SOUNDS.put("es", ALLIN_SOUNDS_ES);
@@ -175,7 +175,7 @@ public class Crupier implements Runnable {
         SHOWDOWN_SOUNDS.put("en", SHOWDOWN_SOUNDS_EN);
 
         try {
-            GIF_CARD_ANIMATION_TIMEOUT = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/A_C.gif")) + 275;
+            GIF_CARD_ANIMATION_TIMEOUT = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/A_C.gif"));
         } catch (Exception ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -193,6 +193,8 @@ public class Crupier implements Runnable {
     public static final int RIVER = 4;
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; //2 players
+    public static final int CARD_ANIMATION_DELAY = 200;
+    public static final int SHUFFLE_ANIMATION_DELAY = 200;
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static final int PERMUTATION_ENCRYPTION_PLAYERS = 2;
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
@@ -737,16 +739,25 @@ public class Crupier implements Runnable {
             if (GameFrame.CINEMATICAS) {
 
                 final ImageIcon icon;
+                URL url_icon = null;
 
                 if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
-                    icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename);
+                    try {
+                        url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename).toUri().toURL();
+                    } catch (MalformedURLException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
-                    icon = new ImageIcon(getClass().getResource("/cinematics/allin/" + filename));
+                    url_icon = getClass().getResource("/cinematics/allin/" + filename);
                 } else {
-                    icon = null;
+                    url_icon = null;
                 }
 
-                if (icon != null) {
+                if (url_icon != null) {
+
+                    icon = new ImageIcon(url_icon);
+
+                    final URL f_url_icon = url_icon;
 
                     Helpers.threadRun(new Runnable() {
                         private volatile GifAnimationDialog gif_dialog;
@@ -758,7 +769,12 @@ public class Crupier implements Runnable {
 
                                     public void run() {
 
-                                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, (int) pausa);
+                                        try {
+                                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, Helpers.getGIFFramesCount(f_url_icon));
+                                        } catch (Exception ex) {
+                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+
                                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                         gif_dialog.setVisible(true);
                                     }
@@ -2167,7 +2183,7 @@ public class Crupier implements Runnable {
                             Helpers.GUIRunAndWait(new Runnable() {
                                 public void run() {
                                     try {
-                                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), Helpers.getGIFLength(getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
+                                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
 
                                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
 
@@ -2319,7 +2335,7 @@ public class Crupier implements Runnable {
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
                         try {
-                            GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFLength(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
+                            GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
 
                             gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                             gif_dialog.setVisible(true);
@@ -2704,13 +2720,21 @@ public class Crupier implements Runnable {
 
                         ImageIcon icon = null;
 
+                        URL url_icon = null;
+
                         if (baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
-                            icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif");
+                            try {
+                                url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif").toUri().toURL();
+                            } catch (MalformedURLException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
 
                         } else if (getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
-                            icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif"));
+                            url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif");
 
                         }
+
+                        icon = new ImageIcon(url_icon);
 
                         if (icon != null) {
 
@@ -2725,13 +2749,7 @@ public class Crupier implements Runnable {
 
                             Audio.playWavResource("misc/shuffle.wav");
 
-                            try {
-
-                                GameFrame.getInstance().getTapete().showCentralImage(icon, SHUFFLE_ANIMATION_TIMEOUT);
-
-                            } catch (Exception ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                            }
+                            GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY);
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
@@ -6055,13 +6073,17 @@ public class Crupier implements Runnable {
 
                 ImageIcon icon;
 
+                URL url_icon = null;
+
                 if (baraja_mod) {
-                    icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
+                    url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL();
                 } else {
-                    icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
+                    url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
                 }
 
-                GameFrame.getInstance().getTapete().showCentralImage(icon, GIF_CARD_ANIMATION_TIMEOUT);
+                icon = new ImageIcon(url_icon);
+
+                GameFrame.getInstance().getTapete().showCentralImage(icon, 0, CARD_ANIMATION_DELAY);
 
                 carta.destapar(false);
 

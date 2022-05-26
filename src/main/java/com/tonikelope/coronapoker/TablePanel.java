@@ -177,11 +177,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 }
 
                 getCentral_label().setSize(final_icon.getIconWidth(), final_icon.getIconHeight());
-                
+
                 int pos_x = Math.round((getWidth() - final_icon.getIconWidth()) / 2);
-                
+
                 int pos_y = Math.round((getHeight() - final_icon.getIconHeight()) / 2);
-                
+
                 getCentral_label().setLocation(pos_x, pos_y);
 
                 if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {

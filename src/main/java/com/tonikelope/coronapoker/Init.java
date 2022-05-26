@@ -860,7 +860,7 @@ public class Init extends javax.swing.JFrame {
             }
 
             try {
-                gif_dialog = new GifAnimationDialog(VENTANA_INICIO, true, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif"))), Helpers.getGIFLength(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif").toUri().toURL()));
+                gif_dialog = new GifAnimationDialog(VENTANA_INICIO, true, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif"))), Helpers.getGIFFramesCount(Paths.get(System.getProperty("java.io.tmpdir") + "/M2f.gif").toUri().toURL()));
                 gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                 gif_dialog.setVisible(true);
             } catch (Exception ex) {

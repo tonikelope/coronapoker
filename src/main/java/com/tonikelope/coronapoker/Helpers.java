@@ -205,6 +205,7 @@ public class Helpers {
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     public static final int DECK_ELEMENTS = 52;
+    public static final int MIN_GIF_FRAME_DELAY = 3;
     public static ArrayList<String> POKER_QUOTES_ES = new ArrayList<>();
     public static ArrayList<String> POKER_QUOTES_EN = new ArrayList<>();
     public static volatile ImageIcon IMAGEN_BB = null;
@@ -356,7 +357,7 @@ public class Helpers {
             for (GifControlDirectory gifControlDirectory : gifControlDirectories) {
                 try {
                     if (gifControlDirectory.hasTagName(GifControlDirectory.TAG_DELAY)) {
-                        timeLength += gifControlDirectory.getInt(GifControlDirectory.TAG_DELAY);
+                        timeLength += Math.max(gifControlDirectory.getInt(GifControlDirectory.TAG_DELAY), MIN_GIF_FRAME_DELAY);
                     }
                 } catch (MetadataException e) {
                     e.printStackTrace();
@@ -367,6 +368,16 @@ public class Helpers {
         }
         return timeLength;
 
+    }
+
+    public static int getGIFFramesCount(URL url) throws IOException, ImageProcessingException {
+
+        Metadata metadata = ImageMetadataReader.readMetadata(url.openStream());
+
+        List<GifControlDirectory> gifControlDirectories
+                = (List<GifControlDirectory>) metadata.getDirectoriesOfType(GifControlDirectory.class);
+
+        return gifControlDirectories.size();
     }
 
     public static boolean isImageGIF(URL url) {

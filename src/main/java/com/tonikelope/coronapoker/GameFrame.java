@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -1084,16 +1085,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     if (((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
 
-                                        ImageIcon icon;
-
-                                        if (baraja_mod) {
-                                            icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
-                                        } else {
-                                            icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
-                                        }
-
                                         try {
-                                            getTapete().showCentralImage(icon, Helpers.getGIFLength(baraja_mod ? Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL() : getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")) + 250);
+                                            ImageIcon icon;
+
+                                            URL url_icon = null;
+
+                                            if (baraja_mod) {
+
+                                                url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL();
+
+                                            } else {
+
+                                                url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
+
+                                            }
+
+                                            icon = new ImageIcon(url_icon);
+
+                                            getTapete().showCentralImage(icon, 0, Crupier.CARD_ANIMATION_DELAY);
                                         } catch (Exception ex) {
                                             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                                         }
@@ -1160,19 +1169,27 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     if (((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
 
-                                        ImageIcon icon;
-
-                                        if (baraja_mod) {
-                                            icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
-                                        } else {
-                                            icon = new ImageIcon(getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"));
-                                        }
-
                                         try {
-                                            getTapete().showCentralImage(icon, Helpers.getGIFLength(baraja_mod ? Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL() : getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")) + 250);
+                                            ImageIcon icon;
+                                            URL url_icon = null;
+
+                                            if (baraja_mod) {
+
+                                                url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL();
+
+                                            } else {
+
+                                                url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
+
+                                            }
+
+                                            icon = new ImageIcon(url_icon);
+
+                                            getTapete().showCentralImage(icon, 0, Crupier.CARD_ANIMATION_DELAY);
                                         } catch (Exception ex) {
                                             Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                                         }
+
                                     }
 
                                 }
@@ -1640,7 +1657,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 Helpers.GUIRunAndWait(new Runnable() {
                                     public void run() {
                                         try {
-                                            gif_dialog = new GifAnimationDialog(getFrame(), false, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFLength(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
+                                            gif_dialog = new GifAnimationDialog(getFrame(), false, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFFramesCount(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
                                             gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                             gif_dialog.setVisible(true);
                                         } catch (Exception ex) {
@@ -2146,19 +2163,34 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             final ImageIcon icon;
 
+            URL url_icon = null;
+
             if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif"))) {
-                icon = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif");
+                try {
+                    url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif").toUri().toURL();
+                } catch (MalformedURLException ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                }
             } else if (getClass().getResource("/cinematics/misc/end.gif") != null) {
-                icon = new ImageIcon(getClass().getResource("/cinematics/misc/end.gif"));
+                url_icon = getClass().getResource("/cinematics/misc/end.gif");
             } else {
-                icon = null;
+                url_icon = null;
             }
 
-            if (icon != null) {
+            if (url_icon != null) {
+
+                icon = new ImageIcon(url_icon);
+
+                final URL f_url_icon = url_icon;
 
                 Helpers.GUIRun(new Runnable() {
+                    @Override
                     public void run() {
-                        gif_dialog = new GifAnimationDialog(getFrame(), true, icon);
+                        try {
+                            gif_dialog = new GifAnimationDialog(getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
+                        } catch (Exception ex) {
+                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        }
 
                         gif_dialog.addMouseListener(new MouseAdapter() {
                             @Override

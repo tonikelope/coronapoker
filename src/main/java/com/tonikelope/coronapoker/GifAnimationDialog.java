@@ -179,19 +179,15 @@ public class GifAnimationDialog extends javax.swing.JDialog {
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
         // TODO add your handling code here
 
-        if (Init.PLAYING_CINEMATIC) {
+        force_exit = true;
 
-            force_exit = true;
+        dispose();
 
-            dispose();
+        synchronized (Init.LOCK_CINEMATICS) {
 
-            synchronized (Init.LOCK_CINEMATICS) {
+            Init.LOCK_CINEMATICS.notifyAll();
 
-                Init.LOCK_CINEMATICS.notifyAll();
-
-            }
         }
-
     }//GEN-LAST:event_formMouseClicked
 
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated

@@ -244,14 +244,10 @@ public class Helpers {
 
     public static void parkThread(long ms) {
 
-        long p = ms * 1000000;
+        long end = System.nanoTime() + ms * 1000000;
 
-        long start = System.nanoTime();
-
-        LockSupport.parkNanos(p);
-
-        while (System.nanoTime() < start + p) {
-            LockSupport.parkNanos(start + p - System.nanoTime());
+        while (System.nanoTime() < end) {
+            LockSupport.parkNanos(end - System.nanoTime());
         }
     }
 

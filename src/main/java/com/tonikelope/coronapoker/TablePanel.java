@@ -152,10 +152,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     public void showCentralImage(ImageIcon icon, int frames, int delay_end) {
 
-        int old_priority = Thread.currentThread().getPriority();
-
-        Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
-
         central_label_thread = Thread.currentThread().getId();
 
         synchronized (central_label_notifier) {
@@ -208,7 +204,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
 
             if (delay_end > 0) {
-                Helpers.pausar(delay_end);
+                Helpers.parkThread(delay_end);
             }
 
             if (Thread.currentThread().getId() == central_label_thread) {
@@ -221,8 +217,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 });
             }
         }
-
-        Thread.currentThread().setPriority(old_priority);
 
     }
 

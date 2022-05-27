@@ -112,6 +112,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.LockSupport;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -241,6 +242,19 @@ public class Helpers {
 
     }
 
+    public static void parkThread(long ms) {
+
+        long p = ms * 1000000;
+
+        long start = System.nanoTime();
+
+        LockSupport.parkNanos(p);
+
+        while (System.nanoTime() < start + p) {
+            LockSupport.parkNanos(start + p - System.nanoTime());
+        }
+    }
+
     public static void barraIndeterminada(JProgressBar barra) {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
@@ -261,38 +275,6 @@ public class Helpers {
                 barra.setValue(max);
             }
         });
-    }
-
-    public static void priorityWait(Object lock, long timeout) {
-
-        int old_priority = Thread.currentThread().getPriority();
-
-        Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
-
-        synchronized (lock) {
-            try {
-                lock.wait(timeout);
-            } catch (InterruptedException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-
-        Thread.currentThread().setPriority(old_priority);
-    }
-
-    public static void prioritySleep(long time) {
-
-        int old_priority = Thread.currentThread().getPriority();
-
-        Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
-
-        try {
-            Thread.sleep(time);
-        } catch (InterruptedException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        Thread.currentThread().setPriority(old_priority);
     }
 
     public static String updateJarImgSrc(String html) {

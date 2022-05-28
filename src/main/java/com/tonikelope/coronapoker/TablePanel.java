@@ -152,44 +152,36 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     public void showCentralImage(ImageIcon icon, int frames, int delay_end) {
 
-        central_label_thread = Thread.currentThread().getId();
+        showCentralImage(icon, frames, delay_end, null, 0, 0);
 
+    }
+
+    public void showCentralImage(ImageIcon icon, int frames, int delay_end, String audio, int audio_frame_start, int audio_frame_end) {
+        central_label_thread = Thread.currentThread().getId();
         synchronized (central_label_notifier) {
             central_label_notifier.notifyAll();
         }
-
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
-
                 ImageIcon final_icon = icon;
-
                 if (GameFrame.ANIMATIONS_ZOOM && GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
-
                     int w = icon.getIconWidth();
-
                     int h = icon.getIconHeight();
-
                     final_icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
                 }
-
                 getCentral_label().setSize(final_icon.getIconWidth(), final_icon.getIconHeight());
-
                 int pos_x = Math.round((getWidth() - final_icon.getIconWidth()) / 2);
-
                 int pos_y = Math.round((getHeight() - final_icon.getIconHeight()) / 2);
-
                 getCentral_label().setLocation(pos_x, pos_y);
-
                 if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                     final_icon.getImage().flush();
                     getCentral_label().setIcon(final_icon, frames);
+                    getCentral_label().addAudio(audio, audio_frame_start, audio_frame_end);
                     getCentral_label().setVisible(true);
                 }
             }
         });
-
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().getId() == central_label_thread) {
-
             while (!central_label.isGif_finished()) {
 
                 synchronized (central_label_notifier) {
@@ -202,11 +194,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 }
             }
-
             if (delay_end > 0) {
-                Helpers.parkThread(delay_end);
+                Helpers.parkThreadMillis(delay_end);
             }
-
             if (Thread.currentThread().getId() == central_label_thread) {
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -217,7 +207,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 });
             }
         }
-
     }
 
     public GifLabel getCentral_label() {

@@ -386,7 +386,7 @@ public class Audio {
 
                     clip.loop(Clip.LOOP_CONTINUOUSLY);
 
-                    Helpers.pausar(clip.getMicrosecondLength() / 1000);
+                    Helpers.parkThreadMicros(clip.getMicrosecondLength());
 
                     clip.stop();
 

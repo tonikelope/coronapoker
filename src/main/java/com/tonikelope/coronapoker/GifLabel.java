@@ -72,13 +72,16 @@ public class GifLabel extends JLabel {
                 conta_frames++;
 
                 if (audio != null) {
-                    if (conta_frames == this.audio_frame_start) {
+
+                    if (!audio_playing && conta_frames == this.audio_frame_start) {
                         audio_playing = true;
                         Audio.playWavResource(audio);
-                    } else if (conta_frames == this.audio_frame_end) {
+                    } else if (audio_playing && conta_frames == this.audio_frame_end) {
                         audio_playing = false;
                         Audio.stopWavResource(audio);
+                        audio = null;
                     }
+
                 }
             }
 

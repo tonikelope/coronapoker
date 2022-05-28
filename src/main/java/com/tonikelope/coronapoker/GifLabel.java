@@ -25,8 +25,12 @@ public class GifLabel extends JLabel {
 
     private volatile int frames = 0;
     private volatile int conta_frames = 0;
+    private volatile String audio = null;
+    private volatile int audio_frame_start = -1;
+    private volatile int audio_frame_end = -1;
     private volatile boolean gif_finished = false;
     private volatile Object gif_finished_notifier = null;
+    private volatile boolean audio_playing = false;
 
     public boolean isGif_finished() {
         return gif_finished;
@@ -36,6 +40,8 @@ public class GifLabel extends JLabel {
     public void setIcon(Icon icon) {
         gif_finished = false;
         conta_frames = 0;
+        audio = null;
+        audio_playing = false;
         super.setIcon(icon);
     }
 
@@ -48,13 +54,32 @@ public class GifLabel extends JLabel {
         gif_finished_notifier = notifier;
     }
 
+    public void addAudio(String audio, int start_frame, int end_frame) {
+        if (!audio_playing && audio != null && start_frame < end_frame && start_frame > 0) {
+            this.audio = audio;
+            this.audio_frame_start = start_frame;
+            this.audio_frame_end = end_frame;
+        }
+    }
+
     @Override
     public boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h) {
 
         if (!gif_finished) {
 
-            if (frames != 0 && (infoflags & FRAMEBITS) != 0 && conta_frames < frames) {
+            if ((infoflags & FRAMEBITS) != 0) {
+
                 conta_frames++;
+
+                if (audio != null) {
+                    if (conta_frames == this.audio_frame_start) {
+                        audio_playing = true;
+                        Audio.playWavResource(audio);
+                    } else if (conta_frames == this.audio_frame_end) {
+                        audio_playing = false;
+                        Audio.stopWavResource(audio);
+                    }
+                }
             }
 
             boolean imageupdate = super.imageUpdate(img, infoflags, x, y, w, h);

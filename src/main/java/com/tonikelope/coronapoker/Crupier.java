@@ -2782,7 +2782,7 @@ public class Crupier implements Runnable {
 
                             Audio.playWavResource("misc/shuffle.wav");
 
-                            GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY);
+                            GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY, "misc/shuffle.wav", 1, 53);
 
                             if (!isFin_de_la_transmision()) {
 

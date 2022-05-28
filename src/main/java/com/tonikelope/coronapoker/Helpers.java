@@ -242,12 +242,26 @@ public class Helpers {
 
     }
 
-    public static void parkThread(long ms) {
+    public static void parkThreadMillis(long millis) {
 
-        long end = System.nanoTime() + ms * 1000000;
+        parkThreadNanos(millis * 1000000L);
 
-        while (System.nanoTime() < end) {
-            LockSupport.parkNanos(end - System.nanoTime());
+    }
+
+    public static void parkThreadMicros(long micros) {
+
+        parkThreadNanos(micros * 1000L);
+
+    }
+
+    public static void parkThreadNanos(long nanos) {
+
+        if (nanos > 0L) {
+            long end = System.nanoTime() + nanos;
+
+            while (System.nanoTime() < end) {
+                LockSupport.parkNanos(end - System.nanoTime());
+            }
         }
     }
 
@@ -1979,7 +1993,6 @@ public class Helpers {
         } catch (InterruptedException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
-
     }
 
     public static void GUIRun(Runnable r) {

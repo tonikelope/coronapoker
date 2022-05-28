@@ -388,10 +388,13 @@ public class Audio {
 
                     Helpers.parkThreadMicros(clip.getMicrosecondLength());
 
-                    clip.stop();
-
                     if (WAVS_RESOURCES.containsKey(sound)) {
-                        WAVS_RESOURCES.get(sound).remove(clip);
+
+                        ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.get(sound);
+
+                        if (list != null && list.remove(clip)) {
+                            clip.stop();
+                        }
                     }
 
                     return true;

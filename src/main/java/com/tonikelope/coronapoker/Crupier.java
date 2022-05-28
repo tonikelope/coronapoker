@@ -160,6 +160,8 @@ public class Crupier implements Runnable {
 
     public static volatile int GIF_CARD_ANIMATION_TIMEOUT;
 
+    public static volatile int GIF_SHUFFLE_ANIMATION_TIMEOUT;
+
     static {
 
         ALLIN_SOUNDS.put("es", ALLIN_SOUNDS_ES);
@@ -176,6 +178,7 @@ public class Crupier implements Runnable {
 
         try {
             GIF_CARD_ANIMATION_TIMEOUT = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/A_C.gif"));
+            GIF_SHUFFLE_ANIMATION_TIMEOUT = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/shuffle.gif"));
         } catch (Exception ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -2780,8 +2783,6 @@ public class Crupier implements Runnable {
                                 }
                             });
 
-                            Audio.playWavResource("misc/shuffle.wav");
-
                             GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY, "misc/shuffle.wav", 1, 53);
 
                             if (!isFin_de_la_transmision()) {
@@ -2807,7 +2808,9 @@ public class Crupier implements Runnable {
                                 }
                             });
 
-                            Audio.playWavResourceAndWait("misc/shuffle.wav");
+                            Audio.playWavResource("misc/shuffle.wav");
+                            Helpers.pausar(GIF_SHUFFLE_ANIMATION_TIMEOUT);
+                            Audio.stopWavResource("misc/shuffle.wav");
 
                         }
 
@@ -2822,7 +2825,9 @@ public class Crupier implements Runnable {
                             }
                         });
 
-                        Audio.playWavResourceAndWait("misc/shuffle.wav");
+                        Audio.playWavResource("misc/shuffle.wav");
+                        Helpers.pausar(GIF_SHUFFLE_ANIMATION_TIMEOUT);
+                        Audio.stopWavResource("misc/shuffle.wav");
                     }
 
                     barajando = false;

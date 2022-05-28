@@ -54,9 +54,9 @@ public class GifLabel extends JLabel {
         gif_finished_notifier = notifier;
     }
 
-    public void addAudio(String audio, int start_frame, int end_frame) {
-        if (!audio_playing && audio != null && start_frame < end_frame && start_frame > 0) {
-            this.audio = audio;
+    public void addAudio(String aud, int start_frame, int end_frame) {
+        if (!audio_playing && aud != null && start_frame < end_frame && start_frame > 0) {
+            this.audio = aud;
             this.audio_frame_start = start_frame;
             this.audio_frame_end = end_frame;
         }

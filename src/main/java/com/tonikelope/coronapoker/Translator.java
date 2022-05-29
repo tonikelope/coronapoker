@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"EL MOD CARGADO CONTIENE MATERIAL CALIFICADO SÓLO PARA MAYORES DE 18 AÑOS. ¿Continuar?", "THE LOADED MOD CONTAINS MATERIAL QUALIFIED FOR 18 YEARS OR OLDER ONLY. Continue?"},
             {"Escalar animaciones", "Scale animations"},
             {"ERROR AL INTENTAR RECONECTAR -> ", "RECONNECT ERROR -> "},
             {"Imágenes del chat en el juego", "In-game chat images"},

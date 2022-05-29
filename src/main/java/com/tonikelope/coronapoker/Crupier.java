@@ -3572,15 +3572,6 @@ public class Crupier implements Runnable {
 
             GameFrame.getInstance().checkPause();
 
-            if (carta == GameFrame.getInstance().getFlop1() || carta == GameFrame.getInstance().getTurn() || carta == GameFrame.getInstance().getRiver()) {
-
-                if (animacion) {
-                    Audio.playWavResource("misc/deal.wav", false);
-                }
-
-                Helpers.pausar(pausa);
-            }
-
             if (animacion) {
                 Audio.playWavResource("misc/deal.wav", false);
                 carta.iniciarCarta();

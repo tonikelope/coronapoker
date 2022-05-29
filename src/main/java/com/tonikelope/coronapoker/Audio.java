@@ -73,6 +73,7 @@ public class Audio {
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final Object TTS_LOCK = new Object();
     public static final Object VOL_LOCK = new Object();
+    public static final Object CLIP_STOP_LOCK = new Object();
     public static final int MAX_TTS_LENGTH = 150;
     public static final Map<String, String> TTS_ES_WORD_REPLACE;
     public static final Timer VOLUME_TIMER;
@@ -368,7 +369,12 @@ public class Audio {
 
                                             iterator.remove();
 
-                                            entry.stop();
+                                            synchronized (entry) {
+
+                                                if (entry.isOpen() && entry.isRunning()) {
+                                                    entry.stop();
+                                                }
+                                            }
 
                                         } catch (Exception ex) {
                                             Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
@@ -384,16 +390,20 @@ public class Audio {
 
                     setClipVolume(sound, clip, bypass_muted);
 
+                    clip.start();
+
                     clip.loop(Clip.LOOP_CONTINUOUSLY);
 
                     Helpers.parkThreadMicros(clip.getMicrosecondLength());
 
-                    if (WAVS_RESOURCES.containsKey(sound)) {
+                    ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.get(sound);
 
-                        ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.get(sound);
+                    if (list != null && list.remove(clip)) {
 
-                        if (list != null && list.remove(clip)) {
-                            clip.stop();
+                        synchronized (clip) {
+                            if (clip.isRunning()) {
+                                clip.stop();
+                            }
                         }
                     }
 
@@ -832,17 +842,22 @@ public class Audio {
 
     public static void stopWavResource(String sound) {
 
-        if (WAVS_RESOURCES.containsKey(sound)) {
-            ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
+        ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
 
+        if (list != null) {
             for (Clip c : list) {
 
                 if (c != null) {
-                    c.stop();
+                    synchronized (c) {
+                        if (c.isOpen() && c.isRunning()) {
+                            c.stop();
+                        }
+                    }
                 }
 
             }
         }
+
     }
 
     public static void stopLoopMp3(String sound) {

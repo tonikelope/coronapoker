@@ -1754,22 +1754,27 @@ public class Helpers {
     }
 
     public static int mostrarMensajeInformativoSINO(Container container, String msg) {
-        return mostrarMensajeInformativoSINO(container, msg, "center", null);
+        return mostrarMensajeInformativoSINO(container, msg, "center", null, null);
+    }
+
+    public static int mostrarMensajeInformativoSINO(Container container, String msg, ImageIcon icon) {
+        return mostrarMensajeInformativoSINO(container, msg, "center", null, icon);
     }
 
     // 0=yes, 1=no, 2=cancel
-    public static int mostrarMensajeInformativoSINO(Container container, String msg, String align, Integer width) {
+    public static int mostrarMensajeInformativoSINO(Container container, String msg, String align, Integer width, ImageIcon icon) {
 
         final String mensaje = Translator.translate(msg);
 
         Audio.playWavResource("misc/warning.wav");
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
+
         Helpers.updateFonts(label, GUI_FONT, 1.2f);
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            return JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION);
+            return JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon);
 
         } else {
 
@@ -1779,7 +1784,7 @@ public class Helpers {
                 @Override
                 public void run() {
 
-                    res[0] = JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION);
+                    res[0] = JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon);
                 }
             });
 
@@ -1877,6 +1882,11 @@ public class Helpers {
 
                 mod.put("name", document.getElementsByTagName("name").item(0).getTextContent());
                 mod.put("version", document.getElementsByTagName("version").item(0).getTextContent().trim());
+
+                if (document.getElementsByTagName("mod").item(0).getAttributes().getNamedItem("adults") != null) {
+                    mod.put("adults", Boolean.parseBoolean(document.getElementsByTagName("mod").item(0).getAttributes().getNamedItem("adults").getTextContent().trim()));
+
+                }
 
                 if (document.getElementsByTagName("mod").item(0).getAttributes().getNamedItem("fusion_sounds") != null) {
                     mod.put("fusion_sounds", Boolean.parseBoolean(document.getElementsByTagName("mod").item(0).getAttributes().getNamedItem("fusion_sounds").getTextContent().trim()));

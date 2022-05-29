@@ -25,6 +25,7 @@ import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CyclicBarrier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -46,7 +47,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     protected volatile ZoomableInterface[] zoomables;
 
-    protected final Object central_label_notifier = new Object();
+    protected final CyclicBarrier central_label_barrier = new CyclicBarrier(2);
 
     protected final GifLabel central_label = new GifLabel();
 
@@ -116,7 +117,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 central_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-                central_label.setNotifier(central_label_notifier);
+                central_label.setBarrier(central_label_barrier);
 
                 add(central_label, JLayeredPane.POPUP_LAYER);
 
@@ -158,9 +159,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     public void showCentralImage(ImageIcon icon, int frames, int delay_end, String audio, int audio_frame_start, int audio_frame_end) {
         central_label_thread = Thread.currentThread().getId();
-        synchronized (central_label_notifier) {
-            central_label_notifier.notifyAll();
+
+        try {
+            central_label_barrier.reset();
+        } catch (Exception ex) {
+            Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
         }
+
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 ImageIcon final_icon = icon;
@@ -182,17 +187,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
         });
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().getId() == central_label_thread) {
-            while (!central_label.isGif_finished()) {
-
-                synchronized (central_label_notifier) {
-
-                    try {
-                        central_label_notifier.wait(1000);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
-                }
+            try {
+                central_label_barrier.await();
+            } catch (Exception ex) {
+                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
             }
             if (delay_end > 0) {
                 Helpers.parkThreadMillis(delay_end);

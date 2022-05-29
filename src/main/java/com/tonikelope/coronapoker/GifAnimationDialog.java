@@ -18,6 +18,7 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Dimension;
 import java.awt.Image;
+import java.util.concurrent.CyclicBarrier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -28,7 +29,7 @@ import javax.swing.ImageIcon;
  */
 public class GifAnimationDialog extends javax.swing.JDialog {
 
-    private final Object notifier = new Object();
+    private final CyclicBarrier gif_barrier = new CyclicBarrier(2);
     private volatile boolean force_exit = false;
 
     public boolean isForce_exit() {
@@ -55,7 +56,7 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         this.setAutoRequestFocus(modal);
         this.setFocusableWindowState(modal);
 
-        gif_panel.getGif().setNotifier(notifier);
+        gif_panel.getGif().setBarrier(gif_barrier);
 
         int height, width;
         if (icon.getImage().getHeight(null) > icon.getImage().getWidth(null)) {
@@ -91,14 +92,10 @@ public class GifAnimationDialog extends javax.swing.JDialog {
 
                 Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
 
-                while (!gif_panel.getGif().isGif_finished()) {
-                    synchronized (notifier) {
-                        try {
-                            notifier.wait(1000);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    }
+                try {
+                    gif_barrier.await();
+                } catch (Exception ex) {
+                    Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
                 Helpers.GUIRunAndWait(new Runnable() {

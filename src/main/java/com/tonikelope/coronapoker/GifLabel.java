@@ -17,6 +17,9 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Image;
+import java.util.concurrent.CyclicBarrier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.Icon;
 import javax.swing.JLabel;
 
@@ -29,12 +32,8 @@ public class GifLabel extends JLabel {
     private volatile int audio_frame_start = -1;
     private volatile int audio_frame_end = -1;
     private volatile boolean gif_finished = false;
-    private volatile Object gif_finished_notifier = null;
+    private volatile CyclicBarrier gif_barrier = null;
     private volatile boolean audio_playing = false;
-
-    public boolean isGif_finished() {
-        return gif_finished;
-    }
 
     @Override
     public void setIcon(Icon icon) {
@@ -50,8 +49,8 @@ public class GifLabel extends JLabel {
         setIcon(icon);
     }
 
-    public void setNotifier(Object notifier) {
-        gif_finished_notifier = notifier;
+    public void setBarrier(CyclicBarrier barrier) {
+        gif_barrier = barrier;
     }
 
     public void addAudio(String aud, int start_frame, int end_frame) {
@@ -89,10 +88,12 @@ public class GifLabel extends JLabel {
 
             gif_finished = !imageupdate || (frames != 0 && conta_frames == frames);
 
-            if (gif_finished && gif_finished_notifier != null) {
+            if (gif_finished && gif_barrier != null) {
 
-                synchronized (gif_finished_notifier) {
-                    gif_finished_notifier.notifyAll();
+                try {
+                    gif_barrier.await();
+                } catch (Exception ex) {
+                    Logger.getLogger(GifLabel.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 

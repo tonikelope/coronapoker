@@ -93,6 +93,7 @@ public class Init extends javax.swing.JFrame {
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
     public static volatile Image I1 = null;
+    public static volatile boolean PEGI18_MOD = false;
     public static volatile boolean PLAYING_CINEMATIC = false;
     public static volatile VolumeControlDialog VOLUME_DIALOG = null;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
@@ -224,6 +225,10 @@ public class Init extends javax.swing.JFrame {
         update_button.setIcon(new ImageIcon(getClass().getResource("/images/update.png")));
 
         update_label.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
+
+        if (PEGI18_MOD) {
+            pegi_label.setIcon(new ImageIcon(getClass().getResource("/images/pegi18.png")));
+        }
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
@@ -451,7 +456,7 @@ public class Init extends javax.swing.JFrame {
         pegi_panel = new javax.swing.JPanel();
         jLabel3 = new javax.swing.JLabel();
         jLabel4 = new javax.swing.JLabel();
-        jLabel2 = new javax.swing.JLabel();
+        pegi_label = new javax.swing.JLabel();
         jLabel6 = new javax.swing.JLabel();
         language_combobox = new javax.swing.JComboBox<>();
         stats_button = new javax.swing.JButton();
@@ -547,8 +552,8 @@ public class Init extends javax.swing.JFrame {
         jLabel4.setToolTipText("Contiene apuestas con dinero ficticio");
         jLabel4.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
 
-        jLabel2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/pegi16.png"))); // NOI18N
-        jLabel2.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        pegi_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/pegi16.png"))); // NOI18N
+        pegi_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
 
         jLabel6.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/pegi_online.png"))); // NOI18N
         jLabel6.setToolTipText("Permite jugar online");
@@ -559,7 +564,7 @@ public class Init extends javax.swing.JFrame {
         pegi_panelLayout.setHorizontalGroup(
             pegi_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(pegi_panelLayout.createSequentialGroup()
-                .addComponent(jLabel2)
+                .addComponent(pegi_label)
                 .addGap(18, 18, 18)
                 .addComponent(jLabel3)
                 .addGap(18, 18, 18)
@@ -572,7 +577,7 @@ public class Init extends javax.swing.JFrame {
             .addGroup(pegi_panelLayout.createSequentialGroup()
                 .addGroup(pegi_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(jLabel6)
-                    .addComponent(jLabel2)
+                    .addComponent(pegi_label)
                     .addComponent(jLabel3)
                     .addComponent(jLabel4))
                 .addGap(0, 0, 0))
@@ -687,10 +692,10 @@ public class Init extends javax.swing.JFrame {
         panelLayout.setHorizontalGroup(
             panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelLayout.createSequentialGroup()
-                .addContainerGap(58, Short.MAX_VALUE)
+                .addContainerGap(129, Short.MAX_VALUE)
                 .addComponent(panel_textarea, javax.swing.GroupLayout.PREFERRED_SIZE, 880, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(57, Short.MAX_VALUE))
-            .addGroup(panelLayout.createSequentialGroup()
+                .addContainerGap(129, Short.MAX_VALUE))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelLayout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -953,6 +958,8 @@ public class Init extends javax.swing.JFrame {
 
                 WINDOW_TITLE += " @ " + MOD.get("name") + " " + MOD.get("version");
 
+                PEGI18_MOD = (MOD.containsKey("adults") && (boolean) MOD.get("adults"));
+
                 //Cargamos las barajas del MOD
                 for (Map.Entry<String, HashMap> entry : ((HashMap<String, HashMap>) Init.MOD.get("decks")).entrySet()) {
 
@@ -1019,6 +1026,19 @@ public class Init extends javax.swing.JFrame {
                     VENTANA_INICIO.setVisible(true);
                 }
             });
+
+            if (PEGI18_MOD && !Files.isReadable(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"))) {
+
+                if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "EL MOD CARGADO CONTIENE MATERIAL CALIFICADO SÓLO PARA MAYORES DE 18 AÑOS. ¿Continuar?", new ImageIcon(Init.class.getResource("/images/pegi18.png"))) == 0) {
+                    try {
+                        Files.createFile(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"));
+                    } catch (IOException ex) {
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                } else {
+                    System.exit(0);
+                }
+            }
 
             Logger.getLogger(Init.class.getName()).log(Level.INFO, "CHECKING UPDATE...");
 
@@ -1185,7 +1205,6 @@ public class Init extends javax.swing.JFrame {
     private javax.swing.JPanel corona_init_panel;
     private javax.swing.JButton create_button;
     private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel6;
@@ -1194,6 +1213,7 @@ public class Init extends javax.swing.JFrame {
     private javax.swing.JComboBox<String> language_combobox;
     private javax.swing.JPanel panel;
     private javax.swing.JScrollPane panel_textarea;
+    private javax.swing.JLabel pegi_label;
     private javax.swing.JPanel pegi_panel;
     private javax.swing.JTextPane quote;
     private javax.swing.JLabel sound_icon;

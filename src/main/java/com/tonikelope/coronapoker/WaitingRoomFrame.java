@@ -1317,7 +1317,20 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         this.protect_focus = false;
 
-        int r = Helpers.mostrarMensajeInformativoSINO(container, msg, "center", null);
+        int r = Helpers.mostrarMensajeInformativoSINO(container, msg, "center", null, null);
+
+        this.protect_focus = focus_protection;
+
+        return r;
+    }
+
+    private int mostrarMensajeInformativoSINO(Container container, String msg, ImageIcon icon) {
+
+        boolean focus_protection = this.protect_focus;
+
+        this.protect_focus = false;
+
+        int r = Helpers.mostrarMensajeInformativoSINO(container, msg, "center", null, icon);
 
         this.protect_focus = focus_protection;
 
@@ -1330,7 +1343,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         this.protect_focus = false;
 
-        int r = Helpers.mostrarMensajeInformativoSINO(container, msg, align, width);
+        int r = Helpers.mostrarMensajeInformativoSINO(container, msg, align, width, null);
 
         this.protect_focus = focus_protection;
 
@@ -3663,13 +3676,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     if (exit || reconnecting) {
 
-                        if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+                        if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                             exit = true;
                             Helpers.savePropertiesFile();
                             System.exit(1);
                         }
 
-                    } else if (mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES SALIR AHORA?") == 0) {
+                    } else if (mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES SALIR AHORA?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
 
                         exit = true;
 
@@ -3708,7 +3721,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     setVisible(false);
                 }
 
-            } else if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?") == 0) {
+            } else if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                 exit = true;
                 Helpers.savePropertiesFile();
                 System.exit(1);

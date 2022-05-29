@@ -196,8 +196,8 @@ public class Crupier implements Runnable {
     public static final int RIVER = 4;
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; //2 players
-    public static final int CARD_ANIMATION_DELAY = 200;
-    public static final int SHUFFLE_ANIMATION_DELAY = 200;
+    public static final int CARD_ANIMATION_DELAY = 250;
+    public static final int SHUFFLE_ANIMATION_DELAY = 250;
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static final int PERMUTATION_ENCRYPTION_PLAYERS = 2;
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f}, new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};

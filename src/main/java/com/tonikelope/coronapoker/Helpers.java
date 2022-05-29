@@ -207,6 +207,7 @@ public class Helpers {
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     public static final int DECK_ELEMENTS = 52;
     public static final int MIN_GIF_FRAME_DELAY = 3;
+    public static final int DIALOG_ICON_SIZE = 70;
     public static ArrayList<String> POKER_QUOTES_ES = new ArrayList<>();
     public static ArrayList<String> POKER_QUOTES_EN = new ArrayList<>();
     public static volatile ImageIcon IMAGEN_BB = null;
@@ -1774,7 +1775,7 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            return JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon);
+            return JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
 
         } else {
 
@@ -1784,7 +1785,7 @@ public class Helpers {
                 @Override
                 public void run() {
 
-                    res[0] = JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon);
+                    res[0] = JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
                 }
             });
 

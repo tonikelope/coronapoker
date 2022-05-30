@@ -153,11 +153,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     public void showCentralImage(ImageIcon icon, int frames, int delay_end) {
 
-        showCentralImage(icon, frames, delay_end, null, 0, 0);
+        showCentralImage(icon, frames, delay_end, true, null, 0, 0);
 
     }
 
-    public void showCentralImage(ImageIcon icon, int frames, int delay_end, String audio, int audio_frame_start, int audio_frame_end) {
+    public void showCentralImage(ImageIcon icon, int frames, int delay_end, boolean center, String audio, int audio_frame_start, int audio_frame_end) {
         central_label_thread = Thread.currentThread().getId();
 
         try {
@@ -175,9 +175,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     final_icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
                 }
                 getCentral_label().setSize(final_icon.getIconWidth(), final_icon.getIconHeight());
-                int pos_x = Math.round((getWidth() - final_icon.getIconWidth()) / 2);
-                int pos_y = Math.round((getHeight() - final_icon.getIconHeight()) / 2);
-                getCentral_label().setLocation(pos_x, pos_y);
+
+                if (center) {
+                    int pos_x = Math.round((getWidth() - final_icon.getIconWidth()) / 2);
+                    int pos_y = Math.round((getHeight() - final_icon.getIconHeight()) / 2);
+                    getCentral_label().setLocation(pos_x, pos_y);
+                }
+
                 if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                     final_icon.getImage().flush();
                     getCentral_label().setIcon(final_icon, frames);

@@ -196,7 +196,7 @@ public class Crupier implements Runnable {
     public static final int RIVER = 4;
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; //2 players
-    public static final int CARD_ANIMATION_DELAY = 250;
+    public static final int CARD_ANIMATION_DELAY = 100;
     public static final int SHUFFLE_ANIMATION_DELAY = 250;
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static final int PERMUTATION_ENCRYPTION_PLAYERS = 2;
@@ -2783,7 +2783,7 @@ public class Crupier implements Runnable {
                                 }
                             });
 
-                            GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY, "misc/shuffle.wav", 1, 53);
+                            GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY, true, "misc/shuffle.wav", 1, 53);
 
                             if (!isFin_de_la_transmision()) {
 
@@ -6079,17 +6079,6 @@ public class Crupier implements Runnable {
         return ciega_pequeña;
     }
 
-    public void ocultarAnimacionReparto() {
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                GameFrame.getInstance().getTapete().getCentral_label().setVisible(false);
-                GameFrame.getInstance().getTapete().getCentral_label().setIcon(null);
-
-            }
-        });
-    }
-
     public void mostrarAnimacionDestaparCartaComunitaria(Card carta) {
 
         String baraja = GameFrame.BARAJA;
@@ -6115,7 +6104,13 @@ public class Crupier implements Runnable {
 
                 icon = new ImageIcon(url_icon);
 
-                GameFrame.getInstance().getTapete().showCentralImage(icon, 0, CARD_ANIMATION_DELAY);
+                int x = (int) ((carta.getLocationOnScreen().getX() + Math.round(carta.getWidth() / 2)) - Math.round(icon.getIconWidth() / 2));
+
+                int y = (int) ((carta.getLocationOnScreen().getY() + Math.round(carta.getHeight() / 2)) - Math.round(icon.getIconHeight() / 2));
+
+                GameFrame.getInstance().getTapete().getCentral_label().setLocation(x, y);
+
+                GameFrame.getInstance().getTapete().showCentralImage(icon, 0, CARD_ANIMATION_DELAY, false, null, 0, 0);
 
                 carta.destapar(false);
 

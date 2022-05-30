@@ -168,23 +168,18 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
-                ImageIcon final_icon = icon;
-                if (GameFrame.ANIMATIONS_ZOOM && GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
-                    int w = icon.getIconWidth();
-                    int h = icon.getIconHeight();
-                    final_icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
-                }
-                getCentral_label().setSize(final_icon.getIconWidth(), final_icon.getIconHeight());
+
+                getCentral_label().setSize(icon.getIconWidth(), icon.getIconHeight());
 
                 if (center) {
-                    int pos_x = Math.round((getWidth() - final_icon.getIconWidth()) / 2);
-                    int pos_y = Math.round((getHeight() - final_icon.getIconHeight()) / 2);
+                    int pos_x = Math.round((getWidth() - icon.getIconWidth()) / 2);
+                    int pos_y = Math.round((getHeight() - icon.getIconHeight()) / 2);
                     getCentral_label().setLocation(pos_x, pos_y);
                 }
 
                 if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
-                    final_icon.getImage().flush();
-                    getCentral_label().setIcon(final_icon, frames);
+                    icon.getImage().flush();
+                    getCentral_label().setIcon(icon, frames);
                     getCentral_label().addAudio(audio, audio_frame_start, audio_frame_end);
                     getCentral_label().setVisible(true);
                 }

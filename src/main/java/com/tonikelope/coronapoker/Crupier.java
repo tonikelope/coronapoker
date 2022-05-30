@@ -19,6 +19,7 @@ package com.tonikelope.coronapoker;
 import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import java.awt.Color;
+import java.awt.Image;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -2754,8 +2755,6 @@ public class Crupier implements Runnable {
 
                         boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
 
-                        ImageIcon icon = null;
-
                         URL url_icon = null;
 
                         if (baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
@@ -2770,9 +2769,15 @@ public class Crupier implements Runnable {
 
                         }
 
-                        icon = new ImageIcon(url_icon);
+                        if (url_icon != null) {
 
-                        if (icon != null) {
+                            ImageIcon icon = new ImageIcon(url_icon);
+
+                            if (GameFrame.ANIMATIONS_ZOOM && GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
+                                int w = icon.getIconWidth();
+                                int h = icon.getIconHeight();
+                                icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
+                            }
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
@@ -6092,8 +6097,6 @@ public class Crupier implements Runnable {
             try {
                 carta.setVisibleCard(false);
 
-                ImageIcon icon;
-
                 URL url_icon = null;
 
                 if (baraja_mod) {
@@ -6102,7 +6105,13 @@ public class Crupier implements Runnable {
                     url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
                 }
 
-                icon = new ImageIcon(url_icon);
+                ImageIcon icon = new ImageIcon(url_icon);
+
+                if (GameFrame.ANIMATIONS_ZOOM && GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
+                    int w = icon.getIconWidth();
+                    int h = icon.getIconHeight();
+                    icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
+                }
 
                 int x = (int) ((carta.getLocationOnScreen().getX() + Math.round(carta.getWidth() / 2)) - Math.round(icon.getIconWidth() / 2));
 

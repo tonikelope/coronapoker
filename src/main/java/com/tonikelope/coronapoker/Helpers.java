@@ -1125,13 +1125,18 @@ public class Helpers {
 
                 DefaultComboBoxModel model = (DefaultComboBoxModel) ((JComboBox) component).getModel();
 
-                String[] elements = new String[((JComboBox) component).getItemCount()];
+                Object[] elements = new Object[((JComboBox) component).getItemCount()];
 
                 int size = ((JComboBox) component).getItemCount();
 
                 for (int i = 0; i < size; i++) {
-                    elements[i] = Translator.translate((String) model.getElementAt(i), force);
-
+                    if (model.getElementAt(i) instanceof String) {
+                        elements[i] = Translator.translate((String) model.getElementAt(i), force);
+                    } else if (model.getElementAt(i) instanceof JLabel) {
+                        elements[i] = model.getElementAt(i);
+                        ((JLabel) elements[i]).setText(Translator.translate(((JLabel) elements[i]).getText(), force));
+                        ((JLabel) elements[i]).setToolTipText(Translator.translate(((JLabel) elements[i]).getToolTipText(), force));
+                    }
                 }
 
                 ((JComboBox) component).setModel(new DefaultComboBoxModel(elements));

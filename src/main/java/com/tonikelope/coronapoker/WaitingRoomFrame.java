@@ -783,7 +783,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
 
-            ParticipantsListRenderer label = new ParticipantsListRenderer();
+            ParticipantsListLabel label = new ParticipantsListLabel();
 
             label.setText(local_nick);
 
@@ -2806,12 +2806,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                     DefaultListModel model = (DefaultListModel) conectados.getModel();
 
-                    ParticipantsListRenderer rem_element = null;
+                    ParticipantsListLabel rem_element = null;
 
                     for (int i = 0; i < model.getSize(); i++) {
 
-                        if (((ParticipantsListRenderer) model.getElementAt(i)).getText().equals(nick)) {
-                            rem_element = (ParticipantsListRenderer) model.getElementAt(i);
+                        if (((ParticipantsListLabel) model.getElementAt(i)).getText().equals(nick)) {
+                            rem_element = (ParticipantsListLabel) model.getElementAt(i);
                             break;
                         }
                     }
@@ -2867,7 +2867,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
 
-                ParticipantsListRenderer label = new ParticipantsListRenderer();
+                ParticipantsListLabel label = new ParticipantsListLabel();
 
                 label.setText(nick);
 
@@ -3003,7 +3003,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         conectados.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         conectados.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         conectados.setToolTipText("Participantes conectados");
-        conectados.setCellRenderer(new com.tonikelope.coronapoker.ParticipantsListRenderer());
+        conectados.setCellRenderer(new com.tonikelope.coronapoker.ParticipantsListLabel());
         conectados.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         conectados.setDoubleBuffered(true);
         conectados.setFocusable(false);

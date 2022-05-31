@@ -26,7 +26,7 @@ import javax.swing.ListCellRenderer;
  *
  * @author tonikelope
  */
-public class ParticipantsListRenderer extends JLabel implements ListCellRenderer {
+public class ParticipantsListLabel extends JLabel implements ListCellRenderer {
 
     @Override
     public Component getListCellRendererComponent(

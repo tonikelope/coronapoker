@@ -34,7 +34,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
+import javax.swing.JLabel;
 import javax.swing.JSpinner.DefaultEditor;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.event.DocumentEvent;
@@ -212,6 +215,20 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
+
+        DefaultComboBoxModel<JLabel> random_combobox_model = new DefaultComboBoxModel<>();
+        JLabel random_label1 = new JLabel("MODO PARANOICO [TRNG + CSPRNG]");
+        random_label1.setIcon(new ImageIcon(getClass().getResource("/images/5stars.png")));
+        random_combobox_model.addElement(random_label1);
+        JLabel random_label2 = new JLabel("MODO CASINO [TRNG]");
+        random_label2.setIcon(new ImageIcon(getClass().getResource("/images/4_5stars.png")));
+        random_combobox_model.addElement(random_label2);
+        JLabel random_label3 = new JLabel("MODO NORMAL [CSPRNG]");
+        random_combobox_model.addElement(random_label3);
+        random_label3.setIcon(new ImageIcon(getClass().getResource("/images/4stars.png")));
+        random_combobox.setModel(random_combobox_model);
+
+        random_combobox.setRenderer(new ComboBoxIconRenderer());
 
         game_combo.setEnabled(false);
 
@@ -778,7 +795,6 @@ public class NewGameDialog extends javax.swing.JDialog {
         randomorg_apikey.setDoubleBuffered(true);
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        random_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "MODO PARANOICO [TRNG + CSPRNG] (10/10)", "MODO CASINO [TRNG] (9.9/10)", "MODO NORMAL [CSPRNG] (9.5/10)" }));
         random_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_combobox.setDoubleBuffered(true);
         random_combobox.addActionListener(new java.awt.event.ActionListener() {
@@ -1521,7 +1537,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JPanel nick_pass_panel;
     private javax.swing.JPasswordField pass_text;
     private javax.swing.JLabel password;
-    private javax.swing.JComboBox<String> random_combobox;
+    private javax.swing.JComboBox<JLabel> random_combobox;
     private javax.swing.JLabel random_label;
     private javax.swing.JPanel random_panel;
     private javax.swing.JTextField randomorg_apikey;

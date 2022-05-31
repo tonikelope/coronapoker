@@ -10,7 +10,6 @@ import java.awt.Container;
 import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.FontFormatException;
-import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.io.IOException;
 import java.io.InputStream;
@@ -101,29 +100,21 @@ public class Helpers {
         }
     }
 
-    public static void centrarJFrame(JFrame window, int screen) {
+    public static void centrarJFrame(JFrame window) {
 
-        GUIRun(new Runnable() {
+        GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
 
                 GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
-                GraphicsDevice[] allDevices = env.getScreenDevices();
+
                 int topLeftX, topLeftY, screenX, screenY, windowPosX, windowPosY;
 
-                if (screen < allDevices.length && screen > -1) {
-                    topLeftX = allDevices[screen].getDefaultConfiguration().getBounds().x;
-                    topLeftY = allDevices[screen].getDefaultConfiguration().getBounds().y;
+                topLeftX = env.getDefaultScreenDevice().getDefaultConfiguration().getBounds().x;
+                topLeftY = env.getDefaultScreenDevice().getDefaultConfiguration().getBounds().y;
 
-                    screenX = allDevices[screen].getDefaultConfiguration().getBounds().width;
-                    screenY = allDevices[screen].getDefaultConfiguration().getBounds().height;
-                } else {
-                    topLeftX = allDevices[0].getDefaultConfiguration().getBounds().x;
-                    topLeftY = allDevices[0].getDefaultConfiguration().getBounds().y;
-
-                    screenX = allDevices[0].getDefaultConfiguration().getBounds().width;
-                    screenY = allDevices[0].getDefaultConfiguration().getBounds().height;
-                }
+                screenX = env.getDefaultScreenDevice().getDefaultConfiguration().getBounds().width;
+                screenY = env.getDefaultScreenDevice().getDefaultConfiguration().getBounds().height;
 
                 windowPosX = ((screenX - window.getWidth()) / 2) + topLeftX;
                 windowPosY = ((screenY - window.getHeight()) / 2) + topLeftY;

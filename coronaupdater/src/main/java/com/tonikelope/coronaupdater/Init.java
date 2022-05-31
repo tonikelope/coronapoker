@@ -64,14 +64,17 @@ public class Init extends javax.swing.JFrame {
         setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         setUndecorated(true);
 
+        jLabel2.setBackground(new java.awt.Color(255, 255, 255));
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_splash.png"))); // NOI18N
         jLabel2.setDoubleBuffered(true);
+        jLabel2.setOpaque(true);
 
         progress_bar.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         progress_bar.setDoubleBuffered(true);
         progress_bar.setStringPainted(true);
 
+        status.setBackground(new java.awt.Color(255, 255, 255));
         status.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         status.setText("Updating...");
@@ -90,9 +93,9 @@ public class Init extends javax.swing.JFrame {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addComponent(jLabel2)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGap(0, 0, 0)
                 .addComponent(progress_bar, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGap(0, 0, 0)
                 .addComponent(status))
         );
 
@@ -138,8 +141,8 @@ public class Init extends javax.swing.JFrame {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
-                Helpers.centrarJFrame(ventana, 0);
                 ventana.getStatus().setText(args.length < 4 ? "UPDATING TO >>> " + args[0] : args[3]);
+                Helpers.centrarJFrame(ventana);
                 ventana.setVisible(true);
             }
         });

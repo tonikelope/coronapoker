@@ -1,5 +1,4 @@
-<p align="center"><a href="https://tonikelope.github.io/coronapoker/" target="_blank">https://tonikelope.github.io/coronapoker/<br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
-<p align="center"><a href="https://adoptopenjdk.net/" target="_blank">JAVA</a> 11 or above is required.</p>
+<p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
 ### BUILDING CORONAPOKER FROM SOURCE:
 
@@ -17,7 +16,7 @@ mvn clean install
 
 It is a small module that is loaded at game startup to mitigate any player (including the server) trying to cheat using a hacked version of the game. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies, you can build coronapoker without this module).
 
-<b>WARNING: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you download from here the compiled jar or build it from the source code but without including the CoronaHMAC dependency (otherwise, users' binaries would be different generating false positives in the CoronaHMAC anti-cheating module).</b>
+Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you download from here the compiled jar or build it from the source code but without including the CoronaHMAC dependency (otherwise, users' binaries would be different generating false positives in the CoronaHMAC anti-cheating module).
 
 
 #### EXTRA: building WITHOUT coronahmac dependency:

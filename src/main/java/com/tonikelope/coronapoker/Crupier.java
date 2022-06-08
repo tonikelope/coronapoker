@@ -6184,7 +6184,17 @@ public class Crupier implements Runnable {
 
         checkJugadasParciales(resisten);
 
-        GameFrame.getInstance().getRegistro().print("TURN -> " + GameFrame.getInstance().getTurn());
+        ArrayList<Card> com = new ArrayList<>();
+
+        com.add(GameFrame.getInstance().getFlop1());
+
+        com.add(GameFrame.getInstance().getFlop2());
+
+        com.add(GameFrame.getInstance().getFlop3());
+
+        com.add(GameFrame.getInstance().getTurn());
+
+        GameFrame.getInstance().getRegistro().print("TURN -> " + Card.collection2String(com));
     }
 
     public void destaparRiver(ArrayList<Player> resisten) {
@@ -6193,7 +6203,19 @@ public class Crupier implements Runnable {
 
         checkJugadasParciales(resisten);
 
-        GameFrame.getInstance().getRegistro().print("RIVER -> " + GameFrame.getInstance().getRiver());
+        ArrayList<Card> com = new ArrayList<>();
+
+        com.add(GameFrame.getInstance().getFlop1());
+
+        com.add(GameFrame.getInstance().getFlop2());
+
+        com.add(GameFrame.getInstance().getFlop3());
+
+        com.add(GameFrame.getInstance().getTurn());
+
+        com.add(GameFrame.getInstance().getRiver());
+
+        GameFrame.getInstance().getRegistro().print("RIVER -> " + Card.collection2String(com));
     }
 
     private void recibirCartasResistencia(ArrayList<Player> resistencia) {

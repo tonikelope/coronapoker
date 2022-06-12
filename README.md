@@ -1,5 +1,7 @@
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
+<h1><p align="center"><a href="https://www.youtube.com/watch?v=lAUBjjssKGk"><b>GAMEPLAY DEMO</b></a></p></h1>
+
 ### BUILDING CORONAPOKER FROM SOURCE:
 
 #### Step 1 (install coronahmac.jar as Maven local package):

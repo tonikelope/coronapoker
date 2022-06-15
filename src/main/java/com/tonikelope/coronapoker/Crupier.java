@@ -2749,60 +2749,41 @@ public class Crupier implements Runnable {
             Helpers.threadRun(new Runnable() {
 
                 public void run() {
-                    if (GameFrame.ANIMACION_CARTAS) {
 
-                        String baraja = GameFrame.BARAJA;
+                    String baraja = GameFrame.BARAJA;
 
-                        boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
+                    boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
 
-                        URL url_icon = null;
+                    URL url_icon = null;
 
-                        if (baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
-                            try {
-                                url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif").toUri().toURL();
-                            } catch (MalformedURLException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-
-                        } else if (getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
-                            url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif");
-
+                    if (baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
+                        try {
+                            url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif").toUri().toURL();
+                        } catch (MalformedURLException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
-                        if (url_icon != null) {
+                    } else if (getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
+                        url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif");
 
-                            ImageIcon icon = new ImageIcon(url_icon);
+                    }
 
-                            if (GameFrame.ANIMATIONS_ZOOM && GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
-                                int w = icon.getIconWidth();
-                                int h = icon.getIconHeight();
-                                icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
+                    if (url_icon != null) {
+
+                        ImageIcon icon = new ImageIcon(url_icon);
+
+                        Helpers.GUIRunAndWait(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
+
                             }
+                        });
 
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                @Override
-                                public void run() {
+                        GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY, true, "misc/shuffle.wav", 1, 53);
 
-                                    GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
-
-                                }
-                            });
-
-                            GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY, true, "misc/shuffle.wav", 1, 53);
-
-                            if (!isFin_de_la_transmision()) {
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
-
-                                    }
-                                });
-                            }
-
-                        } else if (!isFin_de_la_transmision()) {
+                        if (!isFin_de_la_transmision()) {
 
                             Helpers.GUIRunAndWait(new Runnable() {
                                 @Override
@@ -2812,11 +2793,6 @@ public class Crupier implements Runnable {
 
                                 }
                             });
-
-                            Audio.playWavResource("misc/shuffle.wav");
-                            Helpers.pausar(GIF_SHUFFLE_ANIMATION_TIMEOUT);
-                            Audio.stopWavResource("misc/shuffle.wav");
-
                         }
 
                     } else if (!isFin_de_la_transmision()) {
@@ -2833,6 +2809,7 @@ public class Crupier implements Runnable {
                         Audio.playWavResource("misc/shuffle.wav");
                         Helpers.pausar(GIF_SHUFFLE_ANIMATION_TIMEOUT);
                         Audio.stopWavResource("misc/shuffle.wav");
+
                     }
 
                     barajando = false;

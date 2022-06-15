@@ -1071,7 +1071,7 @@ public class Init extends javax.swing.JFrame {
 
             updater_path = System.getProperty("java.io.tmpdir") + "/coronaupdater.jar";
 
-            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(updater_path))) {
+            try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(updater_path))) {
 
                 byte[] buffer = new byte[1024];
 

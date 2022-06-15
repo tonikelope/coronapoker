@@ -526,10 +526,9 @@ public class Helpers {
      */
     public static List<String> getResourceTextFileAsList(String fileName) throws IOException {
 
-        try (InputStream is = ClassLoader.getSystemClassLoader().getResourceAsStream(fileName)) {
+        try ( InputStream is = ClassLoader.getSystemClassLoader().getResourceAsStream(fileName)) {
 
-            try (InputStreamReader isr = new InputStreamReader(is);
-                    BufferedReader reader = new BufferedReader(isr)) {
+            try ( InputStreamReader isr = new InputStreamReader(is);  BufferedReader reader = new BufferedReader(isr)) {
 
                 return reader.lines().collect(Collectors.toList());
             }
@@ -1249,7 +1248,7 @@ public class Helpers {
             }
         }
 
-        try (FileInputStream input = new FileInputStream(PROPERTIES_FILE)) {
+        try ( FileInputStream input = new FileInputStream(PROPERTIES_FILE)) {
 
             Properties prop = new Properties();
 
@@ -1390,7 +1389,7 @@ public class Helpers {
 
             con.setUseCaches(false);
 
-            try (InputStream is = con.getInputStream(); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+            try ( InputStream is = con.getInputStream();  ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
 
                 byte[] buffer = new byte[1024];
 
@@ -1449,7 +1448,7 @@ public class Helpers {
 
             con.setReadTimeout(HTTP_TIMEOUT);
 
-            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+            try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
 
                 byte[] buffer = new byte[1024];
 
@@ -1552,7 +1551,7 @@ public class Helpers {
 
                                     String output = null;
 
-                                    try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+                                    try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
 
                                         byte[] buffer = new byte[1024];
 

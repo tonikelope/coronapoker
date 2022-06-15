@@ -1490,7 +1490,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         byte[] avatar_bytes = null;
 
                         if (local_avatar != null && local_avatar.length() > 0) {
-                            try (FileInputStream is = new FileInputStream(local_avatar)) {
+                            try ( FileInputStream is = new FileInputStream(local_avatar)) {
                                 avatar_bytes = is.readAllBytes();
                             }
                         }
@@ -1985,7 +1985,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                             if (partes_comando.length == 5) {
                                                                 avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
 
-                                                                try (FileOutputStream os = new FileOutputStream(avatar)) {
+                                                                try ( FileOutputStream os = new FileOutputStream(avatar)) {
                                                                     os.write(Base64.decodeBase64(partes_comando[4]));
                                                                 }
                                                             }
@@ -2018,7 +2018,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                                     avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
 
-                                                                    try (FileOutputStream os = new FileOutputStream(avatar)) {
+                                                                    try ( FileOutputStream os = new FileOutputStream(avatar)) {
                                                                         os.write(Base64.decodeBase64(user_parts[1]));
                                                                     }
 
@@ -2220,7 +2220,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     if (p.getAvatar() != null || p.isCpu()) {
                         byte[] avatar_b;
 
-                        try (InputStream is = !p.isCpu() ? new FileInputStream(p.getAvatar()) : WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
+                        try ( InputStream is = !p.isCpu() ? new FileInputStream(p.getAvatar()) : WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
                             avatar_b = is.readAllBytes();
                         }
 
@@ -2432,7 +2432,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             if (local_avatar != null && local_avatar.length() > 0) {
 
-                                try (FileInputStream is = new FileInputStream(local_avatar)) {
+                                try ( FileInputStream is = new FileInputStream(local_avatar)) {
                                     avatar_bytes = is.readAllBytes();
                                 }
                             }
@@ -2476,7 +2476,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                 byte[] avatar_b;
 
-                                                try (FileInputStream is = new FileInputStream(client_avatar)) {
+                                                try ( FileInputStream is = new FileInputStream(client_avatar)) {
                                                     avatar_b = is.readAllBytes();
                                                 }
 
@@ -3800,7 +3800,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         byte[] avatar_b = null;
 
-                        try (InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
+                        try ( InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
                             avatar_b = is.readAllBytes();
                         } catch (IOException ex) {
                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);

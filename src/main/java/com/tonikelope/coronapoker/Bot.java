@@ -266,7 +266,7 @@ public class Bot {
 
                 dec = Player.CHECK;
             }
-        } else if (fase == Crupier.RIVER && effectiveStrength >= 2.5 * potOdds()) {
+        } else if (fase == Crupier.RIVER && effectiveStrength >= 3 * potOdds()) {
 
             conta_call++;
 

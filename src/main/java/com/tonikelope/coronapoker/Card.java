@@ -16,11 +16,8 @@
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Image;
-import java.awt.Point;
-import java.awt.event.MouseEvent;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -34,8 +31,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
-import javax.swing.JLabel;
-import javax.swing.JLayeredPane;
 import javax.swing.JMenu;
 import javax.swing.SwingUtilities;
 

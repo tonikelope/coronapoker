@@ -6072,7 +6072,6 @@ public class Crupier implements Runnable {
         if (GameFrame.ANIMACION_CARTAS && ((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
 
             try {
-                carta.setVisibleCard(false);
 
                 URL url_icon = null;
 
@@ -6085,18 +6084,46 @@ public class Crupier implements Runnable {
                 ImageIcon icon = new ImageIcon(url_icon);
 
                 if (GameFrame.ANIMATIONS_ZOOM && GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
-                    int w = icon.getIconWidth();
-                    int h = icon.getIconHeight();
-                    icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
+
+                    ImageIcon icon_gifsicle = Helpers.getGifsicleAnimation(url_icon, (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP), baraja + "_" + carta.getValor() + "_" + carta.getPalo());
+
+                    if (icon_gifsicle != null) {
+                        icon = icon_gifsicle;
+                    } else {
+                        int w = icon.getIconWidth();
+                        int h = icon.getIconHeight();
+                        icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
+
+                    }
                 }
 
-                int x = (int) ((carta.getLocationOnScreen().getX() + Math.round(carta.getWidth() / 2)) - Math.round(icon.getIconWidth() / 2));
+                final ImageIcon ficon = icon;
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
+                        carta.revalidate();
 
-                int y = (int) ((carta.getLocationOnScreen().getY() + Math.round(carta.getHeight() / 2)) - Math.round(icon.getIconHeight() / 2));
+                        carta.repaint();
+                    }
+                });
 
-                GameFrame.getInstance().getTapete().getCentral_label().setLocation(x, y);
+                Helpers.GUIRunAndWait(new Runnable() {
+                    public void run() {
 
-                GameFrame.getInstance().getTapete().showCentralImage(icon, 0, CARD_ANIMATION_DELAY, false, null, 0, 0);
+                        carta.revalidate();
+
+                        carta.repaint();
+
+                        int x = (int) ((carta.getLocationOnScreen().getX() + Math.round(carta.getWidth() / 2)) - Math.round(ficon.getIconWidth() / 2));
+
+                        int y = (int) ((carta.getLocationOnScreen().getY() + Math.round(carta.getHeight() / 2)) - Math.round(ficon.getIconHeight() / 2));
+
+                        GameFrame.getInstance().getTapete().getCentral_label().setLocation(x, y);
+
+                        carta.setVisibleCard(false);
+                    }
+                });
+
+                GameFrame.getInstance().getTapete().showCentralImage(ficon, 0, CARD_ANIMATION_DELAY, false, null, 0, 0);
 
                 carta.destapar(false);
 

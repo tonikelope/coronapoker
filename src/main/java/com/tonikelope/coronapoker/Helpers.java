@@ -23,6 +23,7 @@ import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
+import static com.tonikelope.coronapoker.Init.CACHE_DIR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
@@ -73,6 +74,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyException;
@@ -96,12 +98,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -220,6 +224,9 @@ public class Helpers {
     public volatile static Properties PROPERTIES = loadPropertiesFile();
     public volatile static Font GUI_FONT = null;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
+    public volatile static boolean GENERATING_GIFSICLE_CACHE = false;
+    public volatile static String GIFSICLE_CACHE_ZOOM = "";
+    public volatile static long GIFSICLE_CACHE_THREAD;
 
     static {
 
@@ -240,6 +247,174 @@ public class Helpers {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    public static String getGifsicleBinaryPath() {
+
+        String path = null;
+
+        if (System.getProperty("os.name").toLowerCase().contains("linux")) {
+
+            path = CACHE_DIR + "/gifsicle/gifsicle";
+
+            if (!Files.isReadable(Paths.get(path))) {
+                try {
+                    //(Extract gifsicle from jar to cache dir)
+                    Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle"));
+
+                    Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle/bin"));
+
+                    Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle/bin/lib"));
+
+                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/gifsicle").toURI()), Paths.get(CACHE_DIR + "/gifsicle/gifsicle"));
+
+                    Set<PosixFilePermission> perms = new HashSet<>();
+                    perms.add(PosixFilePermission.OWNER_READ);
+                    perms.add(PosixFilePermission.OWNER_WRITE);
+                    perms.add(PosixFilePermission.OWNER_EXECUTE);
+
+                    Files.setPosixFilePermissions(Paths.get(CACHE_DIR + "/gifsicle/gifsicle"), perms);
+
+                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/bin/gifsicle").toURI()), Paths.get(CACHE_DIR + "/gifsicle/bin/gifsicle"));
+
+                    Files.setPosixFilePermissions(Paths.get(CACHE_DIR + "/gifsicle/bin/gifsicle"), perms);
+
+                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/bin/lib/ld-linux-x86-64.so.2").toURI()), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/ld-linux-x86-64.so.2"));
+
+                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/bin/lib/libc.so.6").toURI()), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libc.so.6"));
+
+                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/bin/lib/libm.so.6").toURI()), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libm.so.6"));
+
+                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/bin/lib/libpthread.so.0").toURI()), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libpthread.so.0"));
+
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            }
+
+        } else if (System.getProperty("os.name").toLowerCase().contains("win")) {
+
+            if (System.getenv("ProgramFiles(x86)") != null) {
+                path = CACHE_DIR + "/gifsicle/gifsicle.exe";
+            } else {
+                path = CACHE_DIR + "/gifsicle/gifsicle32.exe";
+            }
+
+            if (!Files.isReadable(Paths.get(path))) {
+
+                try {
+                    Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle"));
+
+                    if (System.getenv("ProgramFiles(x86)") != null) {
+                        Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/win/gifsicle.exe").toURI()), Paths.get(CACHE_DIR + "/gifsicle/gifsicle.exe"));
+                    } else {
+                        Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/win/gifsicle32.exe").toURI()), Paths.get(CACHE_DIR + "/gifsicle/gifsicle32.exe"));
+                    }
+
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+        } else {
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "NO GIFSICLE BINARY AVAILABLE!");
+        }
+
+        return path;
+
+    }
+
+    public static ImageIcon getGifsicleAnimation(URL url, float zoom, String card) {
+
+        if (Helpers.getGifsicleBinaryPath() != null && !Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif"))) {
+
+            genGifsicleCache(url, zoom);
+
+            try {
+                Runtime rt = Runtime.getRuntime();
+
+                Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/gifsicle_orig.gif"));
+
+                Files.copy(Paths.get(url.toURI()), Paths.get(System.getProperty("java.io.tmpdir") + "/gifsicle_orig.gif"));
+
+                String[] command = {Helpers.getGifsicleBinaryPath(), System.getProperty("java.io.tmpdir") + "/gifsicle_orig.gif", "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif"};
+
+                Process proc = rt.exec(command);
+
+                proc.waitFor();
+
+                return Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif")) ? new ImageIcon(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif") : null;
+
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            return null;
+        } else {
+            return new ImageIcon(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif");
+        }
+    }
+
+    public static void genGifsicleCache(URL url, float zoom) {
+
+        if (!GENERATING_GIFSICLE_CACHE || !GIFSICLE_CACHE_ZOOM.equals(String.valueOf(Helpers.floatClean(zoom, 2)))) {
+
+            GENERATING_GIFSICLE_CACHE = true;
+
+            GIFSICLE_CACHE_ZOOM = String.valueOf(Helpers.floatClean(zoom, 2));
+
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+
+                    GIFSICLE_CACHE_THREAD = Thread.currentThread().getId();
+
+                    String base_url = url.toExternalForm().replaceAll("[AKQJ0-9]+_[CDPT]\\.gif$", "");
+
+                    String baraja = url.toExternalForm().replaceAll("^.*?([^/+]+)/gif/[AKQJ0-9]+_[CDPT]\\.gif$", "$1");
+
+                    String[] palos = new String[]{"C", "D", "P", "T"};
+
+                    String[] valores = new String[]{"A", "K", "Q", "J", "10", "9", "8", "7", "6", "5", "4", "3", "2"};
+
+                    for (String p : palos) {
+
+                        for (String v : valores) {
+
+                            if (GIFSICLE_CACHE_THREAD != Thread.currentThread().getId()) {
+                                break;
+                            }
+
+                            String filename = "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + baraja + "_" + v + "_" + p + ".gif";
+
+                            if (!Files.isReadable(Paths.get(CACHE_DIR + filename))) {
+
+                                try {
+                                    Runtime rt = Runtime.getRuntime();
+
+                                    Files.copy(Paths.get(new URL(base_url + v + "_" + p + ".gif").toURI()), Paths.get(System.getProperty("java.io.tmpdir") + filename));
+
+                                    String[] command = {Helpers.getGifsicleBinaryPath(), System.getProperty("java.io.tmpdir") + filename, "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", CACHE_DIR + filename};
+
+                                    Process proc = rt.exec(command);
+
+                                    proc.waitFor();
+
+                                    Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + filename));
+                                } catch (Exception ex) {
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            }
+
+                        }
+                    }
+
+                    if (GIFSICLE_CACHE_THREAD == Thread.currentThread().getId()) {
+                        GENERATING_GIFSICLE_CACHE = false;
+                    }
+                }
+            });
+        }
     }
 
     public static void parkThreadMillis(long millis) {
@@ -943,6 +1118,12 @@ public class Helpers {
         }
 
         f = new File(SCREENSHOTS_DIR);
+
+        if (!f.exists()) {
+            f.mkdir();
+        }
+
+        f = new File(CACHE_DIR);
 
         if (!f.exists()) {
             f.mkdir();

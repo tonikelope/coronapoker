@@ -266,26 +266,29 @@ public class Helpers {
 
                     Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle/bin/lib"));
 
-                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/gifsicle").toURI()), Paths.get(CACHE_DIR + "/gifsicle/gifsicle"));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/gifsicle"), Paths.get(CACHE_DIR + "/gifsicle/gifsicle"));
 
                     Set<PosixFilePermission> perms = new HashSet<>();
+
                     perms.add(PosixFilePermission.OWNER_READ);
+
                     perms.add(PosixFilePermission.OWNER_WRITE);
+
                     perms.add(PosixFilePermission.OWNER_EXECUTE);
 
                     Files.setPosixFilePermissions(Paths.get(CACHE_DIR + "/gifsicle/gifsicle"), perms);
 
-                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/bin/gifsicle").toURI()), Paths.get(CACHE_DIR + "/gifsicle/bin/gifsicle"));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/gifsicle"), Paths.get(CACHE_DIR + "/gifsicle/bin/gifsicle"));
 
                     Files.setPosixFilePermissions(Paths.get(CACHE_DIR + "/gifsicle/bin/gifsicle"), perms);
 
-                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/bin/lib/ld-linux-x86-64.so.2").toURI()), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/ld-linux-x86-64.so.2"));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/ld-linux-x86-64.so.2"), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/ld-linux-x86-64.so.2"));
 
-                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/bin/lib/libc.so.6").toURI()), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libc.so.6"));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libc.so.6"), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libc.so.6"));
 
-                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/bin/lib/libm.so.6").toURI()), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libm.so.6"));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libm.so.6"), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libm.so.6"));
 
-                    Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/linux/bin/lib/libpthread.so.0").toURI()), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libpthread.so.0"));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libpthread.so.0"), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libpthread.so.0"));
 
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -307,9 +310,9 @@ public class Helpers {
                     Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle"));
 
                     if (System.getenv("ProgramFiles(x86)") != null) {
-                        Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/win/gifsicle.exe").toURI()), Paths.get(CACHE_DIR + "/gifsicle/gifsicle.exe"));
+                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle.exe"), Paths.get(CACHE_DIR + "/gifsicle/gifsicle.exe"));
                     } else {
-                        Files.copy(Paths.get(Helpers.class.getResource("/gifsicle/win/gifsicle32.exe").toURI()), Paths.get(CACHE_DIR + "/gifsicle/gifsicle32.exe"));
+                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle32.exe"), Paths.get(CACHE_DIR + "/gifsicle/gifsicle32.exe"));
                     }
 
                 } catch (Exception ex) {
@@ -336,7 +339,7 @@ public class Helpers {
 
                 Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/gifsicle_orig.gif"));
 
-                Files.copy(Paths.get(url.toURI()), Paths.get(System.getProperty("java.io.tmpdir") + "/gifsicle_orig.gif"));
+                Files.copy(url.openStream(), Paths.get(System.getProperty("java.io.tmpdir") + "/gifsicle_orig.gif"));
 
                 String[] command = {Helpers.getGifsicleBinaryPath(), System.getProperty("java.io.tmpdir") + "/gifsicle_orig.gif", "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif"};
 
@@ -392,7 +395,9 @@ public class Helpers {
                                 try {
                                     Runtime rt = Runtime.getRuntime();
 
-                                    Files.copy(Paths.get(new URL(base_url + v + "_" + p + ".gif").toURI()), Paths.get(System.getProperty("java.io.tmpdir") + filename));
+                                    Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + filename));
+
+                                    Files.copy(new URL(base_url + v + "_" + p + ".gif").openStream(), Paths.get(System.getProperty("java.io.tmpdir") + filename));
 
                                     String[] command = {Helpers.getGifsicleBinaryPath(), System.getProperty("java.io.tmpdir") + filename, "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", CACHE_DIR + filename};
 

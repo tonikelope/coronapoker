@@ -74,6 +74,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -211,6 +212,7 @@ public class Helpers {
     public static final int DECK_ELEMENTS = 52;
     public static final int MIN_GIF_FRAME_DELAY = 3;
     public static final int DIALOG_ICON_SIZE = 70;
+    public static final ArrayList<String> GIFSICLE_FAST_TEMP_FILES = new ArrayList<>();
     public static ArrayList<String> POKER_QUOTES_ES = new ArrayList<>();
     public static ArrayList<String> POKER_QUOTES_EN = new ArrayList<>();
     public static volatile ImageIcon IMAGEN_BB = null;
@@ -328,26 +330,44 @@ public class Helpers {
 
     }
 
+    public static void cleanGifsicleFastTempFiles() {
+
+        for (String f : GIFSICLE_FAST_TEMP_FILES) {
+
+            try {
+                Files.deleteIfExists(Paths.get(f));
+            } catch (Exception ex) {
+            }
+
+        }
+    }
+
     public static ImageIcon getGifsicleAnimation(URL url, float zoom, String card) {
 
         if (Helpers.getGifsicleBinaryPath() != null && !Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif"))) {
 
-            genGifsicleCache(url, zoom);
+            genGifsicleHQCache(url, zoom);
+
+            String filename_orig = System.getProperty("java.io.tmpdir") + "/gifsicle_fast_orig_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif";
+
+            String filename_new = System.getProperty("java.io.tmpdir") + "/gifsicle_fast_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif";
 
             try {
                 Runtime rt = Runtime.getRuntime();
 
-                Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/gifsicle_orig.gif"));
+                Files.copy(url.openStream(), Paths.get(filename_orig), REPLACE_EXISTING);
 
-                Files.copy(url.openStream(), Paths.get(System.getProperty("java.io.tmpdir") + "/gifsicle_orig.gif"));
-
-                String[] command = {Helpers.getGifsicleBinaryPath(), System.getProperty("java.io.tmpdir") + "/gifsicle_orig.gif", "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif"};
+                String[] command = {Helpers.getGifsicleBinaryPath(), filename_orig, "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--colors", "256", "--careful", "--no-loopcount", "-o", filename_new};
 
                 Process proc = rt.exec(command);
 
                 proc.waitFor();
 
-                return Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif")) ? new ImageIcon(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif") : null;
+                Files.deleteIfExists(Paths.get(filename_orig));
+
+                GIFSICLE_FAST_TEMP_FILES.add(filename_new);
+
+                return Files.isReadable(Paths.get(filename_new)) ? new ImageIcon(filename_new) : null;
 
             } catch (Exception ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -359,13 +379,15 @@ public class Helpers {
         }
     }
 
-    public static void genGifsicleCache(URL url, float zoom) {
+    public static void genGifsicleHQCache(URL url, float zoom) {
 
         if (!GENERATING_GIFSICLE_CACHE || !GIFSICLE_CACHE_ZOOM.equals(String.valueOf(Helpers.floatClean(zoom, 2)))) {
 
             GENERATING_GIFSICLE_CACHE = true;
 
             GIFSICLE_CACHE_ZOOM = String.valueOf(Helpers.floatClean(zoom, 2));
+
+            GIFSICLE_CACHE_THREAD = -1;
 
             Helpers.threadRun(new Runnable() {
                 public void run() {
@@ -388,24 +410,24 @@ public class Helpers {
                                 break;
                             }
 
-                            String filename = "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + baraja + "_" + v + "_" + p + ".gif";
+                            String filename_orig = System.getProperty("java.io.tmpdir") + "/gifsicle_" + String.valueOf(Thread.currentThread().getId()) + "_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + baraja + "_" + v + "_" + p + ".gif";
 
-                            if (!Files.isReadable(Paths.get(CACHE_DIR + filename))) {
+                            String filename_new = CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + baraja + "_" + v + "_" + p + ".gif";
+
+                            if (!Files.isReadable(Paths.get(filename_new))) {
 
                                 try {
                                     Runtime rt = Runtime.getRuntime();
 
-                                    Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + filename));
+                                    Files.copy(new URL(base_url + v + "_" + p + ".gif").openStream(), Paths.get(filename_orig), REPLACE_EXISTING);
 
-                                    Files.copy(new URL(base_url + v + "_" + p + ".gif").openStream(), Paths.get(System.getProperty("java.io.tmpdir") + filename));
-
-                                    String[] command = {Helpers.getGifsicleBinaryPath(), System.getProperty("java.io.tmpdir") + filename, "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", CACHE_DIR + filename};
+                                    String[] command = {Helpers.getGifsicleBinaryPath(), filename_orig, "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", filename_new};
 
                                     Process proc = rt.exec(command);
 
                                     proc.waitFor();
 
-                                    Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + filename));
+                                    Files.deleteIfExists(Paths.get(filename_orig));
                                 } catch (Exception ex) {
                                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
                                 }

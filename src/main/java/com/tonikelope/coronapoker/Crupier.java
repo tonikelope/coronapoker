@@ -6098,24 +6098,13 @@ public class Crupier implements Runnable {
                 }
 
                 final ImageIcon ficon = icon;
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
-                        carta.revalidate();
-
-                        carta.repaint();
-                    }
-                });
 
                 Helpers.GUIRunAndWait(new Runnable() {
                     public void run() {
 
-                        carta.revalidate();
+                        int x = (int) ((int) ((carta.getLocationOnScreen().getX() + Math.round(carta.getWidth() / 2)) - Math.round(ficon.getIconWidth() / 2)) - GameFrame.getInstance().getTapete().getLocationOnScreen().getX());
 
-                        carta.repaint();
-
-                        int x = (int) ((carta.getLocationOnScreen().getX() + Math.round(carta.getWidth() / 2)) - Math.round(ficon.getIconWidth() / 2));
-
-                        int y = (int) ((carta.getLocationOnScreen().getY() + Math.round(carta.getHeight() / 2)) - Math.round(ficon.getIconHeight() / 2));
+                        int y = (int) ((int) ((carta.getLocationOnScreen().getY() + Math.round(carta.getHeight() / 2)) - Math.round(ficon.getIconHeight() / 2)) - GameFrame.getInstance().getTapete().getLocationOnScreen().getY());
 
                         GameFrame.getInstance().getTapete().getCentral_label().setLocation(x, y);
 

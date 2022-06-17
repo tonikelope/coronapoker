@@ -384,7 +384,7 @@ public class Helpers {
 
     public static ImageIcon getGifsicleAnimation(URL url, float zoom, String card) {
 
-        if (Helpers.getGifsicleBinaryPath() != null && !Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif"))) {
+        if (!Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif")) && Helpers.getGifsicleBinaryPath() != null) {
 
             genGifsicleHQCache(url, zoom);
 
@@ -415,7 +415,7 @@ public class Helpers {
 
             return null;
 
-        } else if (Helpers.getGifsicleBinaryPath() != null) {
+        } else if (Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif"))) {
             return new ImageIcon(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif");
         }
 

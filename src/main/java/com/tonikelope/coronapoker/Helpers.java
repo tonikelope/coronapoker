@@ -255,13 +255,22 @@ public class Helpers {
 
         String path = null;
 
+        if (!Files.isDirectory(Paths.get(CACHE_DIR))) {
+            try {
+                Files.createDirectory(Paths.get(CACHE_DIR));
+            } catch (IOException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                return path;
+            }
+        }
+
         if (Helpers.OSValidator.isUnix()) {
 
             path = CACHE_DIR + "/gifsicle/gifsicle";
 
             if (!Files.isReadable(Paths.get(path))) {
                 try {
-                    //(Extract gifsicle from jar to cache dir)
+
                     Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle"));
 
                     Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle/bin"));
@@ -294,6 +303,7 @@ public class Helpers {
 
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    path = null;
                 }
 
             }
@@ -309,6 +319,7 @@ public class Helpers {
             if (!Files.isReadable(Paths.get(path))) {
 
                 try {
+
                     Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle"));
 
                     if (System.getenv("ProgramFiles(x86)") != null) {
@@ -319,6 +330,7 @@ public class Helpers {
 
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    path = null;
                 }
             }
 
@@ -344,19 +356,9 @@ public class Helpers {
 
                     Files.setPosixFilePermissions(Paths.get(CACHE_DIR + "/gifsicle/gifsicle"), perms);
 
-                    Runtime rt = Runtime.getRuntime();
-
-                    String[] command = {path, "-h"};
-
-                    Process proc;
-
-                    proc = rt.exec(command);
-
-                    proc.waitFor();
-
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "To enjoy high quality card animations you need to manually install HOMEBREW + GIFSICLE.\n\n$ /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\n\n$ brew install gifsicle");
-
+                    path = null;
                 }
             }
 
@@ -471,6 +473,7 @@ public class Helpers {
                                     Files.deleteIfExists(Paths.get(filename_orig));
                                 } catch (Exception ex) {
                                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                    break;
                                 }
                             }
 

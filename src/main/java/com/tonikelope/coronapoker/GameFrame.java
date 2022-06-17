@@ -2222,6 +2222,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Helpers.savePropertiesFile();
 
+            Helpers.cleanGifsicleFastTempFiles();
+
             System.exit(0);
         }
     }

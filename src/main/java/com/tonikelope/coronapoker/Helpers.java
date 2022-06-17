@@ -255,7 +255,7 @@ public class Helpers {
 
         String path = null;
 
-        if (System.getProperty("os.name").toLowerCase().contains("linux")) {
+        if (Helpers.OSValidator.isUnix()) {
 
             path = CACHE_DIR + "/gifsicle/gifsicle";
 
@@ -298,7 +298,7 @@ public class Helpers {
 
             }
 
-        } else if (System.getProperty("os.name").toLowerCase().contains("win")) {
+        } else if (Helpers.OSValidator.isWindows()) {
 
             if (System.getenv("ProgramFiles(x86)") != null) {
                 path = CACHE_DIR + "/gifsicle/gifsicle.exe";
@@ -322,8 +322,46 @@ public class Helpers {
                 }
             }
 
+        } else if (Helpers.OSValidator.isMac()) {
+
+            path = CACHE_DIR + "/gifsicle/gifsicle";
+
+            if (!Files.isReadable(Paths.get(path))) {
+
+                try {
+                    //(Extract gifsicle from jar to cache dir)
+                    Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle"));
+
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/mac/gifsicle_mac"), Paths.get(CACHE_DIR + "/gifsicle/gifsicle"));
+
+                    Set<PosixFilePermission> perms = new HashSet<>();
+
+                    perms.add(PosixFilePermission.OWNER_READ);
+
+                    perms.add(PosixFilePermission.OWNER_WRITE);
+
+                    perms.add(PosixFilePermission.OWNER_EXECUTE);
+
+                    Files.setPosixFilePermissions(Paths.get(CACHE_DIR + "/gifsicle/gifsicle"), perms);
+
+                    Runtime rt = Runtime.getRuntime();
+
+                    String[] command = {path, "-h"};
+
+                    Process proc;
+
+                    proc = rt.exec(command);
+
+                    proc.waitFor();
+
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "To enjoy high quality card animations you need to manually install HOMEBREW + GIFSICLE.\n\n$ /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\n\n$ brew install gifsicle");
+
+                }
+            }
+
         } else {
-            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "NO GIFSICLE BINARY AVAILABLE!");
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "NO GIFSICLE BINARY AVAILABLE FOR YOUR PLATFORM");
         }
 
         return path;
@@ -374,9 +412,12 @@ public class Helpers {
             }
 
             return null;
-        } else {
+
+        } else if (Helpers.getGifsicleBinaryPath() != null) {
             return new ImageIcon(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif");
         }
+
+        return null;
     }
 
     public static void genGifsicleHQCache(URL url, float zoom) {

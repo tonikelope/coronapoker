@@ -1,4 +1,19 @@
 /*
+ _              _ _        _                  
+| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
+| __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
+| || (_) | | | | |   <  __/ | (_) | |_) |  __/
+ \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
+ ____    ___  ____    ___  
+|___ \  / _ \|___ \  / _ \ 
+  __) || | | | __) || | | |
+ / __/ | |_| |/ __/ | |_| |
+|_____| \___/|_____| \___/ 
+
+https://github.com/tonikelope/coronapoker
+
+ */
+ /*
  * Copyright (C) 2020 tonikelope
  *
  * This program is free software: you can redistribute it and/or modify
@@ -46,7 +61,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "15.60";
+    public static final String VERSION = "15.61";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

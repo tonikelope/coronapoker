@@ -6085,7 +6085,7 @@ public class Crupier implements Runnable {
 
                 if (GameFrame.ANIMATIONS_ZOOM && GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
 
-                    ImageIcon icon_gifsicle = Helpers.getGifsicleAnimation(url_icon, (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP), baraja + "_" + carta.getValor() + "_" + carta.getPalo());
+                    ImageIcon icon_gifsicle = Helpers.genGifsicleCardAnimation(url_icon, (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP), baraja + "_" + carta.getValor() + "_" + carta.getPalo());
 
                     if (icon_gifsicle != null) {
                         icon = icon_gifsicle;

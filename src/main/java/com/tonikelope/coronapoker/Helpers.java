@@ -26,6 +26,7 @@ import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Init.CACHE_DIR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
+import static com.tonikelope.coronapoker.Init.GIFSICLE_DIR;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
 import static com.tonikelope.coronapoker.Init.SCREENSHOTS_DIR;
 import static com.tonikelope.coronapoker.Init.SQLITE;
@@ -266,18 +267,14 @@ public class Helpers {
 
         if (Helpers.OSValidator.isUnix()) {
 
-            path = CACHE_DIR + "/gifsicle/gifsicle";
+            path = GIFSICLE_DIR + "/gifsicle";
 
             if (!Files.isReadable(Paths.get(path))) {
                 try {
 
-                    Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle"));
+                    Files.createDirectory(Paths.get(GIFSICLE_DIR));
 
-                    Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle/bin"));
-
-                    Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle/bin/lib"));
-
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/gifsicle"), Paths.get(CACHE_DIR + "/gifsicle/gifsicle"));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/gifsicle"), Paths.get(path));
 
                     Set<PosixFilePermission> perms = new HashSet<>();
 
@@ -287,19 +284,23 @@ public class Helpers {
 
                     perms.add(PosixFilePermission.OWNER_EXECUTE);
 
-                    Files.setPosixFilePermissions(Paths.get(CACHE_DIR + "/gifsicle/gifsicle"), perms);
+                    Files.setPosixFilePermissions(Paths.get(path), perms);
 
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/gifsicle"), Paths.get(CACHE_DIR + "/gifsicle/bin/gifsicle"));
+                    Files.createDirectory(Paths.get(GIFSICLE_DIR + "/bin"));
 
-                    Files.setPosixFilePermissions(Paths.get(CACHE_DIR + "/gifsicle/bin/gifsicle"), perms);
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/gifsicle"), Paths.get(GIFSICLE_DIR + "/bin/gifsicle"));
 
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/ld-linux-x86-64.so.2"), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/ld-linux-x86-64.so.2"));
+                    Files.setPosixFilePermissions(Paths.get(GIFSICLE_DIR + "/bin/gifsicle"), perms);
 
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libc.so.6"), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libc.so.6"));
+                    Files.createDirectory(Paths.get(GIFSICLE_DIR + "/bin/lib"));
 
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libm.so.6"), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libm.so.6"));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/ld-linux-x86-64.so.2"), Paths.get(GIFSICLE_DIR + "/bin/lib/ld-linux-x86-64.so.2"));
 
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libpthread.so.0"), Paths.get(CACHE_DIR + "/gifsicle/bin/lib/libpthread.so.0"));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libc.so.6"), Paths.get(GIFSICLE_DIR + "/bin/lib/libc.so.6"));
+
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libm.so.6"), Paths.get(GIFSICLE_DIR + "/bin/lib/libm.so.6"));
+
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libpthread.so.0"), Paths.get(GIFSICLE_DIR + "/bin/lib/libpthread.so.0"));
 
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -310,22 +311,18 @@ public class Helpers {
 
         } else if (Helpers.OSValidator.isWindows()) {
 
-            if (System.getenv("ProgramFiles(x86)") != null) {
-                path = CACHE_DIR + "/gifsicle/gifsicle.exe";
-            } else {
-                path = CACHE_DIR + "/gifsicle/gifsicle32.exe";
-            }
+            path = GIFSICLE_DIR + "/gifsicle.exe";
 
             if (!Files.isReadable(Paths.get(path))) {
 
                 try {
 
-                    Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle"));
+                    Files.createDirectory(Paths.get(GIFSICLE_DIR));
 
                     if (System.getenv("ProgramFiles(x86)") != null) {
-                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle.exe"), Paths.get(CACHE_DIR + "/gifsicle/gifsicle.exe"));
+                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle.exe"), Paths.get(path));
                     } else {
-                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle32.exe"), Paths.get(CACHE_DIR + "/gifsicle/gifsicle32.exe"));
+                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle32.exe"), Paths.get(path));
                     }
 
                 } catch (Exception ex) {
@@ -336,15 +333,15 @@ public class Helpers {
 
         } else if (Helpers.OSValidator.isMac()) {
 
-            path = CACHE_DIR + "/gifsicle/gifsicle";
+            path = GIFSICLE_DIR + "/gifsicle";
 
             if (!Files.isReadable(Paths.get(path))) {
 
                 try {
                     //(Extract gifsicle from jar to cache dir)
-                    Files.createDirectory(Paths.get(CACHE_DIR + "/gifsicle"));
+                    Files.createDirectory(Paths.get(GIFSICLE_DIR));
 
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/mac/gifsicle_mac"), Paths.get(CACHE_DIR + "/gifsicle/gifsicle"));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/mac/gifsicle_mac"), Paths.get(path));
 
                     Set<PosixFilePermission> perms = new HashSet<>();
 
@@ -354,7 +351,7 @@ public class Helpers {
 
                     perms.add(PosixFilePermission.OWNER_EXECUTE);
 
-                    Files.setPosixFilePermissions(Paths.get(CACHE_DIR + "/gifsicle/gifsicle"), perms);
+                    Files.setPosixFilePermissions(Paths.get(path), perms);
 
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "To enjoy high quality card animations you need to manually install HOMEBREW + GIFSICLE.\n\n$ /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\n\n$ brew install gifsicle");
@@ -382,15 +379,16 @@ public class Helpers {
         }
     }
 
-    public static ImageIcon getGifsicleAnimation(URL url, float zoom, String card) {
+    //card_id es baraja_valor_palo, por ejemplo "coronapoker_7_P"
+    public static ImageIcon genGifsicleCardAnimation(URL url, float zoom, String card_id) {
 
-        if (!Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif")) && Helpers.getGifsicleBinaryPath() != null) {
+        if (!Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif")) && Helpers.getGifsicleBinaryPath() != null) {
 
-            genGifsicleHQCache(url, zoom);
+            genGifsicleCardAnimationsHQCache(url, zoom);
 
-            String filename_orig = System.getProperty("java.io.tmpdir") + "/gifsicle_fast_orig_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif";
+            String filename_orig = System.getProperty("java.io.tmpdir") + "/gifsicle_fast_orig_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif";
 
-            String filename_new = System.getProperty("java.io.tmpdir") + "/gifsicle_fast_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif";
+            String filename_new = System.getProperty("java.io.tmpdir") + "/gifsicle_fast_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif";
 
             try {
                 Runtime rt = Runtime.getRuntime();
@@ -415,20 +413,23 @@ public class Helpers {
 
             return null;
 
-        } else if (Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif"))) {
-            return new ImageIcon(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card + ".gif");
+        } else if (Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif"))) {
+            return new ImageIcon(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif");
         }
 
         return null;
     }
 
-    public static void genGifsicleHQCache(URL url, float zoom) {
+    //LANCZOS3 GIF ANIMATIONS
+    public static void genGifsicleCardAnimationsHQCache(URL url, float zoom) {
 
-        if (!GENERATING_GIFSICLE_CACHE || !GIFSICLE_CACHE_ZOOM.equals(String.valueOf(Helpers.floatClean(zoom, 2)))) {
+        final String zoom_str = String.valueOf(Helpers.floatClean(zoom, 2));
+
+        if (!GENERATING_GIFSICLE_CACHE || !GIFSICLE_CACHE_ZOOM.equals(zoom_str)) {
+
+            GIFSICLE_CACHE_ZOOM = zoom_str;
 
             GENERATING_GIFSICLE_CACHE = true;
-
-            GIFSICLE_CACHE_ZOOM = String.valueOf(Helpers.floatClean(zoom, 2));
 
             GIFSICLE_CACHE_THREAD = -1;
 
@@ -445,6 +446,8 @@ public class Helpers {
 
                     String[] valores = new String[]{"A", "K", "Q", "J", "10", "9", "8", "7", "6", "5", "4", "3", "2"};
 
+                    String gifsicle_bin_path = Helpers.getGifsicleBinaryPath();
+
                     for (String p : palos) {
 
                         for (String v : valores) {
@@ -453,9 +456,11 @@ public class Helpers {
                                 break;
                             }
 
-                            String filename_orig = System.getProperty("java.io.tmpdir") + "/gifsicle_" + String.valueOf(Thread.currentThread().getId()) + "_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + baraja + "_" + v + "_" + p + ".gif";
+                            String card_zoom_id = zoom_str + "_" + baraja + "_" + v + "_" + p;
 
-                            String filename_new = CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + baraja + "_" + v + "_" + p + ".gif";
+                            String filename_orig = System.getProperty("java.io.tmpdir") + "/gifsicle_" + String.valueOf(Thread.currentThread().getId()) + "_" + card_zoom_id + ".gif";
+
+                            String filename_new = CACHE_DIR + "/gifsicle_" + card_zoom_id + ".gif";
 
                             if (!Files.isReadable(Paths.get(filename_new))) {
 
@@ -464,7 +469,7 @@ public class Helpers {
 
                                     Files.copy(new URL(base_url + v + "_" + p + ".gif").openStream(), Paths.get(filename_orig), REPLACE_EXISTING);
 
-                                    String[] command = {Helpers.getGifsicleBinaryPath(), filename_orig, "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", filename_new};
+                                    String[] command = {gifsicle_bin_path, filename_orig, "--scale", zoom_str, "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", filename_new};
 
                                     Process proc = rt.exec(command);
 
@@ -1168,36 +1173,18 @@ public class Helpers {
         }
     }
 
-    public static void createIfNoExistsCoronaDirs() {
+    public static void createGameDirs() {
 
-        File f = new File(CORONA_DIR);
+        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR}; //OJO AL ORDEN
 
-        if (!f.exists()) {
-            f.mkdir();
-        }
-
-        f = new File(LOGS_DIR);
-
-        if (!f.exists()) {
-            f.mkdir();
-        }
-
-        f = new File(DEBUG_DIR);
-
-        if (!f.exists()) {
-            f.mkdir();
-        }
-
-        f = new File(SCREENSHOTS_DIR);
-
-        if (!f.exists()) {
-            f.mkdir();
-        }
-
-        f = new File(CACHE_DIR);
-
-        if (!f.exists()) {
-            f.mkdir();
+        for (String d : dirs) {
+            if (!Files.isDirectory(Paths.get(d))) {
+                try {
+                    Files.createDirectory(Paths.get(d));
+                } catch (IOException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         }
     }
 
@@ -1488,7 +1475,7 @@ public class Helpers {
 
     public static Properties loadPropertiesFile() {
 
-        createIfNoExistsCoronaDirs();
+        createGameDirs();
 
         File properties = new File(PROPERTIES_FILE);
 

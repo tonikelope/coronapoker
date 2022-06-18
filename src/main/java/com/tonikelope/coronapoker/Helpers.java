@@ -1173,7 +1173,7 @@ public class Helpers {
         }
     }
 
-    public static void createGameDirs() {
+    public static void createIfNoExistsCoronaDirs() {
 
         String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR}; //OJO AL ORDEN
 
@@ -1475,7 +1475,7 @@ public class Helpers {
 
     public static Properties loadPropertiesFile() {
 
-        createGameDirs();
+        createIfNoExistsCoronaDirs();
 
         File properties = new File(PROPERTIES_FILE);
 

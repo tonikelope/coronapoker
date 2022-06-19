@@ -375,9 +375,8 @@ public class Audio {
 
                                                     synchronized (entry) {
 
-                                                        if (entry.isOpen() && entry.isRunning()) {
-                                                            entry.stop();
-                                                        }
+                                                        entry.stop();
+
                                                     }
 
                                                 } catch (Exception ex) {
@@ -395,13 +394,15 @@ public class Audio {
                         }
                     });
 
-                    clip.open(AudioSystem.getAudioInputStream(bis));
+                    synchronized (clip) {
+                        clip.open(AudioSystem.getAudioInputStream(bis));
 
-                    setClipVolume(sound, clip, bypass_muted);
+                        setClipVolume(sound, clip, bypass_muted);
 
-                    clip.start();
+                        clip.start();
 
-                    clip.loop(Clip.LOOP_CONTINUOUSLY);
+                        clip.loop(Clip.LOOP_CONTINUOUSLY);
+                    }
 
                     Helpers.parkThreadMicros(clip.getMicrosecondLength());
 

@@ -1108,7 +1108,6 @@ public class Init extends javax.swing.JFrame {
                     public void run() {
 
                         VENTANA_INICIO.update_label.setVisible(true);
-
                         VENTANA_INICIO.update_button.setVisible(false);
                     }
                 });
@@ -1153,18 +1152,9 @@ public class Init extends javax.swing.JFrame {
                                 Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)");
                             }
                         }
-
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
-
-                                VENTANA_INICIO.update_button.setVisible(true);
-                            }
-                        });
-
                     }
 
-                } while (NEW_VERSION == null && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?") == 0);
+                } while (NEW_VERSION == null && (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?") == 0));
 
                 Helpers.GUIRun(new Runnable() {
                     @Override
@@ -1173,6 +1163,15 @@ public class Init extends javax.swing.JFrame {
                         VENTANA_INICIO.update_label.setVisible(false);
                     }
                 });
+
+                if (NEW_VERSION == null) {
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+                            VENTANA_INICIO.update_button.setVisible(true);
+                        }
+                    });
+                }
 
             }
         });

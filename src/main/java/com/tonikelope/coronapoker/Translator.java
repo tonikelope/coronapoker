@@ -33,6 +33,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"SE REQUIERE", "REQUIRED"},
             {"(GANAS)", "(YOU WIN)"},
             {"(PIERDES)", "(YOU LOSE)"},
             {"EL MOD CARGADO CONTIENE MATERIAL CALIFICADO SÓLO PARA MAYORES DE 18 AÑOS. ¿Continuar?", "THE LOADED MOD CONTAINS MATERIAL QUALIFIED FOR 18 YEARS OR OLDER ONLY. Continue?"},

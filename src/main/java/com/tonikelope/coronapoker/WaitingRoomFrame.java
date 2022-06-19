@@ -1515,7 +1515,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         if (partes[0].equals("BADVERSION")) {
                             exit = true;
-                            mostrarMensajeError(THIS, Translator.translate("Versión de CoronaPoker incorrecta") + "(" + partes[1] + ")");
+                            mostrarMensajeError(THIS, Translator.translate("Versión de CoronaPoker incorrecta") + " " + Translator.translate("SE REQUIERE") + " -> " + partes[1]);
                         } else if (partes[0].equals("YOUARELATE")) {
                             exit = true;
                             mostrarMensajeError(THIS, "Llegas TARDE. La partida ya ha empezado.");

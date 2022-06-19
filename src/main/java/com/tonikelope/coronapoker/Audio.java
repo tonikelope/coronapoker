@@ -373,11 +373,7 @@ public class Audio {
 
                                                     iterator.remove();
 
-                                                    synchronized (entry) {
-
-                                                        entry.stop();
-
-                                                    }
+                                                    entry.stop();
 
                                                 } catch (Exception ex) {
                                                     Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
@@ -394,15 +390,13 @@ public class Audio {
                         }
                     });
 
-                    synchronized (clip) {
-                        clip.open(AudioSystem.getAudioInputStream(bis));
+                    clip.open(AudioSystem.getAudioInputStream(bis));
 
-                        setClipVolume(sound, clip, bypass_muted);
+                    setClipVolume(sound, clip, bypass_muted);
 
-                        clip.start();
+                    clip.start();
 
-                        clip.loop(Clip.LOOP_CONTINUOUSLY);
-                    }
+                    clip.loop(Clip.LOOP_CONTINUOUSLY);
 
                     Helpers.parkThreadMicros(clip.getMicrosecondLength());
 

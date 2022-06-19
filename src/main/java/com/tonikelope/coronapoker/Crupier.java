@@ -4914,7 +4914,7 @@ public class Crupier implements Runnable {
 
                 for (Player p : candidatos) {
                     if (p.getDecision() == Player.FOLD) {
-                        p.setPlayerActionIcon(ganadores.containsKey(p) ? "action/angry.png" : "action/alivio.png");
+                        p.setPlayerActionIcon(ganadores.containsKey(p) ? "action/cry.png" : "action/alivio.png");
                     }
                 }
             }
@@ -6554,7 +6554,7 @@ public class Crupier implements Runnable {
 
                         Hand jugada = ganadores.get(jugador_actual);
 
-                        jugador_actual.setWinner(jugada.getName() + (jugador_actual == GameFrame.getInstance().getLocalPlayer() ? " " + Translator.translate("(GANAS)") : ""));
+                        jugador_actual.setWinner(jugada.getName());
 
                         this.sqlNewShowdown(jugador_actual, jugada, true);
 
@@ -6618,7 +6618,7 @@ public class Crupier implements Runnable {
 
                         Hand jugada = ganadores.get(jugador_actual);
 
-                        jugador_actual.setWinner(jugada.getName() + (jugador_actual == GameFrame.getInstance().getLocalPlayer() ? " " + Translator.translate("(GANAS)") : ""));
+                        jugador_actual.setWinner(jugada.getName());
 
                         this.sqlNewShowdown(jugador_actual, jugada, true);
 

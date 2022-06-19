@@ -109,7 +109,7 @@ public class TablePanelFactory {
                     }
                 }
 
-                Helpers.GUIRun(new Runnable() {
+                Helpers.GUIRunAndWait(new Runnable() {
                     @Override
                     public void run() {
                         nuevo_panel.getCommunityCards().getRandom_button().setVisible(panel.getCommunityCards().getRandom_button().isVisible());

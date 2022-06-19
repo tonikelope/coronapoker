@@ -357,32 +357,41 @@ public class Audio {
 
                             if (force_close) {
 
-                                Iterator<Clip> iterator = WAVS_RESOURCES.get(sound).iterator();
+                                synchronized (WAVS_RESOURCES.get(sound)) {
 
-                                while (iterator.hasNext()) {
+                                    if (WAVS_RESOURCES.get(sound).contains(clip)) {
 
-                                    Clip entry = iterator.next();
+                                        Iterator<Clip> iterator = WAVS_RESOURCES.get(sound).iterator();
 
-                                    if (entry != clip) {
+                                        while (iterator.hasNext()) {
 
-                                        try {
+                                            Clip entry = iterator.next();
 
-                                            iterator.remove();
+                                            if (entry != clip) {
 
-                                            synchronized (entry) {
+                                                try {
 
-                                                if (entry.isOpen() && entry.isRunning()) {
-                                                    entry.stop();
+                                                    iterator.remove();
+
+                                                    synchronized (entry) {
+
+                                                        if (entry.isOpen() && entry.isRunning()) {
+                                                            entry.stop();
+                                                        }
+                                                    }
+
+                                                } catch (Exception ex) {
+                                                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                                                 }
                                             }
-
-                                        } catch (Exception ex) {
-                                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                                         }
+
                                     }
+
                                 }
 
                             }
+
                         }
                     });
 

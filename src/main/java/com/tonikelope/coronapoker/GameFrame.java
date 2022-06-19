@@ -1442,10 +1442,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.getInstance().getJugadores().add(jugador);
             }
 
-            JFrame frame = getFrame();
-
             Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
+
+                    JFrame frame = getFrame();
+
                     frame.getContentPane().remove(frame_layer);
 
                     tapete = nuevo_tapete;
@@ -1504,10 +1505,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 GameFrame.getInstance().zoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
 
-                                Helpers.GUIRun(new Runnable() {
+                                Helpers.GUIRunAndWait(new Runnable() {
                                     public void run() {
 
-                                        pack();
+                                        frame.pack();
+
+                                        frame.revalidate();
+
+                                        frame.repaint();
                                     }
                                 });
 
@@ -1516,9 +1521,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     } else {
 
-                        pack();
-                    }
+                        frame.pack();
 
+                        frame.revalidate();
+
+                        frame.repaint();
+                    }
                 }
             });
 

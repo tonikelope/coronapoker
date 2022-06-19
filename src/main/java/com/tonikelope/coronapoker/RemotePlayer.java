@@ -1513,7 +1513,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
 
                 player_action.setText(msg);
-                setPlayerActionIcon("action/cry.png");
+                setPlayerActionIcon("action/angry.png");
 
             }
         });

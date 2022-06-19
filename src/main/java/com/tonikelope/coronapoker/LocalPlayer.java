@@ -2769,7 +2769,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 playingCard2.desenfocar();
 
                 player_action.setText(msg);
-                setPlayerActionIcon("action/cry.png");
+                setPlayerActionIcon("action/angry.png");
 
             }
         });

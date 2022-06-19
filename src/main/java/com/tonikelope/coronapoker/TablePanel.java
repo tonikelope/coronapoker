@@ -252,7 +252,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         this.invalidate = true;
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
                 revalidate();

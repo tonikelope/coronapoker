@@ -6554,7 +6554,7 @@ public class Crupier implements Runnable {
 
                         Hand jugada = ganadores.get(jugador_actual);
 
-                        jugador_actual.setWinner(jugada.getName());
+                        jugador_actual.setWinner(jugada.getName() + (jugador_actual == GameFrame.getInstance().getLocalPlayer() ? " " + Translator.translate("(GANAS)") : ""));
 
                         this.sqlNewShowdown(jugador_actual, jugada, true);
 
@@ -6573,7 +6573,7 @@ public class Crupier implements Runnable {
 
                         if (jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
-                            jugador_actual.setLoser(jugada.getName());
+                            jugador_actual.setLoser(jugada.getName() + " " + Translator.translate("(PIERDES)"));
 
                             if (!this.destapar_resistencia) {
                                 GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(false);
@@ -6618,7 +6618,7 @@ public class Crupier implements Runnable {
 
                         Hand jugada = ganadores.get(jugador_actual);
 
-                        jugador_actual.setWinner(jugada.getName());
+                        jugador_actual.setWinner(jugada.getName() + (jugador_actual == GameFrame.getInstance().getLocalPlayer() ? " " + Translator.translate("(GANAS)") : ""));
 
                         this.sqlNewShowdown(jugador_actual, jugada, true);
 
@@ -6645,7 +6645,7 @@ public class Crupier implements Runnable {
 
                         Hand jugada = perdedores.get(jugador_actual);
 
-                        jugador_actual.setLoser(jugada.getName());
+                        jugador_actual.setLoser(jugada.getName() + (jugador_actual == GameFrame.getInstance().getLocalPlayer() ? " " + Translator.translate("(PIERDES)") : ""));
 
                         if (jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
                             GameFrame.getInstance().getLocalPlayer().setMuestra(true);

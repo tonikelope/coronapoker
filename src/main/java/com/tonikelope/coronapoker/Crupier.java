@@ -57,6 +57,8 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class Crupier implements Runnable {
 
+    public static final boolean ALLIN_BOT_TEST = false; //TRUE FOR TESTING
+
     public static final Map.Entry<String, Object[][]> ALLIN_CINEMATICS = new HashMap.SimpleEntry<String, Object[][]>("allin/",
             new Object[][]{
                 {"rounders.gif"},
@@ -213,7 +215,6 @@ public class Crupier implements Runnable {
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
-    public static final boolean ALLIN_BOT_TEST = true; //FOR TESTING
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();

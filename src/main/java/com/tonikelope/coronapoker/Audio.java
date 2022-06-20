@@ -342,74 +342,60 @@ public class Audio {
             if ((sound_stream = getSoundInputStream(sound)) != null) {
                 try (final BufferedInputStream bis = new BufferedInputStream(sound_stream); final Clip clip = AudioSystem.getClip()) {
 
-                    Helpers.threadRun(new Runnable() {
+                    if (force_close && WAVS_RESOURCES.get(sound) != null) {
 
-                        @Override
-                        public void run() {
+                        synchronized (WAVS_RESOURCES.get(sound)) {
+                            for (Clip c : WAVS_RESOURCES.get(sound)) {
 
-                            ConcurrentLinkedQueue<Clip> list = new ConcurrentLinkedQueue<>();
-
-                            list.add(clip);
-
-                            if (WAVS_RESOURCES.putIfAbsent(sound, list) != null && !WAVS_RESOURCES.get(sound).contains(clip)) {
-                                WAVS_RESOURCES.get(sound).add(clip);
-                            }
-
-                            if (force_close) {
-
-                                synchronized (WAVS_RESOURCES.get(sound)) {
-
-                                    if (WAVS_RESOURCES.get(sound).contains(clip)) {
-
-                                        Iterator<Clip> iterator = WAVS_RESOURCES.get(sound).iterator();
-
-                                        while (iterator.hasNext()) {
-
-                                            Clip entry = iterator.next();
-
-                                            if (entry != clip) {
-
-                                                try {
-
-                                                    iterator.remove();
-
-                                                    entry.stop();
-
-                                                } catch (Exception ex) {
-                                                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
-                                                }
-                                            }
+                                if (c != null) {
+                                    synchronized (c) {
+                                        if (c.isOpen() && c.isRunning()) {
+                                            c.stop();
                                         }
-
                                     }
-
                                 }
-
                             }
+                            WAVS_RESOURCES.get(sound).clear();
+
+                            WAVS_RESOURCES.get(sound).add(clip);
+
+                            clip.open(AudioSystem.getAudioInputStream(bis));
+
+                            setClipVolume(sound, clip, bypass_muted);
+
+                            clip.start();
+
+                            clip.loop(Clip.LOOP_CONTINUOUSLY);
 
                         }
-                    });
 
-                    clip.open(AudioSystem.getAudioInputStream(bis));
+                    } else {
 
-                    setClipVolume(sound, clip, bypass_muted);
+                        WAVS_RESOURCES.putIfAbsent(sound, new ConcurrentLinkedQueue<>());
 
-                    clip.start();
+                        synchronized (WAVS_RESOURCES.get(sound)) {
 
-                    clip.loop(Clip.LOOP_CONTINUOUSLY);
+                            WAVS_RESOURCES.get(sound).add(clip);
+
+                            clip.open(AudioSystem.getAudioInputStream(bis));
+
+                            setClipVolume(sound, clip, bypass_muted);
+
+                            clip.start();
+
+                            clip.loop(Clip.LOOP_CONTINUOUSLY);
+                        }
+                    }
 
                     Helpers.parkThreadMicros(clip.getMicrosecondLength());
 
-                    ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.get(sound);
-
-                    if (list != null && list.remove(clip)) {
-
-                        synchronized (clip) {
-                            if (clip.isRunning()) {
-                                clip.stop();
-                            }
+                    synchronized (clip) {
+                        if (clip.isRunning()) {
+                            clip.stop();
                         }
                     }
+
+                    WAVS_RESOURCES.get(sound).remove(clip);
 
                     return true;
 

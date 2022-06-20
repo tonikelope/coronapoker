@@ -213,6 +213,7 @@ public class Crupier implements Runnable {
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
+    public static final boolean ALLIN_BOT_TEST = true; //FOR TESTING
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -4670,6 +4671,10 @@ public class Crupier implements Runnable {
                                         break;
                                 }
 
+                                if (ALLIN_BOT_TEST) {
+                                    action = new Object[]{Player.ALLIN, ""};
+                                }
+
                                 long bot_elapsed_time = System.currentTimeMillis() - start;
 
                                 if (Bot.BOT_THINK_TIME - bot_elapsed_time > 0L) {
@@ -6573,7 +6578,7 @@ public class Crupier implements Runnable {
 
                         if (jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
-                            jugador_actual.setLoser(jugada.getName() + " " + Translator.translate("(PIERDES)"));
+                            jugador_actual.setLoser(jugada.getName());
 
                             if (!this.destapar_resistencia) {
                                 GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(false);
@@ -6645,7 +6650,7 @@ public class Crupier implements Runnable {
 
                         Hand jugada = perdedores.get(jugador_actual);
 
-                        jugador_actual.setLoser(jugada.getName() + (jugador_actual == GameFrame.getInstance().getLocalPlayer() ? " " + Translator.translate("(PIERDES)") : ""));
+                        jugador_actual.setLoser(jugada.getName());
 
                         if (jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
                             GameFrame.getInstance().getLocalPlayer().setMuestra(true);

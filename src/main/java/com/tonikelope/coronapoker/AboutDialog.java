@@ -13,6 +13,7 @@
 https://github.com/tonikelope/coronapoker
 
  */
+
  /*
  * Copyright (C) 2020 tonikelope
  *
@@ -51,17 +52,14 @@ import javax.swing.Timer;
 
     http://www.lcdf.org/gifsicle/
 
+    https://www.blender.org/
+
     https://www.youtube.com/watch?v=0JnmWfWuMDw
 
-    https://www.blender.org/
- */
-/**
- *
- * @author tonikelope
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "15.66";
+    public static final String VERSION = "15.67";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

@@ -47,11 +47,6 @@ import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
 import javax.swing.JLabel;
 import javax.swing.Timer;
-import javazoom.jlgui.basicplayer.BasicController;
-import javazoom.jlgui.basicplayer.BasicPlayer;
-import javazoom.jlgui.basicplayer.BasicPlayerEvent;
-import javazoom.jlgui.basicplayer.BasicPlayerException;
-import javazoom.jlgui.basicplayer.BasicPlayerListener;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -67,8 +62,8 @@ public class Audio {
     public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/waiting_room.mp3", 0.9f);
     public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.9f);
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
-    public static final ConcurrentHashMap<String, BasicPlayer> MP3_LOOP = new ConcurrentHashMap<>();
-    public static final ConcurrentHashMap<String, BasicPlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, CoronaMP3Player> MP3_LOOP = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, CoronaMP3Player> MP3_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final Object TTS_LOCK = new Object();
@@ -81,8 +76,7 @@ public class Audio {
     public volatile static boolean MUTED_WAV = false;
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean MUTED_MP3_LOOP = false;
-    public volatile static BasicPlayer TTS_PLAYER = null;
-    public volatile static Object TTS_PLAYER_NOTIFIER = new Object();
+    public volatile static CoronaMP3Player TTS_PLAYER = null;
 
     static {
 
@@ -165,7 +159,7 @@ public class Audio {
 
     public static float findSoundVolume(String sound) {
 
-        return CUSTOM_VOLUMES.containsKey(sound) ? (MASTER_VOLUME > 0f ? CUSTOM_VOLUMES.get(sound) * MASTER_VOLUME : 0f) : (TTS_PLAYER != null && MP3_RESOURCES.containsKey(sound) && ((BasicPlayer) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? (MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f) : (MASTER_VOLUME > 0f ? MASTER_VOLUME : 0f));
+        return CUSTOM_VOLUMES.containsKey(sound) ? (MASTER_VOLUME > 0f ? CUSTOM_VOLUMES.get(sound) * MASTER_VOLUME : 0f) : (TTS_PLAYER != null && MP3_RESOURCES.containsKey(sound) && ((CoronaMP3Player) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? (MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f) : (MASTER_VOLUME > 0f ? MASTER_VOLUME : 0f));
     }
 
     private static InputStream getSoundInputStream(String sound) {
@@ -239,13 +233,13 @@ public class Audio {
         });
     }
 
-    public static void refreshTTSVolume() throws BasicPlayerException {
+    public static void refreshTTSVolume() {
 
         if (TTS_PLAYER != null) {
             if (!GameFrame.SONIDOS) {
-                TTS_PLAYER.setGain(0f);
+                TTS_PLAYER.setVolume(0f);
             } else {
-                TTS_PLAYER.setGain(MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f);
+                TTS_PLAYER.setVolume(MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f);
             }
         }
 
@@ -272,7 +266,7 @@ public class Audio {
 
     public static void refreshALLMP3Volume() {
 
-        for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
+        for (Map.Entry<String, CoronaMP3Player> entry : MP3_RESOURCES.entrySet()) {
 
             try {
                 setMP3PlayerVolume(entry.getKey(), entry.getValue());
@@ -286,7 +280,7 @@ public class Audio {
 
     public static void refreshALLMP3LoopVolume() {
 
-        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+        for (Map.Entry<String, CoronaMP3Player> entry : MP3_LOOP.entrySet()) {
 
             try {
                 setMP3LoopPlayerVolume(entry.getKey(), entry.getValue());
@@ -298,22 +292,22 @@ public class Audio {
 
     }
 
-    public static void setMP3LoopPlayerVolume(String sound, BasicPlayer player) throws BasicPlayerException {
+    public static void setMP3LoopPlayerVolume(String sound, CoronaMP3Player player) {
 
         if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
-            player.setGain(0f);
+            player.setVolume(0f);
         } else {
-            player.setGain(findSoundVolume(sound));
+            player.setVolume(findSoundVolume(sound));
         }
 
     }
 
-    public static void setMP3PlayerVolume(String sound, BasicPlayer player) throws BasicPlayerException {
+    public static void setMP3PlayerVolume(String sound, CoronaMP3Player player) {
 
         if (!GameFrame.SONIDOS) {
-            player.setGain(0f);
+            player.setVolume(0f);
         } else {
-            player.setGain(findSoundVolume(sound));
+            player.setVolume(findSoundVolume(sound));
         }
 
     }
@@ -395,7 +389,9 @@ public class Audio {
                         }
                     }
 
-                    WAVS_RESOURCES.get(sound).remove(clip);
+                    if (WAVS_RESOURCES.get(sound) != null) {
+                        WAVS_RESOURCES.get(sound).remove(clip);
+                    }
 
                     return true;
 
@@ -412,9 +408,9 @@ public class Audio {
 
         int tot = 0;
 
-        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+        for (Map.Entry<String, CoronaMP3Player> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue().isPlaying()) {
                 tot++;
             }
         }
@@ -424,9 +420,9 @@ public class Audio {
 
     public static boolean isLoopMp3Playing() {
 
-        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+        for (Map.Entry<String, CoronaMP3Player> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue().isPlaying()) {
 
                 return true;
 
@@ -446,60 +442,25 @@ public class Audio {
                 @Override
                 public void run() {
 
-                    final Object player_wait = new Object();
+                    CoronaMP3Player audio_player = new CoronaMP3Player();
 
-                    final BasicPlayer player = new BasicPlayer();
+                    MP3_LOOP.put(sound, audio_player);
 
                     do {
 
-                        try ( BufferedInputStream bis = new BufferedInputStream(getSoundInputStream(sound))) {
+                        try {
 
-                            player.addBasicPlayerListener(new BasicPlayerListener() {
+                            float vol;
 
-                                @Override
-                                public void stateUpdated(BasicPlayerEvent bpe) {
-                                    synchronized (player_wait) {
-                                        player_wait.notifyAll();
-                                    }
-                                }
-
-                                @Override
-                                public void opened(Object o, Map map) {
-                                }
-
-                                @Override
-                                public void progress(int i, long l, byte[] bytes, Map map) {
-                                }
-
-                                @Override
-                                public void setController(BasicController bc) {
-                                }
-
-                            });
-
-                            player.open(bis);
-
-                            MP3_LOOP.put(sound, player);
-
-                            if (player.getStatus() != BasicPlayer.PLAYING) {
-                                player.play();
+                            if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
+                                vol = 0f;
+                            } else {
+                                vol = findSoundVolume(sound);
                             }
 
-                            setMP3LoopPlayerVolume(sound, player);
-
-                            do {
-                                synchronized (player_wait) {
-
-                                    try {
-                                        player_wait.wait(1000);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            } while (player.getStatus() == BasicPlayer.PLAYING || player.getStatus() == BasicPlayer.PAUSED);
+                            audio_player.play(javax.sound.sampled.AudioSystem.getAudioInputStream(getSoundInputStream(sound)), vol);
 
                         } catch (Exception ex) {
-                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
                             Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
@@ -509,84 +470,6 @@ public class Audio {
             });
 
         }
-    }
-
-    public static void playMp3Resource(String sound, boolean tts) {
-
-        if (!GameFrame.TEST_MODE) {
-
-            final Object player_wait = new Object();
-
-            final BasicPlayer player = new BasicPlayer();
-
-            if (tts) {
-                TTS_PLAYER = player;
-            }
-
-            try ( BufferedInputStream bis = new BufferedInputStream(getSoundInputStream(sound))) {
-
-                player.addBasicPlayerListener(new BasicPlayerListener() {
-
-                    @Override
-                    public void stateUpdated(BasicPlayerEvent bpe) {
-                        synchronized (player_wait) {
-                            player_wait.notifyAll();
-                        }
-
-                        if (tts) {
-                            synchronized (TTS_PLAYER_NOTIFIER) {
-                                TTS_PLAYER_NOTIFIER.notifyAll();
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void opened(Object o, Map map) {
-                    }
-
-                    @Override
-                    public void progress(int i, long l, byte[] bytes, Map map) {
-                    }
-
-                    @Override
-                    public void setController(BasicController bc) {
-                    }
-
-                });
-
-                player.open(bis);
-
-                MP3_RESOURCES.put(sound, player);
-
-                if (player.getStatus() != BasicPlayer.PLAYING) {
-                    player.play();
-                }
-
-                setMP3PlayerVolume(sound, player);
-
-                do {
-                    synchronized (player_wait) {
-
-                        try {
-                            player_wait.wait(1000);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    }
-                } while (player.getStatus() == BasicPlayer.PLAYING || player.getStatus() == BasicPlayer.PAUSED);
-
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                if (tts) {
-                    TTS_PLAYER = null;
-                }
-
-            }
-
-        }
-
     }
 
     private static boolean googleTranslatorTTSBASE64(String text, String lang, String filename) {
@@ -751,36 +634,30 @@ public class Audio {
                     }
 
                     if (!error) {
-                        Helpers.threadRun(new Runnable() {
-                            @Override
-                            public void run() {
-
-                                while (TTS_PLAYER == null || TTS_PLAYER.getStatus() != BasicPlayer.PLAYING) {
-
-                                    synchronized (TTS_PLAYER_NOTIFIER) {
-                                        try {
-                                            TTS_PLAYER_NOTIFIER.wait(1000);
-                                        } catch (InterruptedException ex) {
-                                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
-                                    }
-                                }
-
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        GameFrame.getInstance().getSonidos_menu().setEnabled(false);
-
-                                        chat_notify_label.setVisible(true);
-                                    }
-                                });
-                            }
-                        });
 
                         muteAllExceptMp3Loops();
 
-                        playMp3Resource(System.getProperty("java.io.tmpdir") + "/" + filename, true);
+                        Helpers.GUIRun(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                GameFrame.getInstance().getSonidos_menu().setEnabled(false);
+
+                                chat_notify_label.setVisible(true);
+                            }
+                        });
+
+                        CoronaMP3Player TTS_PLAYER = new CoronaMP3Player();
+
+                        try {
+
+                            TTS_PLAYER.play(System.getProperty("java.io.tmpdir") + "/" + filename, (GameFrame.SONIDOS && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f);
+
+                        } catch (Exception ex) {
+                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                        } finally {
+                            TTS_PLAYER = null;
+                        }
 
                         unmuteAll();
 
@@ -849,7 +726,7 @@ public class Audio {
 
     public static void stopLoopMp3(String sound) {
 
-        BasicPlayer player = MP3_LOOP.remove(sound);
+        CoronaMP3Player player = MP3_LOOP.remove(sound);
 
         MP3_LOOP_MUTED.remove(sound);
 
@@ -867,7 +744,7 @@ public class Audio {
 
     public static void pauseLoopMp3(String sound) {
 
-        BasicPlayer player = MP3_LOOP.get(sound);
+        CoronaMP3Player player = MP3_LOOP.get(sound);
 
         if (player != null) {
             try {
@@ -882,12 +759,12 @@ public class Audio {
 
     public static void muteLoopMp3(String sound) {
 
-        BasicPlayer player = MP3_LOOP.get(sound);
+        CoronaMP3Player player = MP3_LOOP.get(sound);
 
         if (player != null) {
             try {
                 MP3_LOOP_MUTED.add(sound);
-                player.setGain(0f);
+                player.setVolume(0f);
 
             } catch (Exception ex) {
                 Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
@@ -898,14 +775,14 @@ public class Audio {
 
     public static void unmuteLoopMp3(String sound) {
 
-        BasicPlayer player = MP3_LOOP.get(sound);
+        CoronaMP3Player player = MP3_LOOP.get(sound);
 
         if (player != null) {
             try {
                 MP3_LOOP_MUTED.remove(sound);
 
                 if (!MUTED_ALL && !MUTED_MP3_LOOP) {
-                    player.setGain(findSoundVolume(sound));
+                    player.setVolume(findSoundVolume(sound));
                 }
 
             } catch (Exception ex) {
@@ -917,7 +794,7 @@ public class Audio {
 
     public static void resumeLoopMp3Resource(String sound) {
 
-        BasicPlayer player = MP3_LOOP.get(sound);
+        CoronaMP3Player player = MP3_LOOP.get(sound);
 
         if (player != null) {
 
@@ -936,9 +813,9 @@ public class Audio {
 
     public static void pauseCurrentLoopMp3Resource() {
 
-        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+        for (Map.Entry<String, CoronaMP3Player> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue().isPlaying()) {
 
                 try {
                     entry.getValue().pause();
@@ -952,11 +829,11 @@ public class Audio {
 
     public static void stopAllCurrentLoopMp3Resource() {
 
-        Iterator<Map.Entry<String, BasicPlayer>> iterator = MP3_LOOP.entrySet().iterator();
+        Iterator<Map.Entry<String, CoronaMP3Player>> iterator = MP3_LOOP.entrySet().iterator();
 
         while (iterator.hasNext()) {
 
-            Map.Entry<String, BasicPlayer> entry = iterator.next();
+            Map.Entry<String, CoronaMP3Player> entry = iterator.next();
 
             try {
 
@@ -1020,10 +897,10 @@ public class Audio {
 
         MUTED_MP3_LOOP = true;
 
-        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+        for (Map.Entry<String, CoronaMP3Player> entry : MP3_LOOP.entrySet()) {
 
             try {
-                entry.getValue().setGain(0f);
+                entry.getValue().setVolume(0f);
             } catch (Exception ex) {
                 Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -1036,10 +913,10 @@ public class Audio {
 
         MUTED_MP3 = true;
 
-        for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
+        for (Map.Entry<String, CoronaMP3Player> entry : MP3_RESOURCES.entrySet()) {
 
             try {
-                entry.getValue().setGain(0f);
+                entry.getValue().setVolume(0f);
             } catch (Exception ex) {
                 Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -1052,12 +929,12 @@ public class Audio {
 
         MUTED_MP3_LOOP = false;
 
-        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+        for (Map.Entry<String, CoronaMP3Player> entry : MP3_LOOP.entrySet()) {
 
             try {
 
                 if (!MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
-                    entry.getValue().setGain(findSoundVolume(entry.getKey()));
+                    entry.getValue().setVolume(findSoundVolume(entry.getKey()));
                 }
 
             } catch (Exception ex) {
@@ -1070,12 +947,12 @@ public class Audio {
 
         MUTED_MP3 = false;
 
-        for (Map.Entry<String, BasicPlayer> entry : MP3_RESOURCES.entrySet()) {
+        for (Map.Entry<String, CoronaMP3Player> entry : MP3_RESOURCES.entrySet()) {
 
             try {
 
                 if (!MUTED_ALL) {
-                    entry.getValue().setGain(findSoundVolume(entry.getKey()));
+                    entry.getValue().setVolume(findSoundVolume(entry.getKey()));
                 }
 
             } catch (Exception ex) {
@@ -1122,9 +999,9 @@ public class Audio {
 
     public static String getCurrentLoopMp3Playing() {
 
-        for (Map.Entry<String, BasicPlayer> entry : MP3_LOOP.entrySet()) {
+        for (Map.Entry<String, CoronaMP3Player> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue().getStatus() == BasicPlayer.PLAYING) {
+            if (entry.getValue().isPlaying()) {
                 return entry.getKey();
             }
         }

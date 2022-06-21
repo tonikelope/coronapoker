@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
@@ -25,6 +26,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JButton;
+import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
 import javax.swing.JSpinner;
@@ -693,6 +695,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             tthis.getHand_limit_spinner().setModel(new SpinnerNumberModel(GameFrame.MANOS != -1 ? GameFrame.MANOS : 0, 0, null, 1));
 
             ((JSpinner.DefaultEditor) tthis.getHand_limit_spinner().getEditor()).getTextField().setEditable(false);
+
+            tthis.getHand_limit_spinner().addChangeListener(e -> {
+
+                Component mySpinnerEditor = tthis.getHand_limit_spinner().getEditor();
+                JFormattedTextField jftf = ((JSpinner.DefaultEditor) mySpinnerEditor).getTextField();
+                jftf.setColumns(String.valueOf((int) tthis.getHand_limit_spinner().getValue()).length());
+                revalidate();
+                repaint();
+
+            });
 
             tthis.getHand_limit_spinner().setVisible(true);
 

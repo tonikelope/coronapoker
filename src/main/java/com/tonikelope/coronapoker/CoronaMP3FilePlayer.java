@@ -133,7 +133,9 @@ public class CoronaMP3FilePlayer {
 
         final byte[] buffer = new byte[65536];
 
-        for (int n = 0; line.isOpen() && playing && n != -1; n = in.read(buffer, 0, buffer.length)) {
+        int n = -1;
+
+        while (line.isOpen() && playing && (n = in.read(buffer)) != -1) {
 
             while (paused) {
                 synchronized (pause_lock) {
@@ -145,9 +147,7 @@ public class CoronaMP3FilePlayer {
                 }
             }
 
-            if (line.isOpen() && playing) {
-                line.write(buffer, 0, n);
-            }
+            line.write(buffer, 0, n);
         }
     }
 }

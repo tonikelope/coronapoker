@@ -653,7 +653,7 @@ public class Audio {
 
                         try {
 
-                            TTS_PLAYER.play(new URL(System.getProperty("java.io.tmpdir") + "/" + filename), volume);
+                            TTS_PLAYER.play(System.getProperty("java.io.tmpdir") + "/" + filename, volume);
 
                         } catch (Exception ex) {
                             Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);

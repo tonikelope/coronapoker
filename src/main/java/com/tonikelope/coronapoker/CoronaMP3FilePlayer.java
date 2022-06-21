@@ -16,8 +16,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -44,10 +44,10 @@ public class CoronaMP3FilePlayer {
         return playing;
     }
 
-    public void play(URL file, float volume) {
+    public void play(String path, float volume) {
 
         try {
-            play(getAudioInputStream(file.openStream()), volume);
+            play(getAudioInputStream(new File(path)), volume);
         } catch (UnsupportedAudioFileException | IOException ex) {
             Logger.getLogger(CoronaMP3FilePlayer.class.getName()).log(Level.SEVERE, null, ex);
         }

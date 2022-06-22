@@ -164,6 +164,15 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 last_hand_label.setVisible(false);
                 random_button.setVisible(false);
                 hand_limit_spinner.setVisible(false);
+                hand_limit_spinner.addChangeListener(e -> {
+
+                    Component mySpinnerEditor = hand_limit_spinner.getEditor();
+                    JFormattedTextField jftf = ((JSpinner.DefaultEditor) mySpinnerEditor).getTextField();
+                    jftf.setColumns(String.valueOf((int) hand_limit_spinner.getValue()).length());
+                    revalidate();
+                    repaint();
+
+                });
                 max_hands_button.setVisible(false);
                 icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
 
@@ -695,16 +704,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             tthis.getHand_limit_spinner().setModel(new SpinnerNumberModel(GameFrame.MANOS != -1 ? GameFrame.MANOS : 0, 0, null, 1));
 
             ((JSpinner.DefaultEditor) tthis.getHand_limit_spinner().getEditor()).getTextField().setEditable(false);
-
-            tthis.getHand_limit_spinner().addChangeListener(e -> {
-
-                Component mySpinnerEditor = tthis.getHand_limit_spinner().getEditor();
-                JFormattedTextField jftf = ((JSpinner.DefaultEditor) mySpinnerEditor).getTextField();
-                jftf.setColumns(String.valueOf((int) tthis.getHand_limit_spinner().getValue()).length());
-                revalidate();
-                repaint();
-
-            });
 
             tthis.getHand_limit_spinner().setVisible(true);
 

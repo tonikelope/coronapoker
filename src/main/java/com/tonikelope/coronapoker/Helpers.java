@@ -1,5 +1,17 @@
 /*
  * Copyright (C) 2020 tonikelope
+ _              _ _        _                  
+| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
+| __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
+| || (_) | | | | |   <  __/ | (_) | |_) |  __/
+ \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
+ ____    ___  ____    ___  
+|___ \  / _ \|___ \  / _ \ 
+  __) || | | | __) || | | |
+ / __/ | |_| |/ __/ | |_| |
+|_____| \___/|_____| \___/ 
+
+https://github.com/tonikelope/coronapoker
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -2824,7 +2836,6 @@ public class Helpers {
         public static JCheckBoxMenuItem AUTO_ACTION_MENU;
         public static JCheckBoxMenuItem LAST_HAND_MENU;
         public static JCheckBoxMenuItem AUTO_ZOOM_MENU;
-        public static JCheckBoxMenuItem ANIMATIONS_ZOOM_MENU;
         public static JRadioButtonMenuItem TAPETE_VERDE;
         public static JRadioButtonMenuItem TAPETE_AZUL;
         public static JRadioButtonMenuItem TAPETE_ROJO;
@@ -3055,13 +3066,6 @@ public class Helpers {
                     }
                 };
 
-                Action animationsZoomAction = new AbstractAction("Escalar animaciones") {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getAnimations_zoom_menu().doClick();
-                    }
-                };
-
                 Action compactAction = new AbstractAction("VISTA COMPACTA (ALT+X)") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -3165,10 +3169,6 @@ public class Helpers {
                 AUTO_ZOOM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_auto.png")));
                 AUTO_ZOOM_MENU.setSelected(GameFrame.AUTO_ZOOM);
                 ZOOM_MENU.add(AUTO_ZOOM_MENU);
-                ANIMATIONS_ZOOM_MENU = new JCheckBoxMenuItem(animationsZoomAction);
-                ANIMATIONS_ZOOM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
-                ANIMATIONS_ZOOM_MENU.setSelected(GameFrame.ANIMATIONS_ZOOM);
-                ZOOM_MENU.add(ANIMATIONS_ZOOM_MENU);
 
                 popup.add(ZOOM_MENU);
 

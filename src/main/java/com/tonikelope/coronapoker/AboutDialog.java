@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2020 tonikelope
  _              _ _        _                  
 | |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
 | __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
@@ -11,11 +12,6 @@
 |_____| \___/|_____| \___/ 
 
 https://github.com/tonikelope/coronapoker
-
- */
-
- /*
- * Copyright (C) 2020 tonikelope
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -59,7 +55,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "15.75";
+    public static final String VERSION = "15.76";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -529,3 +525,11 @@ public class AboutDialog extends javax.swing.JDialog {
     private javax.swing.JLabel threads;
     // End of variables declaration//GEN-END:variables
 }
+
+/*
+
+"If you are out to describe the truth, leave elegance to the tailor".
+
+Albert Einstein
+
+ */

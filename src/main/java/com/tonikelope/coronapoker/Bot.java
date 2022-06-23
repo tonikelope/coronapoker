@@ -297,7 +297,7 @@ public class Bot {
 
         }
 
-        if (dec == Player.CHECK && cbet) {
+        if (dec == Player.CHECK && cbet && GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET) {
             dec = Player.BET;
         }
 

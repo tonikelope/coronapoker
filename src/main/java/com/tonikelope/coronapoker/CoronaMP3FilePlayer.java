@@ -44,6 +44,10 @@ public class CoronaMP3FilePlayer {
         return playing;
     }
 
+    public boolean isPaused() {
+        return paused;
+    }
+    
     public void play(String path, float volume) {
 
         try {
@@ -79,6 +83,7 @@ public class CoronaMP3FilePlayer {
                 }
 
                 line.close();
+                paused = false;
             }
 
         } catch (Exception ex) {
@@ -93,10 +98,10 @@ public class CoronaMP3FilePlayer {
                 playing = false;
                 line.drain();
                 line.stop();
+
             } catch (Exception ex) {
             }
         }
-
     }
 
     public void pause() {
@@ -137,7 +142,7 @@ public class CoronaMP3FilePlayer {
 
         while (line.isOpen() && playing && (n = in.read(buffer)) != -1) {
 
-            while (paused) {
+            while (paused && line.isOpen() && playing) {
                 synchronized (pause_lock) {
                     try {
                         pause_lock.wait(1000);
@@ -147,7 +152,9 @@ public class CoronaMP3FilePlayer {
                 }
             }
 
-            line.write(buffer, 0, n);
+            if (line.isOpen() && playing) {
+                line.write(buffer, 0, n);
+            }
         }
     }
 }

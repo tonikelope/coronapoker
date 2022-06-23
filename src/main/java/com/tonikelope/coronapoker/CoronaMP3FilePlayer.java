@@ -1,5 +1,17 @@
 /*
  * Copyright (C) 2020 tonikelope
+ _              _ _        _                  
+| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
+| __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
+| || (_) | | | | |   <  __/ | (_) | |_) |  __/
+ \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
+ ____    ___  ____    ___  
+|___ \  / _ \|___ \  / _ \ 
+  __) || | | | __) || | | |
+ / __/ | |_| |/ __/ | |_| |
+|_____| \___/|_____| \___/ 
+
+https://github.com/tonikelope/coronapoker
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,7 +59,7 @@ public class CoronaMP3FilePlayer {
     public boolean isPaused() {
         return paused;
     }
-    
+
     public void play(String path, float volume) {
 
         try {

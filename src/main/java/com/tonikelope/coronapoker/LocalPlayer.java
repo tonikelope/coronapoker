@@ -1356,8 +1356,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (boton == player_check_button) {
                     colores = new Color[]{null, null};
-                } else if (boton == player_fold_button) {
-                    colores = new Color[]{null, null};
                 } else {
                     colores = action_button_colors.get(boton);
                 }

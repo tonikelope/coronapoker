@@ -1084,7 +1084,7 @@ public class Init extends javax.swing.JFrame {
 
                 do {
 
-                    NEW_VERSION = Helpers.checkNewVersion(AboutDialog.UPDATE_URL);
+                    NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
 
                     if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
 

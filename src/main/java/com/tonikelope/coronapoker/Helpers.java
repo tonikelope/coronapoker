@@ -33,7 +33,6 @@ import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
-import static com.tonikelope.coronapoker.AboutDialog.VERSION;
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Init.CACHE_DIR;
@@ -1722,7 +1721,7 @@ public class Helpers {
         return matcher.find() ? matcher.group(group) : null;
     }
 
-    public static String checkNewVersion(String url) {
+    public static String checkLatestCoronaPokerVersion(String url) {
 
         String new_version_major = null, new_version_minor = null, current_version_major = null, current_version_minor = null;
 
@@ -2214,7 +2213,13 @@ public class Helpers {
 
                             if (updater_jar != null) {
 
-                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, Helpers.getCurrentJarParentPath() + "/mod", update_info.get(0), current_jar_path, update_info.get(1).replaceAll("___CORONA_VERSION___", VERSION), update_info.size() > 2 ? update_info.get(2) : "", Translator.translate("ACTUALIZANDO MOD >>> ") + update_info.get(0)};
+                                String coronapoker_latest_version = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
+
+                                if (coronapoker_latest_version == null || "".equals(coronapoker_latest_version)) {
+                                    coronapoker_latest_version = AboutDialog.VERSION;
+                                }
+
+                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, Helpers.getCurrentJarParentPath() + "/mod", update_info.get(0), current_jar_path, update_info.get(1).replaceAll("___CORONA_VERSION___", coronapoker_latest_version), update_info.size() > 2 ? update_info.get(2) : "", Translator.translate("ACTUALIZANDO MOD >>> ") + update_info.get(0)};
 
                                 Runtime.getRuntime().exec(cmdArr);
 

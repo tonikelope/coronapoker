@@ -17,8 +17,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JLabel;
+import javax.swing.ImageIcon;
 import javax.swing.JProgressBar;
+import net.lingala.zip4j.ZipFile;
 
 /**
  *
@@ -27,23 +28,27 @@ import javax.swing.JProgressBar;
 public class Init extends javax.swing.JFrame {
 
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
+    public static volatile boolean MOD_UPDATE = false;
 
     /**
      * Creates new form Init
      */
     public Init() {
-        initComponents();
-        Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-        pack();
+
+        Helpers.GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+                initComponents();
+                logo_mod.setVisible(false);
+                Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
+                Helpers.updateFonts(getContentPane(), Helpers.GUI_FONT, null);
+                pack();
+            }
+        });
     }
 
     public JProgressBar getProgress_bar() {
         return progress_bar;
-    }
-
-    public JLabel getStatus() {
-        return status;
     }
 
     /**
@@ -55,7 +60,8 @@ public class Init extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jLabel2 = new javax.swing.JLabel();
+        logo = new javax.swing.JLabel();
+        logo_mod = new javax.swing.JLabel();
         progress_bar = new javax.swing.JProgressBar();
         status = new javax.swing.JLabel();
 
@@ -64,11 +70,16 @@ public class Init extends javax.swing.JFrame {
         setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         setUndecorated(true);
 
-        jLabel2.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_splash.png"))); // NOI18N
-        jLabel2.setDoubleBuffered(true);
-        jLabel2.setOpaque(true);
+        logo.setBackground(new java.awt.Color(255, 255, 255));
+        logo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        logo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_splash.png"))); // NOI18N
+        logo.setDoubleBuffered(true);
+        logo.setOpaque(true);
+
+        logo_mod.setBackground(new java.awt.Color(255, 255, 255));
+        logo_mod.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        logo_mod.setDoubleBuffered(true);
+        logo_mod.setOpaque(true);
 
         progress_bar.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         progress_bar.setDoubleBuffered(true);
@@ -85,30 +96,59 @@ public class Init extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(logo_mod, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(progress_bar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(jLabel2)
+                .addComponent(logo)
+                .addGap(0, 0, 0)
+                .addComponent(logo_mod)
                 .addGap(0, 0, 0)
                 .addComponent(progress_bar, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, 0)
-                .addComponent(status))
+                .addComponent(status)
+                .addGap(0, 0, 0))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    /**
-     * @param args the command line arguments #0 -> version to download #1 ->
-     * old jar path #2 -> new jar path
+    /*
+          CORONAPOKER UPDATE PARAMS:
+            
+            #0 -> new coronapoker version
+            #1 -> old coronapoker jar path 
+            #2 -> new coronapoker jar path
+            #3 -> (optional) update message
+        
+          MOD UPDATE PARAMS:
+            
+            #0 -> old mod dir
+            #1 -> new mod version
+            #2 -> coronapoker jar path
+            #3 -> mod update url
+            #4 -> mod zip password (can be empty string)
+            #5 -> (optional) update message
      */
     public static void main(String args[]) {
 
-        if (args.length < 3) {
+        if (args.length < 1) {
+
+            System.exit(1);
+
+        } else if (args[0].endsWith("/mod")) {
+
+            if (args.length < 3) {
+                System.exit(1);
+            }
+
+            MOD_UPDATE = true;
+
+        } else if (args.length < 3) {
             System.exit(1);
         }
 
@@ -138,62 +178,134 @@ public class Init extends javax.swing.JFrame {
         Init ventana = new Init();
 
         /* Create and display the form */
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
-                ventana.getStatus().setText(args.length < 4 ? "UPDATING TO >>> " + args[0] : args[3]);
+
+                if (MOD_UPDATE) {
+                    if (Files.isReadable(Paths.get(args[0] + "/mod.png"))) {
+                        ventana.logo_mod.setIcon(new ImageIcon(args[0] + "/mod.png"));
+                        ventana.logo_mod.setVisible(true);
+                        ventana.pack();
+                    }
+
+                    ventana.status.setText(args.length < 6 ? "UPDATING TO >>> " + args[1] : args[5]);
+                } else {
+                    ventana.status.setText(args.length < 4 ? "UPDATING TO >>> " + args[1] : args[3]);
+                }
+
                 Helpers.centrarJFrame(ventana);
                 ventana.setVisible(true);
             }
         });
 
-        boolean ok;
+        if (MOD_UPDATE) {
 
-        do {
+            boolean ok;
 
-            ok = true;
+            do {
+                ok = true;
+                try {
 
-            try {
+                    Files.move(Paths.get(args[0]), Paths.get(args[0] + "_bak"));
 
-                Files.move(Paths.get(args[1]), Paths.get(args[1] + ".bak"));
+                    String zip_temp_file = System.getProperty("java.io.tmpdir") + "/coronapoker_mod_" + args[1] + ".zip";
 
-                downloadCoronaPoker(ventana, args[0], args[2]);
+                    downloadMOD(ventana, args[3], zip_temp_file);
 
-                StringBuilder java_bin = new StringBuilder();
+                    ZipFile zipFile;
 
-                java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+                    if (!"".equals(args[4])) {
+                        zipFile = new ZipFile(zip_temp_file, args[4].toCharArray());
+                    } else {
+                        zipFile = new ZipFile(zip_temp_file);
+                    }
 
-                String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
+                    zipFile.extractAll(args[0].replaceAll("/mod$", ""));
 
-                Runtime.getRuntime().exec(cmdArr);
+                    StringBuilder java_bin = new StringBuilder();
 
-                Files.deleteIfExists(Paths.get(args[1] + ".bak"));
+                    java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
 
-            } catch (Exception ex) {
+                    String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
 
-                ok = false;
+                    Runtime.getRuntime().exec(cmdArr);
 
-                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                    Files.deleteIfExists(Paths.get(zip_temp_file));
+
+                    Helpers.deleteDirectory(args[0] + "_bak");
+
+                } catch (Exception ex) {
+                    ok = false;
+
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+
+                    try {
+
+                        Files.deleteIfExists(Paths.get(args[0]));
+
+                        if (Files.exists(Paths.get(args[0] + "_bak"))) {
+                            Files.move(Paths.get(args[0] + "_bak"), Paths.get(args[0]));
+                        }
+
+                    } catch (Exception ex1) {
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
+                    }
+                }
+
+            } while (!ok && Helpers.mostrarMensajeErrorSINO(ventana, "UPDATE ERROR\n" + args[0] + "\n" + args[1] + "\n" + args[2] + "\n" + args[3] + "\n\n" + (ventana.status.getText().trim().toLowerCase().startsWith("updating") ? "RETRY?" : "¿VOLVER A INTENTAR?")) == 0);
+
+            ventana.dispose();
+
+        } else {
+            boolean ok;
+            do {
+
+                ok = true;
 
                 try {
 
-                    Files.deleteIfExists(Paths.get(args[2]));
+                    Files.move(Paths.get(args[1]), Paths.get(args[1] + ".bak"));
 
-                    if (Files.exists(Paths.get(args[1] + ".bak"))) {
-                        Files.move(Paths.get(args[1] + ".bak"), Paths.get(args[1]));
+                    downloadCoronaPoker(ventana, args[0], args[2]);
+
+                    StringBuilder java_bin = new StringBuilder();
+
+                    java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+
+                    String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
+
+                    Runtime.getRuntime().exec(cmdArr);
+
+                    Files.deleteIfExists(Paths.get(args[1] + ".bak"));
+
+                } catch (Exception ex) {
+
+                    ok = false;
+
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+
+                    try {
+
+                        Files.deleteIfExists(Paths.get(args[2]));
+
+                        if (Files.exists(Paths.get(args[1] + ".bak"))) {
+                            Files.move(Paths.get(args[1] + ".bak"), Paths.get(args[1]));
+                        }
+
+                    } catch (Exception ex1) {
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
                     }
-
-                } catch (Exception ex1) {
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
                 }
+
+            } while (!ok && Helpers.mostrarMensajeErrorSINO(ventana, "UPDATE ERROR\n" + args[0] + "\n" + args[1] + "\n" + args[2] + "\n\n" + (ventana.status.getText().trim().toLowerCase().startsWith("updating") ? "RETRY?" : "¿VOLVER A INTENTAR?")) == 0);
+
+            ventana.dispose();
+
+            if (!ok) {
+                Helpers.openBrowserURLAndWait("https://github.com/tonikelope/coronapoker/releases/latest");
             }
 
-        } while (!ok && Helpers.mostrarMensajeErrorSINO(ventana, "UPDATE ERROR\n" + args[0] + "\n" + args[1] + "\n" + args[2] + "\n\n" + (ventana.getStatus().getText().trim().toLowerCase().startsWith("updating") ? "RETRY?" : "¿VOLVER A INTENTAR?")) == 0);
-
-        ventana.dispose();
-
-        if (!ok) {
-            Helpers.openBrowserURLAndWait("https://github.com/tonikelope/coronapoker/releases/latest");
         }
 
     }
@@ -256,8 +368,67 @@ public class Init extends javax.swing.JFrame {
 
     }
 
+    public static void downloadMOD(Init ventana, String url, String output_filepath) throws MalformedURLException, IOException {
+
+        HttpURLConnection con = null;
+
+        try {
+
+            URL url_api = new URL(url);
+
+            con = (HttpURLConnection) url_api.openConnection();
+
+            con.addRequestProperty("User-Agent", USER_AGENT_WEB_BROWSER);
+
+            con.setUseCaches(false);
+
+            try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
+
+                int length = con.getContentLength();
+
+                Helpers.GUIRun(new Runnable() {
+
+                    public void run() {
+                        ventana.getProgress_bar().setMaximum(length);
+                        ventana.getProgress_bar().setValue(0);
+                    }
+                });
+
+                byte[] buffer = new byte[1024];
+
+                int reads;
+
+                int tot = 0;
+
+                while ((reads = bis.read(buffer)) != -1) {
+
+                    bfos.write(buffer, 0, reads);
+
+                    tot += reads;
+
+                    int t = tot;
+
+                    Helpers.GUIRun(new Runnable() {
+
+                        public void run() {
+                            ventana.getProgress_bar().setValue(t);
+                        }
+                    });
+                }
+            }
+
+        } finally {
+
+            if (con != null) {
+                con.disconnect();
+            }
+        }
+
+    }
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel logo;
+    private javax.swing.JLabel logo_mod;
     private javax.swing.JProgressBar progress_bar;
     private javax.swing.JLabel status;
     // End of variables declaration//GEN-END:variables

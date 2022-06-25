@@ -33,6 +33,7 @@ import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
+import static com.tonikelope.coronapoker.AboutDialog.VERSION;
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Init.CACHE_DIR;
@@ -43,6 +44,7 @@ import static com.tonikelope.coronapoker.Init.LOGS_DIR;
 import static com.tonikelope.coronapoker.Init.SCREENSHOTS_DIR;
 import static com.tonikelope.coronapoker.Init.SQLITE;
 import static com.tonikelope.coronapoker.Init.SQL_FILE;
+import static com.tonikelope.coronapoker.Init.VENTANA_INICIO;
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Component;
@@ -68,6 +70,7 @@ import java.awt.event.ActionListener;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -261,6 +264,48 @@ public class Helpers {
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
+
+    }
+
+    public static String downloadUpdater() throws IOException {
+
+        HttpURLConnection con = null;
+
+        String updater_path = null;
+
+        try {
+
+            URL url_api = new URL("https://github.com/tonikelope/coronapoker/raw/master/coronaupdater.jar");
+
+            con = (HttpURLConnection) url_api.openConnection();
+
+            con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
+
+            con.setUseCaches(false);
+
+            updater_path = System.getProperty("java.io.tmpdir") + "/coronaupdater.jar";
+
+            try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(updater_path))) {
+
+                byte[] buffer = new byte[1024];
+
+                int reads;
+
+                while ((reads = bis.read(buffer)) != -1) {
+
+                    bfos.write(buffer, 0, reads);
+
+                }
+            }
+
+        } finally {
+
+            if (con != null) {
+                con.disconnect();
+            }
+        }
+
+        return updater_path;
 
     }
 
@@ -2116,6 +2161,85 @@ public class Helpers {
         }
     }
 
+    public static void checkMODVersion(Container container) {
+
+        if (Init.MOD.containsKey("updateurl")) {
+
+            String new_version_major = null, new_version_minor = null, current_version_major = null, current_version_minor = null;
+
+            try {
+
+                URL oracle = new URL((String) Init.MOD.get("updateurl"));
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(oracle.openStream()));
+
+                ArrayList<String> update_info = new ArrayList<>();
+
+                String inputline;
+
+                while ((inputline = in.readLine()) != null) {
+                    update_info.add(inputline);
+                }
+
+                in.close();
+
+                String latest_version = findFirstRegex("([0-9]+\\.[0-9]+)", update_info.get(0), 1);
+
+                new_version_major = findFirstRegex("([0-9]+)\\.[0-9]+", latest_version, 1);
+
+                new_version_minor = findFirstRegex("[0-9]+\\.([0-9]+)", latest_version, 1);
+
+                current_version_major = findFirstRegex("([0-9]+)\\.[0-9]+$", (String) Init.MOD.get("version"), 1);
+
+                current_version_minor = findFirstRegex("[0-9]+\\.([0-9]+)$", (String) Init.MOD.get("version"), 1);
+
+                if (new_version_major != null && (Integer.parseInt(current_version_major) < Integer.parseInt(new_version_major) || (Integer.parseInt(current_version_major) == Integer.parseInt(new_version_major) && Integer.parseInt(current_version_minor) < Integer.parseInt(new_version_minor)))) {
+
+                    if (Helpers.mostrarMensajeInformativoSINO(container, Translator.translate("HAY UNA VERSIÓN NUEVA DEL MOD (") + new_version_major + "." + new_version_minor + Translator.translate("). ¿Actualizar?")) == 0) {
+
+                        if (container.equals(VENTANA_INICIO)) {
+                            Helpers.GUIRun(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    VENTANA_INICIO.getUpdate_label().setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
+                                }
+                            });
+                        }
+
+                        try {
+                            String current_jar_path = Helpers.getCurrentJarPath();
+
+                            String updater_jar = Helpers.downloadUpdater();
+
+                            if (updater_jar != null) {
+
+                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, Helpers.getCurrentJarParentPath() + "/mod", update_info.get(0), current_jar_path, update_info.get(1).replaceAll("___CORONA_VERSION___", VERSION), update_info.size() > 2 ? update_info.get(2) : "", Translator.translate("ACTUALIZANDO MOD >>> ") + update_info.get(0)};
+
+                                Runtime.getRuntime().exec(cmdArr);
+
+                                System.exit(0);
+                            } else {
+                                Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)");
+                            }
+
+                        } catch (Exception ex) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                            Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)");
+                        }
+
+                        Helpers.openBrowserURL(update_info.get(1));
+                    }
+                } else if (!container.equals(VENTANA_INICIO)) {
+                    Helpers.mostrarMensajeInformativo(container, Translator.translate("YA TIENES LA ÚLTIMA VERSIÓN DEL MOD"));
+
+                }
+            } catch (Exception ex) {
+                Logger.getLogger(AboutDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
     public static ConcurrentHashMap<String, Object> loadMOD() {
 
         if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod"))) {
@@ -2148,6 +2272,11 @@ public class Helpers {
                 if (document.getElementsByTagName("font").item(0) != null) {
 
                     mod.put("font", document.getElementsByTagName("font").item(0).getTextContent().trim());
+                }
+
+                if (document.getElementsByTagName("updateurl").item(0) != null) {
+
+                    mod.put("updateurl", document.getElementsByTagName("updateurl").item(0).getTextContent().trim());
                 }
 
                 //DECKS

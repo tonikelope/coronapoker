@@ -11,11 +11,16 @@ import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.FontFormatException;
 import java.awt.GraphicsEnvironment;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Comparator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JFrame;
@@ -31,6 +36,14 @@ import javax.swing.SwingUtilities;
 public class Helpers {
 
     public volatile static Font GUI_FONT = null;
+
+    public static void deleteDirectory(String path) {
+        try ( var dirStream = Files.walk(Paths.get(path))) {
+            dirStream.map(Path::toFile).sorted(Comparator.reverseOrder()).forEach(File::delete);
+        } catch (IOException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
 
     public static void openBrowserURLAndWait(final String url) {
 

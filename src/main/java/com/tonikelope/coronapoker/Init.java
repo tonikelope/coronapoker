@@ -40,19 +40,14 @@ import java.awt.Robot;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
@@ -73,6 +68,7 @@ import javax.swing.Action;
 import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.KeyStroke;
 import javax.swing.Timer;
 import javax.swing.text.SimpleAttributeSet;
@@ -169,6 +165,10 @@ public class Init extends javax.swing.JFrame {
         }
 
         return "MjEvMTIvMTk4NA==";
+    }
+
+    public JLabel getUpdate_label() {
+        return update_label;
     }
 
     private void printQuote() {
@@ -1067,48 +1067,6 @@ public class Init extends javax.swing.JFrame {
         }
     }
 
-    private static String downloadUpdater() throws IOException {
-
-        HttpURLConnection con = null;
-
-        String updater_path = null;
-
-        try {
-
-            URL url_api = new URL("https://github.com/tonikelope/coronapoker/raw/master/coronaupdater.jar");
-
-            con = (HttpURLConnection) url_api.openConnection();
-
-            con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
-
-            con.setUseCaches(false);
-
-            updater_path = System.getProperty("java.io.tmpdir") + "/coronaupdater.jar";
-
-            try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(updater_path))) {
-
-                byte[] buffer = new byte[1024];
-
-                int reads;
-
-                while ((reads = bis.read(buffer)) != -1) {
-
-                    bfos.write(buffer, 0, reads);
-
-                }
-            }
-
-        } finally {
-
-            if (con != null) {
-                con.disconnect();
-            }
-        }
-
-        return updater_path;
-
-    }
-
     private static void UPDATE() {
 
         Helpers.threadRun(new Runnable() {
@@ -1118,7 +1076,7 @@ public class Init extends javax.swing.JFrame {
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
-
+                        VENTANA_INICIO.setEnabled(false);
                         VENTANA_INICIO.update_label.setVisible(true);
                         VENTANA_INICIO.update_button.setVisible(false);
                     }
@@ -1146,7 +1104,7 @@ public class Init extends javax.swing.JFrame {
 
                                 String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
 
-                                String updater_jar = downloadUpdater();
+                                String updater_jar = Helpers.downloadUpdater();
 
                                 if (updater_jar != null) {
 
@@ -1168,11 +1126,17 @@ public class Init extends javax.swing.JFrame {
 
                 } while (NEW_VERSION == null && (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?") == 0));
 
+                if (Init.MOD != null) {
+                    Logger.getLogger(Init.class.getName()).log(Level.INFO, "CHECKING MOD UPDATE...");
+                    Helpers.checkMODVersion(VENTANA_INICIO);
+                }
+
                 Helpers.GUIRun(new Runnable() {
                     @Override
                     public void run() {
 
                         VENTANA_INICIO.update_label.setVisible(false);
+                        VENTANA_INICIO.setEnabled(true);
                     }
                 });
 

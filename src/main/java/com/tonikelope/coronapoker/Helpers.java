@@ -2236,7 +2236,7 @@ public class Helpers {
                         Helpers.openBrowserURL(update_info.get(1));
                     }
                 } else if (!container.equals(VENTANA_INICIO)) {
-                    Helpers.mostrarMensajeInformativo(container, Translator.translate("YA TIENES LA ÚLTIMA VERSIÓN DEL MOD"));
+                    Helpers.mostrarMensajeInformativo(container, "YA TIENES LA ÚLTIMA VERSIÓN DEL MOD");
 
                 }
             } catch (Exception ex) {

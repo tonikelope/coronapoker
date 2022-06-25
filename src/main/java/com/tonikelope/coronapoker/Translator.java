@@ -45,6 +45,9 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"). ¿Actualizar?", "). Update?"},
+            {"HAY UNA VERSIÓN NUEVA DEL MOD (", "THERE IS A NEW MOD VERSION ("},
+            {"ACTUALIZANDO MOD >>> ", "UPDATING MOD >>> "},
             {"SE REQUIERE", "REQUIRED"},
             {"(GANAS)", "(YOU WIN)"},
             {"(PIERDES)", "(YOU LOSE)"},

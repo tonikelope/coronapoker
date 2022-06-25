@@ -55,7 +55,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "15.77";
+    public static final String VERSION = "15.78";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -73,6 +73,7 @@ public class AboutDialog extends javax.swing.JDialog {
         initComponents();
         Helpers.setTranslatedTitle(this, TITLE);
 
+        mod_bar.setVisible(false);
         main_scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         main_scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
         memory_usage.setText(Helpers.getMemoryUsage());
@@ -162,13 +163,14 @@ public class AboutDialog extends javax.swing.JDialog {
         jPanel3 = new javax.swing.JPanel();
         mod_label = new javax.swing.JLabel();
         corona_icon_label = new javax.swing.JLabel();
+        mod_bar = new javax.swing.JProgressBar();
         jPanel4 = new javax.swing.JPanel();
         jLabel12 = new javax.swing.JLabel();
         jLabel9 = new javax.swing.JLabel();
         memory_usage = new javax.swing.JLabel();
         threads = new javax.swing.JLabel();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("¿De dónde ha salido esto?");
         setModal(true);
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -177,6 +179,9 @@ public class AboutDialog extends javax.swing.JDialog {
             }
             public void windowClosed(java.awt.event.WindowEvent evt) {
                 formWindowClosed(evt);
+            }
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
             }
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
@@ -257,7 +262,13 @@ public class AboutDialog extends javax.swing.JDialog {
         mod_label.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         mod_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         mod_label.setText("MOD");
+        mod_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         mod_label.setDoubleBuffered(true);
+        mod_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                mod_labelMouseClicked(evt);
+            }
+        });
 
         corona_icon_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         corona_icon_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_logo.gif"))); // NOI18N
@@ -274,18 +285,20 @@ public class AboutDialog extends javax.swing.JDialog {
         jPanel3Layout.setHorizontalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(corona_icon_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(mod_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(0, 0, 0))
+                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                    .addComponent(mod_bar, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(corona_icon_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(mod_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addComponent(corona_icon_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(0, 0, 0)
+                .addComponent(mod_bar, javax.swing.GroupLayout.PREFERRED_SIZE, 19, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0)
                 .addComponent(mod_label)
                 .addGap(0, 0, 0))
         );
@@ -301,7 +314,9 @@ public class AboutDialog extends javax.swing.JDialog {
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel3, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         jLabel12.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -499,6 +514,38 @@ public class AboutDialog extends javax.swing.JDialog {
         memory_timer.stop();
     }//GEN-LAST:event_formWindowClosed
 
+    private void mod_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_mod_labelMouseClicked
+        // TODO add your handling code here:
+
+        if (!mod_bar.isVisible()) {
+            mod_bar.setIndeterminate(true);
+            mod_bar.setVisible(true);
+            pack();
+
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+                    Helpers.checkMODVersion(getContentPane());
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+
+                            mod_bar.setVisible(false);
+                            pack();
+
+                        }
+                    });
+
+                }
+            });
+        }
+    }//GEN-LAST:event_mod_labelMouseClicked
+
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        // TODO add your handling code here:
+        if (!mod_bar.isVisible()) {
+            dispose();
+        }
+    }//GEN-LAST:event_formWindowClosing
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel corona_icon_label;
     private javax.swing.JLabel dedicado;
@@ -521,6 +568,7 @@ public class AboutDialog extends javax.swing.JDialog {
     private javax.swing.JScrollPane main_scroll_panel;
     private javax.swing.JLabel memory_usage;
     private javax.swing.JLabel merecemos;
+    private javax.swing.JProgressBar mod_bar;
     private javax.swing.JLabel mod_label;
     private javax.swing.JLabel threads;
     // End of variables declaration//GEN-END:variables

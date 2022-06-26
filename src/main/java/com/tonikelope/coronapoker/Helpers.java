@@ -2194,7 +2194,7 @@ public class Helpers {
 
                 if (new_version_major != null && (Integer.parseInt(current_version_major) < Integer.parseInt(new_version_major) || (Integer.parseInt(current_version_major) == Integer.parseInt(new_version_major) && Integer.parseInt(current_version_minor) < Integer.parseInt(new_version_minor)))) {
 
-                    if (Helpers.mostrarMensajeInformativoSINO(container, "HAY UNA VERSIÓN NUEVA DEL MOD. ¿Actualizar?") == 0) {
+                    if (Helpers.mostrarMensajeInformativoSINO(container, "HAY UNA VERSIÓN NUEVA DEL MOD. ¿QUIERES ACTUALIZAR?") == 0) {
 
                         if (container.equals(VENTANA_INICIO)) {
                             Helpers.GUIRun(new Runnable() {

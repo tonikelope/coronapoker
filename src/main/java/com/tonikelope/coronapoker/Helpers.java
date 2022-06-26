@@ -2219,7 +2219,7 @@ public class Helpers {
                                     coronapoker_latest_version = AboutDialog.VERSION;
                                 }
 
-                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, Helpers.getCurrentJarParentPath() + "/mod", update_info.get(0), current_jar_path, update_info.get(1).replaceAll("___CORONA_VERSION___", coronapoker_latest_version), update_info.size() > 2 ? update_info.get(2) : "", "¡Santiago y cierra, España!"};
+                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, Helpers.getCurrentJarParentPath() + "/mod", update_info.get(0), current_jar_path, update_info.get(1).replaceAll("___CORONA_VERSION___", coronapoker_latest_version), Init.MOD.containsKey("updatepassword") ? (String) Init.MOD.get("updatepassword") : "", "¡Santiago y cierra, España!"};
 
                                 Runtime.getRuntime().exec(cmdArr);
 
@@ -2282,6 +2282,11 @@ public class Helpers {
                 if (document.getElementsByTagName("updateurl").item(0) != null) {
 
                     mod.put("updateurl", document.getElementsByTagName("updateurl").item(0).getTextContent().trim());
+                }
+
+                if (document.getElementsByTagName("updatepassword").item(0) != null) {
+
+                    mod.put("updatepassword", document.getElementsByTagName("updatepassword").item(0).getTextContent().trim());
                 }
 
                 //DECKS

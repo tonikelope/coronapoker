@@ -2194,7 +2194,7 @@ public class Helpers {
 
                 if (new_version_major != null && (Integer.parseInt(current_version_major) < Integer.parseInt(new_version_major) || (Integer.parseInt(current_version_major) == Integer.parseInt(new_version_major) && Integer.parseInt(current_version_minor) < Integer.parseInt(new_version_minor)))) {
 
-                    if (Helpers.mostrarMensajeInformativoSINO(container, Translator.translate("HAY UNA VERSIÓN NUEVA DEL MOD (") + new_version_major + "." + new_version_minor + Translator.translate("). ¿Actualizar?")) == 0) {
+                    if (Helpers.mostrarMensajeInformativoSINO(container, "HAY UNA VERSIÓN NUEVA DEL MOD. ¿Actualizar?") == 0) {
 
                         if (container.equals(VENTANA_INICIO)) {
                             Helpers.GUIRun(new Runnable() {
@@ -2219,7 +2219,7 @@ public class Helpers {
                                     coronapoker_latest_version = AboutDialog.VERSION;
                                 }
 
-                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, Helpers.getCurrentJarParentPath() + "/mod", update_info.get(0), current_jar_path, update_info.get(1).replaceAll("___CORONA_VERSION___", coronapoker_latest_version), update_info.size() > 2 ? update_info.get(2) : "", Translator.translate("ACTUALIZANDO MOD >>> ") + update_info.get(0)};
+                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, Helpers.getCurrentJarParentPath() + "/mod", update_info.get(0), current_jar_path, update_info.get(1).replaceAll("___CORONA_VERSION___", coronapoker_latest_version), update_info.size() > 2 ? update_info.get(2) : "", "¡Santiago y cierra, España!"};
 
                                 Runtime.getRuntime().exec(cmdArr);
 

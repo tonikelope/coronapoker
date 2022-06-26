@@ -1,3 +1,5 @@
+This is the project of a perfectionist who one day wanted to develop the best open source poker game. With all my love and dedication, for you. I hope you enjoy playing it as much as I enjoy programming it. Carpe diem.
+
 <h1 align="center"><a href="https://www.youtube.com/watch?v=lAUBjjssKGk"><b>GAMEPLAY VIDEO</b></a></h1>
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 

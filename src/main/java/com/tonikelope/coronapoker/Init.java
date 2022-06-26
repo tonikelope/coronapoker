@@ -1124,7 +1124,7 @@ public class Init extends javax.swing.JFrame {
                         }
                     }
 
-                } while (NEW_VERSION == null && (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?") == 0));
+                } while (NEW_VERSION == null && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?") == 0);
 
                 if (Init.MOD != null) {
                     Logger.getLogger(Init.class.getName()).log(Level.INFO, "CHECKING MOD UPDATE...");
@@ -1136,19 +1136,14 @@ public class Init extends javax.swing.JFrame {
                     public void run() {
 
                         VENTANA_INICIO.update_label.setVisible(false);
+                        
+                        if (NEW_VERSION == null || NEW_VERSION.isBlank()) {
+                            VENTANA_INICIO.update_button.setVisible(true);
+                        }
+                        
                         VENTANA_INICIO.setEnabled(true);
                     }
                 });
-
-                if (NEW_VERSION == null) {
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-                            VENTANA_INICIO.update_button.setVisible(true);
-                        }
-                    });
-                }
-
             }
         });
 

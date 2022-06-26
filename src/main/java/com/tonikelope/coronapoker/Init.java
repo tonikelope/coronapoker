@@ -1137,7 +1137,7 @@ public class Init extends javax.swing.JFrame {
 
                         VENTANA_INICIO.update_label.setVisible(false);
                         
-                        if (NEW_VERSION == null || NEW_VERSION.isBlank()) {
+                        if (NEW_VERSION == null || !NEW_VERSION.isBlank()) {
                             VENTANA_INICIO.update_button.setVisible(true);
                         }
                         

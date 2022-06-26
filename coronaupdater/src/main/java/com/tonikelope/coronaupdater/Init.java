@@ -29,6 +29,7 @@ public class Init extends javax.swing.JFrame {
 
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static volatile boolean MOD_UPDATE = false;
+    public static volatile boolean SPANISH = false;
 
     /**
      * Creates new form Init
@@ -123,7 +124,7 @@ public class Init extends javax.swing.JFrame {
             #0 -> new coronapoker version
             #1 -> old coronapoker jar path 
             #2 -> new coronapoker jar path
-            #3 -> (optional) update message
+            #3 -> (optional) spanish
         
           MOD UPDATE PARAMS:
             
@@ -132,7 +133,7 @@ public class Init extends javax.swing.JFrame {
             #2 -> coronapoker jar path
             #3 -> mod update url
             #4 -> mod zip password (can be empty string)
-            #5 -> (optional) update message
+            #5 -> (optional) spanish
      */
     public static void main(String args[]) {
 
@@ -148,8 +149,16 @@ public class Init extends javax.swing.JFrame {
 
             MOD_UPDATE = true;
 
+            if (args.length >= 6) {
+                SPANISH = true;
+            }
+
         } else if (args.length < 3) {
+
             System.exit(1);
+
+        } else if (args.length >= 4) {
+            SPANISH = true;
         }
 
         /* Set the Nimbus look and feel */
@@ -186,14 +195,13 @@ public class Init extends javax.swing.JFrame {
                     if (Files.isReadable(Paths.get(args[0] + "/mod.png"))) {
                         ventana.logo_mod.setIcon(new ImageIcon(args[0] + "/mod.png"));
                         ventana.logo_mod.setVisible(true);
-                        ventana.pack();
                     }
-
-                    ventana.status.setText(args.length < 6 ? "UPDATING TO >>> " + args[1] : args[5]);
+                    ventana.status.setText((SPANISH ? "ACTUALIZANDO MOD A >>> " : "UPDATING MOD TO >>> ") + args[1]);
                 } else {
-                    ventana.status.setText(args.length < 4 ? "UPDATING TO >>> " + args[1] : args[3]);
+                    ventana.status.setText((SPANISH ? "ACTUALIZANDO A >>> " : "UPDATING TO >>> ") + args[0]);
                 }
 
+                ventana.pack();
                 Helpers.centrarJFrame(ventana);
                 ventana.setVisible(true);
             }
@@ -253,7 +261,7 @@ public class Init extends javax.swing.JFrame {
                     }
                 }
 
-            } while (!ok && Helpers.mostrarMensajeErrorSINO(ventana, "UPDATE ERROR\n" + args[0] + "\n" + args[1] + "\n" + args[2] + "\n" + args[3] + "\n\n" + (ventana.status.getText().trim().toLowerCase().startsWith("updating") ? "RETRY?" : "¿VOLVER A INTENTAR?")) == 0);
+            } while (!ok && Helpers.mostrarMensajeErrorSINO(ventana, "UPDATE ERROR\n" + args[0] + "\n" + args[1] + "\n" + args[2] + "\n" + args[3] + "\n" + args[4] + "\n\n" + (SPANISH ? "¿VOLVER A INTENTAR?" : "RETRY?")) == 0);
 
             ventana.dispose();
 
@@ -298,7 +306,7 @@ public class Init extends javax.swing.JFrame {
                     }
                 }
 
-            } while (!ok && Helpers.mostrarMensajeErrorSINO(ventana, "UPDATE ERROR\n" + args[0] + "\n" + args[1] + "\n" + args[2] + "\n\n" + (ventana.status.getText().trim().toLowerCase().startsWith("updating") ? "RETRY?" : "¿VOLVER A INTENTAR?")) == 0);
+            } while (!ok && Helpers.mostrarMensajeErrorSINO(ventana, "UPDATE ERROR\n" + args[0] + "\n" + args[1] + "\n" + args[2] + "\n\n" + (SPANISH ? "¿VOLVER A INTENTAR?" : "RETRY?")) == 0);
 
             ventana.dispose();
 

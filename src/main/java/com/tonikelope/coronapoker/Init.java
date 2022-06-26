@@ -1108,7 +1108,7 @@ public class Init extends javax.swing.JFrame {
 
                                 if (updater_jar != null) {
 
-                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, Translator.translate("ACTUALIZANDO >>> ") + NEW_VERSION};
+                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
 
                                     Runtime.getRuntime().exec(cmdArr);
 

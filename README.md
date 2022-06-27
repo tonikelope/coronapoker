@@ -3,6 +3,8 @@ This is the project of a perfectionist who one day wanted to develop the best op
 <h1 align="center"><a href="https://www.youtube.com/watch?v=lAUBjjssKGk"><b>GAMEPLAY VIDEO</b></a></h1>
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
+CoronaPoker was built using the (old, but nor obsolete) https://en.wikipedia.org/wiki/Swing_(Java)
+
 ### BUILDING CORONAPOKER FROM SOURCE:
 
 #### Step 1 (install coronahmac.jar as Maven local package):

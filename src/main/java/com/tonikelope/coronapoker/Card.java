@@ -32,6 +32,7 @@ import java.awt.Dimension;
 import java.awt.Image;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -500,17 +501,20 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     }
 
     public static void sortAceLowCollection(List<Card> cartas) {
+        if (cartas != null) {
+            Collections.sort(cartas, new Card.AceLowSortingComparator());
 
-        Collections.sort(cartas, new Card.AceLowSortingComparator());
-
-        Collections.reverse(cartas);
+            Collections.reverse(cartas);
+        }
     }
 
     public static void sortCollection(List<Card> cartas) {
 
-        Collections.sort(cartas);
+        if (cartas != null) {
+            Collections.sort(cartas);
 
-        Collections.reverse(cartas);
+            Collections.reverse(cartas);
+        }
     }
 
     @Override
@@ -727,6 +731,31 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
             if (CARTAS_SONIDO.contains(this.toShortString())) {
                 Audio.playWavResource("decks/" + GameFrame.BARAJA + "/" + this.toShortString() + ".wav");
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static ArrayList<Card> removeCollectionDuplicatedCardValues(ArrayList<Card> cartas) {
+
+        ArrayList<Card> norepes = new ArrayList<>();
+
+        for (Card carta : cartas) {
+
+            if (!collectionContainsCardValue(norepes, carta)) {
+                norepes.add(carta);
+            }
+        }
+
+        return norepes;
+    }
+
+    public static boolean collectionContainsCardValue(ArrayList<Card> collection, Card card) {
+
+        for (Card c : collection) {
+            if (c.getValorNumerico() == card.getValorNumerico()) {
                 return true;
             }
         }

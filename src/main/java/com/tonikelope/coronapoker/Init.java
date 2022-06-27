@@ -1136,11 +1136,11 @@ public class Init extends javax.swing.JFrame {
                     public void run() {
 
                         VENTANA_INICIO.update_label.setVisible(false);
-                        
+
                         if (NEW_VERSION == null || !NEW_VERSION.isBlank()) {
                             VENTANA_INICIO.update_button.setVisible(true);
                         }
-                        
+
                         VENTANA_INICIO.setEnabled(true);
                     }
                 });

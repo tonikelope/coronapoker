@@ -164,7 +164,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
                 || Hand.hayFull(posible) != null
                 || Hand.hayPoker(posible) != null
                 || Hand.hayEscaleraColor(posible) != null
-                || Hand.hayEscaleraColorReal(posible) != null);
+                || Hand.hayEscaleraReal(posible) != null);
 
         int i = 0;
 
@@ -390,7 +390,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
             Collections.sort(color);
 
-        } while (Hand.hayEscaleraColor(color) != null || Hand.hayEscaleraColorReal(color) != null);
+        } while (Hand.hayEscaleraColor(color) != null || Hand.hayEscaleraReal(color) != null);
 
         int i = 0;
 

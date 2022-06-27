@@ -28,12 +28,12 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import static com.tonikelope.coronapoker.Crupier.CARTAS_ESCALERA;
 import static com.tonikelope.coronapoker.Crupier.CARTAS_MAX;
 import static com.tonikelope.coronapoker.Crupier.CARTAS_PAREJA;
 import static com.tonikelope.coronapoker.Crupier.CARTAS_POKER;
 import static com.tonikelope.coronapoker.Crupier.CARTAS_TRIO;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class Hand {
 
@@ -67,25 +67,28 @@ public class Hand {
         return -1;
     }
 
-    private static ArrayList<Card> getCartasAltas(ArrayList<Card> c, int total) {
+    private static ArrayList<Card> buscarCartasAltas(ArrayList<Card> c, int total) {
+
+        if (c == null || c.size() < total) {
+            return null;
+        }
 
         ArrayList<Card> cartas = new ArrayList<>(c);
 
         Card.sortCollection(cartas);
 
-        ArrayList<Card> altas = new ArrayList<>();
-
-        for (int i = 0; i < total && i < cartas.size(); i++) {
-
-            altas.add(cartas.get(i));
-        }
-
-        return altas;
+        return new ArrayList<>(cartas.subList(0, total));
     }
 
-    private static ArrayList<Card> checkRepetidas(ArrayList<Card> c, int repetidas) {
+    private static ArrayList<Card> buscarCartasValoresRepetidos(ArrayList<Card> c, int repetidas) {
+
+        if (c == null || c.size() < repetidas) {
+            return null;
+        }
 
         ArrayList<Card> cartas = new ArrayList<>(c);
+
+        Card.sortCollection(cartas);
 
         int piv = 0, i, t = 0;
 
@@ -121,31 +124,19 @@ public class Hand {
 
     public static ArrayList<Card> hayPareja(ArrayList<Card> c) {
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
-
-        Card.sortCollection(cartas);
-
-        return checkRepetidas(cartas, CARTAS_PAREJA);
+        return buscarCartasValoresRepetidos(c, CARTAS_PAREJA);
 
     }
 
     public static ArrayList<Card> hayTrio(ArrayList<Card> c) {
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
-
-        Card.sortCollection(cartas);
-
-        return checkRepetidas(cartas, CARTAS_TRIO);
+        return buscarCartasValoresRepetidos(c, CARTAS_TRIO);
 
     }
 
     public static ArrayList<Card> hayPoker(ArrayList<Card> c) {
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
-
-        Card.sortCollection(cartas);
-
-        return checkRepetidas(cartas, CARTAS_POKER);
+        return buscarCartasValoresRepetidos(c, CARTAS_POKER);
 
     }
 
@@ -153,21 +144,19 @@ public class Hand {
 
         ArrayList<Card> cartas = new ArrayList<>(c);
 
-        Card.sortCollection(cartas);
+        ArrayList<Card> posible_full = hayTrio(cartas);
 
-        ArrayList<Card> trio = hayTrio(cartas);
+        if (posible_full != null) {
 
-        if (trio != null) {
-
-            cartas.removeAll(trio);
+            cartas.removeAll(posible_full);
 
             ArrayList<Card> pareja = hayPareja(cartas);
 
             if (pareja != null) {
 
-                trio.addAll(pareja);
+                posible_full.addAll(pareja);
 
-                return trio;
+                return posible_full;
             }
 
         }
@@ -182,30 +171,17 @@ public class Hand {
 
         if (hayPoker(cartas) == null) {
 
-            ArrayList<Card> pareja1 = hayPareja(cartas);
+            ArrayList<Card> posible_doble_pareja = hayPareja(cartas);
 
-            if (pareja1 != null) {
+            if (posible_doble_pareja != null) {
 
-                cartas.removeAll(pareja1);
+                cartas.removeAll(posible_doble_pareja);
 
-                while (cartas.size() >= CARTAS_PAREJA) {
+                ArrayList<Card> pareja2 = hayPareja(cartas);
 
-                    ArrayList<Card> pareja2 = hayPareja(cartas);
-
-                    if (pareja2 != null) {
-
-                        if (pareja1.get(0).equals(pareja2.get(0))) {
-                            //Check if it is poker and skip this case
-                            cartas.removeAll(pareja2);
-                        } else {
-                            pareja1.addAll(pareja2);
-
-                            return pareja1;
-                        }
-
-                    } else {
-                        return null;
-                    }
+                if (pareja2 != null) {
+                    posible_doble_pareja.addAll(pareja2);
+                    return posible_doble_pareja;
                 }
             }
 
@@ -215,15 +191,25 @@ public class Hand {
 
     }
 
-    private static ArrayList<Card> checkCorrelativas(ArrayList<Card> c, boolean sort_low_ace) {
+    private static ArrayList<Card> buscarCartasCorrelativas(ArrayList<Card> c, boolean sort_ace_low, int tot_cards) {
+
+        if (c == null || c.size() < tot_cards) {
+            return null;
+        }
 
         ArrayList<Card> cartas = new ArrayList<>(c);
+
+        if (sort_ace_low) {
+            Card.sortAceLowCollection(cartas);
+        } else {
+            Card.sortCollection(cartas);
+        }
 
         int piv = 0, i, t = 0;
 
         ArrayList<Card> escalera = new ArrayList<>();
 
-        while (t < CARTAS_ESCALERA && cartas.size() - piv >= CARTAS_ESCALERA) {
+        while (t < tot_cards && cartas.size() - piv >= tot_cards) {
 
             i = piv + 1;
 
@@ -231,9 +217,9 @@ public class Hand {
 
             escalera.add(cartas.get(piv));
 
-            while (t < CARTAS_ESCALERA && i < cartas.size() && piv < i) {
+            while (t < tot_cards && i < cartas.size() && piv < i) {
 
-                if (cartas.get(piv).getValorNumerico(sort_low_ace) - cartas.get(i).getValorNumerico(sort_low_ace) == t) {
+                if (cartas.get(piv).getValorNumerico(sort_ace_low) - cartas.get(i).getValorNumerico(sort_ace_low) == t) {
 
                     escalera.add(cartas.get(i));
                     i++;
@@ -247,138 +233,80 @@ public class Hand {
             }
         }
 
-        return (t == CARTAS_ESCALERA) ? escalera : null;
+        return (t == tot_cards) ? escalera : null;
     }
 
     public static ArrayList<Card> hayEscalera(ArrayList<Card> c) {
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
+        ArrayList<Card> cartas = Card.removeCollectionDuplicatedCardValues(c);
 
-        //Primero escalera al AS
-        Card.sortCollection(cartas);
-
-        ArrayList<Card> norepes = new ArrayList<>();
-
-        int last = -1;
-
-        for (Card carta : cartas) {
-
-            if (last == -1 || carta.getValorNumerico() != last) {
-                norepes.add(carta);
-                last = carta.getValorNumerico();
-            }
+        if (cartas.size() < Crupier.CARTAS_ESCALERA) {
+            return null;
         }
 
-        ArrayList<Card> escalera_as;
+        ArrayList<Card> escalera_alta = buscarCartasCorrelativas(cartas, false, Crupier.CARTAS_ESCALERA);
 
-        if (norepes.size() >= Crupier.CARTAS_ESCALERA && (escalera_as = checkCorrelativas(norepes, false)) != null) {
+        if (escalera_alta != null) {
 
-            return escalera_as;
+            return escalera_alta;
         }
 
-        Card.sortAceLowCollection(norepes);
-
-        return norepes.size() >= Crupier.CARTAS_ESCALERA ? checkCorrelativas(norepes, true) : null;
+        return buscarCartasCorrelativas(cartas, true, Crupier.CARTAS_ESCALERA);
     }
 
     public static ArrayList<Card> hayEscaleraColor(ArrayList<Card> c) {
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
+        return buscarCartasCorrelativas(buscarCartasMismoPalo(c, Crupier.CARTAS_COLOR), true, Crupier.CARTAS_ESCALERA);
 
-        ArrayList<Card> posible_escalera_color = checkMismoPalo(cartas, Crupier.CARTAS_COLOR);
-
-        if (posible_escalera_color != null && posible_escalera_color.size() >= Crupier.CARTAS_ESCALERA) {
-
-            Card.sortAceLowCollection(posible_escalera_color);
-
-            return checkCorrelativas(posible_escalera_color, true);
-        }
-
-        return null;
     }
 
-    public static ArrayList<Card> hayEscaleraColorReal(ArrayList<Card> c) {
+    public static ArrayList<Card> hayEscaleraReal(ArrayList<Card> c) {
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
+        ArrayList<Card> posible_escalera_real = buscarCartasCorrelativas(buscarCartasMismoPalo(c, Crupier.CARTAS_COLOR), false, Crupier.CARTAS_ESCALERA);
 
-        ArrayList<Card> posible_escalera_color = checkMismoPalo(cartas, Crupier.CARTAS_COLOR);
+        return (posible_escalera_real != null && posible_escalera_real.get(0).getValor().equals("A")) ? posible_escalera_real : null;
 
-        if (posible_escalera_color != null && posible_escalera_color.size() >= Crupier.CARTAS_ESCALERA) {
-
-            Card.sortCollection(posible_escalera_color);
-
-            ArrayList<Card> escalera = checkCorrelativas(posible_escalera_color, false);
-
-            return (escalera != null && escalera.get(0).getValor().equals("A")) ? escalera : null;
-        }
-
-        return null;
     }
 
-    private static ArrayList<Card> checkMismoPalo(ArrayList<Card> c, int size) {
+    private static ArrayList<Card> buscarCartasMismoPalo(ArrayList<Card> c, int size) {
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
+        if (c == null || c.size() < size) {
+            return null;
+        }
 
-        ArrayList<Card> picas = new ArrayList<>();
-        ArrayList<Card> diamantes = new ArrayList<>();
-        ArrayList<Card> treboles = new ArrayList<>();
-        ArrayList<Card> corazones = new ArrayList<>();
-        ArrayList<Card> color = null;
+        HashMap<String, ArrayList<Card>> palos = new HashMap<>();
+        palos.put("P", new ArrayList<>());
+        palos.put("D", new ArrayList<>());
+        palos.put("T", new ArrayList<>());
+        palos.put("C", new ArrayList<>());
+        ArrayList<Card> color = new ArrayList<>();
 
-        for (Card carta : cartas) {
+        for (Card carta : c) {
 
-            switch (carta.getPalo()) {
-                case "P":
-                    picas.add(carta);
-                    break;
-                case "D":
-                    diamantes.add(carta);
-                    break;
-                case "T":
-                    treboles.add(carta);
-                    break;
-                case "C":
-                    corazones.add(carta);
-                    break;
-                default:
-                    break;
+            ArrayList<Card> palo = palos.get(carta.getPalo());
+
+            palo.add(carta);
+
+            if (palo.size() > color.size()) {
+                color = palo;
             }
         }
 
-        if (picas.size() >= size) {
-
-            color = picas;
-
-        } else if (diamantes.size() >= size) {
-
-            color = diamantes;
-
-        } else if (treboles.size() >= size) {
-
-            color = treboles;
-
-        } else if (corazones.size() >= size) {
-
-            color = corazones;
-        }
-
-        return color;
+        return color.size() >= size ? color : null;
     }
 
     public static ArrayList<Card> hayColor(ArrayList<Card> c) {
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
+        ArrayList<Card> color = buscarCartasMismoPalo(c, Crupier.CARTAS_COLOR);
 
-        Card.sortCollection(cartas);
+        Card.sortCollection(color);
 
-        ArrayList<Card> color = checkMismoPalo(cartas, Crupier.CARTAS_COLOR);
-
-        return (color != null && color.size() >= Crupier.CARTAS_COLOR) ? new ArrayList<Card>(color.subList(0, Crupier.CARTAS_COLOR)) : null;
+        return color != null ? new ArrayList<>(color.subList(0, Crupier.CARTAS_COLOR)) : null;
     }
 
-    public static boolean isEscaleraAs(Hand escalera) {
+    public static boolean isEscaleraAs(Hand jugada) {
 
-        return escalera.getVal() == ESCALERA && escalera.getMano().get(0).getValor().equals("A");
+        return (jugada.getVal() == ESCALERA && jugada.getMano().get(0).getValor().equals("A"));
     }
 
     ArrayList<Card> cartas_utilizables = null;
@@ -430,7 +358,7 @@ public class Hand {
 
     private Object[] calcularMejorJugada() {
         ArrayList<Card> k;
-        ArrayList<Card> mejor_jugada = Hand.hayEscaleraColorReal(cartas_utilizables);
+        ArrayList<Card> mejor_jugada = Hand.hayEscaleraReal(cartas_utilizables);
         if (mejor_jugada != null) {
             return new Object[]{ESCALERA_COLOR_REAL, mejor_jugada};
         }
@@ -445,7 +373,7 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{POKER, mejor_jugada, k.isEmpty() ? null : getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{POKER, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
         }
         mejor_jugada = Hand.hayFull(cartas_utilizables);
         if (mejor_jugada != null) {
@@ -466,7 +394,7 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{TRIO, mejor_jugada, k.isEmpty() ? null : getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{TRIO, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
         }
         mejor_jugada = Hand.hayDoblePareja(cartas_utilizables);
         if (mejor_jugada != null) {
@@ -475,7 +403,7 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{DOBLE_PAREJA, mejor_jugada, k.isEmpty() ? null : getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{DOBLE_PAREJA, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
 
         }
         mejor_jugada = Hand.hayPareja(cartas_utilizables);
@@ -485,10 +413,10 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{PAREJA, mejor_jugada, k.isEmpty() ? null : getCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{PAREJA, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
 
         }
-        mejor_jugada = getCartasAltas(cartas_utilizables, CARTAS_MAX);
+        mejor_jugada = buscarCartasAltas(cartas_utilizables, CARTAS_MAX);
         return new Object[]{CARTA_ALTA, mejor_jugada};
     }
 

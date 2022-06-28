@@ -67,59 +67,142 @@ public class Hand {
         return -1;
     }
 
-    private static ArrayList<Card> buscarCartasAltas(ArrayList<Card> c, int total) {
+    //Returns a new Card collection with highest value cards of MAXIMUM size
+    private static ArrayList<Card> buscarCartasValoresMasAltos(ArrayList<Card> collection, int size) {
 
-        if (c == null || c.size() < total) {
+        if (collection == null || collection.size() < size) {
             return null;
         }
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
+        ArrayList<Card> cartas = new ArrayList<>(collection);
 
         Card.sortCollection(cartas);
 
-        return new ArrayList<>(cartas.subList(0, total));
+        return new ArrayList<>(cartas.subList(0, size));
     }
 
-    private static ArrayList<Card> buscarCartasValoresRepetidos(ArrayList<Card> c, int repetidas) {
+    //Returns a new Card collection of EXACT size with the highest repeated value cards or null if not found
+    private static ArrayList<Card> buscarCartasValoresRepetidos(ArrayList<Card> collection, int size) {
 
-        if (c == null || c.size() < repetidas) {
+        if (collection == null || collection.size() < size || size < 2) {
             return null;
         }
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
+        ArrayList<Card> cartas = new ArrayList<>(collection);
 
         Card.sortCollection(cartas);
 
-        int piv = 0, i, t = 0;
+        Card pivote = cartas.get(0);
 
-        ArrayList<Card> jugada = new ArrayList<>();
+        int i;
 
-        while (t < repetidas && cartas.size() - piv >= repetidas) {
+        ArrayList<Card> repetidas = new ArrayList<>();
 
-            i = piv + 1;
+        i = 1;
 
-            t = 1;
+        repetidas.add(pivote);
 
-            jugada.add(cartas.get(piv));
+        while (repetidas.size() < size && i < cartas.size()) {
 
-            while (t < repetidas && i < cartas.size() && piv < i) {
+            if (pivote.getValorNumerico() == cartas.get(i).getValorNumerico()) {
 
-                if (cartas.get(piv).getValorNumerico() == cartas.get(i).getValorNumerico()) {
+                repetidas.add(cartas.get(i));
 
-                    jugada.add(cartas.get(i));
-                    i++;
-                    t++;
+            } else {
+
+                pivote = cartas.get(i);
+                repetidas.clear();
+                repetidas.add(pivote);
+            }
+
+            i++;
+        }
+
+        return (repetidas.size() == size) ? repetidas : null;
+
+    }
+
+    //Returns a new Card collection of EXACT size with the highest straight values cards or null if not found 
+    private static ArrayList<Card> buscarCartasValoresCorrelativos(ArrayList<Card> collection, boolean sort_ace_low, int size) {
+
+        if (collection == null || collection.size() < size || size < 2) {
+            return null;
+        }
+
+        ArrayList<Card> cartas = new ArrayList<>(collection);
+
+        if (sort_ace_low) {
+            Card.sortAceLowCollection(cartas);
+        } else {
+            Card.sortCollection(cartas);
+        }
+
+        int i, last_card_value;
+
+        ArrayList<Card> escalera = new ArrayList<>();
+
+        Card pivote = cartas.get(0);
+
+        i = 1;
+
+        escalera.add(pivote);
+
+        last_card_value = pivote.getValorNumerico(sort_ace_low);
+
+        while (escalera.size() < size && i < cartas.size()) {
+
+            while (i < cartas.size() && last_card_value == cartas.get(i).getValorNumerico(sort_ace_low)) {
+                i++; //Skip duplicated values (collection MUST BE ORDERED)
+            }
+
+            if (i < cartas.size()) {
+
+                if (pivote.getValorNumerico(sort_ace_low) - cartas.get(i).getValorNumerico(sort_ace_low) == escalera.size()) {
+
+                    escalera.add(cartas.get(i));
+                    last_card_value = cartas.get(i).getValorNumerico(sort_ace_low);
 
                 } else {
 
-                    piv = i;
-                    jugada.clear();
+                    pivote = cartas.get(i);
+                    escalera.clear();
+                    escalera.add(pivote);
+                    last_card_value = pivote.getValorNumerico(sort_ace_low);
                 }
+
+                i++;
             }
         }
 
-        return (t == repetidas) ? jugada : null;
+        return (escalera.size() == size) ? escalera : null;
+    }
 
+    //Returns a new Card collection of MINIMUM size with the highest same suit cards or null if not found
+    private static ArrayList<Card> buscarCartasMismoPalo(ArrayList<Card> collection, int min_size) {
+
+        if (collection == null || collection.size() < min_size) {
+            return null;
+        }
+
+        HashMap<String, ArrayList<Card>> palos = new HashMap<>();
+        palos.put("P", new ArrayList<>());
+        palos.put("D", new ArrayList<>());
+        palos.put("T", new ArrayList<>());
+        palos.put("C", new ArrayList<>());
+        ArrayList<Card> color = new ArrayList<>();
+
+        for (Card carta : collection) {
+
+            ArrayList<Card> palo = palos.get(carta.getPalo());
+
+            palo.add(carta);
+
+            if (palo.size() > color.size()) {
+                color = palo;
+            }
+        }
+
+        return color.size() >= min_size ? color : null;
     }
 
     public static ArrayList<Card> hayPareja(ArrayList<Card> c) {
@@ -191,107 +274,30 @@ public class Hand {
 
     }
 
-    private static ArrayList<Card> buscarCartasCorrelativas(ArrayList<Card> c, boolean sort_ace_low, int size) {
-
-        if (c == null || c.size() < size) {
-            return null;
-        }
-
-        ArrayList<Card> cartas = new ArrayList<>(c);
-
-        if (sort_ace_low) {
-            Card.sortAceLowCollection(cartas);
-        } else {
-            Card.sortCollection(cartas);
-        }
-
-        int i;
-
-        ArrayList<Card> escalera = new ArrayList<>();
-
-        Card pivote = cartas.get(0);
-
-        i = 1;
-
-        escalera.add(pivote);
-
-        while (escalera.size() < size && i < cartas.size()) {
-
-            if (pivote.getValorNumerico(sort_ace_low) - cartas.get(i).getValorNumerico(sort_ace_low) == escalera.size()) {
-
-                escalera.add(cartas.get(i));
-
-            } else {
-
-                pivote = cartas.get(i);
-                escalera.clear();
-                escalera.add(pivote);
-
-            }
-
-            i++;
-        }
-
-        return (escalera.size() == size) ? escalera : null;
-    }
-
     public static ArrayList<Card> hayEscalera(ArrayList<Card> c) {
 
-        ArrayList<Card> cartas = Card.removeCollectionDuplicatedCardValues(c);
-
-        if (cartas.size() < Crupier.CARTAS_ESCALERA) {
-            return null;
-        }
-
-        ArrayList<Card> escalera_alta = buscarCartasCorrelativas(cartas, false, Crupier.CARTAS_ESCALERA);
+        ArrayList<Card> escalera_alta = buscarCartasValoresCorrelativos(c, false, Crupier.CARTAS_ESCALERA);
 
         if (escalera_alta != null) {
 
             return escalera_alta;
         }
 
-        return buscarCartasCorrelativas(cartas, true, Crupier.CARTAS_ESCALERA);
+        return buscarCartasValoresCorrelativos(c, true, Crupier.CARTAS_ESCALERA);
     }
 
     public static ArrayList<Card> hayEscaleraColor(ArrayList<Card> c) {
 
-        return buscarCartasCorrelativas(buscarCartasMismoPalo(c, Crupier.CARTAS_COLOR), true, Crupier.CARTAS_ESCALERA);
+        return buscarCartasValoresCorrelativos(buscarCartasMismoPalo(c, Crupier.CARTAS_COLOR), true, Crupier.CARTAS_ESCALERA);
 
     }
 
     public static ArrayList<Card> hayEscaleraReal(ArrayList<Card> c) {
 
-        ArrayList<Card> posible_escalera_real = buscarCartasCorrelativas(buscarCartasMismoPalo(c, Crupier.CARTAS_COLOR), false, Crupier.CARTAS_ESCALERA);
+        ArrayList<Card> posible_escalera_real = buscarCartasValoresCorrelativos(buscarCartasMismoPalo(c, Crupier.CARTAS_COLOR), false, Crupier.CARTAS_ESCALERA);
 
         return (posible_escalera_real != null && posible_escalera_real.get(0).getValor().equals("A")) ? posible_escalera_real : null;
 
-    }
-
-    private static ArrayList<Card> buscarCartasMismoPalo(ArrayList<Card> c, int size) {
-
-        if (c == null || c.size() < size) {
-            return null;
-        }
-
-        HashMap<String, ArrayList<Card>> palos = new HashMap<>();
-        palos.put("P", new ArrayList<>());
-        palos.put("D", new ArrayList<>());
-        palos.put("T", new ArrayList<>());
-        palos.put("C", new ArrayList<>());
-        ArrayList<Card> color = new ArrayList<>();
-
-        for (Card carta : c) {
-
-            ArrayList<Card> palo = palos.get(carta.getPalo());
-
-            palo.add(carta);
-
-            if (palo.size() > color.size()) {
-                color = palo;
-            }
-        }
-
-        return color.size() >= size ? color : null;
     }
 
     public static ArrayList<Card> hayColor(ArrayList<Card> c) {
@@ -379,7 +385,7 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{POKER, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{POKER, mejor_jugada, k.isEmpty() ? null : buscarCartasValoresMasAltos(k, CARTAS_MAX - mejor_jugada.size())};
         }
 
         mejor_jugada = Hand.hayFull(cartas_utilizables);
@@ -408,7 +414,7 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{TRIO, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{TRIO, mejor_jugada, k.isEmpty() ? null : buscarCartasValoresMasAltos(k, CARTAS_MAX - mejor_jugada.size())};
         }
 
         mejor_jugada = Hand.hayDoblePareja(cartas_utilizables);
@@ -419,7 +425,7 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{DOBLE_PAREJA, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{DOBLE_PAREJA, mejor_jugada, k.isEmpty() ? null : buscarCartasValoresMasAltos(k, CARTAS_MAX - mejor_jugada.size())};
 
         }
 
@@ -431,11 +437,11 @@ public class Hand {
 
             k.removeAll(mejor_jugada);
 
-            return new Object[]{PAREJA, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{PAREJA, mejor_jugada, k.isEmpty() ? null : buscarCartasValoresMasAltos(k, CARTAS_MAX - mejor_jugada.size())};
 
         }
 
-        mejor_jugada = buscarCartasAltas(cartas_utilizables, CARTAS_MAX);
+        mejor_jugada = buscarCartasValoresMasAltos(cartas_utilizables, CARTAS_MAX);
 
         return new Object[]{CARTA_ALTA, mejor_jugada};
     }

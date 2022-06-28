@@ -191,9 +191,9 @@ public class Hand {
 
     }
 
-    private static ArrayList<Card> buscarCartasCorrelativas(ArrayList<Card> c, boolean sort_ace_low, int tot_cards) {
+    private static ArrayList<Card> buscarCartasCorrelativas(ArrayList<Card> c, boolean sort_ace_low, int size) {
 
-        if (c == null || c.size() < tot_cards) {
+        if (c == null || c.size() < size) {
             return null;
         }
 
@@ -205,35 +205,34 @@ public class Hand {
             Card.sortCollection(cartas);
         }
 
-        int piv = 0, i, t = 0;
+        int i;
 
         ArrayList<Card> escalera = new ArrayList<>();
 
-        while (t < tot_cards && cartas.size() - piv >= tot_cards) {
+        Card pivote = cartas.get(0);
 
-            i = piv + 1;
+        i = 1;
 
-            t = 1;
+        escalera.add(pivote);
 
-            escalera.add(cartas.get(piv));
+        while (escalera.size() < size && i < cartas.size()) {
 
-            while (t < tot_cards && i < cartas.size() && piv < i) {
+            if (pivote.getValorNumerico(sort_ace_low) - cartas.get(i).getValorNumerico(sort_ace_low) == escalera.size()) {
 
-                if (cartas.get(piv).getValorNumerico(sort_ace_low) - cartas.get(i).getValorNumerico(sort_ace_low) == t) {
+                escalera.add(cartas.get(i));
 
-                    escalera.add(cartas.get(i));
-                    i++;
-                    t++;
+            } else {
 
-                } else {
+                pivote = cartas.get(i);
+                escalera.clear();
+                escalera.add(pivote);
 
-                    piv = i;
-                    escalera.clear();
-                }
             }
+
+            i++;
         }
 
-        return (t == tot_cards) ? escalera : null;
+        return (escalera.size() == size) ? escalera : null;
     }
 
     public static ArrayList<Card> hayEscalera(ArrayList<Card> c) {
@@ -309,19 +308,19 @@ public class Hand {
         return (jugada.getVal() == ESCALERA && jugada.getMano().get(0).getValor().equals("A"));
     }
 
-    ArrayList<Card> cartas_utilizables = null;
-    ArrayList<Card> mano = null;
-    ArrayList<Card> winners = null;
-    ArrayList<Card> kickers = null;
-    int val = -1;
-    String name = null;
+    private ArrayList<Card> cartas_utilizables = null;
+    private ArrayList<Card> mano = null;
+    private ArrayList<Card> winners = null;
+    private ArrayList<Card> kickers = null;
+    private int val = -1;
+    private String hand_name = null;
 
     public Hand(ArrayList<Card> cartas) {
         if (!cartas.isEmpty()) {
             this.cartas_utilizables = new ArrayList<>(cartas);
             Object[] mejor_jugada = calcularMejorJugada();
             this.val = (int) mejor_jugada[0];
-            this.name = NOMBRES_JUGADAS[this.val - 1];
+            this.hand_name = NOMBRES_JUGADAS[this.val - 1];
             this.winners = (ArrayList<Card>) mejor_jugada[1];
             this.mano = new ArrayList<>(this.winners);
 
@@ -337,7 +336,7 @@ public class Hand {
 
     @Override
     public String toString() {
-        return this.name + " " + Card.collection2String(this.winners) + (this.kickers != null ? " (" + Card.collection2String(this.kickers) + ")" : "");
+        return this.hand_name + " " + Card.collection2String(this.winners) + (this.kickers != null ? " (" + Card.collection2String(this.kickers) + ")" : "");
     }
 
     public ArrayList<Card> getWinners() {
@@ -353,20 +352,27 @@ public class Hand {
     }
 
     public String getName() {
-        return name;
+        return hand_name;
     }
 
     private Object[] calcularMejorJugada() {
+
         ArrayList<Card> k;
+
         ArrayList<Card> mejor_jugada = Hand.hayEscaleraReal(cartas_utilizables);
+
         if (mejor_jugada != null) {
             return new Object[]{ESCALERA_COLOR_REAL, mejor_jugada};
         }
+
         mejor_jugada = Hand.hayEscaleraColor(cartas_utilizables);
+
         if (mejor_jugada != null) {
             return new Object[]{ESCALERA_COLOR, mejor_jugada};
         }
+
         mejor_jugada = Hand.hayPoker(cartas_utilizables);
+
         if (mejor_jugada != null) {
 
             k = new ArrayList<>(cartas_utilizables);
@@ -375,19 +381,27 @@ public class Hand {
 
             return new Object[]{POKER, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
         }
+
         mejor_jugada = Hand.hayFull(cartas_utilizables);
+
         if (mejor_jugada != null) {
             return new Object[]{FULL, mejor_jugada};
         }
+
         mejor_jugada = Hand.hayColor(cartas_utilizables);
+
         if (mejor_jugada != null) {
             return new Object[]{COLOR, mejor_jugada};
         }
+
         mejor_jugada = Hand.hayEscalera(cartas_utilizables);
+
         if (mejor_jugada != null) {
             return new Object[]{ESCALERA, mejor_jugada};
         }
+
         mejor_jugada = Hand.hayTrio(cartas_utilizables);
+
         if (mejor_jugada != null) {
 
             k = new ArrayList<>(cartas_utilizables);
@@ -396,7 +410,9 @@ public class Hand {
 
             return new Object[]{TRIO, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
         }
+
         mejor_jugada = Hand.hayDoblePareja(cartas_utilizables);
+
         if (mejor_jugada != null) {
 
             k = new ArrayList<>(cartas_utilizables);
@@ -406,7 +422,9 @@ public class Hand {
             return new Object[]{DOBLE_PAREJA, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
 
         }
+
         mejor_jugada = Hand.hayPareja(cartas_utilizables);
+
         if (mejor_jugada != null) {
 
             k = new ArrayList<>(cartas_utilizables);
@@ -416,7 +434,9 @@ public class Hand {
             return new Object[]{PAREJA, mejor_jugada, k.isEmpty() ? null : buscarCartasAltas(k, CARTAS_MAX - mejor_jugada.size())};
 
         }
+
         mejor_jugada = buscarCartasAltas(cartas_utilizables, CARTAS_MAX);
+
         return new Object[]{CARTA_ALTA, mejor_jugada};
     }
 

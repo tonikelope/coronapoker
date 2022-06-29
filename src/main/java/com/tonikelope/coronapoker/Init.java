@@ -964,8 +964,6 @@ public class Init extends javax.swing.JFrame {
 
             Helpers.updateCoronaDialogsFont();
 
-            Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading MOD...");
-
             Init.MOD = Helpers.loadMOD();
 
             if (Init.MOD != null) {

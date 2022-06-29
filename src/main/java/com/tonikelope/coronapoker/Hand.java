@@ -66,7 +66,7 @@ public class Hand {
     //Returns a new Card collection with highest value cards
     private static ArrayList<Card> buscarCartasValoresMasAltos(ArrayList<Card> collection, int size) {
 
-        if (collection == null || collection.size() < size) {
+        if (collection == null || size == 0) {
             return null;
         }
 
@@ -74,7 +74,7 @@ public class Hand {
 
         Card.sortCollection(cartas);
 
-        return new ArrayList<>(cartas.subList(0, size));
+        return cartas.size() <= size ? cartas : new ArrayList<>(cartas.subList(0, size));
     }
 
     //Returns a new Card collection of EXACT size with the highest repeated value cards or null if not found

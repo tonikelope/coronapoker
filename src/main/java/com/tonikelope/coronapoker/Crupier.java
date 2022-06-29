@@ -7840,35 +7840,26 @@ public class Crupier implements Runnable {
     }
 
     private HashMap<Player, Hand> desempatarEscalera(HashMap<Player, Hand> jugadores) {
-        int carta_alta = -1;
-        boolean escalera_as = false;
 
-        //Miramos si hay alguna escalera al AS
+        int carta_alta = 0;
+
         for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
+
             Hand jugada = entry.getValue();
-            if (Hand.isEscaleraAs(jugada)) {
-                escalera_as = true;
+
+            if (jugada.getMano().get(0).getValorNumerico() > carta_alta) {
                 carta_alta = jugada.getMano().get(0).getValorNumerico();
-                break;
             }
         }
 
-        //Si es una escalera "normal" averiguamos la carta más alta
-        if (!escalera_as) {
-
-            for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
-                Hand jugada = entry.getValue();
-                if (jugada.getMano().get(0).getValorNumerico(!escalera_as) > carta_alta) {
-                    carta_alta = jugada.getMano().get(0).getValorNumerico(!escalera_as);
-                }
-            }
-        }
-
-        //Nos cargamos todos los que tengan una escalera con carta alta menor que la máxima
+        //Nos cargamos todos los que tengan una escalera menor que la máxima
         for (Iterator<Map.Entry<Player, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
+
             Map.Entry<Player, Hand> entry = it.next();
+
             Hand jugada = entry.getValue();
-            if (jugada.getMano().get(0).getValorNumerico(!escalera_as) < carta_alta) {
+
+            if (jugada.getMano().get(0).getValorNumerico() < carta_alta) {
                 it.remove();
             }
         }

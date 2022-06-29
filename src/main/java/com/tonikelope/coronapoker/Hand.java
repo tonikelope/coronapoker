@@ -313,6 +313,7 @@ public class Hand {
     private int val = -1;
     private String hand_name = null;
 
+
     public Hand(ArrayList<Card> cartas) {
         if (!cartas.isEmpty()) {
             this.cartas_utilizables = new ArrayList<>(cartas);

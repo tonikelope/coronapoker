@@ -2248,6 +2248,9 @@ public class Helpers {
     public static ConcurrentHashMap<String, Object> loadMOD() {
 
         if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod"))) {
+
+            Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "Loading MOD...");
+
             ConcurrentHashMap<String, Object> mod = new ConcurrentHashMap<>();
 
             try {

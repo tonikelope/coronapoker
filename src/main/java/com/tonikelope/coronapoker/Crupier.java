@@ -3057,7 +3057,7 @@ public class Crupier implements Runnable {
 
             statement.setString(2, (jugador.getPlayingCard1().isTapada() || jugada == null) ? null : Card.collection2ShortString(jugada.getMano()));
 
-            statement.setInt(3, (jugador.getPlayingCard1().isTapada() || jugada == null) ? -1 : jugada.getVal());
+            statement.setInt(3, (jugador.getPlayingCard1().isTapada() || jugada == null) ? -1 : jugada.getValue());
 
             statement.setInt(4, this.sqlite_id_hand);
 
@@ -3113,7 +3113,7 @@ public class Crupier implements Runnable {
 
             statement.setString(4, (jugador == null || jugador.getPlayingCard1().isTapada() || jugada == null) ? null : Card.collection2ShortString(jugada.getMano()));
 
-            statement.setInt(5, (jugador == null || jugador.getPlayingCard1().isTapada() || jugada == null) ? -1 : jugada.getVal());
+            statement.setInt(5, (jugador == null || jugador.getPlayingCard1().isTapada() || jugada == null) ? -1 : jugada.getValue());
 
             statement.setBoolean(6, win);
 
@@ -6442,7 +6442,7 @@ public class Crupier implements Runnable {
 
     public boolean ganaPorUltimaCarta(Player jugador, Hand jugada, int MIN) {
 
-        if (!GameFrame.getInstance().getRiver().isTapada() && jugada.getWinners().contains(GameFrame.getInstance().getRiver()) && jugada.getVal() >= MIN && (jugada.getWinners().contains(jugador.getPlayingCard1()) || jugada.getWinners().contains(jugador.getPlayingCard2()))) {
+        if (!GameFrame.getInstance().getRiver().isTapada() && jugada.getWinners().contains(GameFrame.getInstance().getRiver()) && jugada.getValue() >= MIN && (jugada.getWinners().contains(jugador.getPlayingCard1()) || jugada.getWinners().contains(jugador.getPlayingCard2()))) {
 
             ArrayList<Card> cartas = new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes()));
             cartas.add(jugador.getPlayingCard1());
@@ -6451,7 +6451,7 @@ public class Crupier implements Runnable {
 
             Hand nueva_jugada = new Hand(cartas);
 
-            return (nueva_jugada.getVal() != jugada.getVal());
+            return (nueva_jugada.getValue() != jugada.getValue());
         }
 
         return false;
@@ -6481,7 +6481,7 @@ public class Crupier implements Runnable {
 
             Hand jugada_ganador_turn = new Hand(cartas);
 
-            return (jugada_perdedor_turn.getVal() >= Hand.TRIO && (jugada_perdedor_turn.getVal() > jugada_ganador_turn.getVal()));
+            return (jugada_perdedor_turn.getValue() >= Hand.TRIO && (jugada_perdedor_turn.getValue() > jugada_ganador_turn.getValue()));
         } else {
             return false;
         }
@@ -6579,7 +6579,7 @@ public class Crupier implements Runnable {
                             if (jugador_actual.getDecision() == Player.ALLIN) {
                                 Audio.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
                             } else {
-                                this.soundWinner(jugada.getVal(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
+                                this.soundWinner(jugada.getValue(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
                             }
                         }
 
@@ -6621,7 +6621,7 @@ public class Crupier implements Runnable {
                                 Audio.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
                             } else {
 
-                                this.soundLoser(jugada.getVal());
+                                this.soundLoser(jugada.getValue());
                             }
                         }
                     }
@@ -6643,7 +6643,7 @@ public class Crupier implements Runnable {
                             if (jugador_actual.getDecision() == Player.ALLIN) {
                                 Audio.playWavResource("joke/" + GameFrame.LANGUAGE + "/winner/applause.wav");
                             } else {
-                                this.soundWinner(jugada.getVal(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
+                                this.soundWinner(jugada.getValue(), ganaPorUltimaCarta(jugador_actual, jugada, Crupier.MIN_ULTIMA_CARTA_JUGADA));
                             }
                         }
 
@@ -6679,7 +6679,7 @@ public class Crupier implements Runnable {
                                 Audio.playRandomWavResource(Map.ofEntries(WTF_SOUNDS));
                             } else {
 
-                                this.soundLoser(jugada.getVal());
+                                this.soundLoser(jugada.getValue());
                             }
                         }
 
@@ -7103,7 +7103,7 @@ public class Crupier implements Runnable {
 
                                     unganador = ganador;
 
-                                    jugada_ganadora = jugada.getVal();
+                                    jugada_ganadora = jugada.getValue();
                                 }
 
                                 for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
@@ -7190,7 +7190,7 @@ public class Crupier implements Runnable {
 
                                     unganador = ganador;
 
-                                    jugada_ganadora = jugada.getVal();
+                                    jugada_ganadora = jugada.getValue();
                                 }
 
                                 for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
@@ -7650,8 +7650,8 @@ public class Crupier implements Runnable {
         //Averiguamos la jugada máxima entre todos los jugadores
         for (Map.Entry<Player, Hand> entry : candidatos.entrySet()) {
 
-            if (entry.getValue().getVal() > jugada_max) {
-                jugada_max = entry.getValue().getVal();
+            if (entry.getValue().getValue() > jugada_max) {
+                jugada_max = entry.getValue().getValue();
             }
         }
 
@@ -7660,7 +7660,7 @@ public class Crupier implements Runnable {
 
             Map.Entry<Player, Hand> entry = it.next();
 
-            if (entry.getValue().getVal() < jugada_max) {
+            if (entry.getValue().getValue() < jugada_max) {
                 it.remove();
             }
         }

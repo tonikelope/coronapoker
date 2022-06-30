@@ -47,7 +47,7 @@ public class Hand {
     public static final int ESCALERA_COLOR = 9;
     public static final int ESCALERA_COLOR_REAL = 10;
 
-    public static int handNAME2HandVal(String name) {
+    public static int handnameToHandValue(String name) {
 
         int i = 1;
 
@@ -64,13 +64,13 @@ public class Hand {
     }
 
     //Returns a new Card collection with highest value cards
-    private static ArrayList<Card> buscarCartasValoresMasAltos(ArrayList<Card> collection, int size) {
+    private static ArrayList<Card> buscarCartasValoresMasAltos(ArrayList<Card> candidatas, int size) {
 
-        if (collection == null || size == 0) {
+        if (candidatas == null || size == 0) {
             return null;
         }
 
-        ArrayList<Card> cartas = new ArrayList<>(collection);
+        ArrayList<Card> cartas = new ArrayList<>(candidatas);
 
         Card.sortCollection(cartas);
 
@@ -78,13 +78,13 @@ public class Hand {
     }
 
     //Returns a new Card collection of EXACT size with the highest repeated value cards or null if not found
-    private static ArrayList<Card> buscarCartasValoresRepetidos(ArrayList<Card> collection, int size) {
+    private static ArrayList<Card> buscarCartasValoresRepetidos(ArrayList<Card> candidatas, int size) {
 
-        if (collection == null || collection.size() < size || size < 2) {
+        if (candidatas == null || candidatas.size() < size || size < 2) {
             return null;
         }
 
-        ArrayList<Card> cartas = new ArrayList<>(collection);
+        ArrayList<Card> cartas = new ArrayList<>(candidatas);
 
         Card.sortCollection(cartas);
 
@@ -119,13 +119,13 @@ public class Hand {
     }
 
     //Returns a new Card collection of EXACT size with straight values cards (descending order) or null if not found 
-    private static ArrayList<Card> buscarCartasValoresCorrelativos(ArrayList<Card> collection, boolean sort_ace_low) {
+    private static ArrayList<Card> buscarCartasValoresCorrelativos(ArrayList<Card> candidatas, boolean sort_ace_low) {
 
-        if (collection == null || collection.size() < Crupier.CARTAS_ESCALERA) {
+        if (candidatas == null || candidatas.size() < Crupier.CARTAS_ESCALERA) {
             return null;
         }
 
-        ArrayList<Card> cartas = new ArrayList<>(collection);
+        ArrayList<Card> cartas = new ArrayList<>(candidatas);
 
         if (sort_ace_low) {
             Card.sortAceLowCollection(cartas);
@@ -174,9 +174,9 @@ public class Hand {
     }
 
     //Returns a new Card collection of size [5-7] with same suit cards (descending order) or null if not found
-    private static ArrayList<Card> buscarCartasMismoPalo(ArrayList<Card> collection) {
+    private static ArrayList<Card> buscarCartasMismoPalo(ArrayList<Card> candidatas) {
 
-        if (collection == null || collection.size() < Crupier.CARTAS_COLOR) {
+        if (candidatas == null || candidatas.size() < Crupier.CARTAS_COLOR) {
             return null;
         }
 
@@ -187,7 +187,7 @@ public class Hand {
         palos.put("C", new ArrayList<>());
         ArrayList<Card> color = new ArrayList<>();
 
-        for (Card carta : collection) {
+        for (Card carta : candidatas) {
 
             ArrayList<Card> palo = palos.get(carta.getPalo());
 
@@ -204,27 +204,27 @@ public class Hand {
         return color.size() >= Crupier.CARTAS_COLOR ? color : null;
     }
 
-    public static ArrayList<Card> hayPareja(ArrayList<Card> c) {
+    public static ArrayList<Card> hayPareja(ArrayList<Card> candidatas) {
 
-        return buscarCartasValoresRepetidos(c, Crupier.CARTAS_PAREJA);
-
-    }
-
-    public static ArrayList<Card> hayTrio(ArrayList<Card> c) {
-
-        return buscarCartasValoresRepetidos(c, Crupier.CARTAS_TRIO);
+        return buscarCartasValoresRepetidos(candidatas, Crupier.CARTAS_PAREJA);
 
     }
 
-    public static ArrayList<Card> hayPoker(ArrayList<Card> c) {
+    public static ArrayList<Card> hayTrio(ArrayList<Card> candidatas) {
 
-        return buscarCartasValoresRepetidos(c, Crupier.CARTAS_POKER);
+        return buscarCartasValoresRepetidos(candidatas, Crupier.CARTAS_TRIO);
 
     }
 
-    public static ArrayList<Card> hayFull(ArrayList<Card> c) {
+    public static ArrayList<Card> hayPoker(ArrayList<Card> candidatas) {
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
+        return buscarCartasValoresRepetidos(candidatas, Crupier.CARTAS_POKER);
+
+    }
+
+    public static ArrayList<Card> hayFull(ArrayList<Card> candidatas) {
+
+        ArrayList<Card> cartas = new ArrayList<>(candidatas);
 
         ArrayList<Card> posible_full = hayTrio(cartas);
 
@@ -247,9 +247,9 @@ public class Hand {
 
     }
 
-    public static ArrayList<Card> hayDoblePareja(ArrayList<Card> c) {
+    public static ArrayList<Card> hayDoblePareja(ArrayList<Card> candidatas) {
 
-        ArrayList<Card> cartas = new ArrayList<>(c);
+        ArrayList<Card> cartas = new ArrayList<>(candidatas);
 
         if (hayPoker(cartas) == null) {
 
@@ -273,52 +273,52 @@ public class Hand {
 
     }
 
-    public static ArrayList<Card> hayEscalera(ArrayList<Card> c) {
+    public static ArrayList<Card> hayEscalera(ArrayList<Card> candidatas) {
 
-        ArrayList<Card> escalera_alta = buscarCartasValoresCorrelativos(c, false);
+        ArrayList<Card> escalera_alta = buscarCartasValoresCorrelativos(candidatas, false);
 
         if (escalera_alta != null) {
 
             return escalera_alta;
         }
 
-        return buscarCartasValoresCorrelativos(c, true);
+        return buscarCartasValoresCorrelativos(candidatas, true);
     }
 
-    public static ArrayList<Card> hayEscaleraColor(ArrayList<Card> c) {
+    public static ArrayList<Card> hayEscaleraColor(ArrayList<Card> candidatas) {
 
-        return buscarCartasValoresCorrelativos(buscarCartasMismoPalo(c), true);
+        return buscarCartasValoresCorrelativos(buscarCartasMismoPalo(candidatas), true);
 
     }
 
-    public static ArrayList<Card> hayEscaleraReal(ArrayList<Card> c) {
+    public static ArrayList<Card> hayEscaleraReal(ArrayList<Card> candidatas) {
 
-        ArrayList<Card> posible_escalera_real = buscarCartasValoresCorrelativos(buscarCartasMismoPalo(c), false);
+        ArrayList<Card> posible_escalera_real = buscarCartasValoresCorrelativos(buscarCartasMismoPalo(candidatas), false);
 
         return (posible_escalera_real != null && posible_escalera_real.get(0).getValor().equals("A")) ? posible_escalera_real : null;
 
     }
 
-    public static ArrayList<Card> hayColor(ArrayList<Card> c) {
+    public static ArrayList<Card> hayColor(ArrayList<Card> candidatas) {
 
-        ArrayList<Card> posible_color = buscarCartasMismoPalo(c);
+        ArrayList<Card> posible_color = buscarCartasMismoPalo(candidatas);
 
-        return posible_color != null ? new ArrayList<>(posible_color.subList(0, Crupier.CARTAS_COLOR)) : null;
+        return (posible_color != null && posible_color.size() >= Crupier.CARTAS_COLOR) ? new ArrayList<>(posible_color.subList(0, Crupier.CARTAS_COLOR)) : null;
     }
 
-    private ArrayList<Card> cartas_utilizables = null;
-    private ArrayList<Card> mano = null;
-    private ArrayList<Card> winners = null;
-    private ArrayList<Card> kickers = null;
-    private int val = -1;
-    private String hand_name = null;
+    private volatile ArrayList<Card> cartas_utilizables = null;
+    private volatile ArrayList<Card> mano = null;
+    private volatile ArrayList<Card> winners = null;
+    private volatile ArrayList<Card> kickers = null;
+    private volatile int hand_value = -1;
+    private volatile String hand_name = null;
 
     public Hand(ArrayList<Card> cartas) {
         if (!cartas.isEmpty()) {
             this.cartas_utilizables = new ArrayList<>(cartas);
             Object[] mejor_jugada = calcularMejorJugada();
-            this.val = (int) mejor_jugada[0];
-            this.hand_name = NOMBRES_JUGADAS[this.val - 1];
+            this.hand_value = (int) mejor_jugada[0];
+            this.hand_name = NOMBRES_JUGADAS[this.hand_value - 1];
             this.winners = (ArrayList<Card>) mejor_jugada[1];
             this.mano = new ArrayList<>(this.winners);
 
@@ -341,8 +341,8 @@ public class Hand {
         return winners;
     }
 
-    public int getVal() {
-        return val;
+    public int getValue() {
+        return hand_value;
     }
 
     public ArrayList<Card> getMano() {
@@ -355,7 +355,7 @@ public class Hand {
 
     private Object[] calcularMejorJugada() {
 
-        ArrayList<Card> k;
+        ArrayList<Card> kick_cards;
 
         ArrayList<Card> mejor_jugada = Hand.hayEscaleraReal(cartas_utilizables);
 
@@ -373,11 +373,11 @@ public class Hand {
 
         if (mejor_jugada != null) {
 
-            k = new ArrayList<>(cartas_utilizables);
+            kick_cards = new ArrayList<>(cartas_utilizables);
 
-            k.removeAll(mejor_jugada);
+            kick_cards.removeAll(mejor_jugada);
 
-            return new Object[]{POKER, mejor_jugada, k.isEmpty() ? null : buscarCartasValoresMasAltos(k, Crupier.CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{POKER, mejor_jugada, kick_cards.isEmpty() ? null : buscarCartasValoresMasAltos(kick_cards, Crupier.CARTAS_MAX - mejor_jugada.size())};
         }
 
         mejor_jugada = Hand.hayFull(cartas_utilizables);
@@ -402,22 +402,22 @@ public class Hand {
 
         if (mejor_jugada != null) {
 
-            k = new ArrayList<>(cartas_utilizables);
+            kick_cards = new ArrayList<>(cartas_utilizables);
 
-            k.removeAll(mejor_jugada);
+            kick_cards.removeAll(mejor_jugada);
 
-            return new Object[]{TRIO, mejor_jugada, k.isEmpty() ? null : buscarCartasValoresMasAltos(k, Crupier.CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{TRIO, mejor_jugada, kick_cards.isEmpty() ? null : buscarCartasValoresMasAltos(kick_cards, Crupier.CARTAS_MAX - mejor_jugada.size())};
         }
 
         mejor_jugada = Hand.hayDoblePareja(cartas_utilizables);
 
         if (mejor_jugada != null) {
 
-            k = new ArrayList<>(cartas_utilizables);
+            kick_cards = new ArrayList<>(cartas_utilizables);
 
-            k.removeAll(mejor_jugada);
+            kick_cards.removeAll(mejor_jugada);
 
-            return new Object[]{DOBLE_PAREJA, mejor_jugada, k.isEmpty() ? null : buscarCartasValoresMasAltos(k, Crupier.CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{DOBLE_PAREJA, mejor_jugada, kick_cards.isEmpty() ? null : buscarCartasValoresMasAltos(kick_cards, Crupier.CARTAS_MAX - mejor_jugada.size())};
 
         }
 
@@ -425,11 +425,11 @@ public class Hand {
 
         if (mejor_jugada != null) {
 
-            k = new ArrayList<>(cartas_utilizables);
+            kick_cards = new ArrayList<>(cartas_utilizables);
 
-            k.removeAll(mejor_jugada);
+            kick_cards.removeAll(mejor_jugada);
 
-            return new Object[]{PAREJA, mejor_jugada, k.isEmpty() ? null : buscarCartasValoresMasAltos(k, Crupier.CARTAS_MAX - mejor_jugada.size())};
+            return new Object[]{PAREJA, mejor_jugada, kick_cards.isEmpty() ? null : buscarCartasValoresMasAltos(kick_cards, Crupier.CARTAS_MAX - mejor_jugada.size())};
 
         }
 

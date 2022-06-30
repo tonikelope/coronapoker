@@ -6212,8 +6212,6 @@ public class Crupier implements Runnable {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getRiver());
 
-        checkJugadasParciales(resisten);
-
         ArrayList<Card> com = new ArrayList<>();
 
         com.add(GameFrame.getInstance().getFlop1());

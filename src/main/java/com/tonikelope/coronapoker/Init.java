@@ -1061,7 +1061,6 @@ public class Init extends javax.swing.JFrame {
             }
 
             Logger.getLogger(Init.class.getName()).log(Level.INFO, "LET'S GO");
-
         }
     }
 

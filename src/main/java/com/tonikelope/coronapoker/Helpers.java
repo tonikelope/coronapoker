@@ -87,7 +87,9 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import java.nio.file.attribute.PosixFilePermission;
@@ -423,7 +425,7 @@ public class Helpers {
 
     }
 
-    public static void cleanGifsicleFastTempFiles() {
+    public static void cleanGifsicleFiles() {
 
         for (String f : GIFSICLE_FAST_TEMP_FILES) {
 
@@ -432,6 +434,16 @@ public class Helpers {
             } catch (Exception ex) {
             }
 
+        }
+
+        try {
+            Files.walk(Paths.get(CACHE_DIR), FileVisitOption.FOLLOW_LINKS)
+                    .filter(Files::isRegularFile)
+                    .filter(a -> (a.getFileName().toString().startsWith("gifsicle_") && !a.getFileName().toString().startsWith("gifsicle_" + String.valueOf(1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP))))
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 

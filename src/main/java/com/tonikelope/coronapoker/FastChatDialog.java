@@ -29,6 +29,8 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import java.awt.Color;
+import java.awt.event.KeyEvent;
+import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JTextField;
@@ -40,6 +42,8 @@ import javax.swing.text.BadLocationException;
  */
 public final class FastChatDialog extends javax.swing.JDialog {
 
+    private volatile static ArrayList<String> HISTORIAL = new ArrayList<>();
+    private volatile static int HISTORIAL_INDEX = 0;
     private volatile boolean focusing = false;
 
     /**
@@ -199,6 +203,10 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
         if (GameFrame.getInstance().getSala_espera().isChat_enabled() && mensaje.length() > 0) {
 
+            HISTORIAL.add(mensaje);
+
+            HISTORIAL_INDEX = HISTORIAL.size();
+
             GameFrame.getInstance().getSala_espera().chatHTMLAppend(GameFrame.getInstance().getLocalPlayer().getNickname() + ":(" + Helpers.getLocalTimeString() + ") " + mensaje + "\n");
 
             GameFrame.getInstance().getSala_espera().enviarMensajeChat(GameFrame.getInstance().getLocalPlayer().getNickname(), mensaje);
@@ -253,6 +261,30 @@ public final class FastChatDialog extends javax.swing.JDialog {
                     Logger.getLogger(FastChatDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
+        } else if (evt.getKeyCode() == KeyEvent.VK_UP) {
+            HISTORIAL_INDEX--;
+
+            if (HISTORIAL_INDEX < 0) {
+                HISTORIAL_INDEX = 0;
+            }
+
+            chat_box.setText(HISTORIAL.get(HISTORIAL_INDEX));
+
+        } else if (evt.getKeyCode() == KeyEvent.VK_DOWN) {
+
+            HISTORIAL_INDEX++;
+
+            if (HISTORIAL_INDEX >= HISTORIAL.size()) {
+                HISTORIAL_INDEX = HISTORIAL.size();
+
+                chat_box.setText("");
+
+            } else {
+
+                chat_box.setText(HISTORIAL.get(HISTORIAL_INDEX));
+
+            }
+
         } else {
 
             if (chat_box.getText().length() <= Audio.MAX_TTS_LENGTH) {

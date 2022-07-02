@@ -42,7 +42,7 @@ import javax.swing.text.BadLocationException;
  */
 public final class FastChatDialog extends javax.swing.JDialog {
 
-    private volatile static ArrayList<String> HISTORIAL = new ArrayList<>();
+    private volatile static ArrayList<String[]> HISTORIAL = new ArrayList<>();
     private volatile static int HISTORIAL_INDEX = 0;
     private volatile boolean focusing = false;
     private volatile String current_message = null;
@@ -207,7 +207,14 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
         if (GameFrame.getInstance().getSala_espera().isChat_enabled() && mensaje.length() > 0) {
 
-            HISTORIAL.add(mensaje);
+            if (HISTORIAL_INDEX < HISTORIAL.size()) {
+
+                if (HISTORIAL.get(HISTORIAL_INDEX)[1] != null) {
+                    HISTORIAL.set(HISTORIAL_INDEX, new String[]{HISTORIAL.get(HISTORIAL_INDEX)[1], null});
+                }
+            }
+
+            HISTORIAL.add(new String[]{mensaje, null});
 
             HISTORIAL_INDEX = HISTORIAL.size();
 
@@ -275,7 +282,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
                     current_message = chat_box.getText();
                 }
 
-                chat_box.setText(HISTORIAL.get(HISTORIAL_INDEX));
+                chat_box.setText(HISTORIAL.get(HISTORIAL_INDEX)[0]);
             }
 
         } else if (evt.getKeyCode() == KeyEvent.VK_DOWN) {
@@ -291,7 +298,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
             } else {
 
-                chat_box.setText(HISTORIAL.get(HISTORIAL_INDEX));
+                chat_box.setText(HISTORIAL.get(HISTORIAL_INDEX)[0]);
 
             }
 
@@ -365,8 +372,13 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
     private void chat_boxKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_chat_boxKeyReleased
         // TODO add your handling code here:
-        if ((evt.getKeyChar() != 'º' || evt.isControlDown()) && evt.getKeyCode() != KeyEvent.VK_UP && evt.getKeyCode() != KeyEvent.VK_DOWN && current_message != null) {
-            HISTORIAL.set(HISTORIAL_INDEX, chat_box.getText());
+        if (evt.getKeyCode() != KeyEvent.VK_ENTER && (evt.getKeyChar() != 'º' || evt.isControlDown()) && evt.getKeyCode() != KeyEvent.VK_UP && evt.getKeyCode() != KeyEvent.VK_DOWN && current_message != null) {
+
+            if (HISTORIAL.get(HISTORIAL_INDEX)[1] == null) {
+                HISTORIAL.set(HISTORIAL_INDEX, new String[]{chat_box.getText(), HISTORIAL.get(HISTORIAL_INDEX)[0]});
+            } else {
+                HISTORIAL.set(HISTORIAL_INDEX, new String[]{chat_box.getText(), HISTORIAL.get(HISTORIAL_INDEX)[1]});
+            }
         }
     }//GEN-LAST:event_chat_boxKeyReleased
 

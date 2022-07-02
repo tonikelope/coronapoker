@@ -45,6 +45,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
     private volatile static ArrayList<String> HISTORIAL = new ArrayList<>();
     private volatile static int HISTORIAL_INDEX = 0;
     private volatile boolean focusing = false;
+    private volatile String current_message = null;
 
     /**
      * Creates new form FastChatDialog
@@ -158,6 +159,9 @@ public final class FastChatDialog extends javax.swing.JDialog {
             public void keyPressed(java.awt.event.KeyEvent evt) {
                 chat_boxKeyPressed(evt);
             }
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                chat_boxKeyReleased(evt);
+            }
         });
 
         javax.swing.GroupLayout chat_panelLayout = new javax.swing.GroupLayout(chat_panel);
@@ -266,9 +270,13 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
             if (HISTORIAL_INDEX < 0) {
                 HISTORIAL_INDEX = 0;
-            }
+            } else {
+                if (current_message == null) {
+                    current_message = chat_box.getText();
+                }
 
-            chat_box.setText(HISTORIAL.get(HISTORIAL_INDEX));
+                chat_box.setText(HISTORIAL.get(HISTORIAL_INDEX));
+            }
 
         } else if (evt.getKeyCode() == KeyEvent.VK_DOWN) {
 
@@ -276,8 +284,10 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
             if (HISTORIAL_INDEX >= HISTORIAL.size()) {
                 HISTORIAL_INDEX = HISTORIAL.size();
-
-                chat_box.setText("");
+                if (current_message != null) {
+                    chat_box.setText(current_message);
+                    current_message = null;
+                }
 
             } else {
 
@@ -352,6 +362,13 @@ public final class FastChatDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         setVisible(false);
     }//GEN-LAST:event_iconoMouseClicked
+
+    private void chat_boxKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_chat_boxKeyReleased
+        // TODO add your handling code here:
+        if ((evt.getKeyChar() != 'º' || evt.isControlDown()) && evt.getKeyCode() != KeyEvent.VK_UP && evt.getKeyCode() != KeyEvent.VK_DOWN && current_message != null) {
+            HISTORIAL.set(HISTORIAL_INDEX, chat_box.getText());
+        }
+    }//GEN-LAST:event_chat_boxKeyReleased
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextField chat_box;

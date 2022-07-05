@@ -220,7 +220,7 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
-    public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
+    public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 3000;
     public static final int PAUSA_ENTRE_MANOS = 10; //Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
@@ -4903,6 +4903,29 @@ public class Crupier implements Runnable {
             HashMap<Player, Hand> ganadores = calcularGanadores(new HashMap<Player, Hand>(jugadas));
 
             for (Player p : resisten) {
+                jugadas.get(p).setFuerza(-1);
+                p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p));
+            }
+
+            for (Player p : resisten) {
+
+                org.alberta.poker.Card card1 = new org.alberta.poker.Card(p.getPlayingCard1().getValorNumerico() - 2, Bot.getCardSuit(p.getPlayingCard1()));
+
+                org.alberta.poker.Card card2 = new org.alberta.poker.Card(p.getPlayingCard2().getValorNumerico() - 2, Bot.getCardSuit(p.getPlayingCard2()));
+
+                double strength = Bot.HANDEVALUATOR.handRank(card1, card2, Bot.BOT_COMMUNITY_CARDS, resisten.size() - 1);
+
+                double ppot = Bot.HANDPOTENTIAL.ppot_raw(card1, card2, Bot.BOT_COMMUNITY_CARDS, false);
+
+                double npot = Bot.HANDPOTENTIAL.getLastNPot();
+
+                double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
+
+                jugadas.get(p).setFuerza(effectiveStrength * 100);
+
+            }
+
+            for (Player p : resisten) {
                 p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p));
             }
 
@@ -6085,7 +6108,7 @@ public class Crupier implements Runnable {
 
         boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
 
-        Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : ((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : PAUSA_DESTAPAR_CARTA));
+        Helpers.pausar((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : (this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA));
 
         if (GameFrame.ANIMACION_CARTAS && ((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
 
@@ -6168,15 +6191,9 @@ public class Crupier implements Runnable {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop1());
 
-        checkJugadasParciales(resisten);
-
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop2());
 
-        checkJugadasParciales(resisten);
-
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop3());
-
-        checkJugadasParciales(resisten);
 
         ArrayList<Card> flop = new ArrayList<>();
 
@@ -6187,13 +6204,13 @@ public class Crupier implements Runnable {
         flop.add(GameFrame.getInstance().getFlop3());
 
         GameFrame.getInstance().getRegistro().print("FLOP -> " + Card.collection2String(flop));
+
+        checkJugadasParciales(resisten);
     }
 
     public void destaparTurn(ArrayList<Player> resisten) {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getTurn());
-
-        checkJugadasParciales(resisten);
 
         ArrayList<Card> com = new ArrayList<>();
 
@@ -6206,6 +6223,8 @@ public class Crupier implements Runnable {
         com.add(GameFrame.getInstance().getTurn());
 
         GameFrame.getInstance().getRegistro().print("TURN -> " + Card.collection2String(com));
+
+        checkJugadasParciales(resisten);
     }
 
     public void destaparRiver(ArrayList<Player> resisten) {

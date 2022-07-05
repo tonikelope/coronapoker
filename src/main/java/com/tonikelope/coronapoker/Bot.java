@@ -102,34 +102,35 @@ public class Bot {
 
         int activos = GameFrame.getInstance().getCrupier().getJugadoresActivos();
 
+        double strength = HANDEVALUATOR.handRank(card1, card2, Bot.BOT_COMMUNITY_CARDS, opponents);
+
+        double ppot = HANDPOTENTIAL.ppot_raw(card1, card2, Bot.BOT_COMMUNITY_CARDS, true);
+
+        double npot = HANDPOTENTIAL.getLastNPot();
+
+        double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
+
+        double poseffectiveStrength = strength + (1 - strength) * ppot;
+
         //PREFLOP
         if (fase == Crupier.PREFLOP) {
-
-            //Esto es claramente muy mejorable
-            int valor1 = cpu_player.getPlayingCard1().getValorNumerico();
-            int valor2 = cpu_player.getPlayingCard2().getValorNumerico();
-            boolean pareja = (valor1 == valor2);
-            boolean suited = cpu_player.getPlayingCard1().getPalo().equals(cpu_player.getPlayingCard2().getPalo());
-            boolean straight = Math.abs(valor1 - valor2) == 1;
 
             if (GameFrame.getInstance().getCrupier().getConta_bet() > 0 && Helpers.float1DSecureCompare(cpu_player.getStack(), GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) <= 0) {
 
                 //Si la apuesta actual nos obliga a ir ALL-IN sólo lo hacemos con manos PREMIUM o el el 50% de las otras veces con manos buenas que no llegan a PREMIUM
-                if ((pareja && valor1 >= 10) || (suited && Math.max(valor1, valor2) == 14) || (Helpers.CSPRNG_GENERATOR.nextBoolean() && (pareja && valor1 >= 7) || (suited && Math.max(valor1, valor2) >= 13) || Math.min(valor1, valor2) >= 12 || (suited && straight && Math.min(valor1, valor2) == 7))) {
+                if (poseffectiveStrength >= 0.9f || (Helpers.CSPRNG_GENERATOR.nextBoolean() && poseffectiveStrength >= 0.8f)) {
                     conta_call++;
-
                     dec = Player.CHECK;
-
                 }
 
-            } else if ((pareja && valor1 >= 7) || (suited && Math.max(valor1, valor2) >= 13) || Math.min(valor1, valor2) >= 12 || (suited && straight && Math.min(valor1, valor2) == 7)) {
+            } else if (poseffectiveStrength >= 0.75f) {
 
                 //Manos buenas (sin ser todas PREMIUM)
                 conta_call++;
 
                 dec = (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET && !this.slow_play) ? Player.BET : Player.CHECK;
 
-            } else if ((Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 2) <= 0) && (pareja || (suited && Math.max(valor1, valor2) >= 10) || (suited && Math.max(valor1, valor2) >= 13) || (straight && Math.min(valor1, valor2) >= 10) || Math.min(valor1, valor2) >= 11)) {
+            } else if ((Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet(), cpu_player.getStack() / 2) <= 0) && poseffectiveStrength >= 0.60f) {
 
                 //El X% de las veces apostamos con una mano no tan fuerte (siempre que no haya que poner más del 50% de nuestro stack)
                 boolean vamos;
@@ -235,23 +236,13 @@ public class Bot {
             this.cbet = false;
         }
 
-        double strength = HANDEVALUATOR.handRank(card1, card2, Bot.BOT_COMMUNITY_CARDS, opponents);
-
-        double ppot = HANDPOTENTIAL.ppot_raw(card1, card2, Bot.BOT_COMMUNITY_CARDS, true);
-
-        double npot = HANDPOTENTIAL.getLastNPot();
-
-        double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
-
-        double poseffectiveStrength = strength + (1 - strength) * ppot;
-
         if (poseffectiveStrength >= 0.85f) {
 
             conta_call++;
 
             dec = (GameFrame.getInstance().getCrupier().getConta_bet() < Bot.MAX_CONTA_BET && !this.slow_play) ? Player.BET : Player.CHECK;
 
-        } else if (poseffectiveStrength >= 0.70f && !(effectiveStrength < 0.85f && fase == Crupier.RIVER && Helpers.float1DSecureCompare(cpu_player.getStack(), GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) <= 0)) {
+        } else if (poseffectiveStrength >= 0.70f && !(effectiveStrength < 0.80f && fase == Crupier.RIVER && Helpers.float1DSecureCompare(cpu_player.getStack(), GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) <= 0)) {
 
             if (GameFrame.getInstance().getCrupier().getConta_bet() == 0) {
 

@@ -1276,10 +1276,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public GameLogDialog getRegistro() {
+        return registro_dialog;
 
-        synchronized (registro_lock) {
-            return registro_dialog;
-        }
     }
 
     public Card getFlop1() {

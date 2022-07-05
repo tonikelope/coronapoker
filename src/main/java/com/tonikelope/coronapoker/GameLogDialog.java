@@ -44,6 +44,7 @@ public final class GameLogDialog extends javax.swing.JDialog {
     private volatile boolean auto_scroll = true;
     private volatile boolean utf8_cards = false;
     private volatile boolean fin_transmision = false;
+    private final Object log_lock = new Object();
 
     public static void resetLOG() {
         LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n";
@@ -93,65 +94,76 @@ public final class GameLogDialog extends javax.swing.JDialog {
         return LOG_TEXT;
     }
 
-    public synchronized void actualizarCartasPerdedores(ConcurrentHashMap<Player, Hand> perdedores) {
+    public void actualizarCartasPerdedores(ConcurrentHashMap<Player, Hand> perdedores) {
 
-        if (perdedores != null && !perdedores.isEmpty()) {
-            for (Map.Entry<Player, Hand> entry : perdedores.entrySet()) {
+        synchronized (log_lock) {
 
-                Player perdedor = entry.getKey();
+            if (perdedores != null && !perdedores.isEmpty()) {
+                for (Map.Entry<Player, Hand> entry : perdedores.entrySet()) {
 
-                Hand jugada = entry.getValue();
+                    Player perdedor = entry.getKey();
 
-                if (!"".equals(perdedor.getPlayingCard1().getValor()) && ((perdedor != GameFrame.getInstance().getLocalPlayer() && !perdedor.getPlayingCard1().isTapada()) || (perdedor == GameFrame.getInstance().getLocalPlayer() && GameFrame.getInstance().getLocalPlayer().isMuestra()))) {
+                    Hand jugada = entry.getValue();
 
-                    ArrayList<Card> cartas_repartidas_jugador = new ArrayList<>();
+                    if (!"".equals(perdedor.getPlayingCard1().getValor()) && ((perdedor != GameFrame.getInstance().getLocalPlayer() && !perdedor.getPlayingCard1().isTapada()) || (perdedor == GameFrame.getInstance().getLocalPlayer() && GameFrame.getInstance().getLocalPlayer().isMuestra()))) {
 
-                    cartas_repartidas_jugador.add(perdedor.getPlayingCard1());
+                        ArrayList<Card> cartas_repartidas_jugador = new ArrayList<>();
 
-                    cartas_repartidas_jugador.add(perdedor.getPlayingCard2());
+                        cartas_repartidas_jugador.add(perdedor.getPlayingCard1());
 
-                    String lascartas = this.utf8_cards ? this.translateNormalCards2UTF8(Card.collection2String(cartas_repartidas_jugador)) : Card.collection2String(cartas_repartidas_jugador);
+                        cartas_repartidas_jugador.add(perdedor.getPlayingCard2());
 
-                    String lajugada = this.utf8_cards ? this.translateNormalCards2UTF8(jugada.toString()) : jugada.toString();
+                        String lascartas = this.utf8_cards ? this.translateNormalCards2UTF8(Card.collection2String(cartas_repartidas_jugador)) : Card.collection2String(cartas_repartidas_jugador);
 
-                    GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)] +(\\w+ .+)", perdedor.getNickname().replace("$", "\\$") + " (" + lascartas + ") $1 -> " + lajugada);
+                        String lajugada = this.utf8_cards ? this.translateNormalCards2UTF8(jugada.toString()) : jugada.toString();
 
-                } else {
+                        GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)] +(\\w+ .+)", perdedor.getNickname().replace("$", "\\$") + " (" + lascartas + ") $1 -> " + lajugada);
 
-                    GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)]", perdedor.getNickname().replace("$", "\\$") + " (***)");
+                    } else {
 
-                }
-            }
+                        GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)]", perdedor.getNickname().replace("$", "\\$") + " (***)");
 
-            Helpers.GUIRunAndWait(new Runnable() {
-                @Override
-                public void run() {
-
-                    getTextArea().setText(GameLogDialog.LOG_TEXT);
-
-                    if (auto_scroll) {
-                        getTextArea().setCaretPosition(getTextArea().getText().length());
                     }
                 }
-            });
+
+                Helpers.GUIRunAndWait(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        getTextArea().setText(GameLogDialog.LOG_TEXT);
+
+                        if (auto_scroll) {
+                            getTextArea().setCaretPosition(getTextArea().getText().length());
+                        }
+                    }
+                });
+            }
         }
     }
 
-    public synchronized void print(String msg) {
+    public void print(String msg) {
 
         if (!this.fin_transmision) {
 
-            String message = this.utf8_cards ? this.translateNormalCards2UTF8(Translator.translate(msg)) : Translator.translate(msg);
-
-            GameLogDialog.LOG_TEXT += message + "\n\n";
-
-            Helpers.GUIRun(new Runnable() {
+            Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    getTextArea().append(message + "\n\n");
+                    synchronized (log_lock) {
 
-                    if (auto_scroll) {
-                        getTextArea().setCaretPosition(getTextArea().getText().length());
+                        String message = utf8_cards ? translateNormalCards2UTF8(Translator.translate(msg)) : Translator.translate(msg);
+
+                        GameLogDialog.LOG_TEXT += message + "\n\n";
+
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
+
+                                getTextArea().append(message + "\n\n");
+
+                                if (auto_scroll) {
+                                    getTextArea().setCaretPosition(getTextArea().getText().length());
+                                }
+                            }
+                        });
                     }
                 }
             });
@@ -159,34 +171,52 @@ public final class GameLogDialog extends javax.swing.JDialog {
 
     }
 
-    private synchronized void disableUTF8Cards() {
+    private void disableUTF8Cards() {
 
-        GameLogDialog.LOG_TEXT = translateUTF8Cards2Normal(GameLogDialog.LOG_TEXT);
-
-        Helpers.GUIRunAndWait(new Runnable() {
+        Helpers.threadRun(new Runnable() {
             public void run() {
 
-                getTextArea().setText(LOG_TEXT);
+                synchronized (log_lock) {
 
-                if (auto_scroll) {
-                    getTextArea().setCaretPosition(getTextArea().getText().length());
+                    GameLogDialog.LOG_TEXT = translateUTF8Cards2Normal(GameLogDialog.LOG_TEXT);
+
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        public void run() {
+
+                            getTextArea().setText(LOG_TEXT);
+
+                            if (auto_scroll) {
+                                getTextArea().setCaretPosition(getTextArea().getText().length());
+                            }
+
+                            utf8_cards_menu.setEnabled(true);
+                        }
+                    });
                 }
             }
         });
-
     }
 
-    private synchronized void enableUTF8Cards() {
+    private void enableUTF8Cards() {
 
-        GameLogDialog.LOG_TEXT = translateNormalCards2UTF8(GameLogDialog.LOG_TEXT);
-
-        Helpers.GUIRunAndWait(new Runnable() {
+        Helpers.threadRun(new Runnable() {
             public void run() {
 
-                getTextArea().setText(GameLogDialog.LOG_TEXT);
+                synchronized (log_lock) {
 
-                if (auto_scroll) {
-                    getTextArea().setCaretPosition(getTextArea().getText().length());
+                    GameLogDialog.LOG_TEXT = translateNormalCards2UTF8(GameLogDialog.LOG_TEXT);
+
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        public void run() {
+
+                            getTextArea().setText(GameLogDialog.LOG_TEXT);
+
+                            if (auto_scroll) {
+                                getTextArea().setCaretPosition(getTextArea().getText().length());
+                            }
+                            utf8_cards_menu.setEnabled(true);
+                        }
+                    });
                 }
             }
         });
@@ -311,8 +341,9 @@ public final class GameLogDialog extends javax.swing.JDialog {
 
     private void utf8_cards_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_utf8_cards_menuActionPerformed
         // TODO add your handling code here:
-        this.utf8_cards = this.utf8_cards_menu.isSelected();
 
+        this.utf8_cards = this.utf8_cards_menu.isSelected();
+        this.utf8_cards_menu.setEnabled(false);
         if (this.utf8_cards) {
             this.enableUTF8Cards();
         } else {

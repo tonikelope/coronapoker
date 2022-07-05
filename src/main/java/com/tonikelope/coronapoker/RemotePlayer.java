@@ -2184,14 +2184,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void setJugadaParcial(Hand jugada, boolean ganador) {
+
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
 
                 player_action.setBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
                 player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
-                player_action.setText(jugada.getName());
-                setPlayerActionIcon(ganador ? "action/happy.png" : "action/angry.png");
+                player_action.setText(jugada.getName() + ((float) jugada.getFuerza() >= 0 ? " (" + Helpers.floatClean((float) jugada.getFuerza(), 1) + "%)" : " (--%)"));
+                setPlayerActionIcon(null);
+
+                if ((float) jugada.getFuerza() >= 0) {
+                    GameFrame.getInstance().getRegistro().print(nickname + " " + player_action.getText());
+                }
 
             }
         });

@@ -3088,8 +3088,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
                 player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
-                player_action.setText(jugada.getName());
-                setPlayerActionIcon(ganador ? "action/happy.png" : "action/angry.png");
+                player_action.setText(jugada.getName() + ((float) jugada.getFuerza() >= 0 ? " (" + Helpers.floatClean((float) jugada.getFuerza(), 1) + "%)" : " (--%)"));
+                setPlayerActionIcon(null);
+
+                if ((float) jugada.getFuerza() >= 0) {
+                    GameFrame.getInstance().getRegistro().print(nickname + " " + player_action.getText());
+                }
 
             }
         });

@@ -31,7 +31,6 @@ package com.tonikelope.coronapoker;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-//TO DO -> In order to run some kind of Monte Carlo Simulation for calculate odds percentages during game, it's REQUIRED TO IMPLEMENT SOME UNIQUE HAND EVALUATOR ALGORITHM like -> http://suffe.cool/poker/evaluator.html
 public class Hand {
 
     public static final String[] NOMBRES_JUGADAS_ES = new String[]{"CARTA ALTA", "PAREJA", "DOBLE PAREJA", "TRÍO", "ESCALERA", "COLOR", "FULL", "PÓKER", "ESCALERA DE COLOR", "ESCALERA REAL"};
@@ -313,6 +312,15 @@ public class Hand {
     private volatile ArrayList<Card> kickers = null;
     private volatile int hand_value = -1;
     private volatile String hand_name = null;
+    private volatile double fuerza;
+
+    public double getFuerza() {
+        return fuerza;
+    }
+
+    public void setFuerza(double fuerza) {
+        this.fuerza = fuerza;
+    }
 
     public Hand(ArrayList<Card> cartas) {
         if (!cartas.isEmpty()) {

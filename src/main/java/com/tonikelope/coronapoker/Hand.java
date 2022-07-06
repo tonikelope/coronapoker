@@ -312,14 +312,14 @@ public class Hand {
     private volatile ArrayList<Card> kickers = null;
     private volatile int hand_value = -1;
     private volatile String hand_name = null;
-    private volatile double fuerza;
+    private volatile double loki_fuerza;
 
     public double getFuerza() {
-        return fuerza;
+        return loki_fuerza;
     }
 
     public void setFuerza(double fuerza) {
-        this.fuerza = fuerza;
+        this.loki_fuerza = fuerza;
     }
 
     public Hand(ArrayList<Card> cartas) {

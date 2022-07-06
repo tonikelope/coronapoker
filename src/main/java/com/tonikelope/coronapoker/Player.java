@@ -149,7 +149,7 @@ public interface Player {
 
     public JLabel getChat_notify_label();
 
-    public void setJugadaParcial(Hand jugada, boolean ganador);
+    public void setJugadaParcial(Hand jugada, boolean ganador, float win_per);
 
     public boolean isWinner();
 

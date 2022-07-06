@@ -61,8 +61,8 @@ public class Bot {
     //LLAMAR DESDE EL CRUPIER UNA VEZ REPARTIDAS LAS CARTAS AL JUGADOR
     public void resetBot() {
 
-        card1 = new org.alberta.poker.Card(cpu_player.getPlayingCard1().getValorNumerico() - 2, getCardSuit(cpu_player.getPlayingCard1()));
-        card2 = new org.alberta.poker.Card(cpu_player.getPlayingCard2().getValorNumerico() - 2, getCardSuit(cpu_player.getPlayingCard2()));
+        card1 = new org.alberta.poker.Card(cpu_player.getPlayingCard1().getValorNumerico() - 2, getLokiCardSuitFromCoronaCard(cpu_player.getPlayingCard1()));
+        card2 = new org.alberta.poker.Card(cpu_player.getPlayingCard2().getValorNumerico() - 2, getLokiCardSuitFromCoronaCard(cpu_player.getPlayingCard2()));
 
         semi_bluff = false;
         slow_play = Helpers.CSPRNG_GENERATOR.nextBoolean();
@@ -325,10 +325,21 @@ public class Bot {
         return ((GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) + cost) / (GameFrame.getInstance().getCrupier().getBote_total() + (GameFrame.getInstance().getCrupier().getApuesta_actual() - cpu_player.getBet()) + 2 * cost);
     }
 
-    public static int getCardSuit(Card carta) {
+    public static int getLokiCardSuitFromCoronaCard(Card carta) {
 
-        return PALOS.indexOf(carta.getPalo());
+        return Bot.PALOS.indexOf(carta.getPalo());
 
+    }
+
+    public static org.alberta.poker.Card getLokiCardFromCoronaIntegerCard(int c) {
+
+        int v = (c - 1) % 13;
+
+        int corona_valor = (v == 0 ? 14 : v + 1);
+
+        String corona_palo = Card.PALOS[(int) ((float) (c - 1) / 13)];
+
+        return new org.alberta.poker.Card(corona_valor - 2, Bot.PALOS.indexOf(corona_palo));
     }
 
 }

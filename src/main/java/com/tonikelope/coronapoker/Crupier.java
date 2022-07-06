@@ -69,7 +69,7 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class Crupier implements Runnable {
 
-    public static final boolean ALLIN_BOT_TEST = false; //TRUE FOR TESTING
+    public static final boolean ALLIN_BOT_TEST = true; //TRUE FOR TESTING (Init.DEV_MODE MUST BE TRUE)
 
     public static final Map.Entry<String, Object[][]> ALLIN_CINEMATICS = new HashMap.SimpleEntry<String, Object[][]>("allin/",
             new Object[][]{
@@ -220,13 +220,14 @@ public class Crupier implements Runnable {
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
-    public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 3000;
+    public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int PAUSA_ENTRE_MANOS = 10; //Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
+    public static final int MONTECARLO_ITERATIONS = 1000;//Suficiente para tener un compromiso entre velocidad/precisión
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
@@ -4373,19 +4374,19 @@ public class Crupier implements Runnable {
                         flop_players.addAll(resisten);
                         comando = "FLOPCARDS#" + GameFrame.getInstance().getCartas_comunes()[0].toShortString() + "#" + GameFrame.getInstance().getCartas_comunes()[1].toShortString() + "#" + GameFrame.getInstance().getCartas_comunes()[2].toShortString();
 
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop1().getValorNumerico() - 2, Bot.getCardSuit(GameFrame.getInstance().getFlop1())));
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop2().getValorNumerico() - 2, Bot.getCardSuit(GameFrame.getInstance().getFlop2())));
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop3().getValorNumerico() - 2, Bot.getCardSuit(GameFrame.getInstance().getFlop3())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop1().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(GameFrame.getInstance().getFlop1())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop2().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(GameFrame.getInstance().getFlop2())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop3().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(GameFrame.getInstance().getFlop3())));
 
                         break;
                     case TURN:
                         comando = "TURNCARD#" + GameFrame.getInstance().getCartas_comunes()[3].toShortString();
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getTurn().getValorNumerico() - 2, Bot.getCardSuit(GameFrame.getInstance().getTurn())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getTurn().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(GameFrame.getInstance().getTurn())));
 
                         break;
                     case RIVER:
                         comando = "RIVERCARD#" + GameFrame.getInstance().getCartas_comunes()[4].toShortString();
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getRiver().getValorNumerico() - 2, Bot.getCardSuit(GameFrame.getInstance().getRiver())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getRiver().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(GameFrame.getInstance().getRiver())));
 
                         break;
                     default:
@@ -4684,7 +4685,7 @@ public class Crupier implements Runnable {
                                         break;
                                 }
 
-                                if (ALLIN_BOT_TEST) {
+                                if (Init.DEV_MODE && ALLIN_BOT_TEST) {
                                     action = new Object[]{Player.ALLIN, ""};
                                 }
 
@@ -4875,6 +4876,7 @@ public class Crupier implements Runnable {
                 procesarCartasResistencia(resisten, true);
 
                 checkJugadasParciales(resisten);
+
             }
 
             if (this.fase == Crupier.PREFLOP) {
@@ -4896,6 +4898,7 @@ public class Crupier implements Runnable {
     }
 
     private void checkJugadasParciales(ArrayList<Player> resisten) {
+
         if (this.destapar_resistencia) {
 
             HashMap<Player, Hand> jugadas = calcularJugadas(resisten);
@@ -4903,15 +4906,16 @@ public class Crupier implements Runnable {
             HashMap<Player, Hand> ganadores = calcularGanadores(new HashMap<Player, Hand>(jugadas));
 
             for (Player p : resisten) {
-                jugadas.get(p).setFuerza(-1);
-                p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p));
+                p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p), -1);
             }
+
+            HashMap<Player, Integer[]> multiverse = monteCarlo(resisten, MONTECARLO_ITERATIONS);
 
             for (Player p : resisten) {
 
-                org.alberta.poker.Card card1 = new org.alberta.poker.Card(p.getPlayingCard1().getValorNumerico() - 2, Bot.getCardSuit(p.getPlayingCard1()));
+                org.alberta.poker.Card card1 = new org.alberta.poker.Card(p.getPlayingCard1().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(p.getPlayingCard1()));
 
-                org.alberta.poker.Card card2 = new org.alberta.poker.Card(p.getPlayingCard2().getValorNumerico() - 2, Bot.getCardSuit(p.getPlayingCard2()));
+                org.alberta.poker.Card card2 = new org.alberta.poker.Card(p.getPlayingCard2().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(p.getPlayingCard2()));
 
                 double strength = Bot.HANDEVALUATOR.handRank(card1, card2, Bot.BOT_COMMUNITY_CARDS, resisten.size() - 1);
 
@@ -4926,7 +4930,17 @@ public class Crupier implements Runnable {
             }
 
             for (Player p : resisten) {
-                p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p));
+                Integer[] stats = multiverse.get(p);
+
+                p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p), Helpers.floatClean(((float) stats[1] / stats[0]) * 100));
+
+                ArrayList<Card> cartas_repartidas_jugador = new ArrayList<>();
+
+                cartas_repartidas_jugador.add(p.getPlayingCard1());
+
+                cartas_repartidas_jugador.add(p.getPlayingCard2());
+
+                GameFrame.getInstance().getRegistro().print(p.getNickname() + " (" + Card.collection2String(cartas_repartidas_jugador) + ")   MULTIVERSE(" + stats[0] + ") -> WIN: " + Helpers.floatClean(((float) stats[1] / stats[0]) * 100, 2) + "%   LOSE: " + Helpers.floatClean(((float) stats[2] / stats[0]) * 100, 2) + "%   TIE: " + Helpers.floatClean(((float) stats[3] / stats[0]) * 100, 2) + "%   (LOKI: " + Helpers.floatClean((float) jugadas.get(p).getFuerza(), 2) + "%)");
             }
 
         }
@@ -7923,6 +7937,140 @@ public class Crupier implements Runnable {
         }
 
         return jugadores;
+
+    }
+
+    private HashMap<Player, Integer[]> monteCarlo(ArrayList<Player> resisten, int iterations) {
+
+        if (resisten.size() <= 1) {
+            return null;
+        }
+
+        HashMap<Player, Integer[]> stats = new HashMap<>();
+
+        ArrayList<Integer> deck = new ArrayList<>();
+
+        ArrayList<Integer> deck_remove = new ArrayList<>();
+
+        for (int i = 1; i <= 52; i++) {
+            deck.add(i);
+        }
+
+        org.alberta.poker.Hand board = new org.alberta.poker.Hand();
+
+        if (this.fase == Crupier.FLOP) {
+            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero()));
+            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero()));
+            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero()));
+
+            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero());
+            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero());
+            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero());
+        } else if (this.fase == Crupier.TURN) {
+            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero()));
+            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero()));
+            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero()));
+            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getTurn().getCartaComoEntero()));
+
+            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero());
+            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero());
+            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero());
+            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getTurn().getCartaComoEntero());
+        }
+
+        HashMap<Player, org.alberta.poker.Hand> hole_cards = new HashMap<>();
+
+        for (Player p : resisten) {
+
+            org.alberta.poker.Hand hole = new org.alberta.poker.Hand();
+            hole.addCard(Bot.getLokiCardFromCoronaIntegerCard(p.getPlayingCard1().getCartaComoEntero()));
+            hole.addCard(Bot.getLokiCardFromCoronaIntegerCard(p.getPlayingCard2().getCartaComoEntero()));
+            hole_cards.put(p, hole);
+
+            deck_remove.add(p.getPlayingCard1().getCartaComoEntero());
+            deck_remove.add(p.getPlayingCard2().getCartaComoEntero());
+
+            stats.put(p, new Integer[]{iterations, 0, 0, 0});
+        }
+
+        deck.removeAll(deck_remove);
+
+        for (int m = 0; m < iterations; m++) {
+
+            ArrayList<Integer> deck_iteration = new ArrayList<>(deck);
+
+            Collections.shuffle(deck_iteration, Helpers.CSPRNG_GENERATOR);
+
+            org.alberta.poker.Hand board_iteration = new org.alberta.poker.Hand(board);
+
+            switch (board_iteration.size()) {
+                case 0:
+                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(0)));
+                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(1)));
+                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(2)));
+                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(3)));
+                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(4)));
+                    break;
+                case 3:
+                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(0)));
+                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(1)));
+                    break;
+                case 4:
+                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(0)));
+                    break;
+                default:
+                    break;
+            }
+
+            HashMap<Player, org.alberta.poker.Hand> cards7_iteration = new HashMap<>();
+
+            for (Player p : resisten) {
+                org.alberta.poker.Hand player_c7_iteration = new org.alberta.poker.Hand(board_iteration);
+
+                player_c7_iteration.addCard(hole_cards.get(p).getCard(1));
+                player_c7_iteration.addCard(hole_cards.get(p).getCard(2));
+
+                cards7_iteration.put(p, player_c7_iteration);
+            }
+
+            org.alberta.poker.Hand best = cards7_iteration.get(resisten.get(0));
+
+            boolean tie = false;
+
+            for (Player p : resisten) {
+
+                if (cards7_iteration.get(p) != best) {
+                    int compare = Bot.HANDEVALUATOR.compareHands(cards7_iteration.get(p), best);
+
+                    if (compare == 1) {
+                        best = cards7_iteration.get(p);
+                    } else if (compare == 0) {
+                        tie = true;
+                    }
+                }
+            }
+
+            for (Player p : resisten) {
+
+                Integer[] stats_jugador = stats.get(p);
+
+                if (Bot.HANDEVALUATOR.compareHands(cards7_iteration.get(p), best) == 0) {
+                    if (tie) {
+                        stats_jugador[3]++;
+                        stats.put(p, stats_jugador);
+                    } else {
+                        stats_jugador[1]++;
+                        stats.put(p, stats_jugador);
+                    }
+                } else {
+                    stats_jugador[2]++;
+                    stats.put(p, stats_jugador);
+                }
+            }
+
+        }
+
+        return stats;
 
     }
 }

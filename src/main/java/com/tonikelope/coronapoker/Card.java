@@ -55,6 +55,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     public final static ConcurrentHashMap<String, Object[]> BARAJAS = new ConcurrentHashMap<>(Map.ofEntries(new HashMap.SimpleEntry<String, Object[]>("coronapoker", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<String, Object[]>("interstate60", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<String, Object[]>("goliat", new Object[]{1.345f, false, null})));
     public final static int DEFAULT_HEIGHT = 200;
     public final static String[] PALOS = {"P", "C", "T", "D"};
+    public final static String PALOS_STRING = "PCTD";
     public final static String[] VALORES = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"};
     public final static int DEFAULT_CORNER = 20;
     private final static HashMap<String, String> UNICODE_TABLE = loadUnicodeTable();
@@ -592,6 +593,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void preIniciarConValorNumerico(int value) {
         preIniciarConValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
+    }
+
+    public int getCartaComoEntero() {
+        return PALOS_STRING.indexOf(getPalo()) * 13 + getValorNumerico(true);
     }
 
     public int getValorNumerico() {

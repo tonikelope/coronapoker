@@ -9,7 +9,7 @@ This is the project of a perfectionist who one day wanted to develop the most co
 
 CoronaPoker was built using Java and (the old, but not obsolete) <a href="https://en.wikipedia.org/wiki/Swing_(Java)">Swing API</a>
 
-### [OPTION A (Recommended)] DOWNLOAD <a href="https://github.com/tonikelope/coronapoker/releases/latest">HERE</a> LATEST RELEASE:
+### [OPTION A (Recommended)] DOWNLOAD <a href="https://github.com/tonikelope/coronapoker/releases/latest">LATEST RELEAS</a>
 
 ### [OPTION B] BUILD CORONAPOKER FROM SOURCE:
 

@@ -172,10 +172,10 @@ public class Crupier implements Runnable {
     public static final Map<String, Map.Entry<String, String[]>> LOSER_SOUNDS = new HashMap<>();
 
     public static volatile Map.Entry<String, String[]> LOSER_SOUNDS_MOD = null;
+    
+    public static final int GIF_SHUFFLE_ANIMATION_TIMEOUT=1500;
 
     public static volatile int GIF_CARD_ANIMATION_TIMEOUT;
-
-    public static volatile int GIF_SHUFFLE_ANIMATION_TIMEOUT;
 
     static {
 
@@ -193,7 +193,6 @@ public class Crupier implements Runnable {
 
         try {
             GIF_CARD_ANIMATION_TIMEOUT = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/A_C.gif"));
-            GIF_SHUFFLE_ANIMATION_TIMEOUT = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/shuffle.gif"));
         } catch (Exception ex) {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -1311,7 +1310,7 @@ public class Crupier implements Runnable {
                 Player jugador = nick2player.get(nick);
 
                 try {
-                    String comando = "SHOWCARDS#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + jugador.getPlayingCard1().toShortString() + "#" + jugador.getPlayingCard2().toShortString();
+                    String comando = "SHOWCARDS#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString();
 
                     broadcastGAMECommandFromServer(comando, nick);
 
@@ -1319,25 +1318,22 @@ public class Crupier implements Runnable {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
-                if (jugador != GameFrame.getInstance().getLocalPlayer() && jugador.getPlayingCard1().isTapada()) {
+                if (jugador != GameFrame.getInstance().getLocalPlayer() && jugador.getHoleCard1().isTapada()) {
 
                     jugador.destaparCartas(true);
 
-                    ArrayList<Card> cartas = new ArrayList<>();
+                    ArrayList<Card> cartas_jugada = new ArrayList<>(jugador.getHoleCards());
 
-                    cartas.add(jugador.getPlayingCard1());
-                    cartas.add(jugador.getPlayingCard2());
-
-                    String lascartas = Card.collection2String(cartas);
+                    String hole_cards_string = Card.collection2String(jugador.getHoleCards());
 
                     for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
                         if (!carta_comun.isTapada()) {
-                            cartas.add(carta_comun);
+                            cartas_jugada.add(carta_comun);
                         }
                     }
 
-                    Hand jugada = new Hand(cartas);
+                    Hand jugada = new Hand(cartas_jugada);
 
                     jugador.showCards(jugada.getName());
 
@@ -1346,7 +1342,7 @@ public class Crupier implements Runnable {
                     }
 
                     if (!perdedores.containsKey(jugador)) {
-                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
+                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
                     }
 
                     sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);
@@ -1380,31 +1376,28 @@ public class Crupier implements Runnable {
 
                 Player jugador = nick2player.get(nick);
 
-                if (jugador.getPlayingCard1().isTapada()) {
+                if (jugador.getHoleCard1().isTapada()) {
 
                     String[] carta1_partes = carta1.split("_");
                     String[] carta2_partes = carta2.split("_");
 
-                    jugador.getPlayingCard1().actualizarValorPalo(carta1_partes[0], carta1_partes[1]);
-                    jugador.getPlayingCard2().actualizarValorPalo(carta2_partes[0], carta2_partes[1]);
+                    jugador.getHoleCard1().actualizarValorPalo(carta1_partes[0], carta1_partes[1]);
+                    jugador.getHoleCard2().actualizarValorPalo(carta2_partes[0], carta2_partes[1]);
 
                     jugador.destaparCartas(true);
 
-                    ArrayList<Card> cartas = new ArrayList<>();
+                    ArrayList<Card> cartas_jugada = new ArrayList<>(jugador.getHoleCards());
 
-                    cartas.add(jugador.getPlayingCard1());
-                    cartas.add(jugador.getPlayingCard2());
-
-                    String lascartas = Card.collection2String(cartas);
+                    String hole_cards_string = Card.collection2String(jugador.getHoleCards());
 
                     for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
                         if (!carta_comun.isTapada()) {
-                            cartas.add(carta_comun);
+                            cartas_jugada.add(carta_comun);
                         }
                     }
 
-                    Hand jugada = new Hand(cartas);
+                    Hand jugada = new Hand(cartas_jugada);
 
                     jugador.showCards(jugada.getName());
 
@@ -1413,7 +1406,7 @@ public class Crupier implements Runnable {
                     }
 
                     if (!perdedores.containsKey(jugador)) {
-                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
+                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
                     }
 
                     checkJugadasMostrar();
@@ -2298,25 +2291,22 @@ public class Crupier implements Runnable {
 
                             rp.destaparCartas(true);
 
-                            ArrayList<Card> cartas = new ArrayList<>();
+                            ArrayList<Card> cartas_jugada = new ArrayList<>(rp.getHoleCards());
 
-                            cartas.add(rp.getPlayingCard1());
-                            cartas.add(rp.getPlayingCard2());
-
-                            String lascartas = Card.collection2String(cartas);
+                            String hole_cards_string = Card.collection2String(rp.getHoleCards());
 
                             for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
                                 if (!carta_comun.isTapada()) {
-                                    cartas.add(carta_comun);
+                                    cartas_jugada.add(carta_comun);
                                 }
                             }
 
-                            Hand jugada = new Hand(cartas);
+                            Hand jugada = new Hand(cartas_jugada);
 
                             rp.showCards(jugada.getName());
 
-                            GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + rp.getNickname() + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
+                            GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + rp.getNickname() + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
 
                             sqlNewShowcards(rp.getNickname(), rp.getDecision() == Player.FOLD);
 
@@ -2336,21 +2326,18 @@ public class Crupier implements Runnable {
 
                 if (GameFrame.getInstance().getLocalPlayer().isLoser()) {
 
-                    ArrayList<Card> cartas = new ArrayList<>();
+                    ArrayList<Card> cartas_jugada = new ArrayList<>(GameFrame.getInstance().getLocalPlayer().getHoleCards());
 
-                    cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard1());
-                    cartas.add(GameFrame.getInstance().getLocalPlayer().getPlayingCard2());
-
-                    String lascartas = Card.collection2String(cartas);
+                    String hole_cards_string = Card.collection2String(GameFrame.getInstance().getLocalPlayer().getHoleCards());
 
                     for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
                         if (!carta_comun.isTapada()) {
-                            cartas.add(carta_comun);
+                            cartas_jugada.add(carta_comun);
                         }
                     }
 
-                    Hand jugada = new Hand(cartas);
+                    Hand jugada = new Hand(cartas_jugada);
 
                     Helpers.GUIRunAndWait(new Runnable() {
                         public void run() {
@@ -2368,7 +2355,7 @@ public class Crupier implements Runnable {
 
                     GameFrame.getInstance().getLocalPlayer().setMuestra(true);
 
-                    GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" MUESTRA (") + lascartas + ")" + (jugada != null ? " -> " + jugada : ""));
+                    GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
 
                     sqlNewShowcards(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getDecision() == Player.FOLD);
 
@@ -2537,8 +2524,8 @@ public class Crupier implements Runnable {
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
             if (jugador.isActivo()) {
-                jugador.getPlayingCard1().resetearCarta(false);
-                jugador.getPlayingCard2().resetearCarta(false);
+                jugador.getHoleCard1().resetearCarta(false);
+                jugador.getHoleCard2().resetearCarta(false);
             }
 
         }
@@ -2783,7 +2770,7 @@ public class Crupier implements Runnable {
 
                     }
 
-                    if (url_icon != null) {
+                    if (url_icon != null && GameFrame.ANIMACION_CARTAS) {
 
                         ImageIcon icon = new ImageIcon(url_icon);
 
@@ -3054,11 +3041,11 @@ public class Crupier implements Runnable {
         try {
             PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
-            statement.setString(1, jugador.getPlayingCard1().isTapada() ? null : jugador.getPlayingCard1().toShortString() + "#" + jugador.getPlayingCard2().toShortString());
+            statement.setString(1, jugador.getHoleCard1().isTapada() ? null : jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString());
 
-            statement.setString(2, (jugador.getPlayingCard1().isTapada() || jugada == null) ? null : Card.collection2ShortString(jugada.getMano()));
+            statement.setString(2, (jugador.getHoleCard1().isTapada() || jugada == null) ? null : Card.collection2ShortString(jugada.getMano()));
 
-            statement.setInt(3, (jugador.getPlayingCard1().isTapada() || jugada == null) ? -1 : jugada.getValue());
+            statement.setInt(3, (jugador.getHoleCard1().isTapada() || jugada == null) ? -1 : jugada.getValue());
 
             statement.setInt(4, this.sqlite_id_hand);
 
@@ -3110,11 +3097,11 @@ public class Crupier implements Runnable {
 
             statement.setString(2, jugador != null ? jugador.getNickname() : "-----");
 
-            statement.setString(3, (jugador == null || jugador.getPlayingCard1().isTapada()) ? null : jugador.getPlayingCard1().toShortString() + "#" + jugador.getPlayingCard2().toShortString());
+            statement.setString(3, (jugador == null || jugador.getHoleCard1().isTapada()) ? null : jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString());
 
-            statement.setString(4, (jugador == null || jugador.getPlayingCard1().isTapada() || jugada == null) ? null : Card.collection2ShortString(jugada.getMano()));
+            statement.setString(4, (jugador == null || jugador.getHoleCard1().isTapada() || jugada == null) ? null : Card.collection2ShortString(jugada.getMano()));
 
-            statement.setInt(5, (jugador == null || jugador.getPlayingCard1().isTapada() || jugada == null) ? -1 : jugada.getValue());
+            statement.setInt(5, (jugador == null || jugador.getHoleCard1().isTapada() || jugada == null) ? -1 : jugada.getValue());
 
             statement.setBoolean(6, win);
 
@@ -3437,8 +3424,8 @@ public class Crupier implements Runnable {
 
                 if (jugador.isActivo()) {
 
-                    jugador.getPlayingCard1().iniciarCarta();
-                    jugador.getPlayingCard2().iniciarCarta();
+                    jugador.getHoleCard1().iniciarCarta();
+                    jugador.getHoleCard2().iniciarCarta();
                 }
             }
         }
@@ -3466,20 +3453,20 @@ public class Crupier implements Runnable {
 
                     if (GameFrame.getInstance().isPartida_local()) {
 
-                        jugador.getPlayingCard1().iniciarCarta();
+                        jugador.getHoleCard1().iniciarCarta();
 
                     } else {
 
                         String[] carta = cartas_locales_recibidas.get(0).split("_");
 
-                        jugador.getPlayingCard1().iniciarConValorPalo(carta[0], carta[1]);
+                        jugador.getHoleCard1().iniciarConValorPalo(carta[0], carta[1]);
                     }
 
-                    jugador.getPlayingCard1().destapar(false);
+                    jugador.getHoleCard1().destapar(false);
 
                 } else {
 
-                    jugador.getPlayingCard1().iniciarCarta();
+                    jugador.getHoleCard1().iniciarCarta();
 
                 }
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
@@ -3488,16 +3475,16 @@ public class Crupier implements Runnable {
 
                 if (GameFrame.getInstance().isPartida_local()) {
 
-                    jugador.getPlayingCard1().iniciarCarta();
+                    jugador.getHoleCard1().iniciarCarta();
 
                 } else {
 
                     String[] carta = cartas_locales_recibidas.get(0).split("_");
 
-                    jugador.getPlayingCard1().iniciarConValorPalo(carta[0], carta[1]);
+                    jugador.getHoleCard1().iniciarConValorPalo(carta[0], carta[1]);
                 }
 
-                jugador.getPlayingCard1().destapar(false);
+                jugador.getHoleCard1().destapar(false);
 
             }
 
@@ -3522,21 +3509,21 @@ public class Crupier implements Runnable {
 
                     if (GameFrame.getInstance().isPartida_local()) {
 
-                        jugador.getPlayingCard2().iniciarCarta();
+                        jugador.getHoleCard2().iniciarCarta();
 
                     } else {
 
                         String[] carta = cartas_locales_recibidas.get(1).split("_");
 
-                        jugador.getPlayingCard2().iniciarConValorPalo(carta[0], carta[1]);
+                        jugador.getHoleCard2().iniciarConValorPalo(carta[0], carta[1]);
 
                     }
 
-                    jugador.getPlayingCard2().destapar(false);
+                    jugador.getHoleCard2().destapar(false);
 
                 } else {
 
-                    jugador.getPlayingCard2().iniciarCarta();
+                    jugador.getHoleCard2().iniciarCarta();
                 }
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -3544,16 +3531,16 @@ public class Crupier implements Runnable {
 
                 if (GameFrame.getInstance().isPartida_local()) {
 
-                    jugador.getPlayingCard2().iniciarCarta();
+                    jugador.getHoleCard2().iniciarCarta();
 
                 } else {
 
                     String[] carta = cartas_locales_recibidas.get(1).split("_");
 
-                    jugador.getPlayingCard2().iniciarConValorPalo(carta[0], carta[1]);
+                    jugador.getHoleCard2().iniciarConValorPalo(carta[0], carta[1]);
                 }
 
-                jugador.getPlayingCard2().destapar(false);
+                jugador.getHoleCard2().destapar(false);
 
             }
 
@@ -3597,7 +3584,7 @@ public class Crupier implements Runnable {
 
             if (jugador.isActivo()) {
 
-                jugador.getPlayingCard1().preIniciarConValorNumerico(permutacion_baraja[p++]);
+                jugador.getHoleCard1().preIniciarConValorNumerico(permutacion_baraja[p++]);
             }
 
             j = (j + 1) % GameFrame.getInstance().getJugadores().size();
@@ -3611,7 +3598,7 @@ public class Crupier implements Runnable {
 
             if (jugador.isActivo()) {
 
-                jugador.getPlayingCard2().preIniciarConValorNumerico(permutacion_baraja[p++]);
+                jugador.getHoleCard2().preIniciarConValorNumerico(permutacion_baraja[p++]);
             }
 
             j = (j + 1) % GameFrame.getInstance().getJugadores().size();
@@ -3664,8 +3651,8 @@ public class Crupier implements Runnable {
 
                     if (p != null && !p.isCpu()) {
 
-                        String carta1 = jugador.getPlayingCard1().toShortString();
-                        String carta2 = jugador.getPlayingCard2().toShortString();
+                        String carta1 = jugador.getHoleCard1().toShortString();
+                        String carta2 = jugador.getHoleCard2().toShortString();
                         p.writeCommandFromServer(Helpers.encryptCommand(command + "#" + carta1 + "@" + carta2, p.getAes_key(), iv, p.getHmac_key()));
 
                     }
@@ -4374,19 +4361,19 @@ public class Crupier implements Runnable {
                         flop_players.addAll(resisten);
                         comando = "FLOPCARDS#" + GameFrame.getInstance().getCartas_comunes()[0].toShortString() + "#" + GameFrame.getInstance().getCartas_comunes()[1].toShortString() + "#" + GameFrame.getInstance().getCartas_comunes()[2].toShortString();
 
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop1().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(GameFrame.getInstance().getFlop1())));
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop2().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(GameFrame.getInstance().getFlop2())));
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop3().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(GameFrame.getInstance().getFlop3())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop1().getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(GameFrame.getInstance().getFlop1())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop2().getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(GameFrame.getInstance().getFlop2())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop3().getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(GameFrame.getInstance().getFlop3())));
 
                         break;
                     case TURN:
                         comando = "TURNCARD#" + GameFrame.getInstance().getCartas_comunes()[3].toShortString();
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getTurn().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(GameFrame.getInstance().getTurn())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getTurn().getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(GameFrame.getInstance().getTurn())));
 
                         break;
                     case RIVER:
                         comando = "RIVERCARD#" + GameFrame.getInstance().getCartas_comunes()[4].toShortString();
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getRiver().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(GameFrame.getInstance().getRiver())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getRiver().getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(GameFrame.getInstance().getRiver())));
 
                         break;
                     default:
@@ -4913,9 +4900,9 @@ public class Crupier implements Runnable {
 
             for (Player p : resisten) {
 
-                org.alberta.poker.Card card1 = new org.alberta.poker.Card(p.getPlayingCard1().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(p.getPlayingCard1()));
+                org.alberta.poker.Card card1 = Bot.coronaCard2LokiCard(p.getHoleCard1());
 
-                org.alberta.poker.Card card2 = new org.alberta.poker.Card(p.getPlayingCard2().getValorNumerico() - 2, Bot.getLokiCardSuitFromCoronaCard(p.getPlayingCard2()));
+                org.alberta.poker.Card card2 = Bot.coronaCard2LokiCard(p.getHoleCard2());
 
                 double strength = Bot.HANDEVALUATOR.handRank(card1, card2, Bot.BOT_COMMUNITY_CARDS, resisten.size() - 1);
 
@@ -4929,18 +4916,22 @@ public class Crupier implements Runnable {
 
             }
 
+            ArrayList<Object[]> stats_ordenadas = new ArrayList<>();
+
             for (Player p : resisten) {
-                Integer[] stats = multiverse.get(p);
+                stats_ordenadas.add(new Object[]{p, multiverse.get(p)});
+            }
 
-                p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p), Helpers.floatClean(((float) stats[1] / stats[0]) * 100));
+            stats_ordenadas.sort((a, b) -> ((Integer[]) b[1])[1] - ((Integer[]) a[1])[1]);
 
-                ArrayList<Card> cartas_repartidas_jugador = new ArrayList<>();
+            for (Object[] s : stats_ordenadas) {
+                Player p = (Player) s[0];
 
-                cartas_repartidas_jugador.add(p.getPlayingCard1());
+                Integer[] stats = (Integer[]) s[1];
 
-                cartas_repartidas_jugador.add(p.getPlayingCard2());
+                p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p), Helpers.floatClean(((float) (stats[1] + stats[3]) / stats[0]) * 100));
 
-                GameFrame.getInstance().getRegistro().print(p.getNickname() + " (" + Card.collection2String(cartas_repartidas_jugador) + ")   MULTIVERSE(" + stats[0] + ") -> WIN: " + Helpers.floatClean(((float) stats[1] / stats[0]) * 100, 2) + "%   LOSE: " + Helpers.floatClean(((float) stats[2] / stats[0]) * 100, 2) + "%   TIE: " + Helpers.floatClean(((float) stats[3] / stats[0]) * 100, 2) + "%   (LOKI: " + Helpers.floatClean((float) jugadas.get(p).getFuerza(), 2) + "%)");
+                GameFrame.getInstance().getRegistro().print(p.getNickname() + " (" + Card.collection2String(p.getHoleCards()) + Translator.translate(")   MULTIVERSO(") + stats[0] + Translator.translate(") -> GANA: ") + Helpers.floatClean(((float) stats[1] / stats[0]) * 100, 2) + Translator.translate("%   PIERDE: ") + Helpers.floatClean(((float) stats[2] / stats[0]) * 100, 2) + Translator.translate("%   EMPATA: ") + Helpers.floatClean(((float) stats[3] / stats[0]) * 100, 2) + "%   (LOKI: " + Helpers.floatClean((float) jugadas.get(p).getFuerza(), 2) + "%)");
             }
 
         }
@@ -4954,9 +4945,9 @@ public class Crupier implements Runnable {
             boolean ganador_tapado = false;
 
             for (Player p : GameFrame.getInstance().getJugadores()) {
-                if (p.isActivo() && ((p.getDecision() == Player.FOLD && p.isMuestra()) || (p.isWinner() && !p.getPlayingCard1().isTapada()))) {
+                if (p.isActivo() && ((p.getDecision() == Player.FOLD && p.isMuestra()) || (p.isWinner() && !p.getHoleCard1().isTapada()))) {
                     candidatos.add(p);
-                } else if (p.isWinner() && p.getPlayingCard1().isTapada()) {
+                } else if (p.isWinner() && p.getHoleCard1().isTapada()) {
                     ganador_tapado = true;
                     break;
                 }
@@ -6313,9 +6304,9 @@ public class Crupier implements Runnable {
 
                                 String[] carta2 = suscartas[1].split("_");
 
-                                jugador.getPlayingCard1().actualizarValorPalo(carta1[0], carta1[1]);
+                                jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
 
-                                jugador.getPlayingCard2().actualizarValorPalo(carta2[0], carta2[1]);
+                                jugador.getHoleCard2().actualizarValorPalo(carta2[0], carta2[1]);
                             }
 
                         }
@@ -6372,7 +6363,7 @@ public class Crupier implements Runnable {
 
                     if (!jugador.isExit()) {
                         try {
-                            comando += "#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "#" + jugador.getPlayingCard1().toShortString() + "#" + jugador.getPlayingCard2().toShortString();
+                            comando += "#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "#" + jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString();
                         } catch (UnsupportedEncodingException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -6475,11 +6466,11 @@ public class Crupier implements Runnable {
 
     public boolean ganaPorUltimaCarta(Player jugador, Hand jugada, int MIN) {
 
-        if (!GameFrame.getInstance().getRiver().isTapada() && jugada.getWinners().contains(GameFrame.getInstance().getRiver()) && jugada.getValue() >= MIN && (jugada.getWinners().contains(jugador.getPlayingCard1()) || jugada.getWinners().contains(jugador.getPlayingCard2()))) {
+        if (!GameFrame.getInstance().getRiver().isTapada() && jugada.getWinners().contains(GameFrame.getInstance().getRiver()) && jugada.getValue() >= MIN && (jugada.getWinners().contains(jugador.getHoleCard1()) || jugada.getWinners().contains(jugador.getHoleCard2()))) {
 
             ArrayList<Card> cartas = new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes()));
-            cartas.add(jugador.getPlayingCard1());
-            cartas.add(jugador.getPlayingCard2());
+            cartas.add(jugador.getHoleCard1());
+            cartas.add(jugador.getHoleCard2());
             cartas.remove(GameFrame.getInstance().getRiver());
 
             Hand nueva_jugada = new Hand(cartas);
@@ -6496,21 +6487,21 @@ public class Crupier implements Runnable {
 
             ArrayList<Card> cartas = new ArrayList<>(Arrays.asList(GameFrame.getInstance().getCartas_comunes()));
 
-            cartas.add(perdedor.getPlayingCard1());
+            cartas.add(perdedor.getHoleCard1());
 
-            cartas.add(perdedor.getPlayingCard2());
+            cartas.add(perdedor.getHoleCard2());
 
             cartas.remove(GameFrame.getInstance().getRiver());
 
             Hand jugada_perdedor_turn = new Hand(cartas);
 
-            cartas.remove(perdedor.getPlayingCard1());
+            cartas.remove(perdedor.getHoleCard1());
 
-            cartas.remove(perdedor.getPlayingCard2());
+            cartas.remove(perdedor.getHoleCard2());
 
-            cartas.add(ganador.getPlayingCard1());
+            cartas.add(ganador.getHoleCard1());
 
-            cartas.add(ganador.getPlayingCard2());
+            cartas.add(ganador.getHoleCard2());
 
             Hand jugada_ganador_turn = new Hand(cartas);
 
@@ -6632,7 +6623,7 @@ public class Crupier implements Runnable {
 
                         } else {
 
-                            if (jugador_actual.getPlayingCard1().isTapada()) {
+                            if (jugador_actual.getHoleCard1().isTapada()) {
 
                                 jugador_actual.setLoser(Translator.translate("PIERDE"));
 
@@ -6686,9 +6677,9 @@ public class Crupier implements Runnable {
 
                         ArrayList<Card> cartas = new ArrayList<>();
 
-                        cartas.add(jugador_actual.getPlayingCard1());
+                        cartas.add(jugador_actual.getHoleCard1());
 
-                        cartas.add(jugador_actual.getPlayingCard2());
+                        cartas.add(jugador_actual.getHoleCard2());
 
                         jugador_actual.destaparCartas(false);
 
@@ -6735,7 +6726,7 @@ public class Crupier implements Runnable {
                 @Override
                 public void run() {
                     for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
-                        if (rp.isActivo() && rp.isLoser() && rp.getPlayingCard1().isTapada()) {
+                        if (rp.isActivo() && rp.isLoser() && rp.getHoleCard1().isTapada()) {
                             rp.getIwtsth_blink_timer().start();
                         }
                     }
@@ -7034,8 +7025,8 @@ public class Crupier implements Runnable {
                             resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("GANAS") : Translator.translate("GANA"));
 
                             if (resisten.get(0) != GameFrame.getInstance().getLocalPlayer()) {
-                                resisten.get(0).getPlayingCard1().desenfocar();
-                                resisten.get(0).getPlayingCard2().desenfocar();
+                                resisten.get(0).getHoleCard1().desenfocar();
+                                resisten.get(0).getHoleCard2().desenfocar();
                             }
 
                             resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
@@ -7112,12 +7103,12 @@ public class Crupier implements Runnable {
                                         }
                                     }
 
-                                    if (!cartas.contains(ganador.getPlayingCard1())) {
-                                        ganador.getPlayingCard1().desenfocar();
+                                    if (!cartas.contains(ganador.getHoleCard1())) {
+                                        ganador.getHoleCard1().desenfocar();
                                     }
 
-                                    if (!cartas.contains(ganador.getPlayingCard2())) {
-                                        ganador.getPlayingCard2().desenfocar();
+                                    if (!cartas.contains(ganador.getHoleCard2())) {
+                                        ganador.getHoleCard2().desenfocar();
                                     }
 
                                     jugadas.remove(ganador);
@@ -7126,13 +7117,7 @@ public class Crupier implements Runnable {
 
                                     this.bote_total -= cantidad_pagar_ganador[0];
 
-                                    ArrayList<Card> cartas_repartidas_jugador = new ArrayList<>();
-
-                                    cartas_repartidas_jugador.add(ganador.getPlayingCard1());
-
-                                    cartas_repartidas_jugador.add(ganador.getPlayingCard2());
-
-                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(cartas_repartidas_jugador) + Translator.translate(") GANA BOTE (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
 
                                     unganador = ganador;
 
@@ -7199,12 +7184,12 @@ public class Crupier implements Runnable {
                                         }
                                     }
 
-                                    if (!cartas.contains(ganador.getPlayingCard1())) {
-                                        ganador.getPlayingCard1().desenfocar();
+                                    if (!cartas.contains(ganador.getHoleCard1())) {
+                                        ganador.getHoleCard1().desenfocar();
                                     }
 
-                                    if (!cartas.contains(ganador.getPlayingCard2())) {
-                                        ganador.getPlayingCard2().desenfocar();
+                                    if (!cartas.contains(ganador.getHoleCard2())) {
+                                        ganador.getHoleCard2().desenfocar();
                                     }
 
                                     jugadas.remove(ganador);
@@ -7213,13 +7198,7 @@ public class Crupier implements Runnable {
 
                                     this.bote_total -= cantidad_pagar_ganador[0];
 
-                                    ArrayList<Card> cartas_repartidas_jugador = new ArrayList<>();
-
-                                    cartas_repartidas_jugador.add(ganador.getPlayingCard1());
-
-                                    cartas_repartidas_jugador.add(ganador.getPlayingCard2());
-
-                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(cartas_repartidas_jugador) + Translator.translate(") GANA BOTE PRINCIPAL (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE PRINCIPAL (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
 
                                     unganador = ganador;
 
@@ -7285,13 +7264,7 @@ public class Crupier implements Runnable {
 
                                             Hand jugada = entry.getValue();
 
-                                            ArrayList<Card> cartas_repartidas_jugador = new ArrayList<>();
-
-                                            cartas_repartidas_jugador.add(ganador.getPlayingCard1());
-
-                                            cartas_repartidas_jugador.add(ganador.getPlayingCard2());
-
-                                            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(cartas_repartidas_jugador) + Translator.translate(") GANA BOTE SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
 
                                             this.sqlUpdateShowdownPay(ganador);
                                         }
@@ -7666,9 +7639,9 @@ public class Crupier implements Runnable {
                 }
             }
 
-            cartas_utilizables.add(jugador.getPlayingCard1());
+            cartas_utilizables.add(jugador.getHoleCard1());
 
-            cartas_utilizables.add(jugador.getPlayingCard2());
+            cartas_utilizables.add(jugador.getHoleCard2());
 
             jugadas.put(jugador, new Hand(cartas_utilizables));
         }
@@ -7942,15 +7915,13 @@ public class Crupier implements Runnable {
 
     private HashMap<Player, Integer[]> monteCarlo(ArrayList<Player> resisten, int iterations) {
 
-        if (resisten.size() <= 1) {
-            return null;
-        }
-
         HashMap<Player, Integer[]> stats = new HashMap<>();
 
-        ArrayList<Integer> deck = new ArrayList<>();
+        if (resisten.size() <= 1) {
+            return stats;
+        }
 
-        ArrayList<Integer> deck_remove = new ArrayList<>();
+        ArrayList<Integer> deck = new ArrayList<>();
 
         for (int i = 1; i <= 52; i++) {
             deck.add(i);
@@ -7959,23 +7930,23 @@ public class Crupier implements Runnable {
         org.alberta.poker.Hand board = new org.alberta.poker.Hand();
 
         if (this.fase == Crupier.FLOP) {
-            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero()));
-            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero()));
-            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero()));
+            board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero()));
+            board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero()));
+            board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero()));
 
-            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero());
-            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero());
-            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero());
+            deck.remove((Integer) GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero());
+            deck.remove((Integer) GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero());
+            deck.remove((Integer) GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero());
         } else if (this.fase == Crupier.TURN) {
-            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero()));
-            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero()));
-            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero()));
-            board.addCard(Bot.getLokiCardFromCoronaIntegerCard(GameFrame.getInstance().getTapete().getCommunityCards().getTurn().getCartaComoEntero()));
+            board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero()));
+            board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero()));
+            board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero()));
+            board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getTurn().getCartaComoEntero()));
 
-            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero());
-            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero());
-            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero());
-            deck_remove.add(GameFrame.getInstance().getTapete().getCommunityCards().getTurn().getCartaComoEntero());
+            deck.remove((Integer) GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero());
+            deck.remove((Integer) GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero());
+            deck.remove((Integer) GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero());
+            deck.remove((Integer) GameFrame.getInstance().getTapete().getCommunityCards().getTurn().getCartaComoEntero());
         }
 
         HashMap<Player, org.alberta.poker.Hand> hole_cards = new HashMap<>();
@@ -7983,17 +7954,15 @@ public class Crupier implements Runnable {
         for (Player p : resisten) {
 
             org.alberta.poker.Hand hole = new org.alberta.poker.Hand();
-            hole.addCard(Bot.getLokiCardFromCoronaIntegerCard(p.getPlayingCard1().getCartaComoEntero()));
-            hole.addCard(Bot.getLokiCardFromCoronaIntegerCard(p.getPlayingCard2().getCartaComoEntero()));
+            hole.addCard(Bot.coronaIntegerCard2LokiCard(p.getHoleCard1().getCartaComoEntero()));
+            hole.addCard(Bot.coronaIntegerCard2LokiCard(p.getHoleCard2().getCartaComoEntero()));
             hole_cards.put(p, hole);
 
-            deck_remove.add(p.getPlayingCard1().getCartaComoEntero());
-            deck_remove.add(p.getPlayingCard2().getCartaComoEntero());
+            deck.remove((Integer) p.getHoleCard1().getCartaComoEntero());
+            deck.remove((Integer) p.getHoleCard2().getCartaComoEntero());
 
             stats.put(p, new Integer[]{iterations, 0, 0, 0});
         }
-
-        deck.removeAll(deck_remove);
 
         for (int m = 0; m < iterations; m++) {
 
@@ -8005,18 +7974,18 @@ public class Crupier implements Runnable {
 
             switch (board_iteration.size()) {
                 case 0:
-                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(0)));
-                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(1)));
-                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(2)));
-                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(3)));
-                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(4)));
+                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(0)));
+                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(1)));
+                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(2)));
+                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(3)));
+                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(4)));
                     break;
                 case 3:
-                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(0)));
-                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(1)));
+                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(0)));
+                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(1)));
                     break;
                 case 4:
-                    board_iteration.addCard(Bot.getLokiCardFromCoronaIntegerCard(deck_iteration.get(0)));
+                    board_iteration.addCard(Bot.coronaIntegerCard2LokiCard(deck_iteration.get(0)));
                     break;
                 default:
                     break;

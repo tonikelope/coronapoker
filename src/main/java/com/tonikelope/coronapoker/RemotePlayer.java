@@ -39,6 +39,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -144,7 +145,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                int sound_icon_size_h = getPlayingCard1().getHeight();
+                int sound_icon_size_h = getHoleCard1().getHeight();
 
                 int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
 
@@ -226,7 +227,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                                         int pos_x = Math.round((panel_cartas.getWidth() - image.getIconWidth()) / 2);
 
-                                        int pos_y = Math.round((getPlayingCard1().getHeight() - image.getIconHeight()) / 2);
+                                        int pos_y = Math.round((getHoleCard1().getHeight() - image.getIconHeight()) / 2);
 
                                         getChat_notify_label().setIcon(image);
 
@@ -297,7 +298,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
 
-                    int pos_y = Math.round(GameFrame.VISTA_COMPACTA > 0 ? (getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) : ((getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) / 2));
+                    int pos_y = Math.round(GameFrame.VISTA_COMPACTA > 0 ? (getHoleCard1().getHeight() - sec_pot_win_label.getHeight()) : ((getHoleCard1().getHeight() - sec_pot_win_label.getHeight()) / 2));
 
                     sec_pot_win_label.setLocation(pos_x, pos_y);
 
@@ -999,12 +1000,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    public Card getPlayingCard1() {
+    public Card getHoleCard1() {
         return playingCard1;
     }
 
-    public Card getPlayingCard2() {
+    public Card getHoleCard2() {
         return playingCard2;
+    }
+
+    public ArrayList<Card> getHoleCards() {
+        ArrayList<Card> cartas = new ArrayList<>();
+
+        cartas.add(getHoleCard1());
+
+        cartas.add(getHoleCard2());
+        return cartas;
     }
 
     public String getNickname() {
@@ -1368,7 +1378,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // End of variables declaration//GEN-END:variables
 
     public boolean isIwtsthCandidate() {
-        return isLoser() && isActivo() && getPlayingCard1().isVisible_card() && getPlayingCard1().isTapada();
+        return isLoser() && isActivo() && getHoleCard1().isVisible_card() && getHoleCard1().isTapada();
     }
 
     public void zoomIcons() {
@@ -2092,7 +2102,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void destaparCartas(boolean sound) {
 
-        if (getPlayingCard1().isIniciada() && getPlayingCard1().isTapada()) {
+        if (getHoleCard1().isIniciada() && getHoleCard1().isTapada()) {
 
             if (sound) {
                 Audio.playWavResource("misc/uncover.wav", false);
@@ -2100,9 +2110,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             chip_label.setVisible(false);
 
-            getPlayingCard1().destapar(false);
+            getHoleCard1().destapar(false);
 
-            getPlayingCard2().destapar(false);
+            getHoleCard2().destapar(false);
 
             if (iwtsth_blink_timer.isRunning()) {
 
@@ -2119,7 +2129,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void ordenarCartas() {
-        if (getPlayingCard1().getValorNumerico() != -1 && getPlayingCard2().getValorNumerico() != -1 && getPlayingCard1().getValorNumerico() < getPlayingCard2().getValorNumerico()) {
+        if (getHoleCard1().getValorNumerico() != -1 && getHoleCard2().getValorNumerico() != -1 && getHoleCard1().getValorNumerico() < getHoleCard2().getValorNumerico()) {
 
             //Ordenamos las cartas para mayor comodidad
             String valor1 = this.playingCard1.getValor();

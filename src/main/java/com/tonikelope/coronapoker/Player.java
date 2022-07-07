@@ -30,6 +30,7 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.net.URL;
+import java.util.ArrayList;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
@@ -85,9 +86,11 @@ public interface Player {
 
     public void setNickname(String name);
 
-    public Card getPlayingCard1();
+    public Card getHoleCard1();
 
-    public Card getPlayingCard2();
+    public Card getHoleCard2();
+
+    public ArrayList<Card> getHoleCards();
 
     public void setWinner(String msg);
 

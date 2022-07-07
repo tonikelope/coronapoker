@@ -28,7 +28,6 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.swing.JTextArea;
@@ -105,19 +104,13 @@ public final class GameLogDialog extends javax.swing.JDialog {
 
                     Hand jugada = entry.getValue();
 
-                    if (!"".equals(perdedor.getPlayingCard1().getValor()) && ((perdedor != GameFrame.getInstance().getLocalPlayer() && !perdedor.getPlayingCard1().isTapada()) || (perdedor == GameFrame.getInstance().getLocalPlayer() && GameFrame.getInstance().getLocalPlayer().isMuestra()))) {
+                    if (!"".equals(perdedor.getHoleCard1().getValor()) && ((perdedor != GameFrame.getInstance().getLocalPlayer() && !perdedor.getHoleCard1().isTapada()) || (perdedor == GameFrame.getInstance().getLocalPlayer() && GameFrame.getInstance().getLocalPlayer().isMuestra()))) {
 
-                        ArrayList<Card> cartas_repartidas_jugador = new ArrayList<>();
+                        String hole_cards_string = this.utf8_cards ? this.translateNormalCards2UTF8(Card.collection2String(perdedor.getHoleCards())) : Card.collection2String(perdedor.getHoleCards());
 
-                        cartas_repartidas_jugador.add(perdedor.getPlayingCard1());
+                        String jugada_string = this.utf8_cards ? this.translateNormalCards2UTF8(jugada.toString()) : jugada.toString();
 
-                        cartas_repartidas_jugador.add(perdedor.getPlayingCard2());
-
-                        String lascartas = this.utf8_cards ? this.translateNormalCards2UTF8(Card.collection2String(cartas_repartidas_jugador)) : Card.collection2String(cartas_repartidas_jugador);
-
-                        String lajugada = this.utf8_cards ? this.translateNormalCards2UTF8(jugada.toString()) : jugada.toString();
-
-                        GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)] +(\\w+ .+)", perdedor.getNickname().replace("$", "\\$") + " (" + lascartas + ") $1 -> " + lajugada);
+                        GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)] +(\\w+ .+)", perdedor.getNickname().replace("$", "\\$") + " (" + hole_cards_string + ") $1 -> " + jugada_string);
 
                     } else {
 

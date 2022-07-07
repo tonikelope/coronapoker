@@ -2,7 +2,7 @@
 
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg) [![macOS](https://svgshare.com/i/ZjP.svg)](https://svgshare.com/i/ZjP.svg) [![Windows](https://svgshare.com/i/ZhY.svg)](https://svgshare.com/i/ZhY.svg)
 
-This is the project of a perfectionist who one day during 2020 covid confinement came up with to develop for his friends the most complete and fun open source Texas hold'em game. With all my love and dedication, for you. I hope you enjoy playing it as much as I enjoy programming it. Carpe diem.
+This is the project of a perfectionist who one day during COVID-19 confinement came up with to develop for his friends the most complete and fun open source Texas hold'em game. With all my love and dedication, for you. I hope you enjoy playing it as much as I enjoy programming it. Carpe diem.
 
 <h3 align="center"><a href="https://www.youtube.com/watch?v=lAUBjjssKGk"><b>GAMEPLAY VIDEO</b></a></h3>
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>

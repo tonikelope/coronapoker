@@ -7,11 +7,9 @@ This is the project of a perfectionist who one day wanted to develop the most co
 <h3 align="center"><a href="https://www.youtube.com/watch?v=lAUBjjssKGk"><b>GAMEPLAY VIDEO</b></a></h3>
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
-CoronaPoker was built using Java and (the old, but not obsolete) https://en.wikipedia.org/wiki/Swing_(Java)
+CoronaPoker was built using Java and (the old, but not obsolete) <a href="https://en.wikipedia.org/wiki/Swing_(Java)">Swing API</a>
 
-### [OPTION A (Recommended)] DOWNLOAD LATEST RELEASE:
-https://github.com/tonikelope/coronapoker/releases/latest
-
+### [OPTION A (Recommended)] DOWNLOAD <a href="https://github.com/tonikelope/coronapoker/releases/latest">HERE</a> LATEST RELEASE:
 
 ### [OPTION B] BUILD CORONAPOKER FROM SOURCE:
 

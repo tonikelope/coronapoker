@@ -150,10 +150,14 @@ public final class GameLogDialog extends javax.swing.JDialog {
                         Helpers.GUIRun(new Runnable() {
                             public void run() {
 
+                                int caret_pos = getTextArea().getCaretPosition();
+
                                 getTextArea().append(message + "\n\n");
 
                                 if (auto_scroll) {
                                     getTextArea().setCaretPosition(getTextArea().getText().length());
+                                } else {
+                                    getTextArea().setCaretPosition(caret_pos);
                                 }
                             }
                         });

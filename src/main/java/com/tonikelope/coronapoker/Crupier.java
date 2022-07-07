@@ -172,8 +172,8 @@ public class Crupier implements Runnable {
     public static final Map<String, Map.Entry<String, String[]>> LOSER_SOUNDS = new HashMap<>();
 
     public static volatile Map.Entry<String, String[]> LOSER_SOUNDS_MOD = null;
-    
-    public static final int GIF_SHUFFLE_ANIMATION_TIMEOUT=1500;
+
+    public static final int GIF_SHUFFLE_ANIMATION_TIMEOUT = 1500;
 
     public static volatile int GIF_CARD_ANIMATION_TIMEOUT;
 
@@ -4886,7 +4886,7 @@ public class Crupier implements Runnable {
 
     private void checkJugadasParciales(ArrayList<Player> resisten) {
 
-        if (this.destapar_resistencia) {
+        if (this.destapar_resistencia && this.fase != Crupier.RIVER) {
 
             HashMap<Player, Hand> jugadas = calcularJugadas(resisten);
 
@@ -4924,16 +4924,22 @@ public class Crupier implements Runnable {
 
             stats_ordenadas.sort((a, b) -> ((Integer[]) b[1])[1] - ((Integer[]) a[1])[1]);
 
+            String[] stats_registro = new String[resisten.size()];
+
+            int i = 0;
+
             for (Object[] s : stats_ordenadas) {
+
                 Player p = (Player) s[0];
 
                 Integer[] stats = (Integer[]) s[1];
 
                 p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p), Helpers.floatClean(((float) (stats[1] + stats[3]) / stats[0]) * 100));
 
-                GameFrame.getInstance().getRegistro().print(p.getNickname() + " (" + Card.collection2String(p.getHoleCards()) + Translator.translate(")   MULTIVERSO(") + stats[0] + Translator.translate(") -> GANA: ") + Helpers.floatClean(((float) stats[1] / stats[0]) * 100, 2) + Translator.translate("%   PIERDE: ") + Helpers.floatClean(((float) stats[2] / stats[0]) * 100, 2) + Translator.translate("%   EMPATA: ") + Helpers.floatClean(((float) stats[3] / stats[0]) * 100, 2) + "%   (LOKI: " + Helpers.floatClean((float) jugadas.get(p).getFuerza(), 2) + "%)");
+                stats_registro[i++] = p.getNickname() + " (" + Card.collection2String(p.getHoleCards()) + Translator.translate(")   MULTIVERSO(") + stats[0] + Translator.translate(") -> GANA: ") + Helpers.floatClean(((float) stats[1] / stats[0]) * 100, 2) + Translator.translate("%   PIERDE: ") + Helpers.floatClean(((float) stats[2] / stats[0]) * 100, 2) + Translator.translate("%   EMPATA: ") + Helpers.floatClean(((float) stats[3] / stats[0]) * 100, 2) + "%   (LOKI: " + Helpers.floatClean((float) jugadas.get(p).getFuerza(), 2) + "%)";
             }
 
+            GameFrame.getInstance().getRegistro().print(String.join("\n\n", stats_registro));
         }
     }
 

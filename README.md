@@ -7,7 +7,7 @@ This is the project of a perfectionist who one day wanted to develop the most co
 <h3 align="center"><a href="https://www.youtube.com/watch?v=lAUBjjssKGk"><b>GAMEPLAY VIDEO</b></a></h3>
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
-CoronaPoker was built using (the old, but not obsolete) https://en.wikipedia.org/wiki/Swing_(Java)
+CoronaPoker was built using Java and (the old, but not obsolete) https://en.wikipedia.org/wiki/Swing_(Java)
 
 ### [OPTION A (Recommended)] DOWNLOAD LATEST RELEASE:
 https://github.com/tonikelope/coronapoker/releases/latest
@@ -27,6 +27,7 @@ It is a small module that is loaded at game startup to mitigate any player (incl
 mvn clean install
 ```
 <i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you download from here the compiled jar or build it from the source code but without including the CoronaHMAC dependency (otherwise, every user built binary would be different generating false positives in the CoronaHMAC anti-cheating module).</i>
+
 
 ### [OPTION C] BUILD CORONAPOKER FROM SOURCE WITHOUT CORONAHMAC dependency:
 

@@ -160,13 +160,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             @Override
             public void run() {
 
-                int sound_icon_size_h = Math.round(getPlayingCard1().getHeight() / 2);
+                int sound_icon_size_h = Math.round(getHoleCard1().getHeight() / 2);
 
                 int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
 
                 int pos_x = panel_cartas.getWidth() - sound_icon_size_w;
 
-                int pos_y = Math.round(getPlayingCard1().getHeight() / 2);
+                int pos_y = Math.round(getHoleCard1().getHeight() / 2);
 
                 getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)));
 
@@ -219,7 +219,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                     int max_width = panel_cartas.getWidth();
 
-                                    int max_height = Math.round(getPlayingCard1().getHeight() / 2);
+                                    int max_height = Math.round(getHoleCard1().getHeight() / 2);
 
                                     if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
 
@@ -239,7 +239,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                     int pos_x = panel_cartas.getWidth() - image.getIconWidth();
 
-                                    int pos_y = Math.round(getPlayingCard1().getHeight() / 2);
+                                    int pos_y = Math.round(getHoleCard1().getHeight() / 2);
 
                                     getChat_notify_label().setIcon(image);
 
@@ -422,7 +422,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if (isActivo() && chip_label_icon != null) {
                     chip_label.setIcon(chip_label_icon);
                     chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
-                    chip_label.setLocation(0, getPlayingCard1().getHeight() - chip_label.getHeight());
+                    chip_label.setLocation(0, getHoleCard1().getHeight() - chip_label.getHeight());
                     chip_label.revalidate();
                     chip_label.repaint();
                     chip_label.setVisible(GameFrame.LOCAL_POSITION_CHIP);
@@ -887,12 +887,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return player_fold_button;
     }
 
-    public Card getPlayingCard1() {
+    public Card getHoleCard1() {
         return playingCard1;
     }
 
-    public Card getPlayingCard2() {
+    public Card getHoleCard2() {
         return playingCard2;
+    }
+
+    public ArrayList<Card> getHoleCards() {
+        ArrayList<Card> cartas = new ArrayList<>();
+
+        cartas.add(getHoleCard1());
+
+        cartas.add(getHoleCard2());
+        return cartas;
     }
 
     public synchronized void setBet(float new_bet) {
@@ -1782,7 +1791,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 sec_pot_win_label.setPreferredSize(player_action.getSize());
                 Helpers.setScaledIconLabel(sec_pot_win_label, getClass().getResource("/images/pot.png"), sec_pot_win_label.getHeight(), sec_pot_win_label.getHeight());
                 int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
-                int pos_y = Math.round((getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
+                int pos_y = Math.round((getHoleCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
                 sec_pot_win_label.setLocation(pos_x, pos_y);
             }
         });
@@ -2376,21 +2385,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         }
                                     });
 
-                                    ArrayList<Card> cartas = new ArrayList<>();
+                                    ArrayList<Card> cartas_jugada = new ArrayList<>(getHoleCards());
 
-                                    cartas.add(getPlayingCard1());
-                                    cartas.add(getPlayingCard2());
-
-                                    String lascartas = Card.collection2String(cartas);
+                                    String hole_cards_string = Card.collection2String(getHoleCards());
 
                                     for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
                                         if (!carta_comun.isTapada()) {
-                                            cartas.add(carta_comun);
+                                            cartas_jugada.add(carta_comun);
                                         }
                                     }
 
-                                    Hand jugada = new Hand(cartas);
+                                    Hand jugada = new Hand(cartas_jugada);
 
                                     player_action.setForeground(Color.WHITE);
 
@@ -2405,7 +2411,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     }
 
                                     if (!GameFrame.getInstance().getCrupier().getPerdedores().containsKey(GameFrame.getInstance().getLocalPlayer())) {
-                                        GameFrame.getInstance().getRegistro().print(nickname + Translator.translate(" MUESTRA (") + lascartas + ") -> " + jugada);
+                                        GameFrame.getInstance().getRegistro().print(nickname + Translator.translate(" MUESTRA (") + hole_cards_string + ") -> " + jugada);
                                     }
 
                                     Helpers.translateComponents(botonera, false);
@@ -2739,7 +2745,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
 
-                    int pos_y = Math.round((getPlayingCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
+                    int pos_y = Math.round((getHoleCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
 
                     sec_pot_win_label.setLocation(pos_x, pos_y);
 
@@ -3004,21 +3010,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void destaparCartas(boolean sound) {
 
-        if (getPlayingCard1().isIniciada() && getPlayingCard1().isTapada()) {
+        if (getHoleCard1().isIniciada() && getHoleCard1().isTapada()) {
 
             if (sound) {
                 Audio.playWavResource("misc/uncover.wav", false);
             }
 
-            getPlayingCard1().destapar(false);
+            getHoleCard1().destapar(false);
 
-            getPlayingCard2().destapar(false);
+            getHoleCard2().destapar(false);
         }
     }
 
     @Override
     public void ordenarCartas() {
-        if (getPlayingCard1().getValorNumerico() != -1 && getPlayingCard2().getValorNumerico() != -1 && getPlayingCard1().getValorNumerico() < getPlayingCard2().getValorNumerico()) {
+        if (getHoleCard1().getValorNumerico() != -1 && getHoleCard2().getValorNumerico() != -1 && getHoleCard1().getValorNumerico() < getHoleCard2().getValorNumerico()) {
 
             //Ordenamos las cartas para mayor comodidad
             String valor1 = this.playingCard1.getValor();

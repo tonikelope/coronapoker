@@ -654,11 +654,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         for (Player jugador : players) {
 
-            jugador.getPlayingCard1().invalidateImagePrecache();
-            jugador.getPlayingCard1().refreshCard();
+            jugador.getHoleCard1().invalidateImagePrecache();
+            jugador.getHoleCard1().refreshCard();
 
-            jugador.getPlayingCard2().invalidateImagePrecache();
-            jugador.getPlayingCard2().refreshCard();
+            jugador.getHoleCard2().invalidateImagePrecache();
+            jugador.getHoleCard2().refreshCard();
         }
 
         for (Card carta : this.tapete.getCommunityCards().getCartasComunes()) {
@@ -689,8 +689,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         for (RemotePlayer jugador : players) {
 
-            jugador.getPlayingCard1().refreshCard(true, notifier);
-            jugador.getPlayingCard2().refreshCard(true, notifier);
+            jugador.getHoleCard1().refreshCard(true, notifier);
+            jugador.getHoleCard2().refreshCard(true, notifier);
         }
 
         for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {
@@ -1848,8 +1848,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         time_menu.setSelected(GameFrame.SHOW_CLOCK);
 
-        tapete.getLocalPlayer().getPlayingCard1().setCompactable(false);
-        tapete.getLocalPlayer().getPlayingCard2().setCompactable(false);
+        tapete.getLocalPlayer().getHoleCard1().setCompactable(false);
+        tapete.getLocalPlayer().getHoleCard2().setCompactable(false);
 
         if (GameFrame.VISTA_COMPACTA != 2) {
             for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {

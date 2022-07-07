@@ -45,6 +45,10 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {")   MULTIVERSO(", ")   MULTIVERSE("},
+            {") -> GANA: ", ") -> WINS: "},
+            {"%   PIERDE: ", "%   LOSES: "},
+            {"%   EMPATA: ", "%   TIES: "},
             {"YA TIENES LA ÚLTIMA VERSIÓN DEL MOD", "YOU HAVE THE LATEST MOD VERSION"},
             {"HAY UNA VERSIÓN NUEVA DEL MOD. ¿QUIERES ACTUALIZAR?", "THERE IS A NEW MOD VERSION. UPDATE?"},
             {"ACTUALIZANDO MOD >>> ", "UPDATING MOD >>> "},

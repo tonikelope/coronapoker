@@ -26,10 +26,10 @@ It is a small module that is loaded at game startup to mitigate any player (incl
 ```
 mvn clean install
 ```
-<i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you download from here the compiled jar or build it from the source code but without including the CoronaHMAC dependency (otherwise, every user built binary would be different generating false positives in the CoronaHMAC anti-cheating module).</i>
+<i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you download from here the compiled jar or build it from the source code but without including the CoronaHMAC dependency (otherwise, every user built "binary" would be different generating false positives in the CoronaHMAC anti-cheating module).</i>
 
 
-### [OPTION C] BUILD CORONAPOKER FROM SOURCE WITHOUT CORONAHMAC dependency:
+### [OPTION C] BUILD CORONAPOKER FROM SOURCE WITHOUT CORONAHMAC:
 
 ##### Step 1 (edit pom.xml):
 ###### 1.1 Change MAIN CLASS:

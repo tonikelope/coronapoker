@@ -36,19 +36,31 @@ import java.util.Comparator;
  *
  * @author tonikelope
  */
-public final class Pot {
+public final class HandPot {
 
     private final ArrayList<Player> players = new ArrayList<>();
     private volatile float diff = 0f;
     private volatile float bet = 0f;
-    private volatile Pot sidePot = null;
-    private volatile int side_pot_count = 0;
+    private volatile HandPot sidePot = null;
 
     public int getSide_pot_count() {
-        return side_pot_count;
+
+        if (sidePot == null) {
+            return 0;
+        }
+
+        int s = 1;
+        HandPot spot = sidePot.getSidePot();
+
+        while (spot != null) {
+            s++;
+            spot = spot.getSidePot();
+        }
+
+        return s;
     }
 
-    public Pot(float dif) {
+    public HandPot(float dif) {
         this.diff = dif;
     }
 
@@ -56,7 +68,7 @@ public final class Pot {
         return bet;
     }
 
-    public Pot(ArrayList<Player> jugadores, float diff) {
+    public HandPot(ArrayList<Player> jugadores, float diff) {
         this.diff = diff;
 
         for (var jugador : jugadores) {
@@ -79,7 +91,7 @@ public final class Pot {
         return total;
     }
 
-    public Pot getSidePot() {
+    public HandPot getSidePot() {
         return sidePot;
     }
 
@@ -101,7 +113,7 @@ public final class Pot {
     //ALLIN SIDE POT(S) GENERATOR
     public void genSidePots() {
 
-        if (players.size() > 1) {
+        if (players.size() > 1 && sidePot == null) {
 
             Collections.sort(players, new PotPlayerComparator());
 
@@ -119,26 +131,25 @@ public final class Pot {
             if (i < players.size()) {
 
                 //Apuesta_menor es la apuesta del jugador que participa en el bote con la menor cantidad.
-                float apuesta_menor = players.get(i).getBote() - this.diff;
+                float lowest_player_bet = players.get(i).getBote() - this.diff;
 
-                if (Helpers.float1DSecureCompare(apuesta_menor, bet) < 0) {
+                if (Helpers.float1DSecureCompare(lowest_player_bet, bet) < 0) {
+
+                    bet = lowest_player_bet; // Actualizamos la apuesta del bote 
 
                     // Sólo hay que generar sidePot si algún jugador está participando con una apuesta por debajo de la apuesta del bote
-                    ArrayList<Player> jugadores_hijo = new ArrayList<>();
+                    ArrayList<Player> sidepot_players = new ArrayList<>();
 
                     for (var jugador : players) {
 
-                        if (jugador.getDecision() != Player.FOLD && jugador.isActivo() && Helpers.float1DSecureCompare(apuesta_menor, jugador.getBote() - this.diff) < 0) {
-                            jugadores_hijo.add(jugador);
-                        }
+                        if (jugador.getDecision() != Player.FOLD && jugador.isActivo() && Helpers.float1DSecureCompare(bet, jugador.getBote() - this.diff) < 0) {
 
+                            //Si el jugador está participando en el bote con una apuesta MAYOR que la del bote lo añadimos al bote derivado hijo
+                            sidepot_players.add(jugador);
+                        }
                     }
 
-                    bet = apuesta_menor; // Actualizamos la apuesta del bote
-
-                    sidePot = new Pot(jugadores_hijo, this.diff + bet);
-
-                    side_pot_count++;
+                    sidePot = new HandPot(sidepot_players, bet + this.diff);
 
                     sidePot.genSidePots();
                 }

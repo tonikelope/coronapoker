@@ -48,8 +48,8 @@ public class Bot {
 
     private volatile RemotePlayer cpu_player = null;
     private volatile boolean semi_bluff = false;
-    private volatile org.alberta.poker.Card card1 = null;
-    private volatile org.alberta.poker.Card card2 = null;
+    private volatile org.alberta.poker.Card hole_card1 = null;
+    private volatile org.alberta.poker.Card hole_card2 = null;
     private volatile int conta_call = 0;
     private volatile boolean slow_play = false;
     private volatile boolean cbet = false;
@@ -61,8 +61,8 @@ public class Bot {
     //LLAMAR DESDE EL CRUPIER UNA VEZ REPARTIDAS LAS CARTAS AL JUGADOR
     public void resetBot() {
 
-        card1 = new org.alberta.poker.Card(cpu_player.getHoleCard1().getValorNumerico() - 2, coronaCardSuit2LokiCardSuit(cpu_player.getHoleCard1()));
-        card2 = new org.alberta.poker.Card(cpu_player.getHoleCard2().getValorNumerico() - 2, coronaCardSuit2LokiCardSuit(cpu_player.getHoleCard2()));
+        hole_card1 = Bot.coronaCard2LokiCard(cpu_player.getHoleCard1());
+        hole_card2 = Bot.coronaCard2LokiCard(cpu_player.getHoleCard2());
 
         semi_bluff = false;
         slow_play = Helpers.CSPRNG_GENERATOR.nextBoolean();
@@ -102,9 +102,9 @@ public class Bot {
 
         int activos = GameFrame.getInstance().getCrupier().getJugadoresActivos();
 
-        double strength = HANDEVALUATOR.handRank(card1, card2, Bot.BOT_COMMUNITY_CARDS, opponents);
+        double strength = HANDEVALUATOR.handRank(hole_card1, hole_card2, Bot.BOT_COMMUNITY_CARDS, opponents);
 
-        double ppot = HANDPOTENTIAL.ppot_raw(card1, card2, Bot.BOT_COMMUNITY_CARDS, true);
+        double ppot = HANDPOTENTIAL.ppot_raw(hole_card1, hole_card2, Bot.BOT_COMMUNITY_CARDS, true);
 
         double npot = HANDPOTENTIAL.getLastNPot();
 

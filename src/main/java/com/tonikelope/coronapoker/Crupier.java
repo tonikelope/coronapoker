@@ -264,7 +264,7 @@ public class Crupier implements Runnable {
     private volatile String[] nicks_permutados;
     private volatile boolean fin_de_la_transmision = false;
     private volatile int fase = PREFLOP;
-    private volatile Pot bote = null;
+    private volatile HandPot bote = null;
     private volatile boolean cartas_resistencia = false;
     private volatile int ciegas_double = 0;
     private volatile long turno = 0;
@@ -1022,7 +1022,7 @@ public class Crupier implements Runnable {
         return fase;
     }
 
-    public Pot getBote() {
+    public HandPot getBote() {
         return bote;
     }
 
@@ -2588,7 +2588,7 @@ public class Crupier implements Runnable {
 
         this.bote_total = this.bote_sobrante;
 
-        this.bote = new Pot(0f);
+        this.bote = new HandPot(0f);
 
         this.beneficio_bote_principal = null;
 
@@ -4361,19 +4361,19 @@ public class Crupier implements Runnable {
                         flop_players.addAll(resisten);
                         comando = "FLOPCARDS#" + GameFrame.getInstance().getCartas_comunes()[0].toShortString() + "#" + GameFrame.getInstance().getCartas_comunes()[1].toShortString() + "#" + GameFrame.getInstance().getCartas_comunes()[2].toShortString();
 
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop1().getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(GameFrame.getInstance().getFlop1())));
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop2().getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(GameFrame.getInstance().getFlop2())));
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getFlop3().getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(GameFrame.getInstance().getFlop3())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getFlop1()));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getFlop2()));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getFlop3()));
 
                         break;
                     case TURN:
                         comando = "TURNCARD#" + GameFrame.getInstance().getCartas_comunes()[3].toShortString();
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getTurn().getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(GameFrame.getInstance().getTurn())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getTurn()));
 
                         break;
                     case RIVER:
                         comando = "RIVERCARD#" + GameFrame.getInstance().getCartas_comunes()[4].toShortString();
-                        Bot.BOT_COMMUNITY_CARDS.addCard(new org.alberta.poker.Card(GameFrame.getInstance().getRiver().getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(GameFrame.getInstance().getRiver())));
+                        Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getRiver()));
 
                         break;
                     default:
@@ -7230,7 +7230,7 @@ public class Crupier implements Runnable {
 
                                 this.showdown(jugadas, ganadores);
 
-                                Pot current_pot = this.bote.getSidePot();
+                                HandPot current_pot = this.bote.getSidePot();
 
                                 int conta_bote_secundario = 2;
 

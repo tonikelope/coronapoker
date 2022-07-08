@@ -480,8 +480,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_pot.setForeground(Color.white);
                     player_pot.setBackground(new Color(204, 204, 204, 75));
                     utg_icon.setVisible(false);
-                    playingCard1.resetearCarta();
-                    playingCard2.resetearCarta();
+                    holeCard1.resetearCarta();
+                    holeCard2.resetearCarta();
                     player_name.setOpaque(false);
                     player_name.setBackground(null);
                     player_name.setIcon(null);
@@ -644,8 +644,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 public void run() {
                     setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                    playingCard1.resetearCarta();
-                    playingCard2.resetearCarta();
+                    holeCard1.resetearCarta();
+                    holeCard2.resetearCarta();
                     player_action.setBackground(new Color(255, 102, 0));
                     player_action.setForeground(Color.WHITE);
                     player_action.setText(Translator.translate("ABANDONAS LA TIMBA"));
@@ -857,8 +857,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         icon_zoom_timer.stop();
                         zoomIcons();
-                        playingCard1.updateImagePreloadCache();
-                        playingCard2.updateImagePreloadCache();
+                        holeCard1.updateImagePreloadCache();
+                        holeCard2.updateImagePreloadCache();
                         refreshNotifyChatLabel();
 
                     }
@@ -888,11 +888,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public Card getHoleCard1() {
-        return playingCard1;
+        return holeCard1;
     }
 
     public Card getHoleCard2() {
-        return playingCard2;
+        return holeCard2;
     }
 
     public ArrayList<Card> getHoleCards() {
@@ -1831,8 +1831,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (Helpers.float1DSecureCompare(0f, zoom_factor) < 0) {
 
-            playingCard1.zoom(zoom_factor, mynotifier);
-            playingCard2.zoom(zoom_factor, mynotifier);
+            holeCard1.zoom(zoom_factor, mynotifier);
+            holeCard2.zoom(zoom_factor, mynotifier);
 
             synchronized (zoom_lock) {
 
@@ -1992,8 +1992,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         bet_spinner = new javax.swing.JSpinner();
         player_action = new javax.swing.JLabel();
         panel_cartas = new javax.swing.JLayeredPane();
-        playingCard2 = new com.tonikelope.coronapoker.Card();
-        playingCard1 = new com.tonikelope.coronapoker.Card();
+        holeCard1 = new com.tonikelope.coronapoker.Card();
+        holeCard2 = new com.tonikelope.coronapoker.Card();
 
         setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204, 75), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL*com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
         setFocusable(false);
@@ -2158,7 +2158,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        player_bet_button.setBackground(new java.awt.Color(255, 255, 255));
         player_bet_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_bet_button.setText("APOSTAR");
         player_bet_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -2213,12 +2212,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         panel_cartas.setDoubleBuffered(true);
 
-        playingCard2.setFocusable(false);
-
-        playingCard1.setFocusable(false);
-
-        panel_cartas.setLayer(playingCard2, javax.swing.JLayeredPane.DEFAULT_LAYER);
-        panel_cartas.setLayer(playingCard1, javax.swing.JLayeredPane.DEFAULT_LAYER);
+        panel_cartas.setLayer(holeCard1, javax.swing.JLayeredPane.DEFAULT_LAYER);
+        panel_cartas.setLayer(holeCard2, javax.swing.JLayeredPane.DEFAULT_LAYER);
 
         javax.swing.GroupLayout panel_cartasLayout = new javax.swing.GroupLayout(panel_cartas);
         panel_cartas.setLayout(panel_cartasLayout);
@@ -2226,9 +2221,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_cartasLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addComponent(playingCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(holeCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addComponent(playingCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(holeCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, 0))
         );
         panel_cartasLayout.setVerticalGroup(
@@ -2236,8 +2231,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             .addGroup(panel_cartasLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addGroup(panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(playingCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(playingCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(holeCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(holeCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap())
         );
 
@@ -2301,8 +2296,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 Audio.playWavResource("misc/fold.wav");
 
-                playingCard1.desenfocar();
-                playingCard2.desenfocar();
+                holeCard1.desenfocar();
+                holeCard2.desenfocar();
 
                 desactivarControles();
 
@@ -2692,6 +2687,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JPanel avatar_panel;
     private javax.swing.JSpinner bet_spinner;
     private javax.swing.JPanel botonera;
+    private com.tonikelope.coronapoker.Card holeCard1;
+    private com.tonikelope.coronapoker.Card holeCard2;
     private javax.swing.JPanel indicadores_arriba;
     private javax.swing.JPanel nick_panel;
     private javax.swing.JLayeredPane panel_cartas;
@@ -2703,8 +2700,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel player_name;
     private javax.swing.JLabel player_pot;
     private javax.swing.JLabel player_stack;
-    private com.tonikelope.coronapoker.Card playingCard1;
-    private com.tonikelope.coronapoker.Card playingCard2;
     private javax.swing.JLabel utg_icon;
     // End of variables declaration//GEN-END:variables
 
@@ -2781,8 +2776,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setBackground(Color.RED);
                 player_action.setForeground(Color.WHITE);
 
-                playingCard1.desenfocar();
-                playingCard2.desenfocar();
+                holeCard1.desenfocar();
+                holeCard2.desenfocar();
 
                 player_action.setText(msg);
                 setPlayerActionIcon("action/angry.png");
@@ -3027,12 +3022,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (getHoleCard1().getValorNumerico() != -1 && getHoleCard2().getValorNumerico() != -1 && getHoleCard1().getValorNumerico() < getHoleCard2().getValorNumerico()) {
 
             //Ordenamos las cartas para mayor comodidad
-            String valor1 = this.playingCard1.getValor();
-            String palo1 = this.playingCard1.getPalo();
-            boolean desenfocada1 = this.playingCard1.isDesenfocada();
+            String valor1 = this.holeCard1.getValor();
+            String palo1 = this.holeCard1.getPalo();
+            boolean desenfocada1 = this.holeCard1.isDesenfocada();
 
-            this.playingCard1.actualizarValorPaloEnfoque(this.playingCard2.getValor(), this.playingCard2.getPalo(), this.playingCard2.isDesenfocada());
-            this.playingCard2.actualizarValorPaloEnfoque(valor1, palo1, desenfocada1);
+            this.holeCard1.actualizarValorPaloEnfoque(this.holeCard2.getValor(), this.holeCard2.getPalo(), this.holeCard2.isDesenfocada());
+            this.holeCard2.actualizarValorPaloEnfoque(valor1, palo1, desenfocada1);
         }
     }
 

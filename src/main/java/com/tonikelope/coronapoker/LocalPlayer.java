@@ -1022,7 +1022,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             player_check_button.setForeground(Color.WHITE);
 
                             if (pre_pulsado == Player.FOLD) {
-                                desPrePulsarBoton(player_fold_button);
+                                desPrePulsarBotonAuto(player_fold_button);
                             }
 
                             player_fold_button.setEnabled(false);
@@ -1037,15 +1037,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     } else {
 
                         if (pre_pulsado == Player.CHECK) {
-                            desPrePulsarBoton(player_check_button);
+                            desPrePulsarBotonAuto(player_check_button);
                         }
 
                         player_check_button.setIcon(null);
                         player_check_button.setText(" ");
                         player_check_button.setEnabled(false);
                     }
-
-                    
 
                     if ((GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
                             || (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
@@ -1060,7 +1058,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             spinner_min = new BigDecimal(GameFrame.getInstance().getCrupier().getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
                             player_bet_button.setEnabled(true);
                             player_bet_button.setText(Translator.translate("APOSTAR"));
-                            player_bet_button.setBackground(Color.YELLOW);
+                            player_bet_button.setBackground(Color.WHITE);
                             player_bet_button.setForeground(Color.BLACK);
 
                         } else {
@@ -1072,7 +1070,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 player_bet_button.setBackground(RERAISE_BACK_COLOR);
                                 player_bet_button.setForeground(RERAISE_FORE_COLOR);
                             } else {
-                                player_bet_button.setBackground(Color.YELLOW);
+                                player_bet_button.setBackground(Color.WHITE);
                                 player_bet_button.setForeground(Color.BLACK);
                             }
                         }
@@ -1120,7 +1118,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             bet_spinner.setEnabled(false);
                         }
                     }
-                    
+
                     guardarColoresBotonesAccion();
 
                     if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 || ((GameFrame.getInstance().getCrupier().getLast_aggressor() != null && nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())))) && Helpers.float1DSecureCompare(call_required, stack) < 0) {
@@ -1285,7 +1283,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             } else {
 
-                                desPrePulsarTodo();
+                                desPrePulsarAutoTodo();
                             }
                         }
 
@@ -1357,40 +1355,29 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    public void desPrePulsarTodo() {
+    public void desPrePulsarAutoTodo() {
 
         if (pre_pulsado != Player.NODEC) {
 
-            desPrePulsarBoton(player_check_button);
-            desPrePulsarBoton(player_fold_button);
+            desPrePulsarBotonAuto(player_check_button);
+            desPrePulsarBotonAuto(player_fold_button);
         }
     }
 
-    public void desPrePulsarBoton(JButton boton) {
+    public void desPrePulsarBotonAuto(JButton boton) {
         pre_pulsado = Player.NODEC;
 
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
-
-                Color[] colores;
-
-                if (boton == player_check_button) {
-                    colores = new Color[]{null, null};
-                } else {
-                    colores = action_button_colors.get(boton);
-                }
-
-                boton.setBackground(colores[0]);
-
-                boton.setForeground(colores[1]);
-
+                boton.setBackground(null);
+                boton.setForeground(null);
             }
         });
 
     }
 
-    public void prePulsarBoton(JButton boton, int dec) {
+    public void prePulsarBotonAuto(JButton boton, int dec) {
         pre_pulsado = dec;
 
         Helpers.GUIRunAndWait(new Runnable() {
@@ -1505,9 +1492,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if (pre_pulsado != Player.NODEC) {
 
                         if (pre_pulsado == Player.CHECK) {
-                            prePulsarBoton(player_check_button, Player.CHECK);
+                            prePulsarBotonAuto(player_check_button, Player.CHECK);
                         } else if (pre_pulsado == Player.FOLD) {
-                            prePulsarBoton(player_fold_button, Player.FOLD);
+                            prePulsarBotonAuto(player_fold_button, Player.FOLD);
                         }
                     }
 
@@ -1524,7 +1511,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRunAndWait(new Runnable() {
                 public void run() {
 
-                    desPrePulsarTodo();
+                    desPrePulsarAutoTodo();
 
                     player_check_button.setText(" ");
                     player_check_button.setIcon(null);
@@ -1584,7 +1571,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void nuevaMano() {
 
-        desPrePulsarTodo();
+        desPrePulsarAutoTodo();
 
         this.decision = Player.NODEC;
 
@@ -2291,14 +2278,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     Audio.playWavResource("misc/button_off.wav");
 
-                    this.desPrePulsarBoton(player_fold_button);
+                    this.desPrePulsarBotonAuto(player_fold_button);
 
                 } else {
                     Audio.playWavResource("misc/button_on.wav");
 
-                    this.desPrePulsarTodo();
+                    this.desPrePulsarAutoTodo();
 
-                    this.prePulsarBoton(player_fold_button, Player.FOLD);
+                    this.prePulsarBotonAuto(player_fold_button, Player.FOLD);
                 }
             }
 
@@ -2495,15 +2482,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     Audio.playWavResource("misc/button_off.wav");
 
-                    this.desPrePulsarBoton(player_check_button);
+                    this.desPrePulsarBotonAuto(player_check_button);
 
                 } else {
 
                     Audio.playWavResource("misc/button_on.wav");
 
-                    this.desPrePulsarTodo();
+                    this.desPrePulsarAutoTodo();
 
-                    this.prePulsarBoton(player_check_button, Player.CHECK);
+                    this.prePulsarBotonAuto(player_check_button, Player.CHECK);
                 }
             }
 

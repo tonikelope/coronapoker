@@ -1045,7 +1045,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_check_button.setEnabled(false);
                     }
 
-                    guardarColoresBotonesAccion();
+                    
 
                     if ((GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
                             || (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
@@ -1060,11 +1060,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             spinner_min = new BigDecimal(GameFrame.getInstance().getCrupier().getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
                             player_bet_button.setEnabled(true);
                             player_bet_button.setText(Translator.translate("APOSTAR"));
+                            player_bet_button.setBackground(Color.YELLOW);
+                            player_bet_button.setForeground(Color.BLACK);
 
                         } else {
                             spinner_min = new BigDecimal(min_raise).setScale(1, RoundingMode.HALF_UP);
                             player_bet_button.setEnabled(true);
                             player_bet_button.setText(Translator.translate((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + "SUBIR"));
+
+                            if (GameFrame.getInstance().getCrupier().getConta_raise() > 0) {
+                                player_bet_button.setBackground(RERAISE_BACK_COLOR);
+                                player_bet_button.setForeground(RERAISE_FORE_COLOR);
+                            } else {
+                                player_bet_button.setBackground(Color.YELLOW);
+                                player_bet_button.setForeground(Color.BLACK);
+                            }
                         }
 
                         if (spinner_min.compareTo(spinner_max) < 0) {
@@ -1110,6 +1120,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             bet_spinner.setEnabled(false);
                         }
                     }
+                    
+                    guardarColoresBotonesAccion();
 
                     if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 || ((GameFrame.getInstance().getCrupier().getLast_aggressor() != null && nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())))) && Helpers.float1DSecureCompare(call_required, stack) < 0) {
                         player_allin_button.setText(" ");

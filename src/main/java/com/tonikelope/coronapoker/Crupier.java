@@ -6119,9 +6119,9 @@ public class Crupier implements Runnable {
 
         boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
 
-        Helpers.pausar((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : (this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA));
-
         if (GameFrame.ANIMACION_CARTAS && ((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
+
+            long start = System.currentTimeMillis();
 
             try {
 
@@ -6149,6 +6149,10 @@ public class Crupier implements Runnable {
                     }
                 }
 
+                long lapsed = System.currentTimeMillis() - start;
+
+                Helpers.pausar((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : (this.destapar_resistencia ? (PAUSA_DESTAPAR_CARTA_ALLIN - lapsed) : (PAUSA_DESTAPAR_CARTA - lapsed)));
+
                 final ImageIcon ficon = icon;
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -6173,6 +6177,8 @@ public class Crupier implements Runnable {
             }
 
         } else {
+
+            Helpers.pausar((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : (this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA));
 
             Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 

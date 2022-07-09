@@ -6137,14 +6137,14 @@ public class Crupier implements Runnable {
 
                 if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
 
-                    ImageIcon icon_gifsicle = Helpers.genGifsicleCardAnimation(url_icon, (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP), baraja + "_" + carta.getValor() + "_" + carta.getPalo());
+                    ImageIcon icon_gifsicle = Helpers.genGifsicleCardAnimation(url_icon, (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP), baraja + "_" + carta.getValor() + "_" + carta.getPalo());
 
                     if (icon_gifsicle != null) {
                         icon = icon_gifsicle;
                     } else {
                         int w = icon.getIconWidth();
                         int h = icon.getIconHeight();
-                        icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Math.round(h * (1f + (GameFrame.ZOOM_LEVEL - GameFrame.DEFAULT_ZOOM_LEVEL) * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
+                        icon = new ImageIcon(icon.getImage().getScaledInstance(Math.round(w * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(h * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Image.SCALE_DEFAULT));
 
                     }
                 }

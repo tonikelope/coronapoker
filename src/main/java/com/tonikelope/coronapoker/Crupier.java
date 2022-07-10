@@ -6151,7 +6151,7 @@ public class Crupier implements Runnable {
 
                 long lapsed = System.currentTimeMillis() - start;
 
-                Helpers.pausar((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : (this.destapar_resistencia ? (PAUSA_DESTAPAR_CARTA_ALLIN - lapsed) : (PAUSA_DESTAPAR_CARTA - lapsed)));
+                Helpers.pausar((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : (this.destapar_resistencia ? Math.max(PAUSA_DESTAPAR_CARTA_ALLIN - lapsed, 0) : Math.max(PAUSA_DESTAPAR_CARTA - lapsed, 0)));
 
                 final ImageIcon ficon = icon;
 

@@ -2400,7 +2400,7 @@ public class Helpers {
 
     public static void pausar(long pause) {
         try {
-            Thread.sleep(Math.max(pause,0));
+            Thread.sleep(Math.max(pause, 0));
         } catch (InterruptedException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }

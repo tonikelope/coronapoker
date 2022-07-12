@@ -1311,6 +1311,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         Audio.stopWavResource("misc/hurryup.wav");
 
+        action_button_colors.clear();
+
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
@@ -1370,8 +1372,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
-                boton.setBackground(null);
-                boton.setForeground(null);
+
+                Color[] colores = action_button_colors.get(boton);
+                if (colores != null) {
+                    boton.setBackground(colores[0]);
+                    boton.setForeground(colores[1]);
+                } else {
+                    boton.setBackground(null);
+                    boton.setForeground(null);
+                }
+
             }
         });
 
@@ -1500,6 +1510,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 }
             });
+
         }
 
     }

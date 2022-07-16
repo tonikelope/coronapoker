@@ -2211,7 +2211,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 Audio.stopLoopMp3("misc/waiting_room.mp3");
 
-                Audio.unmuteLoopMp3("misc/background_music.mp3");
+                if (GameFrame.MUSICA_AMBIENTAL) {
+                    Audio.unmuteLoopMp3("misc/background_music.mp3");
+                }
             }
         });
     }
@@ -2654,7 +2656,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 Audio.stopLoopMp3("misc/waiting_room.mp3");
 
-                Audio.unmuteLoopMp3("misc/background_music.mp3");
+                if (GameFrame.MUSICA_AMBIENTAL) {
+                    Audio.unmuteLoopMp3("misc/background_music.mp3");
+                }
 
             }
         });

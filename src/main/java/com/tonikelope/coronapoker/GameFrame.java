@@ -2278,6 +2278,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 }
 
+                if (!GameFrame.MUSICA_AMBIENTAL) {
+                    Audio.muteLoopMp3("misc/background_music.mp3");
+                }
+
                 Audio.playLoopMp3Resource("misc/background_music.mp3");
 
                 Helpers.GUIRunAndWait(new Runnable() {

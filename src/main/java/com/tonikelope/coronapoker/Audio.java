@@ -773,11 +773,13 @@ public class Audio {
 
     public static void muteLoopMp3(String sound) {
 
+        MP3_LOOP_MUTED.add(sound);
+
         CoronaMP3FilePlayer player = MP3_LOOP.get(sound);
 
         if (player != null) {
             try {
-                MP3_LOOP_MUTED.add(sound);
+
                 player.setVolume(0f);
 
             } catch (Exception ex) {
@@ -789,11 +791,12 @@ public class Audio {
 
     public static void unmuteLoopMp3(String sound) {
 
+        MP3_LOOP_MUTED.remove(sound);
+
         CoronaMP3FilePlayer player = MP3_LOOP.get(sound);
 
         if (player != null) {
             try {
-                MP3_LOOP_MUTED.remove(sound);
 
                 if (!MUTED_ALL && !MUTED_MP3_LOOP) {
                     player.setVolume(findSoundVolume(sound));

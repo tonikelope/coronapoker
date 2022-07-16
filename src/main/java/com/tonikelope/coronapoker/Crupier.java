@@ -1179,10 +1179,25 @@ public class Crupier implements Runnable {
                         // 0=yes, 1=no, 2=cancel
                         if (input == 1) {
 
-                            timeout = true;
+                            input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
 
-                            for (String nick : pending) {
-                                this.remotePlayerQuit(nick);
+                            if (input == 1) {
+
+                                timeout = true;
+
+                                for (String nick : pending) {
+                                    this.remotePlayerQuit(nick);
+                                }
+                            } else {
+                                for (String nick : pending) {
+                                    try {
+                                        GameFrame.getInstance().getParticipantes().get(nick).socketClose();
+                                    } catch (IOException ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                }
+
+                                start_time = System.currentTimeMillis();
                             }
 
                         } else {
@@ -3668,7 +3683,23 @@ public class Crupier implements Runnable {
                 // 0=yes, 1=no, 2=cancel
                 if (input == 1) {
 
-                    timeout = true;
+                    input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
+
+                    if (input == 1) {
+
+                        timeout = true;
+
+                    } else {
+                        for (String nick : pendientes) {
+                            try {
+                                GameFrame.getInstance().getParticipantes().get(nick).socketClose();
+                            } catch (IOException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+
+                        start = System.currentTimeMillis();
+                    }
 
                 } else {
                     start = System.currentTimeMillis();
@@ -3903,7 +3934,23 @@ public class Crupier implements Runnable {
                     // 0=yes, 1=no, 2=cancel
                     if (input == 1) {
 
-                        timeout = true;
+                        input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
+
+                        if (input == 1) {
+
+                            timeout = true;
+
+                        } else {
+                            for (String nick : pendientes) {
+                                try {
+                                    GameFrame.getInstance().getParticipantes().get(nick).socketClose();
+                                } catch (IOException ex) {
+                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            }
+
+                            start = System.currentTimeMillis();
+                        }
 
                     } else {
                         start = System.currentTimeMillis();
@@ -3985,7 +4032,23 @@ public class Crupier implements Runnable {
                     // 0=yes, 1=no, 2=cancel
                     if (input == 1) {
 
-                        timeout = true;
+                        input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
+
+                        if (input == 1) {
+
+                            timeout = true;
+
+                        } else {
+                            for (String nick : pendientes) {
+                                try {
+                                    GameFrame.getInstance().getParticipantes().get(nick).socketClose();
+                                } catch (IOException ex) {
+                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            }
+
+                            start = System.currentTimeMillis();
+                        }
 
                     } else {
                         start = System.currentTimeMillis();
@@ -4238,9 +4301,23 @@ public class Crupier implements Runnable {
                             // 0=yes, 1=no, 2=cancel
                             if (input == 1) {
 
-                                timeout = true;
+                                input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
 
-                                this.remotePlayerQuit(jugador.getNickname());
+                                if (input == 1) {
+
+                                    timeout = true;
+
+                                    this.remotePlayerQuit(jugador.getNickname());
+                                } else {
+
+                                    try {
+                                        GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).socketClose();
+                                    } catch (IOException ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+
+                                    start = System.currentTimeMillis();
+                                }
 
                             } else {
                                 start = System.currentTimeMillis();
@@ -5083,18 +5160,37 @@ public class Crupier implements Runnable {
                         // 0=yes, 1=no, 2=cancel
                         if (input == 1) {
 
-                            timeout = true;
+                            input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
 
-                            if (!nick2player.isEmpty()) {
-                                for (String nick : pendientes) {
-                                    if (!nick2player.get(nick).isExit()) {
-                                        this.remotePlayerQuit(nick);
+                            if (input == 1) {
+                                timeout = true;
+
+                                if (!nick2player.isEmpty()) {
+                                    for (String nick : pendientes) {
+                                        if (!nick2player.get(nick).isExit()) {
+                                            this.remotePlayerQuit(nick);
+                                        }
+                                    }
+                                } else {
+                                    for (String nick : pendientes) {
+                                        GameFrame.getInstance().getParticipantes().get(nick).exitAndCloseSocket();
                                     }
                                 }
                             } else {
-                                for (String nick : pendientes) {
-                                    GameFrame.getInstance().getParticipantes().get(nick).exitAndCloseSocket();
+                                if (!nick2player.isEmpty()) {
+                                    for (String nick : pendientes) {
+                                        if (!nick2player.get(nick).isExit()) {
+                                            try {
+                                                GameFrame.getInstance().getParticipantes().get(nick).socketClose();
+                                            } catch (IOException ex) {
+                                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                            }
+                                        }
+                                    }
                                 }
+
+                                start = System.currentTimeMillis();
+
                             }
 
                         } else {

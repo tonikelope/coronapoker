@@ -1713,11 +1713,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 }
                             });
 
-                            refreshChatPanel();
-
-                            Helpers.GUIRun(new Runnable() {
+                            Helpers.GUIRunAndWait(new Runnable() {
                                 public void run() {
                                     status.setText(Translator.translate("CONECTADO"));
+                                    status.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/1.png")));
                                     barra.setVisible(false);
                                     chat_box.setEnabled(true);
                                     emoji_button.setEnabled(true);
@@ -1725,6 +1724,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     max_min_label.setEnabled(true);
                                 }
                             });
+
+                            refreshChatPanel();
 
                             booting = false;
 

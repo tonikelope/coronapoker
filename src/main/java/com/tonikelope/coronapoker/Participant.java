@@ -734,9 +734,20 @@ public class Participant implements Runnable {
                             // 0=yes, 1=no, 2=cancel
                             if (input == 1) {
 
-                                exit = true;
+                                input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), nick + Translator.translate(" ¿Forzamos reset del socket del cliente?"));
 
-                                GameFrame.getInstance().getCrupier().remotePlayerQuit(nick);
+                                if (input == 1) {
+
+                                    exit = true;
+
+                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(nick);
+                                } else {
+                                    try {
+                                        this.socketClose();
+                                    } catch (IOException ex) {
+                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                }
 
                             } else if (!reset_socket) {
 

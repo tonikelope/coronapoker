@@ -67,6 +67,7 @@ public class Participant implements Runnable {
     private final File avatar;
 
     private volatile Socket socket = null;
+    private volatile Socket recon_socket = null;
     private volatile boolean exit = false;
     private volatile BufferedReader input_stream_reader = null;
     private volatile Integer pong;
@@ -334,15 +335,10 @@ public class Participant implements Runnable {
         this.exit = true;
 
         if (this.socket != null) {
-            try {
-
-                if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                    this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
-                }
-                this.socketClose();
-            } catch (IOException ex) {
-                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+            if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
             }
+            this.socketClose();
 
             synchronized (keep_alive_lock) {
                 keep_alive_lock.notifyAll();
@@ -404,10 +400,33 @@ public class Participant implements Runnable {
         return Helpers.decryptCommand(this.getInput_stream_reader().readLine(), this.getAes_key(), this.getHmac_key());
     }
 
-    public void socketClose() throws IOException {
+    public void socketClose() {
         synchronized (getParticipant_socket_lock()) {
-            this.socket.close();
+            if (this.socket != null && !this.socket.isClosed()) {
+                try {
+                    this.socket.close();
+                } catch (Exception ex) {
+                }
+            }
         }
+    }
+
+    public void forceSocketClose() {
+
+        if (this.recon_socket != null) {
+            try {
+                this.recon_socket.close();
+            } catch (Exception ex) {
+            }
+        }
+
+        if (this.socket != null) {
+            try {
+                this.socket.close();
+            } catch (Exception ex) {
+            }
+        }
+
     }
 
     private void setSocket(Socket socket) {
@@ -419,7 +438,7 @@ public class Participant implements Runnable {
 
                 try {
                     this.input_stream_reader = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-                } catch (IOException ex) {
+                } catch (Exception ex) {
                     Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
@@ -430,17 +449,9 @@ public class Participant implements Runnable {
 
         this.resetting_socket = true;
 
-        if (this.socket != null && !this.socket.isClosed()) {
+        forceSocketClose();
 
-            try {
-
-                this.socket.shutdownInput();
-                this.socket.shutdownOutput();
-                this.socket.close();
-            } catch (Exception ex) {
-                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
+        this.recon_socket = sock;
 
         synchronized (getParticipant_socket_lock()) {
 
@@ -449,15 +460,17 @@ public class Participant implements Runnable {
                 Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
 
                 //Mandamos el chat
-                sock.getOutputStream().write((Helpers.encryptCommand(WaitingRoomFrame.getInstance().getChat_text().toString().isEmpty() ? "*" : Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat_text().toString().getBytes("UTF-8")), aes_k, hmac_k) + "\n").getBytes("UTF-8"));
+                this.recon_socket.getOutputStream().write((Helpers.encryptCommand(WaitingRoomFrame.getInstance().getChat_text().toString().isEmpty() ? "*" : Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat_text().toString().getBytes("UTF-8")), aes_k, hmac_k) + "\n").getBytes("UTF-8"));
 
-                this.socket = sock;
+                this.socket = this.recon_socket;
 
                 this.input_stream_reader = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
 
                 this.aes_key = aes_k;
 
                 this.hmac_key = hmac_k;
+
+                this.recon_socket = null;
 
                 this.resetting_socket = false;
 
@@ -467,9 +480,11 @@ public class Participant implements Runnable {
 
                 return true;
 
-            } catch (IOException ex) {
+            } catch (Exception ex) {
 
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+
+                this.recon_socket = null;
 
                 this.resetting_socket = false;
 
@@ -729,25 +744,10 @@ public class Participant implements Runnable {
 
                         } else {
 
-                            int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), nick + Translator.translate(" parece que perdió la conexión y no ha vuelto a conectar (se le eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?"));
-
                             // 0=yes, 1=no, 2=cancel
-                            if (input == 1) {
+                            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), nick + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
-                                input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), nick + Translator.translate(" ¿Forzamos reset del socket del cliente?"));
-
-                                if (input == 1) {
-
-                                    exit = true;
-
-                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(nick);
-                                } else {
-                                    try {
-                                        this.socketClose();
-                                    } catch (IOException ex) {
-                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
+                                this.forceSocketClose();
 
                             } else if (!reset_socket) {
 

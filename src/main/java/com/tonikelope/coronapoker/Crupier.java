@@ -1174,35 +1174,19 @@ public class Crupier implements Runnable {
 
                         }
 
-                        int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
-
                         // 0=yes, 1=no, 2=cancel
-                        if (input == 1) {
-
-                            input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
-
-                            if (input == 1) {
-
-                                timeout = true;
-
-                                for (String nick : pending) {
-                                    this.remotePlayerQuit(nick);
+                        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET DEL SOCKET de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                            for (String nick : pending) {
+                                try {
+                                    GameFrame.getInstance().getParticipantes().get(nick).socketClose();
+                                } catch (IOException ex) {
+                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                 }
-                            } else {
-                                for (String nick : pending) {
-                                    try {
-                                        GameFrame.getInstance().getParticipantes().get(nick).socketClose();
-                                    } catch (IOException ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-
-                                start_time = System.currentTimeMillis();
                             }
 
-                        } else {
-                            start_time = System.currentTimeMillis();
                         }
+
+                        start_time = System.currentTimeMillis();
 
                     } else {
 
@@ -3678,32 +3662,19 @@ public class Crupier implements Runnable {
             this.waitSyncConfirmations(id, pendientes);
 
             if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
                 // 0=yes, 1=no, 2=cancel
-                if (input == 1) {
-
-                    input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
-
-                    if (input == 1) {
-
-                        timeout = true;
-
-                    } else {
-                        for (String nick : pendientes) {
-                            try {
-                                GameFrame.getInstance().getParticipantes().get(nick).socketClose();
-                            } catch (IOException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                            }
+                if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                    for (String nick : pendientes) {
+                        try {
+                            GameFrame.getInstance().getParticipantes().get(nick).socketClose();
+                        } catch (IOException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
-
-                        start = System.currentTimeMillis();
                     }
 
-                } else {
-                    start = System.currentTimeMillis();
                 }
+                start = System.currentTimeMillis();
             }
 
             if (!pendientes.isEmpty()) {
@@ -3929,32 +3900,20 @@ public class Crupier implements Runnable {
                 this.waitSyncConfirmations(id, pendientes);
 
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                    int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
                     // 0=yes, 1=no, 2=cancel
-                    if (input == 1) {
-
-                        input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
-
-                        if (input == 1) {
-
-                            timeout = true;
-
-                        } else {
-                            for (String nick : pendientes) {
-                                try {
-                                    GameFrame.getInstance().getParticipantes().get(nick).socketClose();
-                                } catch (IOException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                }
+                    if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                        for (String nick : pendientes) {
+                            try {
+                                GameFrame.getInstance().getParticipantes().get(nick).socketClose();
+                            } catch (IOException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
-
-                            start = System.currentTimeMillis();
                         }
 
-                    } else {
-                        start = System.currentTimeMillis();
                     }
+                    start = System.currentTimeMillis();
+
                 }
                 if (!pendientes.isEmpty()) {
 
@@ -4027,32 +3986,20 @@ public class Crupier implements Runnable {
                 this.waitSyncConfirmations(id, pendientes);
 
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                    int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
                     // 0=yes, 1=no, 2=cancel
-                    if (input == 1) {
-
-                        input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
-
-                        if (input == 1) {
-
-                            timeout = true;
-
-                        } else {
-                            for (String nick : pendientes) {
-                                try {
-                                    GameFrame.getInstance().getParticipantes().get(nick).socketClose();
-                                } catch (IOException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                }
+                    if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                        for (String nick : pendientes) {
+                            try {
+                                GameFrame.getInstance().getParticipantes().get(nick).socketClose();
+                            } catch (IOException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
-
-                            start = System.currentTimeMillis();
                         }
 
-                    } else {
-                        start = System.currentTimeMillis();
                     }
+                    start = System.currentTimeMillis();
+
                 }
                 if (!pendientes.isEmpty()) {
 
@@ -4296,32 +4243,18 @@ public class Crupier implements Runnable {
                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
-                            int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), jugador.getNickname() + Translator.translate(" parece que perdió la conexión y no ha vuelto a conectar (se le eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?"));
-
                             // 0=yes, 1=no, 2=cancel
-                            if (input == 1) {
+                            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), jugador.getNickname() + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
-                                input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
-
-                                if (input == 1) {
-
-                                    timeout = true;
-
-                                    this.remotePlayerQuit(jugador.getNickname());
-                                } else {
-
-                                    try {
-                                        GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).socketClose();
-                                    } catch (IOException ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-
-                                    start = System.currentTimeMillis();
+                                try {
+                                    GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).socketClose();
+                                } catch (IOException ex) {
+                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                 }
 
-                            } else {
-                                start = System.currentTimeMillis();
                             }
+
+                            start = System.currentTimeMillis();
 
                         } else {
 
@@ -5155,47 +5088,25 @@ public class Crupier implements Runnable {
                     }
 
                     if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                        int input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), "Hay usuarios que están tardando demasiado en responder (se les eliminará de la timba). ¿ESPERAMOS UN POCO MÁS?");
 
                         // 0=yes, 1=no, 2=cancel
-                        if (input == 1) {
+                        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
-                            input = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿Forzamos reset del socket de los usuarios rezagados?"));
-
-                            if (input == 1) {
-                                timeout = true;
-
-                                if (!nick2player.isEmpty()) {
-                                    for (String nick : pendientes) {
-                                        if (!nick2player.get(nick).isExit()) {
-                                            this.remotePlayerQuit(nick);
-                                        }
-                                    }
-                                } else {
-                                    for (String nick : pendientes) {
-                                        GameFrame.getInstance().getParticipantes().get(nick).exitAndCloseSocket();
-                                    }
-                                }
-                            } else {
-                                if (!nick2player.isEmpty()) {
-                                    for (String nick : pendientes) {
-                                        if (!nick2player.get(nick).isExit()) {
-                                            try {
-                                                GameFrame.getInstance().getParticipantes().get(nick).socketClose();
-                                            } catch (IOException ex) {
-                                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                            }
+                            if (!nick2player.isEmpty()) {
+                                for (String nick : pendientes) {
+                                    if (!nick2player.get(nick).isExit()) {
+                                        try {
+                                            GameFrame.getInstance().getParticipantes().get(nick).socketClose();
+                                        } catch (IOException ex) {
+                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                         }
                                     }
                                 }
-
-                                start = System.currentTimeMillis();
-
                             }
 
-                        } else {
-                            start = System.currentTimeMillis();
                         }
+                        start = System.currentTimeMillis();
+
                     }
                 }
 

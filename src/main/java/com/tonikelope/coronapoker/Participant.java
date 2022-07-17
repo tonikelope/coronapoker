@@ -83,6 +83,7 @@ public class Participant implements Runnable {
     private volatile boolean reset_socket = false;
     private volatile String avatar_chat_src;
     private volatile boolean async_wait = false;
+    private volatile boolean force_recon = false;
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
@@ -124,6 +125,14 @@ public class Participant implements Runnable {
             avatar_chat_src = cpu ? getClass().getResource("/images/avatar_bot_chat.png").toExternalForm() : getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         }
 
+    }
+
+    public void setForce_recon(boolean force_recon) {
+        this.force_recon = force_recon;
+    }
+
+    public boolean isForce_recon() {
+        return force_recon;
     }
 
     public boolean isAsync_wait() {
@@ -411,7 +420,7 @@ public class Participant implements Runnable {
         }
     }
 
-    public void forceSocketClose() {
+    public void forceSocketReconnect() {
 
         if (this.recon_socket != null) {
             try {
@@ -426,6 +435,8 @@ public class Participant implements Runnable {
             } catch (Exception ex) {
             }
         }
+
+        force_recon = true;
 
     }
 
@@ -449,7 +460,7 @@ public class Participant implements Runnable {
 
         this.resetting_socket = true;
 
-        forceSocketClose();
+        forceSocketReconnect();
 
         this.recon_socket = sock;
 
@@ -485,6 +496,8 @@ public class Participant implements Runnable {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
 
                 this.recon_socket = null;
+
+                this.force_recon = false;
 
                 this.resetting_socket = false;
 
@@ -747,7 +760,17 @@ public class Participant implements Runnable {
                             // 0=yes, 1=no, 2=cancel
                             if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), nick + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
-                                this.forceSocketClose();
+                                this.forceSocketReconnect();
+
+                                synchronized (getParticipant_socket_lock()) {
+
+                                    try {
+                                        getParticipant_socket_lock().wait(GameFrame.CLIENT_RECON_TIMEOUT);
+                                    } catch (InterruptedException ex) {
+                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+
+                                }
 
                             } else if (!reset_socket) {
 

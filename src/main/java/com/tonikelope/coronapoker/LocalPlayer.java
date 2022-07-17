@@ -600,7 +600,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (val) {
 
-                Audio.playWavResource("misc/network_error.wav");
+                Audio.playWavResource("misc/network_error_" + GameFrame.LANGUAGE.toLowerCase() + ".wav");
             }
         }
 

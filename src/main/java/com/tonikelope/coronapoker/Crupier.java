@@ -1177,11 +1177,7 @@ public class Crupier implements Runnable {
                         // 0=yes, 1=no, 2=cancel
                         if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET DEL SOCKET de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                             for (String nick : pending) {
-                                try {
-                                    GameFrame.getInstance().getParticipantes().get(nick).socketClose();
-                                } catch (IOException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                }
+                                GameFrame.getInstance().getParticipantes().get(nick).forceSocketClose();
                             }
 
                         }
@@ -3666,11 +3662,7 @@ public class Crupier implements Runnable {
                 // 0=yes, 1=no, 2=cancel
                 if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                     for (String nick : pendientes) {
-                        try {
-                            GameFrame.getInstance().getParticipantes().get(nick).socketClose();
-                        } catch (IOException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
+                        GameFrame.getInstance().getParticipantes().get(nick).forceSocketClose();
                     }
 
                 }
@@ -3904,11 +3896,7 @@ public class Crupier implements Runnable {
                     // 0=yes, 1=no, 2=cancel
                     if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                         for (String nick : pendientes) {
-                            try {
-                                GameFrame.getInstance().getParticipantes().get(nick).socketClose();
-                            } catch (IOException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                            }
+                            GameFrame.getInstance().getParticipantes().get(nick).forceSocketClose();
                         }
 
                     }
@@ -3990,11 +3978,7 @@ public class Crupier implements Runnable {
                     // 0=yes, 1=no, 2=cancel
                     if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                         for (String nick : pendientes) {
-                            try {
-                                GameFrame.getInstance().getParticipantes().get(nick).socketClose();
-                            } catch (IOException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                            }
+                            GameFrame.getInstance().getParticipantes().get(nick).forceSocketClose();
                         }
 
                     }
@@ -4246,11 +4230,7 @@ public class Crupier implements Runnable {
                             // 0=yes, 1=no, 2=cancel
                             if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), jugador.getNickname() + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
-                                try {
-                                    GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).socketClose();
-                                } catch (IOException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                }
+                                GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).forceSocketClose();
 
                             }
 
@@ -5095,11 +5075,7 @@ public class Crupier implements Runnable {
                             if (!nick2player.isEmpty()) {
                                 for (String nick : pendientes) {
                                     if (!nick2player.get(nick).isExit()) {
-                                        try {
-                                            GameFrame.getInstance().getParticipantes().get(nick).socketClose();
-                                        } catch (IOException ex) {
-                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
+                                        GameFrame.getInstance().getParticipantes().get(nick).forceSocketClose();
                                     }
                                 }
                             }

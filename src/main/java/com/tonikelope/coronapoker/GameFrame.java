@@ -4282,7 +4282,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             for (Map.Entry<String, Participant> entry : getParticipantes().entrySet()) {
 
                 if (entry.getValue() != null && !entry.getValue().isCpu()) {
-                    entry.getValue().forceSocketClose();
+                    entry.getValue().forceSocketReconnect();
                 }
             }
 

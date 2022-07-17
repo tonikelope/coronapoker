@@ -1177,7 +1177,7 @@ public class Crupier implements Runnable {
                         // 0=yes, 1=no, 2=cancel
                         if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET DEL SOCKET de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                             for (String nick : pending) {
-                                GameFrame.getInstance().getParticipantes().get(nick).forceSocketClose();
+                                GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
                             }
 
                         }
@@ -3662,7 +3662,7 @@ public class Crupier implements Runnable {
                 // 0=yes, 1=no, 2=cancel
                 if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                     for (String nick : pendientes) {
-                        GameFrame.getInstance().getParticipantes().get(nick).forceSocketClose();
+                        GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
                     }
 
                 }
@@ -3896,7 +3896,7 @@ public class Crupier implements Runnable {
                     // 0=yes, 1=no, 2=cancel
                     if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                         for (String nick : pendientes) {
-                            GameFrame.getInstance().getParticipantes().get(nick).forceSocketClose();
+                            GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
                         }
 
                     }
@@ -3978,7 +3978,7 @@ public class Crupier implements Runnable {
                     // 0=yes, 1=no, 2=cancel
                     if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                         for (String nick : pendientes) {
-                            GameFrame.getInstance().getParticipantes().get(nick).forceSocketClose();
+                            GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
                         }
 
                     }
@@ -4230,7 +4230,7 @@ public class Crupier implements Runnable {
                             // 0=yes, 1=no, 2=cancel
                             if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), jugador.getNickname() + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
-                                GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).forceSocketClose();
+                                GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).forceSocketReconnect();
 
                             }
 
@@ -5075,7 +5075,7 @@ public class Crupier implements Runnable {
                             if (!nick2player.isEmpty()) {
                                 for (String nick : pendientes) {
                                     if (!nick2player.get(nick).isExit()) {
-                                        GameFrame.getInstance().getParticipantes().get(nick).forceSocketClose();
+                                        GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
                                     }
                                 }
                             }

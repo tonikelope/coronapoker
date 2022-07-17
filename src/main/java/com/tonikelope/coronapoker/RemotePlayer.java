@@ -858,10 +858,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
             });
 
-            if (val) {
-                Audio.playWavResource("misc/network_error.wav");
-            } else if (!GameFrame.getInstance().isPartida_local()) {
-                Audio.playWavResource("misc/yahoo.wav");
+            if (val && GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(this.nickname).isForce_recon()) {
+                Audio.playWavResource("misc/network_error_" + GameFrame.LANGUAGE.toLowerCase() + ".wav");
             }
 
         }

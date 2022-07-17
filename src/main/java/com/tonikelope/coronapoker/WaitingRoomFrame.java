@@ -2356,7 +2356,11 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     //Es un usuario intentado reconectar
                                     if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {
 
-                                        Audio.playWavResource("misc/yahoo.wav");
+                                        if (!participantes.get(client_nick).isForce_recon()) {
+                                            Audio.playWavResource("misc/yahoo.wav");
+                                        } else {
+                                            participantes.get(client_nick).setForce_recon(false);
+                                        }
 
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
 

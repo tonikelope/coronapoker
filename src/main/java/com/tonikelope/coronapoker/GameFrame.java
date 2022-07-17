@@ -177,7 +177,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return THIS;
     }
 
-    private final Object registro_lock = new Object();
     private final Object full_screen_lock = new Object();
     private final Object lock_pause = new Object();
     private final Object exit_now_lock = new Object();
@@ -1758,6 +1757,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         getContentPane().add(frame_layer);
 
+        force_reconnect_menu.setEnabled(isPartida_local());
+
         compact_menu.setSelected(GameFrame.VISTA_COMPACTA > 0);
 
         menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
@@ -2278,10 +2279,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 }
 
-                if (!GameFrame.MUSICA_AMBIENTAL) {
-                    Audio.muteLoopMp3("misc/background_music.mp3");
-                }
-
                 Audio.playLoopMp3Resource("misc/background_music.mp3");
 
                 Helpers.GUIRunAndWait(new Runnable() {
@@ -2444,6 +2441,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         last_hand_menu = new javax.swing.JCheckBoxMenuItem();
         max_hands_menu = new javax.swing.JMenuItem();
         jSeparator3 = new javax.swing.JPopupMenu.Separator();
+        force_reconnect_menu = new javax.swing.JMenuItem();
+        jSeparator9 = new javax.swing.JPopupMenu.Separator();
         exit_menu = new javax.swing.JMenuItem();
         zoom_menu = new javax.swing.JMenu();
         zoom_menu_in = new javax.swing.JMenuItem();
@@ -2555,6 +2554,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
         file_menu.add(max_hands_menu);
         file_menu.add(jSeparator3);
+
+        force_reconnect_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        force_reconnect_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/timeout.png"))); // NOI18N
+        force_reconnect_menu.setText("FORZAR RECONEXIÓN JUGADORES");
+        force_reconnect_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                force_reconnect_menuActionPerformed(evt);
+            }
+        });
+        file_menu.add(force_reconnect_menu);
+        file_menu.add(jSeparator9);
 
         exit_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         exit_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/close.png"))); // NOI18N
@@ -4265,6 +4275,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.savePropertiesFile();
     }//GEN-LAST:event_chat_image_menuActionPerformed
 
+    private void force_reconnect_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_force_reconnect_menuActionPerformed
+        // TODO add your handling code here:
+
+        if (isPartida_local() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿FORZAR RECONEXIÓN DE TODOS LOS JUGADORES?", new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+            for (Map.Entry<String, Participant> entry : getParticipantes().entrySet()) {
+
+                if (entry.getValue() != null && !entry.getValue().isCpu()) {
+                    try {
+                        entry.getValue().socketClose();
+                    } catch (IOException ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+
+            Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "SE HA FORZADO LA RECONEXIÓN DE TODOS LOS JUGADORES");
+        }
+    }//GEN-LAST:event_force_reconnect_menuActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
@@ -4278,6 +4307,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JPopupMenu.Separator decks_separator;
     private javax.swing.JMenuItem exit_menu;
     private javax.swing.JMenu file_menu;
+    private javax.swing.JMenuItem force_reconnect_menu;
     private javax.swing.JMenuItem full_screen_menu;
     private javax.swing.JMenu help_menu;
     private javax.swing.JCheckBoxMenuItem iwtsth_rule_menu;
@@ -4289,6 +4319,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JPopupMenu.Separator jSeparator6;
     private javax.swing.JPopupMenu.Separator jSeparator7;
     private javax.swing.JPopupMenu.Separator jSeparator8;
+    private javax.swing.JPopupMenu.Separator jSeparator9;
     private javax.swing.JMenuItem jugadas_menu;
     private javax.swing.JCheckBoxMenuItem last_hand_menu;
     private javax.swing.JMenuItem max_hands_menu;

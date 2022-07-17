@@ -45,8 +45,11 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
-            {" ¿Forzamos reset del socket del cliente?", " Force client socket reset?"},
-            {"¿Forzamos reset del socket de los usuarios rezagados?", "Force socket reset of timeout players?"},
+            {"FORZAR RECONEXIÓN JUGADORES", "FORCE PLAYERS RECONNECTION"},
+            {"SE HA FORZADO LA RECONEXIÓN DE TODOS LOS JUGADORES", "ALL PLAYERS HAVE BEEN FORCED TO RECONNECT"},
+            {"¿FORZAR RECONEXIÓN DE TODOS LOS JUGADORES?", "FORCE RECONNECTION OF ALL PLAYERS?"},
+            {"¿FORZAMOS RESET DE SU SOCKET?", "FORCE HIS/HER SOCKET RESET?"},
+            {"¿FORZAMOS RESET DEL SOCKET de los usuarios que no responden?", "FORCE SOCKET RESET of timeout players?"},
             {")   MULTIVERSO(", ")   MULTIVERSE("},
             {") -> GANA: ", ") -> WINS: "},
             {"%   PIERDE: ", "%   LOSES: "},

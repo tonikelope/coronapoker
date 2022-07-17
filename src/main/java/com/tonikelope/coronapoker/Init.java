@@ -1024,10 +1024,6 @@ public class Init extends javax.swing.JFrame {
 
             Audio.playWavResource("misc/init.wav");
 
-            if (!GameFrame.MUSICA_AMBIENTAL) {
-                Audio.muteLoopMp3("misc/background_music.mp3");
-            }
-
             Audio.playLoopMp3Resource("misc/background_music.mp3");
 
             Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading INIT WINDOW...");

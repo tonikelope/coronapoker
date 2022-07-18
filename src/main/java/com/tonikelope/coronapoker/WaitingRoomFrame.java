@@ -1072,42 +1072,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
 
-                        //Leemos el contenido del chat
-                        String recibido;
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "HEMOS CONSEGUIDO RECONECTAR CORRECTAMENTE CON EL SERVIDOR");
 
-                        ok_rec = false;
-
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Leyendo datos del chat...");
-
-                        recibido = this.local_client_buffer_read_is.readLine();
-
-                        if (recibido != null) {
-
-                            recibido = Helpers.decryptCommand(recibido, local_client_aes_key, local_client_hmac_key);
-
-                            if (recibido != null) {
-
-                                if (!"*".equals(recibido)) {
-
-                                    chat_text = new StringBuffer(new String(Base64.decodeBase64(recibido), "UTF-8"));
-
-                                    refreshChatPanel();
-
-                                }
-
-                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "HEMOS CONSEGUIDO RECONECTAR CORRECTAMENTE CON EL SERVIDOR");
-
-                                ok_rec = true;
-
-                            }
-
-                        } else {
-                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "EL SOCKET DE RECONEXiÓN RECIBIÓ NULL");
-                        }
+                        ok_rec = true;
 
                     } catch (Exception ex) {
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "EL SOCKET DE RECONEXiÓN PROVOCÓ UNA EXCEPCIÓN");
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "EL SOCKET DE RECONEXIÓN PROVOCÓ UNA EXCEPCIÓN");
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
 
                     } finally {

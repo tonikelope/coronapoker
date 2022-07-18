@@ -468,11 +468,6 @@ public class Participant implements Runnable {
 
             try {
 
-                Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "Enviando datos del chat...");
-
-                //Mandamos el chat
-                this.recon_socket.getOutputStream().write((Helpers.encryptCommand(WaitingRoomFrame.getInstance().getChat_text().toString().isEmpty() ? "*" : Base64.encodeBase64String(WaitingRoomFrame.getInstance().getChat_text().toString().getBytes("UTF-8")), aes_k, hmac_k) + "\n").getBytes("UTF-8"));
-
                 this.socket = this.recon_socket;
 
                 this.input_stream_reader = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));

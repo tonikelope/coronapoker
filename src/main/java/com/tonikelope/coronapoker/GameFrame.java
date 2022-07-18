@@ -4279,14 +4279,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
 
         if (isPartida_local() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿FORZAR RECONEXIÓN DE TODOS LOS JUGADORES?", new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+
+            boolean ok = false;
+
             for (Map.Entry<String, Participant> entry : getParticipantes().entrySet()) {
 
                 if (entry.getValue() != null && !entry.getValue().isCpu()) {
                     entry.getValue().forceSocketReconnect();
+                    ok = true;
                 }
             }
 
-            Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "SE HA FORZADO LA RECONEXIÓN DE TODOS LOS JUGADORES");
+            if (!ok) {
+                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "NO HAY JUGADORES HUMANOS CONECTADOS");
+            }
         }
     }//GEN-LAST:event_force_reconnect_menuActionPerformed
 

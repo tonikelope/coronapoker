@@ -1165,10 +1165,13 @@ public class Crupier implements Runnable {
 
                             for (String nick : pending) {
                                 nick2player.get(nick).setTimeout(true);
-                                try {
-                                    this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
-                                } catch (UnsupportedEncodingException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+
+                                if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_recon()) {
+                                    try {
+                                        this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
+                                    } catch (UnsupportedEncodingException ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
                                 }
                             }
 
@@ -2122,11 +2125,12 @@ public class Crupier implements Runnable {
                             Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, p.getNick() + " -> NEW HAND (" + String.valueOf(this.conta_mano + 1) + ") CONFIRMATION NOT RECEIVED!");
 
                             nick2player.get(p.getNick()).setTimeout(true);
-
-                            try {
-                                this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(p.getNick().getBytes("UTF-8")), p.getNick(), false);
-                            } catch (UnsupportedEncodingException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            if (!p.isForce_recon()) {
+                                try {
+                                    this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(p.getNick().getBytes("UTF-8")), p.getNick(), false);
+                                } catch (UnsupportedEncodingException ex) {
+                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
 
                         } else {
@@ -3673,10 +3677,14 @@ public class Crupier implements Runnable {
 
                 for (String nick : pendientes) {
                     nick2player.get(nick).setTimeout(true);
-                    try {
-                        this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+
+                    if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_recon()) {
+                        try {
+                            this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
+                        } catch (UnsupportedEncodingException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
                     }
                 }
 
@@ -3906,11 +3914,15 @@ public class Crupier implements Runnable {
                 if (!pendientes.isEmpty()) {
 
                     for (String nick : pendientes) {
+
                         nick2player.get(nick).setTimeout(true);
-                        try {
-                            this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
-                        } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+
+                        if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_recon()) {
+                            try {
+                                this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
+                            } catch (UnsupportedEncodingException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
                         }
                     }
 
@@ -3989,10 +4001,14 @@ public class Crupier implements Runnable {
 
                     for (String nick : pendientes) {
                         nick2player.get(nick).setTimeout(true);
-                        try {
-                            this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
-                        } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+
+                        if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_recon()) {
+                            try {
+                                this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
+                            } catch (UnsupportedEncodingException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+
                         }
                     }
 
@@ -4220,11 +4236,12 @@ public class Crupier implements Runnable {
                         if (GameFrame.getInstance().isPartida_local()) {
 
                             jugador.setTimeout(true);
-
-                            try {
-                                this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")), jugador.getNickname(), false);
-                            } catch (UnsupportedEncodingException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            if (!GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isForce_recon()) {
+                                try {
+                                    this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")), jugador.getNickname(), false);
+                                } catch (UnsupportedEncodingException ex) {
+                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
 
                             // 0=yes, 1=no, 2=cancel
@@ -5058,10 +5075,12 @@ public class Crupier implements Runnable {
 
                         for (String nick : pendientes) {
                             nick2player.get(nick).setTimeout(true);
-                            try {
-                                this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
-                            } catch (UnsupportedEncodingException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_recon()) {
+                                try {
+                                    this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
+                                } catch (UnsupportedEncodingException ex) {
+                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
                         }
 

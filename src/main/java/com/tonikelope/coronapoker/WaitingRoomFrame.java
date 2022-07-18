@@ -1552,6 +1552,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 THIS.setUnsecure_server(true);
 
                                 Helpers.threadRun(new Runnable() {
+                                    @Override
                                     public void run() {
 
                                         mostrarMensajeInformativo(THIS, "CUIDADO: el ejecutable del juego del servidor es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)");
@@ -1561,6 +1562,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             if ("0".equals(partes[1])) {
                                 Helpers.GUIRun(new Runnable() {
+                                    @Override
                                     public void run() {
 
                                         pass_icon.setVisible(false);
@@ -2362,16 +2364,25 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                             participantes.get(client_nick).setForce_recon(false);
                                         }
 
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " HA RECONECTADO CORRECTAMENTE.");
+                                        if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null && GameFrame.getInstance().getCrupier().getNick2player() != null && GameFrame.getInstance().getCrupier().getNick2player().get(client_nick) != null) {
+                                            try {
+                                                GameFrame.getInstance().getCrupier().getNick2player().get(client_nick).setTimeout(false);
+                                            } catch (Exception ex) {
+                                            }
+                                        }
+
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE {0} HA RECONECTADO CORRECTAMENTE.", client_nick);
 
                                         rec_error = false;
 
                                     } else {
 
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR");
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE {0} NO HA PODIDO RECONECTAR", client_nick);
 
                                         try {
-                                            client_socket.close();
+                                            if (!client_socket.isClosed()) {
+                                                client_socket.close();
+                                            }
                                         } catch (Exception ex) {
                                         }
 
@@ -2379,16 +2390,19 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                 } else {
 
-                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE " + client_nick + " NO HA PODIDO RECONECTAR (BAD HMAC)");
+                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE {0} NO HA PODIDO RECONECTAR (BAD HMAC)", client_nick);
 
                                     try {
-                                        client_socket.close();
+                                        if (!client_socket.isClosed()) {
+                                            client_socket.close();
+                                        }
                                     } catch (Exception ex) {
                                     }
                                 }
 
                                 if (rec_error) {
                                     Helpers.threadRun(new Runnable() {
+                                        @Override
                                         public void run() {
 
                                             Helpers.mostrarMensajeError(THIS, Translator.translate("ERROR AL INTENTAR RECONECTAR -> ") + client_nick);
@@ -2399,10 +2413,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             } else {
 
-                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El usuario " + client_nick + " INTENTA RECONECTAR UNA TIMBA ANTERIOR -> DENEGADO");
+                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El usuario {0} INTENTA RECONECTAR UNA TIMBA ANTERIOR -> DENEGADO", client_nick);
 
                                 try {
-                                    client_socket.close();
+                                    if (!client_socket.isClosed()) {
+                                        client_socket.close();
+                                    }
                                 } catch (Exception ex) {
                                 }
                             }

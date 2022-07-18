@@ -587,7 +587,7 @@ public class Participant implements Runnable {
 
                         if (timeout) {
                             timeout = false;
-                            GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(timeout);
+                            GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(false);
                         }
 
                         String[] partes_comando = recibido.split("#");
@@ -734,7 +734,7 @@ public class Participant implements Runnable {
 
                             timeout = true;
 
-                            GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(timeout);
+                            GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(true);
 
                             if (!this.force_recon) {
                                 try {
@@ -760,7 +760,7 @@ public class Participant implements Runnable {
                         } else {
 
                             // 0=yes, 1=no, 2=cancel
-                            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), nick + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                            if (!this.force_recon && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), nick + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
                                 this.forceSocketReconnect();
 

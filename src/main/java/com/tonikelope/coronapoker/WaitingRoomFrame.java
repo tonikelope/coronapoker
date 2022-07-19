@@ -2329,12 +2329,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     //Es un usuario intentado reconectar
                                     if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {
 
-                                        if (!participantes.get(client_nick).isForce_recon()) {
-                                            Audio.playWavResource("misc/yahoo.wav");
-                                        } else {
-                                            participantes.get(client_nick).setForce_recon(false);
-                                        }
-
                                         if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null && GameFrame.getInstance().getCrupier().getNick2player() != null && GameFrame.getInstance().getCrupier().getNick2player().get(client_nick) != null) {
                                             try {
                                                 GameFrame.getInstance().getCrupier().getNick2player().get(client_nick).setTimeout(false);

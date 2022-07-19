@@ -83,7 +83,7 @@ public class Participant implements Runnable {
     private volatile boolean reset_socket = false;
     private volatile String avatar_chat_src;
     private volatile boolean async_wait = false;
-    private volatile boolean force_recon = false;
+    private volatile boolean force_reset_socket = false;
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
@@ -127,12 +127,12 @@ public class Participant implements Runnable {
 
     }
 
-    public void setForce_recon(boolean force_recon) {
-        this.force_recon = force_recon;
+    public void setForce_reset_socket(boolean force) {
+        this.force_reset_socket = force;
     }
 
-    public boolean isForce_recon() {
-        return force_recon;
+    public boolean isForce_reset_socket() {
+        return force_reset_socket;
     }
 
     public boolean isAsync_wait() {
@@ -287,7 +287,7 @@ public class Participant implements Runnable {
 
     public SecretKeySpec getHmac_key() {
 
-        while (resetting_socket) {
+        while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -302,7 +302,7 @@ public class Participant implements Runnable {
 
     public SecretKeySpec getAes_key() {
 
-        while (resetting_socket) {
+        while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -318,7 +318,7 @@ public class Participant implements Runnable {
 
     public BufferedReader getInput_stream_reader() {
 
-        while (resetting_socket) {
+        while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -370,7 +370,7 @@ public class Participant implements Runnable {
 
     public boolean writeCommandFromServer(String command) {
 
-        while (resetting_socket) {
+        while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -396,7 +396,7 @@ public class Participant implements Runnable {
 
     public String readCommandFromClient() throws KeyException, IOException {
 
-        while (resetting_socket) {
+        while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -436,7 +436,7 @@ public class Participant implements Runnable {
             }
         }
 
-        force_recon = true;
+        force_reset_socket = true;
 
     }
 
@@ -476,30 +476,30 @@ public class Participant implements Runnable {
 
                 this.hmac_key = hmac_k;
 
-                this.recon_socket = null;
-
-                this.resetting_socket = false;
+                if (!isForce_reset_socket()) {
+                    Audio.playWavResource("misc/yahoo.wav");
+                }
 
                 this.reset_socket = true;
-
-                getParticipant_socket_lock().notifyAll();
-
-                return true;
 
             } catch (Exception ex) {
 
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
 
+                this.reset_socket = false;
+
+            } finally {
+
                 this.recon_socket = null;
 
-                this.force_recon = false;
+                this.force_reset_socket = false;
 
                 this.resetting_socket = false;
-
-                getParticipant_socket_lock().notifyAll();
-
-                return false;
             }
+
+            getParticipant_socket_lock().notifyAll();
+
+            return this.reset_socket;
         }
     }
 
@@ -731,7 +731,7 @@ public class Participant implements Runnable {
 
                             GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(true);
 
-                            if (!this.force_recon) {
+                            if (!this.force_reset_socket) {
                                 try {
                                     GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
                                 } catch (UnsupportedEncodingException ex) {
@@ -743,7 +743,7 @@ public class Participant implements Runnable {
                                 synchronized (getParticipant_socket_lock()) {
 
                                     try {
-                                        getParticipant_socket_lock().wait(resetting_socket ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
+                                        getParticipant_socket_lock().wait((resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
                                     } catch (InterruptedException ex) {
                                         Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                                     }
@@ -755,7 +755,7 @@ public class Participant implements Runnable {
                         } else {
 
                             // 0=yes, 1=no, 2=cancel
-                            if (!this.force_recon && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), nick + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                            if (!this.force_reset_socket && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), nick + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
                                 this.forceSocketReconnect();
 
@@ -774,7 +774,7 @@ public class Participant implements Runnable {
                                 synchronized (getParticipant_socket_lock()) {
 
                                     try {
-                                        getParticipant_socket_lock().wait(resetting_socket ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
+                                        getParticipant_socket_lock().wait((resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
                                     } catch (InterruptedException ex) {
                                         Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                                     }

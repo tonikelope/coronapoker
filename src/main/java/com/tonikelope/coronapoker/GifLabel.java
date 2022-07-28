@@ -110,8 +110,10 @@ public class GifLabel extends JLabel {
             }
 
             return imageupdate;
+
         } else {
-            return true;
+            repaint();
+            return false;
         }
     }
 

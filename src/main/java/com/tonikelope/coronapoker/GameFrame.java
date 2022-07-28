@@ -576,6 +576,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         frame_layer = new JLayer<>(GameFrame.getInstance().getTapete(), capa_brillo);
                         full_screen_frame.getContentPane().add(frame_layer);
                         full_screen_frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                        full_screen_frame.setAlwaysOnTop(true);
                         full_screen_frame.setVisible(true);
 
                         if (timba_pausada) {

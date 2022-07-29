@@ -43,7 +43,7 @@ import javax.imageio.ImageIO;
  *
  * @author tonikelope
  */
-public class InitPanel extends javax.swing.JPanel {
+public class InitPanel extends javax.swing.JLayeredPane {
 
     protected volatile TexturePaint tp = null;
     protected volatile boolean invalidate = false;
@@ -89,7 +89,6 @@ public class InitPanel extends javax.swing.JPanel {
         });
 
         addComponentListener(new ComponentResizeEndListener() {
-
             @Override
             public void resizeTimedOut() {
 

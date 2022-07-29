@@ -1587,7 +1587,7 @@ public class StatsDialog extends javax.swing.JDialog {
             }
         });
 
-        title.setBackground(new java.awt.Color(255, 153, 51));
+        title.setBackground(new java.awt.Color(255, 102, 0));
         title.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         title.setForeground(new java.awt.Color(255, 255, 255));
         title.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -2096,7 +2096,7 @@ public class StatsDialog extends javax.swing.JDialog {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(scroll_stats_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 1241, Short.MAX_VALUE)
+                .addComponent(scroll_stats_panel)
                 .addContainerGap())
             .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(cargando, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)

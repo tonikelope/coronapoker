@@ -30,6 +30,7 @@ package com.tonikelope.coronapoker;
 
 import java.awt.AWTException;
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Image;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
@@ -69,6 +70,8 @@ import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JLayeredPane;
+import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
 import javax.swing.Timer;
 import javax.swing.text.SimpleAttributeSet;
@@ -110,6 +113,7 @@ public class Init extends javax.swing.JFrame {
     private static volatile String NEW_VERSION = null;
     private volatile Timer quote_timer = null;
     private volatile int conta_quote = 0;
+    private volatile JTextPane quote = null;
 
     static {
 
@@ -210,6 +214,8 @@ public class Init extends javax.swing.JFrame {
 
         setTitle(Init.WINDOW_TITLE);
 
+        quote = new JTextPane();
+
         StyledDocument doc = quote.getStyledDocument();
 
         SimpleAttributeSet center = new SimpleAttributeSet();
@@ -218,13 +224,22 @@ public class Init extends javax.swing.JFrame {
 
         doc.setParagraphAttributes(0, doc.getLength(), center, false);
 
+        quote.setEditable(false);
+
         quote.setOpaque(false);
 
         quote.setBackground(new Color(0, 0, 0, 0));
 
-        //panel_textarea.getViewport().setOpaque(false);
-        //panel_textarea.setViewportBorder(null);
-        //panel_textarea.setOpaque(false);
+        quote.setForeground(Color.white);
+
+        Font font = new Font("Dialog", Font.ITALIC, 22);
+
+        quote.setFont(font);
+
+        quote.setLocation(0, 25);
+
+        tapete.add(quote, JLayeredPane.POPUP_LAYER);
+
         addComponentListener(new ComponentResizeEndListener() {
             @Override
             public void resizeTimedOut() {
@@ -243,6 +258,10 @@ public class Init extends javax.swing.JFrame {
 
                     Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), getClass().getResource("/images/corona_init.png"), Math.round(new_w * 0.8f), Math.round(new_h * 0.8f));
                 }
+
+                quote.setSize((int) getWidth(), 150);
+                quote.revalidate();
+                quote.repaint();
             }
         });
 
@@ -493,7 +512,6 @@ public class Init extends javax.swing.JFrame {
         stats_button = new javax.swing.JButton();
         baraja_panel = new javax.swing.JPanel();
         baraja_fondo = new javax.swing.JLabel();
-        quote = new javax.swing.JTextPane();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("CoronaPoker");
@@ -674,28 +692,15 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
-        quote.setEditable(false);
-        quote.setBorder(null);
-        quote.setFont(new java.awt.Font("Dialog", 2, 20)); // NOI18N
-        quote.setForeground(new java.awt.Color(255, 255, 255));
-        quote.setText("xxxxxxxxxxxx");
-        quote.setOpaque(false);
-
         javax.swing.GroupLayout baraja_panelLayout = new javax.swing.GroupLayout(baraja_panel);
         baraja_panel.setLayout(baraja_panelLayout);
         baraja_panelLayout.setHorizontalGroup(
             baraja_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(quote)
             .addComponent(baraja_fondo, javax.swing.GroupLayout.DEFAULT_SIZE, 2722, Short.MAX_VALUE)
         );
         baraja_panelLayout.setVerticalGroup(
             baraja_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(baraja_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(baraja_fondo, javax.swing.GroupLayout.DEFAULT_SIZE, 1796, Short.MAX_VALUE)
-                .addGap(0, 0, 0)
-                .addComponent(quote, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
+            .addComponent(baraja_fondo, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 1830, Short.MAX_VALUE)
         );
 
         tapete.setLayer(botones_panel, javax.swing.JLayeredPane.POPUP_LAYER);
@@ -1158,7 +1163,6 @@ public class Init extends javax.swing.JFrame {
     private javax.swing.JButton create_button;
     private javax.swing.JButton join_button;
     private javax.swing.JComboBox<String> language_combobox;
-    private javax.swing.JTextPane quote;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JButton stats_button;
     private com.tonikelope.coronapoker.InitPanel tapete;

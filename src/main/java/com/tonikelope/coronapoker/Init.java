@@ -106,6 +106,7 @@ public class Init extends javax.swing.JFrame {
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
     public static volatile Image I1 = null;
+    public static volatile String CORONA_INIT_IMAGE = "/images/corona_init.png";
     public static volatile boolean PEGI18_MOD = false;
     public static volatile boolean PLAYING_CINEMATIC = false;
     public static volatile VolumeControlDialog VOLUME_DIALOG = null;
@@ -232,11 +233,11 @@ public class Init extends javax.swing.JFrame {
 
         quote.setForeground(Color.white);
 
-        Font font = new Font("Dialog", Font.ITALIC, 22);
+        Font font = new Font("Dialog", Font.ITALIC, 18);
 
         quote.setFont(font);
 
-        quote.setLocation(0, 25);
+        quote.setLocation(0, 5);
 
         tapete.add(quote, JLayeredPane.POPUP_LAYER);
 
@@ -256,7 +257,7 @@ public class Init extends javax.swing.JFrame {
                         new_w = Math.round(1920 * new_h / 1080);
                     }
 
-                    Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), getClass().getResource("/images/corona_init.png"), Math.round(new_w * 0.8f), Math.round(new_h * 0.8f));
+                    Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), getClass().getResource(CORONA_INIT_IMAGE), Math.round(new_w * 0.9f), Math.round(new_h * 0.9f));
                 }
 
                 quote.setSize((int) getWidth(), 150);
@@ -466,7 +467,7 @@ public class Init extends javax.swing.JFrame {
 
         quote_timer.setInitialDelay(0);
 
-        Helpers.setScaledIconLabel(baraja_fondo, getClass().getResource("/images/corona_init.png"), Math.round(1920 * 0.8f), Math.round(1080 * 0.8f));
+        Helpers.setScaledIconLabel(baraja_fondo, getClass().getResource(CORONA_INIT_IMAGE), Math.round(1920 * 0.9f), Math.round(1080 * 0.9f));
 
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
@@ -955,6 +956,10 @@ public class Init extends javax.swing.JFrame {
                 WINDOW_TITLE += " @ " + MOD.get("name") + " " + MOD.get("version");
 
                 PEGI18_MOD = (MOD.containsKey("adults") && (boolean) MOD.get("adults"));
+                
+                if(PEGI18_MOD){
+                    CORONA_INIT_IMAGE = "/images/corona_init_18.png";
+                }
 
                 //Cargamos las barajas del MOD
                 for (Map.Entry<String, HashMap> entry : ((HashMap<String, HashMap>) Init.MOD.get("decks")).entrySet()) {

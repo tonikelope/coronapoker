@@ -245,14 +245,14 @@ public class Init extends javax.swing.JFrame {
             @Override
             public void resizeTimedOut() {
 
-                if (Init.VENTANA_INICIO.getWidth() <= 1920 || Init.VENTANA_INICIO.getHeight() <= 1080) {
+                if (Init.VENTANA_INICIO.getWidth() <= 1920 || Init.VENTANA_INICIO.getHeight() <= 1080 - 150) {
 
                     int new_w = Init.VENTANA_INICIO.getWidth();
 
                     int new_h = Math.round(1080 * new_w / 1920);
 
-                    if (new_h > Init.VENTANA_INICIO.getHeight()) {
-                        new_h = Init.VENTANA_INICIO.getHeight();
+                    if (new_h > Init.VENTANA_INICIO.getHeight() - 150) {
+                        new_h = Init.VENTANA_INICIO.getHeight() - 150;
 
                         new_w = Math.round(1920 * new_h / 1080);
                     }

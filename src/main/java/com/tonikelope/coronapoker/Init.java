@@ -237,7 +237,7 @@ public class Init extends javax.swing.JFrame {
 
         quote.setFont(font);
 
-        quote.setLocation(0, 5);
+        quote.setVisible(false);
 
         tapete.add(quote, JLayeredPane.POPUP_LAYER);
 
@@ -261,6 +261,8 @@ public class Init extends javax.swing.JFrame {
                 }
 
                 quote.setSize((int) getWidth(), 150);
+                quote.setLocation(0, Init.VENTANA_INICIO.getHeight()-125);
+                quote.setVisible(true);
                 quote.revalidate();
                 quote.repaint();
             }
@@ -277,6 +279,8 @@ public class Init extends javax.swing.JFrame {
         create_button.setBackground(Color.WHITE);
 
         join_button.setBackground(Color.WHITE);
+
+        update_label.setVisible(false);
 
         update_button.setVisible(false);
 
@@ -956,8 +960,8 @@ public class Init extends javax.swing.JFrame {
                 WINDOW_TITLE += " @ " + MOD.get("name") + " " + MOD.get("version");
 
                 PEGI18_MOD = (MOD.containsKey("adults") && (boolean) MOD.get("adults"));
-                
-                if(PEGI18_MOD){
+
+                if (PEGI18_MOD) {
                     CORONA_INIT_IMAGE = "/images/corona_init_18.png";
                 }
 

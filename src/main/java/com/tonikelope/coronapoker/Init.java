@@ -73,6 +73,7 @@ import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
@@ -261,7 +262,7 @@ public class Init extends javax.swing.JFrame {
                 }
 
                 quote.setSize((int) getWidth(), 150);
-                quote.setLocation(0, Init.VENTANA_INICIO.getHeight()-125);
+                quote.setLocation(0, Init.VENTANA_INICIO.getHeight() - 125);
                 quote.setVisible(true);
                 quote.revalidate();
                 quote.repaint();

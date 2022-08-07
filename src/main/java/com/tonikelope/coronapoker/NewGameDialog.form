@@ -357,7 +357,6 @@
                           <Color id="Cursor de Mano"/>
                         </Property>
                         <Property name="doubleBuffered" type="boolean" value="true"/>
-                        <Property name="opaque" type="boolean" value="false"/>
                       </Properties>
                     </Component>
                     <Component class="javax.swing.JSpinner" name="buyin_spinner">
@@ -483,7 +482,6 @@
                               <Color id="Cursor de Mano"/>
                             </Property>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
-                            <Property name="opaque" type="boolean" value="false"/>
                           </Properties>
                           <Events>
                             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="doblar_checkboxActionPerformed"/>
@@ -513,7 +511,6 @@
                               <Color id="Cursor de Mano"/>
                             </Property>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
-                            <Property name="opaque" type="boolean" value="false"/>
                           </Properties>
                           <Events>
                             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="double_blinds_radio_minutosActionPerformed"/>
@@ -529,7 +526,6 @@
                               <Color id="Cursor de Mano"/>
                             </Property>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
-                            <Property name="opaque" type="boolean" value="false"/>
                           </Properties>
                           <Events>
                             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="double_blinds_radio_manosActionPerformed"/>

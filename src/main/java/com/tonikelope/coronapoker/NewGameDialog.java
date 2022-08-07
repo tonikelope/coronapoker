@@ -52,6 +52,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JSpinner.DefaultEditor;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileFilter;
@@ -1218,35 +1219,37 @@ public class NewGameDialog extends javax.swing.JDialog {
 
     private void nick_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_nick_labelMouseClicked
         // TODO add your handling code here:
-        JFileChooser fileChooser = new JFileChooser();
 
-        FileFilter imageFilter = new FileNameExtensionFilter("Image files", ImageIO.getReaderFileSuffixes());
-
-        fileChooser.setFileFilter(imageFilter);
-
-        fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
-
-        int result = fileChooser.showOpenDialog(this);
-
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-
-            if (selectedFile.length() > NewGameDialog.AVATAR_MAX_FILESIZE * 1024) {
-                Helpers.mostrarMensajeError(getContentPane(), "MAX: " + NewGameDialog.AVATAR_MAX_FILESIZE + " KB");
-            } else {
-                this.avatar = selectedFile;
-
-                avatar_label.setPreferredSize(new Dimension(nick_pass_panel.getHeight(), nick_pass_panel.getHeight()));
-                Helpers.setScaledIconLabel(avatar_label, avatar.getAbsolutePath(), nick_pass_panel.getHeight(), nick_pass_panel.getHeight());
-
-            }
-
-        } else {
-
+        if (SwingUtilities.isRightMouseButton(evt)) {
             this.avatar = null;
 
             avatar_label.setPreferredSize(new Dimension(nick_pass_panel.getHeight(), nick_pass_panel.getHeight()));
             Helpers.setScaledIconLabel(avatar_label, getClass().getResource("/images/avatar_default.png"), nick_pass_panel.getHeight(), nick_pass_panel.getHeight());
+        } else {
+            JFileChooser fileChooser = new JFileChooser();
+
+            FileFilter imageFilter = new FileNameExtensionFilter("Image files", ImageIO.getReaderFileSuffixes());
+
+            fileChooser.setFileFilter(imageFilter);
+
+            fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+
+            int result = fileChooser.showOpenDialog(this);
+
+            if (result == JFileChooser.APPROVE_OPTION) {
+                File selectedFile = fileChooser.getSelectedFile();
+
+                if (selectedFile.length() > NewGameDialog.AVATAR_MAX_FILESIZE * 1024) {
+                    Helpers.mostrarMensajeError(getContentPane(), "MAX: " + NewGameDialog.AVATAR_MAX_FILESIZE + " KB");
+                } else {
+                    this.avatar = selectedFile;
+
+                    avatar_label.setPreferredSize(new Dimension(nick_pass_panel.getHeight(), nick_pass_panel.getHeight()));
+                    Helpers.setScaledIconLabel(avatar_label, avatar.getAbsolutePath(), nick_pass_panel.getHeight(), nick_pass_panel.getHeight());
+
+                }
+
+            }
 
         }
     }//GEN-LAST:event_nick_labelMouseClicked
@@ -1516,7 +1519,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
         Helpers.mostrarMensajeInformativo(this, "Cuando empecé a desarrollar el juego, una de las cosas que me preocupaba era conseguir barajar las cartas de la mejor forma posible teniendo en cuenta la mala fama que tienen los ordenadores generando números aleatorios. Entre mis amigos había coñas con este asunto y yo quería zanjar cualquier suspicacia.\n"
                 + "<h2>¿En qué consisten los modos de barajado de CoronaPoker?</h2>"
-                + "<b>MODO NORMAL:</b> este modo utiliza el algoritmo de Fisher-Yates para mezclar una baraja (inicialmente ordenada) y para obtener los números aleatorios necesarios hace uso de un generador de números PSEUDOALEATORIOS criptográficamente seguro basado en el algoritmo HASH DRBG SHA-512. Este método de barajar genera de forma equiprobable y no predecible cualquiera de las posibles permutaciones de una baraja de póker, a saber: 52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
+                + "<b>MODO NORMAL:</b> este modo utiliza el algoritmo de Fisher-Yates para mezclar una baraja (inicialmente ordenada) y para obtener los números aleatorios necesarios hace uso de un generador de números PSEUDOALEATORIOS criptográficamente seguro basado en el algoritmo HASH DRBG SHA-512. Este método de barajar genera de forma equiprobable y no predecible cualquiera de las posibles permutaciones de una baraja de póker, a saber:\n52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
                 + "\n"
                 + "<b>MODO CASINO:</b> este modo utiliza la API de Random.org para obtener una permutación de 52 elementos. La aleatoriedad de Random.org proviene de un generador de números ALEATORIOS AUTÉNTICOS obtenidos a partir de RUIDO ATMOSFÉRICO y al igual que el MODO NORMAL cada permutación de la baraja generada es completamente impredecible y equiprobable.\n"
                 + "\n"

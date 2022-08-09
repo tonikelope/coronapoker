@@ -761,6 +761,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (timba_pausada) {
 
                         if (isPartida_local() || getNick_local().equals(user)) {
+                            Helpers.setScaledIconButton(GameFrame.getInstance().getTapete().getCommunityCards().getPause_button(), getClass().getResource("/images/continue.png"), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()));
                             GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("CONTINUAR"));
                             GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
 
@@ -772,6 +773,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         pausa_dialog.setVisible(true);
 
                     } else {
+                                                    Helpers.setScaledIconButton(GameFrame.getInstance().getTapete().getCommunityCards().getPause_button(), getClass().getResource("/images/pause.png"), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()));
 
                         if (isPartida_local()) {
                             GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR"));

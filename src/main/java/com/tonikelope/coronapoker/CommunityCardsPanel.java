@@ -469,9 +469,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addGap(0, 0, 0))
         );
 
-        pause_button.setBackground(new java.awt.Color(255, 102, 0));
         pause_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        pause_button.setForeground(new java.awt.Color(255, 255, 255));
         pause_button.setText("PAUSAR");
         pause_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         pause_button.setDoubleBuffered(true);
@@ -751,13 +749,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (!(!GameFrame.getInstance().isPartida_local() && (GameFrame.getInstance().getCrupier().isIwtsthing() || GameFrame.getInstance().getCrupier().isIwtsthing_request())) && pause_now < 1 && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && ((!GameFrame.getInstance().isPartida_local() && pause_now == 0) || (GameFrame.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (GameFrame.getInstance().isPartida_local() && ((GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) || GameFrame.getInstance().isTimba_pausada() || pause_now == 0 || GameFrame.getInstance().getLocalPlayer().isSpectator())))) {
 
-            tthis.getPause_button().setBackground(new Color(255, 102, 0));
-            tthis.getPause_button().setForeground(Color.WHITE);
+            tthis.getPause_button().setBackground(null);
+            tthis.getPause_button().setForeground(null);
 
             if (!GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().isPartida_local()) {
-
+                
                 GameFrame.getInstance().getLocalPlayer().setPause_counter(GameFrame.getInstance().getLocalPlayer().getPause_counter() - 1);
-
+                Helpers.setScaledIconButton(tthis.getPause_button(), getClass().getResource("/images/pause.png"), Math.round(0.6f * tthis.getPause_button().getHeight()), Math.round(0.6f * tthis.getPause_button().getHeight()));
                 tthis.getPause_button().setText(Translator.translate("PAUSAR") + " (" + GameFrame.getInstance().getLocalPlayer().getPause_counter() + ")");
             }
 
@@ -786,8 +784,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 }
 
             } else {
-                tthis.getPause_button().setBackground(new Color(255, 102, 0));
-                tthis.getPause_button().setForeground(Color.WHITE);
+                tthis.getPause_button().setBackground(null);
+                tthis.getPause_button().setForeground(null);
                 GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
                 Audio.playWavResource("misc/button_off.wav");
             }

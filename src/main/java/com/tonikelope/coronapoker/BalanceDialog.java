@@ -216,7 +216,7 @@ public class BalanceDialog extends javax.swing.JDialog {
             }
         });
 
-        stats_button.setBackground(new java.awt.Color(255, 153, 51));
+        stats_button.setBackground(new java.awt.Color(255, 102, 0));
         stats_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         stats_button.setForeground(new java.awt.Color(255, 255, 255));
         stats_button.setText("ESTADÍSTICAS");

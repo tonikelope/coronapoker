@@ -506,8 +506,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
 
                     setAuto_pause(false);
-                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(new Color(255, 102, 0));
-                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(Color.WHITE);
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(null);
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(null);
 
                     if (!GameFrame.getInstance().isPartida_local()) {
                         GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(false);

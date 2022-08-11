@@ -753,7 +753,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             tthis.getPause_button().setForeground(null);
 
             if (!GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().isPartida_local()) {
-                
+
                 GameFrame.getInstance().getLocalPlayer().setPause_counter(GameFrame.getInstance().getLocalPlayer().getPause_counter() - 1);
                 Helpers.setScaledIconButton(tthis.getPause_button(), getClass().getResource("/images/pause.png"), Math.round(0.6f * tthis.getPause_button().getHeight()), Math.round(0.6f * tthis.getPause_button().getHeight()));
                 tthis.getPause_button().setText(Translator.translate("PAUSAR") + " (" + GameFrame.getInstance().getLocalPlayer().getPause_counter() + ")");

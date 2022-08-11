@@ -2102,6 +2102,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Helpers.closeSQLITE();
 
+            Helpers.cleanGifsicleFiles();
+
             if (isPartida_local() && getSala_espera().isUpnp()) {
                 Helpers.UPnPClose(getSala_espera().getServer_port());
             }
@@ -2236,8 +2238,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
 
             Helpers.savePropertiesFile();
-
-            Helpers.cleanGifsicleFiles();
 
             System.exit(0);
         }

@@ -439,7 +439,7 @@ public class Helpers {
         try {
             Files.walk(Paths.get(CACHE_DIR), FileVisitOption.FOLLOW_LINKS)
                     .filter(Files::isRegularFile)
-                    .filter(a -> (a.getFileName().toString().startsWith("gifsicle_") && !a.getFileName().toString().startsWith("gifsicle_" + String.valueOf(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))))
+                    .filter(a -> (a.getFileName().toString().startsWith("gifsicle_") && !a.getFileName().toString().startsWith("gifsicle_" + String.valueOf(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) + "_")))
                     .map(Path::toFile)
                     .forEach(File::delete);
         } catch (Exception ex) {

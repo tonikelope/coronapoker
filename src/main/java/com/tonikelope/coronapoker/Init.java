@@ -939,10 +939,11 @@ public class Init extends javax.swing.JFrame {
             Helpers.initSQLITE();
 
             try {
-                Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading CSPRNG...");
-                Security.setProperty("securerandom.drbg.config", "Hash_DRBG,SHA-512,256,none");
+                Logger.getLogger(Init.class.getName()).log(Level.INFO, "Trying to load CSPRNG HASH DRBG SHA-512 (256-bits seed from /dev/urandom) [PREDICTION-RESISTANCE]...");
+                Security.setProperty("securerandom.source", "file:/dev/urandom"); //DOES NOT BLOCK
+                Security.setProperty("securerandom.drbg.config", "Hash_DRBG,SHA-512,256,pr_and_reseed");
                 Helpers.CSPRNG_GENERATOR = SecureRandom.getInstance("DRBG");
-
+                Logger.getLogger(Init.class.getName()).log(Level.INFO, "CSPRNG OK");
             } catch (NoSuchAlgorithmException ex) {
 
                 Helpers.CSPRNG_GENERATOR = new SecureRandom();

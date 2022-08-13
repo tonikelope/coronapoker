@@ -55,6 +55,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.BooleanControl;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
 import javax.swing.JLabel;
@@ -329,7 +330,7 @@ public class Audio {
         FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
 
         if (!GameFrame.SONIDOS || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
-            gainControl.setValue(gainControl.getMinimum());
+            ((BooleanControl) clip.getControl(BooleanControl.Type.MUTE)).setValue(true);
         } else {
             float db = Helpers.floatClean(20f * (float) Math.log10(findSoundVolume(sound)), 2);
             gainControl.setValue(db >= gainControl.getMinimum() ? db : gainControl.getMinimum());
@@ -710,12 +711,14 @@ public class Audio {
     }
 
     public static void playWavResource(String sound, boolean force_close) {
+
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
                 playWavResourceAndWait(sound, force_close, false);
             }
         });
+
     }
 
     public static void stopWavResource(String sound) {
@@ -900,8 +903,7 @@ public class Audio {
 
                 try {
                     if (c != null && c.isOpen()) {
-                        FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
-                        gainControl.setValue(gainControl.getMinimum());
+                        ((BooleanControl) c.getControl(BooleanControl.Type.MUTE)).setValue(true);
                     }
                 } catch (Exception ex) {
                     Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
@@ -993,6 +995,7 @@ public class Audio {
                     if (c != null && c.isOpen()) {
                         FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
                         gainControl.setValue(Helpers.floatClean(20 * (float) Math.log10(findSoundVolume(entry.getKey())), 3));
+                        ((BooleanControl) c.getControl(BooleanControl.Type.MUTE)).setValue(false);
                     }
 
                 } catch (Exception ex) {

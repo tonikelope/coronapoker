@@ -226,6 +226,7 @@ public class Crupier implements Runnable {
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 30000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
+    public static final int IWTSTH_TIMEOUT = 15000;
     public static final int MONTECARLO_ITERATIONS = 1000;//Suficiente para tener un compromiso entre velocidad/precisión
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
@@ -7389,7 +7390,7 @@ public class Crupier implements Runnable {
 
                             synchronized (iwtsth_lock) {
                                 try {
-                                    iwtsth_lock.wait(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+                                    iwtsth_lock.wait(IWTSTH_TIMEOUT);
                                 } catch (InterruptedException ex) {
                                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                 }

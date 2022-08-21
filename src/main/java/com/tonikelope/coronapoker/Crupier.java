@@ -7389,14 +7389,18 @@ public class Crupier implements Runnable {
                         if (this.iwtsthing) {
 
                             synchronized (iwtsth_lock) {
-                                try {
-                                    iwtsth_lock.wait(IWTSTH_TIMEOUT);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                
+                                if (this.iwtsthing) {
+                                    
+                                    try {
+                                        iwtsth_lock.wait(IWTSTH_TIMEOUT);
+                                    } catch (InterruptedException ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                    
+                                    this.iwtsthing = false;
                                 }
                             }
-
-                            this.iwtsthing = false;
                         }
 
                         GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();

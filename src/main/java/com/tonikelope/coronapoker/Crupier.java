@@ -223,8 +223,8 @@ public class Crupier implements Runnable {
     public static final int PAUSA_ENTRE_MANOS = 10; //Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
-    public static final int NEW_HAND_READY_WAIT_TIMEOUT = 15000;
-    public static final int IWTSTH_ANTI_FLOOD_TIME = 30 * 60 * 1000; // 30 minutes BAN
+    public static final int NEW_HAND_READY_WAIT_TIMEOUT = 30000;
+    public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
     public static final int MONTECARLO_ITERATIONS = 1000;//Suficiente para tener un compromiso entre velocidad/precisión
 
@@ -6560,6 +6560,10 @@ public class Crupier implements Runnable {
                 GameFrame.getInstance().getBarra_tiempo().setValue(tiempo);
             }
         });
+
+        synchronized (iwtsth_lock) {
+            iwtsth_lock.notifyAll();
+        }
     }
 
     public void showdown(HashMap<Player, Hand> perdedores, HashMap<Player, Hand> ganadores) {
@@ -7381,14 +7385,17 @@ public class Crupier implements Runnable {
                             this.show_time = false;
                         }
 
-                        while (this.iwtsthing) {
+                        if (this.iwtsthing) {
+
                             synchronized (iwtsth_lock) {
                                 try {
-                                    iwtsth_lock.wait(1000);
+                                    iwtsth_lock.wait(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
                                 } catch (InterruptedException ex) {
                                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                 }
                             }
+
+                            this.iwtsthing = false;
                         }
 
                         GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();

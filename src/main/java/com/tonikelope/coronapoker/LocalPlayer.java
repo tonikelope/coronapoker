@@ -1579,41 +1579,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    @Override
-    public void nuevaMano() {
-
-        desPrePulsarAutoTodo();
-
-        this.decision = Player.NODEC;
-
-        this.botes_secundarios.clear();
-
-        this.muestra = false;
-
-        this.winner = false;
-
-        this.loser = false;
-
-        this.bote = 0f;
-
-        this.last_bote = null;
-
-        this.bet = 0f;
-
-        if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
-
-            int rebuy = (Integer) GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname);
-
-            GameFrame.getInstance().getCrupier().getRebuy_now().remove(nickname);
-
-            reComprar(rebuy);
-
-        }
-
-        setStack(stack + pagar);
-
-        pagar = 0f;
-
+    public void resetGUI() {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
 
@@ -1656,6 +1622,42 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             }
         });
+    }
+
+    @Override
+    public void nuevaMano() {
+
+        desPrePulsarAutoTodo();
+
+        this.decision = Player.NODEC;
+
+        this.botes_secundarios.clear();
+
+        this.muestra = false;
+
+        this.winner = false;
+
+        this.loser = false;
+
+        this.bote = 0f;
+
+        this.last_bote = null;
+
+        this.bet = 0f;
+
+        if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
+
+            int rebuy = (Integer) GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname);
+
+            GameFrame.getInstance().getCrupier().getRebuy_now().remove(nickname);
+
+            reComprar(rebuy);
+
+        }
+
+        setStack(stack + pagar);
+
+        pagar = 0f;
 
         if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
             this.setPosition(BIG_BLIND);

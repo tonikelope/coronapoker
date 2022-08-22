@@ -2111,6 +2111,9 @@ public class Crupier implements Runnable {
 
             int timeout = 0;
 
+            boolean[] timeout_msg = new boolean[1];
+            timeout_msg[0] = false;
+
             do {
 
                 ready = true;
@@ -2159,7 +2162,11 @@ public class Crupier implements Runnable {
                         Helpers.threadRun(new Runnable() {
 
                             public void run() {
-                                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO (SEGUIMOS ESPERANDO...)");
+                                if (!timeout_msg[0]) {
+                                    timeout_msg[0] = true;
+                                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO (SEGUIMOS ESPERANDO...)");
+                                    timeout_msg[0] = false;
+                                }
                             }
                         });
 
@@ -2530,6 +2537,7 @@ public class Crupier implements Runnable {
             if (jugador.isActivo()) {
                 jugador.getHoleCard1().resetearCarta(false);
                 jugador.getHoleCard2().resetearCarta(false);
+                jugador.resetGUI();
             }
 
         }

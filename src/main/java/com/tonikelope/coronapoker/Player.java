@@ -58,6 +58,8 @@ public interface Player {
 
     public static final ImageIcon IMAGEN_UTG = new ImageIcon(Player.class.getResource("/images/utg.png"));
 
+    public void resetGUI();
+
     public void ordenarCartas();
 
     public void destaparCartas(boolean sound);

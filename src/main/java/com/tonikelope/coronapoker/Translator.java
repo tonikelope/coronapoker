@@ -165,7 +165,7 @@ public class Translator {
             {") ¿AUTORIZAMOS?", ") WE AUTHORIZE?"},
             {" SOLICITA IWTSTH (", " REQUESTS IWTSTH ("},
             {"Reglas de Robert", "Robert's Rules"},
-            {"HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO", "THERE PLAYERS WHO HAVE NOT CONFIRMED THE NEW HAND"},
+            {"HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO (SEGUIMOS ESPERANDO...)", "THERE ARE PLAYERS WHO HAVE NOT CONFIRMED THE NEW HAND (KEEP WAITING...)"},
             {"CLICK PARA VER SU BUYIN", "CLICK TO SHOW BUYIN"},
             {"Notificaciones del chat durante el juego", "In-game chat notifications"},
             {"REGISTRO DE LA TIMBA", "GAME LOG"},

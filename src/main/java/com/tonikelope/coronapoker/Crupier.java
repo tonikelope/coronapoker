@@ -2101,6 +2101,8 @@ public class Crupier implements Runnable {
 
     private void readyForNextHand() {
 
+        received_commands.clear();
+
         //SINCRONIZACIÓN DE LA MANO
         if (GameFrame.getInstance().isPartida_local()) {
 
@@ -2123,7 +2125,7 @@ public class Crupier implements Runnable {
 
                         if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
 
-                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, p.getNick() + " -> NEW HAND (" + String.valueOf(this.conta_mano + 1) + ") CONFIRMATION NOT RECEIVED!");
+                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, p.getNick() + " -> NEW HAND (" + String.valueOf(this.conta_mano + 1) + ") CONFIRMATION TIMEOUT!");
 
                             nick2player.get(p.getNick()).setTimeout(true);
                             if (!p.isForce_reset_socket()) {
@@ -2157,13 +2159,15 @@ public class Crupier implements Runnable {
                         Helpers.threadRun(new Runnable() {
 
                             public void run() {
-                                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO");
+                                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO (SEGUIMOS ESPERANDO...)");
                             }
                         });
+
+                        timeout = 0;
                     }
                 }
 
-            } while (!ready && timeout <= NEW_HAND_READY_WAIT_TIMEOUT);
+            } while (!ready);
 
         } else {
 
@@ -7389,15 +7393,15 @@ public class Crupier implements Runnable {
                         if (this.iwtsthing) {
 
                             synchronized (iwtsth_lock) {
-                                
+
                                 if (this.iwtsthing) {
-                                    
+
                                     try {
                                         iwtsth_lock.wait(IWTSTH_TIMEOUT);
                                     } catch (InterruptedException ex) {
                                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                     }
-                                    
+
                                     this.iwtsthing = false;
                                 }
                             }

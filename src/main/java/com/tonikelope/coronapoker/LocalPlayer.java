@@ -1645,6 +1645,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.bet = 0f;
 
+        resetGUI();
+        
         if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
 
             int rebuy = (Integer) GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname);

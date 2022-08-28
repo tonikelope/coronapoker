@@ -1703,7 +1703,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.last_bote = null;
 
         this.bet = 0f;
-        
+
         resetGUI();
 
         if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {

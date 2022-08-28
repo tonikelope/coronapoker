@@ -96,9 +96,11 @@ public class GifLabel extends JLabel {
                 }
             }
 
-            boolean imageupdate = super.imageUpdate(img, infoflags, x, y, w, h);
-
+            boolean imageupdate = ((infoflags & (ALLBITS | ABORT)) == 0);
+            
             gif_finished = !imageupdate || (frames != 0 && conta_frames == frames);
+            
+            repaint();
 
             if (gif_finished && gif_barrier != null) {
 

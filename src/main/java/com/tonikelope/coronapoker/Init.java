@@ -1098,6 +1098,8 @@ public class Init extends javax.swing.JFrame {
                                 String updater_jar = Helpers.downloadUpdater();
 
                                 if (updater_jar != null) {
+                                    
+                                    Helpers.cleanCacheDIR();
 
                                     String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
 

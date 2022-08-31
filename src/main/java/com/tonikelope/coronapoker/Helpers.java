@@ -446,6 +446,17 @@ public class Helpers {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+    
+    public static void cleanCacheDIR() {
+        try {
+            Files.walk(Paths.get(CACHE_DIR), FileVisitOption.FOLLOW_LINKS)
+                    .filter(Files::isRegularFile)
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
 
     //card_id es baraja_valor_palo, por ejemplo "coronapoker_7_P"
     public static ImageIcon genGifsicleCardAnimation(URL url, float zoom, String card_id) {

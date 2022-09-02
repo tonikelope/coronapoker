@@ -100,6 +100,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
         if (ANTI_FLOOD_WAIT > 0) {
             Helpers.resetBarra(barra, ANTI_FLOOD_IMAGE);
+            barra.setValue(ANTI_FLOOD_WAIT);
             barra.setVisible(true);
         } else {
             Helpers.barraIndeterminada(barra);

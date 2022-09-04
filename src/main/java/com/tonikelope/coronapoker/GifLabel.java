@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import java.awt.Image;
+import java.awt.Toolkit;
 import java.util.concurrent.CyclicBarrier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -97,10 +98,12 @@ public class GifLabel extends JLabel {
             }
 
             boolean imageupdate = ((infoflags & (ALLBITS | ABORT)) == 0);
-            
+
             gif_finished = !imageupdate || (frames != 0 && conta_frames == frames);
-            
+
             repaint();
+
+            Toolkit.getDefaultToolkit().sync();
 
             if (gif_finished && gif_barrier != null) {
 

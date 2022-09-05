@@ -58,6 +58,10 @@ public interface Player {
 
     public static final ImageIcon IMAGEN_UTG = new ImageIcon(Player.class.getResource("/images/utg.png"));
 
+    public void setContaWin(int conta);
+
+    public int getContaWin();
+
     public void resetGUI();
 
     public void ordenarCartas();

@@ -2717,6 +2717,11 @@ public class Crupier implements Runnable {
                 });
             }
 
+            //Actualizamos el contador de manos ganadas de cada jugador
+            for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                jugador.setContaWin(this.sqlGetPlayerContaWins(jugador.getNickname(), this.sqlite_id_game));
+            }
+
             this.update_game_seats = true;
 
             GameFrame.setRECOVER(false);
@@ -3096,6 +3101,36 @@ public class Crupier implements Runnable {
             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    private int sqlGetPlayerContaWins(String nick, int game_id) {
+
+        int tot = 0;
+
+        String sql = "SELECT COUNT(*) as total FROM showdown,hand WHERE showdown.player=? AND showdown.winner=? AND showdown.id_hand=hand.id AND hand.id_game=?";
+
+        try {
+            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+
+            statement.setString(1, nick);
+
+            statement.setBoolean(2, true);
+
+            statement.setInt(3, game_id);
+
+            ResultSet rs = statement.executeQuery();
+
+            if (rs.next()) {
+                tot = rs.getInt("total");
+            }
+
+            statement.close();
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return tot;
     }
 
     private void sqlNewShowdown(Player jugador, Hand jugada, boolean win) {
@@ -6889,6 +6924,7 @@ public class Crupier implements Runnable {
                     this.sqlite_id_game = gid;
                 }
             }
+
         }
 
         Helpers.GUIRun(new Runnable() {

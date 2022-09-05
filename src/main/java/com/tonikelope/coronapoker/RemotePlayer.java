@@ -102,6 +102,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
     private volatile boolean reraise;
     private volatile boolean muestra = false;
+    private volatile int conta_win = 0;
 
     public void refreshNotifyChatLabel() {
 
@@ -1075,6 +1076,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         nick_panel = new javax.swing.JPanel();
         player_name = new javax.swing.JLabel();
         utg_icon = new javax.swing.JLabel();
+        hands_win = new javax.swing.JLabel();
         player_action = new javax.swing.JLabel();
         danger = new javax.swing.JLabel();
 
@@ -1191,11 +1193,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         utg_icon.setDoubleBuffered(true);
         utg_icon.setFocusable(false);
 
+        hands_win.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        hands_win.setForeground(new java.awt.Color(255, 255, 255));
+        hands_win.setText("(0)");
+        hands_win.setDoubleBuffered(true);
+
         javax.swing.GroupLayout nick_panelLayout = new javax.swing.GroupLayout(nick_panel);
         nick_panel.setLayout(nick_panelLayout);
         nick_panelLayout.setHorizontalGroup(
             nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(nick_panelLayout.createSequentialGroup()
+                .addComponent(hands_win)
+                .addGap(0, 0, 0)
                 .addComponent(player_name)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(utg_icon))
@@ -1205,7 +1214,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             .addGroup(nick_panelLayout.createSequentialGroup()
                 .addGroup(nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(player_name)
-                    .addComponent(utg_icon))
+                    .addComponent(utg_icon)
+                    .addComponent(hands_win))
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
@@ -1359,6 +1369,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel avatar;
     private javax.swing.JPanel avatar_panel;
     private javax.swing.JLabel danger;
+    private javax.swing.JLabel hands_win;
     private com.tonikelope.coronapoker.Card holeCard1;
     private com.tonikelope.coronapoker.Card holeCard2;
     private javax.swing.JPanel indicadores_arriba;
@@ -1482,6 +1493,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void setWinner(String msg) {
         this.winner = true;
+        this.conta_win++;
 
         Helpers.GUIRun(new Runnable() {
             @Override
@@ -1492,6 +1504,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setText(msg);
 
                 setPlayerActionIcon("action/happy.png");
+
+                if (conta_win > 0) {
+
+                    hands_win.setForeground(player_name.getForeground());
+                    hands_win.setText("(" + String.valueOf(conta_win) + ")");
+                    hands_win.setVisible(true);
+                }
 
             }
         });
@@ -1665,6 +1684,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setForeground(Color.WHITE);
 
                 player_action.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+
+                if (conta_win > 0) {
+                    hands_win.setForeground(player_name.getForeground());
+                    hands_win.setText("(" + String.valueOf(conta_win) + ")");
+                    hands_win.setVisible(true);
+                } else {
+                    hands_win.setVisible(false);
+                }
 
                 disablePlayerAction();
 
@@ -2210,6 +2237,28 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             }
         });
+    }
+
+    @Override
+    public void setContaWin(int conta) {
+        this.conta_win = conta;
+
+        if (this.conta_win > 0) {
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    hands_win.setForeground(player_name.getForeground());
+                    hands_win.setText("(" + String.valueOf(conta_win) + ")");
+                    hands_win.setVisible(true);
+                }
+            });
+        }
+    }
+
+    @Override
+    public int getContaWin() {
+        return this.conta_win;
     }
 
 }

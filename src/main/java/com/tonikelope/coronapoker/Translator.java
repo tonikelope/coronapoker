@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"MANOS GANADAS", "HANDS WON"},
             {"NO HAY JUGADORES HUMANOS CONECTADOS", "THERE ARE NO HUMAN PLAYERS CONNECTED"},
             {"FORZAR RECONEXIÓN JUGADORES", "FORCE PLAYERS RECONNECTION"},
             {"SE HA FORZADO LA RECONEXIÓN DE TODOS LOS JUGADORES", "ALL PLAYERS HAVE BEEN FORCED TO RECONNECT"},

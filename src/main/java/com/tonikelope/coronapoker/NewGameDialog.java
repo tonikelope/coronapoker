@@ -69,7 +69,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     public final static int DEFAULT_PORT = 7234;
     public final static int DEFAULT_AVATAR_WIDTH = 50;
     public final static int AVATAR_MAX_FILESIZE = 256; //KB
-    public final static int MAX_NICK_LENGTH = 20;
+    public final static int MAX_NICK_LENGTH = 15;
     public final static int MAX_PASS_LENGTH = 30;
     public final static int MAX_PORT_LENGTH = 5;
     public static volatile int BUYIN_SPINNER_STEP;

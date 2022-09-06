@@ -768,6 +768,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 setBackground(null);
 
+                hands_win.setVisible(false);
+
                 sec_pot_win_label.setVisible(false);
 
                 sec_pot_win_label.setDoubleBuffered(true);
@@ -2114,11 +2116,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         nick_panelLayout.setHorizontalGroup(
             nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(nick_panelLayout.createSequentialGroup()
-                .addComponent(hands_win)
                 .addGap(0, 0, 0)
                 .addComponent(player_name)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(utg_icon))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(utg_icon)
+                .addGap(0, 0, 0)
+                .addComponent(hands_win)
+                .addGap(0, 0, 0))
         );
         nick_panelLayout.setVerticalGroup(
             nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2252,11 +2256,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         panel_cartasLayout.setHorizontalGroup(
             panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_cartasLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
+                .addGap(0, 0, Short.MAX_VALUE)
                 .addComponent(holeCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(holeCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, 0))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
         panel_cartasLayout.setVerticalGroup(
             panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)

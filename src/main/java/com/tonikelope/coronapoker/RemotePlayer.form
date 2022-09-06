@@ -296,6 +296,7 @@
                   <Color blue="ff" green="ff" red="ff" type="rgb"/>
                 </Property>
                 <Property name="text" type="java.lang.String" value="(0)"/>
+                <Property name="toolTipText" type="java.lang.String" value="MANOS GANADAS"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
             </Component>

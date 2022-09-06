@@ -1198,6 +1198,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         hands_win.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         hands_win.setForeground(new java.awt.Color(255, 255, 255));
         hands_win.setText("(0)");
+        hands_win.setToolTipText("MANOS GANADAS");
         hands_win.setDoubleBuffered(true);
 
         javax.swing.GroupLayout nick_panelLayout = new javax.swing.GroupLayout(nick_panel);

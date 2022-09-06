@@ -81,18 +81,13 @@ public class GifLabel extends JLabel {
     }
     
     @Override
-    public void paintComponent(Graphics g){
-        super.paintComponent(g);
-        if (force_sync) {
-            Toolkit.getDefaultToolkit().sync();
-        }
-        g.dispose();
-    }
-
-    @Override
     public boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h) {
 
         repaint();
+        
+        if (force_sync) {
+            Toolkit.getDefaultToolkit().sync();
+        }
 
         if (!gif_finished) {
 

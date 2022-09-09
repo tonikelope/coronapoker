@@ -40,13 +40,13 @@ import javax.swing.ImageIcon;
  * @author tonikelope
  */
 public class GifPanel extends javax.swing.JPanel {
-    
+
     private boolean brillo = true;
-    
+
     @Override
     public void paint(Graphics g) {
         super.paint(g);
-        
+
         if (brillo && GameFrame.getInstance() != null && GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f) {
             Graphics2D g2d = (Graphics2D) g.create();
             g2d.setColor(new Color(0, 0, 0, GameFrame.getInstance().getCapa_brillo().getBrightness()));
@@ -69,13 +69,13 @@ public class GifPanel extends javax.swing.JPanel {
         initComponents();
         brillo = b;
     }
-    
+
     public void setGifIcon(ImageIcon icon, int w, int h) {
         gif.setIcon(new ImageIcon(icon.getImage().getScaledInstance(w, h, Image.SCALE_DEFAULT)));
         gif.setPreferredSize(new Dimension(w, h));
         setPreferredSize(new Dimension(w, h));
     }
-    
+
     public GifLabel getGif() {
         return gif;
     }

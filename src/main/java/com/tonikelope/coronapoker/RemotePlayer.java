@@ -1210,7 +1210,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addComponent(player_name)
                 .addGap(18, 18, Short.MAX_VALUE)
                 .addComponent(utg_icon)
-                .addGap(0, 0, 0)
+                .addGap(5, 5, 5)
                 .addComponent(hands_win))
         );
         nick_panelLayout.setVerticalGroup(
@@ -1511,8 +1511,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (conta_win > 0) {
 
-                    hands_win.setForeground(player_name.getForeground());
-                    hands_win.setText("(" + String.valueOf(conta_win) + ")");
+                    hands_win.setText(String.valueOf(conta_win));
                     hands_win.setVisible(true);
                 }
 
@@ -1690,8 +1689,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 
                 if (conta_win > 0) {
-                    hands_win.setForeground(player_name.getForeground());
-                    hands_win.setText("(" + String.valueOf(conta_win) + ")");
+                    hands_win.setText(String.valueOf(conta_win));
                     hands_win.setVisible(true);
                 } else {
                     hands_win.setVisible(false);
@@ -2252,8 +2250,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 @Override
                 public void run() {
 
-                    hands_win.setForeground(player_name.getForeground());
-                    hands_win.setText("(" + String.valueOf(conta_win) + ")");
+                    hands_win.setText(String.valueOf(conta_win));
                     hands_win.setVisible(true);
                 }
             });

@@ -123,8 +123,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 fastbuttons.setSize(fastbuttons.getPref_size());
 
-                central_label.setForce_sync(true);
-
                 central_label.setDoubleBuffered(true);
 
                 central_label.setFocusable(false);

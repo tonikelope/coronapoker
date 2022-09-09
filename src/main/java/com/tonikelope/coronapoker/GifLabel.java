@@ -28,9 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.Graphics;
 import java.awt.Image;
-import java.awt.Toolkit;
 import java.util.concurrent.CyclicBarrier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -79,15 +77,11 @@ public class GifLabel extends JLabel {
             this.audio_frame_end = end_frame;
         }
     }
-    
+
     @Override
     public boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h) {
 
         repaint();
-        
-        if (force_sync) {
-            Toolkit.getDefaultToolkit().sync();
-        }
 
         if (!gif_finished) {
 
@@ -96,17 +90,16 @@ public class GifLabel extends JLabel {
                 conta_frames++;
 
                 if (audio != null) {
-
-                    if (!audio_playing && conta_frames == this.audio_frame_start) {
+                    if (!audio_playing && conta_frames == audio_frame_start) {
                         audio_playing = true;
                         Audio.playWavResource(audio);
-                    } else if (audio_playing && conta_frames == this.audio_frame_end) {
+                    } else if (audio_playing && conta_frames == audio_frame_end) {
                         audio_playing = false;
                         Audio.stopWavResource(audio);
                         audio = null;
                     }
-
                 }
+
             }
 
             boolean imageupdate = ((infoflags & (ALLBITS | ABORT)) == 0);

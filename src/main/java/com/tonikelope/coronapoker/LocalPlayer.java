@@ -1609,8 +1609,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setForeground(Color.WHITE);
 
                 if (conta_win > 0) {
-                    hands_win.setForeground(player_name.getForeground());
-                    hands_win.setText("(" + String.valueOf(conta_win) + ")");
+                    hands_win.setText(String.valueOf(conta_win));
                     hands_win.setVisible(true);
                 } else {
                     hands_win.setVisible(false);
@@ -2121,7 +2120,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addComponent(player_name)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(utg_icon)
-                .addGap(0, 0, 0)
+                .addGap(5, 5, 5)
                 .addComponent(hands_win)
                 .addGap(0, 0, 0))
         );
@@ -2759,8 +2758,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (conta_win > 0) {
 
-                    hands_win.setForeground(player_name.getForeground());
-                    hands_win.setText("(" + String.valueOf(conta_win) + ")");
+                    hands_win.setText(String.valueOf(conta_win));
                     hands_win.setVisible(true);
                 }
             }
@@ -3150,8 +3148,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 @Override
                 public void run() {
 
-                    hands_win.setForeground(player_name.getForeground());
-                    hands_win.setText("(" + String.valueOf(conta_win) + ")");
+                    hands_win.setText(String.valueOf(conta_win));
                     hands_win.setVisible(true);
                 }
             });

@@ -722,22 +722,26 @@ public class Audio {
     }
 
     public static void stopWavResource(String sound) {
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+                ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
 
-        ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
+                if (list != null) {
+                    for (Clip c : list) {
 
-        if (list != null) {
-            for (Clip c : list) {
-
-                if (c != null) {
-                    synchronized (c) {
-                        if (c.isOpen() && c.isRunning()) {
-                            c.stop();
+                        if (c != null) {
+                            synchronized (c) {
+                                if (c.isOpen() && c.isRunning()) {
+                                    c.stop();
+                                }
+                            }
                         }
+
                     }
                 }
-
             }
-        }
+        });
 
     }
 

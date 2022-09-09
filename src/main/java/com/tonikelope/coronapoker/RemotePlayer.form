@@ -234,7 +234,7 @@
                       <Component id="player_name" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="separate" max="32767" attributes="0"/>
                       <Component id="utg_icon" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                      <EmptySpace min="-2" pref="5" max="-2" attributes="0"/>
                       <Component id="hands_win" min="-2" max="-2" attributes="0"/>
                   </Group>
               </Group>

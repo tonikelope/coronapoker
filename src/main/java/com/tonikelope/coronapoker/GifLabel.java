@@ -46,7 +46,6 @@ public class GifLabel extends JLabel {
     private volatile boolean gif_finished = false;
     private volatile CyclicBarrier gif_barrier = null;
     private volatile boolean audio_playing = false;
-    private volatile boolean force_sync = false;
 
     @Override
     public void setIcon(Icon icon) {
@@ -55,10 +54,6 @@ public class GifLabel extends JLabel {
         audio = null;
         audio_playing = false;
         super.setIcon(icon);
-    }
-
-    public void setForce_sync(boolean force_sync) {
-        this.force_sync = force_sync;
     }
 
     public void setIcon(Icon icon, int frames) {

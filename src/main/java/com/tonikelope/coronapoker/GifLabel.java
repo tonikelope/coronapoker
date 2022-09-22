@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import java.awt.Image;
+import java.awt.Toolkit;
 import java.util.concurrent.CyclicBarrier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -46,7 +47,12 @@ public class GifLabel extends JLabel {
     private volatile boolean gif_finished = false;
     private volatile CyclicBarrier gif_barrier = null;
     private volatile boolean audio_playing = false;
+    private volatile boolean fsync = false;
 
+    public void setFsync(boolean fsync) {
+        this.fsync = fsync;
+    }
+    
     @Override
     public void setIcon(Icon icon) {
         gif_finished = false;
@@ -77,13 +83,17 @@ public class GifLabel extends JLabel {
     public boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h) {
 
         repaint();
-
+        
         if (!gif_finished) {
 
             if ((infoflags & FRAMEBITS) != 0) {
+                
+                if(fsync && conta_frames>0){
+                    Toolkit.getDefaultToolkit().sync();
+                }
 
                 conta_frames++;
-
+                
                 if (audio != null) {
                     if (!audio_playing && conta_frames == audio_frame_start) {
                         audio_playing = true;

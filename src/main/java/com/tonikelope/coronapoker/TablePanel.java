@@ -122,6 +122,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 add(fastbuttons, JLayeredPane.POPUP_LAYER);
 
                 fastbuttons.setSize(fastbuttons.getPref_size());
+                
+                central_label.setFsync(Helpers.OSValidator.isUnix());
 
                 central_label.setDoubleBuffered(true);
 

@@ -47,12 +47,7 @@ public class GifLabel extends JLabel {
     private volatile boolean gif_finished = false;
     private volatile CyclicBarrier gif_barrier = null;
     private volatile boolean audio_playing = false;
-    private volatile boolean fsync = false;
 
-    public void setFsync(boolean fsync) {
-        this.fsync = fsync;
-    }
-    
     @Override
     public void setIcon(Icon icon) {
         gif_finished = false;
@@ -88,10 +83,6 @@ public class GifLabel extends JLabel {
 
             if ((infoflags & FRAMEBITS) != 0) {
                 
-                if(fsync && conta_frames>0){
-                    Toolkit.getDefaultToolkit().sync();
-                }
-
                 conta_frames++;
                 
                 if (audio != null) {

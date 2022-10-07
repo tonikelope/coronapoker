@@ -175,8 +175,6 @@ public class Crupier implements Runnable {
 
     public static final int GIF_SHUFFLE_ANIMATION_TIMEOUT = 1500;
 
-    public static volatile int GIF_CARD_ANIMATION_TIMEOUT;
-
     static {
 
         ALLIN_SOUNDS.put("es", ALLIN_SOUNDS_ES);
@@ -190,12 +188,6 @@ public class Crupier implements Runnable {
         WINNER_SOUNDS.put("en", WINNER_SOUNDS_EN);
         LOSER_SOUNDS.put("en", LOSER_SOUNDS_EN);
         SHOWDOWN_SOUNDS.put("en", SHOWDOWN_SOUNDS_EN);
-
-        try {
-            GIF_CARD_ANIMATION_TIMEOUT = Helpers.getGIFLength(Crupier.class.getResource("/images/decks/coronapoker/gif/A_C.gif"));
-        } catch (Exception ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-        }
     }
 
     public static final int CARTAS_MAX = 5;
@@ -6218,6 +6210,8 @@ public class Crupier implements Runnable {
                     }
                 });
 
+                Audio.playWavResource("misc/uncover.wav", false);
+                
                 GameFrame.getInstance().getTapete().showCentralImage(ficon, 0, CARD_ANIMATION_DELAY, false, null, 0, 0);
 
                 carta.destapar(false);
@@ -6228,25 +6222,9 @@ public class Crupier implements Runnable {
 
         } else {
 
-            Helpers.pausar((carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0 : (this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA));
-
-            Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
-
-            try {
-
-                Helpers.pausar(GIF_CARD_ANIMATION_TIMEOUT); //Animation pause
-
-                carta.destapar();
-
-            } catch (Exception ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
-                }
-            });
+            Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA);
+            
+            carta.destapar();
         }
 
         carta.checkSpecialCardSound();

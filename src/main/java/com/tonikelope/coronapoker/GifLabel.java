@@ -66,7 +66,7 @@ public class GifLabel extends JLabel {
     }
 
     public void addAudio(String aud, int start_frame, int end_frame) {
-        if (!audio_playing && aud != null && start_frame < end_frame && start_frame > 0) {
+        if (!audio_playing && aud != null && (start_frame < end_frame || end_frame < 0) && start_frame > 0) {
             this.audio = aud;
             this.audio_frame_start = start_frame;
             this.audio_frame_end = end_frame;
@@ -86,7 +86,9 @@ public class GifLabel extends JLabel {
                 
                 if (audio != null) {
                     if (!audio_playing && conta_frames == audio_frame_start) {
-                        audio_playing = true;
+                        if(audio_frame_end > 0){
+                            audio_playing = true;
+                        }
                         Audio.playWavResource(audio);
                     } else if (audio_playing && conta_frames == audio_frame_end) {
                         audio_playing = false;

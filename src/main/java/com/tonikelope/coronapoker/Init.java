@@ -85,6 +85,7 @@ import javax.swing.text.StyledDocument;
 public class Init extends javax.swing.JFrame {
 
     public static final boolean DEV_MODE = false;
+    public static final boolean OPENGL = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
@@ -912,6 +913,10 @@ public class Init extends javax.swing.JFrame {
         if (!INIT) {
             
             INIT = true;
+            
+            if(OPENGL){
+                System.setProperty("sun.java2d.opengl", "true");
+            }
 
             /* Set the Nimbus look and feel */
             //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">

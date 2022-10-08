@@ -77,16 +77,16 @@ public class GifLabel extends JLabel {
     public boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h) {
 
         repaint();
-        
+
         if (!gif_finished) {
 
             if ((infoflags & FRAMEBITS) != 0) {
-                
+
                 conta_frames++;
-                
+
                 if (audio != null) {
                     if (!audio_playing && conta_frames == audio_frame_start) {
-                        if(audio_frame_end > 0){
+                        if (audio_frame_end > 0) {
                             audio_playing = true;
                         }
                         Audio.playWavResource(audio);

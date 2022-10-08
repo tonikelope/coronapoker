@@ -6221,7 +6221,7 @@ public class Crupier implements Runnable {
         } else {
 
             Helpers.pausar(this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA);
-            
+
             carta.destapar();
         }
 

@@ -2354,6 +2354,8 @@ public class Helpers {
 
                 mod.put("decks", decks.isEmpty() ? null : decks);
 
+                mod.put("init_background", Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/init.png")));
+
                 Logger.getLogger(Helpers.class.getName()).log(Level.INFO, mod.get("name") + " " + mod.get("version") + " cargado {0}", mod);
 
                 return mod;

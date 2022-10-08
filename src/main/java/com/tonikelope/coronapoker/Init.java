@@ -49,6 +49,8 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
@@ -97,6 +99,7 @@ public class Init extends javax.swing.JFrame {
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
     public static final Object LOCK_CINEMATICS = new Object();
     public static final int QUOTE_DELAY = 10000;
+    public static final String CORONA_INIT_IMAGE = "/images/corona_init.png";
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;
@@ -107,7 +110,7 @@ public class Init extends javax.swing.JFrame {
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
     public static volatile Image I1 = null;
-    public static volatile String CORONA_INIT_IMAGE = "/images/corona_init.png";
+    public static volatile URL CORONA_INIT_MOD_IMAGE = null;
     public static volatile boolean PEGI18_MOD = false;
     public static volatile boolean PLAYING_CINEMATIC = false;
     public static volatile VolumeControlDialog VOLUME_DIALOG = null;
@@ -258,7 +261,7 @@ public class Init extends javax.swing.JFrame {
                         new_w = Math.round(1920 * new_h / 1080);
                     }
 
-                    Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), getClass().getResource(CORONA_INIT_IMAGE), Math.round(new_w * 0.9f), Math.round(new_h * 0.9f));
+                    Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(new_w * 0.9f), Math.round(new_h * 0.9f));
                 }
 
                 quote.setSize((int) getWidth(), 150);
@@ -472,7 +475,7 @@ public class Init extends javax.swing.JFrame {
 
         quote_timer.setInitialDelay(0);
 
-        Helpers.setScaledIconLabel(baraja_fondo, getClass().getResource(CORONA_INIT_IMAGE), Math.round(1920 * 0.9f), Math.round(1080 * 0.9f));
+        Helpers.setScaledIconLabel(baraja_fondo, CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(1920 * 0.9f), Math.round(1080 * 0.9f));
 
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
@@ -689,7 +692,6 @@ public class Init extends javax.swing.JFrame {
         baraja_panel.setOpaque(false);
 
         baraja_fondo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        baraja_fondo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_init.png"))); // NOI18N
         baraja_fondo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         baraja_fondo.setDoubleBuffered(true);
         baraja_fondo.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -911,13 +913,13 @@ public class Init extends javax.swing.JFrame {
     public static void main(String args[]) {
 
         if (!INIT) {
-            
+
             INIT = true;
-            
-            if(OPENGL){
+
+            if (OPENGL) {
                 System.setProperty("sun.java2d.opengl", Helpers.PROPERTIES.getProperty("opengl", "true"));
             }
-            
+
             Logger.getLogger(Init.class.getName()).log(Level.INFO, "java2d.opengl -> " + String.valueOf(System.getProperty("sun.java2d.opengl")));
 
             /* Set the Nimbus look and feel */
@@ -968,8 +970,12 @@ public class Init extends javax.swing.JFrame {
 
                 PEGI18_MOD = (MOD.containsKey("adults") && (boolean) MOD.get("adults"));
 
-                if (PEGI18_MOD) {
-                    CORONA_INIT_IMAGE = "/images/corona_init_18.png";
+                if ((boolean) MOD.get("init_background")) {
+                    try {
+                        CORONA_INIT_MOD_IMAGE = new File(Helpers.getCurrentJarParentPath() + "/mod/init.png").toURI().toURL();
+                    } catch (MalformedURLException ex) {
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
 
                 //Cargamos las barajas del MOD

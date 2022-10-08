@@ -912,8 +912,6 @@ public class Init extends javax.swing.JFrame {
         if (!INIT) {
             
             INIT = true;
-            
-            System.setProperty("sun.java2d.opengl", "true");
 
             /* Set the Nimbus look and feel */
             //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">

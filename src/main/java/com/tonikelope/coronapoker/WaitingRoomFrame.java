@@ -1518,17 +1518,22 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             String server_jar_hmac = Init.coronaHMACJ1(Base64.decodeBase64(jar_hmac), local_client_hmac_key.getEncoded());
 
-                            if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true")) && !server_jar_hmac.equals(partes[2])) {
+                            if (!server_jar_hmac.equals(partes[2])) {
 
-                                THIS.setUnsecure_server(true);
+                                if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+                                    THIS.setUnsecure_server(true);
 
-                                Helpers.threadRun(new Runnable() {
-                                    @Override
-                                    public void run() {
+                                    Helpers.threadRun(new Runnable() {
+                                        @Override
+                                        public void run() {
 
-                                        mostrarMensajeInformativo(THIS, "CUIDADO: el ejecutable del juego del servidor es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)");
-                                    }
-                                });
+                                            mostrarMensajeInformativo(THIS, "CUIDADO: el ejecutable del juego del servidor es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)");
+                                        }
+                                    });
+                                }
+
+                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "SERVER GAME BINARY IS MODIFIED (cheating?)");
+
                             }
 
                             if ("0".equals(partes[1])) {
@@ -2495,16 +2500,20 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                         Audio.playWavResource("misc/new_user.wav");
 
-                                        if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true")) && !partes[1].split("@")[1].equals(client_jar_hmac)) {
+                                        if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
 
-                                            participantes.get(client_nick).setUnsecure_player(true);
+                                            if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+                                                participantes.get(client_nick).setUnsecure_player(true);
 
-                                            Helpers.threadRun(new Runnable() {
-                                                public void run() {
+                                                Helpers.threadRun(new Runnable() {
+                                                    public void run() {
 
-                                                    mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
-                                                }
-                                            });
+                                                        mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
+                                                    }
+                                                });
+                                            }
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, client_nick + " GAME BINARY IS MODIFIED (cheating?)");
 
                                         }
 

@@ -287,7 +287,7 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
             }
 
         } else if (cboard_monitor) {
-            Helpers.openBrowserURL("https://duo.google.com");
+            Helpers.openBrowserURL("https://meet.google.com");
         }
     }//GEN-LAST:event_icon_labelMouseClicked
 
@@ -301,7 +301,7 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
             Helpers.mostrarMensajeInformativo(this, "¡ENLACE COPIADO EN EL PORTAPAPELES!");
 
         } else if (cboard_monitor) {
-            Helpers.openBrowserURL("https://duo.google.com");
+            Helpers.openBrowserURL("https://meet.google.com");
         }
     }//GEN-LAST:event_qr_statusMouseClicked
 

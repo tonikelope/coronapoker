@@ -6210,7 +6210,7 @@ public class Crupier implements Runnable {
                     }
                 });
 
-                GameFrame.getInstance().getTapete().showCentralImage(ficon, 0, CARD_ANIMATION_DELAY, false, "misc/uncover.wav", 2, -1);
+                GameFrame.getInstance().getTapete().showCentralImage(ficon, 0, CARD_ANIMATION_DELAY, false, "misc/uncover.wav", 1, -1);
 
                 carta.destapar(false);
 

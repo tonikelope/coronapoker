@@ -1518,7 +1518,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             String server_jar_hmac = Init.coronaHMACJ1(Base64.decodeBase64(jar_hmac), local_client_hmac_key.getEncoded());
 
-                            if (!server_jar_hmac.equals(partes[2])) {
+                            if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true")) && !server_jar_hmac.equals(partes[2])) {
 
                                 THIS.setUnsecure_server(true);
 
@@ -2495,7 +2495,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                         Audio.playWavResource("misc/new_user.wav");
 
-                                        if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
+                                        if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true")) && !partes[1].split("@")[1].equals(client_jar_hmac)) {
 
                                             participantes.get(client_nick).setUnsecure_player(true);
 

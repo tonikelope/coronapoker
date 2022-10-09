@@ -1840,6 +1840,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                         case "VIDEOCHAT":
                                                             setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+
                                                             break;
 
                                                         case "PAUSE":
@@ -3874,6 +3875,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
+
+            String chat_msg = Translator.translate("SE HA ACTUALIZADO EL ENLACE DEL VIDEOCHAT");
+
+            chatHTMLAppend(local_nick + ":(" + Helpers.getLocalTimeString() + ") " + chat_msg + "\n");
+
+            enviarMensajeChat(local_nick, chat_msg);
         }
 
         chat_box.requestFocus();

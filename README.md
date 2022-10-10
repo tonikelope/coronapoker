@@ -28,6 +28,8 @@ mvn clean install
 
 https://aur.archlinux.org/packages/coronapoker-bin
 
+Note: it is possible to ignore the jar integrity check warnings by adding the following to <i>/home/user/.coronapoker/coronapoker.properties</i> file -> <i>binary_check=false</i>
+
 ### [OPTION C] BUILD CORONAPOKER FROM SOURCE WITHOUT CORONAHMAC:
 
 ##### Step 1 (edit pom.xml):

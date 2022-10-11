@@ -20,6 +20,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - Fun cinematics for tense moments.
 - Text to speech in-game chat and custom gifs.
 - Global Zoom: ultra high resolution supported.
+- 3 view modes for different screen sizes (normal, compact, and super compact).
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).
 - Customizable: create and share your MODs with custom decks and cinematics.
 - Cross platform.

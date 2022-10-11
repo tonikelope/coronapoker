@@ -11,8 +11,10 @@
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
 ## Some features:
+- Cross platform.
 - No central servers nor third parties logging things (just you and your friends).
 - Point-to-point encryption (DH + AES 128).
+- (Paranoid) secure by design with a (modest and homemade) anticheat module.
 - Up to 10 simultaneous human/bot players.
 - Intuitive interface (with comfortable key shortcuts).
 - Global zoom: ultra high resolution supported.
@@ -27,8 +29,6 @@
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).
 - It is possible to pause the game at any time and add new players.
 - Customizable: create and share your MODs with custom decks and cinematics.
-- Cross platform.
-- (Paranoid) secure by design with a (modest and homemade) anticheat module.
 
 ## GET CORONAPOKER
 

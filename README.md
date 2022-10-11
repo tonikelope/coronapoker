@@ -25,6 +25,7 @@
 - "Dead button" rule for BB/SB/DE positions.
 - IWTSTH rule available by default (can be dis/enabled by the server during the game).
 - All blinds stuff adjustable by the server before or during the game.
+- Rebuy available.
 - Waiting room chat with emojis, custom gifs and urls support.
 - Google Meet link QR generator for easy sharing with all players.
 - Text to speech fast chat and sending of custom gifs during the game.

@@ -9,7 +9,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 
 ## Some features:
 - No central servers or third party logging things (just you and your friends).
-- Point-to-point encryption.
+- Point-to-point encryption (DH + AES 128).
 - Up to 10 simultaneous human/bot players.
 - Very intuitive interface.
 - True random shuffle (RANDOM.ORG).

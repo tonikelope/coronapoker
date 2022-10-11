@@ -18,7 +18,7 @@
 - Secure by design with a (modest and homemade) anticheat module.
 - Up to 10 simultaneous human/bot players.
 - Intuitive interface (with comfortable key shortcuts).
-- Global zoom: ultra high resolution supported.
+- Global in-game zoom (UHD resolution supported).
 - TRUE RANDOM shuffle (powered by https://www.random.org).
 - Cool sounds, decks, mats, cinematics and 3D card effects.
 - ALL-IN side pots fully supported.

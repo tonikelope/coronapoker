@@ -24,10 +24,13 @@
 - "Dead button" rule for BB/SB/DE positions.
 - IWTSTH rule enabled by default (can be de/activated by the server during the game).
 - All blinds stuff adjustable by the server before or during the game.
-- Text to speech in-game fast chat with custom gifs.
+- Waiting room chat with emojis and custom gifs.
+- Text to speech fast chat and sending of custom gifs during the game.
 - 3 view modes for different screen sizes (normal, compact, and super compact) and low brightness mode.
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).
 - It is possible to pause the game at any time and add new players.
+- Game log and statistics.
+- English and spanish language.
 - Customizable: create and share your MODs with custom decks and cinematics.
 
 ## GET CORONAPOKER

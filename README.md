@@ -34,7 +34,7 @@
 
 ### [OPTION A (Recommended)] DOWNLOAD <a href="https://github.com/tonikelope/coronapoker/releases/latest">LATEST RELEASE</a>
 
-<i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you use this option.</i>
+<i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution with anticheat module you MUST use this option.</i>
 
 https://aur.archlinux.org/packages/coronapoker-bin</p>
 
@@ -50,7 +50,6 @@ mvn clean install
 ```
 ##### Extra: What is CoronaHMAC?
 <p align="justify">It is a small module that is loaded at game startup to mitigate any player (including the server) trying to cheat using a hacked version of the game. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies, go to OPTION C). 
-Note: it is possible to ignore the jar integrity check warnings by adding the following to <i>/home/user/.coronapoker/coronapoker.properties</i> file -> <i>binary_check=false</i></p>
 
 ### [OPTION C] BUILD CORONAPOKER FROM SOURCE WITHOUT CORONAHMAC:
 

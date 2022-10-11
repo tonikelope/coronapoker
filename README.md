@@ -29,13 +29,13 @@
 - Cross platform.
 - Security-oriented Design with a (modest and homemade) anticheat module.
 
-<p align="justify">CoronaPoker was built using Java and (the old, but not obsolete) <a href="https://en.wikipedia.org/wiki/Swing_(Java)">Swing API</a>
+## GET CORONAPOKER
+
+### [OPTION A (Recommended)] DOWNLOAD <a href="https://github.com/tonikelope/coronapoker/releases/latest">LATEST RELEASE</a>
 
 <i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you use OPTION A.</i>
 
 https://aur.archlinux.org/packages/coronapoker-bin</p>
-
-### [OPTION A (Recommended)] DOWNLOAD <a href="https://github.com/tonikelope/coronapoker/releases/latest">LATEST RELEASE</a>
 
 ### [OPTION B] BUILD CORONAPOKER FROM SOURCE:
 

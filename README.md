@@ -7,6 +7,21 @@ This is the project of a perfectionist, who one day during the confinement of CO
 <h3 align="center"><a href="https://www.youtube.com/watch?v=lAUBjjssKGk"><b>GAMEPLAY VIDEO</b></a></h3>
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
+## Some features:
+- Up to 10 simultaneous human/bot players.
+- Very intuitive interface.
+- True random shuffle (RANDOM.ORG).
+- Cool sound effects, decks, and mats.
+- All-in side pots fully supported.
+- Dead button strategy for BB/SB/DE positions.
+- Point-to-point encryption.
+- Text to speech in-game chat and custom gifs.
+- Global Zoom: ultra high resolution supported.
+- Very high tolerance to network/power failures (games can be resumed from exact stop point).
+- Customizable: create and share your MODs.
+- Cross platform.
+- Anticheat module.
+
 CoronaPoker was built using Java and (the old, but not obsolete) <a href="https://en.wikipedia.org/wiki/Swing_(Java)">Swing API</a>
 
 <i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you use OPTION A or OPTION C.</i>

@@ -12,7 +12,8 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - Point-to-point encryption (DH + AES 128).
 - Up to 10 simultaneous human/bot players.
 - Very intuitive interface.
-- True random shuffle (RANDOM.ORG).
+- Global zoom: ultra high resolution supported.
+- TRUE RANDOM shuffle (powered by https://www.random.org).
 - Cool sounds, decks, mats and 3D card effects.
 - All-in side pots fully supported.
 - "Dead button" strategy for BB/SB/DE positions.
@@ -20,7 +21,6 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - All blinds stuff adjustable by the server during the game.
 - Fun cinematics for tense moments.
 - Text to speech in-game chat and custom gifs.
-- Global Zoom: ultra high resolution supported.
 - 3 view modes for different screen sizes (normal, compact, and super compact).
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).
 - Customizable: create and share your MODs with custom decks and cinematics.

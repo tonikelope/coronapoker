@@ -16,12 +16,11 @@
 - Very intuitive interface.
 - Global zoom: ultra high resolution supported.
 - TRUE RANDOM shuffle (powered by https://www.random.org).
-- Cool sounds, decks, mats and 3D card effects.
+- Cool sounds, decks, mats, cinematics and 3D card effects.
 - ALL-IN side pots fully supported.
 - "Dead button" rule for BB/SB/DE positions.
 - IWTSTH rule enabled by default (can be de/activated by the server during the game).
 - All blinds stuff adjustable by the server during the game.
-- Fun cinematics for tense moments.
 - Text to speech in-game chat and custom gifs.
 - 3 view modes for different screen sizes (normal, compact, and super compact).
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).

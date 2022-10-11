@@ -8,7 +8,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
 ## Some features:
-- No central servers or third party snooping.
+- No central servers or third party logging things (just you and your friends).
 - Point-to-point encryption.
 - Up to 10 simultaneous human/bot players.
 - Very intuitive interface.

@@ -25,7 +25,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).
 - Customizable: create and share your MODs with custom decks and cinematics.
 - Cross platform.
-- Anticheat module.
+- (Modest) anticheat module.
 
 CoronaPoker was built using Java and (the old, but not obsolete) <a href="https://en.wikipedia.org/wiki/Swing_(Java)">Swing API</a>
 

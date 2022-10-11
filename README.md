@@ -10,7 +10,7 @@
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
 ## Some features:
-- No central servers or third party logging things (just you and your friends).
+- No central servers nor third parties logging things (just you and your friends).
 - Point-to-point encryption (DH + AES 128).
 - Up to 10 simultaneous human/bot players.
 - Intuitive interface (with comfortable key shortcuts).

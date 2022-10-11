@@ -14,7 +14,7 @@
 - Cross platform.
 - No central servers nor third parties logging things (just you and your friends).
 - Point-to-point encryption (DH + AES 128).
-- (Paranoid) secure by design with a (modest and homemade) anticheat module.
+- Secure by design with a (modest and homemade) anticheat module.
 - Up to 10 simultaneous human/bot players.
 - Intuitive interface (with comfortable key shortcuts).
 - Global zoom: ultra high resolution supported.

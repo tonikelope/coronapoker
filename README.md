@@ -8,6 +8,8 @@ This is the project of a perfectionist, who one day during the confinement of CO
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
 ## Some features:
+- No central servers or third party snooping.
+- Point-to-point encryption.
 - Up to 10 simultaneous human/bot players.
 - Very intuitive interface.
 - True random shuffle (RANDOM.ORG).
@@ -16,7 +18,6 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - "Dead button" strategy for BB/SB/DE positions.
 - IWTSTH rule enabled by default (can be deactivated by the server during the game).
 - All blinds stuff adjustable by the server during the game.
-- Point-to-point encryption.
 - Fun cinematics for tense moments.
 - Text to speech in-game chat and custom gifs.
 - Global Zoom: ultra high resolution supported.

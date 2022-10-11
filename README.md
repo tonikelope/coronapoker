@@ -40,6 +40,8 @@ https://aur.archlinux.org/packages/coronapoker-bin</p>
 
 ### [OPTION B] BUILD CORONAPOKER FROM SOURCE:
 
+<i>Use this option if for any reason you want to compile your own version of CoronaPoker and distribute it to your friends (if you are "the friend", my security advice is that you all use option A).</i>
+
 #### Step 1 (install coronahmac.jar as Maven local package):
 ```
 mvn install:install-file -Dfile=coronaHMAC_x.x.x.jar -DgroupId=com.tonikelope.coronahmac -DartifactId=coronahmac -Dversion=x.x.x -Dpackaging=jar

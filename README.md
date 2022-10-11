@@ -20,7 +20,7 @@
 - ALL-IN side pots fully supported.
 - "Dead button" rule for BB/SB/DE positions.
 - IWTSTH rule enabled by default (can be de/activated by the server during the game).
-- All blinds stuff adjustable by the server during the game.
+- All blinds stuff adjustable by the server before or during the game.
 - Text to speech in-game chat and custom gifs.
 - 3 view modes for different screen sizes (normal, compact, and super compact).
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).

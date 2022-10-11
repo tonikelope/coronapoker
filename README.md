@@ -13,7 +13,7 @@
 - No central servers or third party logging things (just you and your friends).
 - Point-to-point encryption (DH + AES 128).
 - Up to 10 simultaneous human/bot players.
-- Very intuitive interface.
+- Intuitive interface (with comfortable key shortcuts).
 - Global zoom: ultra high resolution supported.
 - TRUE RANDOM shuffle (powered by https://www.random.org).
 - Cool sounds, decks, mats, cinematics and 3D card effects.

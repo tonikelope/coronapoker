@@ -34,7 +34,7 @@
 - It is possible to pause the game at any time and add new players.
 - Game log and statistics.
 - English and spanish language.
-- Customizable: create and share your MODs with custom font, decks and cinematics.
+- Customizable: create and share your MODs with custom font, decks, sounds and cinematics.
 
 ## GET CORONAPOKER
 

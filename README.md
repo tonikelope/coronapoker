@@ -23,6 +23,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - Text to speech in-game chat and custom gifs.
 - 3 view modes for different screen sizes (normal, compact, and super compact).
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).
+- It is possible to pause the game at any time and add new players.
 - Customizable: create and share your MODs with custom decks and cinematics.
 - Cross platform.
 - (Modest) anticheat module.

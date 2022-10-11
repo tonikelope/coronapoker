@@ -13,7 +13,9 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - True random shuffle (RANDOM.ORG).
 - Cool sound effects, decks, and mats.
 - All-in side pots fully supported.
-- Dead button strategy for BB/SB/DE positions.
+- "Dead button" strategy for BB/SB/DE positions.
+- IWTSTH rule enabled by default (can be deactivated by the server during the game).
+- All blinds stuff adjustable by the server during the game.
 - Point-to-point encryption.
 - Fun cinematics for tense moments.
 - Text to speech in-game chat and custom gifs.

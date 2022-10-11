@@ -11,7 +11,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - Up to 10 simultaneous human/bot players.
 - Very intuitive interface.
 - True random shuffle (RANDOM.ORG).
-- Cool sound effects, decks, and mats.
+- Cool sounds, decks, mats and 3D card effects.
 - All-in side pots fully supported.
 - "Dead button" strategy for BB/SB/DE positions.
 - IWTSTH rule enabled by default (can be deactivated by the server during the game).

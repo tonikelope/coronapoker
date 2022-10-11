@@ -51,7 +51,7 @@ mvn install:install-file -Dfile=coronaHMAC_x.x.x.jar -DgroupId=com.tonikelope.co
 mvn clean install
 ```
 ##### Extra: What is CoronaHMAC?
-<p align="justify">It is a small module that is loaded at game startup to mitigate any player (including the server) trying to cheat using a different version of the game than other players. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies, go to OPTION C). 
+<p align="justify">It is a small module that is loaded at game startup to mitigate the server player trying to cheat using a different version of the game than other players. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies, go to OPTION C). 
 
 ### [OPTION C] BUILD CORONAPOKER FROM SOURCE WITHOUT CORONAHMAC:
 

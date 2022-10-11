@@ -34,7 +34,7 @@
 
 ### [OPTION A (Recommended)] DOWNLOAD <a href="https://github.com/tonikelope/coronapoker/releases/latest">LATEST RELEASE</a>
 
-<i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution with anticheat module you MUST use this option.</i>
+<i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution and you wish to keep anticheat module enabled you MUST use this option (otherwise the binaries will be different for each player, creating false positives).</i>
 
 https://aur.archlinux.org/packages/coronapoker-bin</p>
 

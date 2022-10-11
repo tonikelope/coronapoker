@@ -18,7 +18,7 @@
 - TRUE RANDOM shuffle (powered by https://www.random.org).
 - Cool sounds, decks, mats and 3D card effects.
 - ALL-IN side pots fully supported.
-- "Dead button" strategy for BB/SB/DE positions.
+- "Dead button" rule for BB/SB/DE positions.
 - IWTSTH rule enabled by default (can be de/activated by the server during the game).
 - All blinds stuff adjustable by the server during the game.
 - Fun cinematics for tense moments.

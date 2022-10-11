@@ -16,7 +16,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - Cool sounds, decks, mats and 3D card effects.
 - All-in side pots fully supported.
 - "Dead button" strategy for BB/SB/DE positions.
-- IWTSTH rule enabled by default (can be deactivated by the server during the game).
+- IWTSTH rule enabled by default (can be de/activated by the server during the game).
 - All blinds stuff adjustable by the server during the game.
 - Fun cinematics for tense moments.
 - Text to speech in-game chat and custom gifs.

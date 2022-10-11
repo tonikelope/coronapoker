@@ -30,11 +30,11 @@
 - Cross platform.
 - Security-oriented Design with a (modest and homemade) anticheat module.
 
-CoronaPoker was built using Java and (the old, but not obsolete) <a href="https://en.wikipedia.org/wiki/Swing_(Java)">Swing API</a>
+<p align="justify">CoronaPoker was built using Java and (the old, but not obsolete) <a href="https://en.wikipedia.org/wiki/Swing_(Java)">Swing API</a>
 
 <i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you use OPTION A or OPTION C.</i>
 
-https://aur.archlinux.org/packages/coronapoker-bin
+https://aur.archlinux.org/packages/coronapoker-bin</p>
 
 ### [OPTION A (Recommended)] DOWNLOAD <a href="https://github.com/tonikelope/coronapoker/releases/latest">LATEST RELEASE</a>
 
@@ -49,8 +49,8 @@ mvn install:install-file -Dfile=coronaHMAC_x.x.x.jar -DgroupId=com.tonikelope.co
 mvn clean install
 ```
 ##### Extra: What is CoronaHMAC?
-It is a small module that is loaded at game startup to mitigate any player (including the server) trying to cheat using a hacked version of the game. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies, go to OPTION C). 
-Note: it is possible to ignore the jar integrity check warnings by adding the following to <i>/home/user/.coronapoker/coronapoker.properties</i> file -> <i>binary_check=false</i>
+<p align="justify">It is a small module that is loaded at game startup to mitigate any player (including the server) trying to cheat using a hacked version of the game. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies, go to OPTION C). 
+Note: it is possible to ignore the jar integrity check warnings by adding the following to <i>/home/user/.coronapoker/coronapoker.properties</i> file -> <i>binary_check=false</i></p>
 
 ### [OPTION C] BUILD CORONAPOKER FROM SOURCE WITHOUT CORONAHMAC:
 

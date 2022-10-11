@@ -28,7 +28,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - It is possible to pause the game at any time and add new players.
 - Customizable: create and share your MODs with custom decks and cinematics.
 - Cross platform.
-- (Modest) anticheat module.
+- Security-oriented Design with a (modest and homemade) anticheat module.
 
 CoronaPoker was built using Java and (the old, but not obsolete) <a href="https://en.wikipedia.org/wiki/Swing_(Java)">Swing API</a>
 

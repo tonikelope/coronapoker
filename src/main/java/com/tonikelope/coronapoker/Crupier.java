@@ -281,8 +281,8 @@ public class Crupier implements Runnable {
     private volatile String permutation_key = null;
     private volatile GameOverDialog gameover_dialog = null;
     private volatile String dealer_nick = null;
-    private volatile String bb_nick = null;
-    private volatile String sb_nick = null;
+    private volatile String big_blind_nick = null;
+    private volatile String small_blind_nick = null;
     private volatile String utg_nick = null;
     private volatile boolean saltar_primera_mano = false;
     private volatile boolean update_game_seats = false;
@@ -338,11 +338,11 @@ public class Crupier implements Runnable {
     }
 
     public String getBb_nick() {
-        return bb_nick;
+        return big_blind_nick;
     }
 
     public String getSb_nick() {
-        return sb_nick;
+        return small_blind_nick;
     }
 
     public String getUtg_nick() {
@@ -1897,13 +1897,13 @@ public class Crupier implements Runnable {
         //RECUPERAMOS LAS POSICIONES DE LA MESA
         this.dealer_nick = (String) map.get("dealer");
 
-        this.sb_nick = (String) map.get("sb");
+        this.small_blind_nick = (String) map.get("sb");
 
-        this.bb_nick = (String) map.get("bb");
+        this.big_blind_nick = (String) map.get("bb");
 
         if (!saltar_primera_mano) {
 
-            int bb_pos = permutadoNick2Pos(this.bb_nick);
+            int bb_pos = permutadoNick2Pos(this.big_blind_nick);
 
             if (bb_pos != -1) {
 
@@ -1967,9 +1967,9 @@ public class Crupier implements Runnable {
                         try {
                             this.utg_nick = new String(Base64.decodeBase64(partes[3]), "UTF-8");
 
-                            this.bb_nick = new String(Base64.decodeBase64(partes[4]), "UTF-8");
+                            this.big_blind_nick = new String(Base64.decodeBase64(partes[4]), "UTF-8");
 
-                            this.sb_nick = new String(Base64.decodeBase64(partes[5]), "UTF-8");
+                            this.small_blind_nick = new String(Base64.decodeBase64(partes[5]), "UTF-8");
 
                             this.dealer_nick = new String(Base64.decodeBase64(partes[6]), "UTF-8");
 
@@ -3397,9 +3397,9 @@ public class Crupier implements Runnable {
 
             statement.setString(5, this.dealer_nick);
 
-            statement.setString(6, this.sb_nick);
+            statement.setString(6, this.small_blind_nick);
 
-            statement.setString(7, this.bb_nick);
+            statement.setString(7, this.big_blind_nick);
 
             statement.setLong(8, System.currentTimeMillis());
 
@@ -4508,15 +4508,15 @@ public class Crupier implements Runnable {
 
             } else {
 
-                if (nick2player.containsKey(this.sb_nick) && nick2player.get(this.sb_nick).isActivo()) {
+                if (nick2player.containsKey(this.small_blind_nick) && nick2player.get(this.small_blind_nick).isActivo()) {
 
-                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.sb_nick)) {
+                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.small_blind_nick)) {
                         conta_pos++;
                     }
 
                 } else {
 
-                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.bb_nick)) {
+                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.big_blind_nick)) {
                         conta_pos++;
                     }
                 }
@@ -5206,33 +5206,34 @@ public class Crupier implements Runnable {
 
     }
 
+    //DEAD BUTTON STRATEGY
     private void calcularPosiciones() {
 
-        //DEAD BUTTON STRATEGY
-        String old_bb = this.bb_nick;
+        String old_big_blind = this.big_blind_nick;
 
-        int bb_pos = 0;
+        int big_blind_pos = 0;
 
-        if (this.bb_nick == null) {
+        if (this.big_blind_nick == null) {
 
-            this.bb_nick = this.nicks_permutados[0];
+            //FIRST GAME HAND
+            this.big_blind_nick = this.nicks_permutados[0];
 
-            bb_pos = 0;
+            big_blind_pos = 0;
 
         } else {
 
-            int old_bb_pos = permutadoNick2Pos(this.bb_nick);
+            int old_bb_pos = permutadoNick2Pos(this.big_blind_nick);
 
-            String new_bb = null;
+            String new_big_blind = null;
 
             if (old_bb_pos == -1) {
 
                 try {
-                    //LA CIEGA GRANDE SE HA IDO
+                    //BIG BLIND LEFT THE GAME
 
                     String[] asientos = this.sqlRecoverGameSeats().split("#");
 
-                    String grande_b64 = Base64.encodeBase64String(this.bb_nick.getBytes("UTF-8"));
+                    String grande_b64 = Base64.encodeBase64String(this.big_blind_nick.getBytes("UTF-8"));
 
                     int i = 0;
 
@@ -5250,9 +5251,9 @@ public class Crupier implements Runnable {
                         i = (i + 1) % asientos.length;
                     }
 
-                    new_bb = new String(Base64.decodeBase64(asientos[i]), "UTF-8");
+                    new_big_blind = new String(Base64.decodeBase64(asientos[i]), "UTF-8");
 
-                    bb_pos = permutadoNick2Pos(new_bb);
+                    big_blind_pos = permutadoNick2Pos(new_big_blind);
 
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -5260,39 +5261,39 @@ public class Crupier implements Runnable {
 
             } else {
 
-                bb_pos = old_bb_pos + 1;
+                big_blind_pos = old_bb_pos + 1;
 
-                new_bb = permutadoPos2Nick(bb_pos);
+                new_big_blind = permutadoPos2Nick(big_blind_pos);
             }
 
-            while (!this.nick2player.containsKey(new_bb) || !this.nick2player.get(new_bb).isActivo()) {
+            while (!this.nick2player.containsKey(new_big_blind) || !this.nick2player.get(new_big_blind).isActivo()) {
 
-                new_bb = permutadoPos2Nick(++bb_pos);
+                new_big_blind = permutadoPos2Nick(++big_blind_pos);
 
             }
 
-            this.bb_nick = new_bb;
+            this.big_blind_nick = new_big_blind;
         }
 
         if (getJugadoresActivos() == 2) {
 
             for (Player j : GameFrame.getInstance().getJugadores()) {
 
-                if (j.isActivo() && !j.getNickname().equals(this.bb_nick)) {
-                    this.sb_nick = j.getNickname();
+                if (j.isActivo() && !j.getNickname().equals(this.big_blind_nick)) {
+                    this.small_blind_nick = j.getNickname();
                     break;
                 }
 
             }
 
-            this.dealer_nick = this.sb_nick;
+            this.dealer_nick = this.small_blind_nick;
 
             this.utg_nick = this.dealer_nick;
 
         } else {
 
             //UTG
-            int utg_pos = bb_pos + 1;
+            int utg_pos = big_blind_pos + 1;
 
             String new_utg = permutadoPos2Nick(utg_pos);
 
@@ -5305,17 +5306,19 @@ public class Crupier implements Runnable {
             this.utg_nick = new_utg;
 
             //DEALER
-            int de_pos;
+            int dealer_pos;
 
             String new_dealer;
 
-            if (this.sb_nick != null) {
+            String old_small_blind = this.small_blind_nick;
 
-                new_dealer = this.sb_nick;
+            if (old_small_blind != null) {
 
-                de_pos = permutadoNick2Pos(new_dealer);
+                new_dealer = old_small_blind;
 
-                if (de_pos == -1) {
+                dealer_pos = permutadoNick2Pos(new_dealer);
+
+                if (dealer_pos == -1) {
 
                     try {
 
@@ -5349,7 +5352,7 @@ public class Crupier implements Runnable {
 
                         new_dealer = new String(Base64.decodeBase64(asientos[i]), "UTF-8");
 
-                        de_pos = permutadoNick2Pos(new_dealer);
+                        dealer_pos = permutadoNick2Pos(new_dealer);
 
                     } catch (UnsupportedEncodingException ex) {
                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -5359,27 +5362,27 @@ public class Crupier implements Runnable {
 
             } else {
 
-                de_pos = bb_pos - 2;
-                new_dealer = permutadoPos2Nick(de_pos);
+                dealer_pos = big_blind_pos - 2;
+                new_dealer = permutadoPos2Nick(dealer_pos);
 
             }
 
             while (!this.nick2player.containsKey(new_dealer) || !this.nick2player.get(new_dealer).isActivo()) {
 
-                new_dealer = permutadoPos2Nick(--de_pos);
+                new_dealer = permutadoPos2Nick(--dealer_pos);
 
             }
 
             this.dealer_nick = new_dealer;
 
-            //SB
-            if (old_bb != null) {
+            //SMALL BLIND
+            if (old_big_blind != null) {
 
-                this.sb_nick = old_bb;
+                this.small_blind_nick = old_big_blind;
 
             } else {
 
-                this.sb_nick = permutadoPos2Nick(bb_pos - 1);
+                this.small_blind_nick = permutadoPos2Nick(big_blind_pos - 1);
             }
 
         }
@@ -5397,7 +5400,7 @@ public class Crupier implements Runnable {
 
             try {
 
-                comando = "POSITIONS#" + Base64.encodeBase64String(this.utg_nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(this.bb_nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(this.sb_nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(this.dealer_nick != null ? this.dealer_nick.getBytes("UTF-8") : "".getBytes("UTF-8")) + "#" + String.valueOf(GameFrame.getInstance().getConta_tiempo_juego()) + (doblar_ciegas ? "#1" : "#0");
+                comando = "POSITIONS#" + Base64.encodeBase64String(this.utg_nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(this.big_blind_nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(this.small_blind_nick.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(this.dealer_nick != null ? this.dealer_nick.getBytes("UTF-8") : "".getBytes("UTF-8")) + "#" + String.valueOf(GameFrame.getInstance().getConta_tiempo_juego()) + (doblar_ciegas ? "#1" : "#0");
 
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -6971,7 +6974,7 @@ public class Crupier implements Runnable {
 
                     auditorCuentas();
 
-                    GameFrame.getInstance().getRegistro().print(this.bb_nick + Translator.translate(" es la CIEGA GRANDE (") + Helpers.float2String(this.ciega_grande) + ") / " + this.sb_nick + Translator.translate(" es la CIEGA PEQUEÑA (") + Helpers.float2String(this.ciega_pequeña) + ") / " + this.dealer_nick + Translator.translate(" es el DEALER"));
+                    GameFrame.getInstance().getRegistro().print(this.big_blind_nick + Translator.translate(" es la CIEGA GRANDE (") + Helpers.float2String(this.ciega_grande) + ") / " + this.small_blind_nick + Translator.translate(" es la CIEGA PEQUEÑA (") + Helpers.float2String(this.ciega_pequeña) + ") / " + this.dealer_nick + Translator.translate(" es el DEALER"));
 
                     ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));
 

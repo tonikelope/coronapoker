@@ -28,7 +28,7 @@
 - It is possible to pause the game at any time and add new players.
 - Customizable: create and share your MODs with custom decks and cinematics.
 - Cross platform.
-- Security-oriented Design with a (modest and homemade) anticheat module.
+- Security-oriented Design (server player as single trust point) with a (modest and homemade) anticheat module.
 
 ## GET CORONAPOKER
 

@@ -22,7 +22,7 @@
 - Cool sounds, decks, mats, cinematics and 3D card effects.
 - ALL-IN side pots fully supported.
 - "Dead button" rule for BB/SB/DE positions.
-- IWTSTH rule enabled by default (can be de/activated by the server during the game).
+- IWTSTH rule available by default (can be dis/enabled by the server during the game).
 - All blinds stuff adjustable by the server before or during the game.
 - Waiting room chat with emojis and custom gifs.
 - Text to speech fast chat and sending of custom gifs during the game.

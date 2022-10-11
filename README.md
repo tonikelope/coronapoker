@@ -31,7 +31,7 @@
 
 <p align="justify">CoronaPoker was built using Java and (the old, but not obsolete) <a href="https://en.wikipedia.org/wiki/Swing_(Java)">Swing API</a>
 
-<i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you use OPTION A or OPTION C.</i>
+<i>Advice: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution, it is HIGHLY RECOMMENDED that you use OPTION A.</i>
 
 https://aur.archlinux.org/packages/coronapoker-bin</p>
 

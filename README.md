@@ -15,10 +15,11 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - All-in side pots fully supported.
 - Dead button strategy for BB/SB/DE positions.
 - Point-to-point encryption.
+- Fun cinematics for tense moments.
 - Text to speech in-game chat and custom gifs.
 - Global Zoom: ultra high resolution supported.
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).
-- Customizable: create and share your MODs.
+- Customizable: create and share your MODs with custom decks and cinematics.
 - Cross platform.
 - Anticheat module.
 

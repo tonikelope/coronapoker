@@ -15,7 +15,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 - Global zoom: ultra high resolution supported.
 - TRUE RANDOM shuffle (powered by https://www.random.org).
 - Cool sounds, decks, mats and 3D card effects.
-- All-in side pots fully supported.
+- ALL-IN side pots fully supported.
 - "Dead button" strategy for BB/SB/DE positions.
 - IWTSTH rule enabled by default (can be de/activated by the server during the game).
 - All blinds stuff adjustable by the server during the game.

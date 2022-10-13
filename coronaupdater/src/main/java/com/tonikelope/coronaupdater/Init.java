@@ -69,6 +69,7 @@ public class Init extends javax.swing.JFrame {
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaUpdater");
         setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
         setUndecorated(true);
 
         logo.setBackground(new java.awt.Color(255, 255, 255));

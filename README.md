@@ -14,21 +14,27 @@
 - Cross platform.
 - No central servers nor third parties logging things (just you and your friends).
 - Point-to-point encryption (DH + AES 128).
+- Password protected games.
 - Secure by design with a (modest and homemade) anticheat module.
 - Up to 10 simultaneous human/bot players.
 - Intuitive interface (with comfortable key shortcuts).
-- Global zoom: ultra high resolution supported.
+- Global in-game zoom (UHD resolution supported).
 - TRUE RANDOM shuffle (powered by https://www.random.org).
 - Cool sounds, decks, mats, cinematics and 3D card effects.
 - ALL-IN side pots fully supported.
 - "Dead button" rule for BB/SB/DE positions.
-- IWTSTH rule enabled by default (can be de/activated by the server during the game).
+- IWTSTH rule available by default (can be dis/enabled by the server during the game).
 - All blinds stuff adjustable by the server before or during the game.
-- Text to speech in-game fast chat with custom gifs.
+- Rebuy available.
+- Waiting room chat with emojis, custom gifs and urls support.
+- Google Meet link QR generator for easy sharing with all players.
+- Text to speech fast chat and sending of custom gifs during the game.
 - 3 view modes for different screen sizes (normal, compact, and super compact) and low brightness mode.
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).
 - It is possible to pause the game at any time and add new players.
-- Customizable: create and share your MODs with custom decks and cinematics.
+- Game log and statistics.
+- English and spanish language.
+- Customizable: create and share your MODs with custom font, decks, sounds and cinematics.
 
 ## GET CORONAPOKER
 

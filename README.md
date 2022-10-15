@@ -50,14 +50,14 @@ https://aur.archlinux.org/packages/coronapoker-bin</p>
 
 #### Step 1 (install coronahmac.jar as Maven local package):
 ```
-mvn install:install-file -Dfile=coronaHMAC_x.x.x.jar -DgroupId=com.tonikelope.coronahmac -DartifactId=coronahmac -Dversion=x.x.x -Dpackaging=jar
+mvn install:install-file -Dfile=coronaHMAC_x.y.jar -DgroupId=com.tonikelope.coronahmac -DartifactId=coronahmac -Dversion=x.x.x -Dpackaging=jar
 ```
 #### Step 2 (build):
 ```
 mvn clean install
 ```
 ##### Extra: What is CoronaHMAC?
-<p align="justify">It is a small module that is loaded at game startup to mitigate the server-player trying to cheat using a different version of the game than other players. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies, go to OPTION C). 
+<p align="justify">It is a small module that is loaded at game startup to mitigate the game host player trying to cheat using a different version of the game than other players. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies, go to OPTION C). 
 
 ### [OPTION C] BUILD CORONAPOKER FROM SOURCE WITHOUT CORONAHMAC:
 

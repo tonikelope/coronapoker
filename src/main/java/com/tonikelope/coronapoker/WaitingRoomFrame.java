@@ -2509,7 +2509,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                 Helpers.threadRun(new Runnable() {
                                                     public void run() {
 
-                                                        mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
+                                                        mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\nEs posible que intente hacer trampas con una versión hackeada del juego (¿o eres tú el trampos@?)"));
                                                     }
                                                 });
                                             }

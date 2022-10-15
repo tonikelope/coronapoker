@@ -247,7 +247,7 @@ public class Translator {
             {"POSIBLE TRAMPOS@", "POTENTIAL CHEATER"},
             {"¡¡TEN CUIDADO!! ES MUY PROBABLE QUE EL SERVIDOR ESTÉ INTENTANDO HACER TRAMPAS.", "BE CAREFUL! IT IS VERY LIKELY THAT THE SERVER IS TRYING TO CHEAT."},
             {"POSIBLE SERVIDOR TRAMPOSO", "POTENTIAL CHEATER SERVER"},
-            {"CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)", "CAUTION: the game executable of this user is different\n(It is possible that she/he is trying to cheat with a hacked version of the game)"},
+            {"CUIDADO: el ejecutable del juego de este usuario es diferente\nEs posible que intente hacer trampas con una versión hackeada del juego (¿o eres tú el trampos@?)", "CAUTION: the game executable of this user is different\nIt is possible that she/he is trying to cheat with a hacked version of the game (or are you the cheater?)"},
             {"CUIDADO: el ejecutable del juego del servidor es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)", "CAUTION: the server game executable is different (it is possible that the server tries to cheat with a hacked version of the game)"},
             {"PAGAR", "PAY"},
             {"Nota: EFECTIVIDAD = (ROI / MANOS_JUGADAS) si ROI >=0, si no, EFECTIVIDAD = (ROI x MANOS_JUGADAS) (la EFECTIVIDAD mínima es -1)", "Note: EFFECTIVENESS = (ROI / PLAYED_HANDS) if ROI >=0, otherwise EFFECTIVENESS = (ROI x PLAYED_HANDS) (minimum EFFECTIVENESS is -1)"},

@@ -107,6 +107,8 @@ public class Init extends javax.swing.JFrame {
     public static volatile Boolean ANTI_SCREENSAVER_KEY_PRESSED = false;
     public static volatile Init VENTANA_INICIO = null;
     public static volatile Method CORONA_HMAC_J1 = null;
+    public static volatile Method CORONA_HMAC_J2 = null;
+    public static volatile Method CORONA_HMAC_J3 = null;
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
     public static volatile Image I1 = null;
@@ -124,6 +126,8 @@ public class Init extends javax.swing.JFrame {
 
         try {
             CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
+            CORONA_HMAC_J2 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J2", new Class<?>[]{byte[].class});
+            CORONA_HMAC_J3 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J3", new Class<?>[]{byte[].class, boolean.class});
         } catch (Exception ex) {
 
             if (!Init.DEV_MODE) {

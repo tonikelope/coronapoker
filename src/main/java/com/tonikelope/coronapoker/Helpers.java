@@ -35,6 +35,7 @@ import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
+import static com.tonikelope.coronapoker.Init.ANTICHEAT_DIR;
 import static com.tonikelope.coronapoker.Init.CACHE_DIR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
@@ -48,9 +49,11 @@ import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.FontFormatException;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
@@ -66,6 +69,8 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
@@ -121,6 +126,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
@@ -174,6 +180,7 @@ import javax.swing.JScrollBar;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JViewport;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -266,6 +273,46 @@ public class Helpers {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+
+    //Thanks -> https://stackoverflow.com/a/10245657
+    public static class HandScrollListener extends MouseAdapter {
+
+        private final Cursor defCursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
+        private final Cursor hndCursor = Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR);
+        private final Point pp = new Point();
+        private final JLabel image;
+
+        public HandScrollListener(JLabel image) {
+            this.image = image;
+        }
+
+        public void mouseDragged(final MouseEvent e) {
+            JViewport vport = (JViewport) e.getSource();
+            Point cp = e.getPoint();
+            Point vp = vport.getViewPosition();
+            vp.translate(pp.x - cp.x, pp.y - cp.y);
+            image.scrollRectToVisible(new Rectangle(vp, vport.getSize()));
+            pp.setLocation(cp);
+        }
+
+        public void mousePressed(MouseEvent e) {
+            image.setCursor(hndCursor);
+            pp.setLocation(e.getPoint());
+        }
+
+        public void mouseReleased(MouseEvent e) {
+            image.setCursor(defCursor);
+            image.repaint();
+        }
+    }
+
+    public static BufferedImage convertToGrayScale(BufferedImage image) {
+        BufferedImage result = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+        Graphics g = result.getGraphics();
+        g.drawImage(image, 0, 0, null);
+        g.dispose();
+        return result;
     }
 
     public static String downloadUpdater() throws IOException {
@@ -1048,6 +1095,14 @@ public class Helpers {
         }
     }
 
+    public static String processDetails(ProcessHandle process) {
+        return String.format("%8d %8s %10s %26s %-40s\n", process.pid(), processText(process.parent().map(ProcessHandle::pid)), processText(process.info().user()), processText(process.info().startInstant()), processText(process.info().commandLine()));
+    }
+
+    public static String processText(Optional<?> optional) {
+        return optional.map(Object::toString).orElse("-");
+    }
+
     public static class numericFilter extends DocumentFilter {
 
         private int max_lenght;
@@ -1254,7 +1309,7 @@ public class Helpers {
 
     public static void createIfNoExistsCoronaDirs() {
 
-        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR}; //OJO AL ORDEN
+        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR, ANTICHEAT_DIR}; //OJO AL ORDEN POR EL CORONA_DIR!
 
         for (String d : dirs) {
             if (!Files.isDirectory(Paths.get(d))) {

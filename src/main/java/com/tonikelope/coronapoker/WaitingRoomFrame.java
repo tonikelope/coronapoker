@@ -1771,6 +1771,24 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                     switch (subcomando) {
 
+                                                        case "SNAPSHOT":
+
+                                                            if (partes_comando.length == 4) {
+
+                                                                String requester = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+
+                                                                GameFrame.getInstance().getLocalPlayer().antiCheatSnapshot(requester);
+
+                                                            } else {
+
+                                                                String suspicious = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+
+                                                                GameFrame.getInstance().getCrupier().saveAntiCheatSnapshot(suspicious, Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
+
+                                                            }
+
+                                                            break;
+
                                                         case "PING":
                                                             break;
 

@@ -28,11 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.Cursor;
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import com.tonikelope.coronapoker.Helpers.HandScrollListener;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -40,8 +36,6 @@ import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
-import javax.swing.JLabel;
-import javax.swing.JViewport;
 
 /**
  *
@@ -129,38 +123,6 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth(), 0.1f);
 
-    }
-
-    //Thanks -> https://stackoverflow.com/a/10245657
-    public class HandScrollListener extends MouseAdapter {
-
-        private final Cursor defCursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
-        private final Cursor hndCursor = Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR);
-        private final Point pp = new Point();
-        private final JLabel image;
-
-        public HandScrollListener(JLabel image) {
-            this.image = image;
-        }
-
-        public void mouseDragged(final MouseEvent e) {
-            JViewport vport = (JViewport) e.getSource();
-            Point cp = e.getPoint();
-            Point vp = vport.getViewPosition();
-            vp.translate(pp.x - cp.x, pp.y - cp.y);
-            image.scrollRectToVisible(new Rectangle(vp, vport.getSize()));
-            pp.setLocation(cp);
-        }
-
-        public void mousePressed(MouseEvent e) {
-            image.setCursor(hndCursor);
-            pp.setLocation(e.getPoint());
-        }
-
-        public void mouseReleased(MouseEvent e) {
-            image.setCursor(defCursor);
-            image.repaint();
-        }
     }
 
     private void showCard(int carta) {

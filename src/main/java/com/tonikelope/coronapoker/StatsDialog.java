@@ -72,7 +72,6 @@ public class StatsDialog extends javax.swing.JDialog {
     private volatile boolean game_combo_blocked = false;
     private volatile boolean hand_combo_blocked = false;
     private volatile boolean backup = false;
-    private volatile Font original_dialog_font;
     private volatile int last_button = 0;
 
     /**
@@ -125,7 +124,7 @@ public class StatsDialog extends javax.swing.JDialog {
             stats_combo.addItem(entry.getKey());
         }
 
-        original_dialog_font = res_table.getFont();
+        Font original_dialog_font = res_table.getFont();
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
         pack();

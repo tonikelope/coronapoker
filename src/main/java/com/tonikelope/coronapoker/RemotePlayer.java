@@ -37,6 +37,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -50,6 +51,7 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.border.LineBorder;
+import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -103,6 +105,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean reraise;
     private volatile boolean muestra = false;
     private volatile int conta_win = 0;
+    private volatile AntiCheatLogDialog anticheat_dialog = null;
+
+    public AntiCheatLogDialog getAnticheat_dialog() {
+        return anticheat_dialog;
+    }
+
+    public void setAnticheat_dialog(AntiCheatLogDialog anticheat_dialog) {
+        this.anticheat_dialog = anticheat_dialog;
+    }
 
     public void refreshNotifyChatLabel() {
 
@@ -1348,9 +1359,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
         // TODO add your handling code here:
-        if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(player_name.getText()).isCpu()) {
+        if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu()) {
 
-            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance().getFrame(), true, player_name.getText(), GameFrame.getInstance().getParticipantes().get(player_name.getText()).getAes_key());
+            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance().getFrame(), true, this.nickname, GameFrame.getInstance().getParticipantes().get(this.nickname).getAes_key());
 
             identicon.setLocationRelativeTo(GameFrame.getInstance().getFrame());
 
@@ -1361,10 +1372,34 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
 
-        if (GameFrame.getInstance().isPartida_local() && this.timeout && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
+        if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && this.timeout && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
 
             GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nickname);
 
+        } else if (this.anticheat_dialog != null) {
+
+            this.anticheat_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
+            this.anticheat_dialog.setVisible(true);
+
+        } else if (!GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && !GameFrame.getInstance().getCrupier().isGenerando_informe_anticheat() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).") == 0) {
+
+            try {
+
+                if (GameFrame.getInstance().isPartida_local()) {
+
+                    GameFrame.getInstance().getParticipantes().get(this.nickname).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")));
+
+                } else {
+
+                    GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SNAPSHOT#" + Base64.encodeBase64String(this.nickname.getBytes("UTF-8")));
+
+                }
+
+                GameFrame.getInstance().getCrupier().setGenerando_informe_anticheat(true);
+
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
 
     }//GEN-LAST:event_player_nameMouseClicked

@@ -395,7 +395,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void run() {
                 GameFrame.getInstance().setEnabled(true);
-                full_screen_menu.doClick();
+
+                if (!Init.DEV_MODE && !Init.DB_DEV_MODE) {
+                    full_screen_menu.doClick();
+                } else {
+                    GameFrame.getInstance().getFrame().setVisible(true);
+                }
+
                 GameFrame.getInstance().setEnabled(false);
             }
         });

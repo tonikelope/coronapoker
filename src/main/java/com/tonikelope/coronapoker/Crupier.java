@@ -296,6 +296,7 @@ public class Crupier implements Runnable {
     private volatile int limpers;
     private volatile int game_recovered = 0;
     private volatile Object[] ciegas_update = null;
+    private volatile boolean generando_informe_anticheat = false;
 
     public Object[] getCiegas_update() {
         return ciegas_update;
@@ -4086,6 +4087,55 @@ public class Crupier implements Runnable {
         } else {
             return new float[]{cantidad, 0f};
         }
+
+    }
+
+    public boolean isGenerando_informe_anticheat() {
+        return generando_informe_anticheat;
+    }
+
+    public void setGenerando_informe_anticheat(boolean generando_informe_anticheat) {
+        this.generando_informe_anticheat = generando_informe_anticheat;
+    }
+
+    public void saveAntiCheatSnapshot(String suspicious, byte[] image, String process_list, long timestamp) {
+
+        Helpers.threadRun(new Runnable() {
+            public void run() {
+
+                Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), Translator.translate("SE HA RECIBIDO UN INFORME ANTICHEAT DE [") + suspicious + Translator.translate("]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."));
+
+                while (!isShow_time()) {
+                    Helpers.pausar(1000);
+                }
+
+                try {
+                    String fecha = Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss");
+                    String path = Init.ANTICHEAT_DIR + "/" + suspicious + "_" + fecha;
+                    Files.write(Paths.get(path + ".jpg"), image);
+                    Files.write(Paths.get(path + ".log"), process_list.getBytes("UTF-8"));
+
+                    generando_informe_anticheat = false;
+
+                    RemotePlayer jugador = (RemotePlayer) nick2player.get(suspicious);
+
+                    Helpers.GUIRun(new Runnable() {
+                        public void run() {
+                            jugador.setAnticheat_dialog(new AntiCheatLogDialog(GameFrame.getInstance().getFrame(), true, path, timestamp));
+
+                            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
+
+                                jugador.getAnticheat_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                                jugador.getAnticheat_dialog().setVisible(true);
+                            }
+                        }
+                    });
+
+                } catch (IOException ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
 
     }
 

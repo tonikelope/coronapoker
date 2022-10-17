@@ -53,6 +53,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.Security;
@@ -87,14 +88,17 @@ import javax.swing.text.StyledDocument;
 public class Init extends javax.swing.JFrame {
 
     public static final boolean DEV_MODE = false;
+    public static final boolean DB_DEV_MODE = false; // MUST BE TRUE FOR LOCALHOST TESTING WITH SEVERAL CLIENTS
     public static final boolean OPENGL = true;
+    public static final boolean DEBUG_FILE = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
+    public static final String ANTICHEAT_DIR = CORONA_DIR + "/Anticheat";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String GIFSICLE_DIR = CORONA_DIR + "/gifsicle";
     public static final String CACHE_DIR = CORONA_DIR + "/Cache";
     public static final String SCREENSHOTS_DIR = CORONA_DIR + "/Screenshots";
-    public static final String SQL_FILE = CORONA_DIR + "/coronapoker.db";
+    public static String SQL_FILE;
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
     public static final Object LOCK_CINEMATICS = new Object();
@@ -107,10 +111,6 @@ public class Init extends javax.swing.JFrame {
     public static volatile Boolean ANTI_SCREENSAVER_KEY_PRESSED = false;
     public static volatile Init VENTANA_INICIO = null;
     public static volatile Method CORONA_HMAC_J1 = null;
-    public static volatile Method CORONA_HMAC_J2 = null;
-    public static volatile Method CORONA_HMAC_J3 = null;
-    public static volatile Method CORONA_HMAC_J2B = null;
-    public static volatile Method CORONA_HMAC_J3B = null;
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
     public static volatile Image I1 = null;
@@ -128,13 +128,9 @@ public class Init extends javax.swing.JFrame {
 
         try {
             CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
-            CORONA_HMAC_J2 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J2", new Class<?>[]{byte[].class});
-            CORONA_HMAC_J2B = Class.forName("com.tonikelope.coronahmac.M").getMethod("J2", new Class<?>[]{byte[].class, byte[].class});
-            CORONA_HMAC_J3 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J3", new Class<?>[]{byte[].class, boolean.class});
-            CORONA_HMAC_J3B = Class.forName("com.tonikelope.coronahmac.M").getMethod("J3", new Class<?>[]{byte[].class, byte[].class});
         } catch (Exception ex) {
 
-            if (!Init.DEV_MODE) {
+            if (Init.DEBUG_FILE) {
                 try {
                     PrintStream fileOut = new PrintStream(new File(Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
                     System.setOut(fileOut);
@@ -923,6 +919,21 @@ public class Init extends javax.swing.JFrame {
         if (!INIT) {
 
             INIT = true;
+
+            if (!Init.DB_DEV_MODE) {
+                SQL_FILE = CORONA_DIR + "/coronapoker.db";
+            } else {
+                if (Files.exists(Paths.get(CORONA_DIR + "/coronapoker.db"))) {
+
+                    try {
+                        File db = File.createTempFile("coronapoker_", ".db");
+                        Files.copy(Paths.get(CORONA_DIR + "/coronapoker.db"), db.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                        SQL_FILE = db.getAbsolutePath();
+                    } catch (IOException ex) {
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
 
             if (OPENGL) {
                 System.setProperty("sun.java2d.opengl", Helpers.PROPERTIES.getProperty("opengl", "true"));

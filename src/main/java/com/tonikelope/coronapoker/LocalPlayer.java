@@ -35,8 +35,15 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.Image;
+import java.awt.Rectangle;
+import java.awt.Robot;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.lang.management.ManagementFactory;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.MalformedURLException;
@@ -49,6 +56,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.imageio.ImageIO;
+import javax.management.ObjectName;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -59,6 +68,7 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.border.LineBorder;
+import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -124,6 +134,108 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean reraise;
     private volatile int conta_win = 0;
 
+    public void antiCheatSnapshot(String requester) {
+
+        Helpers.threadRun(new Runnable() {
+            @Override
+            public void run() {
+                try {
+
+                    Audio.playWavResource("misc/radar.wav");
+
+                    setAndShowNotifyRadarLabel();
+
+                    GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+                    GraphicsDevice[] screens = ge.getScreenDevices();
+
+                    Rectangle allScreenBounds = new Rectangle();
+                    for (GraphicsDevice screen : screens) {
+                        Rectangle screenBounds = screen.getDefaultConfiguration().getBounds();
+                        allScreenBounds.width += screenBounds.width;
+                        allScreenBounds.height = Math.max(allScreenBounds.height, screenBounds.height);
+                    }
+
+                    Helpers.pausar(500);
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            chat_notify_label.setVisible(false);
+
+                        }
+                    });
+
+                    holeCard1.setVisibleCard(false);
+
+                    holeCard2.setVisibleCard(false);
+
+                    final int[] aver = new int[]{0};
+
+                    while (aver[0] == 0) {
+                        Helpers.GUIRunAndWait(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (!holeCard1.getCard_image().isVisible() && !holeCard2.getCard_image().isVisible()) {
+                                    aver[0] = 1;
+                                }
+
+                            }
+                        });
+
+                        if (aver[0] == 0) {
+                            Helpers.pausar(125);
+                        }
+                    }
+
+                    Helpers.pausar(750);
+
+                    long timestamp = System.currentTimeMillis();
+
+                    BufferedImage capture = new Robot().createScreenCapture(allScreenBounds);
+
+                    holeCard1.setVisibleCard(true);
+
+                    holeCard2.setVisibleCard(true);
+
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+                    ImageIO.write(Helpers.convertToGrayScale(capture), "jpg", baos);
+
+                    baos.flush();
+
+                    byte[] imageInByte = baos.toByteArray();
+
+                    baos.close();
+
+                    StringBuilder sb = new StringBuilder();
+
+                    sb.append("CoronaPoker [" + nickname + "] " + Helpers.getFechaHoraActual() + "\n\n");
+
+                    sb.append("WARNING: this log must be checked manually to detect applications or libraries used for cheating.\n\n");
+
+                    sb.append("******************** SYSTEM PROCESS LIST ********************\n\n");
+
+                    ProcessHandle.allProcesses().forEach(process -> sb.append(Helpers.processDetails(process)));
+
+                    sb.append("\n\n********************* CURRENT LOADED JVM LIBRARIES ********************\n\n");
+
+                    sb.append((String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null));
+
+                    if (GameFrame.getInstance().isPartida_local()) {
+
+                        GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                    } else {
+                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SNAPSHOT#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                    }
+
+                } catch (Exception ex) {
+                    Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
+    }
+
     public void refreshNotifyChatLabel() {
         Helpers.GUIRun(new Runnable() {
             @Override
@@ -146,6 +258,46 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
+    }
+
+    public void setAndShowNotifyRadarLabel() {
+
+        chat_notify_image_url = null;
+
+        synchronized (getChat_notify_label()) {
+
+            getChat_notify_label().notifyAll();
+        }
+
+        Helpers.GUIRun(new Runnable() {
+            @Override
+            public void run() {
+
+                int sound_icon_size_h = Math.round(getHoleCard1().getHeight() / 2);
+
+                int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
+
+                int pos_x = panel_cartas.getWidth() - sound_icon_size_w;
+
+                int pos_y = Math.round(getHoleCard1().getHeight() / 2);
+
+                getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/radar.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)));
+
+                getChat_notify_label().setSize(sound_icon_size_w, sound_icon_size_h);
+
+                getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+
+                getChat_notify_label().setOpaque(false);
+
+                getChat_notify_label().revalidate();
+
+                getChat_notify_label().repaint();
+
+                getChat_notify_label().setLocation(pos_x, pos_y);
+
+                getChat_notify_label().setVisible(true);
+            }
+        });
     }
 
     public void setNotifyTTSChatLabel() {

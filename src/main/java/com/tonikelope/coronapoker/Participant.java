@@ -368,6 +368,12 @@ public class Participant implements Runnable {
         return nick;
     }
 
+    public boolean writeGAMECommandFromServer(String command) {
+        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+
+        return writeCommandFromServer("GAME#" + String.valueOf(id) + "#" + command);
+    }
+
     public boolean writeCommandFromServer(String command) {
 
         while (resetting_socket || force_reset_socket) {
@@ -383,6 +389,7 @@ public class Participant implements Runnable {
         try {
 
             this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+
             return false;
 
         } catch (Exception ex) {
@@ -628,6 +635,42 @@ public class Participant implements Runnable {
                                     last_received.put(subcomando, command_id);
 
                                     switch (subcomando) {
+
+                                        case "SNAPSHOT":
+
+                                            if (partes_comando.length == 4) {
+
+                                                //SOLICITA SNAPSHOT DE OTRO USUARIO
+                                                String suspicious = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+
+                                                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(suspicious)) {
+
+                                                    //Quiere mi snapshot (el del server)
+                                                    GameFrame.getInstance().getLocalPlayer().antiCheatSnapshot(this.nick);
+
+                                                } else {
+                                                    //Quiere la de otro user
+
+                                                    GameFrame.getInstance().getParticipantes().get(suspicious).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(this.nick.getBytes("UTF-8")));
+                                                }
+
+                                            } else {
+
+                                                //Envía su snapshot
+                                                String requester = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+
+                                                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(requester)) {
+
+                                                    //Se la solicité yo (server)
+                                                    GameFrame.getInstance().getCrupier().saveAntiCheatSnapshot(nick, Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
+                                                } else {
+
+                                                    GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(this.nick.getBytes("UTF-8")) + "#" + partes_comando[4] + "#" + partes_comando[5] + "#" + partes_comando[6]);
+                                                }
+                                            }
+
+                                            break;
+
                                         case "PING":
                                             //ES UN PING DE JUEGO -> NO tenemos que hacer nada más
                                             break;

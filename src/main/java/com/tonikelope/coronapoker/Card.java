@@ -43,6 +43,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.SwingUtilities;
 
@@ -168,6 +169,10 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
         return new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Image.SCALE_SMOOTH));
 
+    }
+
+    public JLabel getCard_image() {
+        return card_image;
     }
 
     private static ImageIcon createCardImageIcon(String path) {

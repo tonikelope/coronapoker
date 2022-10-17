@@ -45,6 +45,12 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"ATENCIÓN: toda esta información debe ser revisada y contrastada manualmente para concluir si el jugador ha hecho trampas.", "WARNING: all this information must be reviewed and contrasted manually to conclude if the player was cheating."},
+            {"¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).", "REQUEST ANTICHEAT REPORT\n(WARNING: you can only request one per player-game, so choose the right moment)."},
+            {"] DISPONIBLE\n\n¿Quieres verlo?", "AVAILABLE\n\nDo you want to see it?"},
+            {"INFORME ANTICHEAT DE [", "ANTICHEAT REPORT OF ["},
+            {"]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso).", "\n\n(For security reasons you will not be able to see it until the end of the current hand)."},
+            {"SE HA RECIBIDO UN INFORME ANTICHEAT DE [", "AN ANTICHEAT REPORT HAS BEEN RECEIVED FROM ["},
             {"SE HA ACTUALIZADO EL ENLACE DEL VIDEOCHAT", "THE VIDEOCHAT LINK HAS BEEN UPDATED"},
             {"MANOS GANADAS", "HANDS WON"},
             {"NO HAY JUGADORES HUMANOS CONECTADOS", "THERE ARE NO HUMAN PLAYERS CONNECTED"},

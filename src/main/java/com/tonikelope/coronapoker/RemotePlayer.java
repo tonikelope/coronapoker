@@ -37,7 +37,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -105,14 +104,23 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean reraise;
     private volatile boolean muestra = false;
     private volatile int conta_win = 0;
-    private volatile AntiCheatLogDialog anticheat_dialog = null;
+    private volatile RadarLogDialog radar_dialog = null;
+    private volatile boolean radar_checking = false;
 
-    public AntiCheatLogDialog getAnticheat_dialog() {
-        return anticheat_dialog;
+    public boolean isRadar_checking() {
+        return radar_checking;
     }
 
-    public void setAnticheat_dialog(AntiCheatLogDialog anticheat_dialog) {
-        this.anticheat_dialog = anticheat_dialog;
+    public void setRadar_checking(boolean radar_checking) {
+        this.radar_checking = radar_checking;
+    }
+
+    public RadarLogDialog getRadar_dialog() {
+        return radar_dialog;
+    }
+
+    public void setRadar_dialog(RadarLogDialog anticheat_dialog) {
+        this.radar_dialog = anticheat_dialog;
     }
 
     public void refreshNotifyChatLabel() {
@@ -1379,16 +1387,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         } else {
 
-            if (this.anticheat_dialog != null) {
+            if (this.radar_dialog != null) {
 
-                this.anticheat_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
-                this.anticheat_dialog.setVisible(true);
+                this.radar_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                this.radar_dialog.setVisible(true);
 
-            } else if ((!GameFrame.getInstance().isPartida_local() || !GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu()) && !GameFrame.getInstance().getCrupier().isGenerando_informe_anticheat() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).") == 0) {
+            } else if (!this.nickname.contains("$") && !GameFrame.getInstance().getCrupier().isRadarChecking() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).") == 0) {
+
+                radar_checking = true;
 
                 try {
-
-                    GameFrame.getInstance().getCrupier().setGenerando_informe_anticheat(true);
 
                     if (GameFrame.getInstance().isPartida_local()) {
 
@@ -1400,10 +1408,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     }
 
-                } catch (UnsupportedEncodingException ex) {
+                } catch (Exception ex) {
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
-            } else if (GameFrame.getInstance().getCrupier().isGenerando_informe_anticheat()) {
+
+            } else if (!this.nickname.contains("$") && GameFrame.getInstance().getCrupier().isRadarChecking()) {
                 Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("Espera a que termine la solicitud que tienes en curso."));
             }
 

@@ -148,8 +148,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     anti_cheat_ckecking = true;
 
-                    Audio.playWavResource("misc/radar.wav");
-
                     setNotifyRadarLabel();
 
                     GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
@@ -213,6 +211,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     long timestamp = System.currentTimeMillis();
 
                     BufferedImage capture = new Robot().createScreenCapture(allScreenBounds);
+                    
+                    Audio.playWavResource("misc/radar.wav");
 
                     Helpers.GUIRun(new Runnable() {
                         @Override
@@ -246,7 +246,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     StringBuilder sb = new StringBuilder();
 
-                    sb.append("CoronaPoker Process Radar [" + nickname + "] " + Helpers.getFechaHoraActual() + "\n\n");
+                    sb.append("  ____                            ____       _               ____      _    ____    _    ____  \n"
+                            + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
+                            + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
+                            + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
+                            + " \\____\\___/|_|  \\___/|_| |_|\\__,_|_|   \\___/|_|\\_\\___|_|    |_| \\_\\/_/   \\_\\____/_/   \\_\\_| \\_\\\n"
+                            + "                                                                                               ");
+
+                    sb.append("\n\nCoronaPoker Radar -> [" + nickname + "] " + Helpers.getFechaHoraActual() + "\n\n");
 
                     sb.append(Translator.translate("ADVERTENCIA: este registro debe comprobarse manualmente para detectar las aplicaciones y/o bibliotecas utilizadas para hacer trampas.\n\n"));
 

@@ -166,6 +166,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         @Override
                         public void componentHidden(ComponentEvent e) {
+                            holeCard1.getCard_image().paintImmediately(holeCard1.getCard_image().getBounds());
                             aver[0] = 0;
                         }
                     };
@@ -174,6 +175,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         @Override
                         public void componentHidden(ComponentEvent e) {
+                            holeCard2.getCard_image().paintImmediately(holeCard2.getCard_image().getBounds());
                             aver[1] = 0;
                         }
                     };
@@ -182,6 +184,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         @Override
                         public void componentShown(ComponentEvent e) {
+                            getChat_notify_label().paintImmediately(getChat_notify_label().getBounds());
                             aver[2] = 1;
                         }
                     };
@@ -201,20 +204,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             holeCard1.setVisibleCard(false);
 
                             holeCard2.setVisibleCard(false);
+
                         }
                     });
 
-                    while (aver[0] == 1 || aver[1] == 1 || aver[2] == 0) {
+                    /*while (aver[0] == 1 || aver[1] == 1 || aver[2] == 0) {
                         Helpers.pausar(125);
-                    }
-
-                    long timestamp = System.currentTimeMillis();
-
-                    BufferedImage capture = new Robot().createScreenCapture(allScreenBounds);
+                    }*/
                     
-                    Audio.playWavResource("misc/radar.wav");
-
-                    Helpers.GUIRun(new Runnable() {
+                    Helpers.GUIRunAndWait(new Runnable() {
                         @Override
                         public void run() {
 
@@ -224,13 +222,31 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             getChat_notify_label().removeComponentListener(c3);
 
+                            holeCard1.getCard_image().paintImmediately(holeCard1.getCard_image().getBounds());
+
+                            holeCard2.getCard_image().paintImmediately(holeCard2.getCard_image().getBounds());
+
+                            getChat_notify_label().paintImmediately(getChat_notify_label().getBounds());
+                        }
+                    });
+
+                    long timestamp = System.currentTimeMillis();
+
+                    BufferedImage capture = new Robot().createScreenCapture(allScreenBounds);
+
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            getChat_notify_label().setVisible(false);
+
                             holeCard1.setVisibleCard(true);
 
                             holeCard2.setVisibleCard(true);
-
-                            getChat_notify_label().setVisible(false);
                         }
                     });
+
+                    Audio.playWavResource("misc/radar.wav");
 
                     anti_cheat_ckecking = false;
 

@@ -49,6 +49,8 @@ public class AntiCheatLogDialog extends javax.swing.JDialog {
     public AntiCheatLogDialog(java.awt.Frame parent, boolean modal, String path, long timestamp) {
         super(parent, modal);
         initComponents();
+        
+        setTitle(Init.WINDOW_TITLE);
 
         screenshot.setIcon(new ImageIcon(path + ".jpg"));
 
@@ -109,7 +111,7 @@ public class AntiCheatLogDialog extends javax.swing.JDialog {
         procesos.setEditable(false);
         procesos.setBackground(new java.awt.Color(204, 204, 204));
         procesos.setColumns(20);
-        procesos.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        procesos.setFont(new java.awt.Font("Monospaced", 0, 14)); // NOI18N
         procesos.setRows(5);
         procesos.setDoubleBuffered(true);
         jScrollPane2.setViewportView(procesos);

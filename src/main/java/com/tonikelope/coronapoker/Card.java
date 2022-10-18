@@ -105,7 +105,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             public void run() {
 
                 card_image.setVisible(isVisible_card());
-
             }
         });
     }

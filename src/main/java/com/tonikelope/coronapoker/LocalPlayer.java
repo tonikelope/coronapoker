@@ -133,6 +133,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
     private volatile boolean reraise;
     private volatile int conta_win = 0;
+    private volatile boolean anti_cheat_ckecking = false;
+
+    public boolean isAnti_cheat_ckecking() {
+        return anti_cheat_ckecking;
+    }
 
     public void antiCheatSnapshot(String requester) {
 
@@ -141,9 +146,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
                 try {
 
+                    anti_cheat_ckecking = true;
+
                     Audio.playWavResource("misc/radar.wav");
 
-                    setAndShowNotifyRadarLabel();
+                    setNotifyRadarLabel();
 
                     GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
                     GraphicsDevice[] screens = ge.getScreenDevices();
@@ -155,48 +162,77 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         allScreenBounds.height = Math.max(allScreenBounds.height, screenBounds.height);
                     }
 
-                    Helpers.pausar(500);
+                    int[] aver = new int[]{1, 1, 0};
 
-                    Helpers.GUIRun(new Runnable() {
+                    ComponentAdapter c1 = new ComponentAdapter() {
+
+                        @Override
+                        public void componentHidden(ComponentEvent e) {
+                            aver[0] = 0;
+                        }
+                    };
+
+                    ComponentAdapter c2 = new ComponentAdapter() {
+
+                        @Override
+                        public void componentHidden(ComponentEvent e) {
+                            aver[1] = 0;
+                        }
+                    };
+
+                    ComponentAdapter c3 = new ComponentAdapter() {
+
+                        @Override
+                        public void componentShown(ComponentEvent e) {
+                            aver[2] = 1;
+                        }
+                    };
+
+                    Helpers.GUIRunAndWait(new Runnable() {
                         @Override
                         public void run() {
 
-                            chat_notify_label.setVisible(false);
+                            holeCard1.getCard_image().addComponentListener(c1);
 
+                            holeCard2.getCard_image().addComponentListener(c2);
+
+                            getChat_notify_label().addComponentListener(c3);
+
+                            getChat_notify_label().setVisible(true);
+
+                            holeCard1.setVisibleCard(false);
+
+                            holeCard2.setVisibleCard(false);
                         }
                     });
 
-                    holeCard1.setVisibleCard(false);
-
-                    holeCard2.setVisibleCard(false);
-
-                    final int[] aver = new int[]{0};
-
-                    while (aver[0] == 0) {
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (!holeCard1.getCard_image().isVisible() && !holeCard2.getCard_image().isVisible()) {
-                                    aver[0] = 1;
-                                }
-
-                            }
-                        });
-
-                        if (aver[0] == 0) {
-                            Helpers.pausar(125);
-                        }
+                    while (aver[0] == 1 || aver[1] == 1 || aver[2] == 0) {
+                        Helpers.pausar(125);
                     }
-
-                    Helpers.pausar(750);
 
                     long timestamp = System.currentTimeMillis();
 
                     BufferedImage capture = new Robot().createScreenCapture(allScreenBounds);
 
-                    holeCard1.setVisibleCard(true);
+                    Helpers.GUIRun(new Runnable() {
+                        @Override
+                        public void run() {
 
-                    holeCard2.setVisibleCard(true);
+                            holeCard1.getCard_image().removeComponentListener(c1);
+
+                            holeCard2.getCard_image().removeComponentListener(c2);
+
+                            getChat_notify_label().removeComponentListener(c3);
+
+                            holeCard1.setVisibleCard(true);
+
+                            holeCard2.setVisibleCard(true);
+
+                            getChat_notify_label().setVisible(false);
+                        }
+                    });
+
+                    anti_cheat_ckecking = false;
 
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
@@ -210,15 +246,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     StringBuilder sb = new StringBuilder();
 
-                    sb.append("CoronaPoker [" + nickname + "] " + Helpers.getFechaHoraActual() + "\n\n");
+                    sb.append("CoronaPoker Process Radar [" + nickname + "] " + Helpers.getFechaHoraActual() + "\n\n");
 
-                    sb.append("WARNING: this log must be checked manually to detect applications or libraries used for cheating.\n\n");
+                    sb.append(Translator.translate("ADVERTENCIA: este registro debe comprobarse manualmente para detectar las aplicaciones y/o bibliotecas utilizadas para hacer trampas.\n\n"));
 
-                    sb.append("******************** SYSTEM PROCESS LIST ********************\n\n");
+                    sb.append("******************** " + Translator.translate("PROCESOS DEL SISTEMA") + " ********************\n\n");
 
-                    ProcessHandle.allProcesses().forEach(process -> sb.append(Helpers.processDetails(process)));
+                    sb.append(Helpers.getProcessList());
 
-                    sb.append("\n\n********************* CURRENT LOADED JVM LIBRARIES ********************\n\n");
+                    sb.append("\n\n********************* " + Translator.translate("LIBRERÍAS CARGADAS CON CORONAPOKER") + " ********************\n\n");
 
                     sb.append((String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null));
 
@@ -260,7 +296,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    public void setAndShowNotifyRadarLabel() {
+    public void setNotifyRadarLabel() {
 
         chat_notify_image_url = null;
 
@@ -294,8 +330,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 getChat_notify_label().repaint();
 
                 getChat_notify_label().setLocation(pos_x, pos_y);
-
-                getChat_notify_label().setVisible(true);
             }
         });
     }
@@ -1338,7 +1372,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isAnti_cheat_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
 
                                     response_counter--;
 
@@ -1360,7 +1394,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                 @Override
                                                 public void actionPerformed(ActionEvent ae) {
 
-                                                    if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                                                    if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !isAnti_cheat_ckecking() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
                                                         if (player_action.getBackground() != Color.GRAY) {
                                                             setPlayerBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                                                             player_action.setBackground(Color.GRAY);

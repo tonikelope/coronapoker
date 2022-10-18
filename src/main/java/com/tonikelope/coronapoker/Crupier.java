@@ -4103,7 +4103,23 @@ public class Crupier implements Runnable {
         Helpers.threadRun(new Runnable() {
             public void run() {
 
-                Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), Translator.translate("SE HA RECIBIDO UN INFORME ANTICHEAT DE [") + suspicious + Translator.translate("]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."));
+                RemotePlayer jugador = (RemotePlayer) nick2player.get(suspicious);
+
+                int[] a = new int[]{0};
+
+                Helpers.threadRun(new Runnable() {
+                    public void run() {
+                        Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), Translator.translate("SE HA RECIBIDO UN INFORME ANTICHEAT DE [") + suspicious + Translator.translate("]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."));
+
+                        a[0] = 1;
+
+                        if (jugador.getAnticheat_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
+
+                            jugador.getAnticheat_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                            jugador.getAnticheat_dialog().setVisible(true);
+                        }
+                    }
+                });
 
                 while (!isShow_time()) {
                     Helpers.pausar(1000);
@@ -4117,13 +4133,11 @@ public class Crupier implements Runnable {
 
                     generando_informe_anticheat = false;
 
-                    RemotePlayer jugador = (RemotePlayer) nick2player.get(suspicious);
-
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
                             jugador.setAnticheat_dialog(new AntiCheatLogDialog(GameFrame.getInstance().getFrame(), true, path, timestamp));
 
-                            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
+                            if (a[0] == 1 && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
 
                                 jugador.getAnticheat_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
                                 jugador.getAnticheat_dialog().setVisible(true);

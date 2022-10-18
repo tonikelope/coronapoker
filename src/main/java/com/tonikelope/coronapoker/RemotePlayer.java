@@ -1044,7 +1044,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     avatar.setToolTipText("CLICK -> AES-KEY");
                     avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                    player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
                 } else if (!GameFrame.getInstance().isPartida_local()) {
 
@@ -1192,7 +1191,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setForeground(new java.awt.Color(255, 255, 255));
         player_name.setText("123456789012345");
         player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
-        player_name.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        player_name.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
         player_name.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -1372,34 +1371,42 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
 
-        if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && this.timeout && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
+        if (GameFrame.getInstance().isPartida_local() && SwingUtilities.isRightMouseButton(evt)) {
 
-            GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nickname);
-
-        } else if (this.anticheat_dialog != null) {
-
-            this.anticheat_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
-            this.anticheat_dialog.setVisible(true);
-
-        } else if (!GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && !GameFrame.getInstance().getCrupier().isGenerando_informe_anticheat() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).") == 0) {
-
-            try {
-
-                if (GameFrame.getInstance().isPartida_local()) {
-
-                    GameFrame.getInstance().getParticipantes().get(this.nickname).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")));
-
-                } else {
-
-                    GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SNAPSHOT#" + Base64.encodeBase64String(this.nickname.getBytes("UTF-8")));
-
-                }
-
-                GameFrame.getInstance().getCrupier().setGenerando_informe_anticheat(true);
-
-            } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+            if (!GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && this.timeout && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
+                GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nickname);
             }
+
+        } else {
+
+            if (this.anticheat_dialog != null) {
+
+                this.anticheat_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                this.anticheat_dialog.setVisible(true);
+
+            } else if ((!GameFrame.getInstance().isPartida_local() || !GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu()) && !GameFrame.getInstance().getCrupier().isGenerando_informe_anticheat() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).") == 0) {
+
+                try {
+
+                    GameFrame.getInstance().getCrupier().setGenerando_informe_anticheat(true);
+
+                    if (GameFrame.getInstance().isPartida_local()) {
+
+                        GameFrame.getInstance().getParticipantes().get(this.nickname).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")));
+
+                    } else {
+
+                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SNAPSHOT#" + Base64.encodeBase64String(this.nickname.getBytes("UTF-8")));
+
+                    }
+
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            } else if (GameFrame.getInstance().getCrupier().isGenerando_informe_anticheat()) {
+                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("Espera a que termine la solicitud que tienes en curso."));
+            }
+
         }
 
     }//GEN-LAST:event_player_nameMouseClicked

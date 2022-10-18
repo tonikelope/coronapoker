@@ -637,37 +637,43 @@ public class Participant implements Runnable {
                                     switch (subcomando) {
 
                                         case "SNAPSHOT":
+                                            Helpers.threadRun(new Runnable() {
+                                                public void run() {
+                                                    try {
+                                                        if (partes_comando.length == 4) {
 
-                                            if (partes_comando.length == 4) {
+                                                            //SOLICITA SNAPSHOT DE OTRO USUARIO
+                                                            String suspicious = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
 
-                                                //SOLICITA SNAPSHOT DE OTRO USUARIO
-                                                String suspicious = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+                                                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(suspicious)) {
 
-                                                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(suspicious)) {
+                                                                //Quiere mi snapshot (el del server)
+                                                                GameFrame.getInstance().getLocalPlayer().antiCheatSnapshot(nick);
 
-                                                    //Quiere mi snapshot (el del server)
-                                                    GameFrame.getInstance().getLocalPlayer().antiCheatSnapshot(this.nick);
+                                                            } else if (!GameFrame.getInstance().getParticipantes().get(suspicious).isCpu()) {
+                                                                //Quiere la de otro user
 
-                                                } else {
-                                                    //Quiere la de otro user
+                                                                GameFrame.getInstance().getParticipantes().get(suspicious).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")));
+                                                            }
 
-                                                    GameFrame.getInstance().getParticipantes().get(suspicious).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(this.nick.getBytes("UTF-8")));
+                                                        } else {
+
+                                                            //Envía su snapshot
+                                                            String requester = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+
+                                                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(requester)) {
+
+                                                                //Se la solicité yo (server)
+                                                                GameFrame.getInstance().getCrupier().saveAntiCheatSnapshot(nick, Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
+                                                            } else {
+
+                                                                GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + partes_comando[4] + "#" + partes_comando[5] + "#" + partes_comando[6]);
+                                                            }
+                                                        }
+                                                    } catch (Exception ex) {
+                                                    }
                                                 }
-
-                                            } else {
-
-                                                //Envía su snapshot
-                                                String requester = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
-
-                                                if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(requester)) {
-
-                                                    //Se la solicité yo (server)
-                                                    GameFrame.getInstance().getCrupier().saveAntiCheatSnapshot(nick, Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
-                                                } else {
-
-                                                    GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(this.nick.getBytes("UTF-8")) + "#" + partes_comando[4] + "#" + partes_comando[5] + "#" + partes_comando[6]);
-                                                }
-                                            }
+                                            });
 
                                             break;
 

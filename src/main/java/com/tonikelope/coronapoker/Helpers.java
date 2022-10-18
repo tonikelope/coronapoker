@@ -275,6 +275,38 @@ public class Helpers {
 
     }
 
+    public static String getProcessList() {
+
+        try {
+            ProcessBuilder processbuilder = Helpers.OSValidator.isWindows() ? new ProcessBuilder(new String[]{"tasklist.exe"}) : new ProcessBuilder(new String[]{"ps", "auxf"});
+
+            Process process = processbuilder.start();
+
+            StringBuilder sb = new StringBuilder();
+
+            try {
+                BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
+
+                String line;
+
+                while ((line = br.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+            } catch (Exception ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            process.waitFor();
+
+            return sb.toString();
+
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
     //Thanks -> https://stackoverflow.com/a/10245657
     public static class HandScrollListener extends MouseAdapter {
 

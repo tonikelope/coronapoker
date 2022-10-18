@@ -45,6 +45,9 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"PROCESOS DEL SISTEMA", "SYSTEM PROCESSES"},
+            {"LIBRERÍAS CARGADAS CON CORONAPOKER", "CORONAPOKER LOADED LIBRARIES"},
+            {"ADVERTENCIA: este registro debe comprobarse manualmente para detectar las aplicaciones y/o bibliotecas utilizadas para hacer trampas.\n\n", "WARNING: this log must be checked manually to detect applications and/or libraries used for cheating.\n\n"},
             {"ATENCIÓN: toda esta información debe ser revisada y contrastada manualmente para concluir si el jugador ha hecho trampas.", "WARNING: all this information must be reviewed and contrasted manually to conclude if the player was cheating."},
             {"¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).", "REQUEST ANTICHEAT REPORT\n(WARNING: you can only request one per player-game, so choose the right moment)."},
             {"] DISPONIBLE\n\n¿Quieres verlo?", "AVAILABLE\n\nDo you want to see it?"},

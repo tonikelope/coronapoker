@@ -87,8 +87,7 @@ import javax.swing.text.StyledDocument;
  */
 public class Init extends javax.swing.JFrame {
 
-    public static final boolean DEV_MODE = false;
-    public static final boolean DB_DEV_MODE = false; // MUST BE TRUE FOR LOCALHOST TESTING WITH SEVERAL CLIENTS
+    public static final boolean DEV_MODE = true;
     public static final boolean OPENGL = true;
     public static final boolean DEBUG_FILE = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
@@ -920,7 +919,7 @@ public class Init extends javax.swing.JFrame {
 
             INIT = true;
 
-            if (!Init.DB_DEV_MODE) {
+            if (!Init.DEV_MODE) {
                 SQL_FILE = CORONA_DIR + "/coronapoker.db";
             } else {
                 if (Files.exists(Paths.get(CORONA_DIR + "/coronapoker.db"))) {

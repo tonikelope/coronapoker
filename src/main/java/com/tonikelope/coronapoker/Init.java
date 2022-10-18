@@ -87,7 +87,7 @@ import javax.swing.text.StyledDocument;
  */
 public class Init extends javax.swing.JFrame {
 
-    public static final boolean DEV_MODE = true;
+    public static final boolean DEV_MODE = false;
 
     public static final boolean OPENGL = true;
     public static final boolean DEBUG_FILE = true;

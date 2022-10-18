@@ -1392,7 +1392,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 this.radar_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
                 this.radar_dialog.setVisible(true);
 
-            } else if (!this.nickname.contains("$") && !GameFrame.getInstance().getCrupier().isRadarChecking() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).") == 0) {
+            } else if (!this.nickname.contains("$") && !GameFrame.getInstance().getCrupier().isRadarChecking() && !isExit() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).") == 0) {
 
                 radar_checking = true;
 
@@ -1412,7 +1412,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
-            } else if (!this.nickname.contains("$") && GameFrame.getInstance().getCrupier().isRadarChecking()) {
+            } else if (!this.nickname.contains("$") && GameFrame.getInstance().getCrupier().isRadarChecking() && !isExit()) {
                 Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("Espera a que termine la solicitud que tienes en curso."));
             }
 

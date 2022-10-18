@@ -41,15 +41,15 @@ import javax.swing.ImageIcon;
  *
  * @author tonikelope
  */
-public class AntiCheatLogDialog extends javax.swing.JDialog {
+public class RadarLogDialog extends javax.swing.JDialog {
 
     /**
      * Creates new form AntiCheatLogDialog
      */
-    public AntiCheatLogDialog(java.awt.Frame parent, boolean modal, String path, long timestamp) {
+    public RadarLogDialog(java.awt.Frame parent, boolean modal, String path, long timestamp) {
         super(parent, modal);
         initComponents();
-        
+
         setTitle(Init.WINDOW_TITLE);
 
         screenshot.setIcon(new ImageIcon(path + ".jpg"));
@@ -58,7 +58,7 @@ public class AntiCheatLogDialog extends javax.swing.JDialog {
             procesos.setText(Files.readString(Paths.get(path + ".log")));
             procesos.setCaretPosition(0);
         } catch (IOException ex) {
-            Logger.getLogger(AntiCheatLogDialog.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(RadarLogDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         jScrollPane1.getVerticalScrollBar().setUnitIncrement(16);

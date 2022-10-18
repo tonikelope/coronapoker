@@ -296,7 +296,6 @@ public class Crupier implements Runnable {
     private volatile int limpers;
     private volatile int game_recovered = 0;
     private volatile Object[] ciegas_update = null;
-    private volatile boolean generando_informe_anticheat = false;
 
     public Object[] getCiegas_update() {
         return ciegas_update;
@@ -4090,14 +4089,6 @@ public class Crupier implements Runnable {
 
     }
 
-    public boolean isGenerando_informe_anticheat() {
-        return generando_informe_anticheat;
-    }
-
-    public void setGenerando_informe_anticheat(boolean generando_informe_anticheat) {
-        this.generando_informe_anticheat = generando_informe_anticheat;
-    }
-
     public void saveAntiCheatSnapshot(String suspicious, byte[] image, String process_list, long timestamp) {
 
         Helpers.threadRun(new Runnable() {
@@ -4113,10 +4104,10 @@ public class Crupier implements Runnable {
 
                         a[0] = 1;
 
-                        if (jugador.getAnticheat_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
+                        if (jugador.getRadar_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
 
-                            jugador.getAnticheat_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
-                            jugador.getAnticheat_dialog().setVisible(true);
+                            jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                            jugador.getRadar_dialog().setVisible(true);
                         }
                     }
                 });
@@ -4131,19 +4122,19 @@ public class Crupier implements Runnable {
                     Files.write(Paths.get(path + ".jpg"), image);
                     Files.write(Paths.get(path + ".log"), process_list.getBytes("UTF-8"));
 
-                    generando_informe_anticheat = false;
-
                     Helpers.GUIRun(new Runnable() {
                         public void run() {
-                            jugador.setAnticheat_dialog(new AntiCheatLogDialog(GameFrame.getInstance().getFrame(), true, path, timestamp));
+                            jugador.setRadar_dialog(new RadarLogDialog(GameFrame.getInstance().getFrame(), false, path, timestamp));
 
                             if (a[0] == 1 && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
 
-                                jugador.getAnticheat_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
-                                jugador.getAnticheat_dialog().setVisible(true);
+                                jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                                jugador.getRadar_dialog().setVisible(true);
                             }
                         }
                     });
+
+                    jugador.setRadar_checking(false);
 
                 } catch (IOException ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -4151,6 +4142,17 @@ public class Crupier implements Runnable {
             }
         });
 
+    }
+
+    public boolean isRadarChecking() {
+
+        for (RemotePlayer j : GameFrame.getInstance().getTapete().getRemotePlayers()) {
+            if (j.isRadar_checking()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void sendGAMECommandToServer(String command, boolean confirmation) {

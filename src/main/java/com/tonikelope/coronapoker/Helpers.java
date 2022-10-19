@@ -35,7 +35,6 @@ import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
-import static com.tonikelope.coronapoker.Init.ANTICHEAT_DIR;
 import static com.tonikelope.coronapoker.Init.CACHE_DIR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
@@ -45,6 +44,7 @@ import static com.tonikelope.coronapoker.Init.SCREENSHOTS_DIR;
 import static com.tonikelope.coronapoker.Init.SQLITE;
 import static com.tonikelope.coronapoker.Init.SQL_FILE;
 import static com.tonikelope.coronapoker.Init.VENTANA_INICIO;
+import java.awt.AWTException;
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Component;
@@ -211,6 +211,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
+import static com.tonikelope.coronapoker.Init.RADAR_DIR;
 
 /**
  *
@@ -275,10 +276,60 @@ public class Helpers {
 
     }
 
+    public static boolean secureCompontentHide(JComponent component, int pause, int timeout) throws AWTException {
+
+        Rectangle r1 = new Rectangle((int) component.getLocationOnScreen().getX(), (int) component.getLocationOnScreen().getY(), component.getWidth(), component.getHeight());
+
+        Robot robot = new Robot();
+
+        BufferedImage c1 = robot.createScreenCapture(r1);
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+
+                component.setVisible(false);
+
+            }
+        });
+
+        Helpers.pausar(pause);
+
+        BufferedImage c2 = robot.createScreenCapture(r1);
+
+        int t = pause;
+
+        while (t < timeout && bufferedImagesEqual(c1, c2)) {
+            Helpers.pausar(pause);
+
+            t += pause;
+
+            if (t < timeout) {
+                c2 = robot.createScreenCapture(r1);
+            }
+        }
+
+        return (t >= timeout);
+    }
+
+    public static boolean bufferedImagesEqual(BufferedImage img1, BufferedImage img2) {
+        if (img1.getWidth() == img2.getWidth() && img1.getHeight() == img2.getHeight()) {
+            for (int x = 0; x < img1.getWidth(); x++) {
+                for (int y = 0; y < img1.getHeight(); y++) {
+                    if (img1.getRGB(x, y) != img2.getRGB(x, y)) {
+                        return false;
+                    }
+                }
+            }
+        } else {
+            return false;
+        }
+        return true;
+    }
+
     public static String getProcessList() {
 
         try {
-            ProcessBuilder processbuilder = Helpers.OSValidator.isWindows() ? new ProcessBuilder(new String[]{"tasklist.exe"}) : new ProcessBuilder(new String[]{"ps", "auxf"});
+            ProcessBuilder processbuilder = Helpers.OSValidator.isWindows() ? new ProcessBuilder(new String[]{"tasklist.exe", "/V"}) : new ProcessBuilder(new String[]{"ps", "auxf"});
 
             Process process = processbuilder.start();
 
@@ -1341,7 +1392,7 @@ public class Helpers {
 
     public static void createIfNoExistsCoronaDirs() {
 
-        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR, ANTICHEAT_DIR}; //OJO AL ORDEN POR EL CORONA_DIR!
+        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR, RADAR_DIR}; //OJO AL ORDEN POR EL CORONA_DIR!
 
         for (String d : dirs) {
             if (!Files.isDirectory(Paths.get(d))) {

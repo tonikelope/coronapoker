@@ -81,6 +81,15 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile ImageIcon image_b = null;
     private volatile RemotePlayer iwtsth_candidate = null;
     private final Object image_precache_lock = new Object();
+    private volatile boolean secure_hidden = false;
+
+    public boolean isSecure_hidden() {
+        return secure_hidden;
+    }
+
+    public void setSecure_hidden(boolean secure_hidden) {
+        this.secure_hidden = secure_hidden;
+    }
 
     public RemotePlayer getIwtsth_candidate() {
         return iwtsth_candidate;
@@ -98,15 +107,16 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         return visible_card;
     }
 
-    public void setVisibleCard(boolean visible_card) {
-        this.visible_card = visible_card;
+    public void setVisibleCard(boolean v_card) {
+        this.visible_card = v_card;
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-
-                card_image.setVisible(isVisible_card());
-            }
-        });
+        if (!this.secure_hidden) {
+            Helpers.GUIRun(new Runnable() {
+                public void run() {
+                    card_image.setVisible(visible_card);
+                }
+            });
+        }
     }
 
     public void setCompactable(boolean compactable) {

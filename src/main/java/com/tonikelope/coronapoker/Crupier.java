@@ -4089,7 +4089,7 @@ public class Crupier implements Runnable {
 
     }
 
-    public void saveAntiCheatSnapshot(String suspicious, byte[] image, String process_list, long timestamp) {
+    public void saveRADARLog(String suspicious, byte[] image, String process_list, long timestamp) {
 
         Helpers.threadRun(new Runnable() {
             public void run() {
@@ -4118,7 +4118,7 @@ public class Crupier implements Runnable {
 
                 try {
                     String fecha = Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss");
-                    String path = Init.ANTICHEAT_DIR + "/" + suspicious + "_" + fecha;
+                    String path = Init.RADAR_DIR + "/" + suspicious + "_" + fecha;
                     Files.write(Paths.get(path + ".jpg"), image);
                     Files.write(Paths.get(path + ".log"), process_list.getBytes("UTF-8"));
 

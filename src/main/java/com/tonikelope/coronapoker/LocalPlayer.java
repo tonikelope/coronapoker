@@ -29,8 +29,10 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
+import static com.tonikelope.coronapoker.Helpers.bufferedImagesEqual;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_BACK_COLOR;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_FORE_COLOR;
+import java.awt.AWTException;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
@@ -133,22 +135,71 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
     private volatile boolean reraise;
     private volatile int conta_win = 0;
-    private volatile boolean anti_cheat_ckecking = false;
+    private volatile boolean radar_ckecking = false;
 
-    public boolean isAnti_cheat_ckecking() {
-        return anti_cheat_ckecking;
+    public boolean isRADAR_ckecking() {
+        return radar_ckecking;
     }
 
-    public void antiCheatSnapshot(String requester) {
+    public boolean secureHideHoleCards(long pause, long timeout) throws AWTException {
+
+        long time_limit = System.currentTimeMillis() + timeout;
+
+        Rectangle r1 = new Rectangle((int) panel_cartas.getLocationOnScreen().getX(), (int) panel_cartas.getLocationOnScreen().getY(), panel_cartas.getWidth(), panel_cartas.getHeight());
+
+        Robot robot = new Robot();
+
+        BufferedImage c1 = robot.createScreenCapture(r1); //Captura el panel de las cartas con las cartas visibles
+
+        Helpers.GUIRun(new Runnable() {
+            public void run() {
+
+                holeCard1.setSecure_hidden(true);
+                holeCard1.getCard_image().setVisible(false);
+
+                holeCard2.getCard_image().setVisible(false);
+                holeCard2.setSecure_hidden(true);
+            }
+        });
+
+        BufferedImage c2 = robot.createScreenCapture(r1); //Aquí normalmente las cartas seguirán aún visibles (depende del SO)
+
+        while (System.currentTimeMillis() < time_limit && bufferedImagesEqual(c1, c2)) {
+
+            //Mientras las cartas sigan visibles en pantalla
+            Helpers.pausar(pause);
+
+            if (System.currentTimeMillis() < time_limit) {
+                c2 = robot.createScreenCapture(r1);
+            }
+        }
+
+        if (System.currentTimeMillis() + 50 < time_limit) {
+
+            Helpers.pausar(50); //Hay que esperar un mínimo para asegurarnos que la imagen nueva es estable y evitar capturar las cartas en una transición (con algo de transparencia)
+
+            BufferedImage c3 = robot.createScreenCapture(r1);
+
+            while (System.currentTimeMillis() < time_limit && !bufferedImagesEqual(c2, c3)) {
+
+                if (System.currentTimeMillis() + pause < time_limit) {
+                    Helpers.pausar(pause);
+                    c3 = robot.createScreenCapture(r1);
+                }
+            }
+        }
+
+        return (System.currentTimeMillis() >= time_limit);
+    }
+
+    public void RADAR(String requester) {
 
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
                 try {
 
-                    anti_cheat_ckecking = true;
-
-                    setNotifyRadarLabel();
+                    radar_ckecking = true;
 
                     GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
                     GraphicsDevice[] screens = ge.getScreenDevices();
@@ -160,51 +211,24 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         allScreenBounds.height = Math.max(allScreenBounds.height, screenBounds.height);
                     }
 
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            getChat_notify_label().setVisible(true);
-
-                            holeCard1.setVisibleCard(false);
-
-                            holeCard2.setVisibleCard(false);
-                        }
-                    });
-
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            holeCard1.getCard_image().paintImmediately(holeCard1.getCard_image().getBounds());
-
-                            holeCard2.getCard_image().paintImmediately(holeCard2.getCard_image().getBounds());
-
-                            getChat_notify_label().paintImmediately(getChat_notify_label().getBounds());
-                        }
-                    });
-
-                    Helpers.pausar(500);
+                    secureHideHoleCards(25, 2000);
 
                     long timestamp = System.currentTimeMillis();
 
                     BufferedImage capture = new Robot().createScreenCapture(allScreenBounds);
 
                     Helpers.GUIRun(new Runnable() {
-                        @Override
                         public void run() {
 
-                            getChat_notify_label().setVisible(false);
+                            holeCard1.getCard_image().setVisible(holeCard1.isVisible_card());
+                            holeCard1.setSecure_hidden(false);
+                            holeCard2.getCard_image().setVisible(holeCard2.isVisible_card());
+                            holeCard2.setSecure_hidden(false);
 
-                            holeCard1.setVisibleCard(true);
-
-                            holeCard2.setVisibleCard(true);
                         }
                     });
 
-                    Audio.playWavResource("misc/radar.wav");
-
-                    anti_cheat_ckecking = false;
+                    radar_ckecking = false;
 
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
@@ -237,11 +261,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     sb.append((String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null));
 
+                    Audio.playWavResource("misc/radar.wav");
+
                     if (GameFrame.getInstance().isPartida_local()) {
 
-                        GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                        GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
                     } else {
-                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SNAPSHOT#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
                     }
 
                 } catch (Exception ex) {
@@ -273,44 +299,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-    }
-
-    public void setNotifyRadarLabel() {
-
-        chat_notify_image_url = null;
-
-        synchronized (getChat_notify_label()) {
-
-            getChat_notify_label().notifyAll();
-        }
-
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                int sound_icon_size_h = Math.round(getHoleCard1().getHeight() / 2);
-
-                int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
-
-                int pos_x = panel_cartas.getWidth() - sound_icon_size_w;
-
-                int pos_y = Math.round(getHoleCard1().getHeight() / 2);
-
-                getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/radar.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)));
-
-                getChat_notify_label().setSize(sound_icon_size_w, sound_icon_size_h);
-
-                getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
-
-                getChat_notify_label().setOpaque(false);
-
-                getChat_notify_label().revalidate();
-
-                getChat_notify_label().repaint();
-
-                getChat_notify_label().setLocation(pos_x, pos_y);
-            }
-        });
     }
 
     public void setNotifyTTSChatLabel() {
@@ -1351,7 +1339,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             public void actionPerformed(ActionEvent ae) {
 
-                                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isAnti_cheat_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
 
                                     response_counter--;
 
@@ -1373,7 +1361,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                 @Override
                                                 public void actionPerformed(ActionEvent ae) {
 
-                                                    if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !isAnti_cheat_ckecking() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                                                    if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
                                                         if (player_action.getBackground() != Color.GRAY) {
                                                             setPlayerBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                                                             player_action.setBackground(Color.GRAY);

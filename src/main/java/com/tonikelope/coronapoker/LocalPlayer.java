@@ -173,21 +173,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 c2 = robot.createScreenCapture(r1);
             }
         }
-
-        if (System.currentTimeMillis() + 50 < time_limit) {
-
-            Helpers.pausar(50); //Hay que esperar un mínimo para asegurarnos que la imagen nueva es estable y evitar capturar las cartas en una transición (con algo de transparencia)
-
-            BufferedImage c3 = robot.createScreenCapture(r1);
-
-            while (System.currentTimeMillis() < time_limit && !bufferedImagesEqual(c2, c3)) {
-
-                if (System.currentTimeMillis() + pause < time_limit) {
-                    Helpers.pausar(pause);
-                    c3 = robot.createScreenCapture(r1);
-                }
-            }
-        }
+        
+        Helpers.pausar(50); //Hay que esperar un extra para asegurarnos que la imagen nueva es estable y evitar capturar las cartas en una transición (con algo de transparencia) (RARO)
 
         return (System.currentTimeMillis() >= time_limit);
     }

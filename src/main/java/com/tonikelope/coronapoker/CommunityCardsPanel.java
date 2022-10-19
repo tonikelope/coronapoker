@@ -61,13 +61,15 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private final Object zoom_lock = new Object();
 
     public void lightsButtonClick() {
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        if (!GameFrame.getInstance().getCrupier().isRadarChecking()) {
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
 
-                lights_labelMouseReleased(null);
-            }
-        });
+                    lights_labelMouseReleased(null);
+                }
+            });
+        }
     }
 
     public JLabel getLast_hand_label() {

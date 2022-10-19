@@ -119,8 +119,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return radar_dialog;
     }
 
-    public void setRadar_dialog(RadarLogDialog anticheat_dialog) {
-        this.radar_dialog = anticheat_dialog;
+    public void setRadar_dialog(RadarLogDialog radar_dialog) {
+        this.radar_dialog = radar_dialog;
     }
 
     public void refreshNotifyChatLabel() {
@@ -1400,11 +1400,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (GameFrame.getInstance().isPartida_local()) {
 
-                        GameFrame.getInstance().getParticipantes().get(this.nickname).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")));
+                        GameFrame.getInstance().getParticipantes().get(this.nickname).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")));
 
                     } else {
 
-                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SNAPSHOT#" + Base64.encodeBase64String(this.nickname.getBytes("UTF-8")));
+                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(this.nickname.getBytes("UTF-8")));
 
                     }
 

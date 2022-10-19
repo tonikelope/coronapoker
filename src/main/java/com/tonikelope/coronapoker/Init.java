@@ -93,7 +93,7 @@ public class Init extends javax.swing.JFrame {
     public static final boolean DEBUG_FILE = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
-    public static final String ANTICHEAT_DIR = CORONA_DIR + "/Anticheat";
+    public static final String RADAR_DIR = CORONA_DIR + "/RADAR";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String GIFSICLE_DIR = CORONA_DIR + "/gifsicle";
     public static final String CACHE_DIR = CORONA_DIR + "/Cache";

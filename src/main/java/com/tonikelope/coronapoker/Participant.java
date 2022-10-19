@@ -636,38 +636,38 @@ public class Participant implements Runnable {
 
                                     switch (subcomando) {
 
-                                        case "SNAPSHOT":
+                                        case "RADAR":
                                             Helpers.threadRun(new Runnable() {
                                                 public void run() {
                                                     try {
                                                         if (partes_comando.length == 4) {
 
-                                                            //SOLICITA SNAPSHOT DE OTRO USUARIO
+                                                            //SOLICITA RADAR LOG DE OTRO USUARIO
                                                             String suspicious = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
 
                                                             if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(suspicious)) {
 
-                                                                //Quiere mi snapshot (el del server)
-                                                                GameFrame.getInstance().getLocalPlayer().antiCheatSnapshot(nick);
+                                                                //Quiere mi RADAR LOG (el del server)
+                                                                GameFrame.getInstance().getLocalPlayer().RADAR(nick);
 
                                                             } else if (!GameFrame.getInstance().getParticipantes().get(suspicious).isCpu()) {
                                                                 //Quiere la de otro user
 
-                                                                GameFrame.getInstance().getParticipantes().get(suspicious).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")));
+                                                                GameFrame.getInstance().getParticipantes().get(suspicious).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nick.getBytes("UTF-8")));
                                                             }
 
                                                         } else {
 
-                                                            //Envía su snapshot
+                                                            //Envía su RADAR LOG
                                                             String requester = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
 
                                                             if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(requester)) {
 
                                                                 //Se la solicité yo (server)
-                                                                GameFrame.getInstance().getCrupier().saveAntiCheatSnapshot(nick, Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
+                                                                GameFrame.getInstance().getCrupier().saveRADARLog(nick, Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
                                                             } else {
 
-                                                                GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("SNAPSHOT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + partes_comando[4] + "#" + partes_comando[5] + "#" + partes_comando[6]);
+                                                                GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + partes_comando[4] + "#" + partes_comando[5] + "#" + partes_comando[6]);
                                                             }
                                                         }
                                                     } catch (Exception ex) {

@@ -173,7 +173,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 c2 = robot.createScreenCapture(r1);
             }
         }
-        
+
         Helpers.pausar(50); //Hay que esperar un extra para asegurarnos que la imagen nueva es estable y evitar capturar las cartas en una transición (con algo de transparencia) (RARO)
 
         return (System.currentTimeMillis() >= time_limit);
@@ -242,7 +242,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     sb.append("******************** " + Translator.translate("PROCESOS DEL SISTEMA") + " ********************\n\n");
 
-                    sb.append(Helpers.getProcessList());
+                    sb.append(Helpers.getProcessesList());
 
                     sb.append("\n\n********************* " + Translator.translate("LIBRERÍAS CARGADAS CON CORONAPOKER") + " ********************\n\n");
 

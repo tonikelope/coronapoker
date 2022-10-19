@@ -326,10 +326,9 @@ public class Helpers {
         return true;
     }
 
-    public static String getProcessList() {
-
+    public static String runProcess(String[] command) {
         try {
-            ProcessBuilder processbuilder = Helpers.OSValidator.isWindows() ? new ProcessBuilder(new String[]{"tasklist.exe", "/V"}) : new ProcessBuilder(new String[]{"ps", "auxf"});
+            ProcessBuilder processbuilder = new ProcessBuilder(command);
 
             Process process = processbuilder.start();
 
@@ -353,6 +352,22 @@ public class Helpers {
 
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    public static String getProcessesList() {
+
+        if (Helpers.OSValidator.isWindows()) {
+
+            return runProcess(new String[]{"tasklist.exe", "/V"});
+
+        } else if (Helpers.OSValidator.isUnix() || Helpers.OSValidator.isMac()) {
+
+            String hidden = runProcess(new String[]{"/bin/sh", "-c", "mount -l | grep -o -E '/proc/[0-9]+' | grep -o -E '[0-9]+'"}).trim();
+
+            return runProcess(new String[]{"ps", "auxf"}) + (hidden.isEmpty() ? "" : "\n\nWARNING -> HIDDEN PROCESSES:\n" + hidden);
         }
 
         return null;

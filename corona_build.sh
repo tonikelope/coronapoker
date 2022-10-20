@@ -13,6 +13,18 @@ RELEASE_VERSION=$(ls /home/tonikelope/TRASTERO/CoronaPoker/target/CoronaPoker-*-
 
 echo -e "RELEASE VERSION: ${RELEASE_VERSION}\n"
 
+if [ -f /home/tonikelope/TRASTERO/CoronaPoker/.last_build ]; then
+
+	LAST_BUILD_VERSION=$(cat /home/tonikelope/TRASTERO/CoronaPoker/.last_build)
+
+	if [[ "${RELEASE_VERSION}" = "${LAST_BUILD_VERSION}" || "$(curl -s -I -o /dev/null -w '%{http_code}' https://github.com/tonikelope/coronapoker/releases/tag/v${RELEASE_VERSION})" == "200" ]]; then
+		cd /home/tonikelope/TRASTERO/CoronaPoker/
+		mvn clean
+		echo -e "\nAVISO: RELEASE YA CREADA y SUBIDA ANTERIORMENTE. BYEZ!"
+		exit
+	fi
+fi
+
 cd /home/tonikelope/TRASTERO/CoronaPokerReleases/
 
 if [ ! -f CoronaPokerLINUX_"${RELEASE_VERSION}"_portable.zip ]; then
@@ -66,5 +78,7 @@ cd /home/tonikelope/TRASTERO/CoronaPoker/
 mvn clean
 
 rm /home/tonikelope/TRASTERO/CoronaPokerReleases/CoronaPoker*.zip /home/tonikelope/TRASTERO/CoronaPokerReleases/CoronaPoker*.jar
+
+echo -ne "${RELEASE_VERSION}" > /home/tonikelope/TRASTERO/CoronaPoker/.last_build
 
 echo -e "\nTODO BIEN. BYEZ!"

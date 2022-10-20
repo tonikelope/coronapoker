@@ -15,7 +15,7 @@
 - No central servers nor third parties logging things (just you and your friends).
 - Point-to-point encryption (DH + AES 128).
 - Password protected games.
-- Secure by design with a (modest and homemade) anticheat module.
+- Secure by design with a (modest) anticheat module.
 - Up to 10 simultaneous human/bot players.
 - Intuitive interface (with comfortable key shortcuts).
 - Global in-game zoom (UHD resolution supported).

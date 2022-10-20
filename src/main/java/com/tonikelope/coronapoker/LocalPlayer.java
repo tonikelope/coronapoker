@@ -168,11 +168,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         while (System.currentTimeMillis() < time_limit && bufferedImagesEqual(c1, c2)) {
 
             //Mientras las cartas sigan visibles en pantalla
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    paintImmediately(panel_cartas.getBounds());
-                }
-            });
             Helpers.pausar(pause);
 
             if (System.currentTimeMillis() < time_limit) {
@@ -220,7 +215,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 holeCard1.setSecure_hidden(false);
                                 holeCard2.getCard_image().setVisible(holeCard2.isVisible_card());
                                 holeCard2.setSecure_hidden(false);
-
+                                paintImmediately(panel_cartas.getBounds());
                             }
                         });
 

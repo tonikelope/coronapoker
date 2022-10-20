@@ -92,6 +92,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final ConcurrentHashMap<JButton, Boolean> action_button_armed = new ConcurrentHashMap<>();
     private final Object pre_pulsar_lock = new Object();
     private final Object zoom_lock = new Object();
+    private final Object radar_lock = new Object();
 
     private volatile String nickname;
     private volatile int buyin = GameFrame.BUYIN;
@@ -156,9 +157,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 holeCard1.setSecure_hidden(true);
                 holeCard1.getCard_image().setVisible(false);
-
-                holeCard2.getCard_image().setVisible(false);
                 holeCard2.setSecure_hidden(true);
+                holeCard2.getCard_image().setVisible(false);
+
             }
         });
 
@@ -184,81 +185,85 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.threadRun(new Runnable() {
             @Override
             public void run() {
-                try {
 
-                    radar_ckecking = true;
+                synchronized (radar_lock) {
 
-                    GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-                    GraphicsDevice[] screens = ge.getScreenDevices();
+                    try {
 
-                    Rectangle allScreenBounds = new Rectangle();
-                    for (GraphicsDevice screen : screens) {
-                        Rectangle screenBounds = screen.getDefaultConfiguration().getBounds();
-                        allScreenBounds.width += screenBounds.width;
-                        allScreenBounds.height = Math.max(allScreenBounds.height, screenBounds.height);
-                    }
+                        radar_ckecking = true;
 
-                    secureHideHoleCards(25, 2000);
+                        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+                        GraphicsDevice[] screens = ge.getScreenDevices();
+                        Rectangle allScreenBounds = new Rectangle();
 
-                    long timestamp = System.currentTimeMillis();
-
-                    BufferedImage capture = new Robot().createScreenCapture(allScreenBounds);
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            holeCard1.getCard_image().setVisible(holeCard1.isVisible_card());
-                            holeCard1.setSecure_hidden(false);
-                            holeCard2.getCard_image().setVisible(holeCard2.isVisible_card());
-                            holeCard2.setSecure_hidden(false);
-
+                        for (GraphicsDevice screen : screens) {
+                            Rectangle screenBounds = screen.getDefaultConfiguration().getBounds();
+                            allScreenBounds.width += screenBounds.width;
+                            allScreenBounds.height = Math.max(allScreenBounds.height, screenBounds.height);
                         }
-                    });
 
-                    radar_ckecking = false;
+                        secureHideHoleCards(25, 1000);
 
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        long timestamp = System.currentTimeMillis();
 
-                    ImageIO.write(Helpers.convertToGrayScale(capture), "jpg", baos);
+                        BufferedImage capture = new Robot().createScreenCapture(allScreenBounds);
 
-                    baos.flush();
+                        Helpers.GUIRun(new Runnable() {
+                            public void run() {
 
-                    byte[] imageInByte = baos.toByteArray();
+                                holeCard1.getCard_image().setVisible(holeCard1.isVisible_card());
+                                holeCard1.setSecure_hidden(false);
+                                holeCard2.getCard_image().setVisible(holeCard2.isVisible_card());
+                                holeCard2.setSecure_hidden(false);
 
-                    baos.close();
+                            }
+                        });
 
-                    StringBuilder sb = new StringBuilder();
+                        radar_ckecking = false;
 
-                    sb.append("  ____                            ____       _               ____      _    ____    _    ____  \n"
-                            + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
-                            + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
-                            + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
-                            + " \\____\\___/|_|  \\___/|_| |_|\\__,_|_|   \\___/|_|\\_\\___|_|    |_| \\_\\/_/   \\_\\____/_/   \\_\\_| \\_\\\n"
-                            + "                                                                                               ");
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-                    sb.append("\n\nCoronaPoker Radar -> [" + nickname + "] " + Helpers.getFechaHoraActual() + "\n\n");
+                        ImageIO.write(Helpers.convertToGrayScale(capture), "jpg", baos);
 
-                    sb.append(Translator.translate("ADVERTENCIA: este registro debe comprobarse manualmente para detectar las aplicaciones y/o bibliotecas utilizadas para hacer trampas.\n\n"));
+                        baos.flush();
 
-                    sb.append("******************** " + Translator.translate("PROCESOS DEL SISTEMA") + " ********************\n\n");
+                        byte[] imageInByte = baos.toByteArray();
 
-                    sb.append(Helpers.getProcessesList());
+                        baos.close();
 
-                    sb.append("\n\n********************* " + Translator.translate("LIBRERÍAS CARGADAS CON CORONAPOKER") + " ********************\n\n");
+                        StringBuilder sb = new StringBuilder();
 
-                    sb.append((String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null));
+                        sb.append("  ____                            ____       _               ____      _    ____    _    ____  \n"
+                                + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
+                                + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
+                                + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
+                                + " \\____\\___/|_|  \\___/|_| |_|\\__,_|_|   \\___/|_|\\_\\___|_|    |_| \\_\\/_/   \\_\\____/_/   \\_\\_| \\_\\\n"
+                                + "                                                                                               ");
 
-                    Audio.playWavResource("misc/radar.wav");
+                        sb.append("\n\nCoronaPoker Radar -> [" + nickname + "] " + Helpers.getFechaHoraActual() + "\n\n");
 
-                    if (GameFrame.getInstance().isPartida_local()) {
+                        sb.append(Translator.translate("ADVERTENCIA: este registro debe comprobarse manualmente para detectar las aplicaciones y/o bibliotecas utilizadas para hacer trampas.\n\n"));
 
-                        GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
-                    } else {
-                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                        sb.append("******************** " + Translator.translate("PROCESOS DEL SISTEMA") + " ********************\n\n");
+
+                        sb.append(Helpers.getProcessesList());
+
+                        sb.append("\n\n********************* " + Translator.translate("LIBRERÍAS CARGADAS CON CORONAPOKER") + " ********************\n\n");
+
+                        sb.append((String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null));
+
+                        Audio.playWavResource("misc/radar.wav");
+
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                        } else {
+                            GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                        }
+
+                    } catch (Exception ex) {
+                        Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
-                } catch (Exception ex) {
-                    Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         });

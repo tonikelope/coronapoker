@@ -33,6 +33,15 @@ import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
+import com.sun.jna.Native;
+import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
+import com.sun.jna.platform.win32.Kernel32;
+import com.sun.jna.platform.win32.Tlhelp32;
+import com.sun.jna.platform.win32.WinDef;
+import static com.sun.jna.platform.win32.WinDef.MAX_PATH;
+import com.sun.jna.platform.win32.WinNT;
+import com.sun.jna.win32.W32APIOptions;
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Init.CACHE_DIR;
@@ -212,6 +221,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import static com.tonikelope.coronapoker.Init.RADAR_DIR;
+import java.io.FilenameFilter;
 
 /**
  *
@@ -359,18 +369,149 @@ public class Helpers {
 
     public static String getProcessesList() {
 
+        String header = "\nPID    (PPID)    NAME    PATH\n\n";
+
+        String list = "";
+
         if (Helpers.OSValidator.isWindows()) {
 
-            return runProcess(new String[]{"tasklist.exe", "/V"});
+            list = getWindowsProcessesList();
 
         } else if (Helpers.OSValidator.isUnix() || Helpers.OSValidator.isMac()) {
 
             String hidden = runProcess(new String[]{"/bin/sh", "-c", "mount -l | grep -o -E '/proc/[0-9]+' | grep -o -E '[0-9]+'"}).trim();
 
-            return runProcess(new String[]{"ps", "auxf"}) + (hidden.isEmpty() ? "" : "\n\nWARNING -> HIDDEN PROCESSES:\n" + hidden);
+            list = getUnixProcessesList() + (hidden.isEmpty() ? "" : "\n\nWARNING -> HIDDEN PROCESSES:\n" + hidden);
         }
 
-        return null;
+        return header + list;
+    }
+
+    public static String getUnixProcessesList() {
+
+        StringBuilder sb = new StringBuilder();
+
+        File dir = new File("/proc");
+        File[] files = dir.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.matches("[0-9]+");
+            }
+        });
+
+        for (File f : files) {
+
+            try {
+                File fcmd = new File(f.getAbsolutePath() + "/cmdline");
+
+                String cmd = Files.readString(fcmd.toPath());
+
+                File fstat = new File(f.getAbsolutePath() + "/stat");
+
+                String[] stat = Files.readString(fstat.toPath()).split(" ");
+
+                sb.append(f.getName() + "    (" + stat[3] + ")    " + stat[1] + "    " + cmd.replace('\0', ' ') + "\n");
+
+            } catch (IOException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return sb.toString();
+
+    }
+
+    //Thanks -> https://stackoverflow.com/a/24110581
+    public interface ProcessPathKernel32 extends Kernel32 {
+
+        class MODULEENTRY32 extends Structure {
+
+            public static class ByReference extends MODULEENTRY32 implements Structure.ByReference {
+
+                public ByReference() {
+                }
+
+                public ByReference(Pointer memory) {
+                    super(memory);
+                }
+            }
+
+            public MODULEENTRY32() {
+                dwSize = new WinDef.DWORD(size());
+            }
+
+            public MODULEENTRY32(Pointer memory) {
+                super(memory);
+                read();
+            }
+
+            public WinDef.DWORD dwSize;
+            public WinDef.DWORD th32ModuleID;
+            public WinDef.DWORD th32ProcessID;
+            public WinDef.DWORD GlblcntUsage;
+            public WinDef.DWORD ProccntUsage;
+            public Pointer modBaseAddr;
+            public WinDef.DWORD modBaseSize;
+            public WinDef.HMODULE hModule;
+            public char[] szModule = new char[255 + 1]; // MAX_MODULE_NAME32
+            public char[] szExePath = new char[MAX_PATH];
+
+            public String szModule() {
+                return Native.toString(this.szModule);
+            }
+
+            public String szExePath() {
+                return Native.toString(this.szExePath);
+            }
+
+            @Override
+            protected List<String> getFieldOrder() {
+                return Arrays.asList(new String[]{
+                    "dwSize", "th32ModuleID", "th32ProcessID", "GlblcntUsage", "ProccntUsage", "modBaseAddr", "modBaseSize", "hModule", "szModule", "szExePath"
+                });
+            }
+        }
+
+        ProcessPathKernel32 INSTANCE = (ProcessPathKernel32) Native.loadLibrary(ProcessPathKernel32.class, W32APIOptions.UNICODE_OPTIONS);
+
+        boolean Module32First(WinNT.HANDLE hSnapshot, MODULEENTRY32.ByReference lpme);
+
+        boolean Module32Next(WinNT.HANDLE hSnapshot, MODULEENTRY32.ByReference lpme);
+    }
+
+    //Thanks -> https://stackoverflow.com/a/24110581
+    public static String getWindowsProcessesList() {
+
+        StringBuilder sb = new StringBuilder();
+
+        Kernel32 kernel32 = (Kernel32) Native.load(Kernel32.class, W32APIOptions.DEFAULT_OPTIONS);
+
+        Tlhelp32.PROCESSENTRY32.ByReference processEntry = new Tlhelp32.PROCESSENTRY32.ByReference();
+
+        WinNT.HANDLE processSnapshot = kernel32.CreateToolhelp32Snapshot(Tlhelp32.TH32CS_SNAPPROCESS, new WinDef.DWORD(0));
+
+        try {
+
+            while (kernel32.Process32Next(processSnapshot, processEntry)) {
+
+                sb.append(processEntry.th32ProcessID + "    (" + processEntry.th32ParentProcessID + ")    " + Native.toString(processEntry.szExeFile));
+
+                WinNT.HANDLE moduleSnapshot = kernel32.CreateToolhelp32Snapshot(Tlhelp32.TH32CS_SNAPMODULE, processEntry.th32ProcessID);
+                try {
+                    ProcessPathKernel32.MODULEENTRY32.ByReference me = new ProcessPathKernel32.MODULEENTRY32.ByReference();
+                    ProcessPathKernel32.INSTANCE.Module32First(moduleSnapshot, me);
+                    sb.append("    " + me.szExePath() + "\n");
+
+                } finally {
+                    kernel32.CloseHandle(moduleSnapshot);
+                }
+
+            }
+        } finally {
+            kernel32.CloseHandle(processSnapshot);
+        }
+
+        return sb.toString();
     }
 
     //Thanks -> https://stackoverflow.com/a/10245657
@@ -454,7 +595,7 @@ public class Helpers {
         return updater_path;
 
     }
-    
+
     public static String getGifsicleBinaryPath() {
 
         String path = null;

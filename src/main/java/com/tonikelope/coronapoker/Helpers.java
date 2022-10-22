@@ -454,7 +454,7 @@ public class Helpers {
         return updater_path;
 
     }
-
+    
     public static String getGifsicleBinaryPath() {
 
         String path = null;
@@ -477,7 +477,7 @@ public class Helpers {
 
                     Files.createDirectory(Paths.get(GIFSICLE_DIR));
 
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/gifsicle"), Paths.get(path));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/gifsicle"), Paths.get(path), REPLACE_EXISTING);
 
                     Set<PosixFilePermission> perms = new HashSet<>();
 
@@ -488,22 +488,6 @@ public class Helpers {
                     perms.add(PosixFilePermission.OWNER_EXECUTE);
 
                     Files.setPosixFilePermissions(Paths.get(path), perms);
-
-                    Files.createDirectory(Paths.get(GIFSICLE_DIR + "/bin"));
-
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/gifsicle"), Paths.get(GIFSICLE_DIR + "/bin/gifsicle"));
-
-                    Files.setPosixFilePermissions(Paths.get(GIFSICLE_DIR + "/bin/gifsicle"), perms);
-
-                    Files.createDirectory(Paths.get(GIFSICLE_DIR + "/bin/lib"));
-
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/ld-linux-x86-64.so.2"), Paths.get(GIFSICLE_DIR + "/bin/lib/ld-linux-x86-64.so.2"));
-
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libc.so.6"), Paths.get(GIFSICLE_DIR + "/bin/lib/libc.so.6"));
-
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libm.so.6"), Paths.get(GIFSICLE_DIR + "/bin/lib/libm.so.6"));
-
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/bin/lib/libpthread.so.0"), Paths.get(GIFSICLE_DIR + "/bin/lib/libpthread.so.0"));
 
                 } catch (Exception ex) {
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -523,9 +507,9 @@ public class Helpers {
                     Files.createDirectory(Paths.get(GIFSICLE_DIR));
 
                     if (System.getenv("ProgramFiles(x86)") != null) {
-                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle.exe"), Paths.get(path));
+                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle.exe"), Paths.get(path), REPLACE_EXISTING);
                     } else {
-                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle32.exe"), Paths.get(path));
+                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle32.exe"), Paths.get(path), REPLACE_EXISTING);
                     }
 
                 } catch (Exception ex) {
@@ -544,7 +528,7 @@ public class Helpers {
                     //(Extract gifsicle from jar to cache dir)
                     Files.createDirectory(Paths.get(GIFSICLE_DIR));
 
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/mac/gifsicle_mac"), Paths.get(path));
+                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/mac/gifsicle_mac"), Paths.get(path), REPLACE_EXISTING);
 
                     Set<PosixFilePermission> perms = new HashSet<>();
 

@@ -399,6 +399,8 @@ public class Helpers {
             }
         });
 
+        Pattern pattern = Pattern.compile("([0-9]+) +\\(([^\\)]+)\\) +([^ ]+) +([0-9]+)");
+
         for (File f : files) {
 
             try {
@@ -408,9 +410,13 @@ public class Helpers {
 
                 File fstat = new File(f.getAbsolutePath() + "/stat");
 
-                String[] stat = Files.readString(fstat.toPath()).split(" ");
+                String stat = Files.readString(fstat.toPath());
 
-                sb.append(f.getName() + "    (" + stat[3] + ")    " + stat[1] + "    " + cmd.replace('\0', ' ') + "\n");
+                Matcher matcher = pattern.matcher(stat);
+
+                if (matcher.find()) {
+                    sb.append(matcher.group(1)).append("    (").append(matcher.group(4)).append(")    ").append(matcher.group(2)).append("    ").append(cmd.replace('\0', ' ')).append("\n");
+                }
 
             } catch (IOException ex) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);

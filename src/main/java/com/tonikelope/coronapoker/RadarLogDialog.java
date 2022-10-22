@@ -50,7 +50,7 @@ public class RadarLogDialog extends javax.swing.JDialog {
         super(parent, modal);
         initComponents();
 
-        setTitle(Init.WINDOW_TITLE+" - RADAR");
+        setTitle(Init.WINDOW_TITLE + " - RADAR");
 
         screenshot.setIcon(new ImageIcon(path + ".jpg"));
 

@@ -286,41 +286,6 @@ public class Helpers {
 
     }
 
-    public static boolean secureCompontentHide(JComponent component, int pause, int timeout) throws AWTException {
-
-        Rectangle r1 = new Rectangle((int) component.getLocationOnScreen().getX(), (int) component.getLocationOnScreen().getY(), component.getWidth(), component.getHeight());
-
-        Robot robot = new Robot();
-
-        BufferedImage c1 = robot.createScreenCapture(r1);
-
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-
-                component.setVisible(false);
-
-            }
-        });
-
-        Helpers.pausar(pause);
-
-        BufferedImage c2 = robot.createScreenCapture(r1);
-
-        int t = pause;
-
-        while (t < timeout && bufferedImagesEqual(c1, c2)) {
-            Helpers.pausar(pause);
-
-            t += pause;
-
-            if (t < timeout) {
-                c2 = robot.createScreenCapture(r1);
-            }
-        }
-
-        return (t >= timeout);
-    }
-
     public static boolean bufferedImagesEqual(BufferedImage img1, BufferedImage img2) {
         if (img1.getWidth() == img2.getWidth() && img1.getHeight() == img2.getHeight()) {
             for (int x = 0; x < img1.getWidth(); x++) {
@@ -478,7 +443,7 @@ public class Helpers {
             }
         }
 
-        ProcessPathKernel32 INSTANCE = (ProcessPathKernel32) Native.loadLibrary(ProcessPathKernel32.class, W32APIOptions.UNICODE_OPTIONS);
+        ProcessPathKernel32 INSTANCE = (ProcessPathKernel32) Native.load(ProcessPathKernel32.class, W32APIOptions.UNICODE_OPTIONS);
 
         boolean Module32First(WinNT.HANDLE hSnapshot, MODULEENTRY32.ByReference lpme);
 

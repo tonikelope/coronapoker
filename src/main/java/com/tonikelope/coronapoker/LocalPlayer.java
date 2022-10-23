@@ -233,6 +233,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         StringBuilder sb = new StringBuilder();
 
+                        if (Init.coronaHMACVM()) {
+                            sb.append("*\n");
+                        }
+
                         sb.append("  ____                            ____       _               ____      _    ____    _    ____  \n"
                                 + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
                                 + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"

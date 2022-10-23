@@ -55,8 +55,16 @@ public class RadarLogDialog extends javax.swing.JDialog {
 
         screenshot.setIcon(new ImageIcon(path + ".jpg"));
 
+        boolean vm = false;
+
         try {
-            procesos.setText(Files.readString(Paths.get(path + ".log")));
+
+            String proc = Files.readString(Paths.get(path + ".log"));
+
+            vm = (proc.charAt(0) == '*');
+
+            procesos.setText(proc.substring(1).trim());
+
             procesos.setCaretPosition(0);
         } catch (IOException ex) {
             Logger.getLogger(RadarLogDialog.class.getName()).log(Level.SEVERE, null, ex);
@@ -83,7 +91,7 @@ public class RadarLogDialog extends javax.swing.JDialog {
 
         procesos.setFont(original_dialog_font);
 
-        if (Init.coronaHMACVM()) {
+        if (vm) {
             jLabel1.setBackground(Color.red);
             jLabel1.setForeground(Color.WHITE);
             jLabel1.setText("AVISO: ESTE USUARIO PARECE ESTAR EJECUTANDO CORONAPOKER DENTRO DE UNA MÁQUINA VIRTUAL, LO QUE RESTA UTILIDAD ESTE INFORME Y ES MUY SOSPECHOSO.");

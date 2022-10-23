@@ -63,7 +63,7 @@ public class RadarLogDialog extends javax.swing.JDialog {
 
             vm = (proc.charAt(0) == '*');
 
-            procesos.setText(proc.substring(1).trim());
+            procesos.setText(vm?proc.substring(1).trim():proc.trim());
 
             procesos.setCaretPosition(0);
         } catch (IOException ex) {

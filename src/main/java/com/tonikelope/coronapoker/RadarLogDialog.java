@@ -63,7 +63,7 @@ public class RadarLogDialog extends javax.swing.JDialog {
 
             vm = (proc.charAt(0) == '@');
 
-            procesos.setText(vm?proc.replaceAll("^@\\n", ""):proc);
+            procesos.setText(vm ? proc.replaceAll("^@\\n", "") : proc);
 
             procesos.setCaretPosition(0);
         } catch (IOException ex) {

@@ -1649,10 +1649,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             }
 
                             //Añadimos al servidor
-                            nuevoParticipante(server_nick, server_avatar, null, null, null, false);
+                            nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
 
                             //Nos añadimos nosotros
-                            nuevoParticipante(local_nick, local_avatar, null, null, null, false);
+                            nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
 
                             //Cada X segundos mandamos un comando KEEP ALIVE al server 
                             Helpers.threadRun(new Runnable() {
@@ -1992,18 +1992,18 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 file_id *= -1;
                                                             }
 
-                                                            if (partes_comando.length == 5) {
+                                                            if (partes_comando.length == 6) {
                                                                 avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
 
                                                                 try ( FileOutputStream os = new FileOutputStream(avatar)) {
-                                                                    os.write(Base64.decodeBase64(partes_comando[4]));
+                                                                    os.write(Base64.decodeBase64(partes_comando[5]));
                                                                 }
                                                             }
 
                                                             if (!participantes.containsKey(nick)) {
                                                                 //Añadimos al participante
 
-                                                                nuevoParticipante(nick, avatar, null, null, null, false);
+                                                                nuevoParticipante(nick, avatar, null, null, null, false, "1".equals(partes_comando[4]));
 
                                                             }
 
@@ -2019,7 +2019,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                                 avatar = null;
 
-                                                                if (user_parts.length == 2) {
+                                                                if (user_parts.length == 3) {
                                                                     file_id = Helpers.CSPRNG_GENERATOR.nextInt();
 
                                                                     if (file_id < 0) {
@@ -2029,7 +2029,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                     avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
 
                                                                     try ( FileOutputStream os = new FileOutputStream(avatar)) {
-                                                                        os.write(Base64.decodeBase64(user_parts[1]));
+                                                                        os.write(Base64.decodeBase64(user_parts[2]));
                                                                     }
 
                                                                 }
@@ -2037,7 +2037,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 if (!participantes.containsKey(nick)) {
                                                                     //Añadimos al participante
 
-                                                                    nuevoParticipante(nick, avatar, null, null, null, false);
+                                                                    nuevoParticipante(nick, avatar, null, null, null, false, "1".equals(user_parts[1]));
 
                                                                 }
 
@@ -2227,7 +2227,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 if (p != null && p != par) {
 
-                    command += Base64.encodeBase64String(p.getNick().getBytes("UTF-8"));
+                    command += Base64.encodeBase64String(p.getNick().getBytes("UTF-8")) + "|" + (p.isUnsecure_player() ? "1" : "0");
 
                     if (p.getAvatar() != null || p.isCpu()) {
                         byte[] avatar_b;
@@ -2487,14 +2487,34 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     if (participantes.size() < MAX_PARTICIPANTES && !WaitingRoomFrame.getInstance().isPartida_empezando() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                                         //Añadimos al participante
-                                        nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false);
+                                        nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false, false);
+
+                                        Audio.playWavResource("misc/new_user.wav");
+
+                                        if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
+
+                                            if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+
+                                                participantes.get(client_nick).setUnsecure_player(true);
+
+                                                Helpers.threadRun(new Runnable() {
+                                                    public void run() {
+
+                                                        mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\nEs posible que intente hacer trampas con una versión hackeada del juego (¿o eres tú el trampos@?)"));
+                                                    }
+                                                });
+                                            }
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, client_nick + " GAME BINARY IS MODIFIED (cheating?)");
+
+                                        }
 
                                         //Mandamos la lista de participantes actuales al nuevo participante
                                         if (participantes.size() > 2) {
                                             enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
 
                                             //Mandamos el nuevo participante al resto de participantes
-                                            String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8"));
+                                            String comando = "NEWUSER#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8")) + "#" + (participantes.get(client_nick).isUnsecure_player() ? "1" : "0");
 
                                             if (client_avatar != null) {
 
@@ -2516,25 +2536,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                 new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                                             }
                                         });
-
-                                        Audio.playWavResource("misc/new_user.wav");
-
-                                        if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
-
-                                            if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
-                                                participantes.get(client_nick).setUnsecure_player(true);
-
-                                                Helpers.threadRun(new Runnable() {
-                                                    public void run() {
-
-                                                        mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\nEs posible que intente hacer trampas con una versión hackeada del juego (¿o eres tú el trampos@?)"));
-                                                    }
-                                                });
-                                            }
-
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, client_nick + " GAME BINARY IS MODIFIED (cheating?)");
-
-                                        }
 
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, client_nick + " CONECTADO");
                                     } else {
@@ -2875,11 +2876,13 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     }
 
-    private synchronized void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
+    private synchronized void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu, boolean unsecure) {
 
         Participant participante = new Participant(this, nick, avatar, socket, aes_k, hmac_k, cpu);
 
         participantes.put(nick, participante);
+
+        participante.setUnsecure_player(unsecure);
 
         if (socket != null) {
 
@@ -3821,7 +3824,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         } while (participantes.get(bot_nick) != null);
 
                         //Mandamos el nuevo participante al resto de participantes
-                        String comando = "NEWUSER#" + Base64.encodeBase64String(bot_nick.getBytes("UTF-8"));
+                        String comando = "NEWUSER#" + Base64.encodeBase64String(bot_nick.getBytes("UTF-8")) + "#0";
 
                         byte[] avatar_b = null;
 
@@ -3835,7 +3838,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                         synchronized (lock_new_client) {
 
-                            nuevoParticipante(bot_nick, null, null, null, null, true);
+                            nuevoParticipante(bot_nick, null, null, null, null, true, false);
 
                             broadcastASYNCGAMECommandFromServer(comando, participantes.get(bot_nick));
 

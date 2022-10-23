@@ -1046,6 +1046,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
+                if (GameFrame.getInstance().getParticipantes().get(nickname).isUnsecure_player()) {
+                    danger.setVisible(true);
+                }
+
                 player_name.setText(nickname);
 
                 if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(nickname).isCpu()) {
@@ -1057,16 +1061,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
 
-                        if (GameFrame.getInstance().getSala_espera().isUnsecure_server() || GameFrame.getInstance().getParticipantes().get(nickname).isUnsecure_player()) {
-
-                            danger.setVisible(true);
-
-                        }
-
                         player_name.setForeground(Color.YELLOW);
 
                     }
-
                 }
             }
         });

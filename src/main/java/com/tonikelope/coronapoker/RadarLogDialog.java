@@ -61,9 +61,9 @@ public class RadarLogDialog extends javax.swing.JDialog {
 
             String proc = Files.readString(Paths.get(path + ".log"));
 
-            vm = (proc.charAt(0) == '*');
+            vm = (proc.charAt(0) == '@');
 
-            procesos.setText(vm?proc.substring(1).trim():proc.trim());
+            procesos.setText(vm?proc.replaceAll("^@\\n", ""):proc);
 
             procesos.setCaretPosition(0);
         } catch (IOException ex) {

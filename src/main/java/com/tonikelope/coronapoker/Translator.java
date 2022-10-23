@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"AVISO: ESTE USUARIO PARECE ESTAR EJECUTANDO CORONAPOKER DENTRO DE UNA MÁQUINA VIRTUAL, LO QUE RESTA UTILIDAD ESTE INFORME Y ES MUY SOSPECHOSO.", "WARNING: THIS USER APPEARS TO BE RUNNING CORONAPOKER INSIDE A VIRTUAL MACHINE, WHICH DETRACTS FROM THE USEFULNESS OF THIS REPORT AND IT IS VERY SUSPICIOUS."},
             {"PROCESOS DEL SISTEMA", "SYSTEM PROCESSES"},
             {"LIBRERÍAS CARGADAS CON CORONAPOKER", "CORONAPOKER LOADED LIBRARIES"},
             {"ADVERTENCIA: este registro debe comprobarse manualmente para detectar las aplicaciones y/o bibliotecas utilizadas para hacer trampas.\n\n", "WARNING: this log must be checked manually to detect applications and/or libraries used for cheating.\n\n"},

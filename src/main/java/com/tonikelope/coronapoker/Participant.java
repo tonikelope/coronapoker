@@ -258,6 +258,15 @@ public class Participant implements Runnable {
 
     public void setUnsecure_player(boolean unsecure_player) {
         this.unsecure_player = unsecure_player;
+
+        if (unsecure_player && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+            Helpers.threadRun(new Runnable() {
+                public void run() {
+
+                    Helpers.mostrarMensajeInformativo(WaitingRoomFrame.getInstance(), nick + " " + Translator.translate(WaitingRoomFrame.getInstance().isServer() ? "CUIDADO: el ejecutable del juego de este usuario es diferente\nEs posible que intente hacer trampas con una versión hackeada del juego (¿o eres tú el trampos@?)" : "CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"));
+                }
+            });
+        }
     }
 
     public String getPermutation_key_hash() {

@@ -293,15 +293,27 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     public void setUnsecure_server(boolean val) {
         this.unsecure_server = val;
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
 
-                danger_server.setVisible(unsecure_server);
-                pack();
+            Helpers.GUIRun(new Runnable() {
+                @Override
+                public void run() {
 
-            }
-        });
+                    danger_server.setVisible(unsecure_server);
+                    pack();
+
+                }
+            });
+
+            Helpers.threadRun(new Runnable() {
+                @Override
+                public void run() {
+
+                    mostrarMensajeInformativo(THIS, "CUIDADO: el ejecutable del juego del servidor es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)");
+                }
+            });
+
+        }
     }
 
     public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
@@ -1520,17 +1532,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                             if (!server_jar_hmac.equals(partes[2])) {
 
-                                if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
-                                    THIS.setUnsecure_server(true);
-
-                                    Helpers.threadRun(new Runnable() {
-                                        @Override
-                                        public void run() {
-
-                                            mostrarMensajeInformativo(THIS, "CUIDADO: el ejecutable del juego del servidor es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)");
-                                        }
-                                    });
-                                }
+                                THIS.setUnsecure_server(true);
 
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "SERVER GAME BINARY IS MODIFIED (cheating?)");
 
@@ -2493,17 +2495,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                         if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
 
-                                            if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
-
-                                                participantes.get(client_nick).setUnsecure_player(true);
-
-                                                Helpers.threadRun(new Runnable() {
-                                                    public void run() {
-
-                                                        mostrarMensajeInformativo(THIS, client_nick + " " + Translator.translate("CUIDADO: el ejecutable del juego de este usuario es diferente\nEs posible que intente hacer trampas con una versión hackeada del juego (¿o eres tú el trampos@?)"));
-                                                    }
-                                                });
-                                            }
+                                            participantes.get(client_nick).setUnsecure_player(true);
 
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, client_nick + " GAME BINARY IS MODIFIED (cheating?)");
 

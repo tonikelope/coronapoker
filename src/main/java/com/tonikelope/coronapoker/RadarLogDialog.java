@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.Helpers.HandScrollListener;
+import java.awt.Color;
 import java.io.IOException;
 import java.awt.Font;
 import java.nio.file.Files;
@@ -82,6 +83,12 @@ public class RadarLogDialog extends javax.swing.JDialog {
 
         procesos.setFont(original_dialog_font);
 
+        if (Init.coronaHMACVM()) {
+            jLabel1.setBackground(Color.red);
+            jLabel1.setForeground(Color.WHITE);
+            jLabel1.setText("AVISO: ESTE USUARIO PARECE ESTAR EJECUTANDO CORONAPOKER DENTRO DE UNA MÁQUINA VIRTUAL, LO QUE RESTA UTILIDAD ESTE INFORME Y ES MUY SOSPECHOSO.");
+        }
+
         Helpers.translateComponents(this, false);
 
         pack();
@@ -117,7 +124,7 @@ public class RadarLogDialog extends javax.swing.JDialog {
         jScrollPane2.setViewportView(procesos);
 
         jLabel1.setBackground(new java.awt.Color(255, 255, 0));
-        jLabel1.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel1.setText("ATENCIÓN: toda esta información debe ser revisada y contrastada manualmente para concluir si el jugador ha hecho trampas.");
         jLabel1.setDoubleBuffered(true);
@@ -136,7 +143,7 @@ public class RadarLogDialog extends javax.swing.JDialog {
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addComponent(jLabel1)
                 .addGap(0, 0, 0)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 571, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 578, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
                 .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 291, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, 0))

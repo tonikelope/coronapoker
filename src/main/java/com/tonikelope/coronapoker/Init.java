@@ -111,6 +111,7 @@ public class Init extends javax.swing.JFrame {
     public static volatile Boolean ANTI_SCREENSAVER_KEY_PRESSED = false;
     public static volatile Init VENTANA_INICIO = null;
     public static volatile Method CORONA_HMAC_J1 = null;
+    public static volatile Method CORONA_HMAC_VM = null;
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
     public static volatile Image I1 = null;
@@ -128,6 +129,7 @@ public class Init extends javax.swing.JFrame {
 
         try {
             CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
+            CORONA_HMAC_VM = Class.forName("com.tonikelope.coronahmac.M").getMethod("VM", new Class<?>[]{});
         } catch (Exception ex) {
 
             if (Init.DEBUG_FILE) {
@@ -166,6 +168,19 @@ public class Init extends javax.swing.JFrame {
 
     public JLabel getBaraja_fondo() {
         return baraja_fondo;
+    }
+
+    public static boolean coronaHMACVM() {
+
+        if (CORONA_HMAC_VM != null) {
+            try {
+                return (boolean) CORONA_HMAC_VM.invoke(null);
+            } catch (Exception ex) {
+                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return false;
     }
 
     public static String coronaHMACJ1(byte[] a, byte[] b) {

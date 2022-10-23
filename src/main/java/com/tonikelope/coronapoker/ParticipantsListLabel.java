@@ -54,27 +54,21 @@ public class ParticipantsListLabel extends JLabel implements ListCellRenderer {
             this.setIcon(((JLabel) value).getIcon());
             this.setFont(list.getFont());
 
-            if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()) != null) {
+            if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()) != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()).isAsync_wait()) {
                 this.setOpaque(true);
-
-                if (WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()).isAsync_wait()) {
-                    this.setBackground(Color.DARK_GRAY);
-                } else if (WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()).isUnsecure_player() && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
-                    this.setBackground(Color.RED);
-                }
-
+                this.setBackground(Color.DARK_GRAY);
                 this.setForeground(Color.WHITE);
-
+            } else if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()) != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()).isUnsecure_player() && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+                this.setOpaque(true);
+                this.setBackground(Color.RED);
+                this.setForeground(Color.WHITE);
             } else if (isSelected) {
-
                 this.setOpaque(true);
                 this.setBackground(Color.YELLOW);
-
+                this.setForeground(Color.BLACK);
             } else {
-
                 this.setOpaque(false);
-                this.setForeground(Color.black);
-
+                this.setForeground(Color.BLACK);
             }
 
             this.revalidate();

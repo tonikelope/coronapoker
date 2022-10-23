@@ -832,11 +832,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (!GameFrame.getInstance().isPartida_local()) {
 
-                    player_name.setToolTipText("CLICK -> AES-KEY");
-                    player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
+                    avatar.setToolTipText("CLICK -> AES-KEY");
                 } else {
                     player_name.setForeground(Color.YELLOW);
+                    avatar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
                 }
             }
         });
@@ -1002,6 +1001,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_pot.setText("----");
 
+                player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                
                 icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
 
                     @Override

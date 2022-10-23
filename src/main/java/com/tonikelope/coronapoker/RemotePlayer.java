@@ -1065,6 +1065,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     }
                 }
+
+                if (!nickname.contains("$")) {
+                    player_name.setToolTipText("CLICK -> ANTI CHEAT LOG");
+                } else {
+                    player_name.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+                    avatar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+                }
             }
         });
 

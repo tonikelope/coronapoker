@@ -59,7 +59,7 @@ public class ParticipantsListLabel extends JLabel implements ListCellRenderer {
 
                 if (WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()).isAsync_wait()) {
                     this.setBackground(Color.DARK_GRAY);
-                } else if (WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()).isUnsecure_player()) {
+                } else if (WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()).isUnsecure_player() && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
                     this.setBackground(Color.RED);
                 }
 

@@ -448,7 +448,7 @@ public class Helpers {
 
     public static String getWindowsProcessesList() {
 
-        String powershell = Helpers.runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object -Property Name -ne powershell.exe | Select ProcessId,ParentprocessId,Name,CommandLine | format-table -Wrap -AutoSize"});
+        String powershell = Helpers.runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object -Property Name -ne powershell.exe | Select ProcessId,ParentprocessId,Name,CommandLine | Out-String -width 10000"});
 
         if (powershell != null) {
             return powershell;

@@ -47,7 +47,7 @@ public class Translator {
         String[][] rosetta = {
             {"Parece que estás ejecutando CoronaPoker en una máquina virtual.\n(Por motivos de rendimiento y seguridad esto no es recomendable).","It looks like you are running CoronaPoker on a virtual machine.\n(For performance and security reasons this is not recommended)."},
             {"CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)", "CAUTION: the game executable of this user is different\n(It is possible that she/he is trying to cheat with a hacked version of the game)"},
-            {"AVISO: ESTE USUARIO PARECE ESTAR EJECUTANDO CORONAPOKER DENTRO DE UNA MÁQUINA VIRTUAL, LO QUE RESTA UTILIDAD ESTE INFORME Y ES MUY SOSPECHOSO.", "WARNING: THIS USER APPEARS TO BE RUNNING CORONAPOKER INSIDE A VIRTUAL MACHINE, WHICH DETRACTS FROM THE USEFULNESS OF THIS REPORT AND IT IS VERY SUSPICIOUS."},
+            {"AVISO: ESTE USUARIO PARECE ESTAR EJECUTANDO CORONAPOKER DENTRO DE UNA MÁQUINA VIRTUAL, LO QUE RESTA UTILIDAD A ESTE INFORME Y ES BASTANTE SOSPECHOSO.", "WARNING: THIS USER APPEARS TO BE RUNNING CORONAPOKER INSIDE A VIRTUAL MACHINE, WHICH DETRACTS FROM THE USEFULNESS OF THIS REPORT AND IT IS SUSPICIOUS."},
             {"PROCESOS DEL SISTEMA", "SYSTEM PROCESSES"},
             {"LIBRERÍAS CARGADAS CON CORONAPOKER", "CORONAPOKER LOADED LIBRARIES"},
             {"ADVERTENCIA: este registro debe comprobarse manualmente para detectar las aplicaciones y/o bibliotecas utilizadas para hacer trampas.\n\n", "WARNING: this log must be checked manually to detect applications and/or libraries used for cheating.\n\n"},

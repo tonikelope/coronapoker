@@ -333,27 +333,25 @@ public class Helpers {
 
     public static String getProcessesList() {
 
-        String header = "\nPID    (PPID)    NAME    PATH\n\n";
-
-        String list = "";
-
         if (Helpers.OSValidator.isWindows()) {
 
-            list = getWindowsProcessesList();
+            return getWindowsProcessesList();
 
         } else if (Helpers.OSValidator.isUnix() || Helpers.OSValidator.isMac()) {
 
             String hidden = runProcess(new String[]{"/bin/sh", "-c", "mount -l | grep -o -E '/proc/[0-9]+' | grep -o -E '[0-9]+'"}).trim();
 
-            list = getUnixProcessesList() + (hidden.isEmpty() ? "" : "\n\nWARNING -> HIDDEN PROCESSES:\n" + hidden);
+            return getUnixProcessesList() + (hidden.isEmpty() ? "" : "\n\nWARNING -> HIDDEN PROCESSES:\n" + hidden);
         }
 
-        return header + list;
+        return null;
     }
 
     public static String getUnixProcessesList() {
 
         StringBuilder sb = new StringBuilder();
+
+        sb.append(String.format("%7s  %7s  %-32s  %s\n", "PID", "PPID", "Name", "Path"));
 
         File dir = new File("/proc");
         File[] files = dir.listFiles(new FilenameFilter() {
@@ -379,7 +377,7 @@ public class Helpers {
                 Matcher matcher = pattern.matcher(stat);
 
                 if (matcher.find()) {
-                    sb.append(matcher.group(1)).append("    (").append(matcher.group(4)).append(")    ").append(matcher.group(2)).append("    ").append(cmd.replace('\0', ' ')).append("\n");
+                    sb.append(String.format("%7s  %7s  %-32s  %s\n", matcher.group(1), matcher.group(4), matcher.group(2), cmd.replace('\0', ' ')));
                 }
 
             } catch (IOException ex) {
@@ -454,6 +452,8 @@ public class Helpers {
 
         StringBuilder sb = new StringBuilder();
 
+        sb.append(String.format("%7s  %7s  %-32s  %s\n", "PID", "PPID", "Name", "Path"));
+
         Kernel32 kernel32 = (Kernel32) Native.load(Kernel32.class, W32APIOptions.DEFAULT_OPTIONS);
 
         Tlhelp32.PROCESSENTRY32.ByReference processEntry = new Tlhelp32.PROCESSENTRY32.ByReference();
@@ -464,17 +464,21 @@ public class Helpers {
 
             while (kernel32.Process32Next(processSnapshot, processEntry)) {
 
-                sb.append(processEntry.th32ProcessID + "    (" + processEntry.th32ParentProcessID + ")    " + Native.toString(processEntry.szExeFile));
-
                 WinNT.HANDLE moduleSnapshot = kernel32.CreateToolhelp32Snapshot(Tlhelp32.TH32CS_SNAPMODULE, processEntry.th32ProcessID);
+
+                String path;
+
                 try {
                     ProcessPathKernel32.MODULEENTRY32.ByReference me = new ProcessPathKernel32.MODULEENTRY32.ByReference();
                     ProcessPathKernel32.INSTANCE.Module32First(moduleSnapshot, me);
-                    sb.append("    " + me.szExePath() + "\n");
+
+                    path = me.szExePath();
 
                 } finally {
                     kernel32.CloseHandle(moduleSnapshot);
                 }
+
+                sb.append(String.format("%7s  %7s  %-32s  %s\n", String.valueOf(processEntry.th32ProcessID), String.valueOf(processEntry.th32ParentProcessID), Native.toString(processEntry.szExeFile), path));
 
             }
         } finally {

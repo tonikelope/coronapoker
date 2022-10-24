@@ -94,7 +94,7 @@ public class RadarLogDialog extends javax.swing.JDialog {
         if (vm) {
             jLabel1.setBackground(Color.red);
             jLabel1.setForeground(Color.WHITE);
-            jLabel1.setText("AVISO: ESTE USUARIO PARECE ESTAR EJECUTANDO CORONAPOKER DENTRO DE UNA MÁQUINA VIRTUAL, LO QUE RESTA UTILIDAD ESTE INFORME Y ES MUY SOSPECHOSO.");
+            jLabel1.setText("AVISO: ESTE USUARIO PARECE ESTAR EJECUTANDO CORONAPOKER DENTRO DE UNA MÁQUINA VIRTUAL, LO QUE RESTA UTILIDAD A ESTE INFORME Y ES BASTANTE SOSPECHOSO.");
         }
 
         Helpers.translateComponents(this, false);

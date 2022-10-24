@@ -1080,6 +1080,10 @@ public class Init extends javax.swing.JFrame {
                 }
             });
 
+            if (Init.coronaHMACVM()) {
+                Helpers.mostrarMensajeInformativo(VENTANA_INICIO, "Parece que estás ejecutando CoronaPoker en una máquina virtual.\n(Por motivos de rendimiento y seguridad esto no es recomendable).");
+            }
+
             if (PEGI18_MOD && !Files.isReadable(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"))) {
 
                 if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "EL MOD CARGADO CONTIENE MATERIAL CALIFICADO SÓLO PARA MAYORES DE 18 AÑOS. ¿Continuar?", new ImageIcon(Init.class.getResource("/images/pegi18.png"))) == 0) {

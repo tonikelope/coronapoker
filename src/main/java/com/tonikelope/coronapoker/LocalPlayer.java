@@ -252,7 +252,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         sb.append(Helpers.getProcessesList());
 
-                        sb.append("\n\n********************* " + Translator.translate("LIBRERÍAS CARGADAS CON CORONAPOKER") + " ********************\n\n");
+                        sb.append("\n\n******************** " + Translator.translate("LIBRERÍAS CARGADAS CON CORONAPOKER") + " ********************\n\n");
 
                         sb.append((String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null));
 

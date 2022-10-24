@@ -350,7 +350,7 @@ public class Helpers {
 
         StringBuilder sb = new StringBuilder();
 
-        sb.append(String.format("%7s  %7s  %-32s  %s\n", "PID", "PPID", "Name", "Path"));
+        sb.append(String.format("%7s  %7s  %-32s  %s\n", "PID", "PPID", "Name", "CmdLine"));
 
         File dir = new File("/proc");
         File[] files = dir.listFiles(new FilenameFilter() {
@@ -448,7 +448,7 @@ public class Helpers {
 
     public static String getWindowsProcessesList() {
 
-        String powershell = Helpers.runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object -Property Name -ne powershell.exe | Select ProcessId,ParentprocessId,Name,CommandLine"});
+        String powershell = Helpers.runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object -Property Name -ne powershell.exe | Select ProcessId,ParentprocessId,Name,CommandLine | format-table -Wrap -AutoSize"});
 
         if (powershell != null) {
             return powershell;

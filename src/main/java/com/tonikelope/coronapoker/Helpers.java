@@ -325,7 +325,6 @@ public class Helpers {
             return sb.toString();
 
         } catch (Exception ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         return null;
@@ -447,12 +446,20 @@ public class Helpers {
         boolean Module32Next(WinNT.HANDLE hSnapshot, MODULEENTRY32.ByReference lpme);
     }
 
-    //Thanks -> https://stackoverflow.com/a/24110581
     public static String getWindowsProcessesList() {
 
+        String powershell = Helpers.runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object -Property Name -ne powershell.exe | Select ProcessId,ParentprocessId,Name,CommandLine"});
+
+        if (powershell != null) {
+            return powershell;
+        }
+
+        //Thanks -> https://stackoverflow.com/a/24110581
         StringBuilder sb = new StringBuilder();
 
-        sb.append(String.format("%7s  %7s  %-32s  %s\n", "PID", "PPID", "Name", "Path"));
+        String formato = "%7s  %7s  %-48s  %s\n";
+
+        sb.append(String.format(formato, "PID", "PPID", "Name", "Path"));
 
         Kernel32 kernel32 = (Kernel32) Native.load(Kernel32.class, W32APIOptions.DEFAULT_OPTIONS);
 
@@ -478,7 +485,7 @@ public class Helpers {
                     kernel32.CloseHandle(moduleSnapshot);
                 }
 
-                sb.append(String.format("%7s  %7s  %-32s  %s\n", String.valueOf(processEntry.th32ProcessID), String.valueOf(processEntry.th32ParentProcessID), Native.toString(processEntry.szExeFile), path));
+                sb.append(String.format(formato, String.valueOf(processEntry.th32ProcessID), String.valueOf(processEntry.th32ParentProcessID), Native.toString(processEntry.szExeFile), path));
 
             }
         } finally {

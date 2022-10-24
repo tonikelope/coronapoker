@@ -4104,7 +4104,7 @@ public class Crupier implements Runnable {
 
                         a[0] = 1;
 
-                        if (jugador.getRadar_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
+                        if (jugador.getRadar_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0 && !isFin_de_la_transmision()) {
 
                             jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
                             jugador.getRadar_dialog().setVisible(true);

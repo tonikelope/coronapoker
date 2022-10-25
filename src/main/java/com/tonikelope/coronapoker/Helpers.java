@@ -441,7 +441,7 @@ public class Helpers {
                     Matcher m = pat.matcher(lines[r]);
 
                     if (m.find()) {
-                        cmdlines_map.put(m.group(1), m.group(2).replaceAll("^\"(.*)\"", "$1").replaceAll("\"\"", ";;").replaceAll("\"", "").replaceAll(";;", "\""));
+                        cmdlines_map.put(m.group(1), m.group(2).replaceAll("^\"(.+)\"", "$1").replaceAll("\"\"(.*?)\"\"", "\"$1\""));
                     }
                 } catch (Exception ex) {
 

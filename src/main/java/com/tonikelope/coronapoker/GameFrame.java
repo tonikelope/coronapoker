@@ -396,7 +396,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.pausar(1000);
         }
 
-        Helpers.GUIRun(new Runnable() {
+        Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
                 GameFrame.getInstance().setEnabled(true);

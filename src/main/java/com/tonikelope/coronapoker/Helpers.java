@@ -450,10 +450,9 @@ public class Helpers {
 
         }
 
-        //Thanks -> https://stackoverflow.com/a/24110581
         StringBuilder sb = new StringBuilder();
 
-        sb.append(String.format(formato, "PID", "PPID", "Name", "Path"));
+        sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
 
         Kernel32 kernel32 = (Kernel32) Native.load(Kernel32.class, W32APIOptions.DEFAULT_OPTIONS);
 
@@ -494,6 +493,7 @@ public class Helpers {
         return sb.toString();
     }
 
+    //Thanks -> https://stackoverflow.com/a/24110581
     public interface ProcessPathKernel32 extends Kernel32 {
 
         class MODULEENTRY32 extends Structure {

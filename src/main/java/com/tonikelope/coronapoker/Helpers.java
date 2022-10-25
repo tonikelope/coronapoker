@@ -350,7 +350,7 @@ public class Helpers {
 
         StringBuilder sb = new StringBuilder();
 
-        sb.append(String.format("%7s  %7s  %-32s  %s\n", "PID", "PPID", "Name", "CmdLine"));
+        sb.append(String.format("%7s  %7s  %-48s  %s\n", "PID", "PPID", "Name", "CmdLine"));
 
         File dir = new File("/proc");
         File[] files = dir.listFiles(new FilenameFilter() {
@@ -376,7 +376,7 @@ public class Helpers {
                 Matcher matcher = pattern.matcher(stat);
 
                 if (matcher.find()) {
-                    sb.append(String.format("%7s  %7s  %-32s  %s\n", matcher.group(1), matcher.group(4), matcher.group(2), cmd.replace('\0', ' ')));
+                    sb.append(String.format("%7s  %7s  %-48s  %s\n", matcher.group(1), matcher.group(4), matcher.group(2), cmd.replace('\0', ' ')));
                 }
 
             } catch (IOException ex) {
@@ -448,16 +448,50 @@ public class Helpers {
 
     public static String getWindowsProcessesList() {
 
-        String powershell = Helpers.runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object -Property Name -ne powershell.exe | Select ProcessId,ParentprocessId,Name,CommandLine | Out-String -width 10000"});
+        String formato = "%7s  %7s  %-48s  %s\n";
+
+        //PLAN A
+        String powershell = runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object ProcessId -ne $PID | Select ProcessId,ParentProcessId,Name,CommandLine | format-list"});
 
         if (powershell != null) {
-            return powershell;
+
+            Pattern pat = Pattern.compile("ProcessId +: +([0-9]+).*?ParentProcessId +: +([0-9]+).*?Name +: +([^\r\n]*).*?CommandLine +: +([^\r\n]*)", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+
+            Matcher m = pat.matcher(powershell);
+
+            StringBuilder sb = new StringBuilder();
+
+            sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
+
+            while (m.find()) {
+                sb.append(String.format(formato, m.group(1), m.group(2), m.group(3), m.group(4)));
+            }
+
+            return sb.toString();
         }
 
-        //Thanks -> https://stackoverflow.com/a/24110581
-        StringBuilder sb = new StringBuilder();
+        //PLAN B
+        String wmic = runProcess(new String[]{"wmic", "process", "get", "ProcessId,ParentProcessId,Name,CommandLine", "/format:list"});
 
-        String formato = "%7s  %7s  %-48s  %s\n";
+        if (wmic != null) {
+
+            Pattern pat = Pattern.compile("CommandLine=([^\r\n]*).*?Name=([^\r\n]*).*?ParentProcessId=([0-9]+).*?ProcessId=([0-9]+)", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+
+            Matcher m = pat.matcher(powershell);
+
+            StringBuilder sb = new StringBuilder();
+
+            sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
+
+            while (m.find()) {
+                sb.append(String.format(formato, m.group(4), m.group(3), m.group(2), m.group(1)));
+            }
+
+            return sb.toString();
+        }
+
+        //PLAN C Thanks -> https://stackoverflow.com/a/24110581
+        StringBuilder sb = new StringBuilder();
 
         sb.append(String.format(formato, "PID", "PPID", "Name", "Path"));
 

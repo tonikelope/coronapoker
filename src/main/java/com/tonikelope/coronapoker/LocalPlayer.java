@@ -1002,7 +1002,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setText("----");
 
                 player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                
+
                 icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
 
                     @Override

@@ -300,11 +300,13 @@ public class Helpers {
         return true;
     }
 
-    public static String runProcess(String[] command) {
+    public static String[] runProcess(String[] command) {
         try {
             ProcessBuilder processbuilder = new ProcessBuilder(command);
 
             Process process = processbuilder.start();
+
+            long pid = process.pid();
 
             StringBuilder sb = new StringBuilder();
 
@@ -322,7 +324,7 @@ public class Helpers {
 
             process.waitFor();
 
-            return sb.toString();
+            return new String[]{String.valueOf(pid), sb.toString()};
 
         } catch (Exception ex) {
         }
@@ -338,7 +340,7 @@ public class Helpers {
 
         } else if (Helpers.OSValidator.isUnix() || Helpers.OSValidator.isMac()) {
 
-            String hidden = runProcess(new String[]{"/bin/sh", "-c", "mount -l | grep -o -E '/proc/[0-9]+' | grep -o -E '[0-9]+'"}).trim();
+            String hidden = runProcess(new String[]{"/bin/sh", "-c", "mount -l | grep -o -E '/proc/[0-9]+' | grep -o -E '[0-9]+'"})[1].trim();
 
             return getUnixProcessesList() + (hidden.isEmpty() ? "" : "\n\nWARNING -> HIDDEN PROCESSES:\n" + hidden);
         }
@@ -451,43 +453,33 @@ public class Helpers {
         String formato = "%7s  %7s  %-48s  %s\n";
 
         //PLAN A
-        String powershell = runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object ProcessId -ne $PID | Select ProcessId,ParentProcessId,Name,CommandLine | format-list"});
+        String[] wmic = runProcess(new String[]{"wmic", "process", "get", "ProcessId,ParentProcessId,Name,CommandLine", "/format:list"});
 
-        if (powershell != null) {
+        if (wmic != null) {
 
-            Pattern pat = Pattern.compile("ProcessId +: +([0-9]+).*?ParentProcessId +: +([0-9]+).*?Name +: +([^\r\n]*).*?CommandLine +: +([^\r\n]*)", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+            Pattern pat = Pattern.compile("CommandLine=([^\r\n]*).*?Name=([^\r\n]*).*?ParentProcessId=([0-9]+).*?ProcessId=([0-9]+)", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
 
-            Matcher m = pat.matcher(powershell);
+            Matcher m = pat.matcher(wmic[1]);
 
             StringBuilder sb = new StringBuilder();
 
             sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
 
             while (m.find()) {
-                sb.append(String.format(formato, m.group(1), m.group(2), m.group(3), m.group(4)));
+                if (!m.group(4).equals(wmic[0])) {
+                    sb.append(String.format(formato, m.group(4), m.group(3), m.group(2), m.group(1)));
+                }
             }
 
             return sb.toString();
         }
 
         //PLAN B
-        String wmic = runProcess(new String[]{"wmic", "process", "get", "ProcessId,ParentProcessId,Name,CommandLine", "/format:list"});
+        String[] powershell = runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object ProcessId -ne $PID | Select ProcessId,ParentProcessId,Name,CommandLine | format-table | Out-String -Stream -Width 10000"});
 
-        if (wmic != null) {
+        if (powershell != null) {
 
-            Pattern pat = Pattern.compile("CommandLine=([^\r\n]*).*?Name=([^\r\n]*).*?ParentProcessId=([0-9]+).*?ProcessId=([0-9]+)", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
-
-            Matcher m = pat.matcher(powershell);
-
-            StringBuilder sb = new StringBuilder();
-
-            sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
-
-            while (m.find()) {
-                sb.append(String.format(formato, m.group(4), m.group(3), m.group(2), m.group(1)));
-            }
-
-            return sb.toString();
+            return powershell[1];
         }
 
         //PLAN C Thanks -> https://stackoverflow.com/a/24110581

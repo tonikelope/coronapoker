@@ -390,7 +390,110 @@ public class Helpers {
 
     }
 
-    //Thanks -> https://stackoverflow.com/a/24110581
+    public static String getWindowsProcessesList() {
+
+        String formato = "%7s  %7s  %-48s  %s\n";
+
+        //PLAN A
+        String[] wmic = runProcess(new String[]{"wmic", "process", "get", "ProcessId,ParentProcessId,Name,CommandLine", "/format:list"});
+
+        if (wmic != null) {
+            try {
+
+                Pattern pat = Pattern.compile("CommandLine=([^\r\n]*).*?Name=([^\r\n]*).*?ParentProcessId=([0-9]+).*?ProcessId=([0-9]+)", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+
+                Matcher m = pat.matcher(wmic[1]);
+
+                StringBuilder sb = new StringBuilder();
+
+                sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
+
+                int i = 0;
+
+                while (m.find()) {
+                    if (!m.group(4).equals(wmic[0])) {
+                        sb.append(String.format(formato, m.group(4), m.group(3), m.group(2), m.group(1)));
+                    }
+                    i++;
+                }
+
+                if (i > 0) {
+                    return sb.toString();
+                }
+
+            } catch (Exception ex) {
+            }
+        }
+
+        //PLAN B
+        String[] powershell = runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object ProcessId -ne $PID | Select ProcessId,CommandLine | ConvertTo-Csv -Delimiter ','"});
+
+        HashMap<String, String> cmdlines_map = new HashMap<>();
+
+        if (powershell != null && !powershell[1].trim().isEmpty()) {
+
+            String[] lines = powershell[1].split("\n+");
+
+            Pattern pat = Pattern.compile("^\"([0-9]+)\",?(.*)$");
+
+            for (int r = 1; r < lines.length; r++) {
+                try {
+                    Matcher m = pat.matcher(lines[r]);
+
+                    if (m.find()) {
+                        cmdlines_map.put(m.group(1), m.group(2).replaceAll("^\"(.*)\"", "$1").replaceAll("\"\"", ";;").replaceAll("\"", "").replaceAll(";;", "\""));
+                    }
+                } catch (Exception ex) {
+
+                }
+            }
+
+        }
+
+        //Thanks -> https://stackoverflow.com/a/24110581
+        StringBuilder sb = new StringBuilder();
+
+        sb.append(String.format(formato, "PID", "PPID", "Name", "Path"));
+
+        Kernel32 kernel32 = (Kernel32) Native.load(Kernel32.class, W32APIOptions.DEFAULT_OPTIONS);
+
+        Tlhelp32.PROCESSENTRY32.ByReference processEntry = new Tlhelp32.PROCESSENTRY32.ByReference();
+
+        WinNT.HANDLE processSnapshot = kernel32.CreateToolhelp32Snapshot(Tlhelp32.TH32CS_SNAPPROCESS, new WinDef.DWORD(0));
+
+        try {
+
+            while (kernel32.Process32Next(processSnapshot, processEntry)) {
+
+                String cmdline = cmdlines_map.get(String.valueOf(processEntry.th32ProcessID));
+
+                String path = null;
+
+                if (cmdline == null) {
+
+                    WinNT.HANDLE moduleSnapshot = kernel32.CreateToolhelp32Snapshot(Tlhelp32.TH32CS_SNAPMODULE, processEntry.th32ProcessID);
+
+                    try {
+                        ProcessPathKernel32.MODULEENTRY32.ByReference me = new ProcessPathKernel32.MODULEENTRY32.ByReference();
+                        ProcessPathKernel32.INSTANCE.Module32First(moduleSnapshot, me);
+                        path = me.szExePath();
+
+                    } finally {
+                        kernel32.CloseHandle(moduleSnapshot);
+                    }
+
+                }
+
+                sb.append(String.format(formato, String.valueOf(processEntry.th32ProcessID), String.valueOf(processEntry.th32ParentProcessID), Native.toString(processEntry.szExeFile), cmdline != null ? cmdline : path));
+
+            }
+        } finally {
+            kernel32.CloseHandle(processSnapshot);
+        }
+
+        return sb.toString();
+    }
+
     public interface ProcessPathKernel32 extends Kernel32 {
 
         class MODULEENTRY32 extends Structure {
@@ -448,80 +551,7 @@ public class Helpers {
         boolean Module32Next(WinNT.HANDLE hSnapshot, MODULEENTRY32.ByReference lpme);
     }
 
-    public static String getWindowsProcessesList() {
-
-        String formato = "%7s  %7s  %-48s  %s\n";
-
-        //PLAN A
-        String[] wmic = runProcess(new String[]{"wmic", "process", "get", "ProcessId,ParentProcessId,Name,CommandLine", "/format:list"});
-
-        if (wmic != null) {
-
-            Pattern pat = Pattern.compile("CommandLine=([^\r\n]*).*?Name=([^\r\n]*).*?ParentProcessId=([0-9]+).*?ProcessId=([0-9]+)", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
-
-            Matcher m = pat.matcher(wmic[1]);
-
-            StringBuilder sb = new StringBuilder();
-
-            sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
-
-            while (m.find()) {
-                if (!m.group(4).equals(wmic[0])) {
-                    sb.append(String.format(formato, m.group(4), m.group(3), m.group(2), m.group(1)));
-                }
-            }
-
-            return sb.toString();
-        }
-
-        //PLAN B
-        String[] powershell = runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object ProcessId -ne $PID | Select ProcessId,ParentProcessId,Name,CommandLine | format-table | Out-String -Stream -Width 10000"});
-
-        if (powershell != null) {
-
-            return powershell[1];
-        }
-
-        //PLAN C Thanks -> https://stackoverflow.com/a/24110581
-        StringBuilder sb = new StringBuilder();
-
-        sb.append(String.format(formato, "PID", "PPID", "Name", "Path"));
-
-        Kernel32 kernel32 = (Kernel32) Native.load(Kernel32.class, W32APIOptions.DEFAULT_OPTIONS);
-
-        Tlhelp32.PROCESSENTRY32.ByReference processEntry = new Tlhelp32.PROCESSENTRY32.ByReference();
-
-        WinNT.HANDLE processSnapshot = kernel32.CreateToolhelp32Snapshot(Tlhelp32.TH32CS_SNAPPROCESS, new WinDef.DWORD(0));
-
-        try {
-
-            while (kernel32.Process32Next(processSnapshot, processEntry)) {
-
-                WinNT.HANDLE moduleSnapshot = kernel32.CreateToolhelp32Snapshot(Tlhelp32.TH32CS_SNAPMODULE, processEntry.th32ProcessID);
-
-                String path;
-
-                try {
-                    ProcessPathKernel32.MODULEENTRY32.ByReference me = new ProcessPathKernel32.MODULEENTRY32.ByReference();
-                    ProcessPathKernel32.INSTANCE.Module32First(moduleSnapshot, me);
-
-                    path = me.szExePath();
-
-                } finally {
-                    kernel32.CloseHandle(moduleSnapshot);
-                }
-
-                sb.append(String.format(formato, String.valueOf(processEntry.th32ProcessID), String.valueOf(processEntry.th32ParentProcessID), Native.toString(processEntry.szExeFile), path));
-
-            }
-        } finally {
-            kernel32.CloseHandle(processSnapshot);
-        }
-
-        return sb.toString();
-    }
-
-    //Thanks -> https://stackoverflow.com/a/10245657
+//Thanks -> https://stackoverflow.com/a/10245657
     public static class HandScrollListener extends MouseAdapter {
 
         private final Cursor defCursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
@@ -610,8 +640,10 @@ public class Helpers {
         if (!Files.isDirectory(Paths.get(CACHE_DIR))) {
             try {
                 Files.createDirectory(Paths.get(CACHE_DIR));
+
             } catch (IOException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
                 return path;
             }
         }
@@ -625,7 +657,9 @@ public class Helpers {
 
                     Files.createDirectory(Paths.get(GIFSICLE_DIR));
 
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/linux/gifsicle"), Paths.get(path), REPLACE_EXISTING);
+                    Files
+                            .copy(Helpers.class
+                                    .getResourceAsStream("/gifsicle/linux/gifsicle"), Paths.get(path), REPLACE_EXISTING);
 
                     Set<PosixFilePermission> perms = new HashSet<>();
 
@@ -638,7 +672,8 @@ public class Helpers {
                     Files.setPosixFilePermissions(Paths.get(path), perms);
 
                 } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex);
                     path = null;
                 }
 
@@ -655,13 +690,18 @@ public class Helpers {
                     Files.createDirectory(Paths.get(GIFSICLE_DIR));
 
                     if (System.getenv("ProgramFiles(x86)") != null) {
-                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle.exe"), Paths.get(path), REPLACE_EXISTING);
+                        Files.copy(Helpers.class
+                                .getResourceAsStream("/gifsicle/win/gifsicle.exe"), Paths.get(path), REPLACE_EXISTING);
+
                     } else {
-                        Files.copy(Helpers.class.getResourceAsStream("/gifsicle/win/gifsicle32.exe"), Paths.get(path), REPLACE_EXISTING);
+                        Files.copy(Helpers.class
+                                .getResourceAsStream("/gifsicle/win/gifsicle32.exe"), Paths.get(path), REPLACE_EXISTING);
+
                     }
 
                 } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex);
                     path = null;
                 }
             }
@@ -676,7 +716,9 @@ public class Helpers {
                     //(Extract gifsicle from jar to cache dir)
                     Files.createDirectory(Paths.get(GIFSICLE_DIR));
 
-                    Files.copy(Helpers.class.getResourceAsStream("/gifsicle/mac/gifsicle_mac"), Paths.get(path), REPLACE_EXISTING);
+                    Files
+                            .copy(Helpers.class
+                                    .getResourceAsStream("/gifsicle/mac/gifsicle_mac"), Paths.get(path), REPLACE_EXISTING);
 
                     Set<PosixFilePermission> perms = new HashSet<>();
 
@@ -689,13 +731,16 @@ public class Helpers {
                     Files.setPosixFilePermissions(Paths.get(path), perms);
 
                 } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "To enjoy high quality card animations you need to manually install HOMEBREW + GIFSICLE.\n\n$ /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\n\n$ brew install gifsicle");
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.WARNING, "To enjoy high quality card animations you need to manually install HOMEBREW + GIFSICLE.\n\n$ /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\n\n$ brew install gifsicle");
                     path = null;
+
                 }
             }
 
         } else {
-            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "NO GIFSICLE BINARY AVAILABLE FOR YOUR PLATFORM");
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.WARNING, "NO GIFSICLE BINARY AVAILABLE FOR YOUR PLATFORM");
         }
 
         return path;
@@ -719,8 +764,10 @@ public class Helpers {
                     .filter(a -> (a.getFileName().toString().startsWith("gifsicle_") && !a.getFileName().toString().startsWith("gifsicle_" + String.valueOf(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) + "_")))
                     .map(Path::toFile)
                     .forEach(File::delete);
+
         } catch (Exception ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -730,8 +777,10 @@ public class Helpers {
                     .filter(Files::isRegularFile)
                     .map(Path::toFile)
                     .forEach(File::delete);
+
         } catch (Exception ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -764,7 +813,8 @@ public class Helpers {
                 return Files.isReadable(Paths.get(filename_new)) ? new ImageIcon(filename_new) : null;
 
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
 
             return null;
@@ -832,8 +882,10 @@ public class Helpers {
                                     proc.waitFor();
 
                                     Files.deleteIfExists(Paths.get(filename_orig));
+
                                 } catch (Exception ex) {
-                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                    Logger.getLogger(Helpers.class
+                                            .getName()).log(Level.SEVERE, null, ex);
                                     break;
                                 }
                             }
@@ -908,7 +960,8 @@ public class Helpers {
 
             if (!lista.contains(matcher.group(0))) {
 
-                msg = msg.replaceAll(Pattern.quote(matcher.group(0)), "src='" + Helpers.class.getResource(matcher.group(1)).toExternalForm() + "'");
+                msg = msg.replaceAll(Pattern.quote(matcher.group(0)), "src='" + Helpers.class
+                        .getResource(matcher.group(1)).toExternalForm() + "'");
 
                 lista.add(matcher.group(0));
             }
@@ -948,7 +1001,8 @@ public class Helpers {
 
         Metadata metadata = ImageMetadataReader.readMetadata(url.openStream());
         List<GifControlDirectory> gifControlDirectories
-                = (List<GifControlDirectory>) metadata.getDirectoriesOfType(GifControlDirectory.class);
+                = (List<GifControlDirectory>) metadata.getDirectoriesOfType(GifControlDirectory.class
+                );
 
         int timeLength = 0;
         if (gifControlDirectories.size() == 1) { // Do not read delay of static GIF files with single frame.
@@ -974,7 +1028,8 @@ public class Helpers {
         Metadata metadata = ImageMetadataReader.readMetadata(url.openStream());
 
         List<GifControlDirectory> gifControlDirectories
-                = (List<GifControlDirectory>) metadata.getDirectoriesOfType(GifControlDirectory.class);
+                = (List<GifControlDirectory>) metadata.getDirectoriesOfType(GifControlDirectory.class
+                );
 
         return gifControlDirectories.size();
     }
@@ -992,11 +1047,13 @@ public class Helpers {
 
                 if ("gif".equals(read.getFormatName().toLowerCase())) {
                     return true;
+
                 }
             }
 
         } catch (IOException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
 
         return false;
@@ -1081,8 +1138,10 @@ public class Helpers {
             public void run() {
                 try {
                     label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+
                 } catch (MalformedURLException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex);
                 }
             }
         });
@@ -1101,8 +1160,10 @@ public class Helpers {
             public void run() {
                 try {
                     button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+
                 } catch (MalformedURLException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex);
                 }
             }
         });
@@ -1146,13 +1207,17 @@ public class Helpers {
 
         THREAD_POOL.shutdown();
 
-        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "THREAD-POOL SHUTDOWN (you can ignore interrupted exceptions, if any)");
+        Logger
+                .getLogger(Helpers.class
+                        .getName()).log(Level.INFO, "THREAD-POOL SHUTDOWN (you can ignore interrupted exceptions, if any)");
 
         THREAD_POOL.shutdownNow();
 
         THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
 
-        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "********** NEW THREAD-POOL CREATED. LET'S GO! **********");
+        Logger
+                .getLogger(Helpers.class
+                        .getName()).log(Level.INFO, "********** NEW THREAD-POOL CREATED. LET'S GO! **********");
 
     }
 
@@ -1164,11 +1229,13 @@ public class Helpers {
 
             if ((ret = UPnP.closePortTCP(port))) {
 
-                Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
 
             } else {
 
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR al (Des)mapear por UPnP el puerto TCP {0}", String.valueOf(port));
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, "ERROR al (Des)mapear por UPnP el puerto TCP {0}", String.valueOf(port));
             }
         }
 
@@ -1184,19 +1251,25 @@ public class Helpers {
             if (!UPnP.isMappedTCP(port)) {
                 if (UPnP.openPortTCP(port)) {
 
-                    Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
 
                 } else {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP {0}", String.valueOf(port));
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP {0}", String.valueOf(port));
                     upnp = false;
+
                 }
 
             } else {
-                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP {0}", String.valueOf(port));
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP {0}", String.valueOf(port));
+
             }
 
         } else {
-            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "UPnP NO DISPONIBLE");
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.WARNING, "UPnP NO DISPONIBLE");
         }
 
         return upnp;
@@ -1221,7 +1294,8 @@ public class Helpers {
                 return SQLITE;
 
             } catch (SQLException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
 
             return null;
@@ -1234,10 +1308,12 @@ public class Helpers {
             try {
                 if (!SQLITE.isClosed()) {
                     SQLITE.close();
+
                 }
 
             } catch (SQLException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
 
             SQLITE = null;
@@ -1280,7 +1356,8 @@ public class Helpers {
             statement.close();
 
         } catch (SQLException | ClassNotFoundException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -1300,7 +1377,9 @@ public class Helpers {
             statement.close();
 
         } catch (SQLException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
+
         }
     }
 
@@ -1331,6 +1410,7 @@ public class Helpers {
 
     public static String processText(Optional<?> optional) {
         return optional.map(Object::toString).orElse("-");
+
     }
 
     public static class numericFilter extends DocumentFilter {
@@ -1414,7 +1494,8 @@ public class Helpers {
                 return Base64.encodeBase64String(full_msg);
 
             } catch (UnsupportedEncodingException | IllegalStateException | InvalidAlgorithmParameterException | InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
         }
         return null;
@@ -1493,7 +1574,8 @@ public class Helpers {
                 return new String(msg, "UTF-8");
 
             } catch (UnsupportedEncodingException | IllegalStateException | InvalidAlgorithmParameterException | KeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -1532,8 +1614,10 @@ public class Helpers {
 
             BufferedImage image = robot.createScreenCapture(rectangle);
             ImageIO.write(image, "png", new File(SCREENSHOTS_DIR + "/coronapoker_screenshot_" + String.valueOf(System.currentTimeMillis()) + ".png"));
+
         } catch (Exception ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -1545,8 +1629,10 @@ public class Helpers {
             if (!Files.isDirectory(Paths.get(d))) {
                 try {
                     Files.createDirectory(Paths.get(d));
+
                 } catch (IOException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -1652,8 +1738,10 @@ public class Helpers {
             public void run() {
                 try {
                     Desktop.getDesktop().browse(new URI(url));
+
                 } catch (URISyntaxException | IOException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex.getMessage());
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex.getMessage());
                 }
             }
         });
@@ -1663,8 +1751,10 @@ public class Helpers {
 
         try {
             Desktop.getDesktop().browse(new URI(url));
+
         } catch (URISyntaxException | IOException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex.getMessage());
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex.getMessage());
         }
 
     }
@@ -1831,7 +1921,8 @@ public class Helpers {
             ge.registerFont(font);
 
         } catch (FontFormatException | IOException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex.getMessage());
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex.getMessage());
         }
 
         return font;
@@ -1846,8 +1937,10 @@ public class Helpers {
         if (!properties.exists() || !properties.canRead()) {
             try {
                 new File(PROPERTIES_FILE).createNewFile();
+
             } catch (IOException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -1957,8 +2050,10 @@ public class Helpers {
 
         try {
             PROPERTIES.store(new FileOutputStream(PROPERTIES_FILE), null);
+
         } catch (IOException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
 
     }
@@ -2004,14 +2099,20 @@ public class Helpers {
                 }
 
                 public_ip = new String(byte_res.toByteArray(), "UTF-8");
+
             } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
+
             } catch (IOException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
+
             }
 
         } catch (IOException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
             if (con != null) {
                 con.disconnect();
@@ -2086,7 +2187,8 @@ public class Helpers {
             }
 
         } catch (Exception ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, ex.getMessage());
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, ex.getMessage());
         } finally {
             if (con != null) {
                 con.disconnect();
@@ -2136,7 +2238,8 @@ public class Helpers {
                                     return Arrays.stream(roc.generateIntegers(max - min + 1, min, max, false)).boxed().toArray(Integer[]::new);
 
                                 } catch (RandomOrgSendTimeoutException | RandomOrgKeyNotRunningError | RandomOrgInsufficientRequestsError | RandomOrgInsufficientBitsError | RandomOrgBadHTTPResponseException | RandomOrgRANDOMORGError | RandomOrgJSONRPCError | IOException ex) {
-                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                    Logger.getLogger(Helpers.class
+                                            .getName()).log(Level.SEVERE, null, ex);
                                 }
                             } else {
 
@@ -2186,7 +2289,8 @@ public class Helpers {
 
                                 } catch (Exception ex) {
 
-                                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                                    Logger.getLogger(Helpers.class
+                                            .getName()).log(Level.SEVERE, null, ex);
 
                                 } finally {
 
@@ -2397,8 +2501,10 @@ public class Helpers {
 
         try {
             Files.deleteIfExists(Paths.get(filename));
+
         } catch (IOException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -2534,10 +2640,12 @@ public class Helpers {
                                 System.exit(0);
                             } else {
                                 Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)");
+
                             }
 
                         } catch (Exception ex) {
-                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Init.class
+                                    .getName()).log(Level.SEVERE, null, ex);
                             Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)");
                         }
 
@@ -2548,7 +2656,8 @@ public class Helpers {
 
                 }
             } catch (Exception ex) {
-                Logger.getLogger(AboutDialog.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(AboutDialog.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
@@ -2557,7 +2666,8 @@ public class Helpers {
 
         if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod"))) {
 
-            Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "Loading MOD...");
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.INFO, "Loading MOD...");
 
             ConcurrentHashMap<String, Object> mod = new ConcurrentHashMap<>();
 
@@ -2641,13 +2751,19 @@ public class Helpers {
 
                 mod.put("init_background", Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/init.png")));
 
-                Logger.getLogger(Helpers.class.getName()).log(Level.INFO, mod.get("name") + " " + mod.get("version") + " cargado {0}", mod);
+                Logger
+                        .getLogger(Helpers.class
+                                .getName()).log(Level.INFO, mod.get("name") + " " + mod.get("version") + " cargado {0}", mod);
 
                 return mod;
+
             } catch (ParserConfigurationException | SAXException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
+
             } catch (IOException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -2666,23 +2782,31 @@ public class Helpers {
         return null;
     }
 
-    public static String getCurrentJarParentPath() {
+    public static String
+            getCurrentJarParentPath() {
 
         try {
-            return new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParentFile().getAbsolutePath();
+            return new File(Init.class
+                    .getProtectionDomain().getCodeSource().getLocation().toURI()).getParentFile().getAbsolutePath();
+
         } catch (URISyntaxException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
 
         return null;
     }
 
-    public static String getCurrentJarPath() {
+    public static String
+            getCurrentJarPath() {
 
         try {
-            return new File(Init.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getAbsolutePath();
+            return new File(Init.class
+                    .getProtectionDomain().getCodeSource().getLocation().toURI()).getAbsolutePath();
+
         } catch (URISyntaxException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
 
         return null;
@@ -2699,8 +2823,10 @@ public class Helpers {
     public static void pausar(long pause) {
         try {
             Thread.sleep(Math.max(pause, 0));
+
         } catch (InterruptedException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -2721,9 +2847,11 @@ public class Helpers {
                 SwingUtilities.invokeAndWait(r);
             } else {
                 r.run();
+
             }
         } catch (InterruptedException | InvocationTargetException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
 
     }
@@ -2833,8 +2961,10 @@ public class Helpers {
 
                     try {
                         mynotifier.wait(1000);
+
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(Helpers.class
+                                .getName()).log(Level.SEVERE, null, ex);
                     }
                 }
             }
@@ -2923,8 +3053,10 @@ public class Helpers {
 
                     try {
                         mynotifier.wait(1000);
+
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(Helpers.class
+                                .getName()).log(Level.SEVERE, null, ex);
                     }
                 }
             }
@@ -3047,6 +3179,7 @@ public class Helpers {
             return true;
         } catch (NumberFormatException e) {
             return false;
+
         }
     }
 

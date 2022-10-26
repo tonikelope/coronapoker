@@ -44,14 +44,19 @@ import javax.swing.Timer;
 /*
     SPECIAL THANKS TO: 
 
+    https://www.java.com/
+
+    https://netbeans.apache.org/
+
+    https://github.com/
+
+    https://stackoverflow.com/
+
     https://www.3dgifmaker.com/ 
 
     http://www.lcdf.org/gifsicle/
 
-    https://www.blender.org/ and https://www.youtube.com/watch?v=0JnmWfWuMDw
-
-    and of course, stackoverflow people
-
+    https://www.blender.org/ ( https://www.youtube.com/watch?v=0JnmWfWuMDw )
  */
 public class AboutDialog extends javax.swing.JDialog {
 

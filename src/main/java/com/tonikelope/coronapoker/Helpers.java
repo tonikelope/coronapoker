@@ -350,9 +350,11 @@ public class Helpers {
 
     public static String getUnixProcessesList() {
 
+        String formato = "%7s  %7s  %-48s  %s\n";
+
         StringBuilder sb = new StringBuilder();
 
-        sb.append(String.format("%7s  %7s  %-48s  %s\n", "PID", "PPID", "Name", "CmdLine"));
+        sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
 
         File dir = new File("/proc");
         File[] files = dir.listFiles(new FilenameFilter() {
@@ -378,7 +380,7 @@ public class Helpers {
                 Matcher matcher = pattern.matcher(stat);
 
                 if (matcher.find()) {
-                    sb.append(String.format("%7s  %7s  %-48s  %s\n", matcher.group(1), matcher.group(4), matcher.group(2), cmd.replace('\0', ' ')));
+                    sb.append(String.format(formato, matcher.group(1), matcher.group(4), matcher.group(2), cmd.replace('\0', ' ')));
                 }
 
             } catch (IOException ex) {

@@ -53,7 +53,9 @@ public class RadarLogDialog extends javax.swing.JDialog {
 
         setTitle(Init.WINDOW_TITLE + " - RADAR");
 
-        screenshot.setIcon(new ImageIcon(path + ".jpg"));
+        if (Files.exists(Paths.get(path + ".jpg"))) {
+            screenshot.setIcon(new ImageIcon(path + ".jpg"));
+        }
 
         boolean vm = false;
 

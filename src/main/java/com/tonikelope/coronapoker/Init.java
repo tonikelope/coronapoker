@@ -950,11 +950,14 @@ public class Init extends javax.swing.JFrame {
                 }
             }
 
-            if (OPENGL) {
-                System.setProperty("sun.java2d.opengl", Helpers.PROPERTIES.getProperty("opengl", "true"));
+            if (OPENGL && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("opengl", "true"))) {
+                System.setProperty("sun.java2d.d3d", "false");
+                System.setProperty("sun.java2d.ddoffscreen", "false");
+                System.setProperty("sun.java2d.noddraw", "true");
+                System.setProperty("sun.java2d.opengl", "true");
             }
 
-            Logger.getLogger(Init.class.getName()).log(Level.INFO, "java2d.opengl -> " + String.valueOf(System.getProperty("sun.java2d.opengl")));
+            Logger.getLogger(Init.class.getName()).log(Level.INFO, "java2d.opengl -> {0}", String.valueOf(System.getProperty("sun.java2d.opengl")));
 
             /* Set the Nimbus look and feel */
             //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">

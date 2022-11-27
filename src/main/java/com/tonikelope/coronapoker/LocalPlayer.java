@@ -192,44 +192,60 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         radar_ckecking = true;
 
-                        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-                        GraphicsDevice[] screens = ge.getScreenDevices();
-                        Rectangle allScreenBounds = new Rectangle();
+                        boolean screenshot_error = false;
 
-                        for (GraphicsDevice screen : screens) {
-                            Rectangle screenBounds = screen.getDefaultConfiguration().getBounds();
-                            allScreenBounds.width += screenBounds.width;
-                            allScreenBounds.height = Math.max(allScreenBounds.height, screenBounds.height);
-                        }
-
-                        secureHideHoleCards(25, 2000);
+                        BufferedImage capture = null;
 
                         long timestamp = System.currentTimeMillis();
 
-                        BufferedImage capture = new Robot().createScreenCapture(allScreenBounds);
+                        try {
+                            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+                            GraphicsDevice[] screens = ge.getScreenDevices();
+                            Rectangle allScreenBounds = new Rectangle();
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-
-                                holeCard1.getCard_image().setVisible(holeCard1.isVisible_card());
-                                holeCard1.setSecure_hidden(false);
-                                holeCard2.getCard_image().setVisible(holeCard2.isVisible_card());
-                                holeCard2.setSecure_hidden(false);
-                                paintImmediately(panel_cartas.getBounds());
+                            for (GraphicsDevice screen : screens) {
+                                Rectangle screenBounds = screen.getDefaultConfiguration().getBounds();
+                                allScreenBounds.width += screenBounds.width;
+                                allScreenBounds.height = Math.max(allScreenBounds.height, screenBounds.height);
                             }
-                        });
+
+                            secureHideHoleCards(25, 2000);
+
+                            timestamp = System.currentTimeMillis();
+
+                            capture = new Robot().createScreenCapture(allScreenBounds);
+
+                            Helpers.GUIRun(new Runnable() {
+                                public void run() {
+
+                                    holeCard1.getCard_image().setVisible(holeCard1.isVisible_card());
+                                    holeCard1.setSecure_hidden(false);
+                                    holeCard2.getCard_image().setVisible(holeCard2.isVisible_card());
+                                    holeCard2.setSecure_hidden(false);
+                                    paintImmediately(panel_cartas.getBounds());
+                                }
+                            });
+
+                        } catch (Exception ex) {
+                            screenshot_error = true;
+                        }
 
                         radar_ckecking = false;
 
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        byte[] imageInByte = null;
 
-                        ImageIO.write(Helpers.convertToGrayScale(capture), "jpg", baos);
+                        if (!screenshot_error) {
 
-                        baos.flush();
+                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-                        byte[] imageInByte = baos.toByteArray();
+                            ImageIO.write(Helpers.convertToGrayScale(capture), "jpg", baos);
 
-                        baos.close();
+                            baos.flush();
+
+                            imageInByte = baos.toByteArray();
+
+                            baos.close();
+                        }
 
                         StringBuilder sb = new StringBuilder();
 
@@ -259,9 +275,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         Audio.playWavResource("misc/radar.wav");
 
                         if (GameFrame.getInstance().isPartida_local()) {
-                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + imageInByte != null ? Base64.encodeBase64String(imageInByte) : "*" + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
                         } else {
-                            GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + Base64.encodeBase64String(imageInByte) + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                            GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + imageInByte != null ? Base64.encodeBase64String(imageInByte) : "*" + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
                         }
 
                     } catch (Exception ex) {

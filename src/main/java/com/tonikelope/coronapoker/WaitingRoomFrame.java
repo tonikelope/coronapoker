@@ -887,56 +887,61 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     }
 
     private void sqlSavePermutationkey() {
+        synchronized (GameFrame.SQL_LOCK) {
+            try {
 
-        try {
+                String sql = "INSERT INTO permutationkey(hash, key) VALUES (?, ?)";
 
-            String sql = "INSERT INTO permutationkey(hash, key) VALUES (?, ?)";
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
-            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+                statement.setQueryTimeout(30);
 
-            statement.setQueryTimeout(30);
+                statement.setString(1, this.local_client_permutation_key_hash);
 
-            statement.setString(1, this.local_client_permutation_key_hash);
+                statement.setString(2, Base64.encodeBase64String(this.local_client_permutation_key.getEncoded()));
 
-            statement.setString(2, Base64.encodeBase64String(this.local_client_permutation_key.getEncoded()));
+                statement.executeUpdate();
 
-            statement.executeUpdate();
+                statement.close();
 
-            statement.close();
-
-        } catch (SQLException ex) {
-            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SQLException ex) {
+                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
 
     }
 
     private String sqlReadPermutationkey(String hash) {
 
-        String ret = null;
+        synchronized (GameFrame.SQL_LOCK) {
 
-        try {
+            String ret = null;
 
-            String sql = "SELECT key FROM permutationkey WHERE hash=?";
+            try {
 
-            PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+                String sql = "SELECT key FROM permutationkey WHERE hash=?";
 
-            statement.setQueryTimeout(30);
+                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
-            statement.setString(1, hash);
+                statement.setQueryTimeout(30);
 
-            ResultSet rs = statement.executeQuery();
+                statement.setString(1, hash);
 
-            if (rs.next()) {
-                ret = rs.getString("key");
+                ResultSet rs = statement.executeQuery();
+
+                if (rs.next()) {
+                    ret = rs.getString("key");
+                }
+
+                statement.close();
+
+            } catch (SQLException ex) {
+                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            statement.close();
+            return ret;
 
-        } catch (SQLException ex) {
-            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
-
-        return ret;
 
     }
 
@@ -1785,7 +1790,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                                 String suspicious = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
 
-                                                                GameFrame.getInstance().getCrupier().saveRADARLog(suspicious, Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
+                                                                GameFrame.getInstance().getCrupier().saveRADARLog(suspicious, partes_comando[4].equals("*") ? null : Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
 
                                                             }
 
@@ -1796,8 +1801,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                         case "IWTSTH":
 
-                                                            GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                            if (GameFrame.getInstance().getCrupier().isShow_time()) {
 
+                                                                GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                            }
                                                             break;
 
                                                         case "IWTSTHSHOW":

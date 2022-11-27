@@ -673,7 +673,7 @@ public class Participant implements Runnable {
                                                             if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(requester)) {
 
                                                                 //Se la solicité yo (server)
-                                                                GameFrame.getInstance().getCrupier().saveRADARLog(nick, Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
+                                                                GameFrame.getInstance().getCrupier().saveRADARLog(nick, partes_comando[4].equals("*") ? null : Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
                                                             } else {
 
                                                                 GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + partes_comando[4] + "#" + partes_comando[5] + "#" + partes_comando[6]);
@@ -722,7 +722,7 @@ public class Participant implements Runnable {
 
                                         case "IWTSTH":
 
-                                            if (!GameFrame.getInstance().getCrupier().isIwtsthing()) {
+                                            if (GameFrame.getInstance().getCrupier().isShow_time() && !GameFrame.getInstance().getCrupier().isIwtsthing()) {
                                                 GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(nick);
                                             }
 

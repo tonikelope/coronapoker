@@ -134,6 +134,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final boolean TEST_MODE = false;
     public static final int TTS_NO_SOUND_TIMEOUT = 3000;
     public static final ConcurrentLinkedQueue<Object[]> NOTIFY_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
+    public static final Object SQL_LOCK = new Object();
 
     public static volatile float CIEGA_PEQUEÑA = 0.10f;
     public static volatile float CIEGA_GRANDE = 0.20f;
@@ -147,6 +148,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
     public static volatile boolean SONIDOS_TTS = true;
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
+    public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "false"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
     public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
@@ -379,7 +381,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    public void autoZoomFullScreen() {
+    public void autoZoomFullScreen(boolean fullscreen) {
 
         if (Helpers.OSValidator.isMac()) {
 
@@ -401,7 +403,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             public void run() {
                 GameFrame.getInstance().setEnabled(true);
 
-                if (!Init.DEV_MODE) {
+                if (!Init.DEV_MODE && fullscreen) {
                     full_screen_menu.doClick();
                 } else {
                     GameFrame.getInstance().getFrame().setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -412,16 +414,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
 
-        int t = 0;
+        if (!Init.DEV_MODE && fullscreen) {
+            int t = 0;
 
-        while (!full_screen && t < AUTO_ZOOM_TIMEOUT) {
+            while (!full_screen && t < AUTO_ZOOM_TIMEOUT) {
 
-            synchronized (full_screen_lock) {
-                try {
-                    full_screen_lock.wait(1000);
-                    t += 1000;
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                synchronized (full_screen_lock) {
+                    try {
+                        full_screen_lock.wait(1000);
+                        t += 1000;
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
             }
         }
@@ -1778,6 +1782,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
 
+        auto_fullscreen_menu.setSelected(GameFrame.AUTO_FULLSCREEN);
+
         iwtsth_rule_menu.setSelected(GameFrame.IWTSTH_RULE);
 
         last_hand_menu.setSelected(false);
@@ -1945,198 +1951,201 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void finTransmision(boolean partida_terminada) {
 
-        if (!fin) {
+        synchronized (GameFrame.SQL_LOCK) {
+            if (!fin) {
 
-            fin = true;
+                fin = true;
 
-            getCrupier().setFin_de_la_transmision(true);
+                getCrupier().setFin_de_la_transmision(true);
 
-            if (Audio.TTS_PLAYER != null) {
-                try {
-                    Audio.TTS_PLAYER.stop();
-                } catch (Exception ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-
-            Audio.stopAllWavResources();
-
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    GameFrame.getInstance().getTapete().hideALL();
-
-                    GameFrame.getInstance().getTapete().getFastbuttons().setVisible(false);
-
-                    if (getLocalPlayer().getAuto_action() != null) {
-                        getLocalPlayer().getAuto_action().stop();
+                if (Audio.TTS_PLAYER != null) {
+                    try {
+                        Audio.TTS_PLAYER.stop();
+                    } catch (Exception ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
-                    if (getLocalPlayer().getHurryup_timer() != null) {
-                        getLocalPlayer().getHurryup_timer().stop();
-                    }
-
-                    for (RemotePlayer j : GameFrame.getInstance().getTapete().getRemotePlayers()) {
-                        if (j.getRadar_dialog() != null) {
-                            j.getRadar_dialog().setVisible(false);
-                        }
-                    }
-
-                    if (jugadas_dialog != null) {
-                        jugadas_dialog.setVisible(false);
-                    }
-
-                    if (shortcuts_dialog != null) {
-                        shortcuts_dialog.setVisible(false);
-                    }
-
-                    if (registro_dialog.isVisible()) {
-                        registro_dialog.setVisible(false);
-                    }
-
-                    if (pausa_dialog != null) {
-                        pausa_dialog.setVisible(false);
-                    }
-
-                    if (GameFrame.getInstance().getFastchat_dialog() != null) {
-                        GameFrame.getInstance().getFastchat_dialog().setVisible(false);
-                    }
-
-                    exit_menu.setEnabled(false);
-
-                    menu_bar.setVisible(false);
-                }
-            });
-
-            if (partida_terminada) {
-
-                getRegistro().print("\n*************** LA TIMBA HA TERMINADO ***************");
-
-                getRegistro().print(Translator.translate("FIN DE LA TIMBA -> ") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
-
-                try {
-                    PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?");
-                    statement.setQueryTimeout(30);
-                    statement.setLong(1, System.currentTimeMillis());
-                    statement.setLong(2, crupier.getSqlite_game_id());
-                    statement.executeUpdate();
-                    statement.close();
-                } catch (SQLException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
-                synchronized (crupier.getLock_contabilidad()) {
+                Audio.stopAllWavResources();
 
-                    crupier.auditorCuentas();
+                Helpers.GUIRun(new Runnable() {
+                    @Override
+                    public void run() {
 
-                    for (Map.Entry<String, Float[]> entry : crupier.getAuditor().entrySet()) {
+                        GameFrame.getInstance().getTapete().hideALL();
 
-                        Float[] pasta = entry.getValue();
+                        GameFrame.getInstance().getTapete().getFastbuttons().setVisible(false);
 
-                        String ganancia_msg = "";
-
-                        float ganancia = Helpers.floatClean(Helpers.floatClean(pasta[0]) - Helpers.floatClean(pasta[1]));
-
-                        if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                            ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
-                        } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                            ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
-                        } else {
-                            ganancia_msg += Translator.translate("NI GANA NI PIERDE");
+                        if (getLocalPlayer().getAuto_action() != null) {
+                            getLocalPlayer().getAuto_action().stop();
                         }
 
-                        getRegistro().print(entry.getKey() + " " + ganancia_msg);
+                        if (getLocalPlayer().getHurryup_timer() != null) {
+                            getLocalPlayer().getHurryup_timer().stop();
+                        }
+
+                        for (RemotePlayer j : GameFrame.getInstance().getTapete().getRemotePlayers()) {
+                            if (j.getRadar_dialog() != null) {
+                                j.getRadar_dialog().setVisible(false);
+                            }
+                        }
+
+                        if (jugadas_dialog != null) {
+                            jugadas_dialog.setVisible(false);
+                        }
+
+                        if (shortcuts_dialog != null) {
+                            shortcuts_dialog.setVisible(false);
+                        }
+
+                        if (registro_dialog.isVisible()) {
+                            registro_dialog.setVisible(false);
+                        }
+
+                        if (pausa_dialog != null) {
+                            pausa_dialog.setVisible(false);
+                        }
+
+                        if (GameFrame.getInstance().getFastchat_dialog() != null) {
+                            GameFrame.getInstance().getFastchat_dialog().setVisible(false);
+                        }
+
+                        exit_menu.setEnabled(false);
+
+                        menu_bar.setVisible(false);
+                    }
+                });
+
+                if (partida_terminada) {
+
+                    getRegistro().print("\n*************** LA TIMBA HA TERMINADO ***************");
+
+                    getRegistro().print(Translator.translate("FIN DE LA TIMBA -> ") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
+
+                    try {
+                        PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?");
+                        statement.setQueryTimeout(30);
+                        statement.setLong(1, System.currentTimeMillis());
+                        statement.setLong(2, crupier.getSqlite_game_id());
+                        statement.executeUpdate();
+                        statement.close();
+                    } catch (SQLException ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
-                    getRegistro().setFin_transmision(true);
+                    synchronized (crupier.getLock_contabilidad()) {
+
+                        crupier.auditorCuentas();
+
+                        for (Map.Entry<String, Float[]> entry : crupier.getAuditor().entrySet()) {
+
+                            Float[] pasta = entry.getValue();
+
+                            String ganancia_msg = "";
+
+                            float ganancia = Helpers.floatClean(Helpers.floatClean(pasta[0]) - Helpers.floatClean(pasta[1]));
+
+                            if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
+                                ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
+                            } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
+                                ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
+                            } else {
+                                ganancia_msg += Translator.translate("NI GANA NI PIERDE");
+                            }
+
+                            getRegistro().print(entry.getKey() + " " + ganancia_msg);
+                        }
+
+                        getRegistro().setFin_transmision(true);
+                    }
+
                 }
 
-            }
-
-            Timestamp ts = new Timestamp(GAME_START_TIMESTAMP);
-            DateFormat timeZoneFormat = new SimpleDateFormat("dd_MM_yyyy__HH_mm_ss");
-            Date date = new Date(ts.getTime());
-            String fecha = timeZoneFormat.format(date);
-            String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
-
-            try {
-
-                String previous_log_data = "";
-
-                if (Files.exists(Paths.get(log_file))) {
-
-                    previous_log_data = "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + log_file + "\n" + Files.readString(Paths.get(log_file)) + "\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<" + log_file + "\n";
-                    Files.writeString(Paths.get(log_file), previous_log_data + getRegistro().getText(), StandardOpenOption.TRUNCATE_EXISTING);
-                } else {
-                    Files.writeString(Paths.get(log_file), getRegistro().getText());
-                }
-
-            } catch (IOException ex1) {
-                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
-            }
-
-            if (!this.getSala_espera().getChat_text().toString().isEmpty()) {
-
-                String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".html";
+                Timestamp ts = new Timestamp(GAME_START_TIMESTAMP);
+                DateFormat timeZoneFormat = new SimpleDateFormat("dd_MM_yyyy__HH_mm_ss");
+                Date date = new Date(ts.getTime());
+                String fecha = timeZoneFormat.format(date);
+                String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
 
                 try {
 
-                    String previous_chat_data = "";
+                    String previous_log_data = "";
 
-                    if (Files.exists(Paths.get(chat_file))) {
+                    if (Files.exists(Paths.get(log_file))) {
 
-                        previous_chat_data = Files.readString(Paths.get(chat_file)).replaceAll("<html><body.*?>(.*?)</body></html>", "$1");
-                        Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + previous_chat_data + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>", StandardOpenOption.TRUNCATE_EXISTING);
-
+                        previous_log_data = "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + log_file + "\n" + Files.readString(Paths.get(log_file)) + "\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<" + log_file + "\n";
+                        Files.writeString(Paths.get(log_file), previous_log_data + getRegistro().getText(), StandardOpenOption.TRUNCATE_EXISTING);
                     } else {
-                        Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");
-
+                        Files.writeString(Paths.get(log_file), getRegistro().getText());
                     }
 
                 } catch (IOException ex1) {
                     Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
                 }
-            }
 
-            if (partida_terminada) {
+                if (!this.getSala_espera().getChat_text().toString().isEmpty()) {
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    @Override
-                    public void run() {
+                    String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".html";
 
-                        BalanceDialog balance = new BalanceDialog(getFrame(), true);
+                    try {
 
-                        balance.setLocationRelativeTo(getFrame());
+                        String previous_chat_data = "";
 
-                        balance.setVisible(true);
+                        if (Files.exists(Paths.get(chat_file))) {
 
-                        retry = balance.isRetry();
+                            previous_chat_data = Files.readString(Paths.get(chat_file)).replaceAll("<html><body.*?>(.*?)</body></html>", "$1");
+                            Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + previous_chat_data + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>", StandardOpenOption.TRUNCATE_EXISTING);
+
+                        } else {
+                            Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");
+
+                        }
+
+                    } catch (IOException ex1) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex1);
                     }
-                });
+                }
+
+                if (partida_terminada) {
+
+                    Helpers.GUIRunAndWait(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            BalanceDialog balance = new BalanceDialog(getFrame(), true);
+
+                            balance.setLocationRelativeTo(getFrame());
+
+                            balance.setVisible(true);
+
+                            retry = balance.isRetry();
+                        }
+                    });
+                }
+
+                Helpers.SQLITEVAC();
+
+                Helpers.closeSQLITE();
+
+                Helpers.cleanGifsicleFiles();
+
+                if (isPartida_local() && getSala_espera().isUpnp()) {
+                    Helpers.UPnPClose(getSala_espera().getServer_port());
+                }
+
+                KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+
+                if (GameFrame.key_event_dispatcher != null) {
+                    kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
+                }
+
+                if (retry) {
+                    RETRY();
+                } else {
+                    BYEBYE(partida_terminada);
+                }
             }
 
-            Helpers.SQLITEVAC();
-
-            Helpers.closeSQLITE();
-
-            Helpers.cleanGifsicleFiles();
-
-            if (isPartida_local() && getSala_espera().isUpnp()) {
-                Helpers.UPnPClose(getSala_espera().getServer_port());
-            }
-
-            KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-
-            if (GameFrame.key_event_dispatcher != null) {
-                kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
-            }
-
-            if (retry) {
-                RETRY();
-            } else {
-                BYEBYE(partida_terminada);
-            }
         }
 
     }
@@ -2473,6 +2482,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         jSeparator6 = new javax.swing.JPopupMenu.Separator();
         compact_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator5 = new javax.swing.JPopupMenu.Separator();
+        auto_fullscreen_menu = new javax.swing.JCheckBoxMenuItem();
         full_screen_menu = new javax.swing.JMenuItem();
         opciones_menu = new javax.swing.JMenu();
         sonidos_menu = new javax.swing.JCheckBoxMenuItem();
@@ -2662,7 +2672,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
         zoom_menu.add(compact_menu);
+
+        jSeparator5.setDoubleBuffered(true);
         zoom_menu.add(jSeparator5);
+
+        auto_fullscreen_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        auto_fullscreen_menu.setSelected(true);
+        auto_fullscreen_menu.setText("Activar pantalla completa al empezar");
+        auto_fullscreen_menu.setDoubleBuffered(true);
+        auto_fullscreen_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                auto_fullscreen_menuActionPerformed(evt);
+            }
+        });
+        zoom_menu.add(auto_fullscreen_menu);
 
         full_screen_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         full_screen_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/full_screen.png"))); // NOI18N
@@ -4317,12 +4340,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }//GEN-LAST:event_force_reconnect_menuActionPerformed
 
+    private void auto_fullscreen_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_fullscreen_menuActionPerformed
+        // TODO add your handling code here:
+        GameFrame.AUTO_FULLSCREEN = auto_fullscreen_menu.isSelected();
+
+        Helpers.PROPERTIES.setProperty("auto_fullscreen", String.valueOf(GameFrame.AUTO_FULLSCREEN));
+
+        Helpers.savePropertiesFile();
+    }//GEN-LAST:event_auto_fullscreen_menuActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
     private javax.swing.JCheckBoxMenuItem ascensor_menu;
     private javax.swing.JCheckBoxMenuItem auto_action_menu;
     private javax.swing.JCheckBoxMenuItem auto_fit_zoom_menu;
+    private javax.swing.JCheckBoxMenuItem auto_fullscreen_menu;
     private javax.swing.JCheckBoxMenuItem chat_image_menu;
     private javax.swing.JMenuItem chat_menu;
     private javax.swing.JCheckBoxMenuItem compact_menu;

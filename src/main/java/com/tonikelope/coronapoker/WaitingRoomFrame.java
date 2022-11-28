@@ -47,13 +47,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
-import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.KeyException;
 import java.security.KeyFactory;
@@ -3932,14 +3930,10 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private void status1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_status1MouseClicked
 
         if (server) {
-            try {
-                // TODO add your handling code here:
+            // TODO add your handling code here:
 
-                Helpers.copyTextToClipboard("[CoronaPoker] INTERNET -> " + Helpers.getMyPublicIP() + ":" + String.valueOf(server_socket.getLocalPort()) + "\n\nRED LOCAL -> " + InetAddress.getLocalHost().getHostAddress() + ":" + String.valueOf(server_socket.getLocalPort()));
-                mostrarMensajeInformativo(this, Translator.translate("DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES"));
-            } catch (UnknownHostException ex) {
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            Helpers.copyTextToClipboard("[CoronaPoker] INTERNET -> " + Helpers.getMyPublicIP() + ":" + String.valueOf(server_socket.getLocalPort()) + "\n\nLAN -> " + Helpers.getMyLocalIP() + ":" + String.valueOf(server_socket.getLocalPort()));
+            mostrarMensajeInformativo(this, Translator.translate("DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES"));
         }
     }//GEN-LAST:event_status1MouseClicked
 

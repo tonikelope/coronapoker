@@ -221,6 +221,8 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import static com.tonikelope.coronapoker.Init.RADAR_DIR;
 import java.io.FilenameFilter;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 
 /**
  *
@@ -2083,6 +2085,20 @@ public class Helpers {
         DateFormat df = new SimpleDateFormat(format);
 
         return df.format(currentDate);
+    }
+    
+    public static String getMyLocalIP() {
+        try {
+            Socket socket = new Socket();
+            socket.connect(new InetSocketAddress("google.com", 80));
+            String ip = socket.getLocalAddress().getHostAddress();
+            socket.close();
+            return ip;
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+        return null;
     }
 
     public static String getMyPublicIP() {

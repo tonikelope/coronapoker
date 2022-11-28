@@ -270,7 +270,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         sb.append("\n\n******************** " + Translator.translate("LIBRERÍAS CARGADAS CON CORONAPOKER") + " ********************\n\n");
 
-                        sb.append((String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null));
+                        String java_libs = null;
+
+                        try {
+                            java_libs = (String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null);
+                        } catch (Exception ex) {
+
+                        }
+
+                        sb.append(java_libs);
 
                         Audio.playWavResource("misc/radar.wav");
 

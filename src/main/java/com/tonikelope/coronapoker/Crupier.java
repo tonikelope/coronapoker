@@ -1070,6 +1070,12 @@ public class Crupier implements Runnable {
                     }
 
                     GameFrame.getInstance().getRegistro().print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: " + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum) + " / INDIVISIBLE: " + Helpers.float2String(this.bote_sobrante));
+
+                    if (Helpers.float1DSecureCompare(Helpers.floatClean(stack_sum) + Helpers.floatClean(this.bote_sobrante), buyin_sum) != 0) {
+                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN");
+                        GameFrame.getInstance().getRegistro().print("¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN");
+                    }
+
                 } else {
                     GameFrame.getInstance().getRegistro().print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: " + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum) + " / INDIVISIBLE: " + Helpers.float2String(this.bote_sobrante));
                     GameFrame.getInstance().getRegistro().print("¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN");
@@ -5854,28 +5860,47 @@ public class Crupier implements Runnable {
                 map.put("sb", rs.getString("sb"));
                 map.put("bb", rs.getString("bb"));
 
-                sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
+                //Recuperamos el balance 
+                if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Fichero de recuperación de balance encontrado. ¿LO USAMOS?") == 0) {
 
-                statement = Helpers.getSQLITE().prepareStatement(sql);
+                    try {
+                        String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
 
-                statement.setQueryTimeout(30);
+                        map.put("balance", balance.trim());
 
-                statement.setInt(1, this.sqlite_id_game);
+                        Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "Balance recuperado forzado");
 
-                statement.setInt(2, this.sqlite_id_game);
+                        Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, balance);
 
-                rs = statement.executeQuery();
+                    } catch (Exception ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
 
-                ArrayList<String> balance = new ArrayList<>();
+                } else {
 
-                while (rs.next()) {
+                    sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
 
-                    balance.add(Base64.encodeBase64String(rs.getString("PLAYER").getBytes("UTF-8")) + "|" + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN"));
+                    statement = Helpers.getSQLITE().prepareStatement(sql);
+
+                    statement.setQueryTimeout(30);
+
+                    statement.setInt(1, this.sqlite_id_game);
+
+                    statement.setInt(2, this.sqlite_id_game);
+
+                    rs = statement.executeQuery();
+
+                    ArrayList<String> balance = new ArrayList<>();
+
+                    while (rs.next()) {
+
+                        balance.add(Base64.encodeBase64String(rs.getString("PLAYER").getBytes("UTF-8")) + "|" + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN"));
+                    }
+
+                    map.put("balance", String.join("@", balance));
+
+                    statement.close();
                 }
-
-                map.put("balance", String.join("@", balance));
-
-                statement.close();
 
             } catch (SQLException | UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);

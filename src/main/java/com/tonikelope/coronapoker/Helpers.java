@@ -340,9 +340,9 @@ public class Helpers {
 
         } else if (Helpers.OSValidator.isUnix() || Helpers.OSValidator.isMac()) {
 
-            String hidden = runProcess(new String[]{"/bin/sh", "-c", "mount -l | grep -o -E '/proc/[0-9]+' | grep -o -E '[0-9]+'"})[1].trim();
+            String[] hidden = runProcess(new String[]{"/bin/sh", "-c", "mount -l | grep -o -E '/proc/[0-9]+' | grep -o -E '[0-9]+'"});
 
-            return getUnixProcessesList() + (hidden.isEmpty() ? "" : "\n\nWARNING -> HIDDEN PROCESSES:\n" + hidden);
+            return getUnixProcessesList() + (hidden == null || hidden[1].trim().isEmpty() ? "" : "\n\nWARNING -> HIDDEN PROCESSES:\n" + hidden[1].trim());
         }
 
         return null;
@@ -350,45 +350,54 @@ public class Helpers {
 
     public static String getUnixProcessesList() {
 
-        String formato = "%7s  %7s  %-48s  %s\n";
+        try {
+            String formato = "%7s  %7s  %-48s  %s\n";
 
-        StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder();
 
-        sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
+            sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
 
-        File dir = new File("/proc");
-        File[] files = dir.listFiles(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-                return name.matches("[0-9]+");
-            }
-        });
-
-        Pattern pattern = Pattern.compile("([0-9]+) +\\(([^\\)]+)\\) +([^ ]+) +([0-9]+)");
-
-        for (File f : files) {
-
-            try {
-                File fcmd = new File(f.getAbsolutePath() + "/cmdline");
-
-                String cmd = Files.readString(fcmd.toPath());
-
-                File fstat = new File(f.getAbsolutePath() + "/stat");
-
-                String stat = Files.readString(fstat.toPath());
-
-                Matcher matcher = pattern.matcher(stat);
-
-                if (matcher.find()) {
-                    sb.append(String.format(formato, matcher.group(1), matcher.group(4), matcher.group(2), cmd.replace('\0', ' ')));
+            File dir = new File("/proc");
+            File[] files = dir.listFiles(new FilenameFilter() {
+                @Override
+                public boolean accept(File dir, String name) {
+                    return name.matches("[0-9]+");
                 }
+            });
 
-            } catch (IOException ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            Pattern pattern = Pattern.compile("([0-9]+) +\\(([^\\)]+)\\) +([^ ]+) +([0-9]+)");
+
+            for (File f : files) {
+
+                try {
+                    File fcmd = new File(f.getAbsolutePath() + "/cmdline");
+
+                    String cmd = Files.readString(fcmd.toPath());
+
+                    File fstat = new File(f.getAbsolutePath() + "/stat");
+
+                    String stat = Files.readString(fstat.toPath());
+
+                    Matcher matcher = pattern.matcher(stat);
+
+                    if (matcher.find()) {
+                        sb.append(String.format(formato, matcher.group(1), matcher.group(4), matcher.group(2), cmd.replace('\0', ' ')));
+                    }
+
+                } catch (IOException ex) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
+
+            return sb.toString();
+
+        } catch (Exception ex) {
+
         }
 
-        return sb.toString();
+        String[] plan_b = runProcess(new String[]{"ps", "aux"});
+
+        return plan_b != null ? plan_b[1] : null;
 
     }
 
@@ -3407,6 +3416,7 @@ public class Helpers {
         public static JMenu TAPETES_MENU = null;
         public static JMenu ZOOM_MENU = null;
         public static JMenuItem MAX_HANDS_MENU;
+        public static JCheckBoxMenuItem AUTO_FULLSCREEN_MENU;
         public static JCheckBoxMenuItem FULLSCREEN_MENU;
         public static JCheckBoxMenuItem SONIDOS_MENU;
         public static JCheckBoxMenuItem SONIDOS_COMENTARIOS_MENU;
@@ -3617,6 +3627,13 @@ public class Helpers {
                         GameFrame.getInstance().getJugadas_menu().doClick();
                     }
                 };
+                
+                Action autofullscreenAction = new AbstractAction("Activar pantalla completa al empezar") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getAuto_fullscreen_menu().doClick();
+                    }
+                };
 
                 Action fullscreenAction = new AbstractAction("PANTALLA COMPLETA (ALT+F)") {
                     @Override
@@ -3727,6 +3744,12 @@ public class Helpers {
                 popup.add(jugadas);
 
                 popup.addSeparator();
+                
+                AUTO_FULLSCREEN_MENU = new JCheckBoxMenuItem(autofullscreenAction);
+                AUTO_FULLSCREEN_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/full_screen_auto.png")));
+                AUTO_FULLSCREEN_MENU.setSelected(GameFrame.AUTO_FULLSCREEN);
+                AUTO_FULLSCREEN_MENU.setEnabled(true);
+                popup.add(AUTO_FULLSCREEN_MENU);
 
                 FULLSCREEN_MENU = new JCheckBoxMenuItem(fullscreenAction);
                 FULLSCREEN_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/full_screen.png")));

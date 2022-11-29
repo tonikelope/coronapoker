@@ -1735,7 +1735,7 @@ public class Crupier implements Runnable {
 
         if (GameFrame.getInstance().isPartida_local()) {
 
-            map = sqlRecoverServerLocalGameKeyData();
+            map = sqlRecoverServerLocalGameKeyData(true);
 
             GameFrame.GAME_START_TIMESTAMP = (long) map.get("start");
 
@@ -5166,6 +5166,11 @@ public class Crupier implements Runnable {
         for (int j = 0; j < this.nicks_permutados.length; j++) {
 
             GameFrame.getInstance().getJugadores().get(j).setNickname(this.nicks_permutados[(j + i) % this.nicks_permutados.length]);
+            try {
+                Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "{0}|{1}", new Object[]{Base64.encodeBase64String(GameFrame.getInstance().getJugadores().get(j).getNickname().getBytes("UTF-8")), GameFrame.getInstance().getJugadores().get(j).getNickname()});
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
 
     }
@@ -5570,7 +5575,7 @@ public class Crupier implements Runnable {
 
             String[] sitiosb64 = this.sqlRecoverGameSeats().split("#");
 
-            String preflop_players = (String) this.sqlRecoverServerLocalGameKeyData().get("preflop_players");
+            String preflop_players = (String) this.sqlRecoverServerLocalGameKeyData(false).get("preflop_players");
 
             ArrayList<String> permutados = new ArrayList<>();
 
@@ -5817,7 +5822,7 @@ public class Crupier implements Runnable {
         }
     }
 
-    public HashMap<String, Object> sqlRecoverServerLocalGameKeyData() {
+    public HashMap<String, Object> sqlRecoverServerLocalGameKeyData(boolean include_balance) {
 
         synchronized (GameFrame.SQL_LOCK) {
 
@@ -5860,46 +5865,49 @@ public class Crupier implements Runnable {
                 map.put("sb", rs.getString("sb"));
                 map.put("bb", rs.getString("bb"));
 
-                //Recuperamos el balance 
-                if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Fichero de recuperación de balance encontrado. ¿LO USAMOS?") == 0) {
+                if (include_balance) {
 
-                    try {
-                        String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
+                    //Recuperamos el balance 
+                    if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Fichero de recuperación de balance encontrado. ¿LO USAMOS?") == 0) {
 
-                        map.put("balance", balance.trim());
+                        try {
+                            String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
 
-                        Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "Balance recuperado forzado");
+                            map.put("balance", balance.trim());
 
-                        Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, balance);
+                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "Balance recuperado forzado");
 
-                    } catch (Exception ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, balance);
+
+                        } catch (Exception ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                    } else {
+
+                        sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
+
+                        statement = Helpers.getSQLITE().prepareStatement(sql);
+
+                        statement.setQueryTimeout(30);
+
+                        statement.setInt(1, this.sqlite_id_game);
+
+                        statement.setInt(2, this.sqlite_id_game);
+
+                        rs = statement.executeQuery();
+
+                        ArrayList<String> balance = new ArrayList<>();
+
+                        while (rs.next()) {
+
+                            balance.add(Base64.encodeBase64String(rs.getString("PLAYER").getBytes("UTF-8")) + "|" + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN"));
+                        }
+
+                        map.put("balance", String.join("@", balance));
+
+                        statement.close();
                     }
-
-                } else {
-
-                    sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
-
-                    statement = Helpers.getSQLITE().prepareStatement(sql);
-
-                    statement.setQueryTimeout(30);
-
-                    statement.setInt(1, this.sqlite_id_game);
-
-                    statement.setInt(2, this.sqlite_id_game);
-
-                    rs = statement.executeQuery();
-
-                    ArrayList<String> balance = new ArrayList<>();
-
-                    while (rs.next()) {
-
-                        balance.add(Base64.encodeBase64String(rs.getString("PLAYER").getBytes("UTF-8")) + "|" + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN"));
-                    }
-
-                    map.put("balance", String.join("@", balance));
-
-                    statement.close();
                 }
 
             } catch (SQLException | UnsupportedEncodingException ex) {

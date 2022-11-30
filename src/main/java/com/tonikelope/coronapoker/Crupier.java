@@ -5163,15 +5163,19 @@ public class Crupier implements Runnable {
             i++;
         }
 
+        String sentados_msg = "*********************\n";
+
         for (int j = 0; j < this.nicks_permutados.length; j++) {
 
             GameFrame.getInstance().getJugadores().get(j).setNickname(this.nicks_permutados[(j + i) % this.nicks_permutados.length]);
             try {
-                Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "{0}|{1}", new Object[]{Base64.encodeBase64String(GameFrame.getInstance().getJugadores().get(j).getNickname().getBytes("UTF-8")), GameFrame.getInstance().getJugadores().get(j).getNickname()});
+                sentados_msg += Base64.encodeBase64String(GameFrame.getInstance().getJugadores().get(j).getNickname().getBytes("UTF-8")) + "|" + GameFrame.getInstance().getJugadores().get(j).getNickname() + "\n";
             } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+
+        Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "{0}*********************\n", new Object[]{sentados_msg});
 
     }
 

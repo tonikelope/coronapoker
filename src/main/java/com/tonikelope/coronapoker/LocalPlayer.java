@@ -142,7 +142,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return radar_ckecking;
     }
 
-    public boolean secureHideHoleCards(long pause, long timeout) throws AWTException {
+    public boolean secureHideHoleCards(long pause, long timeout) throws Exception {
 
         long time_limit = System.currentTimeMillis() + timeout;
 
@@ -274,18 +274,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         try {
                             java_libs = (String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null);
-                        } catch (Exception ex) {
-
-                        }
+                        } catch (Exception ex) {}
 
                         sb.append(java_libs);
 
                         Audio.playWavResource("misc/radar.wav");
 
                         if (GameFrame.getInstance().isPartida_local()) {
-                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + imageInByte != null ? Base64.encodeBase64String(imageInByte) : "*" + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + (imageInByte != null ? Base64.encodeBase64String(imageInByte) : "*") + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
                         } else {
-                            GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + imageInByte != null ? Base64.encodeBase64String(imageInByte) : "*" + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                            GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + (imageInByte != null ? Base64.encodeBase64String(imageInByte) : "*") + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
                         }
 
                     } catch (Exception ex) {

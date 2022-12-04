@@ -32,7 +32,6 @@ import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
 import static com.tonikelope.coronapoker.Helpers.bufferedImagesEqual;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_BACK_COLOR;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_FORE_COLOR;
-import java.awt.AWTException;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
@@ -274,7 +273,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         try {
                             java_libs = (String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null);
-                        } catch (Exception ex) {}
+                        } catch (Exception ex) {
+                        }
 
                         sb.append(java_libs);
 

@@ -162,7 +162,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                         JFrame frame = GameFrame.getInstance().getFull_screen_frame();
 
-                        if (GameFrame.getInstance().isFull_screen() && frame != null && frame.getExtendedState()!=JFrame.MAXIMIZED_BOTH) {
+                        if (GameFrame.getInstance().isFull_screen() && frame != null && frame.getExtendedState() != JFrame.MAXIMIZED_BOTH) {
 
                             frame.setVisible(false);
                             frame.setExtendedState(JFrame.MAXIMIZED_BOTH);

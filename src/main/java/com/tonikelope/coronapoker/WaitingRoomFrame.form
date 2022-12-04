@@ -36,7 +36,7 @@
   <Layout>
     <DimensionLayout dim="0">
       <Group type="103" groupAlignment="0" attributes="0">
-          <Component id="main_scroll_panel" alignment="1" max="32767" attributes="0"/>
+          <Component id="main_scroll_panel" alignment="1" pref="691" max="32767" attributes="0"/>
       </Group>
     </DimensionLayout>
     <DimensionLayout dim="1">
@@ -67,7 +67,7 @@
                           <Component id="danger_server" alignment="0" max="32767" attributes="0"/>
                           <Component id="panel_arriba" alignment="0" max="32767" attributes="0"/>
                           <Component id="chat_notifications" alignment="0" max="32767" attributes="0"/>
-                          <Component id="chat_scroll" alignment="0" max="32767" attributes="0"/>
+                          <Component id="chat_scroll" alignment="0" pref="679" max="32767" attributes="0"/>
                           <Component id="jPanel1" alignment="0" max="32767" attributes="0"/>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
@@ -177,7 +177,7 @@
                               <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="0" attributes="0">
                                   <Component id="kick_user" max="32767" attributes="0"/>
-                                  <Component id="panel_conectados" pref="298" max="32767" attributes="0"/>
+                                  <Component id="panel_conectados" pref="367" max="32767" attributes="0"/>
                               </Group>
                           </Group>
                       </Group>
@@ -550,7 +550,6 @@
                   <Color id="Cursor de Mano"/>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="opaque" type="boolean" value="false"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="chat_notificationsActionPerformed"/>

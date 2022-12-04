@@ -2086,7 +2086,7 @@ public class Helpers {
 
         return df.format(currentDate);
     }
-    
+
     public static String getMyLocalIP() {
         try {
             Socket socket = new Socket();
@@ -2097,7 +2097,7 @@ public class Helpers {
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
         return null;
     }
 
@@ -3643,7 +3643,7 @@ public class Helpers {
                         GameFrame.getInstance().getJugadas_menu().doClick();
                     }
                 };
-                
+
                 Action autofullscreenAction = new AbstractAction("Activar pantalla completa al empezar") {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -3760,7 +3760,7 @@ public class Helpers {
                 popup.add(jugadas);
 
                 popup.addSeparator();
-                
+
                 AUTO_FULLSCREEN_MENU = new JCheckBoxMenuItem(autofullscreenAction);
                 AUTO_FULLSCREEN_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/full_screen_auto.png")));
                 AUTO_FULLSCREEN_MENU.setSelected(GameFrame.AUTO_FULLSCREEN);

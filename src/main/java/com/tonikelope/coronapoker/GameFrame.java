@@ -219,8 +219,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return auto_fullscreen_menu;
     }
 
-   
-    
     public JCheckBoxMenuItem getChat_image_menu() {
         return chat_image_menu;
     }
@@ -1896,7 +1894,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         rebuy_now_menu.setEnabled(GameFrame.REBUY);
 
         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
-        
+
         Helpers.TapetePopupMenu.AUTO_FULLSCREEN_MENU.setSelected(GameFrame.AUTO_FULLSCREEN);
 
         for (Component menu : BARAJAS_MENU.getMenuComponents()) {
@@ -4351,7 +4349,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void auto_fullscreen_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_fullscreen_menuActionPerformed
         // TODO add your handling code here:
         GameFrame.AUTO_FULLSCREEN = auto_fullscreen_menu.isSelected();
-        
+
         Helpers.TapetePopupMenu.AUTO_FULLSCREEN_MENU.setSelected(GameFrame.AUTO_FULLSCREEN);
 
         Helpers.PROPERTIES.setProperty("auto_fullscreen", String.valueOf(GameFrame.AUTO_FULLSCREEN));

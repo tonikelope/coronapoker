@@ -5163,7 +5163,7 @@ public class Crupier implements Runnable {
             i++;
         }
 
-        String sentados_msg = "*********************\n";
+        String sentados_msg = "\n*********************\n";
 
         for (int j = 0; j < this.nicks_permutados.length; j++) {
 

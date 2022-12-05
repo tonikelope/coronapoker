@@ -110,6 +110,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile RadarLogDialog radar_dialog = null;
     private volatile boolean radar_checking = false;
     private volatile Font orig_action_font = null;
+    private volatile int action_height;
 
     public boolean isRadar_checking() {
         return radar_checking;
@@ -1565,6 +1566,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
                     player_action.setFont(orig_action_font);
                     orig_action_font = null;
+                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
                 }
 
                 setPlayerBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -1573,6 +1575,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (msg.length() > MAX_ACTION_HAND_LENGTH) {
                     orig_action_font = player_action.getFont();
+                    action_height = player_action.getHeight();
+                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), action_height));
                     player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
                 }
 
@@ -1607,6 +1611,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
                     player_action.setFont(orig_action_font);
                     orig_action_font = null;
+                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
+
                 }
 
                 setPlayerBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -1628,6 +1634,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (msg.length() > MAX_ACTION_HAND_LENGTH) {
                     orig_action_font = player_action.getFont();
+                    action_height = player_action.getHeight();
+                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), action_height));
                     player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
                 }
 
@@ -2320,25 +2328,29 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
 
                 player_action.setBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
-                
+
                 player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
-                
+
                 String msg = jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)");
-                
+
                 if (msg.length() > MAX_ACTION_HAND_LENGTH + 2) {
-                    
-                    if(orig_action_font == null){
+
+                    if (orig_action_font == null) {
                         orig_action_font = player_action.getFont();
+                        action_height = player_action.getHeight();
+                        player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), action_height));
                         player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
                     }
-                    
-                } else if(orig_action_font!=null){
+
+                } else if (orig_action_font != null) {
                     player_action.setFont(orig_action_font);
                     orig_action_font = null;
+                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
+
                 }
-                
+
                 player_action.setText(msg);
-                
+
                 setPlayerActionIcon(null);
             }
         });

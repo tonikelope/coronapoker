@@ -69,6 +69,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public static final int MIN_ACTION_WIDTH = 200;
     public static final int MIN_ACTION_HEIGHT = 45;
     public static final int MAX_ACTION_HAND_LENGTH = 14;
+    public static final float MAX_ACTION_HAND_LENGTH_ZOOM = 0.85f;
 
     private volatile String nickname;
     private volatile float stack = 0f;
@@ -1572,7 +1573,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (msg.length() > MAX_ACTION_HAND_LENGTH) {
                     orig_action_font = player_action.getFont();
-                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * 0.8f)));
+                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
                 }
 
                 player_action.setText(msg);
@@ -1627,7 +1628,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (msg.length() > MAX_ACTION_HAND_LENGTH) {
                     orig_action_font = player_action.getFont();
-                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * 0.8f)));
+                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
                 }
 
                 player_action.setText(msg);
@@ -2326,7 +2327,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 
                 if (msg.length() > MAX_ACTION_HAND_LENGTH + 2 && orig_action_font == null) {
                     orig_action_font = player_action.getFont();
-                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * 0.8f)));
+                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
+                } else if(orig_action_font!=null){
+                    player_action.setFont(orig_action_font);
+                    orig_action_font = null;
                 }
                 
                 player_action.setText(msg);

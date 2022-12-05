@@ -35,7 +35,7 @@ public class Hand {
 
     public static final String[] NOMBRES_JUGADAS_ES = new String[]{"CARTA ALTA", "PAREJA", "DOBLE PAREJA", "TRÍO", "ESCALERA", "COLOR", "FULL", "PÓKER", "ESCALERA DE COLOR", "ESCALERA REAL"};
     public static final String[] NOMBRES_JUGADAS_EN = new String[]{"HIGH CARD", "ONE PAIR", "TWO PAIR", "THREE OF A KIND", "STRAIGHT", "FLUSH", "FULL HOUSE", "FOUR OF A KIND", "STRAIGHT FLUSH", "ROYAL FLUSH"};
-    public static volatile String[] NOMBRES_JUGADAS = GameFrame.LANGUAGE.equals("es") ? NOMBRES_JUGADAS_ES : NOMBRES_JUGADAS_EN;
+    public static String[] NOMBRES_JUGADAS = GameFrame.LANGUAGE.equals("es") ? NOMBRES_JUGADAS_ES : NOMBRES_JUGADAS_EN;
     public static final int CARTA_ALTA = 1;
     public static final int PAREJA = 2;
     public static final int DOBLE_PAREJA = 3;

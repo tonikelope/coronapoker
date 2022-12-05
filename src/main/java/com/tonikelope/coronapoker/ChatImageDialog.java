@@ -323,7 +323,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                     THIS.historial_panel.revalidate();
                                     THIS.historial_panel.repaint();
                                     loadImage(label, h);
-                                    
+
                                 }
                             }
                         });
@@ -365,13 +365,13 @@ public class ChatImageDialog extends javax.swing.JDialog {
                     try {
 
                         image = (STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) ? getImageFromCache(url) : new ImageIcon(new URL(url));
-                        
+
                         MediaTracker tracker = new MediaTracker(label);
-                        
+
                         tracker.addImage(image.getImage(), 0);
-                        
+
                         tracker.waitForAll();
-                        
+
                         if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
 
                             isgif = GIF_CACHE.containsKey(url);
@@ -382,7 +382,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
                                 image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                             }
-                            
+
                             Helpers.GUIRun(new Runnable() {
                                 @Override
                                 public void run() {

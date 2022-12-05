@@ -32,6 +32,7 @@ import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -67,6 +68,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.YELLOW, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 200;
     public static final int MIN_ACTION_HEIGHT = 45;
+    public static final int MAX_ACTION_HAND_LENGTH = 14;
 
     private volatile String nickname;
     private volatile float stack = 0f;
@@ -106,6 +108,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile int conta_win = 0;
     private volatile RadarLogDialog radar_dialog = null;
     private volatile boolean radar_checking = false;
+    private volatile Font orig_action_font = null;
 
     public boolean isRadar_checking() {
         return radar_checking;
@@ -1557,15 +1560,26 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
+
+                if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
+                    player_action.setFont(orig_action_font);
+                    orig_action_font = null;
+                }
+
                 setPlayerBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                 player_action.setBackground(Color.GREEN);
                 player_action.setForeground(Color.BLACK);
+
+                if (msg.length() > MAX_ACTION_HAND_LENGTH) {
+                    orig_action_font = player_action.getFont();
+                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * 0.8f)));
+                }
+
                 player_action.setText(msg);
 
                 setPlayerActionIcon("action/happy.png");
 
                 if (conta_win > 0) {
-
                     hands_win.setText(String.valueOf(conta_win));
                     hands_win.setVisible(true);
                 }
@@ -1588,6 +1602,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(new Runnable() {
             @Override
             public void run() {
+
+                if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
+                    player_action.setFont(orig_action_font);
+                    orig_action_font = null;
+                }
+
                 setPlayerBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
                 if (!holeCard1.isTapada() || !GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized()) {
@@ -1605,7 +1625,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     holeCard2.setIwtsth_candidate(tthis);
                 }
 
+                if (msg.length() > MAX_ACTION_HAND_LENGTH) {
+                    orig_action_font = player_action.getFont();
+                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * 0.8f)));
+                }
+
                 player_action.setText(msg);
+
                 setPlayerActionIcon("action/angry.png");
 
             }
@@ -1717,6 +1743,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void resetGUI() {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
+
+                if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
+                    player_action.setFont(orig_action_font);
+                    orig_action_font = null;
+                }
 
                 sec_pot_win_label.setVisible(false);
 
@@ -2288,10 +2319,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             public void run() {
 
                 player_action.setBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
+                
                 player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
-                player_action.setText(jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)"));
+                
+                String msg = jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)");
+                
+                if (msg.length() > MAX_ACTION_HAND_LENGTH + 2 && orig_action_font == null) {
+                    orig_action_font = player_action.getFont();
+                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * 0.8f)));
+                }
+                
+                player_action.setText(msg);
+                
                 setPlayerActionIcon(null);
-
             }
         });
     }

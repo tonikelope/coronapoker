@@ -2325,9 +2325,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 
                 String msg = jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)");
                 
-                if (msg.length() > MAX_ACTION_HAND_LENGTH + 2 && orig_action_font == null) {
-                    orig_action_font = player_action.getFont();
-                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
+                if (msg.length() > MAX_ACTION_HAND_LENGTH + 2) {
+                    
+                    if(orig_action_font == null){
+                        orig_action_font = player_action.getFont();
+                        player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
+                    }
+                    
                 } else if(orig_action_font!=null){
                     player_action.setFont(orig_action_font);
                     orig_action_font = null;

@@ -110,7 +110,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile RadarLogDialog radar_dialog = null;
     private volatile boolean radar_checking = false;
     private volatile Font orig_action_font = null;
-    private volatile int action_height;
 
     public boolean isRadar_checking() {
         return radar_checking;
@@ -904,6 +903,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setBackground(null);
 
+                player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+
+                player_action.setPreferredSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
+
                 hands_win.setVisible(false);
 
                 sec_pot_win_label.setVisible(false);
@@ -1278,7 +1281,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
-        player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
         player_action.setOpaque(true);
         player_action.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -1318,7 +1320,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(panel_cartas)
                 .addGap(0, 0, 0)
-                .addComponent(player_action, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(player_action)
                 .addContainerGap())
         );
     }// </editor-fold>//GEN-END:initComponents
@@ -1500,6 +1502,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
 
+                        player_action.setPreferredSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
+
                         setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
                         getAvatar().setVisible(false);
 
@@ -1566,7 +1570,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
                     player_action.setFont(orig_action_font);
                     orig_action_font = null;
-                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
+
                 }
 
                 setPlayerBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
@@ -1575,8 +1579,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (msg.length() > MAX_ACTION_HAND_LENGTH) {
                     orig_action_font = player_action.getFont();
-                    action_height = player_action.getHeight();
-                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), action_height));
+
                     player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
                 }
 
@@ -1611,7 +1614,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
                     player_action.setFont(orig_action_font);
                     orig_action_font = null;
-                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
 
                 }
 
@@ -1634,8 +1636,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (msg.length() > MAX_ACTION_HAND_LENGTH) {
                     orig_action_font = player_action.getFont();
-                    action_height = player_action.getHeight();
-                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), action_height));
                     player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
                 }
 
@@ -2337,15 +2337,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (orig_action_font == null) {
                         orig_action_font = player_action.getFont();
-                        action_height = player_action.getHeight();
-                        player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), action_height));
                         player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
                     }
 
                 } else if (orig_action_font != null) {
                     player_action.setFont(orig_action_font);
                     orig_action_font = null;
-                    player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
 
                 }
 

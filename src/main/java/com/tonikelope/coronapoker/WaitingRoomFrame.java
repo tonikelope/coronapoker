@@ -623,6 +623,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         }
 
+        radar.setEnabled(GameFrame.RADAR_AVAILABLE);
+
         chat_box.getDocument().addDocumentListener(new SendButtonListener());
 
         emoji_button.setEnabled(false);
@@ -1503,14 +1505,25 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             if (!"*".equals(recibido)) {
 
                                 chat_text = new StringBuffer(new String(Base64.decodeBase64(recibido), "UTF-8"));
-                            }   //Leemos el enlace del videochat (si existe)
+                            }
+
+                            //Leemos el enlace del videochat (si existe)
                             recibido = readCommandFromServer();
                             if (!"*".equals(recibido)) {
                                 String video_chat_link1 = new String(Base64.decodeBase64(recibido), "UTF-8");
                                 if (video_chat_link1.toLowerCase().startsWith("http")) {
                                     setVideo_chat_link(video_chat_link1);
                                 }
-                            }   //Añadimos al servidor
+                            }
+
+                            //Leemos si el RADAR está activado
+                            recibido = readCommandFromServer();
+
+                            if (!"*".equals(recibido)) {
+                                GameFrame.RADAR_AVAILABLE = Boolean.parseBoolean(recibido);
+                            }
+
+                            //Añadimos al servidor
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
                             //Nos añadimos nosotros
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
@@ -1554,6 +1567,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 emoji_button.setEnabled(true);
                                 image_button.setEnabled(true);
                                 max_min_label.setEnabled(true);
+                                radar.setEnabled(GameFrame.RADAR_AVAILABLE);
                             });
                             refreshChatPanel();
                             booting = false;
@@ -1844,6 +1858,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 GameFrame.UGI = partes_comando[7].split("@")[1];
                                                                 GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
                                                                 GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
+
                                                                 //Inicializamos partida
                                                                 Helpers.GUIRunAndWait(new Runnable() {
                                                                     public void run() {
@@ -2139,6 +2154,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         writeCommandFromServer(Helpers.encryptCommand(chat_text.toString().isEmpty() ? "*" : Base64.encodeBase64String(chat_text.toString().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
                         //Mandamos el link del videochat
                         writeCommandFromServer(Helpers.encryptCommand(getVideo_chat_link() != null ? Base64.encodeBase64String(getVideo_chat_link().getBytes("UTF-8")) : "*", aes_key, hmac_key), client_socket);
+                        //Mandamos si el RADAR está activado
+                        writeCommandFromServer(Helpers.encryptCommand(String.valueOf(GameFrame.RADAR_AVAILABLE), aes_key, hmac_key), client_socket);
+
                         synchronized (lock_new_client) {
                             try {
                                 Helpers.GUIRunAndWait(() -> {
@@ -2525,6 +2543,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         pass_icon = new javax.swing.JLabel();
         tot_conectados = new javax.swing.JLabel();
         status1 = new javax.swing.JLabel();
+        radar = new javax.swing.JLabel();
         danger_server = new javax.swing.JLabel();
         chat_notifications = new javax.swing.JCheckBox();
         chat_scroll = new javax.swing.JScrollPane();
@@ -2742,11 +2761,16 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
+        radar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/shield.png"))); // NOI18N
+        radar.setDoubleBuffered(true);
+
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
         jPanel3.setLayout(jPanel3Layout);
         jPanel3Layout.setHorizontalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(radar)
                 .addGap(0, 0, 0)
                 .addComponent(pass_icon)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -2760,7 +2784,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(status1, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(status1, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(radar))
                     .addComponent(tot_conectados)
                     .addComponent(pass_icon, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
@@ -3044,7 +3070,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(main_scroll_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 691, Short.MAX_VALUE)
+            .addComponent(main_scroll_panel, javax.swing.GroupLayout.Alignment.TRAILING)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -3778,6 +3804,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panel_con;
     private javax.swing.JScrollPane panel_conectados;
     private javax.swing.JLabel pass_icon;
+    private javax.swing.JLabel radar;
     private javax.swing.JLabel send_label;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel status;

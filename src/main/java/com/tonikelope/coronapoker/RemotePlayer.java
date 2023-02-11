@@ -1219,7 +1219,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nickname);
             }
 
-        } else {
+        } else if (GameFrame.RADAR_AVAILABLE) {
 
             if (this.radar_dialog != null) {
 

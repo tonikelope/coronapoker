@@ -106,6 +106,8 @@ public class NewGameDialog extends javax.swing.JDialog {
         this.randomorg_label.setVisible(false);
         this.recover_panel.setVisible(false);
         this.vamos.setText("GUARDAR");
+        
+        radar_label.setEnabled(radar_checkbox.isSelected());
 
         this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
 
@@ -242,6 +244,8 @@ public class NewGameDialog extends javax.swing.JDialog {
         random_combobox.setModel(random_combobox_model);
 
         random_combobox.setRenderer(new ComboBoxIconRenderer());
+        
+        radar_label.setEnabled(radar_checkbox.isSelected());
 
         game_combo.setEnabled(false);
 
@@ -475,7 +479,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         recover_checkbox = new javax.swing.JCheckBox();
         recover_checkbox_label = new javax.swing.JLabel();
         game_combo = new javax.swing.JComboBox<>();
-        jLabel1 = new javax.swing.JLabel();
+        radar_label = new javax.swing.JLabel();
         radar_checkbox = new javax.swing.JCheckBox();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
@@ -967,17 +971,22 @@ public class NewGameDialog extends javax.swing.JDialog {
             }
         });
 
-        jLabel1.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/shield.png"))); // NOI18N
-        jLabel1.setText("RADAR");
-        jLabel1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        jLabel1.addMouseListener(new java.awt.event.MouseAdapter() {
+        radar_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        radar_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/shield.png"))); // NOI18N
+        radar_label.setText("RADAR");
+        radar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        radar_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
-                jLabel1MouseClicked(evt);
+                radar_labelMouseClicked(evt);
             }
         });
 
         radar_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        radar_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                radar_checkboxActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout recover_panelLayout = new javax.swing.GroupLayout(recover_panel);
         recover_panel.setLayout(recover_panelLayout);
@@ -986,8 +995,8 @@ public class NewGameDialog extends javax.swing.JDialog {
             .addGroup(recover_panelLayout.createSequentialGroup()
                 .addComponent(radar_checkbox)
                 .addGap(0, 0, 0)
-                .addComponent(jLabel1)
-                .addGap(18, 18, 18)
+                .addComponent(radar_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(recover_checkbox)
                 .addGap(0, 0, 0)
                 .addComponent(recover_checkbox_label)
@@ -997,16 +1006,14 @@ public class NewGameDialog extends javax.swing.JDialog {
         );
         recover_panelLayout.setVerticalGroup(
             recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                .addComponent(jLabel1)
-                .addGroup(recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(recover_checkbox_label))
-                .addComponent(recover_checkbox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, recover_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(radar_checkbox)
-                .addContainerGap())
+            .addGroup(recover_panelLayout.createSequentialGroup()
+                .addGroup(recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                    .addComponent(radar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(recover_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(radar_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(recover_checkbox_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(game_combo))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
@@ -1543,10 +1550,17 @@ public class NewGameDialog extends javax.swing.JDialog {
                 + "<b>MODO PARANOICO:</b> este modo es un HÍBRIDO entre el MODO CASINO y el NORMAL. Primero se baraja usando el MODO CASINO y después se vuelve a barajar usando el MODO NORMAL. De esta forma, en un hipotético y MUY improbable caso de que la permutación devuelta por Random.org no fuera totalmente aleatoria por cualquier motivo (fortuito o malicioso), al volver a barajar quedaría neutralizado.", "justify", (int) Math.round(getWidth() * 0.8f));
     }//GEN-LAST:event_random_labelMouseClicked
 
-    private void jLabel1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jLabel1MouseClicked
+    private void radar_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_radar_labelMouseClicked
         // TODO add your handling code here:
         radar_checkbox.doClick();
-    }//GEN-LAST:event_jLabel1MouseClicked
+    }//GEN-LAST:event_radar_labelMouseClicked
+
+    private void radar_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_radar_checkboxActionPerformed
+        // TODO add your handling code here:
+        radar_label.setEnabled(radar_checkbox.isSelected());
+        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected()?"Informes ANTI-TRAMPAS activados":"Informes ANTI-TRAMPAS desactivados"));
+        radar_checkbox.setToolTipText(radar_label.getToolTipText());
+    }//GEN-LAST:event_radar_checkboxActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
@@ -1561,7 +1575,6 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JRadioButton double_blinds_radio_manos;
     private javax.swing.JRadioButton double_blinds_radio_minutos;
     private javax.swing.JComboBox<String> game_combo;
-    private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
@@ -1576,6 +1589,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     private javax.swing.JPasswordField pass_text;
     private javax.swing.JLabel password;
     private javax.swing.JCheckBox radar_checkbox;
+    private javax.swing.JLabel radar_label;
     private javax.swing.JComboBox<JLabel> random_combobox;
     private javax.swing.JLabel random_label;
     private javax.swing.JPanel random_panel;

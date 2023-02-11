@@ -3076,31 +3076,34 @@ public class Crupier implements Runnable {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, "[HAND " + this.conta_mano + " ENDS]");
+            String[] balance = new String[auditor.size()];
+
+            int i = 0;
 
             for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
 
                 Player jugador = nick2player.get(entry.getKey());
 
-                if (jugador != null) {
+                try {
+                    if (jugador != null) {
 
-                    try {
-                        this.sqlUpdateHandBalance(jugador.getNickname(), jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f), jugador.getBuyin());
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "{0}|{1}|{2}", new Object[]{Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")), Helpers.float2String(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f)), String.valueOf(jugador.getBuyin())});
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                } else {
+                        sqlUpdateHandBalance(jugador.getNickname(), jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f), jugador.getBuyin());
+                        balance[i] = Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "|" + Helpers.float2String(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f)) + "|" + String.valueOf(jugador.getBuyin());
 
-                    Float[] pasta = entry.getValue();
-                    this.sqlUpdateHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
-                    try {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "{0}|{1}|{2}", new Object[]{Base64.encodeBase64String(entry.getKey().getBytes("UTF-8")), Helpers.float2String(pasta[0]), String.valueOf(Math.round(pasta[1]))});
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    } else {
+
+                        Float[] pasta = entry.getValue();
+                        sqlUpdateHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
+                        balance[i] = Base64.encodeBase64String(entry.getKey().getBytes("UTF-8")) + "|" + Helpers.float2String(pasta[0]) + "|" + String.valueOf(Math.round(pasta[1]));
                     }
+                } catch (Exception ex) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
+
+                i++;
             }
+
+            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "BALANCE AFTER HAND(" + String.valueOf(conta_mano) + ") -> " + String.join("@", balance));
 
             try {
                 statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET play_time=? WHERE id=?");

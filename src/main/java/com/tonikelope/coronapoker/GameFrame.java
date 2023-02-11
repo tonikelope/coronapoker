@@ -168,6 +168,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile String UGI = null;
     public final static int UGI_LENGTH = 50;
     public static volatile long GAME_START_TIMESTAMP;
+    public static volatile boolean RADAR_AVAILABLE = false;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
     private static final Object ZOOM_LOCK = new Object();
 

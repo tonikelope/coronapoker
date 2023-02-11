@@ -45,6 +45,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Informes ANTI-TRAMPAS desactivados", "ANTI-CHEAT reports disabled"},
+            {"Informes ANTI-TRAMPAS activados", "ANTI-CHEAT reports enabled"},
             {"Fichero de recuperación de balance encontrado. ¿LO USAMOS?", "Balance recovery file found. shall we use it?"},
             {"Activar pantalla completa al empezar", "Enable full-screen at game start"},
             {"Parece que estás ejecutando CoronaPoker en una máquina virtual.\n(Por motivos de rendimiento y seguridad esto no es recomendable).", "It looks like you are running CoronaPoker on a virtual machine.\n(For performance and security reasons this is not recommended)."},

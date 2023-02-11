@@ -624,6 +624,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         }
 
         radar.setEnabled(GameFrame.RADAR_AVAILABLE);
+        
+        radar.setToolTipText(Translator.translate(GameFrame.RADAR_AVAILABLE?"Informes ANTI-TRAMPAS activados":"Informes ANTI-TRAMPAS desactivados"));
 
         chat_box.getDocument().addDocumentListener(new SendButtonListener());
 
@@ -1519,10 +1521,8 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             //Leemos si el RADAR está activado
                             recibido = readCommandFromServer();
 
-                            if (!"*".equals(recibido)) {
-                                GameFrame.RADAR_AVAILABLE = Boolean.parseBoolean(recibido);
-                            }
-
+                            GameFrame.RADAR_AVAILABLE = Boolean.parseBoolean(recibido);
+                            
                             //Añadimos al servidor
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
                             //Nos añadimos nosotros

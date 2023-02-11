@@ -107,7 +107,11 @@ public class NewGameDialog extends javax.swing.JDialog {
         this.recover_panel.setVisible(false);
         this.vamos.setText("GUARDAR");
         
-        radar_label.setEnabled(radar_checkbox.isSelected());
+        radar_label.setEnabled(GameFrame.RADAR_AVAILABLE);
+        
+        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected()?"Informes ANTI-TRAMPAS activados":"Informes ANTI-TRAMPAS desactivados"));
+        
+        radar_checkbox.setToolTipText(radar_label.getToolTipText());
 
         this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
 
@@ -245,8 +249,6 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         random_combobox.setRenderer(new ComboBoxIconRenderer());
         
-        radar_label.setEnabled(radar_checkbox.isSelected());
-
         game_combo.setEnabled(false);
 
         password.setEnabled(false);
@@ -258,15 +260,21 @@ public class NewGameDialog extends javax.swing.JDialog {
         double_blinds_radio_minutos.setSelected(false);
 
         doblar_ciegas_spinner_minutos.setEnabled(false);
+        
+        radar_checkbox.setSelected(GameFrame.RADAR_AVAILABLE);
+        
+        radar_label.setEnabled(GameFrame.RADAR_AVAILABLE);
+        
+        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected()?"Informes ANTI-TRAMPAS activados":"Informes ANTI-TRAMPAS desactivados"));
+        
+        radar_checkbox.setToolTipText(radar_label.getToolTipText());
 
         if (partida_local) {
             upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "true")));
-            radar_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("radar", "true")));
         } else {
             upnp_checkbox.setEnabled(false);
             radar_checkbox.setEnabled(false);
             recover_panel.setVisible(false);
-
         }
 
         class VamosButtonListener implements DocumentListener {

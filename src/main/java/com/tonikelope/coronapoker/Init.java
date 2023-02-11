@@ -32,14 +32,12 @@ import java.awt.AWTException;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Image;
-import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -202,29 +200,20 @@ public class Init extends javax.swing.JFrame {
     }
 
     private void printQuote() {
-        Helpers.threadRun(new Runnable() {
-            public void run() {
-                if (conta_quote % Helpers.POKER_QUOTES_ES.size() == 0) {
-                    conta_quote = 0;
-                    Collections.shuffle(Helpers.POKER_QUOTES_ES, Helpers.CSPRNG_GENERATOR);
-                    Collections.shuffle(Helpers.POKER_QUOTES_EN, Helpers.CSPRNG_GENERATOR);
-                }
-
-                String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(conta_quote++).trim().split("#");
-
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        try {
-                            quote.setText("\"" + new String(quote_parts[0].getBytes(), "UTF-8") + "\" (" + new String(quote_parts[1].getBytes(), "UTF-8") + ")");
-                        } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-
-                    }
-                });
+        Helpers.threadRun(() -> {
+            if (conta_quote % Helpers.POKER_QUOTES_ES.size() == 0) {
+                conta_quote = 0;
+                Collections.shuffle(Helpers.POKER_QUOTES_ES, Helpers.CSPRNG_GENERATOR);
+                Collections.shuffle(Helpers.POKER_QUOTES_EN, Helpers.CSPRNG_GENERATOR);
             }
+            String[] quote_parts = (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) ? Helpers.POKER_QUOTES_ES : Helpers.POKER_QUOTES_EN).get(conta_quote++).trim().split("#");
+            Helpers.GUIRun(() -> {
+                try {
+                    quote.setText("\"" + new String(quote_parts[0].getBytes(), "UTF-8") + "\" (" + new String(quote_parts[1].getBytes(), "UTF-8") + ")");
+                } catch (UnsupportedEncodingException ex) {
+                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            });
         });
 
     }
@@ -321,22 +310,13 @@ public class Init extends javax.swing.JFrame {
 
                     Audio.playWavResource("misc/screenshot.wav");
 
-                    Helpers.threadRun(new Runnable() {
-
-                        public void run() {
-
-                            Helpers.screenshot(new Rectangle(GameFrame.getInstance().getTapete().getLocationOnScreen(), GameFrame.getInstance().getTapete().getSize()), null);
-
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-
-                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "CAPTURA OK", Color.WHITE, Color.BLACK, getClass().getResource("/images/screenshot.png"), 2000);
-                                    dialog.setLocation(dialog.getParent().getLocation());
-                                    dialog.setVisible(true);
-
-                                }
-                            });
-                        }
+                    Helpers.threadRun(() -> {
+                        Helpers.screenshot(new Rectangle(GameFrame.getInstance().getTapete().getLocationOnScreen(), GameFrame.getInstance().getTapete().getSize()), null);
+                        Helpers.GUIRun(() -> {
+                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "CAPTURA OK", Color.WHITE, Color.BLACK, getClass().getResource("/images/screenshot.png"), 2000);
+                            dialog.setLocation(dialog.getParent().getLocation());
+                            dialog.setVisible(true);
+                        });
                     });
                 }
 
@@ -456,40 +436,21 @@ public class Init extends javax.swing.JFrame {
 
         KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 
-        kfm.addKeyEventDispatcher(
-                new KeyEventDispatcher() {
-
-            @Override
-            public boolean dispatchKeyEvent(KeyEvent e) {
-                KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-
-                if (actionMap.containsKey(keyStroke)) {
-                    final Action a = actionMap.get(keyStroke);
-                    final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
-
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-                            a.actionPerformed(ae);
-                        }
-                    });
-
-                    return true;
-                }
-
-                return false;
+        kfm.addKeyEventDispatcher((KeyEvent e) -> {
+            KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
+            if (actionMap.containsKey(keyStroke)) {
+                final Action a = actionMap.get(keyStroke);
+                final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
+                Helpers.GUIRun(() -> {
+                    a.actionPerformed(ae);
+                });
+                return true;
             }
-        }
-        );
+            return false;
+        });
 
-        quote_timer = new Timer(QUOTE_DELAY, new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent ae) {
-
-                printQuote();
-
-            }
+        quote_timer = new Timer(QUOTE_DELAY, (ActionEvent ae) -> {
+            printQuote();
         });
 
         quote_timer.setInitialDelay(0);
@@ -809,12 +770,8 @@ public class Init extends javax.swing.JFrame {
 
         Helpers.savePropertiesFile();
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-
-                Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
-
-            }
+        Helpers.GUIRun(() -> {
+            Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
         });
 
         if (!GameFrame.SONIDOS) {
@@ -1073,14 +1030,10 @@ public class Init extends javax.swing.JFrame {
 
             VENTANA_INICIO = new Init();
 
-            Helpers.GUIRunAndWait(new Runnable() {
-                @Override
-                public void run() {
+            Helpers.GUIRunAndWait(() -> {
+                VENTANA_INICIO.setExtendedState(VENTANA_INICIO.getExtendedState() | JFrame.MAXIMIZED_BOTH);
 
-                    VENTANA_INICIO.setExtendedState(VENTANA_INICIO.getExtendedState() | JFrame.MAXIMIZED_BOTH);
-
-                    VENTANA_INICIO.setVisible(true);
-                }
+                VENTANA_INICIO.setVisible(true);
             });
 
             if (Init.coronaHMACVM()) {
@@ -1114,84 +1067,60 @@ public class Init extends javax.swing.JFrame {
 
     private static void UPDATE() {
 
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.threadRun(() -> {
+            Helpers.GUIRun(() -> {
+                VENTANA_INICIO.setEnabled(false);
+                VENTANA_INICIO.update_label.setVisible(true);
+                VENTANA_INICIO.update_button.setVisible(false);
+            });
+            do {
+                NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
+                if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
+                    if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?") == 0) {
+                        Helpers.GUIRun(() -> {
+                            VENTANA_INICIO.update_label.setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
+                        });
+                        try {
 
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-                        VENTANA_INICIO.setEnabled(false);
-                        VENTANA_INICIO.update_label.setVisible(true);
-                        VENTANA_INICIO.update_button.setVisible(false);
-                    }
-                });
+                            String current_jar_path = Helpers.getCurrentJarPath();
 
-                do {
+                            String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
 
-                    NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
+                            String updater_jar = Helpers.downloadUpdater();
 
-                    if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
+                            if (updater_jar != null) {
 
-                        if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?") == 0) {
+                                Helpers.cleanCacheDIR();
 
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
+                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
 
-                                    VENTANA_INICIO.update_label.setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
-                                }
-                            });
+                                Runtime.getRuntime().exec(cmdArr);
 
-                            try {
-
-                                String current_jar_path = Helpers.getCurrentJarPath();
-
-                                String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
-
-                                String updater_jar = Helpers.downloadUpdater();
-
-                                if (updater_jar != null) {
-
-                                    Helpers.cleanCacheDIR();
-
-                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
-
-                                    Runtime.getRuntime().exec(cmdArr);
-
-                                    System.exit(0);
-                                } else {
-                                    Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)");
-                                }
-
-                            } catch (Exception ex) {
-                                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                                Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)");
+                                System.exit(0);
+                            } else {
+                                Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)");
                             }
+
+                        } catch (Exception ex) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                            Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)");
                         }
                     }
+                }
+            } while (NEW_VERSION == null && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?") == 0);
+            if (Init.MOD != null) {
+                Logger.getLogger(Init.class.getName()).log(Level.INFO, "CHECKING MOD UPDATE...");
+                Helpers.checkMODVersion(VENTANA_INICIO);
+            }
+            Helpers.GUIRun(() -> {
+                VENTANA_INICIO.update_label.setVisible(false);
 
-                } while (NEW_VERSION == null && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?") == 0);
-
-                if (Init.MOD != null) {
-                    Logger.getLogger(Init.class.getName()).log(Level.INFO, "CHECKING MOD UPDATE...");
-                    Helpers.checkMODVersion(VENTANA_INICIO);
+                if (NEW_VERSION == null || !NEW_VERSION.isBlank()) {
+                    VENTANA_INICIO.update_button.setVisible(true);
                 }
 
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        VENTANA_INICIO.update_label.setVisible(false);
-
-                        if (NEW_VERSION == null || !NEW_VERSION.isBlank()) {
-                            VENTANA_INICIO.update_button.setVisible(true);
-                        }
-
-                        VENTANA_INICIO.setEnabled(true);
-                    }
-                });
-            }
+                VENTANA_INICIO.setEnabled(true);
+            });
         });
 
     }

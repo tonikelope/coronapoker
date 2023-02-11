@@ -124,85 +124,61 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                             if (!ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url)) {
 
-                                Helpers.threadRun(new Runnable() {
-                                    public void run() {
-
-                                        try {
-
-                                            ImageIcon image;
-
-                                            boolean isgif = false;
-
-                                            if (ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url)) {
-                                                image = ChatImageDialog.STATIC_IMAGE_CACHE.get(url);
-                                            } else if ((isgif = ChatImageDialog.GIF_CACHE.containsKey(url)) && USE_GIF_CACHE) {
-                                                image = (ImageIcon) ChatImageDialog.GIF_CACHE.get(url)[0];
-                                            } else {
-                                                image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
-                                            }
-
-                                            MediaTracker tracker = new MediaTracker(label);
-
-                                            tracker.addImage(image.getImage(), 0);
-
-                                            tracker.waitForAll();
-
-                                            if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
-
-                                                if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
-                                                    image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), (isgif || (isgif = Helpers.isImageGIF(new URL(url)))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-                                                }
-
-                                                ImageIcon final_image = image;
-
-                                                Helpers.GUIRun(new Runnable() {
-                                                    @Override
-                                                    public void run() {
-                                                        label.setIcon(final_image);
-
-                                                    }
-                                                });
-
-                                                if (!ChatImageDialog.GIF_CACHE.containsKey(url) && (isgif || Helpers.isImageGIF(new URL(url)))) {
-
-                                                    ChatImageDialog.GIF_CACHE.put(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
-
-                                                } else if (!ChatImageDialog.GIF_CACHE.containsKey(url)) {
-
-                                                    ChatImageDialog.STATIC_IMAGE_CACHE.putIfAbsent(url, image);
-                                                }
-
-                                            } else {
-
-                                                Helpers.GUIRun(new Runnable() {
-                                                    @Override
-                                                    public void run() {
-                                                        label.setText(Translator.translate("IMAGEN NO INSERTABLE"));
-                                                        label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/95.png")));
-                                                        label.setBackground(Color.RED);
-                                                        label.setForeground(Color.white);
-                                                        label.setOpaque(true);
-                                                        label.addMouseListener(new MouseAdapter() {
-                                                            @Override
-                                                            public void mouseClicked(MouseEvent e) {
-
-                                                                if (SwingUtilities.isLeftMouseButton(e)) {
-                                                                    Helpers.openBrowserURL(url);
-
-                                                                    if (WaitingRoomFrame.getInstance() != null) {
-                                                                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-                                                                    }
-                                                                }
-
-                                                            }
-                                                        });
-                                                    }
-                                                });
-                                            }
-
-                                        } catch (Exception ex) {
-                                            Logger.getLogger(CoronaHTMLEditorKit.class.getName()).log(Level.SEVERE, null, ex);
+                                Helpers.threadRun(() -> {
+                                    try {
+                                        ImageIcon image;
+                                        boolean isgif = false;
+                                        if (ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url)) {
+                                            image = ChatImageDialog.STATIC_IMAGE_CACHE.get(url);
+                                        } else if ((isgif = ChatImageDialog.GIF_CACHE.containsKey(url)) && USE_GIF_CACHE) {
+                                            image = (ImageIcon) ChatImageDialog.GIF_CACHE.get(url)[0];
+                                        } else {
+                                            image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
                                         }
+                                        MediaTracker tracker = new MediaTracker(label);
+                                        tracker.addImage(image.getImage(), 0);
+                                        tracker.waitForAll();
+                                        if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
+                                            if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
+                                                image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), (isgif || (isgif = Helpers.isImageGIF(new URL(url)))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                            }
+                                            ImageIcon final_image = image;
+                                            Helpers.GUIRun(() -> {
+                                                label.setIcon(final_image);
+                                            });
+                                            if (!ChatImageDialog.GIF_CACHE.containsKey(url) && (isgif || Helpers.isImageGIF(new URL(url)))) {
+
+                                                ChatImageDialog.GIF_CACHE.put(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
+
+                                            } else if (!ChatImageDialog.GIF_CACHE.containsKey(url)) {
+
+                                                ChatImageDialog.STATIC_IMAGE_CACHE.putIfAbsent(url, image);
+                                            }
+                                        } else {
+                                            Helpers.GUIRun(() -> {
+                                                label.setText(Translator.translate("IMAGEN NO INSERTABLE"));
+                                                label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/95.png")));
+                                                label.setBackground(Color.RED);
+                                                label.setForeground(Color.white);
+                                                label.setOpaque(true);
+                                                label.addMouseListener(new MouseAdapter() {
+                                                    @Override
+                                                    public void mouseClicked(MouseEvent e) {
+
+                                                        if (SwingUtilities.isLeftMouseButton(e)) {
+                                                            Helpers.openBrowserURL(url);
+
+                                                            if (WaitingRoomFrame.getInstance() != null) {
+                                                                WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+                                                            }
+                                                        }
+
+                                                    }
+                                                });
+                                            });
+                                        }
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(CoronaHTMLEditorKit.class.getName()).log(Level.SEVERE, null, ex);
                                     }
                                 });
 

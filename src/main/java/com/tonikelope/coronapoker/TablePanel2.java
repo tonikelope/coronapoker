@@ -46,13 +46,11 @@ public class TablePanel2 extends TablePanel {
      * Creates new form Table4
      */
     public TablePanel2() {
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
-                players = new Player[]{localPlayer, remotePlayer1};
-                remotePlayers = new RemotePlayer[]{remotePlayer1};
-                zoomables = new ZoomableInterface[]{localPlayer, remotePlayer1, communityCards, fastbuttons};
-            }
+        Helpers.GUIRunAndWait(() -> {
+            initComponents();
+            players = new Player[]{localPlayer, remotePlayer1};
+            remotePlayers = new RemotePlayer[]{remotePlayer1};
+            zoomables = new ZoomableInterface[]{localPlayer, remotePlayer1, communityCards, fastbuttons};
         });
     }
 

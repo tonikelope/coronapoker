@@ -122,21 +122,18 @@ public class TablePanelFactory {
                     }
                 }
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    @Override
-                    public void run() {
-                        nuevo_panel.getCommunityCards().getRandom_button().setVisible(panel.getCommunityCards().getRandom_button().isVisible());
-                        nuevo_panel.getCommunityCards().getPause_button().setForeground(panel.getCommunityCards().getPause_button().getForeground());
-                        nuevo_panel.getCommunityCards().getPause_button().setBackground(panel.getCommunityCards().getPause_button().getBackground());
-                        nuevo_panel.getCommunityCards().getTiempo_partida().setVisible(panel.getCommunityCards().getTiempo_partida().isVisible());
-                        nuevo_panel.getCommunityCards().getMax_hands_button().setVisible(panel.getCommunityCards().getMax_hands_button().isVisible());
-                        nuevo_panel.getCommunityCards().getHand_limit_spinner().setVisible(panel.getCommunityCards().getHand_limit_spinner().isVisible());
-                        nuevo_panel.getCommunityCards().getPause_button().setText(panel.getCommunityCards().getPause_button().getText());
-                        nuevo_panel.getCommunityCards().getPause_button().setVisible(panel.getCommunityCards().getPause_button().isVisible());
-                        nuevo_panel.getCommunityCards().getPot_label().setText(" ");
-                        nuevo_panel.getCommunityCards().getHand_label().setText(" ");
-                        nuevo_panel.getCommunityCards().getBlinds_label().setText(" ");
-                    }
+                Helpers.GUIRunAndWait(() -> {
+                    nuevo_panel.getCommunityCards().getRandom_button().setVisible(panel.getCommunityCards().getRandom_button().isVisible());
+                    nuevo_panel.getCommunityCards().getPause_button().setForeground(panel.getCommunityCards().getPause_button().getForeground());
+                    nuevo_panel.getCommunityCards().getPause_button().setBackground(panel.getCommunityCards().getPause_button().getBackground());
+                    nuevo_panel.getCommunityCards().getTiempo_partida().setVisible(panel.getCommunityCards().getTiempo_partida().isVisible());
+                    nuevo_panel.getCommunityCards().getMax_hands_button().setVisible(panel.getCommunityCards().getMax_hands_button().isVisible());
+                    nuevo_panel.getCommunityCards().getHand_limit_spinner().setVisible(panel.getCommunityCards().getHand_limit_spinner().isVisible());
+                    nuevo_panel.getCommunityCards().getPause_button().setText(panel.getCommunityCards().getPause_button().getText());
+                    nuevo_panel.getCommunityCards().getPause_button().setVisible(panel.getCommunityCards().getPause_button().isVisible());
+                    nuevo_panel.getCommunityCards().getPot_label().setText(" ");
+                    nuevo_panel.getCommunityCards().getHand_label().setText(" ");
+                    nuevo_panel.getCommunityCards().getBlinds_label().setText(" ");
                 });
             }
 

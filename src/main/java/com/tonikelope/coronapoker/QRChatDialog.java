@@ -97,27 +97,23 @@ public class QRChatDialog extends javax.swing.JDialog implements ClipboardChange
 
                 BitMatrix bitMatrix = barcodeWriter.encode(link, BarcodeFormat.QR_CODE, QR_SIZE, QR_SIZE);
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
+                Helpers.GUIRunAndWait(() -> {
+                    qr_status.setText(link);
 
-                        qr_status.setText(link);
+                    qr_status.setToolTipText(Translator.translate("Click para copiar enlace"));
 
-                        qr_status.setToolTipText(Translator.translate("Click para copiar enlace"));
+                    share_button.setEnabled(true);
 
-                        share_button.setEnabled(true);
+                    ImageIcon icon = new ImageIcon(MatrixToImageWriter.toBufferedImage(bitMatrix));
 
-                        ImageIcon icon = new ImageIcon(MatrixToImageWriter.toBufferedImage(bitMatrix));
+                    icon_label.setIcon(icon);
 
-                        icon_label.setIcon(icon);
+                    pack();
 
-                        pack();
-
-                        if (isVisible()) {
-                            setVisible(false);
-                            setLocationRelativeTo(getParent());
-                            setVisible(true);
-                        }
-
+                    if (isVisible()) {
+                        setVisible(false);
+                        setLocationRelativeTo(getParent());
+                        setVisible(true);
                     }
                 });
             } catch (WriterException ex) {

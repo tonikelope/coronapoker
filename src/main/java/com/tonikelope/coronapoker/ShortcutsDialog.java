@@ -311,23 +311,16 @@ public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInte
     public void zoom(float factor, ConcurrentLinkedQueue<Long> notifier) {
         Helpers.zoomFonts(this, factor, null);
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                setVisible(false);
-            }
+        Helpers.GUIRun(() -> {
+            setVisible(false);
         });
 
         Helpers.pausar(250);
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                pack();
-                setLocation(getParent().getX() + getParent().getWidth() - getWidth(), getParent().getY() + getParent().getHeight() - getHeight());
-                setVisible(true);
-
-            }
+        Helpers.GUIRun(() -> {
+            pack();
+            setLocation(getParent().getX() + getParent().getWidth() - getWidth(), getParent().getY() + getParent().getHeight() - getHeight());
+            setVisible(true);
         });
 
     }

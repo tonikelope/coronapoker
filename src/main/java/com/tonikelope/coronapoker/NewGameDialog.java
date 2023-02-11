@@ -390,12 +390,9 @@ public class NewGameDialog extends javax.swing.JDialog {
 
     private void loadGames() {
 
-        try {
+        String sql = "SELECT id,start,server FROM game WHERE (ugi IS NOT NULL AND local == 1) ORDER BY start DESC";
 
-            String sql = "SELECT id,start,server FROM game WHERE (ugi IS NOT NULL AND local == 1) ORDER BY start DESC";
-
-            Statement statement = Helpers.getSQLITE().createStatement();
-
+        try ( Statement statement = Helpers.getSQLITE().createStatement()) {
             statement.setQueryTimeout(30);
 
             ResultSet rs = statement.executeQuery(sql);
@@ -418,9 +415,6 @@ public class NewGameDialog extends javax.swing.JDialog {
                 }
 
             }
-
-            statement.close();
-
         } catch (SQLException ex) {
             Logger.getLogger(NewGameDialog.class.getName()).log(Level.SEVERE, null, ex);
         }

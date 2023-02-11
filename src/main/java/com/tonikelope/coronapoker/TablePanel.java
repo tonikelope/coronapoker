@@ -116,65 +116,43 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
         tp = new TexturePaint(tile, tr);
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        Helpers.GUIRunAndWait(() -> {
+            initComponents();
+            add(fastbuttons, JLayeredPane.POPUP_LAYER);
+            fastbuttons.setSize(fastbuttons.getPref_size());
+            central_label.setDoubleBuffered(true);
+            central_label.setFocusable(false);
+            central_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            central_label.setBarrier(central_label_barrier);
+            add(central_label, JLayeredPane.POPUP_LAYER);
+            addComponentListener(new ComponentResizeEndListener() {
+                @Override
+                public void resizeTimedOut() {
+                    if (GameFrame.AUTO_ZOOM) {
+                        Helpers.threadRun(() -> {
+                            autoZoom(false);
+                        });
+                    }
+                    if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                        invalidate = true;
 
-                add(fastbuttons, JLayeredPane.POPUP_LAYER);
-
-                fastbuttons.setSize(fastbuttons.getPref_size());
-
-                central_label.setDoubleBuffered(true);
-
-                central_label.setFocusable(false);
-
-                central_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-                central_label.setBarrier(central_label_barrier);
-
-                add(central_label, JLayeredPane.POPUP_LAYER);
-
-                addComponentListener(new ComponentResizeEndListener() {
-
-                    @Override
-                    public void resizeTimedOut() {
-
-                        if (GameFrame.AUTO_ZOOM) {
-                            Helpers.threadRun(new Runnable() {
-                                @Override
-                                public void run() {
-                                    autoZoom(false);
-                                }
-                            });
-                        }
-
-                        if (GameFrame.COLOR_TAPETE.endsWith("*")) {
-                            invalidate = true;
-
-                            revalidate();
-                            repaint();
-
-                        }
-
-                        fastbuttons.setLocation(0, (int) (getHeight() - fastbuttons.getSize().getHeight()));
-
-                        GameFrame.getInstance().getFull_screen_menu().setEnabled(false);
-
-                        JFrame frame = GameFrame.getInstance().getFull_screen_frame();
-
-                        if (GameFrame.getInstance().isFull_screen() && frame != null && frame.getExtendedState() != JFrame.MAXIMIZED_BOTH) {
-
-                            frame.setVisible(false);
-                            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-                            frame.setVisible(true);
-
-                        }
-
-                        GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                        revalidate();
+                        repaint();
 
                     }
-                });
-            }
+                    fastbuttons.setLocation(0, (int) (getHeight() - fastbuttons.getSize().getHeight()));
+                    GameFrame.getInstance().getFull_screen_menu().setEnabled(false);
+                    JFrame frame = GameFrame.getInstance().getFull_screen_frame();
+                    if (GameFrame.getInstance().isFull_screen() && frame != null && frame.getExtendedState() != JFrame.MAXIMIZED_BOTH) {
+
+                        frame.setVisible(false);
+                        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                        frame.setVisible(true);
+
+                    }
+                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                }
+            });
         });
     }
 
@@ -193,25 +171,22 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
+        Helpers.GUIRunAndWait(() -> {
+            getCentral_label().setSize(icon.getIconWidth(), icon.getIconHeight());
 
-                getCentral_label().setSize(icon.getIconWidth(), icon.getIconHeight());
+            if (center) {
+                int pos_x = Math.round((getWidth() - icon.getIconWidth()) / 2);
+                int pos_y = Math.round((getHeight() - icon.getIconHeight()) / 2);
+                getCentral_label().setLocation(pos_x, pos_y);
+            }
 
-                if (center) {
-                    int pos_x = Math.round((getWidth() - icon.getIconWidth()) / 2);
-                    int pos_y = Math.round((getHeight() - icon.getIconHeight()) / 2);
-                    getCentral_label().setLocation(pos_x, pos_y);
-                }
-
-                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
-                    icon.getImage().flush();
-                    getCentral_label().setIcon(icon, frames);
-                    getCentral_label().addAudio(audio, audio_frame_start, audio_frame_end);
-                    getCentral_label().setVisible(true);
-                    getCentral_label().revalidate();
-                    getCentral_label().repaint();
-                }
+            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                icon.getImage().flush();
+                getCentral_label().setIcon(icon, frames);
+                getCentral_label().addAudio(audio, audio_frame_start, audio_frame_end);
+                getCentral_label().setVisible(true);
+                getCentral_label().revalidate();
+                getCentral_label().repaint();
             }
         });
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().getId() == central_label_thread) {
@@ -225,11 +200,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
             if (Thread.currentThread().getId() == central_label_thread) {
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
-                        getCentral_label().setVisible(false);
-
-                    }
+                Helpers.GUIRunAndWait(() -> {
+                    getCentral_label().setVisible(false);
                 });
             }
         }
@@ -241,34 +213,26 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     public void hideALL() {
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                for (Player p : players) {
-                    ((JPanel) p).setVisible(false);
-                }
-
-                getCommunityCards().setVisible(false);
-
-                central_label.setVisible(false);
-
+        Helpers.GUIRun(() -> {
+            for (Player p : players) {
+                ((JPanel) p).setVisible(false);
             }
+
+            getCommunityCards().setVisible(false);
+
+            central_label.setVisible(false);
         });
 
     }
 
     public void showALL() {
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                for (Player p : players) {
-                    ((JPanel) p).setVisible(true);
-                }
-
-                getCommunityCards().setVisible(true);
+        Helpers.GUIRun(() -> {
+            for (Player p : players) {
+                ((JPanel) p).setVisible(true);
             }
+
+            getCommunityCards().setVisible(true);
         });
 
     }
@@ -279,12 +243,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         this.invalidate = true;
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-
-                revalidate();
-                repaint();
-            }
+        Helpers.GUIRunAndWait(() -> {
+            revalidate();
+            repaint();
         });
     }
 
@@ -300,50 +261,36 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 if (invalidate || tp == null) {
 
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
+                    Helpers.threadRun(() -> {
+                        synchronized (paint_lock) {
+                            BufferedImage tile = null;
+                            if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
+                                try {
+                                    tile = Helpers.toBufferedImage(Init.I1.getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
+                                } catch (Exception ex) {
+                                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            } else {
+                                try {
 
-                            synchronized (paint_lock) {
+                                    tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
 
-                                BufferedImage tile = null;
+                                } catch (Exception ex) {
 
-                                if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
                                     try {
-                                        tile = Helpers.toBufferedImage(Init.I1.getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
-                                    } catch (Exception ex) {
-                                        Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                } else {
-                                    try {
-
-                                        tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
-
-                                    } catch (Exception ex) {
-
-                                        try {
-                                            tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
-                                        } catch (IOException ex1) {
-                                            Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
-                                        }
+                                        tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                                    } catch (IOException ex1) {
+                                        Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
                                     }
                                 }
-
-                                Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
-
-                                tp = new TexturePaint(tile, tr);
-
-                                invalidate = false;
-
-                                Helpers.GUIRun(new Runnable() {
-                                    public void run() {
-                                        revalidate();
-                                        repaint();
-
-                                    }
-                                });
-
                             }
-
+                            Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
+                            tp = new TexturePaint(tile, tr);
+                            invalidate = false;
+                            Helpers.GUIRun(() -> {
+                                revalidate();
+                                repaint();
+                            });
                         }
                     });
 
@@ -417,12 +364,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
         for (ZoomableInterface zoomeable : zoomables) {
-            Helpers.threadRun(new Runnable() {
-                @Override
-                public void run() {
-                    zoomeable.zoom(factor, mynotifier);
-
-                }
+            Helpers.threadRun(() -> {
+                zoomeable.zoom(factor, mynotifier);
             });
         }
 
@@ -470,12 +413,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 if (reset && (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL)) {
 
                     //RESET ZOOM
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        @Override
-                        public void run() {
-                            GameFrame.getInstance().getZoom_menu_reset().doClick();
-                        }
-                    });
+                    Helpers.GUIRunAndWait(GameFrame.getInstance().getZoom_menu_reset()::doClick);
 
                     while (!GameFrame.getInstance().getZoom_menu().isEnabled()) {
                         synchronized (GameFrame.getInstance().getZoom_menu()) {
@@ -497,12 +435,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 while (playerBottom > tapeteBottom || playerRight > tapeteRight) {
 
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        @Override
-                        public void run() {
-                            GameFrame.getInstance().getZoom_menu_out().doClick();
-                        }
-                    });
+                    Helpers.GUIRunAndWait(GameFrame.getInstance().getZoom_menu_out()::doClick);
 
                     while (!GameFrame.getInstance().getZoom_menu().isEnabled()) {
                         synchronized (GameFrame.getInstance().getZoom_menu()) {

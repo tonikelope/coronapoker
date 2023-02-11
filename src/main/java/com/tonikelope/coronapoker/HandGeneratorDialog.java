@@ -110,27 +110,19 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
                 break;
         }
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-
-                inferior_button.setEnabled(VALOR_JUGADA > 0);
-                superior_button.setEnabled(VALOR_JUGADA < 9);
-
-            }
+        Helpers.GUIRun(() -> {
+            inferior_button.setEnabled(VALOR_JUGADA > 0);
+            superior_button.setEnabled(VALOR_JUGADA < 9);
         });
 
     }
 
     private void cartaAlta(int v) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
-
-                probability.setText("4,74:1");
-
-            }
+            probability.setText("4,74:1");
         });
 
         int total = Card.VALORES.length * Card.PALOS.length;
@@ -178,14 +170,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     private void pareja(int v) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
-
-                probability.setText("1,28:1");
-
-            }
+            probability.setText("1,28:1");
         });
 
         ArrayList<Card> pareja1 = new ArrayList<>();
@@ -200,7 +188,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         Collections.shuffle(pareja1);
 
-        pareja1 = new ArrayList<Card>(pareja1.subList(0, Crupier.CARTAS_PAREJA));
+        pareja1 = new ArrayList<>(pareja1.subList(0, Crupier.CARTAS_PAREJA));
 
         for (int i = 0; i < Crupier.CARTAS_PAREJA; i++) {
 
@@ -211,14 +199,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     private void doblePareja(int v) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
-
-                probability.setText("3,26:1");
-
-            }
+            probability.setText("3,26:1");
         });
 
         int valor_pareja1 = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
@@ -248,7 +232,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         Collections.shuffle(pareja1);
 
-        pareja1 = new ArrayList<Card>(pareja1.subList(0, Crupier.CARTAS_PAREJA));
+        pareja1 = new ArrayList<>(pareja1.subList(0, Crupier.CARTAS_PAREJA));
 
         for (int i = 0; i < Crupier.CARTAS_PAREJA; i++) {
 
@@ -265,7 +249,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         Collections.shuffle(pareja2);
 
-        pareja2 = new ArrayList<Card>(pareja2.subList(0, Crupier.CARTAS_PAREJA));
+        pareja2 = new ArrayList<>(pareja2.subList(0, Crupier.CARTAS_PAREJA));
 
         for (int i = 0; i < Crupier.CARTAS_PAREJA; i++) {
 
@@ -276,14 +260,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     private void trio(int v) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
-
-                probability.setText("19,7:1");
-
-            }
+            probability.setText("19,7:1");
         });
 
         ArrayList<Card> trio = new ArrayList<>();
@@ -298,7 +278,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         Collections.shuffle(trio);
 
-        trio = new ArrayList<Card>(trio.subList(0, Crupier.CARTAS_TRIO));
+        trio = new ArrayList<>(trio.subList(0, Crupier.CARTAS_TRIO));
 
         for (int i = 0; i < Crupier.CARTAS_TRIO; i++) {
 
@@ -310,14 +290,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     private void escalera(int v) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
-
-                probability.setText("20,65:1");
-
-            }
+            probability.setText("20,65:1");
         });
 
         ArrayList<Card> escalera;
@@ -351,14 +327,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     private void color(int v) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
-
-                probability.setText("32,05:1");
-
-            }
+            probability.setText("32,05:1");
         });
 
         ArrayList<Card> color = new ArrayList<>();
@@ -405,14 +377,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     private void full(int v) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
-
-                probability.setText("37,52:1");
-
-            }
+            probability.setText("37,52:1");
         });
 
         ArrayList<Card> trio = new ArrayList<>();
@@ -427,7 +395,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         Collections.shuffle(trio);
 
-        trio = new ArrayList<Card>(trio.subList(0, Crupier.CARTAS_TRIO));
+        trio = new ArrayList<>(trio.subList(0, Crupier.CARTAS_TRIO));
 
         for (int i = 0; i < Crupier.CARTAS_TRIO; i++) {
 
@@ -451,7 +419,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         Collections.shuffle(pareja);
 
-        pareja = new ArrayList<Card>(pareja.subList(0, Crupier.CARTAS_PAREJA));
+        pareja = new ArrayList<>(pareja.subList(0, Crupier.CARTAS_PAREJA));
 
         for (int i = 0; i < Crupier.CARTAS_PAREJA; i++) {
 
@@ -463,14 +431,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     private void poker(int v) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
-
-                probability.setText("594:1");
-
-            }
+            probability.setText("594:1");
         });
 
         int palo = 0;
@@ -487,14 +451,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     private void escaleraColor(int v) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
-
-                probability.setText("3589,57:1");
-
-            }
+            probability.setText("3589,57:1");
         });
 
         int palo = Helpers.CSPRNG_GENERATOR.nextInt(PALOS.length);
@@ -511,13 +471,10 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
     private void escaleraColorReal(int v) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
+        Helpers.GUIRun(() -> {
+            nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-                probability.setText("30939:1");
-
-            }
+            probability.setText("30939:1");
         });
 
         int palo = Helpers.CSPRNG_GENERATOR.nextInt(PALOS.length);
@@ -689,12 +646,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
 
         }
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
-
-                pintarJugada();
-            }
-        });
+        Helpers.threadRun(this::pintarJugada);
 
     }//GEN-LAST:event_inferior_buttonActionPerformed
 
@@ -705,11 +657,7 @@ public class HandGeneratorDialog extends javax.swing.JDialog {
             HandGeneratorDialog.VALOR_JUGADA++;
 
         }
-        Helpers.threadRun(new Runnable() {
-            public void run() {
-                pintarJugada();
-            }
-        });
+        Helpers.threadRun(this::pintarJugada);
 
     }//GEN-LAST:event_superior_buttonActionPerformed
 

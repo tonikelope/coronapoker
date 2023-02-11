@@ -32,7 +32,6 @@ import static com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL;
 import static com.tonikelope.coronapoker.GameFrame.ZOOM_STEP;
 import java.awt.Color;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.net.URL;
 import javax.swing.Timer;
 
@@ -70,14 +69,10 @@ public class InGameNotifyDialog extends javax.swing.JDialog {
         }
 
         if (timeout != null) {
-            timer = new Timer(timeout, new ActionListener() {
+            timer = new Timer(timeout, (ActionEvent ae) -> {
+                timer.stop();
 
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    timer.stop();
-
-                    dispose();
-                }
+                dispose();
             });
 
             timer.setRepeats(false);

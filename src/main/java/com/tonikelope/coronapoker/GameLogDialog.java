@@ -119,15 +119,11 @@ public final class GameLogDialog extends javax.swing.JDialog {
                     }
                 }
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    @Override
-                    public void run() {
+                Helpers.GUIRunAndWait(() -> {
+                    getTextArea().setText(GameLogDialog.LOG_TEXT);
 
-                        getTextArea().setText(GameLogDialog.LOG_TEXT);
-
-                        if (auto_scroll) {
-                            getTextArea().setCaretPosition(getTextArea().getText().length());
-                        }
+                    if (auto_scroll) {
+                        getTextArea().setCaretPosition(getTextArea().getText().length());
                     }
                 });
             }
@@ -138,30 +134,21 @@ public final class GameLogDialog extends javax.swing.JDialog {
 
         if (!this.fin_transmision) {
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+            Helpers.threadRun(() -> {
+                synchronized (log_lock) {
+                    String message = utf8_cards ? translateNormalCards2UTF8(Translator.translate(msg)) : Translator.translate(msg);
+                    GameLogDialog.LOG_TEXT += message + "\n\n";
+                    Helpers.GUIRun(() -> {
+                        int caret_pos = getTextArea().getCaretPosition();
 
-                    synchronized (log_lock) {
+                        getTextArea().append(message + "\n\n");
 
-                        String message = utf8_cards ? translateNormalCards2UTF8(Translator.translate(msg)) : Translator.translate(msg);
-
-                        GameLogDialog.LOG_TEXT += message + "\n\n";
-
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-
-                                int caret_pos = getTextArea().getCaretPosition();
-
-                                getTextArea().append(message + "\n\n");
-
-                                if (auto_scroll) {
-                                    getTextArea().setCaretPosition(getTextArea().getText().length());
-                                } else {
-                                    getTextArea().setCaretPosition(caret_pos);
-                                }
-                            }
-                        });
-                    }
+                        if (auto_scroll) {
+                            getTextArea().setCaretPosition(getTextArea().getText().length());
+                        } else {
+                            getTextArea().setCaretPosition(caret_pos);
+                        }
+                    });
                 }
             });
         }
@@ -170,51 +157,35 @@ public final class GameLogDialog extends javax.swing.JDialog {
 
     private void disableUTF8Cards() {
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        Helpers.threadRun(() -> {
+            synchronized (log_lock) {
+                GameLogDialog.LOG_TEXT = translateUTF8Cards2Normal(GameLogDialog.LOG_TEXT);
+                Helpers.GUIRunAndWait(() -> {
+                    getTextArea().setText(LOG_TEXT);
 
-                synchronized (log_lock) {
+                    if (auto_scroll) {
+                        getTextArea().setCaretPosition(getTextArea().getText().length());
+                    }
 
-                    GameLogDialog.LOG_TEXT = translateUTF8Cards2Normal(GameLogDialog.LOG_TEXT);
-
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        public void run() {
-
-                            getTextArea().setText(LOG_TEXT);
-
-                            if (auto_scroll) {
-                                getTextArea().setCaretPosition(getTextArea().getText().length());
-                            }
-
-                            utf8_cards_menu.setEnabled(true);
-                        }
-                    });
-                }
+                    utf8_cards_menu.setEnabled(true);
+                });
             }
         });
     }
 
     private void enableUTF8Cards() {
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        Helpers.threadRun(() -> {
+            synchronized (log_lock) {
+                GameLogDialog.LOG_TEXT = translateNormalCards2UTF8(GameLogDialog.LOG_TEXT);
+                Helpers.GUIRunAndWait(() -> {
+                    getTextArea().setText(GameLogDialog.LOG_TEXT);
 
-                synchronized (log_lock) {
-
-                    GameLogDialog.LOG_TEXT = translateNormalCards2UTF8(GameLogDialog.LOG_TEXT);
-
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        public void run() {
-
-                            getTextArea().setText(GameLogDialog.LOG_TEXT);
-
-                            if (auto_scroll) {
-                                getTextArea().setCaretPosition(getTextArea().getText().length());
-                            }
-                            utf8_cards_menu.setEnabled(true);
-                        }
-                    });
-                }
+                    if (auto_scroll) {
+                        getTextArea().setCaretPosition(getTextArea().getText().length());
+                    }
+                    utf8_cards_menu.setEnabled(true);
+                });
             }
         });
 

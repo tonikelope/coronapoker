@@ -237,62 +237,32 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         continue_button.requestFocus();
 
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
-
-                last_mp3_loop = Audio.getCurrentLoopMp3Playing();
-
-                if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
-                    Audio.muteLoopMp3(last_mp3_loop);
-                } else {
-                    last_mp3_loop = null;
-                }
-
-                if (!direct_gameover && !continua) {
-
-                    Audio.playWavResourceAndWait("misc/game_over.wav");
-
-                    if (!continua && !exit) {
-
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
-                                spectator_button.setEnabled(false);
-                                continue_button.setEnabled(false);
-                                gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over_zero.gif")), 782, 326);
-                            }
-                        });
-
-                        Audio.playWavResourceAndWait("misc/nocontinue.wav");
-
-                        if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
-                            Audio.playWavResourceAndWait("misc/norebuy.wav");
-                        }
-
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
-                                dispose();
-                            }
-                        });
-
-                    }
-
-                } else if (!continua) {
-
+        Helpers.threadRun(() -> {
+            last_mp3_loop = Audio.getCurrentLoopMp3Playing();
+            if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
+                Audio.muteLoopMp3(last_mp3_loop);
+            } else {
+                last_mp3_loop = null;
+            }
+            if (!direct_gameover && !continua) {
+                Audio.playWavResourceAndWait("misc/game_over.wav");
+                if (!continua && !exit) {
+                    Helpers.GUIRun(() -> {
+                        spectator_button.setEnabled(false);
+                        continue_button.setEnabled(false);
+                        gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over_zero.gif")), 782, 326);
+                    });
+                    Audio.playWavResourceAndWait("misc/nocontinue.wav");
                     if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
                         Audio.playWavResourceAndWait("misc/norebuy.wav");
                     }
-
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-                            dispose();
-                        }
-                    });
+                    Helpers.GUIRun(this::dispose);
                 }
-
+            } else if (!continua) {
+                if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
+                    Audio.playWavResourceAndWait("misc/norebuy.wav");
+                }
+                Helpers.GUIRun(this::dispose);
             }
         });
     }//GEN-LAST:event_formWindowOpened
@@ -335,26 +305,13 @@ public class GameOverDialog extends javax.swing.JDialog {
         continue_button.setEnabled(false);
         gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over_zero.gif")), 782, 326);
 
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
-
-                Audio.stopWavResource("misc/game_over.wav");
-
-                Audio.playWavResourceAndWait("misc/nocontinue.wav");
-
-                if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
-                    Audio.playWavResourceAndWait("misc/norebuy.wav");
-                }
-
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-                        dispose();
-                    }
-                });
-
+        Helpers.threadRun(() -> {
+            Audio.stopWavResource("misc/game_over.wav");
+            Audio.playWavResourceAndWait("misc/nocontinue.wav");
+            if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
+                Audio.playWavResourceAndWait("misc/norebuy.wav");
             }
+            Helpers.GUIRun(this::dispose);
         });
 
     }//GEN-LAST:event_spectator_buttonActionPerformed

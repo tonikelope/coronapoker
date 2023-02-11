@@ -38,13 +38,11 @@ public class TablePanel6 extends TablePanel {
      * Creates new form Table6
      */
     public TablePanel6() {
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
-                players = new Player[]{localPlayer, remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5};
-                remotePlayers = new RemotePlayer[]{remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5};
-                zoomables = new ZoomableInterface[]{localPlayer, remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, communityCards, fastbuttons};
-            }
+        Helpers.GUIRunAndWait(() -> {
+            initComponents();
+            players = new Player[]{localPlayer, remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5};
+            remotePlayers = new RemotePlayer[]{remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5};
+            zoomables = new ZoomableInterface[]{localPlayer, remotePlayer1, remotePlayer2, remotePlayer3, remotePlayer4, remotePlayer5, communityCards, fastbuttons};
         });
     }
 

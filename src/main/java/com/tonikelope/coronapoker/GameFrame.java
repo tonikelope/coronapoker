@@ -41,14 +41,12 @@ import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.io.IOException;
-import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
@@ -324,55 +322,39 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Method addFullScreenListenerTo = Class.forName("com.apple.eawt.FullScreenUtilities").getMethod("addFullScreenListenerTo", new Class<?>[]{Window.class, Class.forName("com.apple.eawt.FullScreenListener")});
 
-                Object proxyFullScreenListener = Proxy.newProxyInstance(Class.forName("com.apple.eawt.FullScreenListener").getClassLoader(), new Class[]{Class.forName("com.apple.eawt.FullScreenListener")}, new InvocationHandler() {
+                Object proxyFullScreenListener = Proxy.newProxyInstance(Class.forName("com.apple.eawt.FullScreenListener").getClassLoader(), new Class[]{Class.forName("com.apple.eawt.FullScreenListener")}, (Object proxy, Method method, Object[] args) -> {
+                    if (method.getName().equals("windowEnteredFullScreen")) {
+                        Helpers.GUIRun(() -> {
+                            menu_bar.setVisible(false);
+                            full_screen_menu.setEnabled(true);
+                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                            full_screen_menu.setSelected(true);
+                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setSelected(true);
+                            full_screen = true;
 
-                    @Override
-                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                            synchronized (full_screen_lock) {
+                                full_screen_lock.notifyAll();
+                            }
 
-                        if (method.getName().equals("windowEnteredFullScreen")) {
+                            GameFrame.getInstance().getFrame().requestFocus();
+                        });
+                    } else if (method.getName().equals("windowExitedFullScreen")) {
+                        Helpers.GUIRun(() -> {
+                            menu_bar.setVisible(true);
+                            full_screen_menu.setEnabled(true);
+                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                            full_screen_menu.setSelected(false);
+                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setSelected(false);
+                            full_screen = false;
 
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
-                                    menu_bar.setVisible(false);
-                                    full_screen_menu.setEnabled(true);
-                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                                    full_screen_menu.setSelected(true);
-                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setSelected(true);
-                                    full_screen = true;
+                            synchronized (full_screen_lock) {
+                                full_screen_lock.notifyAll();
+                            }
 
-                                    synchronized (full_screen_lock) {
-                                        full_screen_lock.notifyAll();
-                                    }
-
-                                    GameFrame.getInstance().getFrame().requestFocus();
-                                }
-                            });
-
-                        } else if (method.getName().equals("windowExitedFullScreen")) {
-
-                            Helpers.GUIRun(new Runnable() {
-                                @Override
-                                public void run() {
-                                    menu_bar.setVisible(true);
-                                    full_screen_menu.setEnabled(true);
-                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                                    full_screen_menu.setSelected(false);
-                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setSelected(false);
-                                    full_screen = false;
-
-                                    synchronized (full_screen_lock) {
-                                        full_screen_lock.notifyAll();
-                                    }
-
-                                    GameFrame.getInstance().getFrame().requestFocus();
-                                }
-                            });
-                        }
-
-                        return true;
+                            GameFrame.getInstance().getFrame().requestFocus();
+                        });
                     }
-
+                    return true;
                 });
 
                 addFullScreenListenerTo.invoke(null, window, Class.forName("com.apple.eawt.FullScreenListener").cast(proxyFullScreenListener));
@@ -391,31 +373,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameFrame.getInstance().enableMacNativeFullScreen(GameFrame.getInstance());
 
-            Helpers.GUIRunAndWait(new Runnable() {
-                @Override
-                public void run() {
-                    setVisible(true);
-                    GameFrame.getInstance().setEnabled(false);
-                }
+            Helpers.GUIRunAndWait(() -> {
+                setVisible(true);
+                GameFrame.getInstance().setEnabled(false);
             });
 
             Helpers.pausar(1000);
         }
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-                GameFrame.getInstance().setEnabled(true);
+        Helpers.GUIRunAndWait(() -> {
+            GameFrame.getInstance().setEnabled(true);
 
-                if (!Init.DEV_MODE && fullscreen) {
-                    full_screen_menu.doClick();
-                } else {
-                    GameFrame.getInstance().getFrame().setExtendedState(JFrame.MAXIMIZED_BOTH);
-                    GameFrame.getInstance().getFrame().setVisible(true);
-                }
-
-                GameFrame.getInstance().setEnabled(false);
+            if (!Init.DEV_MODE && fullscreen) {
+                full_screen_menu.doClick();
+            } else {
+                GameFrame.getInstance().getFrame().setExtendedState(JFrame.MAXIMIZED_BOTH);
+                GameFrame.getInstance().getFrame().setVisible(true);
             }
+
+            GameFrame.getInstance().setEnabled(false);
         });
 
         if (!Init.DEV_MODE && fullscreen) {
@@ -442,14 +418,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             tapete.autoZoom(false);
         }
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                GameFrame.getInstance().setEnabled(true);
-                full_screen_menu.setEnabled(!GameFrame.isRECOVER());
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.isRECOVER());
-            }
+        Helpers.GUIRun(() -> {
+            GameFrame.getInstance().setEnabled(true);
+            full_screen_menu.setEnabled(!GameFrame.isRECOVER());
+            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.isRECOVER());
         });
 
     }
@@ -572,93 +544,90 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void toggleFullScreen() {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            full_screen = !full_screen;
 
-                full_screen = !full_screen;
+            if (full_screen) {
 
-                if (full_screen) {
-
-                    if (Helpers.OSValidator.isWindows()) {
-                        setVisible(false);
-                        getContentPane().remove(frame_layer);
-                        full_screen_frame = new WheelFrame();
-                        full_screen_frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-                        full_screen_frame.addMouseWheelListener(full_screen_frame);
-                        full_screen_frame.addWindowListener(new java.awt.event.WindowAdapter() {
-                            @Override
-                            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-                                GameFrame.getInstance().closeWindow();
-                            }
-                        });
-                        full_screen_frame.setTitle(GameFrame.getInstance().getTitle());
-                        full_screen_frame.setUndecorated(true);
-                        frame_layer = new JLayer<>(GameFrame.getInstance().getTapete(), capa_brillo);
-                        full_screen_frame.getContentPane().add(frame_layer);
-                        full_screen_frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-                        full_screen_frame.setVisible(true);
-
-                        if (timba_pausada) {
-
-                            pausa_dialog.setVisible(false);
-                            pausa_dialog.dispose();
-                            pausa_dialog = new PauseDialog(full_screen_frame, false);
-                            pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
-                            pausa_dialog.setVisible(true);
+                if (Helpers.OSValidator.isWindows()) {
+                    setVisible(false);
+                    getContentPane().remove(frame_layer);
+                    full_screen_frame = new WheelFrame();
+                    full_screen_frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+                    full_screen_frame.addMouseWheelListener(full_screen_frame);
+                    full_screen_frame.addWindowListener(new java.awt.event.WindowAdapter() {
+                        @Override
+                        public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                            GameFrame.getInstance().closeWindow();
                         }
+                    });
+                    full_screen_frame.setTitle(GameFrame.getInstance().getTitle());
+                    full_screen_frame.setUndecorated(true);
+                    frame_layer = new JLayer<>(GameFrame.getInstance().getTapete(), capa_brillo);
+                    full_screen_frame.getContentPane().add(frame_layer);
+                    full_screen_frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    full_screen_frame.setVisible(true);
 
-                    } else {
+                    if (timba_pausada) {
 
-                        GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
-                        GraphicsDevice device = env.getDefaultScreenDevice();
-                        menu_bar.setVisible(false);
-                        setVisible(false);
-                        device.setFullScreenWindow(GameFrame.getInstance());
+                        pausa_dialog.setVisible(false);
+                        pausa_dialog.dispose();
+                        pausa_dialog = new PauseDialog(full_screen_frame, false);
+                        pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
+                        pausa_dialog.setVisible(true);
                     }
 
                 } else {
 
-                    if (Helpers.OSValidator.isWindows()) {
+                    GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
+                    GraphicsDevice device = env.getDefaultScreenDevice();
+                    menu_bar.setVisible(false);
+                    setVisible(false);
+                    device.setFullScreenWindow(GameFrame.getInstance());
+                }
 
-                        full_screen_frame.getContentPane().remove(GameFrame.getInstance().getTapete());
-                        full_screen_frame.setVisible(false);
-                        full_screen_frame.dispose();
-                        full_screen_frame = null;
+            } else {
 
-                        frame_layer = new JLayer<>(GameFrame.getInstance().getTapete(), capa_brillo);
-                        GameFrame.getInstance().getContentPane().add(frame_layer);
-                        GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
-                        GameFrame.getInstance().setVisible(true);
+                if (Helpers.OSValidator.isWindows()) {
 
-                        if (timba_pausada) {
+                    full_screen_frame.getContentPane().remove(GameFrame.getInstance().getTapete());
+                    full_screen_frame.setVisible(false);
+                    full_screen_frame.dispose();
+                    full_screen_frame = null;
 
-                            pausa_dialog.setVisible(false);
-                            pausa_dialog.dispose();
-                            pausa_dialog = new PauseDialog(GameFrame.getInstance(), false);
-                            pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
-                            pausa_dialog.setVisible(true);
-                        }
+                    frame_layer = new JLayer<>(GameFrame.getInstance().getTapete(), capa_brillo);
+                    GameFrame.getInstance().getContentPane().add(frame_layer);
+                    GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    GameFrame.getInstance().setVisible(true);
 
-                    } else {
+                    if (timba_pausada) {
 
-                        GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
-                        GraphicsDevice device = env.getDefaultScreenDevice();
-                        device.setFullScreenWindow(null);
-                        setExtendedState(JFrame.MAXIMIZED_BOTH);
-                        setVisible(true);
-                        menu_bar.setVisible(true);
+                        pausa_dialog.setVisible(false);
+                        pausa_dialog.dispose();
+                        pausa_dialog = new PauseDialog(GameFrame.getInstance(), false);
+                        pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
+                        pausa_dialog.setVisible(true);
                     }
+
+                } else {
+
+                    GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
+                    GraphicsDevice device = env.getDefaultScreenDevice();
+                    device.setFullScreenWindow(null);
+                    setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    setVisible(true);
+                    menu_bar.setVisible(true);
                 }
-
-                full_screen_menu.setEnabled(true);
-                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-
-                synchronized (full_screen_lock) {
-                    full_screen_lock.notifyAll();
-                }
-
-                GameFrame.getInstance().getFrame().requestFocus();
             }
+
+            full_screen_menu.setEnabled(true);
+            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+
+            synchronized (full_screen_lock) {
+                full_screen_lock.notifyAll();
+            }
+
+            GameFrame.getInstance().getFrame().requestFocus();
         });
 
     }
@@ -691,11 +660,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 carta.refreshCard();
             }
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    jugadas_dialog.pack();
-                }
-            });
+            Helpers.GUIRun(jugadas_dialog::pack);
         }
 
     }
@@ -769,44 +734,39 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             this.lock_pause.notifyAll();
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
+            Helpers.GUIRun(() -> {
+                if (pausa_dialog == null) {
+                    pausa_dialog = new PauseDialog(getFrame(), false);
+                }
 
-                    if (pausa_dialog == null) {
-                        pausa_dialog = new PauseDialog(getFrame(), false);
-                    }
+                if (timba_pausada) {
 
-                    if (timba_pausada) {
-
-                        if (isPartida_local() || getNick_local().equals(user)) {
-                            Helpers.setScaledIconButton(GameFrame.getInstance().getTapete().getCommunityCards().getPause_button(), getClass().getResource("/images/continue.png"), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()));
-                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("CONTINUAR"));
-                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
-
-                        } else {
-                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(false);
-                        }
-
-                        pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
-                        pausa_dialog.setVisible(true);
+                    if (isPartida_local() || getNick_local().equals(user)) {
+                        Helpers.setScaledIconButton(GameFrame.getInstance().getTapete().getCommunityCards().getPause_button(), getClass().getResource("/images/continue.png"), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()));
+                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("CONTINUAR"));
+                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(true);
 
                     } else {
-                        Helpers.setScaledIconButton(GameFrame.getInstance().getTapete().getCommunityCards().getPause_button(), getClass().getResource("/images/pause.png"), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()));
-
-                        if (isPartida_local()) {
-                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR"));
-                        } else {
-                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + getLocalPlayer().getPause_counter() + ")");
-                        }
-
-                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled((isPartida_local() || getLocalPlayer().getPause_counter() > 0));
-
-                        pausa_dialog.setVisible(false);
-                        pausa_dialog.dispose();
-                        pausa_dialog = null;
-
+                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled(false);
                     }
+
+                    pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
+                    pausa_dialog.setVisible(true);
+
+                } else {
+                    Helpers.setScaledIconButton(GameFrame.getInstance().getTapete().getCommunityCards().getPause_button(), getClass().getResource("/images/pause.png"), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()));
+
+                    if (isPartida_local()) {
+                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR"));
+                    } else {
+                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + getLocalPlayer().getPause_counter() + ")");
+                    }
+
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setEnabled((isPartida_local() || getLocalPlayer().getPause_counter() > 0));
+
+                    pausa_dialog.setVisible(false);
+                    pausa_dialog.dispose();
+                    pausa_dialog = null;
 
                 }
             });
@@ -878,38 +838,33 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public void showFastChatImage() {
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                if (GameFrame.CHAT_IMAGES_INGAME) {
+        Helpers.GUIRunAndWait(() -> {
+            if (GameFrame.CHAT_IMAGES_INGAME) {
 
-                    ChatImageDialog chat_image_dialog = new ChatImageDialog(getFrame(), true, getFrame().getHeight());
-                    chat_image_dialog.setLocation((int) (getFrame().getLocation().getX() + getFrame().getWidth()) - chat_image_dialog.getWidth(), (int) getFrame().getLocation().getY());
-                    chat_image_dialog.setVisible(true);
-                }
+                ChatImageDialog chat_image_dialog = new ChatImageDialog(getFrame(), true, getFrame().getHeight());
+                chat_image_dialog.setLocation((int) (getFrame().getLocation().getX() + getFrame().getWidth()) - chat_image_dialog.getWidth(), (int) getFrame().getLocation().getY());
+                chat_image_dialog.setVisible(true);
             }
         });
     }
 
     public void showFastChatDialog() {
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
+        Helpers.GUIRunAndWait(() -> {
+            if (fastchat_dialog != null) {
 
-                if (fastchat_dialog != null) {
+                FastChatDialog old_dialog = fastchat_dialog;
 
-                    FastChatDialog old_dialog = fastchat_dialog;
+                fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog.getChat_box());
 
-                    fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog.getChat_box());
+                old_dialog.dispose();
 
-                    old_dialog.dispose();
-
-                } else {
-                    fastchat_dialog = new FastChatDialog(getFrame(), false, null);
-                }
-
-                fastchat_dialog.setLocation(getFrame().getX(), getFrame().getY() + getFrame().getHeight() - fastchat_dialog.getHeight());
-
-                fastchat_dialog.setVisible(true);
+            } else {
+                fastchat_dialog = new FastChatDialog(getFrame(), false, null);
             }
+
+            fastchat_dialog.setLocation(getFrame().getX(), getFrame().getY() + getFrame().getHeight() - fastchat_dialog.getHeight());
+
+            fastchat_dialog.setVisible(true);
         });
     }
 
@@ -1092,52 +1047,48 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         pausa_dialog.setVisible(false);
 
-                        Helpers.threadRun(new Runnable() {
-                            @Override
-                            public void run() {
+                        Helpers.threadRun(() -> {
+                            synchronized (getTapete().getCentral_label()) {
+                                String baraja = GameFrame.BARAJA;
 
-                                synchronized (getTapete().getCentral_label()) {
-                                    String baraja = GameFrame.BARAJA;
+                                boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
 
-                                    boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
+                                Card carta = new Card(false);
 
-                                    Card carta = new Card(false);
+                                test_card_count--;
 
-                                    test_card_count--;
+                                if (test_card_count < 1) {
+                                    test_card_count = 52;
+                                }
 
-                                    if (test_card_count < 1) {
-                                        test_card_count = 52;
-                                    }
+                                carta.iniciarConValorNumerico(test_card_count);
 
-                                    carta.iniciarConValorNumerico(test_card_count);
+                                if (((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
 
-                                    if (((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
+                                    try {
+                                        ImageIcon icon;
 
-                                        try {
-                                            ImageIcon icon;
+                                        URL url_icon = null;
 
-                                            URL url_icon = null;
+                                        if (baraja_mod) {
 
-                                            if (baraja_mod) {
+                                            url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL();
 
-                                                url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL();
+                                        } else {
 
-                                            } else {
+                                            url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
 
-                                                url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
-
-                                            }
-
-                                            icon = new ImageIcon(url_icon);
-
-                                            getTapete().showCentralImage(icon, 0, Crupier.CARD_ANIMATION_DELAY);
-                                        } catch (Exception ex) {
-                                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                                         }
 
+                                        icon = new ImageIcon(url_icon);
+
+                                        getTapete().showCentralImage(icon, 0, Crupier.CARD_ANIMATION_DELAY);
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                                     }
 
                                 }
+
                             }
                         });
 
@@ -1175,49 +1126,44 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         pausa_dialog.setVisible(false);
 
-                        Helpers.threadRun(new Runnable() {
-                            @Override
-                            public void run() {
+                        Helpers.threadRun(() -> {
+                            synchronized (getTapete().getCentral_label()) {
 
-                                synchronized (getTapete().getCentral_label()) {
+                                String baraja = GameFrame.BARAJA;
 
-                                    String baraja = GameFrame.BARAJA;
+                                boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
 
-                                    boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
+                                Card carta = new Card(false);
 
-                                    Card carta = new Card(false);
+                                test_card_count++;
 
-                                    test_card_count++;
+                                if (test_card_count > 52) {
+                                    test_card_count = 1;
+                                }
 
-                                    if (test_card_count > 52) {
-                                        test_card_count = 1;
-                                    }
+                                carta.iniciarConValorNumerico(test_card_count);
 
-                                    carta.iniciarConValorNumerico(test_card_count);
+                                if (((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
 
-                                    if (((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
+                                    try {
+                                        ImageIcon icon;
+                                        URL url_icon = null;
 
-                                        try {
-                                            ImageIcon icon;
-                                            URL url_icon = null;
+                                        if (baraja_mod) {
 
-                                            if (baraja_mod) {
+                                            url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL();
 
-                                                url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL();
+                                        } else {
 
-                                            } else {
+                                            url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
 
-                                                url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
-
-                                            }
-
-                                            icon = new ImageIcon(url_icon);
-
-                                            getTapete().showCentralImage(icon, 0, Crupier.CARD_ANIMATION_DELAY);
-                                        } catch (Exception ex) {
-                                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                                         }
 
+                                        icon = new ImageIcon(url_icon);
+
+                                        getTapete().showCentralImage(icon, 0, Crupier.CARD_ANIMATION_DELAY);
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                                     }
 
                                 }
@@ -1241,30 +1187,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
         }
 
-        GameFrame.key_event_dispatcher = new KeyEventDispatcher() {
-
-            @Override
-            public boolean dispatchKeyEvent(KeyEvent e) {
-                KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-
-                JFrame frame = GameFrame.getInstance().getFrame();
-
-                if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && keyStroke.equals(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK))))) {
-                    final Action a = actionMap.get(keyStroke);
-                    final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
-
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-                            a.actionPerformed(ae);
-                        }
-                    });
-
-                    return true;
-                }
-
-                return false;
+        GameFrame.key_event_dispatcher = (KeyEvent e) -> {
+            KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
+            JFrame frame = GameFrame.getInstance().getFrame();
+            if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && keyStroke.equals(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK))))) {
+                final Action a = actionMap.get(keyStroke);
+                final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
+                Helpers.GUIRun(() -> {
+                    a.actionPerformed(ae);
+                });
+                return true;
             }
+            return false;
         };
 
         kfm.addKeyEventDispatcher(GameFrame.key_event_dispatcher);
@@ -1347,18 +1281,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void setTapeteMano(int mano) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                tapete.getCommunityCards().getHand_label().setText("#" + String.valueOf(mano) + (GameFrame.MANOS != -1 ? "/" + String.valueOf(GameFrame.MANOS) : ""));
+        Helpers.GUIRun(() -> {
+            tapete.getCommunityCards().getHand_label().setText("#" + String.valueOf(mano) + (GameFrame.MANOS != -1 ? "/" + String.valueOf(GameFrame.MANOS) : ""));
 
-                if (GameFrame.MANOS != -1 && crupier.getMano() > GameFrame.MANOS) {
-                    tapete.getCommunityCards().getHand_label().setBackground(Color.red);
-                    tapete.getCommunityCards().getHand_label().setForeground(Color.WHITE);
-                    tapete.getCommunityCards().getHand_label().setOpaque(true);
-                } else if (GameFrame.MANOS == -1 && tapete.getCommunityCards().getHand_label().getBackground() == Color.RED) {
-                    tapete.getCommunityCards().getHand_label().setOpaque(false);
-                    tapete.getCommunityCards().getHand_label().setForeground(tapete.getCommunityCards().getColor_contadores());
-                }
+            if (GameFrame.MANOS != -1 && crupier.getMano() > GameFrame.MANOS) {
+                tapete.getCommunityCards().getHand_label().setBackground(Color.red);
+                tapete.getCommunityCards().getHand_label().setForeground(Color.WHITE);
+                tapete.getCommunityCards().getHand_label().setOpaque(true);
+            } else if (GameFrame.MANOS == -1 && tapete.getCommunityCards().getHand_label().getBackground() == Color.RED) {
+                tapete.getCommunityCards().getHand_label().setOpaque(false);
+                tapete.getCommunityCards().getHand_label().setForeground(tapete.getCommunityCards().getColor_contadores());
             }
         });
     }
@@ -1368,12 +1300,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
         for (ZoomableInterface zoomable : zoomables) {
-            Helpers.threadRun(new Runnable() {
-                @Override
-                public void run() {
-                    zoomable.zoom(factor, mynotifier);
-
-                }
+            Helpers.threadRun(() -> {
+                zoomable.zoom(factor, mynotifier);
             });
         }
 
@@ -1403,19 +1331,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void setTapeteBote(float bote, Float beneficio) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                tapete.getCommunityCards().getPot_label().setText(Translator.translate("BOTE: ") + Helpers.float2String(bote) + (beneficio != null ? " (" + Helpers.float2String(beneficio) + ")" : ""));
-            }
+        Helpers.GUIRun(() -> {
+            tapete.getCommunityCards().getPot_label().setText(Translator.translate("BOTE: ") + Helpers.float2String(bote) + (beneficio != null ? " (" + Helpers.float2String(beneficio) + ")" : ""));
         });
     }
 
     public void setTapeteBote(String bote) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                tapete.getCommunityCards().getPot_label().setText(Translator.translate("BOTE: ") + bote);
-            }
+        Helpers.GUIRun(() -> {
+            tapete.getCommunityCards().getPot_label().setText(Translator.translate("BOTE: ") + bote);
         });
     }
 
@@ -1425,33 +1349,30 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void setTapeteApuestas(float apuestas) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            String fase = null;
 
-                String fase = null;
+            switch (getCrupier().getFase()) {
+                case Crupier.PREFLOP:
+                    fase = "Preflop: ";
+                    break;
 
-                switch (getCrupier().getFase()) {
-                    case Crupier.PREFLOP:
-                        fase = "Preflop: ";
-                        break;
+                case Crupier.FLOP:
+                    fase = "Flop: ";
+                    break;
 
-                    case Crupier.FLOP:
-                        fase = "Flop: ";
-                        break;
+                case Crupier.TURN:
+                    fase = "Turn: ";
+                    break;
 
-                    case Crupier.TURN:
-                        fase = "Turn: ";
-                        break;
-
-                    case Crupier.RIVER:
-                        fase = "River: ";
-                        break;
-                }
-
-                tapete.getCommunityCards().getBet_label().setText(fase + (Helpers.float1DSecureCompare(0f, apuestas) < 0 ? Helpers.float2String(apuestas) : "---"));
-
-                tapete.getCommunityCards().getBet_label().setVisible(true);
+                case Crupier.RIVER:
+                    fase = "River: ";
+                    break;
             }
+
+            tapete.getCommunityCards().getBet_label().setText(fase + (Helpers.float1DSecureCompare(0f, apuestas) < 0 ? Helpers.float2String(apuestas) : "---"));
+
+            tapete.getCommunityCards().getBet_label().setVisible(true);
         });
 
     }
@@ -1468,91 +1389,63 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.getInstance().getJugadores().add(jugador);
             }
 
-            Helpers.GUIRunAndWait(new Runnable() {
-                public void run() {
+            Helpers.GUIRunAndWait(() -> {
+                JFrame frame = getFrame();
+                frame.getContentPane().remove(frame_layer);
+                tapete = nuevo_tapete;
+                zoomables = new ZoomableInterface[]{tapete};
+                frame_layer = new JLayer<>(tapete, capa_brillo);
+                frame.getContentPane().add(frame_layer);
+                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+                updateSoundIcon();
+                switch (GameFrame.COLOR_TAPETE) {
 
-                    JFrame frame = getFrame();
+                    case "verde":
+                        cambiarColorContadoresTapete(new Color(153, 204, 0));
+                        break;
 
-                    frame.getContentPane().remove(frame_layer);
+                    case "azul":
+                        cambiarColorContadoresTapete(new Color(102, 204, 255));
+                        break;
 
-                    tapete = nuevo_tapete;
+                    case "rojo":
+                        cambiarColorContadoresTapete(new Color(255, 204, 51));
+                        break;
 
-                    zoomables = new ZoomableInterface[]{tapete};
+                    case "negro":
+                        cambiarColorContadoresTapete(Color.LIGHT_GRAY);
+                        break;
 
-                    frame_layer = new JLayer<>(tapete, capa_brillo);
+                    case "madera":
+                        cambiarColorContadoresTapete(Color.WHITE);
+                        break;
 
-                    frame.getContentPane().add(frame_layer);
+                    default:
+                        cambiarColorContadoresTapete(Color.WHITE);
+                        break;
+                }
+                Helpers.TapetePopupMenu.addTo(tapete, true);
+                setupGlobalShortcuts();
+                Helpers.preserveOriginalFontSizes(frame);
+                Helpers.updateFonts(frame, Helpers.GUI_FONT, null);
+                Helpers.translateComponents(frame, false);
+                if (GameFrame.ZOOM_LEVEL != 0) {
+                    Helpers.threadRun(() -> {
+                        GameFrame.getInstance().zoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
+                        Helpers.GUIRunAndWait(() -> {
+                            frame.pack();
 
-                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+                            frame.revalidate();
 
-                    updateSoundIcon();
-
-                    switch (GameFrame.COLOR_TAPETE) {
-
-                        case "verde":
-                            cambiarColorContadoresTapete(new Color(153, 204, 0));
-                            break;
-
-                        case "azul":
-                            cambiarColorContadoresTapete(new Color(102, 204, 255));
-                            break;
-
-                        case "rojo":
-                            cambiarColorContadoresTapete(new Color(255, 204, 51));
-                            break;
-
-                        case "negro":
-                            cambiarColorContadoresTapete(Color.LIGHT_GRAY);
-                            break;
-
-                        case "madera":
-                            cambiarColorContadoresTapete(Color.WHITE);
-                            break;
-
-                        default:
-                            cambiarColorContadoresTapete(Color.WHITE);
-                            break;
-                    }
-
-                    Helpers.TapetePopupMenu.addTo(tapete, true);
-
-                    setupGlobalShortcuts();
-
-                    Helpers.preserveOriginalFontSizes(frame);
-
-                    Helpers.updateFonts(frame, Helpers.GUI_FONT, null);
-
-                    Helpers.translateComponents(frame, false);
-
-                    if (GameFrame.ZOOM_LEVEL != 0) {
-
-                        Helpers.threadRun(new Runnable() {
-                            public void run() {
-
-                                GameFrame.getInstance().zoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-
-                                        frame.pack();
-
-                                        frame.revalidate();
-
-                                        frame.repaint();
-                                    }
-                                });
-
-                            }
+                            frame.repaint();
                         });
+                    });
+                } else {
+                    frame.pack();
 
-                    } else {
+                    frame.revalidate();
 
-                        frame.pack();
-
-                        frame.revalidate();
-
-                        frame.repaint();
-                    }
+                    frame.repaint();
                 }
             });
 
@@ -1562,34 +1455,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void hideTapeteApuestas() {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-
-                tapete.getCommunityCards().getBet_label().setVisible(false);
-                tapete.getCommunityCards().getBet_label().revalidate();
-                tapete.getCommunityCards().getBet_label().repaint();
-            }
+        Helpers.GUIRun(() -> {
+            tapete.getCommunityCards().getBet_label().setVisible(false);
+            tapete.getCommunityCards().getBet_label().revalidate();
+            tapete.getCommunityCards().getBet_label().repaint();
         });
 
     }
 
     public void setTapeteCiegas(float pequeña, float grande) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-
-                if (crupier.getCiegas_update() != null) {
-                    tapete.getCommunityCards().getBlinds_label().setOpaque(true);
-                    tapete.getCommunityCards().getBlinds_label().setBackground(Color.YELLOW);
-                    tapete.getCommunityCards().getBlinds_label().setForeground(Color.BLACK);
-                } else {
-                    tapete.getCommunityCards().getBlinds_label().setOpaque(false);
-                    tapete.getCommunityCards().getBlinds_label().setBackground(null);
-                    tapete.getCommunityCards().getBlinds_label().setForeground(tapete.getCommunityCards().getPot_label().getForeground());
-                }
-
-                tapete.getCommunityCards().getBlinds_label().setText(Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
+        Helpers.GUIRun(() -> {
+            if (crupier.getCiegas_update() != null) {
+                tapete.getCommunityCards().getBlinds_label().setOpaque(true);
+                tapete.getCommunityCards().getBlinds_label().setBackground(Color.YELLOW);
+                tapete.getCommunityCards().getBlinds_label().setForeground(Color.BLACK);
+            } else {
+                tapete.getCommunityCards().getBlinds_label().setOpaque(false);
+                tapete.getCommunityCards().getBlinds_label().setBackground(null);
+                tapete.getCommunityCards().getBlinds_label().setForeground(tapete.getCommunityCards().getPot_label().getForeground());
             }
+
+            tapete.getCommunityCards().getBlinds_label().setText(Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
         });
 
     }
@@ -1602,31 +1489,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (tapete.getCommunityCards().getBlinds_label().getHeight() > 0) {
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(tapete.getCommunityCards().getBlinds_label().getHeight(), tapete.getCommunityCards().getBlinds_label().getHeight()));
-                    Helpers.setScaledIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), tapete.getCommunityCards().getBlinds_label().getHeight(), tapete.getCommunityCards().getBlinds_label().getHeight());
-                }
+            Helpers.GUIRun(() -> {
+                tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(tapete.getCommunityCards().getBlinds_label().getHeight(), tapete.getCommunityCards().getBlinds_label().getHeight()));
+                Helpers.setScaledIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), tapete.getCommunityCards().getBlinds_label().getHeight(), tapete.getCommunityCards().getBlinds_label().getHeight());
             });
         } else {
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH));
-                    Helpers.setScaledIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH);
-                }
+            Helpers.GUIRun(() -> {
+                tapete.getCommunityCards().getSound_icon().setPreferredSize(new Dimension(CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH));
+                Helpers.setScaledIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH);
             });
         }
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                sonidos_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
+        Helpers.GUIRun(() -> {
+            sonidos_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
 
-                if (Helpers.TapetePopupMenu.SONIDOS_MENU != null) {
-                    Helpers.TapetePopupMenu.SONIDOS_MENU.setIcon(new javax.swing.ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
-                }
+            if (Helpers.TapetePopupMenu.SONIDOS_MENU != null) {
+                Helpers.TapetePopupMenu.SONIDOS_MENU.setIcon(new javax.swing.ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
             }
         });
     }
@@ -1647,70 +1525,48 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             menu_item.setFont(new java.awt.Font("Dialog", 0, 14));
 
-            menu_item.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-
-                    if (GameFrame.BARAJA.equals("interstate60") && menu_item.getText().equals("interstate60")) {
-                        i60_c++;
-                    } else {
-                        i60_c = 1;
-                    }
-
-                    GameFrame.BARAJA = menu_item.getText();
-
-                    Helpers.PROPERTIES.setProperty("baraja", menu_item.getText());
-
-                    Helpers.savePropertiesFile();
-
-                    for (Component menu : menu_barajas.getMenuComponents()) {
-                        ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
-                    }
-
-                    menu_item.setSelected(true);
-
-                    for (Component menu : Helpers.TapetePopupMenu.BARAJAS_MENU.getMenuComponents()) {
-
-                        ((javax.swing.JRadioButtonMenuItem) menu).setSelected(((javax.swing.JRadioButtonMenuItem) menu).getText().equals(menu_item.getText()));
-                    }
-
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
-                            cambiarBaraja();
-
-                            if (Init.M2 != null && GameFrame.BARAJA.equals("interstate60") && i60_c == 5) {
-
-                                try {
-                                    Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"), (byte[]) M2.invoke(null, "e"));
-                                } catch (Exception ex) {
-                                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-
-                                i60_c = 0;
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-                                        try {
-                                            gif_dialog = new GifAnimationDialog(getFrame(), false, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFFramesCount(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
-                                            gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                                            gif_dialog.setVisible(true);
-                                        } catch (Exception ex) {
-                                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
-
-                                    }
-                                });
-
-                                try {
-                                    Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"));
-                                } catch (IOException ex) {
-                                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                            }
-
-                        }
-                    });
+            menu_item.addActionListener((ActionEvent e) -> {
+                if (GameFrame.BARAJA.equals("interstate60") && menu_item.getText().equals("interstate60")) {
+                    i60_c++;
+                } else {
+                    i60_c = 1;
                 }
+                GameFrame.BARAJA = menu_item.getText();
+                Helpers.PROPERTIES.setProperty("baraja", menu_item.getText());
+                Helpers.savePropertiesFile();
+                for (Component menu : menu_barajas.getMenuComponents()) {
+                    ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
+                }
+                menu_item.setSelected(true);
+                for (Component menu : Helpers.TapetePopupMenu.BARAJAS_MENU.getMenuComponents()) {
+
+                    ((javax.swing.JRadioButtonMenuItem) menu).setSelected(((javax.swing.JRadioButtonMenuItem) menu).getText().equals(menu_item.getText()));
+                }
+                Helpers.threadRun(() -> {
+                    cambiarBaraja();
+                    if (Init.M2 != null && GameFrame.BARAJA.equals("interstate60") && i60_c == 5) {
+                        try {
+                            Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"), (byte[]) M2.invoke(null, "e"));
+                        } catch (Exception ex) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                        i60_c = 0;
+                        Helpers.GUIRunAndWait(() -> {
+                            try {
+                                gif_dialog = new GifAnimationDialog(getFrame(), false, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFFramesCount(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
+                                gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                                gif_dialog.setVisible(true);
+                            } catch (Exception ex) {
+                                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        });
+                        try {
+                            Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"));
+                        } catch (IOException ex) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                });
             });
 
             if (((javax.swing.JRadioButtonMenuItem) menu_item).getText().equals(GameFrame.BARAJA)) {
@@ -1973,52 +1829,48 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Audio.stopAllWavResources();
 
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
+                Helpers.GUIRun(() -> {
+                    GameFrame.getInstance().getTapete().hideALL();
 
-                        GameFrame.getInstance().getTapete().hideALL();
+                    GameFrame.getInstance().getTapete().getFastbuttons().setVisible(false);
 
-                        GameFrame.getInstance().getTapete().getFastbuttons().setVisible(false);
-
-                        if (getLocalPlayer().getAuto_action() != null) {
-                            getLocalPlayer().getAuto_action().stop();
-                        }
-
-                        if (getLocalPlayer().getHurryup_timer() != null) {
-                            getLocalPlayer().getHurryup_timer().stop();
-                        }
-
-                        for (RemotePlayer j : GameFrame.getInstance().getTapete().getRemotePlayers()) {
-                            if (j.getRadar_dialog() != null) {
-                                j.getRadar_dialog().setVisible(false);
-                            }
-                        }
-
-                        if (jugadas_dialog != null) {
-                            jugadas_dialog.setVisible(false);
-                        }
-
-                        if (shortcuts_dialog != null) {
-                            shortcuts_dialog.setVisible(false);
-                        }
-
-                        if (registro_dialog.isVisible()) {
-                            registro_dialog.setVisible(false);
-                        }
-
-                        if (pausa_dialog != null) {
-                            pausa_dialog.setVisible(false);
-                        }
-
-                        if (GameFrame.getInstance().getFastchat_dialog() != null) {
-                            GameFrame.getInstance().getFastchat_dialog().setVisible(false);
-                        }
-
-                        exit_menu.setEnabled(false);
-
-                        menu_bar.setVisible(false);
+                    if (getLocalPlayer().getAuto_action() != null) {
+                        getLocalPlayer().getAuto_action().stop();
                     }
+
+                    if (getLocalPlayer().getHurryup_timer() != null) {
+                        getLocalPlayer().getHurryup_timer().stop();
+                    }
+
+                    for (RemotePlayer j : GameFrame.getInstance().getTapete().getRemotePlayers()) {
+                        if (j.getRadar_dialog() != null) {
+                            j.getRadar_dialog().setVisible(false);
+                        }
+                    }
+
+                    if (jugadas_dialog != null) {
+                        jugadas_dialog.setVisible(false);
+                    }
+
+                    if (shortcuts_dialog != null) {
+                        shortcuts_dialog.setVisible(false);
+                    }
+
+                    if (registro_dialog.isVisible()) {
+                        registro_dialog.setVisible(false);
+                    }
+
+                    if (pausa_dialog != null) {
+                        pausa_dialog.setVisible(false);
+                    }
+
+                    if (GameFrame.getInstance().getFastchat_dialog() != null) {
+                        GameFrame.getInstance().getFastchat_dialog().setVisible(false);
+                    }
+
+                    exit_menu.setEnabled(false);
+
+                    menu_bar.setVisible(false);
                 });
 
                 if (partida_terminada) {
@@ -2027,13 +1879,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     getRegistro().print(Translator.translate("FIN DE LA TIMBA -> ") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
 
-                    try {
-                        PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?");
+                    try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?")) {
                         statement.setQueryTimeout(30);
                         statement.setLong(1, System.currentTimeMillis());
                         statement.setLong(2, crupier.getSqlite_game_id());
                         statement.executeUpdate();
-                        statement.close();
                     } catch (SQLException ex) {
                         Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -2113,18 +1963,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (partida_terminada) {
 
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        @Override
-                        public void run() {
+                    Helpers.GUIRunAndWait(() -> {
+                        BalanceDialog balance = new BalanceDialog(getFrame(), true);
 
-                            BalanceDialog balance = new BalanceDialog(getFrame(), true);
+                        balance.setLocationRelativeTo(getFrame());
 
-                            balance.setLocationRelativeTo(getFrame());
+                        balance.setVisible(true);
 
-                            balance.setVisible(true);
-
-                            retry = balance.isRetry();
-                        }
+                        retry = balance.isRetry();
                     });
                 }
 
@@ -2184,28 +2030,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 
-            GameFrame.key_event_dispatcher = new KeyEventDispatcher() {
-
-                @Override
-                public boolean dispatchKeyEvent(KeyEvent e) {
-                    KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-
-                    if (actionMap.containsKey(keyStroke)) {
-                        final Action a = actionMap.get(keyStroke);
-                        final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
-
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
-                                a.actionPerformed(ae);
-                            }
-                        });
-
-                        return true;
-                    }
-
-                    return false;
+            GameFrame.key_event_dispatcher = (KeyEvent e) -> {
+                KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
+                if (actionMap.containsKey(keyStroke)) {
+                    final Action a = actionMap.get(keyStroke);
+                    final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
+                    Helpers.GUIRun(() -> {
+                        a.actionPerformed(ae);
+                    });
+                    return true;
                 }
+                return false;
             };
 
             kfm.addKeyEventDispatcher(GameFrame.key_event_dispatcher);
@@ -2232,28 +2067,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 final URL f_url_icon = url_icon;
 
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            gif_dialog = new GifAnimationDialog(getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
-                        } catch (Exception ex) {
-                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-
-                        gif_dialog.addMouseListener(new MouseAdapter() {
-                            @Override
-                            public void mouseClicked(MouseEvent e) {
-                                {
-                                    exitNOW();
-                                }
-                            }
-                        });
-
-                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                        gif_dialog.setVisible(true);
-
+                Helpers.GUIRun(() -> {
+                    try {
+                        gif_dialog = new GifAnimationDialog(getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
+                    } catch (Exception ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
+
+                    gif_dialog.addMouseListener(new MouseAdapter() {
+                        @Override
+                        public void mouseClicked(MouseEvent e) {
+                            {
+                                exitNOW();
+                            }
+                        }
+                    });
+
+                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                    gif_dialog.setVisible(true);
                 });
             }
 
@@ -2277,52 +2108,35 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void RETRY() {
 
-        new Thread(new Runnable() {
-            public void run() {
-
-                Audio.stopAllCurrentLoopMp3Resource();
-
-                Audio.stopAllWavResources();
-
-                WaitingRoomFrame.getInstance().setExit(true);
-
-                if (WaitingRoomFrame.getInstance().isServer()) {
-                    WaitingRoomFrame.getInstance().closeServerSocket();
-                } else {
-                    WaitingRoomFrame.getInstance().closeClientSocket();
-                }
-
-                GameLogDialog.resetLOG();
-
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
-                        WaitingRoomFrame.resetInstance();
-                        GameFrame.resetInstance();
-
-                    }
-                });
-
-                Helpers.SHUTDOWN_THREAD_POOL();
-
-                if (!GameFrame.SONIDOS) {
-
-                    Audio.muteAll();
-
-                } else {
-
-                    Audio.unmuteAll();
-
-                }
-
-                Audio.playLoopMp3Resource("misc/background_music.mp3");
-
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
-                        Init.VENTANA_INICIO.getTapete().refresh();
-                        Init.VENTANA_INICIO.setVisible(true);
-                    }
-                });
+        new Thread(() -> {
+            Audio.stopAllCurrentLoopMp3Resource();
+            Audio.stopAllWavResources();
+            WaitingRoomFrame.getInstance().setExit(true);
+            if (WaitingRoomFrame.getInstance().isServer()) {
+                WaitingRoomFrame.getInstance().closeServerSocket();
+            } else {
+                WaitingRoomFrame.getInstance().closeClientSocket();
             }
+            GameLogDialog.resetLOG();
+            Helpers.GUIRunAndWait(() -> {
+                WaitingRoomFrame.resetInstance();
+                GameFrame.resetInstance();
+            });
+            Helpers.SHUTDOWN_THREAD_POOL();
+            if (!GameFrame.SONIDOS) {
+
+                Audio.muteAll();
+
+            } else {
+
+                Audio.unmuteAll();
+
+            }
+            Audio.playLoopMp3Resource("misc/background_music.mp3");
+            Helpers.GUIRunAndWait(() -> {
+                Init.VENTANA_INICIO.getTapete().refresh();
+                Init.VENTANA_INICIO.setVisible(true);
+            });
         }).start();
     }
 
@@ -2332,40 +2146,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void AJUGAR() {
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-
-                registro_dialog = new GameLogDialog(getFrame(), false);
-
-            }
+        Helpers.GUIRunAndWait(() -> {
+            registro_dialog = new GameLogDialog(getFrame(), false);
         });
 
         TTSWatchdog();
 
         Helpers.threadRun(crupier);
 
-        tiempo_juego = new Timer(1000, new ActionListener() {
-
-            public void actionPerformed(ActionEvent ae) {
-
-                if (!crupier.isFin_de_la_transmision() && !isTimba_pausada()) {
-                    String tiempo_juego = Helpers.seconds2FullTime(++conta_tiempo_juego);
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            tapete.getCommunityCards().getTiempo_partida().setText(tiempo_juego);
-                        }
-                    });
-                } else {
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            tapete.getCommunityCards().getTiempo_partida().setText("--:--:--");
-                        }
-                    });
-                }
-
+        tiempo_juego = new Timer(1000, (ActionEvent ae) -> {
+            if (!crupier.isFin_de_la_transmision() && !isTimba_pausada()) {
+                String tiempo_juego1 = Helpers.seconds2FullTime(++conta_tiempo_juego);
+                Helpers.GUIRun(() -> {
+                    tapete.getCommunityCards().getTiempo_partida().setText(tiempo_juego1);
+                });
+            } else {
+                Helpers.GUIRun(() -> {
+                    tapete.getCommunityCards().getTiempo_partida().setText("--:--:--");
+                });
             }
         });
 
@@ -2409,30 +2207,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     Audio.TTS((String) tts[1], jugador.getChat_notify_label());
                                 } else {
 
-                                    Helpers.GUIRun(new Runnable() {
-                                        @Override
-                                        public void run() {
-
-                                            if (temp_notify_blocked) {
-                                                notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.YELLOW, Color.BLACK, getClass().getResource("/images/sound_b.png"), null);
-                                            } else {
-                                                notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
-                                            }
-
-                                            notify_dialog.setLocation(notify_dialog.getParent().getLocation());
-
-                                            notify_dialog.setVisible(true);
+                                    Helpers.GUIRun(() -> {
+                                        if (temp_notify_blocked) {
+                                            notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.YELLOW, Color.BLACK, getClass().getResource("/images/sound_b.png"), null);
+                                        } else {
+                                            notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
                                         }
+
+                                        notify_dialog.setLocation(notify_dialog.getParent().getLocation());
+
+                                        notify_dialog.setVisible(true);
                                     });
 
                                     Helpers.pausar(Math.max((long) Math.ceil(WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
 
-                                    Helpers.GUIRun(new Runnable() {
-                                        @Override
-                                        public void run() {
-
-                                            notify_dialog.setVisible(false);
-                                        }
+                                    Helpers.GUIRun(() -> {
+                                        notify_dialog.setVisible(false);
                                     });
 
                                 }
@@ -3001,26 +2791,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     getLocalPlayer().setExit();
 
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
-                            //Hay que avisar a los clientes de que la timba ha terminado
-                            crupier.broadcastGAMECommandFromServer("SERVEREXIT", null, false);
+                    Helpers.threadRun(() -> {
+                        //Hay que avisar a los clientes de que la timba ha terminado
+                        crupier.broadcastGAMECommandFromServer("SERVEREXIT", null, false);
 
-                            finTransmision(true);
-                        }
+                        finTransmision(true);
                     });
 
                 }
 
             } else {
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
+                Helpers.threadRun(() -> {
+                    getLocalPlayer().setExit();
 
-                        getLocalPlayer().setExit();
-
-                        finTransmision(true);
-                    }
+                    finTransmision(true);
                 });
             }
 
@@ -3035,15 +2820,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 getLocalPlayer().setExit();
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-
-                        if (!getSala_espera().isReconnecting()) {
-                            crupier.sendGAMECommandToServer("EXIT", false);
-                        }
-
-                        finTransmision(false);
+                Helpers.threadRun(() -> {
+                    if (!getSala_espera().isReconnecting()) {
+                        crupier.sendGAMECommandToServer("EXIT", false);
                     }
+
+                    finTransmision(false);
                 });
 
             }
@@ -3065,57 +2847,35 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Audio.playWavResource("misc/zoom_in.wav");
 
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
-
-                incrementZoom();
-
-                Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
-
-                Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
-
-                zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-
-                if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
-
-                    for (Card carta : jugadas_dialog.getCartas()) {
-                        carta.invalidateImagePrecache();
-                        carta.refreshCard();
-                    }
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-                            jugadas_dialog.pack();
-                        }
-                    });
+        Helpers.threadRun(() -> {
+            incrementZoom();
+            Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+            Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
+            zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+            if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
+                for (Card carta : jugadas_dialog.getCartas()) {
+                    carta.invalidateImagePrecache();
+                    carta.refreshCard();
                 }
-
-                if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
-
-                    shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-
-                }
-
-                synchronized (zoom_menu) {
-
-                    zoom_menu.notifyAll();
-
-                }
-
-                if (GameFrame.AUTO_ZOOM) {
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
-
-                            Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
-                            tapete.autoZoom(false);
-
-                        }
-                    });
-                }
-
-                Helpers.savePropertiesFile();
+                Helpers.GUIRun(jugadas_dialog::pack);
             }
+            if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
+
+                shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+
+            }
+            synchronized (zoom_menu) {
+
+                zoom_menu.notifyAll();
+
+            }
+            if (GameFrame.AUTO_ZOOM) {
+                Helpers.threadRun(() -> {
+                    Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+                    tapete.autoZoom(false);
+                });
+            }
+            Helpers.savePropertiesFile();
         });
 
     }//GEN-LAST:event_zoom_menu_inActionPerformed
@@ -3127,46 +2887,29 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (Helpers.float1DSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) < 0) {
 
-            Helpers.threadRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    decrementZoom();
-
-                    Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
-
-                    Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
-
-                    zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-
-                    if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
-
-                        for (Card carta : jugadas_dialog.getCartas()) {
-                            carta.invalidateImagePrecache();
-                            carta.refreshCard();
-                        }
-
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                jugadas_dialog.pack();
-                            }
-                        });
+            Helpers.threadRun(() -> {
+                decrementZoom();
+                Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+                Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
+                zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
+                    for (Card carta : jugadas_dialog.getCartas()) {
+                        carta.invalidateImagePrecache();
+                        carta.refreshCard();
                     }
-
-                    if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
-
-                        shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-
-                    }
-
-                    synchronized (zoom_menu) {
-
-                        zoom_menu.notifyAll();
-
-                    }
-
-                    Helpers.savePropertiesFile();
+                    Helpers.GUIRun(jugadas_dialog::pack);
                 }
+                if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
+
+                    shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+
+                }
+                synchronized (zoom_menu) {
+
+                    zoom_menu.notifyAll();
+
+                }
+                Helpers.savePropertiesFile();
             });
 
         }
@@ -3180,56 +2923,35 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Audio.playWavResource("misc/zoom_reset.wav");
 
-            Helpers.threadRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL;
-
-                    Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
-
-                    Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
-
-                    zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-                    if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
-
-                        for (Card carta : jugadas_dialog.getCartas()) {
-                            carta.invalidateImagePrecache();
-                            carta.refreshCard();
-                        }
-
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                jugadas_dialog.pack();
-                            }
-                        });
+            Helpers.threadRun(() -> {
+                ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL;
+                Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+                Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
+                zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
+                    for (Card carta : jugadas_dialog.getCartas()) {
+                        carta.invalidateImagePrecache();
+                        carta.refreshCard();
                     }
-
-                    if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
-
-                        shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-
-                    }
-
-                    synchronized (zoom_menu) {
-
-                        zoom_menu.notifyAll();
-
-                    }
-
-                    if (GameFrame.AUTO_ZOOM) {
-                        Helpers.threadRun(new Runnable() {
-                            public void run() {
-
-                                Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
-                                tapete.autoZoom(false);
-
-                            }
-                        });
-                    }
-
-                    Helpers.savePropertiesFile();
+                    Helpers.GUIRun(jugadas_dialog::pack);
                 }
+                if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
+
+                    shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+
+                }
+                synchronized (zoom_menu) {
+
+                    zoom_menu.notifyAll();
+
+                }
+                if (GameFrame.AUTO_ZOOM) {
+                    Helpers.threadRun(() -> {
+                        Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+                        tapete.autoZoom(false);
+                    });
+                }
+                Helpers.savePropertiesFile();
             });
 
         }
@@ -3375,19 +3097,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         if (!jugadas_dialog.isVisible()) {
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-                    jugadas_dialog.pintarJugada();
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-                            jugadas_dialog.pack();
-                            jugadas_dialog.setLocationRelativeTo(getFrame());
-                            jugadas_dialog.setVisible(true);
-                            jugadas_menu.setEnabled(true);
-                        }
-                    });
-                }
+            Helpers.threadRun(() -> {
+                jugadas_dialog.pintarJugada();
+                Helpers.GUIRun(() -> {
+                    jugadas_dialog.pack();
+                    jugadas_dialog.setLocationRelativeTo(getFrame());
+                    jugadas_dialog.setVisible(true);
+                    jugadas_menu.setEnabled(true);
+                });
             });
         } else {
             jugadas_menu.setEnabled(true);
@@ -3447,11 +3164,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.savePropertiesFile();
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
-                vistaCompacta();
-            }
-        });
+        Helpers.threadRun(this::vistaCompacta);
 
         Helpers.TapetePopupMenu.COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA > 0);
     }//GEN-LAST:event_compact_menuActionPerformed
@@ -3519,39 +3232,32 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 ((JRadioButtonMenuItem) c).setEnabled(false);
             }
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+            Helpers.threadRun(() -> {
+                Helpers.GUIRun(() -> {
+                    for (Component c : menu_tapetes.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setSelected(false);
+                    }
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
+                    menu_tapete_verde.setSelected(true);
 
-                            for (Component c : menu_tapetes.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setSelected(false);
-                            }
+                    for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setSelected(false);
+                    }
 
-                            menu_tapete_verde.setSelected(true);
+                    Helpers.TapetePopupMenu.TAPETE_VERDE.setSelected(true);
 
-                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setSelected(false);
-                            }
+                    for (Component c : menu_tapetes.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setEnabled(true);
+                    }
 
-                            Helpers.TapetePopupMenu.TAPETE_VERDE.setSelected(true);
+                    for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setEnabled(true);
+                    }
+                    tapete.refresh();
 
-                            for (Component c : menu_tapetes.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setEnabled(true);
-                            }
-
-                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setEnabled(true);
-                            }
-                            tapete.refresh();
-
-                            cambiarColorContadoresTapete(Color.WHITE);
-                        }
-                    });
-
-                    tapete_counter = 0;
-                }
+                    cambiarColorContadoresTapete(Color.WHITE);
+                });
+                tapete_counter = 0;
             });
 
         } else if (!GameFrame.COLOR_TAPETE.equals("verde*")) {
@@ -3618,41 +3324,33 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 ((JRadioButtonMenuItem) c).setEnabled(false);
             }
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+            Helpers.threadRun(() -> {
+                Helpers.GUIRun(() -> {
+                    for (Component c : menu_tapetes.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setSelected(false);
+                    }
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
+                    menu_tapete_azul.setSelected(true);
 
-                            for (Component c : menu_tapetes.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setSelected(false);
-                            }
+                    for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setSelected(false);
+                    }
 
-                            menu_tapete_azul.setSelected(true);
+                    Helpers.TapetePopupMenu.TAPETE_AZUL.setSelected(true);
 
-                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setSelected(false);
-                            }
+                    for (Component c : menu_tapetes.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setEnabled(true);
+                    }
 
-                            Helpers.TapetePopupMenu.TAPETE_AZUL.setSelected(true);
+                    for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setEnabled(true);
+                    }
 
-                            for (Component c : menu_tapetes.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setEnabled(true);
-                            }
+                    tapete.refresh();
 
-                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setEnabled(true);
-                            }
-
-                            tapete.refresh();
-
-                            cambiarColorContadoresTapete(Color.WHITE);
-
-                        }
-                    });
-
-                    tapete_counter = 0;
-                }
+                    cambiarColorContadoresTapete(Color.WHITE);
+                });
+                tapete_counter = 0;
             });
 
         } else if (!GameFrame.COLOR_TAPETE.equals("azul*")) {
@@ -3718,41 +3416,33 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 ((JRadioButtonMenuItem) c).setEnabled(false);
             }
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+            Helpers.threadRun(() -> {
+                Helpers.GUIRun(() -> {
+                    for (Component c : menu_tapetes.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setSelected(false);
+                    }
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
+                    menu_tapete_rojo.setSelected(true);
 
-                            for (Component c : menu_tapetes.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setSelected(false);
-                            }
+                    for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setSelected(false);
+                    }
 
-                            menu_tapete_rojo.setSelected(true);
+                    Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(true);
 
-                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setSelected(false);
-                            }
+                    for (Component c : menu_tapetes.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setEnabled(true);
+                    }
 
-                            Helpers.TapetePopupMenu.TAPETE_ROJO.setSelected(true);
+                    for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setEnabled(true);
+                    }
 
-                            for (Component c : menu_tapetes.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setEnabled(true);
-                            }
+                    tapete.refresh();
 
-                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setEnabled(true);
-                            }
-
-                            tapete.refresh();
-
-                            cambiarColorContadoresTapete(Color.WHITE);
-
-                        }
-                    });
-
-                    tapete_counter = 0;
-                }
+                    cambiarColorContadoresTapete(Color.WHITE);
+                });
+                tapete_counter = 0;
             });
 
         } else if (!GameFrame.COLOR_TAPETE.equals("rojo*")) {
@@ -3819,41 +3509,33 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 ((JRadioButtonMenuItem) c).setEnabled(false);
             }
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+            Helpers.threadRun(() -> {
+                Helpers.GUIRun(() -> {
+                    tapete.refresh();
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
+                    cambiarColorContadoresTapete(Color.WHITE);
 
-                            tapete.refresh();
+                    for (Component c : menu_tapetes.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setSelected(false);
+                    }
 
-                            cambiarColorContadoresTapete(Color.WHITE);
+                    menu_tapete_madera.setSelected(true);
 
-                            for (Component c : menu_tapetes.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setSelected(false);
-                            }
+                    for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setSelected(false);
+                    }
 
-                            menu_tapete_madera.setSelected(true);
+                    Helpers.TapetePopupMenu.TAPETE_MADERA.setSelected(true);
 
-                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setSelected(false);
-                            }
+                    for (Component c : menu_tapetes.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setEnabled(true);
+                    }
 
-                            Helpers.TapetePopupMenu.TAPETE_MADERA.setSelected(true);
-
-                            for (Component c : menu_tapetes.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setEnabled(true);
-                            }
-
-                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setEnabled(true);
-                            }
-
-                        }
-                    });
-
-                    tapete_counter = 0;
-                }
+                    for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setEnabled(true);
+                    }
+                });
+                tapete_counter = 0;
             });
 
         } else if (!GameFrame.COLOR_TAPETE.equals("madera*")) {
@@ -3927,24 +3609,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             shortcuts_menu.setEnabled(false);
 
-            Helpers.threadRun(new Runnable() {
-                @Override
-                public void run() {
+            Helpers.threadRun(() -> {
+                Helpers.zoomFonts(shortcuts_dialog, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
+                Helpers.GUIRun(() -> {
+                    shortcuts_dialog.setLocation(getFrame().getX() + getFrame().getWidth() - shortcuts_dialog.getWidth(), getFrame().getY() + getFrame().getHeight() - shortcuts_dialog.getHeight());
 
-                    Helpers.zoomFonts(shortcuts_dialog, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
+                    shortcuts_dialog.setVisible(true);
 
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            shortcuts_dialog.setLocation(getFrame().getX() + getFrame().getWidth() - shortcuts_dialog.getWidth(), getFrame().getY() + getFrame().getHeight() - shortcuts_dialog.getHeight());
-
-                            shortcuts_dialog.setVisible(true);
-
-                            shortcuts_menu.setEnabled(true);
-                        }
-                    });
-                }
+                    shortcuts_menu.setEnabled(true);
+                });
             });
 
         } else {
@@ -3968,34 +3641,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 tts_menu.setEnabled(false);
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
+                Helpers.threadRun(() -> {
+                    getCrupier().broadcastGAMECommandFromServer("TTS#1", null);
+                    Helpers.GUIRun(() -> {
+                        tts_menu.setEnabled(true);
 
-                        getCrupier().broadcastGAMECommandFromServer("TTS#1", null);
+                        tts_menu.setOpaque(false);
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
+                        tts_menu.setBackground(null);
 
-                                tts_menu.setEnabled(true);
+                        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(false);
 
-                                tts_menu.setOpaque(false);
+                        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(null);
 
-                                tts_menu.setBackground(null);
+                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "TTS ACTIVADO POR EL SERVIDOR", new Color(0, 130, 0), Color.WHITE, null, 2000);
 
-                                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(false);
+                        dialog.setLocation(dialog.getParent().getLocation());
 
-                                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(null);
-
-                                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "TTS ACTIVADO POR EL SERVIDOR", new Color(0, 130, 0), Color.WHITE, null, 2000);
-
-                                dialog.setLocation(dialog.getParent().getLocation());
-
-                                dialog.setVisible(true);
-
-                            }
-                        });
-
-                    }
+                        dialog.setVisible(true);
+                    });
                 });
 
             }
@@ -4006,32 +3670,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             tts_menu.setEnabled(false);
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+            Helpers.threadRun(() -> {
+                getCrupier().broadcastGAMECommandFromServer("TTS#0", null);
+                Helpers.GUIRun(() -> {
+                    tts_menu.setEnabled(true);
 
-                    getCrupier().broadcastGAMECommandFromServer("TTS#0", null);
+                    tts_menu.setBackground(Color.RED);
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
+                    tts_menu.setOpaque(true);
 
-                            tts_menu.setEnabled(true);
+                    Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(Color.RED);
 
-                            tts_menu.setBackground(Color.RED);
+                    Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(true);
 
-                            tts_menu.setOpaque(true);
+                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "TTS DESACTIVADO POR EL SERVIDOR", Color.RED, Color.WHITE, null, 2000);
 
-                            Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(Color.RED);
+                    dialog.setLocation(dialog.getParent().getLocation());
 
-                            Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(true);
-
-                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "TTS DESACTIVADO POR EL SERVIDOR", Color.RED, Color.WHITE, null, 2000);
-
-                            dialog.setLocation(dialog.getParent().getLocation());
-
-                            dialog.setVisible(true);
-                        }
-                    });
-                }
+                    dialog.setVisible(true);
+                });
             });
 
         }
@@ -4058,33 +3715,26 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (crupier.getRebuy_now().containsKey(player.getNickname())) {
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-                    crupier.rebuyNow(player.getNickname(), -1);
+            Helpers.threadRun(() -> {
+                crupier.rebuyNow(player.getNickname(), -1);
+                Helpers.GUIRun(() -> {
+                    if (player.getBuyin() > GameFrame.BUYIN) {
+                        player.getPlayer_stack().setBackground(Color.CYAN);
+                        player.getPlayer_stack().setForeground(Color.BLACK);
+                    } else {
+                        player.getPlayer_stack().setBackground(new Color(51, 153, 0));
+                        player.getPlayer_stack().setForeground(Color.WHITE);
+                    }
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            if (player.getBuyin() > GameFrame.BUYIN) {
-                                player.getPlayer_stack().setBackground(Color.CYAN);
-                                player.getPlayer_stack().setForeground(Color.BLACK);
-                            } else {
-                                player.getPlayer_stack().setBackground(new Color(51, 153, 0));
-                                player.getPlayer_stack().setForeground(Color.WHITE);
-                            }
-
-                            player.getPlayer_stack().setText(Helpers.float2String(player.getStack()));
-                            rebuy_now_menu.setEnabled(true);
-                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
-                            rebuy_now_menu.setBackground(null);
-                            rebuy_now_menu.setOpaque(false);
-                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
-                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
-                        }
-                    });
-
-                    Audio.playWavResource("misc/button_off.wav");
-                }
+                    player.getPlayer_stack().setText(Helpers.float2String(player.getStack()));
+                    rebuy_now_menu.setEnabled(true);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                    rebuy_now_menu.setBackground(null);
+                    rebuy_now_menu.setOpaque(false);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
+                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
+                });
+                Audio.playWavResource("misc/button_off.wav");
             });
 
         } else {
@@ -4104,19 +3754,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(Color.YELLOW);
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(true);
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        crupier.rebuyNow(player.getNickname(), (int) rebuy_dialog.getRebuy_spinner().getValue());
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                rebuy_now_menu.setEnabled(true);
-                                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
-                                rebuy_dialog = null;
-                            }
-                        });
-                        Audio.playWavResource("misc/button_on.wav");
-
-                    }
+                Helpers.threadRun(() -> {
+                    crupier.rebuyNow(player.getNickname(), (int) rebuy_dialog.getRebuy_spinner().getValue());
+                    Helpers.GUIRun(() -> {
+                        rebuy_now_menu.setEnabled(true);
+                        Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                        rebuy_dialog = null;
+                    });
+                    Audio.playWavResource("misc/button_on.wav");
                 });
             } else {
                 rebuy_now_menu.setEnabled(true);
@@ -4152,19 +3797,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             auto_fit_zoom_menu.setEnabled(false);
 
-            Helpers.threadRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    tapete.autoZoom(false);
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-                            auto_fit_zoom_menu.setEnabled(true);
-                        }
-                    });
-
-                }
+            Helpers.threadRun(() -> {
+                tapete.autoZoom(false);
+                Helpers.GUIRun(() -> {
+                    auto_fit_zoom_menu.setEnabled(true);
+                });
             });
         }
 
@@ -4197,41 +3834,33 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 ((JRadioButtonMenuItem) c).setEnabled(false);
             }
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+            Helpers.threadRun(() -> {
+                Helpers.GUIRun(() -> {
+                    for (Component c : menu_tapetes.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setSelected(false);
+                    }
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
+                    menu_tapete_negro.setSelected(true);
 
-                            for (Component c : menu_tapetes.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setSelected(false);
-                            }
+                    for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setSelected(false);
+                    }
 
-                            menu_tapete_negro.setSelected(true);
+                    Helpers.TapetePopupMenu.TAPETE_NEGRO.setSelected(true);
 
-                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setSelected(false);
-                            }
+                    for (Component c : menu_tapetes.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setEnabled(true);
+                    }
 
-                            Helpers.TapetePopupMenu.TAPETE_NEGRO.setSelected(true);
+                    for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
+                        ((JRadioButtonMenuItem) c).setEnabled(true);
+                    }
 
-                            for (Component c : menu_tapetes.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setEnabled(true);
-                            }
+                    tapete.refresh();
 
-                            for (Component c : Helpers.TapetePopupMenu.TAPETES_MENU.getMenuComponents()) {
-                                ((JRadioButtonMenuItem) c).setEnabled(true);
-                            }
-
-                            tapete.refresh();
-
-                            cambiarColorContadoresTapete(Color.WHITE);
-
-                        }
-                    });
-
-                    tapete_counter = 0;
-                }
+                    cambiarColorContadoresTapete(Color.WHITE);
+                });
+                tapete_counter = 0;
             });
 
         } else if (!GameFrame.COLOR_TAPETE.equals("negro*")) {
@@ -4290,26 +3919,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         GameFrame.IWTSTH_RULE = iwtsth_rule_menu.isSelected();
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        Helpers.threadRun(() -> {
+            synchronized (crupier.getIwtsth_lock()) {
+                getCrupier().broadcastGAMECommandFromServer("IWTSTHRULE#" + (GameFrame.IWTSTH_RULE ? "1" : "0"), null);
+                if (isPartida_local()) {
+                    Helpers.GUIRun(() -> {
+                        iwtsth_rule_menu.setEnabled(true);
 
-                synchronized (crupier.getIwtsth_lock()) {
-
-                    getCrupier().broadcastGAMECommandFromServer("IWTSTHRULE#" + (GameFrame.IWTSTH_RULE ? "1" : "0"), null);
-
-                    if (isPartida_local()) {
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-
-                                iwtsth_rule_menu.setEnabled(true);
-
-                                Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(true);
-                            }
-                        });
-                    }
-
+                        Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(true);
+                    });
                 }
-
             }
         });
     }//GEN-LAST:event_iwtsth_rule_menuActionPerformed

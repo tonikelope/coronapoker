@@ -97,40 +97,25 @@ public class GifAnimationDialog extends javax.swing.JDialog {
 
         pack();
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        Helpers.threadRun(() -> {
+            int old_priority = Thread.currentThread().getPriority();
+            Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+            try {
+                gif_barrier.await();
+            } catch (Exception ex) {
+                Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            Helpers.GUIRunAndWait(this::dispose);
+            if (!force_exit) {
 
-                int old_priority = Thread.currentThread().getPriority();
+                Init.PLAYING_CINEMATIC = false;
+            }
+            synchronized (Init.LOCK_CINEMATICS) {
 
-                Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
-
-                try {
-                    gif_barrier.await();
-                } catch (Exception ex) {
-                    Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
-
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
-                        dispose();
-
-                    }
-                });
-
-                if (!force_exit) {
-
-                    Init.PLAYING_CINEMATIC = false;
-                }
-
-                synchronized (Init.LOCK_CINEMATICS) {
-
-                    Init.LOCK_CINEMATICS.notifyAll();
-
-                }
-
-                Thread.currentThread().setPriority(old_priority);
+                Init.LOCK_CINEMATICS.notifyAll();
 
             }
+            Thread.currentThread().setPriority(old_priority);
         });
     }
 

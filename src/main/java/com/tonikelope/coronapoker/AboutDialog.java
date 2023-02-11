@@ -32,7 +32,6 @@ import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.logging.Level;
@@ -60,7 +59,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "17.36";
+    public static final String VERSION = "17.37";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -127,13 +126,9 @@ public class AboutDialog extends javax.swing.JDialog {
 
         setResizable(false);
 
-        memory_timer = new Timer(MEM_TIMER, new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent ae) {
-                memory_usage.setText(Helpers.getMemoryUsage());
-                threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + "/" + String.valueOf(Helpers.THREAD_POOL.getPoolSize() + 2) + " threads");
-            }
+        memory_timer = new Timer(MEM_TIMER, (ActionEvent ae) -> {
+            memory_usage.setText(Helpers.getMemoryUsage());
+            threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + "/" + String.valueOf(Helpers.THREAD_POOL.getPoolSize() + 2) + " threads");
         });
 
         memory_timer.setRepeats(true);
@@ -527,19 +522,12 @@ public class AboutDialog extends javax.swing.JDialog {
             mod_bar.setVisible(true);
             pack();
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-                    Helpers.checkMODVersion(getContentPane());
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            mod_bar.setVisible(false);
-                            pack();
-
-                        }
-                    });
-
-                }
+            Helpers.threadRun(() -> {
+                Helpers.checkMODVersion(getContentPane());
+                Helpers.GUIRun(() -> {
+                    mod_bar.setVisible(false);
+                    pack();
+                });
             });
         }
     }//GEN-LAST:event_mod_labelMouseClicked

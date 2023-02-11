@@ -30,7 +30,6 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import javax.swing.Timer;
 
 /**
@@ -70,41 +69,22 @@ public class PauseDialog extends javax.swing.JDialog {
 
         PauseDialog tthis = this;
 
-        timer = new Timer(1000, new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent ae) {
-
-                pausa_label.setVisible(!pausa_label.isVisible());
-
-                if (pausa_label.isVisible()) {
-
-                    if (last_zoom != 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) {
-                        last_zoom = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
-                        pausa_label.setIcon(null);
-                        Helpers.threadRun(new Runnable() {
-                            @Override
-                            public void run() {
-
-                                Helpers.zoomFonts(pausa_label, last_zoom, null);
-
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        pack();
-                                        Helpers.setScaledIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
-                                        pack();
-                                        Helpers.setLocationContainerRelativeTo(getParent(), tthis);
-                                    }
-                                });
-
-                            }
+        timer = new Timer(1000, (ActionEvent ae) -> {
+            pausa_label.setVisible(!pausa_label.isVisible());
+            if (pausa_label.isVisible()) {
+                if (last_zoom != 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) {
+                    last_zoom = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
+                    pausa_label.setIcon(null);
+                    Helpers.threadRun(() -> {
+                        Helpers.zoomFonts(pausa_label, last_zoom, null);
+                        Helpers.GUIRun(() -> {
+                            pack();
+                            Helpers.setScaledIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
+                            pack();
+                            Helpers.setLocationContainerRelativeTo(getParent(), tthis);
                         });
-
-                    }
-
+                    });
                 }
-
             }
         });
     }

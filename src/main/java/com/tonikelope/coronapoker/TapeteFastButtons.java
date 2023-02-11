@@ -74,18 +74,14 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
 
     private void zoomIcons(float factor) {
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
+        Helpers.GUIRunAndWait(() -> {
+            if (!chat.isVisible()) {
+                for (Object[] b : botones) {
+                    Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round(factor * H), Math.round(factor * H));
 
-                if (!chat.isVisible()) {
-                    for (Object[] b : botones) {
-                        Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round(factor * H), Math.round(factor * H));
-
-                    }
-
-                    zoom_factor = factor;
                 }
 
+                zoom_factor = factor;
             }
         });
     }
@@ -116,11 +112,9 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
     }
 
     public void hideButtons() {
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                for (Object[] b : botones) {
-                    ((Component) b[0]).setVisible(false);
-                }
+        Helpers.GUIRun(() -> {
+            for (Object[] b : botones) {
+                ((Component) b[0]).setVisible(false);
             }
         });
     }

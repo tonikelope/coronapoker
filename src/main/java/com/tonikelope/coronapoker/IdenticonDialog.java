@@ -99,12 +99,8 @@ public class IdenticonDialog extends javax.swing.JDialog {
         String[] hash_rgb_parts = Helpers.toHexString(hash_rgb).toUpperCase().split("(?<=\\G.{2})");
         String hash_rgb_title = String.join(":", hash_rgb_parts);
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-
-                setTitle(getTitle() + " - " + hash_rgb_title);
-            }
+        Helpers.GUIRunAndWait(() -> {
+            setTitle(getTitle() + " - " + hash_rgb_title);
         });
 
         for (int x = 0; x < width; x++) {

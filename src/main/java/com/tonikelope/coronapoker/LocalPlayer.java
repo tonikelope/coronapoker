@@ -151,15 +151,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         BufferedImage c1 = robot.createScreenCapture(r1); //Captura el panel de las cartas con las cartas visibles
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-
-                holeCard1.setSecure_hidden(true);
-                holeCard1.getCard_image().setVisible(false);
-                holeCard2.setSecure_hidden(true);
-                holeCard2.getCard_image().setVisible(false);
-                paintImmediately(panel_cartas.getBounds());
-            }
+        Helpers.GUIRun(() -> {
+            holeCard1.setSecure_hidden(true);
+            holeCard1.getCard_image().setVisible(false);
+            holeCard2.setSecure_hidden(true);
+            holeCard2.getCard_image().setVisible(false);
+            paintImmediately(panel_cartas.getBounds());
         });
 
         BufferedImage c2 = robot.createScreenCapture(r1); //Aquí normalmente las cartas seguirán aún visibles (depende del SO)
@@ -181,139 +178,91 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void RADAR(String requester) {
 
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
-
-                synchronized (radar_lock) {
-
+        Helpers.threadRun(() -> {
+            synchronized (radar_lock) {
+                try {
+                    radar_ckecking = true;
+                    boolean screenshot_error = false;
+                    BufferedImage capture = null;
+                    long timestamp = System.currentTimeMillis();
                     try {
-
-                        radar_ckecking = true;
-
-                        boolean screenshot_error = false;
-
-                        BufferedImage capture = null;
-
-                        long timestamp = System.currentTimeMillis();
-
-                        try {
-                            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-                            GraphicsDevice[] screens = ge.getScreenDevices();
-                            Rectangle allScreenBounds = new Rectangle();
-
-                            for (GraphicsDevice screen : screens) {
-                                Rectangle screenBounds = screen.getDefaultConfiguration().getBounds();
-                                allScreenBounds.width += screenBounds.width;
-                                allScreenBounds.height = Math.max(allScreenBounds.height, screenBounds.height);
-                            }
-
-                            secureHideHoleCards(25, 2000);
-
-                            timestamp = System.currentTimeMillis();
-
-                            capture = new Robot().createScreenCapture(allScreenBounds);
-
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-
-                                    holeCard1.getCard_image().setVisible(holeCard1.isVisible_card());
-                                    holeCard1.setSecure_hidden(false);
-                                    holeCard2.getCard_image().setVisible(holeCard2.isVisible_card());
-                                    holeCard2.setSecure_hidden(false);
-                                    paintImmediately(panel_cartas.getBounds());
-                                }
-                            });
-
-                        } catch (Exception ex) {
-                            screenshot_error = true;
+                        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+                        GraphicsDevice[] screens = ge.getScreenDevices();
+                        Rectangle allScreenBounds = new Rectangle();
+                        for (GraphicsDevice screen : screens) {
+                            Rectangle screenBounds = screen.getDefaultConfiguration().getBounds();
+                            allScreenBounds.width += screenBounds.width;
+                            allScreenBounds.height = Math.max(allScreenBounds.height, screenBounds.height);
                         }
+                        secureHideHoleCards(25, 2000);
+                        timestamp = System.currentTimeMillis();
+                        capture = new Robot().createScreenCapture(allScreenBounds);
+                        Helpers.GUIRun(() -> {
+                            holeCard1.getCard_image().setVisible(holeCard1.isVisible_card());
+                            holeCard1.setSecure_hidden(false);
+                            holeCard2.getCard_image().setVisible(holeCard2.isVisible_card());
+                            holeCard2.setSecure_hidden(false);
+                            paintImmediately(panel_cartas.getBounds());
+                        });
+                    } catch (Exception ex) {
+                        screenshot_error = true;
+                    }
+                    radar_ckecking = false;
+                    byte[] imageInByte = null;
+                    if (!screenshot_error) {
 
-                        radar_ckecking = false;
-
-                        byte[] imageInByte = null;
-
-                        if (!screenshot_error) {
-
-                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
+                        try ( ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                             ImageIO.write(Helpers.convertToGrayScale(capture), "jpg", baos);
 
                             baos.flush();
 
                             imageInByte = baos.toByteArray();
-
-                            baos.close();
                         }
-
-                        StringBuilder sb = new StringBuilder();
-
-                        if (Init.coronaHMACVM()) {
-                            sb.append("@\n");
-                        }
-
-                        sb.append("  ____                            ____       _               ____      _    ____    _    ____  \n"
-                                + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
-                                + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
-                                + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
-                                + " \\____\\___/|_|  \\___/|_| |_|\\__,_|_|   \\___/|_|\\_\\___|_|    |_| \\_\\/_/   \\_\\____/_/   \\_\\_| \\_\\\n"
-                                + "                                                                                               ");
-
-                        sb.append("\n\nCoronaPoker Radar -> [" + nickname + "] " + Helpers.getFechaHoraActual() + "\n\n");
-
-                        sb.append(Translator.translate("ADVERTENCIA: este registro debe comprobarse manualmente para detectar las aplicaciones y/o bibliotecas utilizadas para hacer trampas.\n\n"));
-
-                        sb.append("******************** " + Translator.translate("PROCESOS DEL SISTEMA") + " ********************\n\n");
-
-                        sb.append(Helpers.getProcessesList());
-
-                        sb.append("\n\n******************** " + Translator.translate("LIBRERÍAS CARGADAS CON CORONAPOKER") + " ********************\n\n");
-
-                        String java_libs = null;
-
-                        try {
-                            java_libs = (String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null);
-                        } catch (Exception ex) {
-                        }
-
-                        sb.append(java_libs);
-
-                        Audio.playWavResource("misc/radar.wav");
-
-                        if (GameFrame.getInstance().isPartida_local()) {
-                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + (imageInByte != null ? Base64.encodeBase64String(imageInByte) : "*") + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
-                        } else {
-                            GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + (imageInByte != null ? Base64.encodeBase64String(imageInByte) : "*") + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
-                        }
-
-                    } catch (Exception ex) {
-                        Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
+                    StringBuilder sb = new StringBuilder();
+                    if (Init.coronaHMACVM()) {
+                        sb.append("@\n");
+                    }
+                    sb.append("  ____                            ____       _               ____      _    ____    _    ____  \n"
+                            + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
+                            + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
+                            + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
+                            + " \\____\\___/|_|  \\___/|_| |_|\\__,_|_|   \\___/|_|\\_\\___|_|    |_| \\_\\/_/   \\_\\____/_/   \\_\\_| \\_\\\n"
+                            + "                                                                                               ");
+                    sb.append("\n\nCoronaPoker Radar -> [" + nickname + "] " + Helpers.getFechaHoraActual() + "\n\n");
+                    sb.append(Translator.translate("ADVERTENCIA: este registro debe comprobarse manualmente para detectar las aplicaciones y/o bibliotecas utilizadas para hacer trampas.\n\n"));
+                    sb.append("******************** " + Translator.translate("PROCESOS DEL SISTEMA") + " ********************\n\n");
+                    sb.append(Helpers.getProcessesList());
+                    sb.append("\n\n******************** " + Translator.translate("LIBRERÍAS CARGADAS CON CORONAPOKER") + " ********************\n\n");
+                    String java_libs = null;
+                    try {
+                        java_libs = (String) ManagementFactory.getPlatformMBeanServer().invoke(new ObjectName("com.sun.management:type=DiagnosticCommand"), "vmDynlibs", null, null);
+                    } catch (Exception ex) {
+                    }
+                    sb.append(java_libs);
+                    Audio.playWavResource("misc/radar.wav");
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nickname.getBytes("UTF-8")) + "#" + (imageInByte != null ? Base64.encodeBase64String(imageInByte) : "*") + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                    } else {
+                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(requester.getBytes("UTF-8")) + "#" + (imageInByte != null ? Base64.encodeBase64String(imageInByte) : "*") + "#" + Base64.encodeBase64String(sb.toString().getBytes("UTF-8")) + "#" + String.valueOf(timestamp));
+                    }
+                } catch (Exception ex) {
+                    Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         });
     }
 
     public void refreshNotifyChatLabel() {
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                if (getChat_notify_label().isVisible()) {
-
-                    Helpers.threadRun(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            if (chat_notify_image_url != null) {
-                                setNotifyImageChatLabel(chat_notify_image_url);
-                            } else {
-                                setNotifyTTSChatLabel();
-                            }
-                        }
-                    });
-
-                }
+        Helpers.GUIRun(() -> {
+            if (getChat_notify_label().isVisible()) {
+                Helpers.threadRun(() -> {
+                    if (chat_notify_image_url != null) {
+                        setNotifyImageChatLabel(chat_notify_image_url);
+                    } else {
+                        setNotifyTTSChatLabel();
+                    }
+                });
             }
         });
 
@@ -328,32 +277,28 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             getChat_notify_label().notifyAll();
         }
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.GUIRun(() -> {
+            int sound_icon_size_h = Math.round(getHoleCard1().getHeight() / 2);
 
-                int sound_icon_size_h = Math.round(getHoleCard1().getHeight() / 2);
+            int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
 
-                int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
+            int pos_x = panel_cartas.getWidth() - sound_icon_size_w;
 
-                int pos_x = panel_cartas.getWidth() - sound_icon_size_w;
+            int pos_y = Math.round(getHoleCard1().getHeight() / 2);
 
-                int pos_y = Math.round(getHoleCard1().getHeight() / 2);
+            getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)));
 
-                getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)));
+            getChat_notify_label().setSize(sound_icon_size_w, sound_icon_size_h);
 
-                getChat_notify_label().setSize(sound_icon_size_w, sound_icon_size_h);
+            getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
 
-                getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+            getChat_notify_label().setOpaque(false);
 
-                getChat_notify_label().setOpaque(false);
+            getChat_notify_label().revalidate();
 
-                getChat_notify_label().revalidate();
+            getChat_notify_label().repaint();
 
-                getChat_notify_label().repaint();
-
-                getChat_notify_label().setLocation(pos_x, pos_y);
-            }
+            getChat_notify_label().setLocation(pos_x, pos_y);
         });
     }
 
@@ -372,87 +317,67 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             int timeout = (isgif = (gif_l != -1 || Helpers.isImageGIF(new URL(url)))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT;
 
-            Helpers.threadRun(new Runnable() {
-                @Override
-                public void run() {
+            Helpers.threadRun(() -> {
+                chat_notify_thread = Thread.currentThread().getId();
+                synchronized (getChat_notify_label()) {
+                    getChat_notify_label().notifyAll();
+                    Helpers.GUIRunAndWait(() -> {
+                        try {
+                            ImageIcon image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
 
-                    chat_notify_thread = Thread.currentThread().getId();
+                            int max_width = panel_cartas.getWidth();
 
-                    synchronized (getChat_notify_label()) {
+                            int max_height = Math.round(getHoleCard1().getHeight() / 2);
 
-                        getChat_notify_label().notifyAll();
+                            if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
 
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            @Override
-                            public void run() {
+                                int new_height = max_height;
 
-                                try {
-                                    ImageIcon image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
+                                int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
 
-                                    int max_width = panel_cartas.getWidth();
+                                if (new_width > max_width) {
 
-                                    int max_height = Math.round(getHoleCard1().getHeight() / 2);
+                                    new_height = (int) Math.round((new_height * max_width) / new_width);
 
-                                    if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
-
-                                        int new_height = max_height;
-
-                                        int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
-
-                                        if (new_width > max_width) {
-
-                                            new_height = (int) Math.round((new_height * max_width) / new_width);
-
-                                            new_width = max_width;
-                                        }
-
-                                        image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-                                    }
-
-                                    int pos_x = panel_cartas.getWidth() - image.getIconWidth();
-
-                                    int pos_y = Math.round(getHoleCard1().getHeight() / 2);
-
-                                    getChat_notify_label().setIcon(image);
-
-                                    getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
-
-                                    getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
-
-                                    getChat_notify_label().setOpaque(false);
-
-                                    getChat_notify_label().revalidate();
-
-                                    getChat_notify_label().repaint();
-
-                                    getChat_notify_label().setLocation(pos_x, pos_y);
-
-                                    getChat_notify_label().setVisible(true);
-                                } catch (MalformedURLException ex) {
-                                    Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                                    new_width = max_width;
                                 }
 
+                                image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                             }
-                        });
 
-                        try {
-                            getChat_notify_label().wait(timeout);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            int pos_x = panel_cartas.getWidth() - image.getIconWidth();
+
+                            int pos_y = Math.round(getHoleCard1().getHeight() / 2);
+
+                            getChat_notify_label().setIcon(image);
+
+                            getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
+
+                            getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+
+                            getChat_notify_label().setOpaque(false);
+
+                            getChat_notify_label().revalidate();
+
+                            getChat_notify_label().repaint();
+
+                            getChat_notify_label().setLocation(pos_x, pos_y);
+
+                            getChat_notify_label().setVisible(true);
+                        } catch (MalformedURLException ex) {
+                            Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                         }
-
+                    });
+                    try {
+                        getChat_notify_label().wait(timeout);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
-                    if (Thread.currentThread().getId() == chat_notify_thread) {
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            @Override
-                            public void run() {
-                                getChat_notify_label().setVisible(false);
-
-                            }
-                        });
-                    }
-
+                }
+                if (Thread.currentThread().getId() == chat_notify_thread) {
+                    Helpers.GUIRunAndWait(() -> {
+                        getChat_notify_label().setVisible(false);
+                    });
                 }
             });
 
@@ -587,22 +512,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             chip_label_icon = null;
         }
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.GUIRun(() -> {
+            if (isActivo() && chip_label_icon != null) {
+                chip_label.setIcon(chip_label_icon);
+                chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
+                chip_label.setLocation(0, getHoleCard1().getHeight() - chip_label.getHeight());
+                chip_label.revalidate();
+                chip_label.repaint();
+                chip_label.setVisible(GameFrame.LOCAL_POSITION_CHIP);
 
-                if (isActivo() && chip_label_icon != null) {
-                    chip_label.setIcon(chip_label_icon);
-                    chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
-                    chip_label.setLocation(0, getHoleCard1().getHeight() - chip_label.getHeight());
-                    chip_label.revalidate();
-                    chip_label.repaint();
-                    chip_label.setVisible(GameFrame.LOCAL_POSITION_CHIP);
-
-                } else {
-                    chip_label.setVisible(false);
-                }
-
+            } else {
+                chip_label.setVisible(false);
             }
         });
 
@@ -614,22 +534,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         desactivarControles();
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                if (parguela) {
-                    player_allin_button.setText(Translator.translate("MOSTRAR") + " (" + parguela_counter + ")");
-                } else {
-                    player_allin_button.setText(Translator.translate("MOSTRAR"));
+        Helpers.GUIRun(() -> {
+            if (parguela) {
+                player_allin_button.setText(Translator.translate("MOSTRAR") + " (" + parguela_counter + ")");
+            } else {
+                player_allin_button.setText(Translator.translate("MOSTRAR"));
 
-                }
-                player_allin_button.setIcon(null);
-                player_allin_button.setForeground(Color.WHITE);
-                player_allin_button.setBackground(new Color(51, 153, 255));
-                player_allin_button.setEnabled(true);
+            }
+            player_allin_button.setIcon(null);
+            player_allin_button.setForeground(Color.WHITE);
+            player_allin_button.setBackground(new Color(51, 153, 255));
+            player_allin_button.setEnabled(true);
 
-                if (GameFrame.TEST_MODE) {
-                    player_allin_button.doClick();
-                }
+            if (GameFrame.TEST_MODE) {
+                player_allin_button.doClick();
             }
         });
 
@@ -640,75 +558,62 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             this.spectator = true;
             this.bote = 0f;
 
-            Helpers.GUIRunAndWait(new Runnable() {
-                @Override
-                public void run() {
-                    desactivarControles();
-                    setOpaque(false);
-                    setBackground(null);
-                    setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            Helpers.GUIRunAndWait(() -> {
+                desactivarControles();
+                setOpaque(false);
+                setBackground(null);
+                setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                    player_pot.setText("----");
-                    player_pot.setForeground(Color.white);
-                    player_pot.setBackground(new Color(204, 204, 204, 75));
-                    utg_icon.setVisible(false);
-                    holeCard1.resetearCarta();
-                    holeCard2.resetearCarta();
-                    player_name.setOpaque(false);
-                    player_name.setBackground(null);
-                    player_name.setIcon(null);
-                    chip_label.setVisible(false);
-                    sec_pot_win_label.setVisible(false);
+                player_pot.setText("----");
+                player_pot.setForeground(Color.white);
+                player_pot.setBackground(new Color(204, 204, 204, 75));
+                utg_icon.setVisible(false);
+                holeCard1.resetearCarta();
+                holeCard2.resetearCarta();
+                player_name.setOpaque(false);
+                player_name.setBackground(null);
+                player_name.setIcon(null);
+                chip_label.setVisible(false);
+                sec_pot_win_label.setVisible(false);
 
-                    if (buyin > GameFrame.BUYIN) {
-                        player_stack.setBackground(Color.CYAN);
-                        player_stack.setForeground(Color.BLACK);
-                    } else {
+                if (buyin > GameFrame.BUYIN) {
+                    player_stack.setBackground(Color.CYAN);
+                    player_stack.setForeground(Color.BLACK);
+                } else {
 
-                        player_stack.setBackground(new Color(51, 153, 0));
-                        player_stack.setForeground(Color.WHITE);
-                    }
-
-                    player_stack.setText(Helpers.float2String(stack));
-
-                    if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
-                        player_name.setForeground(Color.YELLOW);
-                    } else {
-                        player_name.setForeground(Color.WHITE);
-                    }
-
-                    setAuto_pause(false);
-                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(null);
-                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(null);
-
-                    if (!GameFrame.getInstance().isPartida_local()) {
-                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(false);
-                    }
-
-                    disablePlayerAction();
-
+                    player_stack.setBackground(new Color(51, 153, 0));
+                    player_stack.setForeground(Color.WHITE);
                 }
+
+                player_stack.setText(Helpers.float2String(stack));
+
+                if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
+                    player_name.setForeground(Color.YELLOW);
+                } else {
+                    player_name.setForeground(Color.WHITE);
+                }
+
+                setAuto_pause(false);
+                GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setBackground(null);
+                GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setForeground(null);
+
+                if (!GameFrame.getInstance().isPartida_local()) {
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(false);
+                }
+
+                disablePlayerAction();
             });
 
-            Helpers.threadRun(new Runnable() {
-                @Override
-                public void run() {
-                    while (player_name.getHeight() == 0) {
-                        Helpers.pausar(125);
-                    }
-
-                    Helpers.GUIRun(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (isSpectator()) {
-                                player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
-                                setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
-                            }
-
-                        }
-                    });
-
+            Helpers.threadRun(() -> {
+                while (player_name.getHeight() == 0) {
+                    Helpers.pausar(125);
                 }
+                Helpers.GUIRun(() -> {
+                    if (isSpectator()) {
+                        player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
+                        setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
+                    }
+                });
             });
 
         }
@@ -717,15 +622,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void unsetSpectator() {
         this.spectator = false;
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-                player_name.setIcon(null);
-                player_stack.setEnabled(true);
-                GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
-                disablePlayerAction();
-            }
+        Helpers.GUIRun(() -> {
+            setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            player_name.setIcon(null);
+            player_stack.setEnabled(true);
+            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
+            disablePlayerAction();
         });
     }
 
@@ -734,13 +636,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (boton_mostrar) {
             boton_mostrar = false;
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    player_allin_button.setText(" ");
-                    player_allin_button.setEnabled(false);
-                    player_allin_button.setBackground(Color.BLACK);
-                    player_allin_button.setForeground(Color.WHITE);
-                }
+            Helpers.GUIRun(() -> {
+                player_allin_button.setText(" ");
+                player_allin_button.setEnabled(false);
+                player_allin_button.setBackground(Color.BLACK);
+                player_allin_button.setForeground(Color.WHITE);
             });
         }
     }
@@ -755,18 +655,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             this.timeout = val;
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
+            Helpers.GUIRun(() -> {
+                if (val) {
 
-                    if (val) {
-
-                        setPlayerBorder(Color.MAGENTA, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-                        setPlayerActionIcon("action/timeout.png");
-                    } else {
-                        setPlayerBorder(border_color != null ? border_color : new java.awt.Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-                        setPlayerActionIcon(player_action_icon);
-                    }
-
+                    setPlayerBorder(Color.MAGENTA, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                    setPlayerActionIcon("action/timeout.png");
+                } else {
+                    setPlayerBorder(border_color != null ? border_color : new java.awt.Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                    setPlayerActionIcon(player_action_icon);
                 }
             });
 
@@ -811,22 +707,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             desactivarControles();
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            Helpers.GUIRun(() -> {
+                setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                    holeCard1.resetearCarta();
-                    holeCard2.resetearCarta();
-                    player_action.setBackground(new Color(255, 102, 0));
-                    player_action.setForeground(Color.WHITE);
-                    player_action.setText(Translator.translate("ABANDONAS LA TIMBA"));
-                    setPlayerActionIcon("exit.png");
-                    player_action.setVisible(true);
-                    chip_label.setVisible(false);
-                    sec_pot_win_label.setVisible(false);
-
-                }
+                holeCard1.resetearCarta();
+                holeCard2.resetearCarta();
+                player_action.setBackground(new Color(255, 102, 0));
+                player_action.setForeground(Color.WHITE);
+                player_action.setText(Translator.translate("ABANDONAS LA TIMBA"));
+                setPlayerActionIcon("exit.png");
+                player_action.setVisible(true);
+                chip_label.setVisible(false);
+                sec_pot_win_label.setVisible(false);
             });
         }
     }
@@ -848,17 +740,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void setNickname(String nickname) {
         this.nickname = nickname;
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                player_name.setText(nickname);
+        Helpers.GUIRun(() -> {
+            player_name.setText(nickname);
 
-                if (!GameFrame.getInstance().isPartida_local()) {
+            if (!GameFrame.getInstance().isPartida_local()) {
 
-                    avatar.setToolTipText("CLICK -> AES-KEY");
-                } else {
-                    player_name.setForeground(Color.YELLOW);
-                    avatar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-                }
+                avatar.setToolTipText("CLICK -> AES-KEY");
+            } else {
+                player_name.setForeground(Color.YELLOW);
+                avatar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
             }
         });
     }
@@ -871,29 +761,26 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.stack = Helpers.floatClean(stack);
 
         if (!player_stack_click) {
-            Helpers.GUIRunAndWait(new Runnable() {
-                public void run() {
+            Helpers.GUIRunAndWait(() -> {
+                if (getNickname() != null && GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
+                    player_stack.setBackground(Color.YELLOW);
+                    player_stack.setForeground(Color.BLACK);
+                    player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
 
-                    if (getNickname() != null && GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
-                        player_stack.setBackground(Color.YELLOW);
+                } else {
+
+                    if (buyin > GameFrame.BUYIN) {
+                        player_stack.setBackground(Color.CYAN);
+
                         player_stack.setForeground(Color.BLACK);
-                        player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
-
                     } else {
 
-                        if (buyin > GameFrame.BUYIN) {
-                            player_stack.setBackground(Color.CYAN);
+                        player_stack.setBackground(new Color(51, 153, 0));
 
-                            player_stack.setForeground(Color.BLACK);
-                        } else {
-
-                            player_stack.setBackground(new Color(51, 153, 0));
-
-                            player_stack.setForeground(Color.WHITE);
-                        }
-
-                        player_stack.setText(Helpers.float2String(stack));
+                        player_stack.setForeground(Color.WHITE);
                     }
+
+                    player_stack.setText(Helpers.float2String(stack));
                 }
             });
         }
@@ -930,118 +817,68 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
      */
     public LocalPlayer() {
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
+        Helpers.GUIRunAndWait(() -> {
+            initComponents();
+            setOpaque(false);
+            setBackground(null);
+            hands_win.setVisible(false);
+            sec_pot_win_label.setVisible(false);
+            sec_pot_win_label.setDoubleBuffered(true);
+            sec_pot_win_label.setHorizontalAlignment(JLabel.CENTER);
+            sec_pot_win_label.setOpaque(true);
+            sec_pot_win_label.setFocusable(false);
+            sec_pot_win_label.setFont(player_action.getFont().deriveFont(player_action.getFont().getStyle(), Math.round(player_action.getFont().getSize() * 0.7f)));
+            panel_cartas.add(sec_pot_win_label, new Integer(1003));
+            chat_notify_label.setVisible(false);
+            chat_notify_label.setDoubleBuffered(true);
+            chat_notify_label.setFocusable(false);
+            chat_notify_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            chat_notify_label.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    chat_notify_label.setVisible(false);
+                    Helpers.threadRun(() -> {
+                        synchronized (chat_notify_label) {
 
-                setOpaque(false);
+                            chat_notify_label.notifyAll();
+                        }
+                    });
+                }
+            });
+            panel_cartas.add(chat_notify_label, new Integer(1002));
+            chip_label.setVisible(false);
+            chip_label.setDoubleBuffered(true);
+            chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            chip_label.setOpaque(false);
+            chip_label.setFocusable(false);
+            chip_label.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
 
-                setBackground(null);
-
-                hands_win.setVisible(false);
-
-                sec_pot_win_label.setVisible(false);
-
-                sec_pot_win_label.setDoubleBuffered(true);
-
-                sec_pot_win_label.setHorizontalAlignment(JLabel.CENTER);
-
-                sec_pot_win_label.setOpaque(true);
-
-                sec_pot_win_label.setFocusable(false);
-
-                sec_pot_win_label.setFont(player_action.getFont().deriveFont(player_action.getFont().getStyle(), Math.round(player_action.getFont().getSize() * 0.7f)));
-
-                panel_cartas.add(sec_pot_win_label, new Integer(1003));
-
-                chat_notify_label.setVisible(false);
-
-                chat_notify_label.setDoubleBuffered(true);
-
-                chat_notify_label.setFocusable(false);
-
-                chat_notify_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-                chat_notify_label.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mouseClicked(MouseEvent e) {
-
-                        chat_notify_label.setVisible(false);
-
-                        Helpers.threadRun(new Runnable() {
-                            @Override
-                            public void run() {
-
-                                synchronized (chat_notify_label) {
-
-                                    chat_notify_label.notifyAll();
-                                }
-                            }
-                        });
-                    }
-                });
-
-                panel_cartas.add(chat_notify_label, new Integer(1002));
-
-                chip_label.setVisible(false);
-
-                chip_label.setDoubleBuffered(true);
-
-                chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-                chip_label.setOpaque(false);
-
-                chip_label.setFocusable(false);
-
-                chip_label.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mouseClicked(MouseEvent e) {
-
-                        player_nameMouseClicked(e);
-                    }
-                });
-
-                panel_cartas.add(chip_label, new Integer(1001));
-
-                border_color = ((LineBorder) getBorder()).getLineColor();
-
-                action_button_armed.put(player_check_button, false);
-
-                action_button_armed.put(player_bet_button, false);
-
-                action_button_armed.put(player_allin_button, false);
-
-                action_button_armed.put(player_fold_button, false);
-
-                disablePlayerAction();
-
-                desactivarControles();
-
-                Helpers.setScaledIconLabel(utg_icon, getClass().getResource("/images/utg.png"), 41, 31);
-
-                utg_icon.setVisible(false);
-
-                player_pot.setText("----");
-
-                player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-                icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, new ActionListener() {
-
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-
-                        icon_zoom_timer.stop();
-                        zoomIcons();
-                        holeCard1.updateImagePreloadCache();
-                        holeCard2.updateImagePreloadCache();
-                        refreshNotifyChatLabel();
-
-                    }
-                });
-
-                icon_zoom_timer.setRepeats(false);
-                icon_zoom_timer.setCoalesce(false);
-            }
+                    player_nameMouseClicked(e);
+                }
+            });
+            panel_cartas.add(chip_label, new Integer(1001));
+            border_color = ((LineBorder) getBorder()).getLineColor();
+            action_button_armed.put(player_check_button, false);
+            action_button_armed.put(player_bet_button, false);
+            action_button_armed.put(player_allin_button, false);
+            action_button_armed.put(player_fold_button, false);
+            disablePlayerAction();
+            desactivarControles();
+            Helpers.setScaledIconLabel(utg_icon, getClass().getResource("/images/utg.png"), 41, 31);
+            utg_icon.setVisible(false);
+            player_pot.setText("----");
+            player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, (ActionEvent ae) -> {
+                icon_zoom_timer.stop();
+                zoomIcons();
+                holeCard1.updateImagePreloadCache();
+                holeCard2.updateImagePreloadCache();
+                refreshNotifyChatLabel();
+            });
+            icon_zoom_timer.setRepeats(false);
+            icon_zoom_timer.setCoalesce(false);
         });
 
     }
@@ -1092,17 +929,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
+        Helpers.GUIRunAndWait(() -> {
+            if (Helpers.float1DSecureCompare(0f, bote) < 0) {
+                player_pot.setText(Helpers.float2String(bote));
 
-                if (Helpers.float1DSecureCompare(0f, bote) < 0) {
-                    player_pot.setText(Helpers.float2String(bote));
+            } else {
 
-                } else {
-
-                    player_pot.setText("----");
-                }
-
+                player_pot.setText("----");
             }
         });
 
@@ -1120,13 +953,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Audio.playWavResource("misc/cash_register.wav");
 
         if (!player_stack_click) {
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    player_stack.setText(Helpers.float2String(stack));
-                    player_stack.setBackground(Color.CYAN);
-                    player_stack.setForeground(Color.BLACK);
-
-                }
+            Helpers.GUIRun(() -> {
+                player_stack.setText(Helpers.float2String(stack));
+                player_stack.setBackground(Color.CYAN);
+                player_stack.setForeground(Color.BLACK);
             });
         }
     }
@@ -1157,322 +987,249 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             min_raise = Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getUltimo_raise()) < 0 ? GameFrame.getInstance().getCrupier().getUltimo_raise() : Helpers.floatClean(GameFrame.getInstance().getCrupier().getCiega_grande());
 
-            Helpers.GUIRunAndWait(new Runnable() {
-                public void run() {
+            Helpers.GUIRunAndWait(() -> {
+                desarmarBotonesAccion();
+                setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                player_allin_button.setText("ALL IN");
+                player_allin_button.setEnabled(true);
+                Helpers.setScaledIconButton(player_allin_button, getClass().getResource("/images/action/glasses.png"), Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()));
+                player_fold_button.setText("NO IR");
+                player_fold_button.setEnabled(true);
+                player_fold_button.setBackground(Color.DARK_GRAY);
+                player_fold_button.setForeground(Color.WHITE);
+                Helpers.setScaledIconButton(player_fold_button, getClass().getResource("/images/action/down.png"), Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()));
+                player_action.setBackground(new Color(204, 204, 204, 75));
+                player_action.setForeground(Color.WHITE);
+                //Comprobamos si podemos ver la apuesta actual
+                if (Helpers.float1DSecureCompare(call_required, stack) < 0) {
 
-                    desarmarBotonesAccion();
+                    player_check_button.setEnabled(true);
 
-                    setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                    Helpers.setScaledIconButton(player_check_button, getClass().getResource("/images/action/up.png"), Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()));
 
-                    player_allin_button.setText("ALL IN");
+                    if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
+                        player_check_button.setText("PASAR");
+                        player_check_button.setBackground(new Color(0, 130, 0));
+                        player_check_button.setForeground(Color.WHITE);
 
-                    player_allin_button.setEnabled(true);
-
-                    Helpers.setScaledIconButton(player_allin_button, getClass().getResource("/images/action/glasses.png"), Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()));
-
-                    player_fold_button.setText("NO IR");
-
-                    player_fold_button.setEnabled(true);
-
-                    player_fold_button.setBackground(Color.DARK_GRAY);
-
-                    player_fold_button.setForeground(Color.WHITE);
-
-                    Helpers.setScaledIconButton(player_fold_button, getClass().getResource("/images/action/down.png"), Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()));
-
-                    player_action.setBackground(new Color(204, 204, 204, 75));
-
-                    player_action.setForeground(Color.WHITE);
-
-                    //Comprobamos si podemos ver la apuesta actual
-                    if (Helpers.float1DSecureCompare(call_required, stack) < 0) {
-
-                        player_check_button.setEnabled(true);
-
-                        Helpers.setScaledIconButton(player_check_button, getClass().getResource("/images/action/up.png"), Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()));
-
-                        if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
-                            player_check_button.setText("PASAR");
-                            player_check_button.setBackground(new Color(0, 130, 0));
-                            player_check_button.setForeground(Color.WHITE);
-
-                            if (pre_pulsado == Player.FOLD) {
-                                desPrePulsarBotonAuto(player_fold_button);
-                            }
-
-                            player_fold_button.setBackground(Color.RED);
-                            player_fold_button.setForeground(Color.WHITE);
-                        } else {
-                            player_check_button.setText(Translator.translate("IR") + " (+" + Helpers.float2String(call_required) + ")");
-                            player_check_button.setBackground(null);
-                            player_check_button.setForeground(null);
-                            player_fold_button.setBackground(Color.DARK_GRAY);
-                            player_fold_button.setForeground(Color.WHITE);
+                        if (pre_pulsado == Player.FOLD) {
+                            desPrePulsarBotonAuto(player_fold_button);
                         }
 
+                        player_fold_button.setBackground(Color.RED);
+                        player_fold_button.setForeground(Color.WHITE);
                     } else {
-
-                        if (pre_pulsado == Player.CHECK) {
-                            desPrePulsarBotonAuto(player_check_button);
-                        }
-
-                        player_check_button.setIcon(null);
-                        player_check_button.setText(" ");
-                        player_check_button.setEnabled(false);
+                        player_check_button.setText(Translator.translate("IR") + " (+" + Helpers.float2String(call_required) + ")");
+                        player_check_button.setBackground(null);
+                        player_check_button.setForeground(null);
+                        player_fold_button.setBackground(Color.DARK_GRAY);
+                        player_fold_button.setForeground(Color.WHITE);
                     }
 
-                    if ((GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
-                            || (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
+                } else {
 
-                        //Actualizamos el spinner y el botón de apuestas
-                        BigDecimal spinner_min;
-                        BigDecimal spinner_max = new BigDecimal(stack - call_required).setScale(1, RoundingMode.HALF_UP);
+                    if (pre_pulsado == Player.CHECK) {
+                        desPrePulsarBotonAuto(player_check_button);
+                    }
 
-                        Helpers.setScaledIconButton(player_bet_button, getClass().getResource("/images/action/bet.png"), Math.round(0.6f * player_bet_button.getHeight()), Math.round(0.6f * player_bet_button.getHeight()));
+                    player_check_button.setIcon(null);
+                    player_check_button.setText(" ");
+                    player_check_button.setEnabled(false);
+                }
+                if ((GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
+                        || (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
 
-                        if (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
-                            spinner_min = new BigDecimal(GameFrame.getInstance().getCrupier().getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
-                            player_bet_button.setEnabled(true);
-                            player_bet_button.setText(Translator.translate("APOSTAR"));
+                    //Actualizamos el spinner y el botón de apuestas
+                    BigDecimal spinner_min;
+                    BigDecimal spinner_max = new BigDecimal(stack - call_required).setScale(1, RoundingMode.HALF_UP);
+
+                    Helpers.setScaledIconButton(player_bet_button, getClass().getResource("/images/action/bet.png"), Math.round(0.6f * player_bet_button.getHeight()), Math.round(0.6f * player_bet_button.getHeight()));
+
+                    if (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
+                        spinner_min = new BigDecimal(GameFrame.getInstance().getCrupier().getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
+                        player_bet_button.setEnabled(true);
+                        player_bet_button.setText(Translator.translate("APOSTAR"));
+                        player_bet_button.setBackground(Color.WHITE);
+                        player_bet_button.setForeground(Color.BLACK);
+
+                    } else {
+                        spinner_min = new BigDecimal(min_raise).setScale(1, RoundingMode.HALF_UP);
+                        player_bet_button.setEnabled(true);
+                        player_bet_button.setText(Translator.translate((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + "SUBIR"));
+
+                        if (GameFrame.getInstance().getCrupier().getConta_raise() > 0) {
+                            player_bet_button.setBackground(RERAISE_BACK_COLOR);
+                            player_bet_button.setForeground(RERAISE_FORE_COLOR);
+                        } else {
                             player_bet_button.setBackground(Color.WHITE);
                             player_bet_button.setForeground(Color.BLACK);
-
-                        } else {
-                            spinner_min = new BigDecimal(min_raise).setScale(1, RoundingMode.HALF_UP);
-                            player_bet_button.setEnabled(true);
-                            player_bet_button.setText(Translator.translate((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + "SUBIR"));
-
-                            if (GameFrame.getInstance().getCrupier().getConta_raise() > 0) {
-                                player_bet_button.setBackground(RERAISE_BACK_COLOR);
-                                player_bet_button.setForeground(RERAISE_FORE_COLOR);
-                            } else {
-                                player_bet_button.setBackground(Color.WHITE);
-                                player_bet_button.setForeground(Color.BLACK);
-                            }
-                        }
-
-                        if (spinner_min.compareTo(spinner_max) < 0) {
-
-                            SpinnerNumberModel nummodel = new SpinnerNumberModel(spinner_min, spinner_min, spinner_max, new BigDecimal(GameFrame.CIEGA_PEQUEÑA).setScale(1, RoundingMode.HALF_UP)) {
-                                public Object getNextValue() {
-                                    BigDecimal current = (BigDecimal) super.getValue();
-
-                                    current = current.add((BigDecimal) super.getStepSize());
-
-                                    if (current.compareTo((BigDecimal) super.getMaximum()) <= 0) {
-                                        return current;
-                                    } else {
-                                        return null;
-                                    }
-
-                                }
-
-                                public Object getPreviousValue() {
-                                    BigDecimal current = (BigDecimal) super.getValue();
-
-                                    current = current.subtract((BigDecimal) super.getStepSize());
-
-                                    if (((BigDecimal) super.getMinimum()).compareTo(current) <= 0) {
-                                        return current;
-                                    } else {
-                                        return null;
-                                    }
-
-                                }
-
-                            };
-                            bet_spinner.setModel(nummodel);
-                            bet_spinner.setEnabled(true);
-
-                            ((JSpinner.DefaultEditor) bet_spinner.getEditor()).getTextField().setEditable(false);
-                            ((JSpinner.DefaultEditor) bet_spinner.getEditor()).getTextField().setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-
-                        } else {
-                            player_bet_button.setEnabled(false);
-                            player_bet_button.setText("");
-                            bet_spinner.setValue(new BigDecimal(0));
-                            bet_spinner.setEnabled(false);
                         }
                     }
 
-                    guardarColoresBotonesAccion();
+                    if (spinner_min.compareTo(spinner_max) < 0) {
 
-                    if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 || ((GameFrame.getInstance().getCrupier().getLast_aggressor() != null && nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())))) && Helpers.float1DSecureCompare(call_required, stack) < 0) {
-                        player_allin_button.setText(" ");
-                        player_allin_button.setEnabled(false);
-                        player_allin_button.setIcon(null);
-                    }
+                        SpinnerNumberModel nummodel = new SpinnerNumberModel(spinner_min, spinner_min, spinner_max, new BigDecimal(GameFrame.CIEGA_PEQUEÑA).setScale(1, RoundingMode.HALF_UP)) {
+                            public Object getNextValue() {
+                                BigDecimal current = (BigDecimal) super.getValue();
 
-                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+                                current = current.add((BigDecimal) super.getStepSize());
 
-                    player_action.setText("HABLAS TÚ");
-
-                    Helpers.translateComponents(botonera, false);
-
-                    Helpers.translateComponents(player_action, false);
-
-                    setPlayerActionIcon("action/thinking.png");
-
-                    if (GameFrame.TEST_MODE) {
-
-                        Helpers.threadRun(new Runnable() {
-                            public void run() {
-
-                                Helpers.pausar(GameFrame.TEST_MODE_PAUSE);
-
-                                ArrayList<JButton> botones = new ArrayList<>(Arrays.asList(new JButton[]{player_check_button, player_bet_button, player_allin_button, player_fold_button}));
-
-                                Iterator<JButton> iterator = botones.iterator();
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-
-                                        while (iterator.hasNext()) {
-                                            JButton boton = iterator.next();
-
-                                            if (!boton.isEnabled()) {
-                                                iterator.remove();
-                                            }
-                                        }
-
-                                        int eleccion = Helpers.CSPRNG_GENERATOR.nextInt(botones.size());
-
-                                        botones.get(eleccion).doClick();
-                                    }
-                                });
+                                if (current.compareTo((BigDecimal) super.getMaximum()) <= 0) {
+                                    return current;
+                                } else {
+                                    return null;
+                                }
 
                             }
-                        });
+
+                            public Object getPreviousValue() {
+                                BigDecimal current = (BigDecimal) super.getValue();
+
+                                current = current.subtract((BigDecimal) super.getStepSize());
+
+                                if (((BigDecimal) super.getMinimum()).compareTo(current) <= 0) {
+                                    return current;
+                                } else {
+                                    return null;
+                                }
+
+                            }
+
+                        };
+                        bet_spinner.setModel(nummodel);
+                        bet_spinner.setEnabled(true);
+
+                        ((JSpinner.DefaultEditor) bet_spinner.getEditor()).getTextField().setEditable(false);
+                        ((JSpinner.DefaultEditor) bet_spinner.getEditor()).getTextField().setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
                     } else {
+                        player_bet_button.setEnabled(false);
+                        player_bet_button.setText("");
+                        bet_spinner.setValue(new BigDecimal(0));
+                        bet_spinner.setEnabled(false);
+                    }
+                }
+                guardarColoresBotonesAccion();
+                if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 || ((GameFrame.getInstance().getCrupier().getLast_aggressor() != null && nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())))) && Helpers.float1DSecureCompare(call_required, stack) < 0) {
+                    player_allin_button.setText(" ");
+                    player_allin_button.setEnabled(false);
+                    player_allin_button.setIcon(null);
+                }
+                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+                player_action.setText("HABLAS TÚ");
+                Helpers.translateComponents(botonera, false);
+                Helpers.translateComponents(player_action, false);
+                setPlayerActionIcon("action/thinking.png");
+                if (GameFrame.TEST_MODE) {
+                    Helpers.threadRun(() -> {
+                        Helpers.pausar(GameFrame.TEST_MODE_PAUSE);
+                        ArrayList<JButton> botones = new ArrayList<>(Arrays.asList(new JButton[]{player_check_button, player_bet_button, player_allin_button, player_fold_button}));
+                        Iterator<JButton> iterator = botones.iterator();
+                        Helpers.GUIRunAndWait(() -> {
+                            while (iterator.hasNext()) {
+                                JButton boton = iterator.next();
 
-                        //Tiempo máximo para pensar
-                        response_counter = GameFrame.TIEMPO_PENSAR;
+                                if (!boton.isEnabled()) {
+                                    iterator.remove();
+                                }
+                            }
 
-                        if (auto_action != null) {
-                            auto_action.stop();
-                        }
+                            int eleccion = Helpers.CSPRNG_GENERATOR.nextInt(botones.size());
 
-                        auto_action = new Timer(1000, new ActionListener() {
+                            botones.get(eleccion).doClick();
+                        });
+                    });
+                } else {
+                    //Tiempo máximo para pensar
+                    response_counter = GameFrame.TIEMPO_PENSAR;
+                    if (auto_action != null) {
+                        auto_action.stop();
+                    }
+                    auto_action = new Timer(1000, new ActionListener() {
+                        long t = GameFrame.getInstance().getCrupier().getTurno();
 
-                            long t = GameFrame.getInstance().getCrupier().getTurno();
-
-                            public void actionPerformed(ActionEvent ae) {
-
-                                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
-
-                                    response_counter--;
-
-                                    GameFrame.getInstance().getBarra_tiempo().setValue(response_counter);
-
-                                    if (response_counter == 10) {
-                                        Audio.playWavResource("misc/hurryup.wav");
-
-                                        if ((hurryup_timer == null || !hurryup_timer.isRunning()) && Helpers.float1DSecureCompare(0f, call_required) < 0) {
-
-                                            if (hurryup_timer != null) {
-                                                hurryup_timer.stop();
-                                            }
-
-                                            Color orig_color = border_color;
-
-                                            hurryup_timer = new Timer(1000, new ActionListener() {
-
-                                                @Override
-                                                public void actionPerformed(ActionEvent ae) {
-
-                                                    if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
-                                                        if (player_action.getBackground() != Color.GRAY) {
-                                                            setPlayerBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-                                                            player_action.setBackground(Color.GRAY);
-                                                            player_action.setForeground(Color.WHITE);
-                                                        } else {
-                                                            setPlayerBorder(orig_color, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-                                                            player_action.setBackground(new Color(204, 204, 204, 75));
-                                                            player_action.setForeground(Color.WHITE);
-                                                        }
-
-                                                        revalidate();
-                                                        repaint();
-                                                    }
-                                                }
-                                            });
-
-                                            hurryup_timer.start();
+                        public void actionPerformed(ActionEvent ae) {
+                            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                                response_counter--;
+                                GameFrame.getInstance().getBarra_tiempo().setValue(response_counter);
+                                if (response_counter == 10) {
+                                    Audio.playWavResource("misc/hurryup.wav");
+                                    if ((hurryup_timer == null || !hurryup_timer.isRunning()) && Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                                        if (hurryup_timer != null) {
+                                            hurryup_timer.stop();
                                         }
-                                    }
-
-                                    if (response_counter == 0 || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
-
-                                        Helpers.threadRun(new Runnable() {
-                                            public void run() {
-
-                                                if (response_counter == 0) {
-                                                    Audio.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
+                                        Color orig_color = border_color;
+                                        hurryup_timer = new Timer(1000, (ActionEvent ae1) -> {
+                                            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                                                if (player_action.getBackground() != Color.GRAY) {
+                                                    setPlayerBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                                                    player_action.setBackground(Color.GRAY);
+                                                    player_action.setForeground(Color.WHITE);
+                                                } else {
+                                                    setPlayerBorder(orig_color, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                                                    player_action.setBackground(new Color(204, 204, 204, 75));
+                                                    player_action.setForeground(Color.WHITE);
                                                 }
 
-                                                GameFrame.getInstance().checkPause();
+                                                revalidate();
+                                                repaint();
+                                            }
+                                        });
+                                        hurryup_timer.start();
+                                    }
+                                }
+                                if (response_counter == 0 || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
+                                    Helpers.threadRun(() -> {
+                                        if (response_counter == 0) {
+                                            Audio.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
+                                        }
+                                        GameFrame.getInstance().checkPause();
+                                        Helpers.GUIRun(() -> {
+                                            if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno() && getDecision() == Player.NODEC) {
 
-                                                Helpers.GUIRun(new Runnable() {
-                                                    public void run() {
+                                                if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
 
-                                                        if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno() && getDecision() == Player.NODEC) {
+                                                    //Pasamos automáticamente
+                                                    action_button_armed.put(player_check_button, true);
+                                                    player_check_button.doClick();
 
-                                                            if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
+                                                } else {
 
-                                                                //Pasamos automáticamente 
-                                                                action_button_armed.put(player_check_button, true);
-                                                                player_check_button.doClick();
+                                                    //Nos tiramos automáticamente
+                                                    action_button_armed.put(player_fold_button, true);
+                                                    player_fold_button.doClick();
 
-                                                            } else {
-
-                                                                //Nos tiramos automáticamente
-                                                                action_button_armed.put(player_fold_button, true);
-                                                                player_fold_button.doClick();
-
-                                                            }
-
-                                                        }
-                                                    }
-                                                });
+                                                }
 
                                             }
                                         });
-
-                                    }
-
+                                    });
                                 }
                             }
-                        });
-
-                        auto_action.start();
-
-                        if (!auto_pause && GameFrame.AUTO_ACTION_BUTTONS && pre_pulsado != Player.NODEC) {
-
-                            if (player_fold_button.isEnabled() && pre_pulsado == Player.FOLD) {
-
-                                player_fold_button.doClick();
-
-                            } else if (player_check_button.isEnabled() && pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getFase() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0))) {
-
-                                player_check_button.doClick();
-
-                            } else {
-
-                                desPrePulsarAutoTodo();
-                            }
                         }
+                    });
+                    auto_action.start();
+                    if (!auto_pause && GameFrame.AUTO_ACTION_BUTTONS && pre_pulsado != Player.NODEC) {
 
-                        if (auto_pause) {
-                            GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
-                            GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+                        if (player_fold_button.isEnabled() && pre_pulsado == Player.FOLD) {
+
+                            player_fold_button.doClick();
+
+                        } else if (player_check_button.isEnabled() && pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getFase() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0))) {
+
+                            player_check_button.doClick();
+
+                        } else {
+
+                            desPrePulsarAutoTodo();
                         }
-
-                        revalidate();
-                        repaint();
-
                     }
-
+                    if (auto_pause) {
+                        GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
+                        GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
+                    }
+                    revalidate();
+                    repaint();
                 }
             });
 
@@ -1489,46 +1246,40 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         action_button_colors.clear();
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            if (decision != Player.ALLIN && decision != Player.FOLD) {
+                setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            }
 
-                if (decision != Player.ALLIN && decision != Player.FOLD) {
-                    setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-                }
+            turno = false;
 
-                turno = false;
+            synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
+                GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
+            }
 
-                synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
-                    GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
-                }
-
-                if (GameFrame.AUTO_ACTION_BUTTONS && getDecision() != Player.ALLIN && getDecision() != Player.FOLD) {
-                    activarPreBotones();
-                }
+            if (GameFrame.AUTO_ACTION_BUTTONS && getDecision() != Player.ALLIN && getDecision() != Player.FOLD) {
+                activarPreBotones();
             }
         });
     }
 
     public void desactivarControles() {
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
+        Helpers.GUIRunAndWait(() -> {
+            bet_spinner.setValue(new BigDecimal(0));
 
-                bet_spinner.setValue(new BigDecimal(0));
+            bet_spinner.setEnabled(false);
 
-                bet_spinner.setEnabled(false);
+            for (Component c : botonera.getComponents()) {
 
-                for (Component c : botonera.getComponents()) {
-
-                    if (c instanceof JButton) {
-                        ((JButton) c).setText(" ");
-                        ((JButton) c).setIcon(null);
-                        c.setEnabled(false);
-                    }
+                if (c instanceof JButton) {
+                    ((JButton) c).setText(" ");
+                    ((JButton) c).setIcon(null);
+                    c.setEnabled(false);
                 }
-
-                desarmarBotonesAccion();
             }
+
+            desarmarBotonesAccion();
         });
 
     }
@@ -1545,19 +1296,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void desPrePulsarBotonAuto(JButton boton) {
         pre_pulsado = Player.NODEC;
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-
-                Color[] colores = action_button_colors.get(boton);
-                if (colores != null) {
-                    boton.setBackground(colores[0]);
-                    boton.setForeground(colores[1]);
-                } else {
-                    boton.setBackground(null);
-                    boton.setForeground(null);
-                }
-
+        Helpers.GUIRunAndWait(() -> {
+            Color[] colores = action_button_colors.get(boton);
+            if (colores != null) {
+                boton.setBackground(colores[0]);
+                boton.setForeground(colores[1]);
+            } else {
+                boton.setBackground(null);
+                boton.setForeground(null);
             }
         });
 
@@ -1566,69 +1312,56 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void prePulsarBotonAuto(JButton boton, int dec) {
         pre_pulsado = dec;
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-
-                boton.setBackground(Color.YELLOW);
-                boton.setForeground(Color.BLACK);
-
-            }
+        Helpers.GUIRunAndWait(() -> {
+            boton.setBackground(Color.YELLOW);
+            boton.setForeground(Color.BLACK);
         });
 
     }
 
     public void desarmarBotonesAccion() {
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-                for (Map.Entry<JButton, Color[]> entry : action_button_colors.entrySet()) {
+        Helpers.GUIRunAndWait(() -> {
+            for (Map.Entry<JButton, Color[]> entry : action_button_colors.entrySet()) {
 
-                    JButton b = entry.getKey();
+                JButton b = entry.getKey();
 
-                    if (action_button_armed.get(b)) {
+                if (action_button_armed.get(b)) {
 
-                        Color[] colores = entry.getValue();
+                    Color[] colores = entry.getValue();
 
-                        action_button_armed.put(b, false);
+                    action_button_armed.put(b, false);
 
-                        b.setBackground(colores[0]);
-                        b.setForeground(colores[1]);
-
-                    }
+                    b.setBackground(colores[0]);
+                    b.setForeground(colores[1]);
 
                 }
+
             }
         });
     }
 
     public void armarBoton(JButton boton) {
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.GUIRunAndWait(() -> {
+            for (Map.Entry<JButton, Color[]> entry : action_button_colors.entrySet()) {
 
-                for (Map.Entry<JButton, Color[]> entry : action_button_colors.entrySet()) {
+                JButton b = entry.getKey();
 
-                    JButton b = entry.getKey();
+                Color[] colores = entry.getValue();
 
-                    Color[] colores = entry.getValue();
+                if (b == boton) {
+                    action_button_armed.put(b, true);
 
-                    if (b == boton) {
-                        action_button_armed.put(b, true);
+                    b.setBackground(Color.BLUE);
+                    b.setForeground(Color.WHITE);
 
-                        b.setBackground(Color.BLUE);
-                        b.setForeground(Color.WHITE);
+                } else {
+                    action_button_armed.put(b, false);
 
-                    } else {
-                        action_button_armed.put(b, false);
+                    b.setBackground(colores[0]);
+                    b.setForeground(colores[1]);
 
-                        b.setBackground(colores[0]);
-                        b.setForeground(colores[1]);
-
-                    }
                 }
-
             }
         });
 
@@ -1640,18 +1373,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.decision = Player.NODEC;
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                if (old_dec != Player.BET || Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
-                    player_pot.setBackground(new Color(204, 204, 204, 75));
-                    player_pot.setForeground(Color.WHITE);
-                }
-
-                disablePlayerAction();
-
+        Helpers.GUIRun(() -> {
+            if (old_dec != Player.BET || Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
+                player_pot.setBackground(new Color(204, 204, 204, 75));
+                player_pot.setForeground(Color.WHITE);
             }
+
+            disablePlayerAction();
         });
 
     }
@@ -1660,30 +1388,26 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!turno && decision != Player.FOLD && decision != Player.ALLIN && !GameFrame.getInstance().getCrupier().isShow_time()) {
 
-            Helpers.GUIRunAndWait(new Runnable() {
-                public void run() {
+            Helpers.GUIRunAndWait(() -> {
+                player_check_button.setBackground(null);
+                player_check_button.setForeground(null);
+                player_check_button.setText("[AUTO](+BB)");
+                player_check_button.setEnabled(true);
+                Helpers.setScaledIconButton(player_check_button, getClass().getResource("/images/action/up.png"), Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()));
 
-                    player_check_button.setBackground(null);
-                    player_check_button.setForeground(null);
-                    player_check_button.setText("[AUTO](+BB)");
-                    player_check_button.setEnabled(true);
-                    Helpers.setScaledIconButton(player_check_button, getClass().getResource("/images/action/up.png"), Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()));
+                player_fold_button.setBackground(null);
+                player_fold_button.setForeground(null);
+                player_fold_button.setText("[AUTO]");
+                player_fold_button.setEnabled(true);
+                Helpers.setScaledIconButton(player_fold_button, getClass().getResource("/images/action/down.png"), Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()));
 
-                    player_fold_button.setBackground(null);
-                    player_fold_button.setForeground(null);
-                    player_fold_button.setText("[AUTO]");
-                    player_fold_button.setEnabled(true);
-                    Helpers.setScaledIconButton(player_fold_button, getClass().getResource("/images/action/down.png"), Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()));
+                if (pre_pulsado != Player.NODEC) {
 
-                    if (pre_pulsado != Player.NODEC) {
-
-                        if (pre_pulsado == Player.CHECK) {
-                            prePulsarBotonAuto(player_check_button, Player.CHECK);
-                        } else if (pre_pulsado == Player.FOLD) {
-                            prePulsarBotonAuto(player_fold_button, Player.FOLD);
-                        }
+                    if (pre_pulsado == Player.CHECK) {
+                        prePulsarBotonAuto(player_check_button, Player.CHECK);
+                    } else if (pre_pulsado == Player.FOLD) {
+                        prePulsarBotonAuto(player_fold_button, Player.FOLD);
                     }
-
                 }
             });
 
@@ -1695,20 +1419,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!turno) {
 
-            Helpers.GUIRunAndWait(new Runnable() {
-                public void run() {
+            Helpers.GUIRunAndWait(() -> {
+                desPrePulsarAutoTodo();
 
-                    desPrePulsarAutoTodo();
+                player_check_button.setText(" ");
+                player_check_button.setIcon(null);
+                player_check_button.setEnabled(false);
 
-                    player_check_button.setText(" ");
-                    player_check_button.setIcon(null);
-                    player_check_button.setEnabled(false);
-
-                    player_fold_button.setText(" ");
-                    player_fold_button.setIcon(null);
-                    player_fold_button.setEnabled(false);
-
-                }
+                player_fold_button.setText(" ");
+                player_fold_button.setIcon(null);
+                player_fold_button.setEnabled(false);
             });
         }
     }
@@ -1743,67 +1463,59 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void disablePlayerAction() {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-
-                player_action.setText(" ");
-                player_action.setForeground(Color.LIGHT_GRAY);
-                player_action.setBackground(new Color(204, 204, 204, 75));
-                setPlayerActionIcon(null);
-
-            }
+        Helpers.GUIRun(() -> {
+            player_action.setText(" ");
+            player_action.setForeground(Color.LIGHT_GRAY);
+            player_action.setBackground(new Color(204, 204, 204, 75));
+            setPlayerActionIcon(null);
         });
     }
 
     public void resetGUI() {
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
+        Helpers.GUIRunAndWait(() -> {
+            sec_pot_win_label.setVisible(false);
 
-                sec_pot_win_label.setVisible(false);
+            setOpaque(false);
 
-                setOpaque(false);
+            setBackground(null);
 
-                setBackground(null);
+            setPlayerBorder(new java.awt.Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                setPlayerBorder(new java.awt.Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            player_name.setIcon(null);
 
-                player_name.setIcon(null);
+            desactivar_boton_mostrar();
 
-                desactivar_boton_mostrar();
+            desactivarControles();
 
-                desactivarControles();
+            utg_icon.setVisible(false);
 
-                utg_icon.setVisible(false);
+            player_pot.setText("----");
 
-                player_pot.setText("----");
+            player_pot.setBackground(new Color(204, 204, 204, 75));
 
-                player_pot.setBackground(new Color(204, 204, 204, 75));
+            player_pot.setForeground(Color.WHITE);
 
-                player_pot.setForeground(Color.WHITE);
-
-                if (conta_win > 0) {
-                    hands_win.setText(String.valueOf(conta_win));
-                    hands_win.setVisible(true);
-                } else {
-                    hands_win.setVisible(false);
-                }
-
-                if (!player_stack_click) {
-                    if (buyin > GameFrame.BUYIN) {
-                        player_stack.setBackground(Color.CYAN);
-
-                        player_stack.setForeground(Color.BLACK);
-                    } else {
-
-                        player_stack.setBackground(new Color(51, 153, 0));
-
-                        player_stack.setForeground(Color.WHITE);
-                    }
-                }
-
-                disablePlayerAction();
-
+            if (conta_win > 0) {
+                hands_win.setText(String.valueOf(conta_win));
+                hands_win.setVisible(true);
+            } else {
+                hands_win.setVisible(false);
             }
+
+            if (!player_stack_click) {
+                if (buyin > GameFrame.BUYIN) {
+                    player_stack.setBackground(Color.CYAN);
+
+                    player_stack.setForeground(Color.BLACK);
+                } else {
+
+                    player_stack.setBackground(new Color(51, 153, 0));
+
+                    player_stack.setForeground(Color.WHITE);
+                }
+            }
+
+            disablePlayerAction();
         });
     }
 
@@ -1892,12 +1604,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (this.utg) {
             this.utg = false;
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    utg_icon.setVisible(false);
-
-                }
+            Helpers.GUIRun(() -> {
+                utg_icon.setVisible(false);
             });
         }
     }
@@ -1914,51 +1622,44 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void buttonIconZoom() {
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.GUIRun(() -> {
+            if (player_check_button.isEnabled()) {
+                Helpers.setScaledIconButton(player_check_button, getClass().getResource("/images/action/up.png"), Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()));
+            }
+            if (player_bet_button.isEnabled()) {
+                Helpers.setScaledIconButton(player_bet_button, getClass().getResource("/images/action/bet.png"), Math.round(0.6f * player_bet_button.getHeight()), Math.round(0.6f * player_bet_button.getHeight()));
+            }
 
-                if (player_check_button.isEnabled()) {
-                    Helpers.setScaledIconButton(player_check_button, getClass().getResource("/images/action/up.png"), Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()));
-                }
-                if (player_bet_button.isEnabled()) {
-                    Helpers.setScaledIconButton(player_bet_button, getClass().getResource("/images/action/bet.png"), Math.round(0.6f * player_bet_button.getHeight()), Math.round(0.6f * player_bet_button.getHeight()));
-                }
+            if (player_allin_button.isEnabled() && !boton_mostrar) {
+                Helpers.setScaledIconButton(player_allin_button, getClass().getResource("/images/action/glasses.png"), Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()));
+            }
 
-                if (player_allin_button.isEnabled() && !boton_mostrar) {
-                    Helpers.setScaledIconButton(player_allin_button, getClass().getResource("/images/action/glasses.png"), Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()));
-                }
+            if (player_fold_button.isEnabled()) {
 
-                if (player_fold_button.isEnabled()) {
-
-                    Helpers.setScaledIconButton(player_fold_button, getClass().getResource("/images/action/down.png"), Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()));
-                }
+                Helpers.setScaledIconButton(player_fold_button, getClass().getResource("/images/action/down.png"), Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()));
             }
         });
     }
 
     private void nickChipIconZoom() {
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                if (isActivo()) {
+        Helpers.GUIRun(() -> {
+            if (isActivo()) {
 
-                    if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
-                        Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-                    } else if (nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
-                        Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-                    } else if (nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
-                        Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-                    } else {
-                        player_name.setIcon(null);
-                    }
+                if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
+                    Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/bb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+                } else if (nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
+                    Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/sb.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+                } else if (nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
+                    Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
                 } else {
                     player_name.setIcon(null);
                 }
-
-                player_name.revalidate();
-                player_name.repaint();
+            } else {
+                player_name.setIcon(null);
             }
+
+            player_name.revalidate();
+            player_name.repaint();
         });
     }
 
@@ -1966,57 +1667,40 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         ImageIcon icon = new ImageIcon(IMAGEN_UTG.getImage().getScaledInstance((int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight(), Image.SCALE_SMOOTH));
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.GUIRun(() -> {
+            utg_icon.setIcon(icon);
 
-                utg_icon.setIcon(icon);
+            utg_icon.setPreferredSize(new Dimension((int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight()));
 
-                utg_icon.setPreferredSize(new Dimension((int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight()));
-
-                utg_icon.setVisible(utg);
-            }
+            utg_icon.setVisible(utg);
         });
     }
 
     private void secPotIconZoom() {
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                sec_pot_win_label.setSize(player_action.getSize());
-                sec_pot_win_label.setPreferredSize(player_action.getSize());
-                Helpers.setScaledIconLabel(sec_pot_win_label, getClass().getResource("/images/pot.png"), sec_pot_win_label.getHeight(), sec_pot_win_label.getHeight());
-                int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
-                int pos_y = Math.round((getHoleCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
-                sec_pot_win_label.setLocation(pos_x, pos_y);
-            }
+        Helpers.GUIRun(() -> {
+            sec_pot_win_label.setSize(player_action.getSize());
+            sec_pot_win_label.setPreferredSize(player_action.getSize());
+            Helpers.setScaledIconLabel(sec_pot_win_label, getClass().getResource("/images/pot.png"), sec_pot_win_label.getHeight(), sec_pot_win_label.getHeight());
+            int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
+            int pos_y = Math.round((getHoleCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
+            sec_pot_win_label.setLocation(pos_x, pos_y);
         });
     }
 
     private void zoomIcons() {
 
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
-
-                synchronized (zoom_lock) {
-
-                    Helpers.GUIRunAndWait(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            setAvatar();
-                            utgIconZoom();
-                            actionIconZoom();
-                            buttonIconZoom();
-                            nickChipIconZoom();
-                            refreshPositionChipIcons();
-                            refreshSecPotLabel();
-
-                        }
-                    });
-                }
+        Helpers.threadRun(() -> {
+            synchronized (zoom_lock) {
+                Helpers.GUIRunAndWait(() -> {
+                    setAvatar();
+                    utgIconZoom();
+                    actionIconZoom();
+                    buttonIconZoom();
+                    nickChipIconZoom();
+                    refreshPositionChipIcons();
+                    refreshSecPotLabel();
+                });
             }
         });
     }
@@ -2033,46 +1717,37 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             synchronized (zoom_lock) {
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        if (icon_zoom_timer.isRunning()) {
-                            icon_zoom_timer.stop();
-                        }
-
-                        hidePlayerActionIcon();
-                        player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * zoom_factor)));
-                        setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
-                        getAvatar().setVisible(false);
-                        utg_icon.setVisible(false);
-
-                        player_check_button.setIcon(null);
-
-                        player_bet_button.setIcon(null);
-
-                        player_allin_button.setIcon(null);
-
-                        player_fold_button.setIcon(null);
-
-                        player_name.setIcon(null);
-
-                        chip_label.setVisible(false);
-
+                Helpers.GUIRunAndWait(() -> {
+                    if (icon_zoom_timer.isRunning()) {
+                        icon_zoom_timer.stop();
                     }
+
+                    hidePlayerActionIcon();
+                    player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * zoom_factor)));
+                    setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
+                    getAvatar().setVisible(false);
+                    utg_icon.setVisible(false);
+
+                    player_check_button.setIcon(null);
+
+                    player_bet_button.setIcon(null);
+
+                    player_allin_button.setIcon(null);
+
+                    player_fold_button.setIcon(null);
+
+                    player_name.setIcon(null);
+
+                    chip_label.setVisible(false);
                 });
 
                 Helpers.zoomFonts(this, zoom_factor, null);
 
-                Helpers.GUIRun(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (icon_zoom_timer.isRunning()) {
-                            icon_zoom_timer.restart();
-                        } else {
-                            icon_zoom_timer.start();
-                        }
-
+                Helpers.GUIRun(() -> {
+                    if (icon_zoom_timer.isRunning()) {
+                        icon_zoom_timer.restart();
+                    } else {
+                        icon_zoom_timer.start();
                     }
                 });
 
@@ -2522,15 +2197,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         hurryup_timer.stop();
                     }
 
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
+                    Helpers.threadRun(() -> {
+                        GameFrame.getInstance().getCrupier().soundFold();
 
-                            GameFrame.getInstance().getCrupier().soundFold();
+                        setDecision(Player.FOLD);
 
-                            setDecision(Player.FOLD);
-
-                            finTurno();
-                        }
+                        finTurno();
                     });
 
                 }
@@ -2573,61 +2245,39 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         hurryup_timer.stop();
                     }
 
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
-
-                            synchronized (GameFrame.getInstance().getCrupier().getLock_mostrar()) {
-                                if (GameFrame.getInstance().getCrupier().isShow_time()) {
-
-                                    Helpers.threadRun(new Runnable() {
-                                        @Override
-                                        public void run() {
-
-                                            if (GameFrame.getInstance().isPartida_local()) {
-                                                GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nickname);
-                                            } else {
-                                                GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SHOWMYCARDS");
-                                                GameFrame.getInstance().getCrupier().setTiempo_pausa(Crupier.PAUSA_ENTRE_MANOS);
-                                            }
-
-                                        }
-                                    });
-
-                                    ArrayList<Card> cartas_jugada = new ArrayList<>(getHoleCards());
-
-                                    String hole_cards_string = Card.collection2String(getHoleCards());
-
-                                    for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
-
-                                        if (!carta_comun.isTapada()) {
-                                            cartas_jugada.add(carta_comun);
-                                        }
+                    Helpers.threadRun(() -> {
+                        synchronized (GameFrame.getInstance().getCrupier().getLock_mostrar()) {
+                            if (GameFrame.getInstance().getCrupier().isShow_time()) {
+                                Helpers.threadRun(() -> {
+                                    if (GameFrame.getInstance().isPartida_local()) {
+                                        GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nickname);
+                                    } else {
+                                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SHOWMYCARDS");
+                                        GameFrame.getInstance().getCrupier().setTiempo_pausa(Crupier.PAUSA_ENTRE_MANOS);
                                     }
+                                });
+                                ArrayList<Card> cartas_jugada = new ArrayList<>(getHoleCards());
+                                String hole_cards_string = Card.collection2String(getHoleCards());
+                                for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
-                                    Hand jugada = new Hand(cartas_jugada);
-
-                                    player_action.setForeground(Color.WHITE);
-
-                                    player_action.setBackground(new Color(51, 153, 255));
-
-                                    player_action.setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
-
-                                    if (GameFrame.SONIDOS_CHORRA && decision == Player.FOLD) {
-
-                                        Audio.playWavResource("misc/showyourcards.wav");
-
+                                    if (!carta_comun.isTapada()) {
+                                        cartas_jugada.add(carta_comun);
                                     }
+                                }
+                                Hand jugada = new Hand(cartas_jugada);
+                                player_action.setForeground(Color.WHITE);
+                                player_action.setBackground(new Color(51, 153, 255));
+                                player_action.setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
+                                if (GameFrame.SONIDOS_CHORRA && decision == Player.FOLD) {
 
-                                    if (!GameFrame.getInstance().getCrupier().getPerdedores().containsKey(GameFrame.getInstance().getLocalPlayer())) {
-                                        GameFrame.getInstance().getRegistro().print(nickname + Translator.translate(" MUESTRA (") + hole_cards_string + ") -> " + jugada);
-                                    }
-
-                                    Helpers.translateComponents(botonera, false);
-
-                                    Helpers.translateComponents(player_action, false);
+                                    Audio.playWavResource("misc/showyourcards.wav");
 
                                 }
-
+                                if (!GameFrame.getInstance().getCrupier().getPerdedores().containsKey(GameFrame.getInstance().getLocalPlayer())) {
+                                    GameFrame.getInstance().getRegistro().print(nickname + Translator.translate(" MUESTRA (") + hole_cards_string + ") -> " + jugada);
+                                }
+                                Helpers.translateComponents(botonera, false);
+                                Helpers.translateComponents(player_action, false);
                             }
                         }
                     });
@@ -2654,25 +2304,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         Init.PLAYING_CINEMATIC = true;
 
-                        Helpers.threadRun(new Runnable() {
-
-                            public void run() {
-
-                                if (!GameFrame.getInstance().getCrupier().localCinematicAllin()) {
-                                    GameFrame.getInstance().getCrupier().soundAllin();
-                                }
+                        Helpers.threadRun(() -> {
+                            if (!GameFrame.getInstance().getCrupier().localCinematicAllin()) {
+                                GameFrame.getInstance().getCrupier().soundAllin();
                             }
                         });
 
-                        Helpers.threadRun(new Runnable() {
-                            public void run() {
+                        Helpers.threadRun(() -> {
+                            setDecision(Player.ALLIN);
 
-                                setDecision(Player.ALLIN);
+                            setBet(stack + bet);
 
-                                setBet(stack + bet);
-
-                                finTurno();
-                            }
+                            finTurno();
                         });
                     } else {
 
@@ -2730,15 +2373,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         hurryup_timer.stop();
                     }
 
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
+                    Helpers.threadRun(() -> {
+                        setBet(GameFrame.getInstance().getCrupier().getApuesta_actual());
 
-                            setBet(GameFrame.getInstance().getCrupier().getApuesta_actual());
+                        setDecision(Player.CHECK);
 
-                            setDecision(Player.CHECK);
-
-                            finTurno();
-                        }
+                        finTurno();
                     });
                 }
             } else {
@@ -2778,30 +2418,26 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         hurryup_timer.stop();
                     }
 
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
+                    Helpers.threadRun(() -> {
+                        if (apuesta_recuperada == null) {
 
-                            if (apuesta_recuperada == null) {
+                            setBet(bet_spinner_val + bet + call_required);
+                        } else {
 
-                                setBet(bet_spinner_val + bet + call_required);
-                            } else {
+                            setBet(apuesta_recuperada);
 
-                                setBet(apuesta_recuperada);
+                            apuesta_recuperada = null;
+                        }
 
-                                apuesta_recuperada = null;
-                            }
+                        setDecision(Player.BET);
 
-                            setDecision(Player.BET);
+                        if (GameFrame.SONIDOS_CHORRA && !GameFrame.getInstance().getCrupier().isSincronizando_mano() && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
 
-                            if (GameFrame.SONIDOS_CHORRA && !GameFrame.getInstance().getCrupier().isSincronizando_mano() && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
-
-                                Audio.playWavResource("misc/raise.wav");
-
-                            }
-
-                            finTurno();
+                            Audio.playWavResource("misc/raise.wav");
 
                         }
+
+                        finTurno();
                     });
                 } else {
                     this.armarBoton(player_bet_button);
@@ -2840,42 +2476,32 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_stack.setBackground(Color.GRAY);
                 player_stack.setForeground(Color.WHITE);
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        Helpers.pausar(1500);
+                Helpers.threadRun(() -> {
+                    Helpers.pausar(1500);
+                    float s = getStack();
+                    Helpers.GUIRun(() -> {
+                        if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
+                            player_stack.setBackground(Color.YELLOW);
+                            player_stack.setForeground(Color.BLACK);
+                            player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
 
-                        float s = getStack();
+                        } else {
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
+                            if (buyin > GameFrame.BUYIN) {
+                                player_stack.setBackground(Color.CYAN);
 
-                                if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
-                                    player_stack.setBackground(Color.YELLOW);
-                                    player_stack.setForeground(Color.BLACK);
-                                    player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
+                                player_stack.setForeground(Color.BLACK);
+                            } else {
 
-                                } else {
+                                player_stack.setBackground(new Color(51, 153, 0));
 
-                                    if (buyin > GameFrame.BUYIN) {
-                                        player_stack.setBackground(Color.CYAN);
-
-                                        player_stack.setForeground(Color.BLACK);
-                                    } else {
-
-                                        player_stack.setBackground(new Color(51, 153, 0));
-
-                                        player_stack.setForeground(Color.WHITE);
-                                    }
-
-                                    player_stack.setText(Helpers.float2String(s));
-                                }
-
+                                player_stack.setForeground(Color.WHITE);
                             }
-                        });
 
-                        player_stack_click = false;
-
-                    }
+                            player_stack.setText(Helpers.float2String(s));
+                        }
+                    });
+                    player_stack_click = false;
                 });
             }
         } else {
@@ -2922,22 +2548,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.winner = true;
         this.conta_win++;
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.GUIRun(() -> {
+            setPlayerBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                setPlayerBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            player_action.setBackground(Color.GREEN);
+            player_action.setForeground(Color.BLACK);
+            player_action.setText(msg);
+            setPlayerActionIcon("action/happy.png");
 
-                player_action.setBackground(Color.GREEN);
-                player_action.setForeground(Color.BLACK);
-                player_action.setText(msg);
-                setPlayerActionIcon("action/happy.png");
+            if (conta_win > 0) {
 
-                if (conta_win > 0) {
-
-                    hands_win.setText(String.valueOf(conta_win));
-                    hands_win.setVisible(true);
-                }
+                hands_win.setText(String.valueOf(conta_win));
+                hands_win.setVisible(true);
             }
         });
     }
@@ -2946,38 +2568,34 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (Helpers.float1DSecureCompare(0f, pagar) < 0 && GameFrame.getInstance().getCrupier().getBote().getSide_pot_count() > 0) {
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
+            Helpers.GUIRun(() -> {
+                sec_pot_win_label.setBackground(Color.BLACK);
 
-                    sec_pot_win_label.setBackground(Color.BLACK);
+                sec_pot_win_label.setForeground(Color.WHITE);
 
-                    sec_pot_win_label.setForeground(Color.WHITE);
+                sec_pot_win_label.setSize(player_action.getSize());
 
-                    sec_pot_win_label.setSize(player_action.getSize());
+                sec_pot_win_label.setPreferredSize(sec_pot_win_label.getSize());
 
-                    sec_pot_win_label.setPreferredSize(sec_pot_win_label.getSize());
+                int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
 
-                    int pos_x = Math.round((panel_cartas.getWidth() - sec_pot_win_label.getWidth()) / 2);
+                int pos_y = Math.round((getHoleCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
 
-                    int pos_y = Math.round((getHoleCard1().getHeight() - sec_pot_win_label.getHeight()) / 2);
+                sec_pot_win_label.setLocation(pos_x, pos_y);
 
-                    sec_pot_win_label.setLocation(pos_x, pos_y);
+                String[] botes = new String[botes_secundarios.size()];
 
-                    String[] botes = new String[botes_secundarios.size()];
+                int i = 0;
 
-                    int i = 0;
-
-                    for (Integer b : botes_secundarios) {
-                        botes[i++] = "#" + String.valueOf(b);
-                    }
-
-                    float mibote = last_bote != null ? last_bote : bote;
-
-                    sec_pot_win_label.setText(String.join("+", botes) + " = " + Helpers.float2String(pagar) + " (" + Helpers.float2String(pagar - mibote) + ")");
-
-                    sec_pot_win_label.setVisible(true);
+                for (Integer b : botes_secundarios) {
+                    botes[i++] = "#" + String.valueOf(b);
                 }
+
+                float mibote = last_bote != null ? last_bote : bote;
+
+                sec_pot_win_label.setText(String.join("+", botes) + " = " + Helpers.float2String(pagar) + " (" + Helpers.float2String(pagar - mibote) + ")");
+
+                sec_pot_win_label.setVisible(true);
             });
 
         }
@@ -2987,22 +2605,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void setLoser(String msg) {
         this.loser = true;
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.GUIRun(() -> {
+            setPlayerBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                setPlayerBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            player_action.setBackground(Color.RED);
+            player_action.setForeground(Color.WHITE);
 
-                player_action.setBackground(Color.RED);
-                player_action.setForeground(Color.WHITE);
+            holeCard1.desenfocar();
+            holeCard2.desenfocar();
 
-                holeCard1.desenfocar();
-                holeCard2.desenfocar();
-
-                player_action.setText(msg);
-                setPlayerActionIcon("action/angry.png");
-
-            }
+            player_action.setText(msg);
+            setPlayerActionIcon("action/angry.png");
         });
 
     }
@@ -3024,12 +2637,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.utg = true;
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                utg_icon.setVisible(true);
-
-            }
+        Helpers.GUIRun(() -> {
+            utg_icon.setVisible(true);
         });
     }
 
@@ -3042,88 +2651,71 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         switch (dec) {
             case Player.CHECK:
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                            player_action.setText(ACTIONS_LABELS[dec - 1][1]);
-                        } else {
-                            player_action.setText(ACTIONS_LABELS[dec - 1][0]);
-                        }
-
-                        setPlayerActionIcon("action/up.png");
+                Helpers.GUIRunAndWait(() -> {
+                    if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                        player_action.setText(ACTIONS_LABELS[dec - 1][1]);
+                    } else {
+                        player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                     }
+
+                    setPlayerActionIcon("action/up.png");
                 });
 
                 break;
             case Player.BET:
-                Helpers.GUIRunAndWait(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
-                            player_action.setText((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
+                Helpers.GUIRunAndWait(() -> {
+                    if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
+                        player_action.setText((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
 
-                            if (GameFrame.getInstance().getCrupier().getConta_raise() > 0) {
-                                reraise = true;
-                            }
-                        } else {
-                            player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
+                        if (GameFrame.getInstance().getCrupier().getConta_raise() > 0) {
+                            reraise = true;
                         }
-                        setPlayerActionIcon("action/bet.png");
+                    } else {
+                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
                     }
+                    setPlayerActionIcon("action/bet.png");
                 });
                 break;
             case Player.ALLIN:
-                Helpers.GUIRunAndWait(new Runnable() {
-                    @Override
-                    public void run() {
-                        setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                Helpers.GUIRunAndWait(() -> {
+                    setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                        if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet + stack) < 0) {
-                            player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(bet + stack - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
-                        } else {
-                            player_action.setText(ACTIONS_LABELS[dec - 1][0]);
-                        }
-                        setPlayerActionIcon("action/glasses.png");
+                    if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet + stack) < 0) {
+                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(bet + stack - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
+                    } else {
+                        player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                     }
+                    setPlayerActionIcon("action/glasses.png");
                 });
                 break;
             default:
-                Helpers.GUIRunAndWait(new Runnable() {
-                    @Override
-                    public void run() {
-                        setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                Helpers.GUIRunAndWait(() -> {
+                    setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0]);
+                    player_action.setText(ACTIONS_LABELS[dec - 1][0]);
 
-                        setPlayerActionIcon("action/down.png");
-                    }
+                    setPlayerActionIcon("action/down.png");
                 });
                 break;
         }
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.GUIRunAndWait(() -> {
+            if (!reraise) {
+                player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
 
-                if (!reraise) {
-                    player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
-                    player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
+                player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
+            } else {
+                player_action.setBackground(RERAISE_BACK_COLOR);
+                player_action.setForeground(RERAISE_FORE_COLOR);
 
-                    player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
-                    player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
-                } else {
-                    player_action.setBackground(RERAISE_BACK_COLOR);
-                    player_action.setForeground(RERAISE_FORE_COLOR);
-
-                    player_pot.setBackground(RERAISE_BACK_COLOR);
-                    player_pot.setForeground(RERAISE_FORE_COLOR);
-                }
-
-                revalidate();
-                repaint();
-
+                player_pot.setBackground(RERAISE_BACK_COLOR);
+                player_pot.setForeground(RERAISE_FORE_COLOR);
             }
+
+            revalidate();
+            repaint();
         });
     }
 
@@ -3161,12 +2753,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void showCards(String jugada) {
         this.muestra = true;
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                player_action.setBackground(new Color(51, 153, 255));
-                player_action.setForeground(Color.WHITE);
-                player_action.setText("MUESTRA (" + jugada + ")");
-            }
+        Helpers.GUIRun(() -> {
+            player_action.setBackground(new Color(51, 153, 255));
+            player_action.setForeground(Color.WHITE);
+            player_action.setText("MUESTRA (" + jugada + ")");
         });
     }
 
@@ -3192,16 +2782,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             avatar = new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH));
         }
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.GUIRun(() -> {
+            getAvatar().setPreferredSize(new Dimension(h, h));
 
-                getAvatar().setPreferredSize(new Dimension(h, h));
+            getAvatar().setIcon(avatar);
 
-                getAvatar().setIcon(avatar);
-
-                getAvatar().setVisible(true);
-            }
+            getAvatar().setVisible(true);
         });
 
     }
@@ -3260,13 +2846,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void checkGameOver() {
         if (isActivo() && Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0) {
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    setPlayerActionIcon("action/skull.png");
-                    setOpaque(true);
-                    setBackground(Color.RED);
-                }
+            Helpers.GUIRun(() -> {
+                setPlayerActionIcon("action/skull.png");
+                setOpaque(true);
+                setBackground(Color.RED);
             });
         }
     }
@@ -3279,40 +2862,29 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action_icon = icon;
             }
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/" + icon)).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
-                    revalidate();
-                    repaint();
-                }
+            Helpers.GUIRun(() -> {
+                player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/" + icon)).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
+                revalidate();
+                repaint();
             });
         }
     }
 
     public void hidePlayerActionIcon() {
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                player_action.setIcon(null);
-            }
+        Helpers.GUIRun(() -> {
+            player_action.setIcon(null);
         });
 
     }
 
     @Override
     public void setJugadaParcial(Hand jugada, boolean ganador, float win_per) {
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                player_action.setBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
-                player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
-                player_action.setText(jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)"));
-                setPlayerActionIcon(null);
-
-            }
+        Helpers.GUIRun(() -> {
+            player_action.setBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
+            player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
+            player_action.setText(jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)"));
+            setPlayerActionIcon(null);
         });
     }
 
@@ -3321,13 +2893,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.conta_win = conta;
 
         if (this.conta_win > 0) {
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    hands_win.setText(String.valueOf(conta_win));
-                    hands_win.setVisible(true);
-                }
+            Helpers.GUIRun(() -> {
+                hands_win.setText(String.valueOf(conta_win));
+                hands_win.setVisible(true);
             });
         }
     }

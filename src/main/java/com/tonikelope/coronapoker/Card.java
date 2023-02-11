@@ -53,7 +53,7 @@ import javax.swing.SwingUtilities;
  */
 public class Card extends javax.swing.JLayeredPane implements ZoomableInterface, Comparable {
 
-    public final static ConcurrentHashMap<String, Object[]> BARAJAS = new ConcurrentHashMap<>(Map.ofEntries(new HashMap.SimpleEntry<String, Object[]>("coronapoker", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<String, Object[]>("interstate60", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<String, Object[]>("goliat", new Object[]{1.345f, false, null})));
+    public final static ConcurrentHashMap<String, Object[]> BARAJAS = new ConcurrentHashMap<>(Map.ofEntries(new HashMap.SimpleEntry<>("coronapoker", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("interstate60", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("goliat", new Object[]{1.345f, false, null})));
     public final static int DEFAULT_HEIGHT = 200;
     public final static String[] PALOS = {"P", "C", "T", "D"};
     public final static String PALOS_STRING = "PCTD";
@@ -111,10 +111,8 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         this.visible_card = v_card;
 
         if (!this.secure_hidden) {
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    card_image.setVisible(visible_card);
-                }
+            Helpers.GUIRun(() -> {
+                card_image.setVisible(visible_card);
             });
         }
     }
@@ -214,22 +212,15 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
         this.gui = gui;
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
-                setLayer(card_image, new Integer(1000));
-            }
+        Helpers.GUIRunAndWait(() -> {
+            initComponents();
+            setLayer(card_image, new Integer(1000));
         });
 
     }
 
     public Card() {
-        Helpers.GUIRunAndWait(new Runnable() {
-            public void run() {
-                initComponents();
-
-            }
-        });
+        Helpers.GUIRunAndWait(this::initComponents);
     }
 
     private static HashMap<String, String> loadUnicodeTable() {
@@ -309,88 +300,75 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     public void refreshCard(boolean pre_cache, final ConcurrentLinkedQueue<Long> notifier) {
         if (this.gui) {
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
+            Helpers.threadRun(() -> {
+                ImageIcon img;
+                synchronized (image_precache_lock) {
 
-                    ImageIcon img;
+                    if (!pre_cache) {
+                        invalidateImagePrecache();
+                    }
 
-                    synchronized (image_precache_lock) {
+                    if (isIniciada()) {
 
-                        if (!pre_cache) {
-                            invalidateImagePrecache();
-                        }
+                        if (isTapada()) {
 
-                        if (isIniciada()) {
+                            img = isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA;
 
-                            if (isTapada()) {
+                        } else {
 
-                                img = isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA;
+                            if (!isDesenfocada()) {
+
+                                if (image != null) {
+                                    img = image;
+                                } else {
+                                    img = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
+                                    image = img;
+
+                                }
 
                             } else {
 
-                                if (!isDesenfocada()) {
-
-                                    if (image != null) {
-                                        img = image;
-                                    } else {
-                                        img = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
-                                        image = img;
-
-                                    }
-
+                                if (image_b != null) {
+                                    img = image_b;
                                 } else {
+                                    img = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg");
+                                    image_b = img;
 
-                                    if (image_b != null) {
-                                        img = image_b;
-                                    } else {
-                                        img = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg");
-                                        image_b = img;
-
-                                    }
                                 }
-
                             }
-                        } else {
-                            img = Card.IMAGEN_JOKER;
+
                         }
-
-                    }
-
-                    if (notifier == null) {
-
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                                card_image.setIcon(img);
-                                card_image.setVisible(isVisible_card());
-                                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                                revalidate();
-                                repaint();
-                            }
-                        });
                     } else {
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            public void run() {
-                                card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                                card_image.setIcon(img);
-                                card_image.setVisible(isVisible_card());
-                                setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                                revalidate();
-                                repaint();
-                            }
-                        });
-
-                        synchronized (notifier) {
-                            notifier.add(Thread.currentThread().getId());
-                            notifier.notifyAll();
-                        }
-
+                        img = Card.IMAGEN_JOKER;
                     }
 
-                    if (pre_cache) {
-
-                        updateImagePreloadCache();
+                }
+                if (notifier == null) {
+                    Helpers.GUIRun(() -> {
+                        card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                        card_image.setIcon(img);
+                        card_image.setVisible(isVisible_card());
+                        setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                        revalidate();
+                        repaint();
+                    });
+                } else {
+                    Helpers.GUIRunAndWait(() -> {
+                        card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                        card_image.setIcon(img);
+                        card_image.setVisible(isVisible_card());
+                        setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
+                        revalidate();
+                        repaint();
+                    });
+                    synchronized (notifier) {
+                        notifier.add(Thread.currentThread().getId());
+                        notifier.notifyAll();
                     }
+                }
+                if (pre_cache) {
+
+                    updateImagePreloadCache();
                 }
             });
         }
@@ -406,29 +384,26 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     public void updateImagePreloadCache() {
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        Helpers.threadRun(() -> {
+            synchronized (image_precache_lock) {
+                try {
 
-                synchronized (image_precache_lock) {
-                    try {
+                    if (isIniciadaConValor()) {
 
-                        if (isIniciadaConValor()) {
-
-                            if (image == null) {
-                                image = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
-                            }
-
-                            if (image_b == null) {
-                                image_b = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg");
-                            }
+                        if (image == null) {
+                            image = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
                         }
 
-                    } catch (Exception ex) {
-                        Logger.getLogger(Card.class.getName()).log(Level.SEVERE, null, ex);
-                        Logger.getLogger(Card.class.getName()).log(Level.WARNING, "ERROR UPDATING CARD IMAGE PRECACHE");
+                        if (image_b == null) {
+                            image_b = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg");
+                        }
                     }
 
+                } catch (Exception ex) {
+                    Logger.getLogger(Card.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Card.class.getName()).log(Level.WARNING, "ERROR UPDATING CARD IMAGE PRECACHE");
                 }
+
             }
         });
     }
@@ -708,20 +683,17 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     @Override
     public void zoom(float factor, final ConcurrentLinkedQueue<Long> notifier) {
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        Helpers.threadRun(() -> {
+            refreshCard(false, null);
 
-                refreshCard(false, null);
+            if (notifier != null) {
 
-                if (notifier != null) {
+                notifier.add(Thread.currentThread().getId());
 
-                    notifier.add(Thread.currentThread().getId());
+                synchronized (notifier) {
 
-                    synchronized (notifier) {
+                    notifier.notifyAll();
 
-                        notifier.notifyAll();
-
-                    }
                 }
             }
         });

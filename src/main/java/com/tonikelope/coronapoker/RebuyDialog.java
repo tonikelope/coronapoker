@@ -50,12 +50,10 @@ public class RebuyDialog extends javax.swing.JDialog {
 
     private void pausaConBarra(int tiempo) {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                barra.setVisible(true);
-                Helpers.resetBarra(barra, tiempo);
-                pack();
-            }
+        Helpers.GUIRun(() -> {
+            barra.setVisible(true);
+            Helpers.resetBarra(barra, tiempo);
+            pack();
         });
 
         int t = tiempo;
@@ -68,19 +66,15 @@ public class RebuyDialog extends javax.swing.JDialog {
 
                 final int v = --t;
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        barra.setValue(v);
-                    }
+                Helpers.GUIRun(() -> {
+                    barra.setValue(v);
                 });
             }
 
         }
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                barra.setVisible(false);
-            }
+        Helpers.GUIRun(() -> {
+            barra.setVisible(false);
         });
     }
 
@@ -110,18 +104,11 @@ public class RebuyDialog extends javax.swing.JDialog {
 
         if (timeout > 0) {
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-                    pausaConBarra(timeout);
-
-                    if (!rebuy && !touched) {
-                        rebuy = true;
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                dispose();
-                            }
-                        });
-                    }
+            Helpers.threadRun(() -> {
+                pausaConBarra(timeout);
+                if (!rebuy && !touched) {
+                    rebuy = true;
+                    Helpers.GUIRun(this::dispose);
                 }
             });
         }

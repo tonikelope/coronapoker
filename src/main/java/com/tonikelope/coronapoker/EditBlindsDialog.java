@@ -369,14 +369,10 @@ public class EditBlindsDialog extends javax.swing.JDialog {
 
         setVisible(false);
 
-        Helpers.threadRun(new Runnable() {
+        Helpers.threadRun(() -> {
+            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(ciegas_double) + "#" + String.valueOf(ciegas_double_type) + "#" + valores_ciegas[0].trim() + "#" + valores_ciegas[1].trim(), null);
 
-            public void run() {
-
-                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(ciegas_double) + "#" + String.valueOf(ciegas_double_type) + "#" + valores_ciegas[0].trim() + "#" + valores_ciegas[1].trim(), null);
-
-                GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
-            }
+            GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
         });
 
     }//GEN-LAST:event_vamos_buttonActionPerformed

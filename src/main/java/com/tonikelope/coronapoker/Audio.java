@@ -70,10 +70,10 @@ public class Audio {
 
     public static volatile float MASTER_VOLUME;
     public static final float TTS_VOLUME = 2.0f;
-    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/background_music.mp3", 0.4f);
-    public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/stats_music.mp3", 0.3f);
-    public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/waiting_room.mp3", 0.9f);
-    public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<String, Float>("misc/about_music.mp3", 0.9f);
+    public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/background_music.mp3", 0.4f);
+    public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/stats_music.mp3", 0.3f);
+    public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/waiting_room.mp3", 0.9f);
+    public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/about_music.mp3", 0.9f);
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
     public static final ConcurrentHashMap<String, CoronaMP3FilePlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, CoronaMP3FilePlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
@@ -220,26 +220,20 @@ public class Audio {
 
     public static void refreshALLVolumes() {
 
-        Helpers.threadRun(new Runnable() {
+        Helpers.threadRun(() -> {
+            synchronized (VOL_LOCK) {
 
-            @Override
-            public void run() {
+                try {
 
-                synchronized (VOL_LOCK) {
+                    refreshALLWAVVolume();
+                    refreshALLMP3Volume();
+                    refreshALLMP3LoopVolume();
+                    refreshTTSVolume();
 
-                    try {
+                    playWavResource("misc/volume_change.wav");
 
-                        refreshALLWAVVolume();
-                        refreshALLMP3Volume();
-                        refreshALLMP3LoopVolume();
-                        refreshTTSVolume();
-
-                        playWavResource("misc/volume_change.wav");
-
-                    } catch (Exception ex) {
-                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
+                } catch (Exception ex) {
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
@@ -450,36 +444,30 @@ public class Audio {
 
         if (!GameFrame.TEST_MODE) {
 
-            Helpers.threadRun(new Runnable() {
+            Helpers.threadRun(() -> {
+                CoronaMP3FilePlayer audio_player = new CoronaMP3FilePlayer();
 
-                @Override
-                public void run() {
+                MP3_LOOP.put(sound, audio_player);
 
-                    CoronaMP3FilePlayer audio_player = new CoronaMP3FilePlayer();
+                do {
 
-                    MP3_LOOP.put(sound, audio_player);
+                    try {
 
-                    do {
+                        float vol;
 
-                        try {
-
-                            float vol;
-
-                            if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
-                                vol = 0f;
-                            } else {
-                                vol = findSoundVolume(sound);
-                            }
-
-                            audio_player.play(javax.sound.sampled.AudioSystem.getAudioInputStream(getSoundInputStream(sound)), vol);
-
-                        } catch (Exception ex) {
-                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                        if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
+                            vol = 0f;
+                        } else {
+                            vol = findSoundVolume(sound);
                         }
 
-                    } while (MP3_LOOP.containsKey(sound));
+                        audio_player.play(javax.sound.sampled.AudioSystem.getAudioInputStream(getSoundInputStream(sound)), vol);
 
-                }
+                    } catch (Exception ex) {
+                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                } while (MP3_LOOP.containsKey(sound));
             });
 
         }
@@ -620,7 +608,7 @@ public class Audio {
                             } catch (Exception ex) {
 
                                 Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
-                                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
+                                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE ({0}) ERROR!", String.valueOf(conta_service));
                                 error = true;
                                 conta_service++;
                             }
@@ -628,7 +616,7 @@ public class Audio {
                         } catch (Exception ex) {
 
                             Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
-                            Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE (" + String.valueOf(conta_service) + ") ERROR!");
+                            Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE ({0}) ERROR!", String.valueOf(conta_service));
                             error = true;
                             conta_service++;
 
@@ -650,14 +638,10 @@ public class Audio {
 
                         muteAllExceptMp3Loops();
 
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
+                        Helpers.GUIRun(() -> {
+                            GameFrame.getInstance().getSonidos_menu().setEnabled(false);
 
-                                GameFrame.getInstance().getSonidos_menu().setEnabled(false);
-
-                                chat_notify_label.setVisible(true);
-                            }
+                            chat_notify_label.setVisible(true);
                         });
 
                         CoronaMP3FilePlayer TTS_PLAYER = new CoronaMP3FilePlayer();
@@ -678,15 +662,10 @@ public class Audio {
 
                         Helpers.pausar(500);
 
-                        Helpers.GUIRun(new Runnable() {
-                            @Override
-                            public void run() {
+                        Helpers.GUIRun(() -> {
+                            GameFrame.getInstance().getSonidos_menu().setEnabled(true);
 
-                                GameFrame.getInstance().getSonidos_menu().setEnabled(true);
-
-                                chat_notify_label.setVisible(false);
-
-                            }
+                            chat_notify_label.setVisible(false);
                         });
 
                         try {
@@ -712,33 +691,27 @@ public class Audio {
 
     public static void playWavResource(String sound, boolean force_close) {
 
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
-                playWavResourceAndWait(sound, force_close, false);
-            }
+        Helpers.threadRun(() -> {
+            playWavResourceAndWait(sound, force_close, false);
         });
 
     }
 
     public static void stopWavResource(String sound) {
-        Helpers.threadRun(new Runnable() {
-            @Override
-            public void run() {
-                ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
+        Helpers.threadRun(() -> {
+            ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
 
-                if (list != null) {
-                    for (Clip c : list) {
+            if (list != null) {
+                for (Clip c : list) {
 
-                        if (c != null) {
-                            synchronized (c) {
-                                if (c.isOpen() && c.isRunning()) {
-                                    c.stop();
-                                }
+                    if (c != null) {
+                        synchronized (c) {
+                            if (c.isOpen() && c.isRunning()) {
+                                c.stop();
                             }
                         }
-
                     }
+
                 }
             }
         });

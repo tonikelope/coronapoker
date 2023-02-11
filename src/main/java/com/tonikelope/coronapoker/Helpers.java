@@ -1337,38 +1337,27 @@ public class Helpers {
         try {
             Class.forName("org.sqlite.JDBC");
 
-            Statement statement = getSQLITE().createStatement();
+            try ( Statement statement = getSQLITE().createStatement()) {
+                statement.setQueryTimeout(30);  // set timeout to 30 sec.
+                statement.execute("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER)");
+                statement.execute("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
+                statement.execute("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, conta_raise INTEGER, response_time INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
+                statement.execute("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, pay REAL, profit REAL, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
+                statement.execute("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
+                statement.execute("CREATE TABLE IF NOT EXISTS showcards(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, parguela INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
+                statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
+                //ACTUALIZACIÓN
+                try {
+                    statement.execute("ALTER TABLE game ADD ugi TEXT");
+                } catch (Exception ex) {
+                }
+                try {
+                    statement.execute("ALTER TABLE game ADD local INTEGER DEFAULT 0");
+                } catch (Exception ex) {
+                } // set timeout to 30 sec.
 
-            statement.setQueryTimeout(30);  // set timeout to 30 sec.
-
-            statement.execute("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER)");
-
-            statement.execute("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
-
-            statement.execute("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, conta_raise INTEGER, response_time INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
-
-            statement.execute("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, pay REAL, profit REAL, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
-
-            statement.execute("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
-
-            statement.execute("CREATE TABLE IF NOT EXISTS showcards(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, parguela INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
-
-            statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
-
-            //ACTUALIZACIÓN 
-            try {
-                statement.execute("ALTER TABLE game ADD ugi TEXT");
-            } catch (Exception ex) {
             }
-
-            try {
-                statement.execute("ALTER TABLE game ADD local INTEGER DEFAULT 0");
-            } catch (Exception ex) {
-            }
-
-            statement.close();
-
-        } catch (SQLException | ClassNotFoundException ex) {
+        } catch (Exception ex) {
             Logger.getLogger(Helpers.class
                     .getName()).log(Level.SEVERE, null, ex);
         }
@@ -1384,16 +1373,12 @@ public class Helpers {
 
     public static void SQLITEVAC() {
 
-        try {
-            Statement statement = Helpers.getSQLITE().createStatement();
+        try ( Statement statement = Helpers.getSQLITE().createStatement()) {
             statement.execute("VACUUM");
-            statement.close();
-
         } catch (SQLException ex) {
-            Logger.getLogger(Helpers.class
-                    .getName()).log(Level.SEVERE, null, ex);
-
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
+
     }
 
     public static class maxLenghtFilter extends DocumentFilter {
@@ -2089,10 +2074,11 @@ public class Helpers {
 
     public static String getMyLocalIP() {
         try {
-            Socket socket = new Socket();
-            socket.connect(new InetSocketAddress("google.com", 80));
-            String ip = socket.getLocalAddress().getHostAddress();
-            socket.close();
+            String ip;
+            try ( Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress("google.com", 80));
+                ip = socket.getLocalAddress().getHostAddress();
+            }
             return ip;
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -2611,17 +2597,14 @@ public class Helpers {
 
                 URL oracle = new URL((String) Init.MOD.get("updateurl"));
 
-                BufferedReader in = new BufferedReader(new InputStreamReader(oracle.openStream()));
-
-                ArrayList<String> update_info = new ArrayList<>();
-
-                String inputline;
-
-                while ((inputline = in.readLine()) != null) {
-                    update_info.add(inputline);
+                ArrayList<String> update_info;
+                try ( BufferedReader in = new BufferedReader(new InputStreamReader(oracle.openStream()))) {
+                    update_info = new ArrayList<>();
+                    String inputline;
+                    while ((inputline = in.readLine()) != null) {
+                        update_info.add(inputline);
+                    }
                 }
-
-                in.close();
 
                 String latest_version = findFirstRegex("([0-9]+\\.[0-9]+)", update_info.get(0), 1);
 

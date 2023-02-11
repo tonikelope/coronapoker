@@ -69,13 +69,11 @@ public class EmojiPanel extends javax.swing.JPanel {
 
             INIT = true;
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-                    synchronized (EmojiPanel.class) {
-                        EMOJI_SRC = crearEmojisImageSrcs();
-                        EMOJI_ICON = crearEmojisImageIcons();
-                        HISTORIAL = crearHistorial();
-                    }
+            Helpers.threadRun(() -> {
+                synchronized (EmojiPanel.class) {
+                    EMOJI_SRC = crearEmojisImageSrcs();
+                    EMOJI_ICON = crearEmojisImageIcons();
+                    HISTORIAL = crearHistorial();
                 }
             });
 
@@ -85,32 +83,27 @@ public class EmojiPanel extends javax.swing.JPanel {
 
     private void populateEmojis() {
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
-                synchronized (EmojiPanel.class) {
+        Helpers.threadRun(() -> {
+            synchronized (EmojiPanel.class) {
+                Helpers.GUIRun(() -> {
+                    history_panel.removeAll();
 
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-                            history_panel.removeAll();
+                    for (Integer i : HISTORIAL) {
+                        createEmoji(history_panel, i);
+                    }
 
-                            for (Integer i : HISTORIAL) {
-                                createEmoji(history_panel, i);
-                            }
+                    emoji_panel.removeAll();
 
-                            emoji_panel.removeAll();
+                    for (int i = 1; i <= EMOJI_COUNT; i++) {
+                        createEmoji(emoji_panel, i);
+                    }
 
-                            for (int i = 1; i <= EMOJI_COUNT; i++) {
-                                createEmoji(emoji_panel, i);
-                            }
+                    revalidate();
 
-                            revalidate();
+                    repaint();
 
-                            repaint();
-
-                            WaitingRoomFrame.getInstance().getEmoji_button().setEnabled(WaitingRoomFrame.getInstance().getChat_box().isEnabled());
-                        }
-                    });
-                }
+                    WaitingRoomFrame.getInstance().getEmoji_button().setEnabled(WaitingRoomFrame.getInstance().getChat_box().isEnabled());
+                });
             }
         });
     }
@@ -147,11 +140,8 @@ public class EmojiPanel extends javax.swing.JPanel {
                         WaitingRoomFrame.getInstance().getChat_box().getDocument().insertString(WaitingRoomFrame.getInstance().getChat_box().getCaretPosition(), " #" + j + "# ", null);
                         WaitingRoomFrame.getInstance().getChat_box().requestFocus();
 
-                        Helpers.threadRun(new Runnable() {
-                            @Override
-                            public void run() {
-                                updateHistorial(j);
-                            }
+                        Helpers.threadRun(() -> {
+                            updateHistorial(j);
                         });
 
                     } catch (BadLocationException ex) {

@@ -43,16 +43,14 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
 
     public void reset() {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                getIp_port().setEnabled(true);
-                getYes().setText(Translator.translate("RECONECTAR"));
-                getYes().setEnabled(true);
-                getStatus().setEnabled(true);
-                getStatus2().setEnabled(true);
-                getBarra().setVisible(false);
-                pack();
-            }
+        Helpers.GUIRun(() -> {
+            getIp_port().setEnabled(true);
+            getYes().setText(Translator.translate("RECONECTAR"));
+            getYes().setEnabled(true);
+            getStatus().setEnabled(true);
+            getStatus2().setEnabled(true);
+            getBarra().setVisible(false);
+            pack();
         });
     }
 
@@ -228,11 +226,9 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
         this.reconectar = true;
         pack();
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
-                synchronized (WaitingRoomFrame.getInstance().getLock_reconnect()) {
-                    WaitingRoomFrame.getInstance().getLock_reconnect().notifyAll();
-                }
+        Helpers.threadRun(() -> {
+            synchronized (WaitingRoomFrame.getInstance().getLock_reconnect()) {
+                WaitingRoomFrame.getInstance().getLock_reconnect().notifyAll();
             }
         });
     }//GEN-LAST:event_yesActionPerformed

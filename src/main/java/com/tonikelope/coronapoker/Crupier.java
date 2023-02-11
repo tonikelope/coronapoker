@@ -71,7 +71,7 @@ public class Crupier implements Runnable {
 
     public static final boolean ALLIN_BOT_TEST = true; //TRUE FOR TESTING (Init.DEV_MODE MUST BE TRUE)
 
-    public static final Map.Entry<String, Object[][]> ALLIN_CINEMATICS = new HashMap.SimpleEntry<String, Object[][]>("allin/",
+    public static final Map.Entry<String, Object[][]> ALLIN_CINEMATICS = new HashMap.SimpleEntry<>("allin/",
             new Object[][]{
                 {"rounders.gif"},
                 {"hulk.gif"},
@@ -86,7 +86,7 @@ public class Crupier implements Runnable {
 
     public static volatile Map.Entry<String, Object[][]> ALLIN_CINEMATICS_MOD = null;
 
-    public static final Map.Entry<String, String[]> ALLIN_SOUNDS_ES = new HashMap.SimpleEntry<String, String[]>("joke/es/allin/", new String[]{
+    public static final Map.Entry<String, String[]> ALLIN_SOUNDS_ES = new HashMap.SimpleEntry<>("joke/es/allin/", new String[]{
         "dolor.wav",
         "final_flash.wav",
         "follon.wav",
@@ -100,13 +100,13 @@ public class Crupier implements Runnable {
         "vanidoso.wav",
         "vietnam.wav"});
 
-    public static final Map.Entry<String, String[]> ALLIN_SOUNDS_EN = new HashMap.SimpleEntry<String, String[]>("joke/en/allin/", new String[]{});
+    public static final Map.Entry<String, String[]> ALLIN_SOUNDS_EN = new HashMap.SimpleEntry<>("joke/en/allin/", new String[]{});
 
     public static final Map<String, Map.Entry<String, String[]>> ALLIN_SOUNDS = new HashMap<>();
 
     public static volatile Map.Entry<String, String[]> ALLIN_SOUNDS_MOD = null;
 
-    public static final Map.Entry<String, String[]> FOLD_SOUNDS_ES = new HashMap.SimpleEntry<String, String[]>("joke/es/fold/", new String[]{
+    public static final Map.Entry<String, String[]> FOLD_SOUNDS_ES = new HashMap.SimpleEntry<>("joke/es/fold/", new String[]{
         "fary.wav",
         "mamar_pollas.wav",
         "maricon.wav",
@@ -115,18 +115,18 @@ public class Crupier implements Runnable {
         "mierda_alta.wav",
         "percibo_miedo.wav"});
 
-    public static final Map.Entry<String, String[]> FOLD_SOUNDS_EN = new HashMap.SimpleEntry<String, String[]>("joke/en/fold/", new String[]{});
+    public static final Map.Entry<String, String[]> FOLD_SOUNDS_EN = new HashMap.SimpleEntry<>("joke/en/fold/", new String[]{});
 
     public static final Map<String, Map.Entry<String, String[]>> FOLD_SOUNDS = new HashMap<>();
 
     public static volatile Map.Entry<String, String[]> FOLD_SOUNDS_MOD = null;
 
-    public static final Map.Entry<String, String[]> SHOWDOWN_SOUNDS_ES = new HashMap.SimpleEntry<String, String[]>("joke/es/showdown/", new String[]{
+    public static final Map.Entry<String, String[]> SHOWDOWN_SOUNDS_ES = new HashMap.SimpleEntry<>("joke/es/showdown/", new String[]{
         "berto.wav",
         "bond.wav",
         "kbill_show.wav"});
 
-    public static final Map.Entry<String, String[]> SHOWDOWN_SOUNDS_EN = new HashMap.SimpleEntry<String, String[]>("joke/en/showdown/", new String[]{
+    public static final Map.Entry<String, String[]> SHOWDOWN_SOUNDS_EN = new HashMap.SimpleEntry<>("joke/en/showdown/", new String[]{
         "berto.wav",
         "bond.wav",
         "kbill_show.wav"});
@@ -135,7 +135,7 @@ public class Crupier implements Runnable {
 
     public static volatile Map.Entry<String, String[]> SHOWDOWN_SOUNDS_MOD = null;
 
-    public static final Map.Entry<String, String[]> WINNER_SOUNDS_ES = new HashMap.SimpleEntry<String, String[]>("joke/es/winner/", new String[]{
+    public static final Map.Entry<String, String[]> WINNER_SOUNDS_ES = new HashMap.SimpleEntry<>("joke/es/winner/", new String[]{
         "ateam.wav",
         "divertido.wav",
         "dura.wav",
@@ -146,13 +146,13 @@ public class Crupier implements Runnable {
         "reymundo.wav",
         "vivarey.wav"});
 
-    public static final Map.Entry<String, String[]> WINNER_SOUNDS_EN = new HashMap.SimpleEntry<String, String[]>("joke/en/winner/", new String[]{});
+    public static final Map.Entry<String, String[]> WINNER_SOUNDS_EN = new HashMap.SimpleEntry<>("joke/en/winner/", new String[]{});
 
     public static final Map<String, Map.Entry<String, String[]>> WINNER_SOUNDS = new HashMap<>();
 
     public static volatile Map.Entry<String, String[]> WINNER_SOUNDS_MOD = null;
 
-    public static final Map.Entry<String, String[]> LOSER_SOUNDS_ES = new HashMap.SimpleEntry<String, String[]>("joke/es/loser/", new String[]{
+    public static final Map.Entry<String, String[]> LOSER_SOUNDS_ES = new HashMap.SimpleEntry<>("joke/es/loser/", new String[]{
         "afregar.wav",
         "bambi.wav",
         "elgolpe.wav",
@@ -167,7 +167,7 @@ public class Crupier implements Runnable {
         "quecabron.wav",
         "vamos_no_me_jodas.wav"});
 
-    public static final Map.Entry<String, String[]> LOSER_SOUNDS_EN = new HashMap.SimpleEntry<String, String[]>("joke/en/loser/", new String[]{});
+    public static final Map.Entry<String, String[]> LOSER_SOUNDS_EN = new HashMap.SimpleEntry<>("joke/en/loser/", new String[]{});
 
     public static final Map<String, Map.Entry<String, String[]>> LOSER_SOUNDS = new HashMap<>();
 
@@ -779,19 +779,15 @@ public class Crupier implements Runnable {
 
                                 long now = System.currentTimeMillis();
 
-                                Helpers.GUIRunAndWait(new Runnable() {
-
-                                    public void run() {
-
-                                        try {
-                                            gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, Helpers.getGIFFramesCount(f_url_icon));
-                                        } catch (Exception ex) {
-                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                        }
-
-                                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                                        gif_dialog.setVisible(true);
+                                Helpers.GUIRunAndWait(() -> {
+                                    try {
+                                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, icon, Helpers.getGIFFramesCount(f_url_icon));
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                     }
+
+                                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                                    gif_dialog.setVisible(true);
                                 });
 
                                 while (Init.PLAYING_CINEMATIC && !gif_dialog.isForce_exit()) {
@@ -827,15 +823,12 @@ public class Crupier implements Runnable {
 
                             current_remote_cinematic_b64 = null;
 
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-
-                                    if (gif_dialog.isVisible()) {
-                                        gif_dialog.dispose();
-                                    }
-
-                                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+                            Helpers.GUIRun(() -> {
+                                if (gif_dialog.isVisible()) {
+                                    gif_dialog.dispose();
                                 }
+
+                                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
                             });
 
                             synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
@@ -846,38 +839,9 @@ public class Crupier implements Runnable {
 
                 } else {
 
-                    Helpers.threadRun(new Runnable() {
+                    Helpers.threadRun(() -> {
+                        if (current_remote_cinematic_b64 != null && pausa != 0L) {
 
-                        public void run() {
-                            if (current_remote_cinematic_b64 != null && pausa != 0L) {
-
-                                Helpers.pausar(pausa);
-                                Init.PLAYING_CINEMATIC = false;
-
-                                synchronized (Init.LOCK_CINEMATICS) {
-
-                                    Init.LOCK_CINEMATICS.notifyAll();
-
-                                }
-                            }
-
-                            current_remote_cinematic_b64 = null;
-
-                            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
-
-                            synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
-                                GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
-                            }
-                        }
-                    });
-                }
-
-            } else {
-
-                Helpers.threadRun(new Runnable() {
-
-                    public void run() {
-                        if (pausa != 0L) {
                             Helpers.pausar(pausa);
                             Init.PLAYING_CINEMATIC = false;
 
@@ -895,6 +859,29 @@ public class Crupier implements Runnable {
                         synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                             GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
                         }
+                    });
+                }
+
+            } else {
+
+                Helpers.threadRun(() -> {
+                    if (pausa != 0L) {
+                        Helpers.pausar(pausa);
+                        Init.PLAYING_CINEMATIC = false;
+
+                        synchronized (Init.LOCK_CINEMATICS) {
+
+                            Init.LOCK_CINEMATICS.notifyAll();
+
+                        }
+                    }
+
+                    current_remote_cinematic_b64 = null;
+
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+
+                    synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
+                        GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
                     }
                 });
 
@@ -919,11 +906,9 @@ public class Crupier implements Runnable {
     public void soundFold() {
         if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
             this.fold_sound_playing = true;
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-                    Audio.playRandomWavResourceAndWait(Init.MOD != null ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD) : Map.ofEntries(Crupier.FOLD_SOUNDS.get(GameFrame.LANGUAGE)));
-                    fold_sound_playing = false;
-                }
+            Helpers.threadRun(() -> {
+                Audio.playRandomWavResourceAndWait(Init.MOD != null ? Map.ofEntries(Crupier.FOLD_SOUNDS_MOD) : Map.ofEntries(Crupier.FOLD_SOUNDS.get(GameFrame.LANGUAGE)));
+                fold_sound_playing = false;
             });
         }
     }
@@ -932,21 +917,17 @@ public class Crupier implements Runnable {
         if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
 
             if (badbeat) {
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        Audio.muteAllLoopMp3();
-                        Audio.playWavResourceAndWait("misc/badbeat.wav");
-                        Audio.unmuteAllLoopMp3();
-                    }
+                Helpers.threadRun(() -> {
+                    Audio.muteAllLoopMp3();
+                    Audio.playWavResourceAndWait("misc/badbeat.wav");
+                    Audio.unmuteAllLoopMp3();
                 });
             } else if (jugada_ganadora >= Hand.POKER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        Audio.muteAllLoopMp3();
-                        Audio.playWavResourceAndWait("misc/youarelucky.wav");
-                        Audio.unmuteAllLoopMp3();
-                    }
+                Helpers.threadRun(() -> {
+                    Audio.muteAllLoopMp3();
+                    Audio.playWavResourceAndWait("misc/youarelucky.wav");
+                    Audio.unmuteAllLoopMp3();
                 });
 
             } else {
@@ -960,12 +941,10 @@ public class Crupier implements Runnable {
 
             if ((jugada >= Hand.POKER || badbeat) && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        Audio.muteAllLoopMp3();
-                        Audio.playWavResourceAndWait("misc/youarelucky.wav");
-                        Audio.unmuteAllLoopMp3();
-                    }
+                Helpers.threadRun(() -> {
+                    Audio.muteAllLoopMp3();
+                    Audio.playWavResourceAndWait("misc/youarelucky.wav");
+                    Audio.unmuteAllLoopMp3();
                 });
 
             } else {
@@ -974,7 +953,7 @@ public class Crupier implements Runnable {
 
                 if (ultima_carta && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
-                    sonidos = Init.MOD != null ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD, new HashMap.SimpleEntry<String, String[]>("misc/", new String[]{"lastcard.wav"})) : Map.ofEntries(Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE), new HashMap.SimpleEntry<String, String[]>("misc/", new String[]{"lastcard.wav"}));
+                    sonidos = Init.MOD != null ? Map.ofEntries(Crupier.WINNER_SOUNDS_MOD, new HashMap.SimpleEntry<>("misc/", new String[]{"lastcard.wav"})) : Map.ofEntries(Crupier.WINNER_SOUNDS.get(GameFrame.LANGUAGE), new HashMap.SimpleEntry<>("misc/", new String[]{"lastcard.wav"}));
 
                 } else {
 
@@ -990,16 +969,14 @@ public class Crupier implements Runnable {
         if (!this.sincronizando_mano && GameFrame.SONIDOS_CHORRA && !fold_sound_playing) {
 
             if (badbeat) {
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        Audio.muteAllLoopMp3();
-                        Audio.playWavResourceAndWait("misc/badbeat.wav");
-                        Audio.unmuteAllLoopMp3();
-                    }
+                Helpers.threadRun(() -> {
+                    Audio.muteAllLoopMp3();
+                    Audio.playWavResourceAndWait("misc/badbeat.wav");
+                    Audio.unmuteAllLoopMp3();
                 });
             } else if (jugada >= Hand.FULL && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
-                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<String, String[]>("joke/es/loser/", new String[]{
+                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<>("joke/es/loser/", new String[]{
                     "encargado.wav",
                     "matias.wav"});
 
@@ -1755,10 +1732,8 @@ public class Crupier implements Runnable {
 
                 if (permutacion_recuperada == null) {
 
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
-                            Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
-                        }
+                    Helpers.threadRun(() -> {
+                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
                     });
 
                     map.put("permutation_key", false);
@@ -2134,7 +2109,7 @@ public class Crupier implements Runnable {
 
                         if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
 
-                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, p.getNick() + " -> NEW HAND (" + String.valueOf(this.conta_mano + 1) + ") CONFIRMATION TIMEOUT!");
+                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "{0} -> NEW HAND ({1}) CONFIRMATION TIMEOUT!", new Object[]{p.getNick(), String.valueOf(this.conta_mano + 1)});
 
                             nick2player.get(p.getNick()).setTimeout(true);
                             if (!p.isForce_reset_socket()) {
@@ -2165,14 +2140,11 @@ public class Crupier implements Runnable {
                             }
                         }
                     } else {
-                        Helpers.threadRun(new Runnable() {
-
-                            public void run() {
-                                if (!timeout_msg[0]) {
-                                    timeout_msg[0] = true;
-                                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO (SEGUIMOS ESPERANDO...)");
-                                    timeout_msg[0] = false;
-                                }
+                        Helpers.threadRun(() -> {
+                            if (!timeout_msg[0]) {
+                                timeout_msg[0] = true;
+                                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO (SEGUIMOS ESPERANDO...)");
+                                timeout_msg[0] = false;
                             }
                         });
 
@@ -2198,81 +2170,71 @@ public class Crupier implements Runnable {
 
         iwtsthing = true;
 
-        Helpers.threadRun(new Runnable() {
+        Helpers.threadRun(() -> {
 
-            public void run() {
+            if (!iwtsth) {
 
-                if (!iwtsth) {
+                iwtsth = true;
 
-                    iwtsth = true;
+                synchronized (iwtsth_lock) {
 
-                    synchronized (iwtsth_lock) {
+                    if (iwtsth_requests.containsKey(iwtsther)) {
+                        iwtsth_requests.put(iwtsther, (int) iwtsth_requests.get(iwtsther) + 1);
+                    } else {
+                        iwtsth_requests.put(iwtsther, 1);
+                    }
 
-                        if (iwtsth_requests.containsKey(iwtsther)) {
-                            iwtsth_requests.put(iwtsther, (int) iwtsth_requests.get(iwtsther) + 1);
-                        } else {
-                            iwtsth_requests.put(iwtsther, 1);
+                    int conta_iwtsth = (int) iwtsth_requests.get(iwtsther);
+
+                    GameFrame.getInstance().getRegistro().print(iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + ")");
+
+                    Helpers.GUIRun(() -> {
+                        if (GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado()) {
+                            GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
                         }
 
-                        int conta_iwtsth = (int) iwtsth_requests.get(iwtsther);
+                        Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
+                    });
 
-                        GameFrame.getInstance().getRegistro().print(iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + ")");
+                    if (GameFrame.getInstance().isPartida_local()) {
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
+                        try {
+                            broadcastGAMECommandFromServer("IWTSTH#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")), null);
+                        } catch (UnsupportedEncodingException ex) {
+                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        }
 
-                                if (GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado()) {
-                                    GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
-                                }
+                    }
 
-                                Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
+                    if (GameFrame.CINEMATICAS) {
 
+                        Helpers.GUIRunAndWait(() -> {
+                            try {
+                                GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
+
+                                gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+
+                                gif_dialog.setVisible(true);
+
+                            } catch (Exception ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
                         });
 
-                        if (GameFrame.getInstance().isPartida_local()) {
+                        Helpers.pausar(500);
 
-                            try {
-                                broadcastGAMECommandFromServer("IWTSTH#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")), null);
-                            } catch (UnsupportedEncodingException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                            }
+                        Audio.playWavResourceAndWait("misc/iwtsth.wav");
 
-                        }
+                    } else {
+                        Audio.playWavResourceAndWait("misc/iwtsth.wav");
+                    }
 
-                        if (GameFrame.CINEMATICAS) {
+                    if (GameFrame.getInstance().isPartida_local()) {
 
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                public void run() {
-                                    try {
-                                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
-
-                                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-
-                                        gif_dialog.setVisible(true);
-
-                                    } catch (Exception ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            });
-
-                            Helpers.pausar(500);
-
-                            Audio.playWavResourceAndWait("misc/iwtsth.wav");
-
+                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + Translator.translate(") ¿AUTORIZAMOS?")) == 0) {
+                            IWTSTH_SHOW(iwtsther, true);
                         } else {
-                            Audio.playWavResourceAndWait("misc/iwtsth.wav");
-                        }
-
-                        if (GameFrame.getInstance().isPartida_local()) {
-
-                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + Translator.translate(") ¿AUTORIZAMOS?")) == 0) {
-                                IWTSTH_SHOW(iwtsther, true);
-                            } else {
-                                IWTSTH_SHOW(iwtsther, false);
-                            }
-
+                            IWTSTH_SHOW(iwtsther, false);
                         }
 
                     }
@@ -2280,6 +2242,7 @@ public class Crupier implements Runnable {
                 }
 
             }
+
         });
 
     }
@@ -2288,35 +2251,71 @@ public class Crupier implements Runnable {
 
         if (iwtsthing) {
 
-            synchronized (iwtsth_lock) {
+            Helpers.threadRun(() -> {
 
-                if (this.iwtsthing) {
+                synchronized (iwtsth_lock) {
 
-                    if (GameFrame.getInstance().isPartida_local()) {
+                    if (this.iwtsthing) {
 
-                        try {
-                            broadcastGAMECommandFromServer("IWTSTHSHOW#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")) + "#" + String.valueOf(authorized), null);
-                        } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        if (GameFrame.getInstance().isPartida_local()) {
+
+                            try {
+                                broadcastGAMECommandFromServer("IWTSTHSHOW#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")) + "#" + String.valueOf(authorized), null);
+                            } catch (UnsupportedEncodingException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+
                         }
 
-                    }
+                        if (authorized) {
 
-                    if (authorized) {
+                            for (Player j : GameFrame.getInstance().getJugadores()) {
 
-                        for (Player j : GameFrame.getInstance().getJugadores()) {
+                                if (GameFrame.getInstance().getLocalPlayer() != j) {
 
-                            if (GameFrame.getInstance().getLocalPlayer() != j) {
+                                    RemotePlayer rp = (RemotePlayer) j;
 
-                                RemotePlayer rp = (RemotePlayer) j;
+                                    if (rp.isIwtsthCandidate()) {
 
-                                if (rp.isIwtsthCandidate()) {
+                                        rp.destaparCartas(true);
 
-                                    rp.destaparCartas(true);
+                                        ArrayList<Card> cartas_jugada = new ArrayList<>(rp.getHoleCards());
 
-                                    ArrayList<Card> cartas_jugada = new ArrayList<>(rp.getHoleCards());
+                                        String hole_cards_string = Card.collection2String(rp.getHoleCards());
 
-                                    String hole_cards_string = Card.collection2String(rp.getHoleCards());
+                                        for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+
+                                            if (!carta_comun.isTapada()) {
+                                                cartas_jugada.add(carta_comun);
+                                            }
+                                        }
+
+                                        Hand jugada = new Hand(cartas_jugada);
+
+                                        rp.showCards(jugada.getName());
+
+                                        GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + rp.getNickname() + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
+
+                                        sqlNewShowcards(rp.getNickname(), rp.getDecision() == Player.FOLD);
+
+                                        sqlUpdateShowdownHand(rp, jugada);
+
+                                    }
+
+                                }
+                            }
+
+                            checkJugadasMostrar();
+
+                            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+
+                            if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
+
+                                if (GameFrame.getInstance().getLocalPlayer().isLoser()) {
+
+                                    ArrayList<Card> cartas_jugada = new ArrayList<>(GameFrame.getInstance().getLocalPlayer().getHoleCards());
+
+                                    String hole_cards_string = Card.collection2String(GameFrame.getInstance().getLocalPlayer().getHoleCards());
 
                                     for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
@@ -2327,43 +2326,7 @@ public class Crupier implements Runnable {
 
                                     Hand jugada = new Hand(cartas_jugada);
 
-                                    rp.showCards(jugada.getName());
-
-                                    GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + rp.getNickname() + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
-
-                                    sqlNewShowcards(rp.getNickname(), rp.getDecision() == Player.FOLD);
-
-                                    sqlUpdateShowdownHand(rp, jugada);
-
-                                }
-
-                            }
-                        }
-
-                        checkJugadasMostrar();
-
-                        setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
-
-                        if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
-
-                            if (GameFrame.getInstance().getLocalPlayer().isLoser()) {
-
-                                ArrayList<Card> cartas_jugada = new ArrayList<>(GameFrame.getInstance().getLocalPlayer().getHoleCards());
-
-                                String hole_cards_string = Card.collection2String(GameFrame.getInstance().getLocalPlayer().getHoleCards());
-
-                                for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
-
-                                    if (!carta_comun.isTapada()) {
-                                        cartas_jugada.add(carta_comun);
-                                    }
-                                }
-
-                                Hand jugada = new Hand(cartas_jugada);
-
-                                Helpers.GUIRunAndWait(new Runnable() {
-                                    public void run() {
-
+                                    Helpers.GUIRunAndWait(() -> {
                                         GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
 
                                         GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
@@ -2371,30 +2334,27 @@ public class Crupier implements Runnable {
                                         GameFrame.getInstance().getLocalPlayer().getPlayer_action().setBackground(new Color(51, 153, 255));
 
                                         GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
+                                    });
 
-                                    }
-                                });
+                                    GameFrame.getInstance().getLocalPlayer().setMuestra(true);
 
-                                GameFrame.getInstance().getLocalPlayer().setMuestra(true);
+                                    GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
 
-                                GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
+                                    sqlNewShowcards(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getDecision() == Player.FOLD);
 
-                                sqlNewShowcards(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getDecision() == Player.FOLD);
+                                    sqlUpdateShowdownHand(GameFrame.getInstance().getLocalPlayer(), jugada);
 
-                                sqlUpdateShowdownHand(GameFrame.getInstance().getLocalPlayer(), jugada);
+                                }
 
                             }
 
-                        }
+                        } else {
 
-                    } else {
+                            GameFrame.getInstance().getRegistro().print(Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
 
-                        GameFrame.getInstance().getRegistro().print(Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+                            if (GameFrame.CINEMATICAS) {
 
-                        if (GameFrame.CINEMATICAS) {
-
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                public void run() {
+                                Helpers.GUIRunAndWait(() -> {
                                     try {
                                         GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
 
@@ -2403,44 +2363,41 @@ public class Crupier implements Runnable {
                                     } catch (Exception ex) {
                                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                     }
-                                }
-                            });
+                                });
 
+                            }
+
+                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther)) {
+
+                                this.last_iwtsth_rejected = System.currentTimeMillis();
+                            }
                         }
 
-                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther)) {
-
-                            this.last_iwtsth_rejected = System.currentTimeMillis();
-                        }
                     }
 
                 }
 
-            }
-
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-
+                Helpers.GUIRun(() -> {
                     if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
                         GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
                     }
 
                     GameFrame.getInstance().getTapete().getCommunityCards().getBarra_tiempo().setIndeterminate(false);
+                });
 
+                iwtsth = true;
+
+                iwtsthing = false;
+
+                iwtsthing_request = false;
+
+                synchronized (iwtsth_lock) {
+                    iwtsth_lock.notifyAll();
                 }
+
             });
-
-            iwtsth = true;
-
-            iwtsthing = false;
-
-            iwtsthing_request = false;
-
-            synchronized (iwtsth_lock) {
-                iwtsth_lock.notifyAll();
-            }
-
         }
+
     }
 
     public boolean isIwtsthing_request() {
@@ -2475,22 +2432,18 @@ public class Crupier implements Runnable {
 
     private boolean NUEVA_MANO() {
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
+        Helpers.GUIRun(() -> {
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.LEADING);
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText("---"); //Para que se mantenga la altura de la fila del bote
+            GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(false);
+            GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
 
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.LEADING);
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText("---"); //Para que se mantenga la altura de la fila del bote
-                GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(false);
-                GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
+            Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
-                Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
-
-                if (!GameFrame.getInstance().isPartida_local()) {
-                    GameFrame.getInstance().getExit_menu().setEnabled(false);
-                }
+            if (!GameFrame.getInstance().isPartida_local()) {
+                GameFrame.getInstance().getExit_menu().setEnabled(false);
             }
         });
 
@@ -2516,12 +2469,8 @@ public class Crupier implements Runnable {
 
                 GameFrame.getInstance().getRegistro().print(Translator.translate("LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO"));
 
-                Helpers.threadRun(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO");
-                    }
+                Helpers.threadRun(() -> {
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO");
                 });
 
             }
@@ -2566,12 +2515,7 @@ public class Crupier implements Runnable {
         this.conta_mano++;
 
         if (GameFrame.MANOS == conta_mano && GameFrame.getInstance().isPartida_local()) {
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    GameFrame.getInstance().getTapete().getCommunityCards().hand_label_left_click();
-                }
-            });
+            Helpers.GUIRun(GameFrame.getInstance().getTapete().getCommunityCards()::hand_label_left_click);
         }
 
         Bot.BOT_COMMUNITY_CARDS.makeEmpty();
@@ -2631,18 +2575,14 @@ public class Crupier implements Runnable {
 
         this.rebuy_now.clear();
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                if (GameFrame.getInstance().getRebuy_now_menu().isEnabled()) {
-                    GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
-                    GameFrame.getInstance().getRebuy_now_menu().setBackground(null);
-                    GameFrame.getInstance().getRebuy_now_menu().setOpaque(false);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
-                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
-                }
+        Helpers.GUIRun(() -> {
+            if (GameFrame.getInstance().getRebuy_now_menu().isEnabled()) {
+                GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
+                GameFrame.getInstance().getRebuy_now_menu().setBackground(null);
+                GameFrame.getInstance().getRebuy_now_menu().setOpaque(false);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
+                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
             }
         });
 
@@ -2655,27 +2595,24 @@ public class Crupier implements Runnable {
 
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
 
-            Helpers.GUIRun(new Runnable() {
-                public void run() {
-                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+            Helpers.GUIRun(() -> {
+                if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                    GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
 
-                        GameFrame.getInstance().getTapete().repaint();
-                    }
-
-                    recover_dialog = new RecoverDialog(GameFrame.getInstance().getFrame(), true);
-                    recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
-                    recover_dialog.setVisible(true);
-
-                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                        GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
-
-                        GameFrame.getInstance().getTapete().repaint();
-                    }
-
-                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
-
+                    GameFrame.getInstance().getTapete().repaint();
                 }
+
+                recover_dialog = new RecoverDialog(GameFrame.getInstance().getFrame(), true);
+                recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
+                recover_dialog.setVisible(true);
+
+                if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                    GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
+
+                    GameFrame.getInstance().getTapete().repaint();
+                }
+
+                GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
             });
 
             recuperarDatosClavePartida();
@@ -2699,15 +2636,12 @@ public class Crupier implements Runnable {
                         Audio.stopLoopMp3("misc/recovering.mp3");
                         Audio.playLoopMp3Resource("misc/background_music.mp3");
                     }
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-                            recover_dialog.setVisible(false);
-                            recover_dialog.dispose();
-                            recover_dialog = null;
-                            GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-
-                        }
+                    Helpers.GUIRun(() -> {
+                        recover_dialog.setVisible(false);
+                        recover_dialog.dispose();
+                        recover_dialog = null;
+                        GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                     });
                 }
 
@@ -2722,15 +2656,12 @@ public class Crupier implements Runnable {
                     Audio.stopLoopMp3("misc/recovering.mp3");
                     Audio.playLoopMp3Resource("misc/background_music.mp3");
                 }
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        recover_dialog.setVisible(false);
-                        recover_dialog.dispose();
-                        recover_dialog = null;
-                        GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-
-                    }
+                Helpers.GUIRun(() -> {
+                    recover_dialog.setVisible(false);
+                    recover_dialog.dispose();
+                    recover_dialog = null;
+                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                 });
             }
 
@@ -2766,14 +2697,9 @@ public class Crupier implements Runnable {
 
             this.bote_total += this.apuestas;
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(true);
-                    GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(true);
-
-                }
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(true);
+                GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(true);
             });
 
             actualizarContadoresTapete();
@@ -2782,78 +2708,44 @@ public class Crupier implements Runnable {
 
             barajando = true;
 
-            Helpers.threadRun(new Runnable() {
-
-                public void run() {
-
-                    String baraja = GameFrame.BARAJA;
-
-                    boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
-
-                    URL url_icon = null;
-
-                    if (baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
-                        try {
-                            url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif").toUri().toURL();
-                        } catch (MalformedURLException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-
-                    } else if (getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
-                        url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif");
-
+            Helpers.threadRun(() -> {
+                String baraja = GameFrame.BARAJA;
+                boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
+                URL url_icon = null;
+                if (baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
+                    try {
+                        url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif").toUri().toURL();
+                    } catch (MalformedURLException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
-                    if (url_icon != null && GameFrame.ANIMACION_CARTAS) {
+                } else if (getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
+                    url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif");
 
-                        ImageIcon icon = new ImageIcon(url_icon);
-
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            @Override
-                            public void run() {
-
-                                GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
-
-                            }
+                }
+                if (url_icon != null && GameFrame.ANIMACION_CARTAS) {
+                    ImageIcon icon = new ImageIcon(url_icon);
+                    Helpers.GUIRunAndWait(() -> {
+                        GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
+                    });
+                    GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY, true, "misc/shuffle.wav", 1, 53);
+                    if (!isFin_de_la_transmision()) {
+                        Helpers.GUIRunAndWait(() -> {
+                            GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
                         });
-
-                        GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY, true, "misc/shuffle.wav", 1, 53);
-
-                        if (!isFin_de_la_transmision()) {
-
-                            Helpers.GUIRunAndWait(new Runnable() {
-                                @Override
-                                public void run() {
-
-                                    GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
-
-                                }
-                            });
-                        }
-
-                    } else if (!isFin_de_la_transmision()) {
-
-                        Helpers.GUIRunAndWait(new Runnable() {
-                            @Override
-                            public void run() {
-
-                                GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
-
-                            }
-                        });
-
-                        Audio.playWavResource("misc/shuffle.wav");
-                        Helpers.pausar(GIF_SHUFFLE_ANIMATION_TIMEOUT);
-                        Audio.stopWavResource("misc/shuffle.wav");
-
                     }
+                } else if (!isFin_de_la_transmision()) {
+                    Helpers.GUIRunAndWait(() -> {
+                        GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
+                    });
+                    Audio.playWavResource("misc/shuffle.wav");
+                    Helpers.pausar(GIF_SHUFFLE_ANIMATION_TIMEOUT);
+                    Audio.stopWavResource("misc/shuffle.wav");
+                }
+                barajando = false;
+                synchronized (shuffle_lock) {
 
-                    barajando = false;
-
-                    synchronized (shuffle_lock) {
-
-                        shuffle_lock.notifyAll();
-                    }
+                    shuffle_lock.notifyAll();
                 }
             });
 
@@ -2909,11 +2801,8 @@ public class Crupier implements Runnable {
 
             Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    GameFrame.getInstance().getExit_menu().setEnabled(true);
-                }
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().getExit_menu().setEnabled(true);
             });
 
             disableAllPlayersTimeout();
@@ -2935,12 +2824,8 @@ public class Crupier implements Runnable {
 
             Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-
-                    GameFrame.getInstance().getExit_menu().setEnabled(true);
-                }
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().getExit_menu().setEnabled(true);
             });
 
             disableAllPlayersTimeout();
@@ -2954,12 +2839,9 @@ public class Crupier implements Runnable {
 
         synchronized (GameFrame.SQL_LOCK) {
 
-            try {
+            String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, conta_raise, response_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-                String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, conta_raise, response_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_hand);
@@ -2979,12 +2861,10 @@ public class Crupier implements Runnable {
                 statement.setInt(8, current_player.getResponseTime());
 
                 statement.executeUpdate();
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
+
         }
 
     }
@@ -3055,9 +2935,7 @@ public class Crupier implements Runnable {
 
             String sql = "INSERT INTO showcards(id_hand, player, parguela) VALUES(?,?,?)";
 
-            try {
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setInt(1, this.sqlite_id_hand);
 
                 statement.setString(2, jugador);
@@ -3065,9 +2943,6 @@ public class Crupier implements Runnable {
                 statement.setBoolean(3, parguela);
 
                 statement.executeUpdate();
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -3082,9 +2957,7 @@ public class Crupier implements Runnable {
 
             String sql = "UPDATE showdown SET hole_cards=?, hand_cards=?, hand_val=? WHERE id_hand=? AND player=?";
 
-            try {
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setString(1, jugador.getHoleCard1().isTapada() ? null : jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString());
 
                 statement.setString(2, (jugador.getHoleCard1().isTapada() || jugada == null) ? null : Card.collection2ShortString(jugada.getMano()));
@@ -3096,12 +2969,10 @@ public class Crupier implements Runnable {
                 statement.setString(5, jugador.getNickname());
 
                 statement.executeUpdate();
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
+
         }
     }
 
@@ -3111,9 +2982,7 @@ public class Crupier implements Runnable {
 
             String sql = "UPDATE showdown SET pay=?, profit=? WHERE id_hand=? AND player=?";
 
-            try {
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setFloat(1, Helpers.floatClean(jugador.getPagar()));
 
                 statement.setFloat(2, Helpers.floatClean(jugador.getPagar() - jugador.getBote()));
@@ -3123,9 +2992,6 @@ public class Crupier implements Runnable {
                 statement.setString(4, jugador.getNickname());
 
                 statement.executeUpdate();
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -3141,9 +3007,7 @@ public class Crupier implements Runnable {
 
             String sql = "SELECT COUNT(*) as total FROM showdown,hand WHERE showdown.player=? AND showdown.winner=? AND showdown.id_hand=hand.id AND hand.id_game=?";
 
-            try {
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setString(1, nick);
 
                 statement.setBoolean(2, true);
@@ -3155,9 +3019,6 @@ public class Crupier implements Runnable {
                 if (rs.next()) {
                     tot = rs.getInt("total");
                 }
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -3172,9 +3033,7 @@ public class Crupier implements Runnable {
 
             String sql = "INSERT INTO showdown(id_hand, player, hole_cards, hand_cards, hand_val, winner, pay, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-            try {
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setInt(1, this.sqlite_id_hand);
 
                 statement.setString(2, jugador != null ? jugador.getNickname() : "-----");
@@ -3192,12 +3051,10 @@ public class Crupier implements Runnable {
                 statement.setFloat(8, Helpers.floatClean(jugador != null ? jugador.getPagar() - jugador.getBote() : 0f));
 
                 statement.executeUpdate();
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
+
         }
     }
 
@@ -3219,19 +3076,29 @@ public class Crupier implements Runnable {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
 
+            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, "[HAND " + this.conta_mano + " ENDS]");
+
             for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
 
                 Player jugador = nick2player.get(entry.getKey());
 
                 if (jugador != null) {
 
-                    this.sqlUpdateHandBalance(jugador.getNickname(), jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f), jugador.getBuyin());
-
+                    try {
+                        this.sqlUpdateHandBalance(jugador.getNickname(), jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f), jugador.getBuyin());
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "{0}|{1}|{2}", new Object[]{Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")), Helpers.float2String(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f)), String.valueOf(jugador.getBuyin())});
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 } else {
 
                     Float[] pasta = entry.getValue();
                     this.sqlUpdateHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
-
+                    try {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "{0}|{1}|{2}", new Object[]{Base64.encodeBase64String(entry.getKey().getBytes("UTF-8")), Helpers.float2String(pasta[0]), String.valueOf(Math.round(pasta[1]))});
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
             }
 
@@ -3367,12 +3234,9 @@ public class Crupier implements Runnable {
 
         synchronized (GameFrame.SQL_LOCK) {
 
-            try {
+            String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi, local) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-                String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi, local) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 GameFrame.GAME_START_TIMESTAMP = System.currentTimeMillis();
@@ -3409,9 +3273,6 @@ public class Crupier implements Runnable {
                 statement.executeUpdate();
 
                 sqlite_id_game = statement.getGeneratedKeys().getInt(1);
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             } catch (UnsupportedEncodingException ex) {
@@ -3440,12 +3301,9 @@ public class Crupier implements Runnable {
                 }
             }
 
-            try {
+            String sql = "INSERT INTO hand(id_game, counter, sbval, blinds_double, dealer, sb, bb, start, preflop_players) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-                String sql = "INSERT INTO hand(id_game, counter, sbval, blinds_double, dealer, sb, bb, start, preflop_players) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_game);
@@ -3469,9 +3327,6 @@ public class Crupier implements Runnable {
                 statement.executeUpdate();
 
                 sqlite_id_hand = statement.getGeneratedKeys().getInt(1);
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -4154,58 +4009,42 @@ public class Crupier implements Runnable {
 
     public void saveRADARLog(String suspicious, byte[] image, String process_list, long timestamp) {
 
-        Helpers.threadRun(new Runnable() {
-            public void run() {
+        Helpers.threadRun(() -> {
+            RemotePlayer jugador = (RemotePlayer) nick2player.get(suspicious);
+            int[] a = new int[]{0};
+            Helpers.threadRun(() -> {
+                Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), Translator.translate("SE HA RECIBIDO UN INFORME ANTICHEAT DE [") + suspicious + Translator.translate("]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."));
 
-                RemotePlayer jugador = (RemotePlayer) nick2player.get(suspicious);
+                a[0] = 1;
 
-                int[] a = new int[]{0};
+                if (jugador.getRadar_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0 && !isFin_de_la_transmision()) {
 
-                Helpers.threadRun(new Runnable() {
-                    public void run() {
-                        Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), Translator.translate("SE HA RECIBIDO UN INFORME ANTICHEAT DE [") + suspicious + Translator.translate("]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."));
+                    jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                    jugador.getRadar_dialog().setVisible(true);
+                }
+            });
+            while (!isShow_time()) {
+                Helpers.pausar(1000);
+            }
+            try {
+                String fecha = Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss");
+                String path = Init.RADAR_DIR + "/" + suspicious + "_" + fecha;
+                if (image != null) {
+                    Files.write(Paths.get(path + ".jpg"), image);
+                }
+                Files.write(Paths.get(path + ".log"), process_list.getBytes("UTF-8"));
+                Helpers.GUIRun(() -> {
+                    jugador.setRadar_dialog(new RadarLogDialog(GameFrame.getInstance().getFrame(), false, path, timestamp));
 
-                        a[0] = 1;
+                    if (a[0] == 1 && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
 
-                        if (jugador.getRadar_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0 && !isFin_de_la_transmision()) {
-
-                            jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
-                            jugador.getRadar_dialog().setVisible(true);
-                        }
+                        jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                        jugador.getRadar_dialog().setVisible(true);
                     }
                 });
-
-                while (!isShow_time()) {
-                    Helpers.pausar(1000);
-                }
-
-                try {
-                    String fecha = Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss");
-                    String path = Init.RADAR_DIR + "/" + suspicious + "_" + fecha;
-
-                    if (image != null) {
-                        Files.write(Paths.get(path + ".jpg"), image);
-                    }
-
-                    Files.write(Paths.get(path + ".log"), process_list.getBytes("UTF-8"));
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-                            jugador.setRadar_dialog(new RadarLogDialog(GameFrame.getInstance().getFrame(), false, path, timestamp));
-
-                            if (a[0] == 1 && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
-
-                                jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
-                                jugador.getRadar_dialog().setVisible(true);
-                            }
-                        }
-                    });
-
-                    jugador.setRadar_checking(false);
-
-                } catch (IOException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                jugador.setRadar_checking(false);
+            } catch (IOException ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
         });
 
@@ -4696,39 +4535,26 @@ public class Crupier implements Runnable {
 
                             if ((int) accion_recuperada[0] == Player.FOLD) {
 
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        localplayer.getPlayer_fold_button().doClick();
-                                        localplayer.setClick_recuperacion(false);
-                                    }
+                                Helpers.GUIRun(() -> {
+                                    localplayer.getPlayer_fold_button().doClick();
+                                    localplayer.setClick_recuperacion(false);
                                 });
                             } else if ((int) accion_recuperada[0] == Player.CHECK) {
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        localplayer.getPlayer_check_button().doClick();
-                                        localplayer.setClick_recuperacion(false);
-                                    }
+                                Helpers.GUIRun(() -> {
+                                    localplayer.getPlayer_check_button().doClick();
+                                    localplayer.setClick_recuperacion(false);
                                 });
                             } else if ((int) accion_recuperada[0] == Player.ALLIN) {
 
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        localplayer.getPlayer_allin_button().doClick();
-                                        localplayer.setClick_recuperacion(false);
-                                    }
+                                Helpers.GUIRun(() -> {
+                                    localplayer.getPlayer_allin_button().doClick();
+                                    localplayer.setClick_recuperacion(false);
                                 });
                             } else if ((int) accion_recuperada[0] == Player.BET) {
                                 localplayer.setApuesta_recuperada((float) accion_recuperada[1]);
-                                Helpers.GUIRun(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        localplayer.getPlayer_bet_button().doClick();
-                                        localplayer.setClick_recuperacion(false);
-                                    }
+                                Helpers.GUIRun(() -> {
+                                    localplayer.getPlayer_bet_button().doClick();
+                                    localplayer.setClick_recuperacion(false);
                                 });
 
                             }
@@ -5005,9 +4831,9 @@ public class Crupier implements Runnable {
                         String recover_action = current_player.getNickname() + " " + String.valueOf(current_player.getDecision()) + " " + String.valueOf(current_player.getBet()) + " COUNTER: " + String.valueOf(this.conta_accion) + " HAND ID: " + String.valueOf(this.sqlite_id_hand);
 
                         if (this.sqlCheckGenuineRecoverAction(current_player)) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "RECOVER ACTION OK -> " + recover_action);
+                            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "RECOVER ACTION OK -> {0}", recover_action);
                         } else {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "BAD RECOVER ACTION! -> " + recover_action);
+                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "BAD RECOVER ACTION! -> {0}", recover_action);
                         }
                     }
                 }
@@ -5070,7 +4896,7 @@ public class Crupier implements Runnable {
 
             HashMap<Player, Hand> jugadas = calcularJugadas(resisten);
 
-            HashMap<Player, Hand> ganadores = calcularGanadores(new HashMap<Player, Hand>(jugadas));
+            HashMap<Player, Hand> ganadores = calcularGanadores(new HashMap<>(jugadas));
 
             for (Player p : resisten) {
                 p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p), -1);
@@ -5142,7 +4968,7 @@ public class Crupier implements Runnable {
             if (!ganador_tapado && candidatos.size() > 1) {
                 HashMap<Player, Hand> jugadas = calcularJugadas(candidatos);
 
-                HashMap<Player, Hand> ganadores = calcularGanadores(new HashMap<Player, Hand>(jugadas));
+                HashMap<Player, Hand> ganadores = calcularGanadores(new HashMap<>(jugadas));
 
                 for (Player p : candidatos) {
                     if (p.getDecision() == Player.FOLD) {
@@ -5295,22 +5121,16 @@ public class Crupier implements Runnable {
 
         synchronized (GameFrame.SQL_LOCK) {
 
-            try {
+            String sql = "DELETE FROM permutationkey WHERE hash=?";
 
-                String sql = "DELETE FROM permutationkey WHERE hash=?";
-
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, GameFrame.getInstance().getSala_espera().getLocal_client_permutation_key_hash());
 
                 statement.executeUpdate();
-
-                statement.close();
-
             } catch (SQLException ex) {
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         }
@@ -5655,20 +5475,15 @@ public class Crupier implements Runnable {
 
         synchronized (GameFrame.SQL_LOCK) {
 
-            try {
-                String sql = "UPDATE game SET blinds_time_type=?, blinds_time=? WHERE id=?";
+            String sql = "UPDATE game SET blinds_time_type=?, blinds_time=? WHERE id=?";
 
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, GameFrame.CIEGAS_DOUBLE_TYPE);
                 statement.setInt(2, GameFrame.CIEGAS_DOUBLE);
                 statement.setInt(3, this.sqlite_id_game);
                 statement.executeUpdate();
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -5681,22 +5496,18 @@ public class Crupier implements Runnable {
 
         synchronized (GameFrame.SQL_LOCK) {
 
-            try {
-                String sql = "UPDATE game SET last_deck=? WHERE id=?";
+            String sql = "UPDATE game SET last_deck=? WHERE id=?";
 
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, deck);
                 statement.setInt(2, this.sqlite_id_game);
                 statement.executeUpdate();
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
+
         }
     }
 
@@ -5705,11 +5516,9 @@ public class Crupier implements Runnable {
 
             String ret = null;
 
-            try {
-                String sql = "SELECT last_deck from game WHERE id=?";
+            String sql = "SELECT last_deck from game WHERE id=?";
 
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_game);
@@ -5719,9 +5528,6 @@ public class Crupier implements Runnable {
                 rs.next();
 
                 ret = rs.getString("last_deck");
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -5736,11 +5542,9 @@ public class Crupier implements Runnable {
 
             String ret = null;
 
-            try {
-                String sql = "SELECT players from game WHERE id=?";
+            String sql = "SELECT players from game WHERE id=?";
 
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_game);
@@ -5750,9 +5554,6 @@ public class Crupier implements Runnable {
                 rs.next();
 
                 ret = rs.getString("players");
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -5766,11 +5567,9 @@ public class Crupier implements Runnable {
 
         synchronized (GameFrame.SQL_LOCK) {
 
-            try {
-                String sql = "UPDATE game SET players=? WHERE id=?";
+            String sql = "UPDATE game SET players=? WHERE id=?";
 
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, players);
@@ -5778,9 +5577,6 @@ public class Crupier implements Runnable {
                 statement.setInt(2, this.sqlite_id_game);
 
                 statement.executeUpdate();
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -5794,32 +5590,26 @@ public class Crupier implements Runnable {
 
             String ret = null;
 
-            try {
-                String sql = "select player, action, round(bet,2) as bet from action where action.id_hand=?";
+            String sql = "select player, action, round(bet,2) as bet from action where action.id_hand=?";
 
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            String actions = null;
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
-
                 statement.setInt(1, this.sqlite_id_hand);
-
                 ResultSet rs = statement.executeQuery();
-
-                String actions = "";
-
+                actions = "";
                 while (rs.next()) {
 
                     actions += Base64.encodeBase64String(rs.getString("player").getBytes("UTF-8")) + "#" + String.valueOf(rs.getInt("action")) + "#" + String.valueOf(rs.getFloat("bet")) + "@";
                 }
                 ret = actions;
-
-                statement.close();
-
-                Logger.getLogger(Crupier.class.getName()).log(Level.INFO, actions);
-
-            } catch (SQLException | UnsupportedEncodingException ex) {
+            } catch (SQLException ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (UnsupportedEncodingException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
+
+            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, actions);
 
             return ret;
 
@@ -5929,12 +5719,9 @@ public class Crupier implements Runnable {
 
             HashMap<String, Object> map = null;
 
-            try {
+            String sql = "select hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
-                String sql = "select hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
-
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_game);
@@ -5950,9 +5737,6 @@ public class Crupier implements Runnable {
                 map.put("dealer", rs.getString("dealer"));
                 map.put("sb", rs.getString("sb"));
                 map.put("bb", rs.getString("bb"));
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -6139,14 +5923,12 @@ public class Crupier implements Runnable {
 
             if (recover_dialog != null) {
 
-                Helpers.GUIRun(new Runnable() {
-                    public void run() {
-                        recover_dialog.setVisible(false);
-                        recover_dialog.dispose();
-                        recover_dialog = null;
-                        GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                    }
+                Helpers.GUIRun(() -> {
+                    recover_dialog.setVisible(false);
+                    recover_dialog.dispose();
+                    recover_dialog = null;
+                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                 });
             }
 
@@ -6396,17 +6178,14 @@ public class Crupier implements Runnable {
 
                 final ImageIcon ficon = icon;
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
+                Helpers.GUIRunAndWait(() -> {
+                    int x = (int) ((int) ((carta.getLocationOnScreen().getX() + Math.round(carta.getWidth() / 2)) - Math.round(ficon.getIconWidth() / 2)) - GameFrame.getInstance().getTapete().getLocationOnScreen().getX());
 
-                        int x = (int) ((int) ((carta.getLocationOnScreen().getX() + Math.round(carta.getWidth() / 2)) - Math.round(ficon.getIconWidth() / 2)) - GameFrame.getInstance().getTapete().getLocationOnScreen().getX());
+                    int y = (int) ((int) ((carta.getLocationOnScreen().getY() + Math.round(carta.getHeight() / 2)) - Math.round(ficon.getIconHeight() / 2)) - GameFrame.getInstance().getTapete().getLocationOnScreen().getY());
 
-                        int y = (int) ((int) ((carta.getLocationOnScreen().getY() + Math.round(carta.getHeight() / 2)) - Math.round(ficon.getIconHeight() / 2)) - GameFrame.getInstance().getTapete().getLocationOnScreen().getY());
+                    GameFrame.getInstance().getTapete().getCentral_label().setLocation(x, y);
 
-                        GameFrame.getInstance().getTapete().getCentral_label().setLocation(x, y);
-
-                        carta.setVisibleCard(false);
-                    }
+                    carta.setVisibleCard(false);
                 });
 
                 GameFrame.getInstance().getTapete().showCentralImage(ficon, 0, CARD_ANIMATION_DELAY, false, "misc/uncover.wav", 1, -1);
@@ -6765,10 +6544,8 @@ public class Crupier implements Runnable {
 
                         int val = this.tiempo_pausa;
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                GameFrame.getInstance().getBarra_tiempo().setValue(val);
-                            }
+                        Helpers.GUIRun(() -> {
+                            GameFrame.getInstance().getBarra_tiempo().setValue(val);
                         });
                     }
 
@@ -6778,10 +6555,8 @@ public class Crupier implements Runnable {
             }
         }
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
-                GameFrame.getInstance().getBarra_tiempo().setValue(tiempo);
-            }
+        Helpers.GUIRun(() -> {
+            GameFrame.getInstance().getBarra_tiempo().setValue(tiempo);
         });
 
         synchronized (iwtsth_lock) {
@@ -6879,7 +6654,7 @@ public class Crupier implements Runnable {
                         if (GameFrame.SONIDOS_CHORRA && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
                             if (jugador_actual.getDecision() == Player.ALLIN && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
-                                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<String, String[]>("joke/es/loser/", new String[]{
+                                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<>("joke/es/loser/", new String[]{
                                     "encargado.wav",
                                     "matias.wav"});
 
@@ -6937,7 +6712,7 @@ public class Crupier implements Runnable {
                         if (GameFrame.SONIDOS_CHORRA && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
                             if (jugador_actual.getDecision() == Player.ALLIN && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
-                                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<String, String[]>("joke/es/loser/", new String[]{
+                                Map.Entry<String, String[]> WTF_SOUNDS = new HashMap.SimpleEntry<>("joke/es/loser/", new String[]{
                                     "encargado.wav",
                                     "matias.wav"});
 
@@ -6963,13 +6738,10 @@ public class Crupier implements Runnable {
 
         if (GameFrame.IWTSTH_RULE && IWTSTH_BLINKING && isIWTSTH4LocalPlayerAuthorized()) {
 
-            Helpers.GUIRun(new Runnable() {
-                @Override
-                public void run() {
-                    for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
-                        if (rp.isActivo() && rp.isLoser() && rp.getHoleCard1().isTapada()) {
-                            rp.getIwtsth_blink_timer().start();
-                        }
+            Helpers.GUIRun(() -> {
+                for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
+                    if (rp.isActivo() && rp.isLoser() && rp.getHoleCard1().isTapada()) {
+                        rp.getIwtsth_blink_timer().start();
                     }
                 }
             });
@@ -6982,11 +6754,9 @@ public class Crupier implements Runnable {
 
             Integer ret = null;
 
-            try {
-                String sql = "SELECT id from game WHERE ugi=?";
+            String sql = "SELECT id from game WHERE ugi=?";
 
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, ugi);
@@ -6996,9 +6766,6 @@ public class Crupier implements Runnable {
                 rs.next();
 
                 ret = rs.getInt("id");
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -7015,11 +6782,9 @@ public class Crupier implements Runnable {
 
             Integer ret = null;
 
-            try {
-                String sql = "SELECT max(hand.id) as hand_id from game,hand WHERE game.ugi=? AND hand.id_game=game.id";
+            String sql = "SELECT max(hand.id) as hand_id from game,hand WHERE game.ugi=? AND hand.id_game=game.id";
 
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, ugi);
@@ -7029,9 +6794,6 @@ public class Crupier implements Runnable {
                 rs.next();
 
                 ret = rs.getInt("hand_id");
-
-                statement.close();
-
             } catch (SQLException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -7047,11 +6809,9 @@ public class Crupier implements Runnable {
             if (GameFrame.isRECOVER()) {
                 String ret = null;
 
-                try {
-                    String sql = "SELECT ugi from game WHERE id=?";
+                String sql = "SELECT ugi from game WHERE id=?";
 
-                    PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
-
+                try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                     statement.setQueryTimeout(30);
 
                     statement.setInt(1, GameFrame.RECOVER_ID);
@@ -7061,9 +6821,6 @@ public class Crupier implements Runnable {
                     rs.next();
 
                     ret = rs.getString("ugi");
-
-                    statement.close();
-
                 } catch (SQLException ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -7111,12 +6868,8 @@ public class Crupier implements Runnable {
 
         }
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-
-                GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Sorteando sitios..."));
-            }
+        Helpers.GUIRun(() -> {
+            GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Sorteando sitios..."));
         });
 
         this.nicks_permutados = sortearSitios();
@@ -7132,24 +6885,17 @@ public class Crupier implements Runnable {
             sqlNewGame();
         }
 
-        Helpers.GUIRunAndWait(new Runnable() {
-            @Override
-            public void run() {
-
-                GameFrame.getInstance().getSala_espera().setVisible(false);
-            }
+        Helpers.GUIRunAndWait(() -> {
+            GameFrame.getInstance().getSala_espera().setVisible(false);
         });
 
-        Helpers.GUIRun(new Runnable() {
-            @Override
-            public void run() {
-                GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Timba en curso"));
-                GameFrame.getInstance().getSala_espera().getTts_warning().setVisible(true);
-                GameFrame.getInstance().getSala_espera().getChat_notifications().setVisible(true);
-                GameFrame.getInstance().getSala_espera().getBarra().setVisible(false);
-                GameFrame.getInstance().getSala_espera().getStatus().setIcon(null);
-                GameFrame.getInstance().getSala_espera().pack();
-            }
+        Helpers.GUIRun(() -> {
+            GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Timba en curso"));
+            GameFrame.getInstance().getSala_espera().getTts_warning().setVisible(true);
+            GameFrame.getInstance().getSala_espera().getChat_notifications().setVisible(true);
+            GameFrame.getInstance().getSala_espera().getBarra().setVisible(false);
+            GameFrame.getInstance().getSala_espera().getStatus().setIcon(null);
+            GameFrame.getInstance().getSala_espera().pack();
         });
 
         Audio.stopLoopMp3("misc/waiting_room.mp3");
@@ -7197,14 +6943,12 @@ public class Crupier implements Runnable {
 
                         if (recover_dialog != null) {
 
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-                                    recover_dialog.setVisible(false);
-                                    recover_dialog.dispose();
-                                    recover_dialog = null;
-                                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                                }
+                            Helpers.GUIRun(() -> {
+                                recover_dialog.setVisible(false);
+                                recover_dialog.dispose();
+                                recover_dialog = null;
+                                GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                             });
                         }
 
@@ -7252,14 +6996,12 @@ public class Crupier implements Runnable {
 
                             GameFrame.getInstance().getRegistro().print("-----" + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
 
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+                            Helpers.GUIRun(() -> {
+                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
 
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.RED);
+                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.RED);
 
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
-                                }
+                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                             });
 
                             GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, 0f);
@@ -7286,14 +7028,12 @@ public class Crupier implements Runnable {
 
                             GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
 
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+                            Helpers.GUIRun(() -> {
+                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
 
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
+                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
 
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
-                                }
+                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
                             });
 
                             GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
@@ -7330,7 +7070,7 @@ public class Crupier implements Runnable {
                                 //NO HAY BOTES DERIVADOS
                                 jugadas = this.calcularJugadas(resisten);
 
-                                ganadores = this.calcularGanadores(new HashMap<Player, Hand>(jugadas));
+                                ganadores = this.calcularGanadores(new HashMap<>(jugadas));
 
                                 float[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
 
@@ -7394,12 +7134,10 @@ public class Crupier implements Runnable {
                                 }
 
                                 this.showdown(jugadas, ganadores);
-                                Helpers.GUIRun(new Runnable() {
-                                    public void run() {
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
-                                    }
+                                Helpers.GUIRun(() -> {
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
                                 });
 
                                 GameFrame.getInstance().setTapeteBote(cantidad_pagar_ganador[0], this.beneficio_bote_principal);
@@ -7409,7 +7147,7 @@ public class Crupier implements Runnable {
                                 //Vamos a ver los ganadores de cada bote_total
                                 jugadas = this.calcularJugadas(resisten);
 
-                                ganadores = this.calcularGanadores(new HashMap<Player, Hand>(jugadas));
+                                ganadores = this.calcularGanadores(new HashMap<>(jugadas));
 
                                 float[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
 
@@ -7497,7 +7235,7 @@ public class Crupier implements Runnable {
 
                                         jugadas = this.calcularJugadas(current_pot.getPlayers());
 
-                                        ganadores = this.calcularGanadores(new HashMap<Player, Hand>(jugadas));
+                                        ganadores = this.calcularGanadores(new HashMap<>(jugadas));
 
                                         cantidad_pagar_ganador = this.calcularBoteParaGanador(current_pot.getTotal(), ganadores.size());
 
@@ -7536,12 +7274,10 @@ public class Crupier implements Runnable {
                                     conta_bote_secundario++;
 
                                 }
-                                Helpers.GUIRun(new Runnable() {
-                                    public void run() {
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.BLACK);
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
-                                    }
+                                Helpers.GUIRun(() -> {
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.BLACK);
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                                 });
 
                                 GameFrame.getInstance().setTapeteBote(bote_tapete);
@@ -7550,10 +7286,8 @@ public class Crupier implements Runnable {
                             this.bote_sobrante = this.bote_total;
                         }
 
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
-                            }
+                        Helpers.GUIRun(() -> {
+                            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
                         });
 
                         for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
@@ -7733,29 +7467,25 @@ public class Crupier implements Runnable {
 
             if (GameFrame.REBUY) {
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
+                Helpers.GUIRunAndWait(() -> {
+                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
 
-                        if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                            GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+                        GameFrame.getInstance().getTapete().repaint();
+                    }
 
-                            GameFrame.getInstance().getTapete().repaint();
-                        }
+                    gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true);
 
-                        gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true);
+                    GameFrame.getInstance().setGame_over_dialog(true);
 
-                        GameFrame.getInstance().setGame_over_dialog(true);
+                    gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
 
-                        gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
+                    gameover_dialog.setVisible(true);
 
-                        gameover_dialog.setVisible(true);
+                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
 
-                        if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                            GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
-
-                            GameFrame.getInstance().getTapete().repaint();
-                        }
-
+                        GameFrame.getInstance().getTapete().repaint();
                     }
                 });
 
@@ -7808,29 +7538,26 @@ public class Crupier implements Runnable {
 
             } else {
 
-                Helpers.GUIRunAndWait(new Runnable() {
-                    public void run() {
+                Helpers.GUIRunAndWait(() -> {
+                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
 
-                        if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                            GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+                        GameFrame.getInstance().getTapete().repaint();
+                    }
 
-                            GameFrame.getInstance().getTapete().repaint();
-                        }
+                    gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true, true);
 
-                        gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true, true);
+                    GameFrame.getInstance().setGame_over_dialog(true);
 
-                        GameFrame.getInstance().setGame_over_dialog(true);
+                    gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
 
-                        gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
+                    gameover_dialog.setVisible(true);
 
-                        gameover_dialog.setVisible(true);
+                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
 
-                        if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
 
-                            GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
-
-                            GameFrame.getInstance().getTapete().repaint();
-                        }
+                        GameFrame.getInstance().getTapete().repaint();
                     }
                 });
 

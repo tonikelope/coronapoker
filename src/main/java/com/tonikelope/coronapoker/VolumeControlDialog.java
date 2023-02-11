@@ -31,7 +31,6 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import javax.swing.Timer;
 
 /**
@@ -56,16 +55,10 @@ public class VolumeControlDialog extends javax.swing.JDialog {
 
         pack();
 
-        timer = new Timer(TIMEOUT, new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent ae) {
-
-                timer.stop();
-                dispose();
-                Init.VOLUME_DIALOG = null;
-
-            }
+        timer = new Timer(TIMEOUT, (ActionEvent ae) -> {
+            timer.stop();
+            dispose();
+            Init.VOLUME_DIALOG = null;
         });
 
         timer.setRepeats(false);
@@ -85,16 +78,10 @@ public class VolumeControlDialog extends javax.swing.JDialog {
 
         pack();
 
-        timer = new Timer(TIMEOUT, new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent ae) {
-
-                timer.stop();
-                dispose();
-                Init.VOLUME_DIALOG = null;
-
-            }
+        timer = new Timer(TIMEOUT, (ActionEvent ae) -> {
+            timer.stop();
+            dispose();
+            Init.VOLUME_DIALOG = null;
         });
 
         timer.setRepeats(false);
@@ -103,23 +90,20 @@ public class VolumeControlDialog extends javax.swing.JDialog {
 
     public void refresh() {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            if (timer.isRunning()) {
+                timer.restart();
+            } else {
+                timer.start();
+            }
 
-                if (timer.isRunning()) {
-                    timer.restart();
-                } else {
-                    timer.start();
-                }
+            barra.setValue(Math.round(Audio.MASTER_VOLUME * 100));
 
-                barra.setValue(Math.round(Audio.MASTER_VOLUME * 100));
+            sound_icon.setBackground(barra.getValue() > 0 ? Color.WHITE : Color.RED);
+            panel.setBackground(barra.getValue() > 0 ? Color.WHITE : Color.RED);
 
-                sound_icon.setBackground(barra.getValue() > 0 ? Color.WHITE : Color.RED);
-                panel.setBackground(barra.getValue() > 0 ? Color.WHITE : Color.RED);
-
-                if (!isVisible()) {
-                    setVisible(true);
-                }
+            if (!isVisible()) {
+                setVisible(true);
             }
         });
     }

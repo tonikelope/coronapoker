@@ -82,30 +82,27 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
     public void refreshColors() {
 
-        Helpers.GUIRun(new Runnable() {
-            public void run() {
+        Helpers.GUIRun(() -> {
+            if (chat_box.getText().length() <= Audio.MAX_TTS_LENGTH) {
 
-                if (chat_box.getText().length() <= Audio.MAX_TTS_LENGTH) {
-
-                    if (GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f) {
-                        chat_panel.setBackground(Color.DARK_GRAY);
-                        chat_box.setBackground(Color.DARK_GRAY);
-                        chat_box.setForeground(Color.WHITE);
-                    } else {
-                        chat_panel.setBackground(Color.WHITE);
-                        chat_box.setForeground(null);
-                        chat_box.setBackground(null);
-                    }
-
+                if (GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f) {
+                    chat_panel.setBackground(Color.DARK_GRAY);
+                    chat_box.setBackground(Color.DARK_GRAY);
+                    chat_box.setForeground(Color.WHITE);
                 } else {
-
-                    chat_box.setBackground(Color.YELLOW);
-                    chat_panel.setBackground(Color.YELLOW);
+                    chat_panel.setBackground(Color.WHITE);
                     chat_box.setForeground(null);
+                    chat_box.setBackground(null);
                 }
 
-                chat_panel.repaint();
+            } else {
+
+                chat_box.setBackground(Color.YELLOW);
+                chat_panel.setBackground(Color.YELLOW);
+                chat_box.setForeground(null);
             }
+
+            chat_panel.repaint();
         });
     }
 
@@ -239,20 +236,11 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
             GameFrame.getInstance().getSala_espera().setChat_enabled(false);
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-
-                    Helpers.pausar(1000);
-
-                    Helpers.GUIRun(new Runnable() {
-                        public void run() {
-
-                            GameFrame.getInstance().getSala_espera().setChat_enabled(true);
-
-                        }
-                    });
-
-                }
+            Helpers.threadRun(() -> {
+                Helpers.pausar(1000);
+                Helpers.GUIRun(() -> {
+                    GameFrame.getInstance().getSala_espera().setChat_enabled(true);
+                });
             });
         } else {
             setVisible(false);
@@ -322,34 +310,22 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
             this.focusing = true;
 
-            Helpers.threadRun(new Runnable() {
-                public void run() {
-
-                    while (focusing) {
-
-                        Helpers.GUIRun(new Runnable() {
-                            public void run() {
-                                if (isVisible() && !getChat_box().isFocusOwner()) {
-                                    getChat_box().requestFocus();
-                                } else {
-                                    focusing = false;
-                                }
+            Helpers.threadRun(() -> {
+                while (focusing) {
+                    Helpers.GUIRun(() -> {
+                        if (isVisible() && !getChat_box().isFocusOwner()) {
+                            getChat_box().requestFocus();
+                        } else {
+                            focusing = false;
+                        }
+                    });
+                    if (focusing) {
+                        Helpers.pausar(125);
+                        Helpers.GUIRun(() -> {
+                            if (!isVisible() || getChat_box().isFocusOwner()) {
+                                focusing = false;
                             }
                         });
-
-                        if (focusing) {
-
-                            Helpers.pausar(125);
-
-                            Helpers.GUIRun(new Runnable() {
-                                public void run() {
-                                    if (!isVisible() || getChat_box().isFocusOwner()) {
-                                        focusing = false;
-                                    }
-                                }
-                            });
-
-                        }
                     }
                 }
             });

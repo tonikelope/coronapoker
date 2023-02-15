@@ -852,7 +852,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             String sql = "INSERT INTO permutationkey(hash, key) VALUES (?, ?)";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, this.local_client_permutation_key_hash);
@@ -876,7 +876,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
             String sql = "SELECT key FROM permutationkey WHERE hash=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, hash);
@@ -1389,7 +1389,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     /* FIN INTERCAMBIO CLAVES */
                     byte[] avatar_bytes = null;
                     if (local_avatar != null && local_avatar.length() > 0) {
-                        try ( FileInputStream is = new FileInputStream(local_avatar)) {
+                        try (FileInputStream is = new FileInputStream(local_avatar)) {
                             avatar_bytes = is.readAllBytes();
                         }
                     }
@@ -1495,7 +1495,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                     server_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + server_nick + "_avatar" + String.valueOf(file_id));
 
-                                    try ( FileOutputStream os = new FileOutputStream(server_avatar)) {
+                                    try (FileOutputStream os = new FileOutputStream(server_avatar)) {
                                         os.write(Base64.decodeBase64(server_avatar_base64));
                                     }
                                 }
@@ -1792,7 +1792,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 if (partes_comando.length == 6) {
                                                                     avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
 
-                                                                    try ( FileOutputStream os = new FileOutputStream(avatar)) {
+                                                                    try (FileOutputStream os = new FileOutputStream(avatar)) {
                                                                         os.write(Base64.decodeBase64(partes_comando[5]));
                                                                     }
                                                                 }
@@ -1825,7 +1825,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                                         avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
 
-                                                                        try ( FileOutputStream os = new FileOutputStream(avatar)) {
+                                                                        try (FileOutputStream os = new FileOutputStream(avatar)) {
                                                                             os.write(Base64.decodeBase64(user_parts[2]));
                                                                         }
 
@@ -1981,7 +1981,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     if (p.getAvatar() != null || p.isCpu()) {
                         byte[] avatar_b;
 
-                        try ( InputStream is = !p.isCpu() ? new FileInputStream(p.getAvatar()) : WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
+                        try (InputStream is = !p.isCpu() ? new FileInputStream(p.getAvatar()) : WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
                             avatar_b = is.readAllBytes();
                         }
 
@@ -2133,7 +2133,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                 }
                                 client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + client_nick + "_avatar" + String.valueOf(file_id));
 
-                                try ( FileOutputStream os = new FileOutputStream(client_avatar)) {
+                                try (FileOutputStream os = new FileOutputStream(client_avatar)) {
                                     os.write(Base64.decodeBase64(client_avatar_base64));
                                 }
                             }
@@ -2145,7 +2145,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         byte[] avatar_bytes = null;
                         if (local_avatar != null && local_avatar.length() > 0) {
 
-                            try ( FileInputStream is = new FileInputStream(local_avatar)) {
+                            try (FileInputStream is = new FileInputStream(local_avatar)) {
                                 avatar_bytes = is.readAllBytes();
                             }
                         }
@@ -2188,7 +2188,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                             byte[] avatar_b;
 
-                                            try ( FileInputStream is = new FileInputStream(client_avatar)) {
+                                            try (FileInputStream is = new FileInputStream(client_avatar)) {
                                                 avatar_b = is.readAllBytes();
                                             }
 
@@ -3155,7 +3155,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 String sql = "SELECT preflop_players as PLAYERS FROM hand WHERE hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand where hand.id_game=?)";
 
-                try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                     statement.setQueryTimeout(30);
 
                     statement.setInt(1, game_id);
@@ -3403,7 +3403,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                     //Mandamos el nuevo participante al resto de participantes
                     String comando = "NEWUSER#" + Base64.encodeBase64String(bot_nick.getBytes("UTF-8")) + "#0";
                     byte[] avatar_b = null;
-                    try ( InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
+                    try (InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
                         avatar_b = is.readAllBytes();
                     } catch (IOException ex) {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);

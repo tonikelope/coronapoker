@@ -622,7 +622,7 @@ public class Helpers {
 
             updater_path = System.getProperty("java.io.tmpdir") + "/coronaupdater.jar";
 
-            try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(updater_path))) {
+            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(updater_path))) {
 
                 byte[] buffer = new byte[1024];
 
@@ -1207,9 +1207,9 @@ public class Helpers {
      */
     public static List<String> getResourceTextFileAsList(String fileName) throws IOException {
 
-        try ( InputStream is = ClassLoader.getSystemClassLoader().getResourceAsStream(fileName)) {
+        try (InputStream is = ClassLoader.getSystemClassLoader().getResourceAsStream(fileName)) {
 
-            try ( InputStreamReader isr = new InputStreamReader(is);  BufferedReader reader = new BufferedReader(isr)) {
+            try (InputStreamReader isr = new InputStreamReader(is); BufferedReader reader = new BufferedReader(isr)) {
 
                 return reader.lines().collect(Collectors.toList());
             }
@@ -1337,7 +1337,7 @@ public class Helpers {
         try {
             Class.forName("org.sqlite.JDBC");
 
-            try ( Statement statement = getSQLITE().createStatement()) {
+            try (Statement statement = getSQLITE().createStatement()) {
                 statement.setQueryTimeout(30);  // set timeout to 30 sec.
                 statement.execute("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER)");
                 statement.execute("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
@@ -1373,7 +1373,7 @@ public class Helpers {
 
     public static void SQLITEVAC() {
 
-        try ( Statement statement = Helpers.getSQLITE().createStatement()) {
+        try (Statement statement = Helpers.getSQLITE().createStatement()) {
             statement.execute("VACUUM");
         } catch (SQLException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
@@ -1942,7 +1942,7 @@ public class Helpers {
             }
         }
 
-        try ( FileInputStream input = new FileInputStream(PROPERTIES_FILE)) {
+        try (FileInputStream input = new FileInputStream(PROPERTIES_FILE)) {
 
             Properties prop = new Properties();
 
@@ -2075,7 +2075,7 @@ public class Helpers {
     public static String getMyLocalIP() {
         try {
             String ip;
-            try ( Socket socket = new Socket()) {
+            try (Socket socket = new Socket()) {
                 socket.connect(new InetSocketAddress("google.com", 80));
                 ip = socket.getLocalAddress().getHostAddress();
             }
@@ -2100,7 +2100,7 @@ public class Helpers {
 
             con.setUseCaches(false);
 
-            try ( InputStream is = con.getInputStream();  ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+            try (InputStream is = con.getInputStream(); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
 
                 byte[] buffer = new byte[1024];
 
@@ -2165,7 +2165,7 @@ public class Helpers {
 
             con.setReadTimeout(HTTP_TIMEOUT);
 
-            try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
 
                 byte[] buffer = new byte[1024];
 
@@ -2270,7 +2270,7 @@ public class Helpers {
 
                                     String output = null;
 
-                                    try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+                                    try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
 
                                         byte[] buffer = new byte[1024];
 
@@ -2598,7 +2598,7 @@ public class Helpers {
                 URL oracle = new URL((String) Init.MOD.get("updateurl"));
 
                 ArrayList<String> update_info;
-                try ( BufferedReader in = new BufferedReader(new InputStreamReader(oracle.openStream()))) {
+                try (BufferedReader in = new BufferedReader(new InputStreamReader(oracle.openStream()))) {
                     update_info = new ArrayList<>();
                     String inputline;
                     while ((inputline = in.readLine()) != null) {

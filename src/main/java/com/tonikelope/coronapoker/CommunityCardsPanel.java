@@ -358,7 +358,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
-        tiempo_partida.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
+        tiempo_partida.setFont(new java.awt.Font("Monospaced", 1, 26)); // NOI18N
         tiempo_partida.setForeground(new java.awt.Color(153, 204, 0));
         tiempo_partida.setText("00:00:00");
         tiempo_partida.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));

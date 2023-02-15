@@ -491,7 +491,7 @@ public class Audio {
 
             con.setUseCaches(false);
 
-            try ( InputStream is = con.getInputStream();  BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"))) {
+            try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"))) {
 
                 byte[] buffer = new byte[1024];
 
@@ -594,7 +594,7 @@ public class Audio {
 
                             filename = Helpers.genRandomString(30);
 
-                            try ( InputStream is = con.getInputStream();  BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename))) {
+                            try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename))) {
 
                                 byte[] buffer = new byte[1024];
 

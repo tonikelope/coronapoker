@@ -40,7 +40,7 @@ import javax.swing.JLabel;
  *
  * @author tonikelope
  */
-public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInterface {
+public final class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInterface {
 
     public final static int H = 50;
     private final Object[][] botones;
@@ -61,11 +61,11 @@ public class TapeteFastButtons extends javax.swing.JPanel implements ZoomableInt
     public TapeteFastButtons() {
 
         initComponents();
-        botones = new Object[][]{{chat, "chat.png"}, {image, "image.png"}, {compact, "compact.png"}, {zoom_in, "zoom_in.png"}, {zoom_reset, "zoom_reset.png"}, {zoom_out, "zoom_out.png"}, {fullscreen, "fullscreen.png"}, {log, "log.png"}, {rebuy, "rebuy.png"}};
+        botones = new Object[][]{{chat, "chat.png", "Chat rápido"}, {image, "image.png", "Enviar imagen"}, {compact, "compact.png", "Vista compacta"}, {zoom_in, "zoom_in.png", "Aumentar zoom"}, {zoom_reset, "zoom_reset.png", "Reset zoom"}, {zoom_out, "zoom_out.png", "Reducir zoom"}, {fullscreen, "fullscreen.png", "Pantalla completa"}, {log, "log.png", "Registro"}, {rebuy, "rebuy.png", "Recomprar"}};
 
         for (Object[] b : botones) {
             Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H));
-
+            ((JLabel) b[0]).setToolTipText(Translator.translate((String) b[2]));
         }
         pref_size = getPreferredSize();
         hideButtons();

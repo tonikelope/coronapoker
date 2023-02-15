@@ -106,11 +106,11 @@ public class NewGameDialog extends javax.swing.JDialog {
         this.randomorg_label.setVisible(false);
         this.recover_panel.setVisible(false);
         this.vamos.setText("GUARDAR");
-        
+
         radar_label.setEnabled(GameFrame.RADAR_AVAILABLE);
-        
-        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected()?"Informes ANTI-TRAMPAS activados":"Informes ANTI-TRAMPAS desactivados"));
-        
+
+        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
+
         radar_checkbox.setToolTipText(radar_label.getToolTipText());
 
         this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
@@ -248,7 +248,7 @@ public class NewGameDialog extends javax.swing.JDialog {
         random_combobox.setModel(random_combobox_model);
 
         random_combobox.setRenderer(new ComboBoxIconRenderer());
-        
+
         game_combo.setEnabled(false);
 
         password.setEnabled(false);
@@ -260,13 +260,13 @@ public class NewGameDialog extends javax.swing.JDialog {
         double_blinds_radio_minutos.setSelected(false);
 
         doblar_ciegas_spinner_minutos.setEnabled(false);
-        
+
         radar_checkbox.setSelected(GameFrame.RADAR_AVAILABLE);
-        
+
         radar_label.setEnabled(GameFrame.RADAR_AVAILABLE);
-        
-        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected()?"Informes ANTI-TRAMPAS activados":"Informes ANTI-TRAMPAS desactivados"));
-        
+
+        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
+
         radar_checkbox.setToolTipText(radar_label.getToolTipText());
 
         if (partida_local) {
@@ -408,7 +408,7 @@ public class NewGameDialog extends javax.swing.JDialog {
 
         String sql = "SELECT id,start,server FROM game WHERE (ugi IS NOT NULL AND local == 1) ORDER BY start DESC";
 
-        try ( Statement statement = Helpers.getSQLITE().createStatement()) {
+        try (Statement statement = Helpers.getSQLITE().createStatement()) {
             statement.setQueryTimeout(30);
 
             ResultSet rs = statement.executeQuery(sql);
@@ -1566,7 +1566,7 @@ public class NewGameDialog extends javax.swing.JDialog {
     private void radar_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_radar_checkboxActionPerformed
         // TODO add your handling code here:
         radar_label.setEnabled(radar_checkbox.isSelected());
-        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected()?"Informes ANTI-TRAMPAS activados":"Informes ANTI-TRAMPAS desactivados"));
+        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
         radar_checkbox.setToolTipText(radar_label.getToolTipText());
     }//GEN-LAST:event_radar_checkboxActionPerformed
 

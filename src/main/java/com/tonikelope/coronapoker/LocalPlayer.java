@@ -211,7 +211,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     byte[] imageInByte = null;
                     if (!screenshot_error) {
 
-                        try ( ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                             ImageIO.write(Helpers.convertToGrayScale(capture), "jpg", baos);
 
                             baos.flush();

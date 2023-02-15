@@ -2841,7 +2841,7 @@ public class Crupier implements Runnable {
 
             String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, conta_raise, response_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_hand);
@@ -2935,7 +2935,7 @@ public class Crupier implements Runnable {
 
             String sql = "INSERT INTO showcards(id_hand, player, parguela) VALUES(?,?,?)";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setInt(1, this.sqlite_id_hand);
 
                 statement.setString(2, jugador);
@@ -2957,7 +2957,7 @@ public class Crupier implements Runnable {
 
             String sql = "UPDATE showdown SET hole_cards=?, hand_cards=?, hand_val=? WHERE id_hand=? AND player=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setString(1, jugador.getHoleCard1().isTapada() ? null : jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString());
 
                 statement.setString(2, (jugador.getHoleCard1().isTapada() || jugada == null) ? null : Card.collection2ShortString(jugada.getMano()));
@@ -2982,7 +2982,7 @@ public class Crupier implements Runnable {
 
             String sql = "UPDATE showdown SET pay=?, profit=? WHERE id_hand=? AND player=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setFloat(1, Helpers.floatClean(jugador.getPagar()));
 
                 statement.setFloat(2, Helpers.floatClean(jugador.getPagar() - jugador.getBote()));
@@ -3007,7 +3007,7 @@ public class Crupier implements Runnable {
 
             String sql = "SELECT COUNT(*) as total FROM showdown,hand WHERE showdown.player=? AND showdown.winner=? AND showdown.id_hand=hand.id AND hand.id_game=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setString(1, nick);
 
                 statement.setBoolean(2, true);
@@ -3033,7 +3033,7 @@ public class Crupier implements Runnable {
 
             String sql = "INSERT INTO showdown(id_hand, player, hole_cards, hand_cards, hand_val, winner, pay, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setInt(1, this.sqlite_id_hand);
 
                 statement.setString(2, jugador != null ? jugador.getNickname() : "-----");
@@ -3239,7 +3239,7 @@ public class Crupier implements Runnable {
 
             String sql = "INSERT INTO game(start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi, local) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 GameFrame.GAME_START_TIMESTAMP = System.currentTimeMillis();
@@ -3306,7 +3306,7 @@ public class Crupier implements Runnable {
 
             String sql = "INSERT INTO hand(id_game, counter, sbval, blinds_double, dealer, sb, bb, start, preflop_players) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_game);
@@ -5126,7 +5126,7 @@ public class Crupier implements Runnable {
 
             String sql = "DELETE FROM permutationkey WHERE hash=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, GameFrame.getInstance().getSala_espera().getLocal_client_permutation_key_hash());
@@ -5480,7 +5480,7 @@ public class Crupier implements Runnable {
 
             String sql = "UPDATE game SET blinds_time_type=?, blinds_time=? WHERE id=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, GameFrame.CIEGAS_DOUBLE_TYPE);
@@ -5501,7 +5501,7 @@ public class Crupier implements Runnable {
 
             String sql = "UPDATE game SET last_deck=? WHERE id=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, deck);
@@ -5521,7 +5521,7 @@ public class Crupier implements Runnable {
 
             String sql = "SELECT last_deck from game WHERE id=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_game);
@@ -5547,7 +5547,7 @@ public class Crupier implements Runnable {
 
             String sql = "SELECT players from game WHERE id=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_game);
@@ -5572,7 +5572,7 @@ public class Crupier implements Runnable {
 
             String sql = "UPDATE game SET players=? WHERE id=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, players);
@@ -5596,7 +5596,7 @@ public class Crupier implements Runnable {
             String sql = "select player, action, round(bet,2) as bet from action where action.id_hand=?";
 
             String actions = null;
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, this.sqlite_id_hand);
                 ResultSet rs = statement.executeQuery();
@@ -5724,7 +5724,7 @@ public class Crupier implements Runnable {
 
             String sql = "select hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, this.sqlite_id_game);
@@ -6759,7 +6759,7 @@ public class Crupier implements Runnable {
 
             String sql = "SELECT id from game WHERE ugi=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, ugi);
@@ -6787,7 +6787,7 @@ public class Crupier implements Runnable {
 
             String sql = "SELECT max(hand.id) as hand_id from game,hand WHERE game.ugi=? AND hand.id_game=game.id";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setString(1, ugi);
@@ -6814,7 +6814,7 @@ public class Crupier implements Runnable {
 
                 String sql = "SELECT ugi from game WHERE id=?";
 
-                try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                     statement.setQueryTimeout(30);
 
                     statement.setInt(1, GameFrame.RECOVER_ID);

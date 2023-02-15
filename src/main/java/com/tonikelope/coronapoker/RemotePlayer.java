@@ -942,6 +942,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name = new javax.swing.JLabel();
         utg_icon = new javax.swing.JLabel();
         hands_win = new javax.swing.JLabel();
+        shield = new javax.swing.JLabel();
         player_action = new javax.swing.JLabel();
         danger = new javax.swing.JLabel();
 
@@ -1042,7 +1043,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         player_name.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_name.setForeground(new java.awt.Color(255, 255, 255));
-        player_name.setText("123456789012345");
+        player_name.setText("12345678901");
         player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_name.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_name.setDoubleBuffered(true);
@@ -1064,14 +1065,23 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         hands_win.setToolTipText("MANOS GANADAS");
         hands_win.setDoubleBuffered(true);
 
+        shield.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        shield.setDoubleBuffered(true);
+        shield.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                shieldMouseClicked(evt);
+            }
+        });
+
         javax.swing.GroupLayout nick_panelLayout = new javax.swing.GroupLayout(nick_panel);
         nick_panel.setLayout(nick_panelLayout);
         nick_panelLayout.setHorizontalGroup(
             nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(nick_panelLayout.createSequentialGroup()
+                .addComponent(shield)
                 .addGap(0, 0, 0)
                 .addComponent(player_name)
-                .addGap(18, 18, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(utg_icon)
                 .addGap(5, 5, 5)
                 .addComponent(hands_win))
@@ -1082,8 +1092,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addGroup(nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(player_name)
                     .addComponent(utg_icon)
-                    .addComponent(hands_win))
-                .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(hands_win)
+                    .addComponent(shield, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(0, 0, 0))
         );
 
         javax.swing.GroupLayout indicadores_arribaLayout = new javax.swing.GroupLayout(indicadores_arriba);
@@ -1254,6 +1265,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }//GEN-LAST:event_player_nameMouseClicked
 
+    private void shieldMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_shieldMouseClicked
+        // TODO add your handling code here:
+        player_nameMouseClicked(evt);
+    }//GEN-LAST:event_shieldMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;
     private javax.swing.JPanel avatar_panel;
@@ -1268,6 +1284,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLabel player_name;
     private javax.swing.JLabel player_pot;
     private javax.swing.JLabel player_stack;
+    private javax.swing.JLabel shield;
     private javax.swing.JLabel utg_icon;
     // End of variables declaration//GEN-END:variables
 
@@ -1947,6 +1964,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             getAvatar().setVisible(true);
         });
+
+        Helpers.setScaledIconLabel(shield, getClass().getResource("/images/shield.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+        shield.setEnabled(GameFrame.RADAR_AVAILABLE && !"*".equals(avatar_path));
+        shield.setToolTipText(Translator.translate(shield.isEnabled() ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
     }
 
     @Override

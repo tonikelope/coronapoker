@@ -45,6 +45,15 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Chat rápido", "Fast chat"},
+            {"Enviar imagen", "Send image"},
+            {"Vista compacta", "Compact view"},
+            {"Aumentar zoom", "Zoom in"},
+            {"Reducir zoom", "Zoom out"},
+            {"Reset zoom", "Reset zoom"},
+            {"Pantalla completa", "Fullscreen"},
+            {"Registro", "Log"},
+            {"Recomprar", "Rebuy"},
             {"Informes ANTI-TRAMPAS desactivados", "ANTI-CHEAT reports disabled"},
             {"Informes ANTI-TRAMPAS activados", "ANTI-CHEAT reports enabled"},
             {"Fichero de recuperación de balance encontrado. ¿LO USAMOS?", "Balance recovery file found. shall we use it?"},

@@ -333,7 +333,7 @@ public class Init extends javax.swing.JFrame {
 
             con.setUseCaches(false);
 
-            try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
+            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
 
                 int length = con.getContentLength();
 
@@ -391,7 +391,7 @@ public class Init extends javax.swing.JFrame {
 
             con.setUseCaches(false);
 
-            try ( BufferedInputStream bis = new BufferedInputStream(con.getInputStream());  BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
+            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
 
                 int length = con.getContentLength();
 

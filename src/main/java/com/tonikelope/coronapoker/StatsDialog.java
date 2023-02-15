@@ -171,7 +171,7 @@ public class StatsDialog extends javax.swing.JDialog {
             if (game_combo.getSelectedIndex() > 0) {
 
                 String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 and game.id=? order by hand_val DESC,BENEFICIO DESC;";
-                try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                     statement.setQueryTimeout(30);
                     statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
                     rs = statement.executeQuery();
@@ -186,7 +186,7 @@ public class StatsDialog extends javax.swing.JDialog {
             } else {
 
                 String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, (game.server || '|' || game.start) as TIMBA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,BENEFICIO DESC; LIMIT 1000";
-                try ( Statement statement = Helpers.getSQLITE().createStatement()) {
+                try (Statement statement = Helpers.getSQLITE().createStatement()) {
                     statement.setQueryTimeout(30);
                     rs = statement.executeQuery(sql);
                     mejoresJugadasResult(rs);
@@ -667,7 +667,7 @@ public class StatsDialog extends javax.swing.JDialog {
         Helpers.threadRun(() -> {
 
             String sql = "SELECT *, (SELECT COUNT(*) from hand where id_game=? AND end IS NOT NULL) as tot_hands FROM game WHERE id=?";
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, id);
                 statement.setInt(2, id);
@@ -740,7 +740,7 @@ public class StatsDialog extends javax.swing.JDialog {
         Helpers.threadRun(() -> {
 
             String sql = "SELECT * FROM hand WHERE id_game=? AND id=?";
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, id_game);
                 statement.setInt(2, id_hand);
@@ -865,7 +865,7 @@ public class StatsDialog extends javax.swing.JDialog {
             ResultSet rs;
             String sql = "SELECT player AS JUGADOR, winner as GANA, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val AS JUGADA, ROUND(pay,1) as PAGAR, ROUND(profit,1) as BENEFICIO FROM showdown WHERE id_hand=? order by GANA DESC,PAGAR DESC";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, id_hand);
@@ -1077,7 +1077,7 @@ public class StatsDialog extends javax.swing.JDialog {
         Helpers.threadRun(() -> {
 
             String sql = "SELECT * FROM hand WHERE id_game=? AND end IS NOT NULL ORDER BY id DESC";
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, id);
                 ResultSet rs = statement.executeQuery();
@@ -1147,7 +1147,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
             String sql = "DELETE FROM game WHERE id in (" + String.join(",", ids) + ")";
 
-            try ( Statement statement = Helpers.getSQLITE().createStatement()) {
+            try (Statement statement = Helpers.getSQLITE().createStatement()) {
                 statement.setQueryTimeout(30);
 
                 statement.executeUpdate(sql);
@@ -1178,7 +1178,7 @@ public class StatsDialog extends javax.swing.JDialog {
 
             String sql = "DELETE FROM game WHERE id=?";
 
-            try ( PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
 
                 statement.setInt(1, id_game);

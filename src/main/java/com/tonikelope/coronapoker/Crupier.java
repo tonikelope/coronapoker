@@ -1336,8 +1336,6 @@ public class Crupier implements Runnable {
                     setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
                 }
 
-                checkJugadasMostrar();
-
             }
         }
     }
@@ -1390,8 +1388,6 @@ public class Crupier implements Runnable {
                     if (!perdedores.containsKey(jugador)) {
                         GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
                     }
-
-                    checkJugadasMostrar();
 
                     sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);
 
@@ -2188,7 +2184,7 @@ public class Crupier implements Runnable {
 
                     GameFrame.getInstance().getRegistro().print(iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + ")");
 
-                    Helpers.GUIRun(() -> {
+                    Helpers.GUIRunAndWait(() -> {
                         if (GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado()) {
                             GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(false);
                         }
@@ -2260,7 +2256,7 @@ public class Crupier implements Runnable {
                         if (GameFrame.getInstance().isPartida_local()) {
 
                             try {
-                                broadcastGAMECommandFromServer("IWTSTHSHOW#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")) + "#" + String.valueOf(authorized), null);
+                                broadcastGAMECommandFromServer("IWTSTHSHOW#" + Base64.encodeBase64String(iwtsther.getBytes("UTF-8")) + "#" + String.valueOf(authorized), null, true);
                             } catch (UnsupportedEncodingException ex) {
                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                             }
@@ -2269,11 +2265,9 @@ public class Crupier implements Runnable {
 
                         if (authorized) {
 
-                            for (Player j : GameFrame.getInstance().getJugadores()) {
+                            synchronized (lock_mostrar) {
 
-                                if (GameFrame.getInstance().getLocalPlayer() != j) {
-
-                                    RemotePlayer rp = (RemotePlayer) j;
+                                for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
 
                                     if (rp.isIwtsthCandidate()) {
 
@@ -2303,46 +2297,45 @@ public class Crupier implements Runnable {
                                     }
 
                                 }
-                            }
 
-                            checkJugadasMostrar();
+                                setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
 
-                            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+                                if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
 
-                            if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
+                                    if (GameFrame.getInstance().getLocalPlayer().isLoser()) {
 
-                                if (GameFrame.getInstance().getLocalPlayer().isLoser()) {
+                                        ArrayList<Card> cartas_jugada = new ArrayList<>(GameFrame.getInstance().getLocalPlayer().getHoleCards());
 
-                                    ArrayList<Card> cartas_jugada = new ArrayList<>(GameFrame.getInstance().getLocalPlayer().getHoleCards());
+                                        String hole_cards_string = Card.collection2String(GameFrame.getInstance().getLocalPlayer().getHoleCards());
 
-                                    String hole_cards_string = Card.collection2String(GameFrame.getInstance().getLocalPlayer().getHoleCards());
+                                        for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
-                                    for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
-
-                                        if (!carta_comun.isTapada()) {
-                                            cartas_jugada.add(carta_comun);
+                                            if (!carta_comun.isTapada()) {
+                                                cartas_jugada.add(carta_comun);
+                                            }
                                         }
+
+                                        Hand jugada = new Hand(cartas_jugada);
+
+                                        Helpers.GUIRunAndWait(() -> {
+                                            GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
+
+                                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
+
+                                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setBackground(new Color(51, 153, 255));
+
+                                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
+                                        });
+
+                                        GameFrame.getInstance().getLocalPlayer().setMuestra(true);
+
+                                        GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
+
+                                        sqlNewShowcards(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getDecision() == Player.FOLD);
+
+                                        sqlUpdateShowdownHand(GameFrame.getInstance().getLocalPlayer(), jugada);
+
                                     }
-
-                                    Hand jugada = new Hand(cartas_jugada);
-
-                                    Helpers.GUIRunAndWait(() -> {
-                                        GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
-
-                                        GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
-
-                                        GameFrame.getInstance().getLocalPlayer().getPlayer_action().setBackground(new Color(51, 153, 255));
-
-                                        GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
-                                    });
-
-                                    GameFrame.getInstance().getLocalPlayer().setMuestra(true);
-
-                                    GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
-
-                                    sqlNewShowcards(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getDecision() == Player.FOLD);
-
-                                    sqlUpdateShowdownHand(GameFrame.getInstance().getLocalPlayer(), jugada);
 
                                 }
 
@@ -2357,7 +2350,6 @@ public class Crupier implements Runnable {
                                 Helpers.GUIRunAndWait(() -> {
                                     try {
                                         GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), false, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
-
                                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                         gif_dialog.setVisible(true);
                                     } catch (Exception ex) {
@@ -2377,7 +2369,7 @@ public class Crupier implements Runnable {
 
                 }
 
-                Helpers.GUIRun(() -> {
+                Helpers.GUIRunAndWait(() -> {
                     if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
                         GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
                     }
@@ -4952,36 +4944,6 @@ public class Crupier implements Runnable {
         }
     }
 
-    private void checkJugadasMostrar() {
-
-        synchronized (lock_mostrar) {
-            ArrayList<Player> candidatos = new ArrayList<>();
-
-            boolean ganador_tapado = false;
-
-            for (Player p : GameFrame.getInstance().getJugadores()) {
-                if (p.isActivo() && ((p.getDecision() == Player.FOLD && p.isMuestra()) || (p.isWinner() && !p.getHoleCard1().isTapada()))) {
-                    candidatos.add(p);
-                } else if (p.isWinner() && p.getHoleCard1().isTapada()) {
-                    ganador_tapado = true;
-                    break;
-                }
-            }
-
-            if (!ganador_tapado && candidatos.size() > 1) {
-                HashMap<Player, Hand> jugadas = calcularJugadas(candidatos);
-
-                HashMap<Player, Hand> ganadores = calcularGanadores(new HashMap<>(jugadas));
-
-                for (Player p : candidatos) {
-                    if (p.getDecision() == Player.FOLD) {
-                        p.setPlayerActionIcon(ganadores.containsKey(p) ? "action/cry.png" : "action/alivio.png");
-                    }
-                }
-            }
-        }
-    }
-
     private void sentarParticipantes() {
 
         String pivote = GameFrame.getInstance().getNick_local();
@@ -7351,10 +7313,6 @@ public class Crupier implements Runnable {
 
                         }
 
-                        synchronized (lock_mostrar) {
-                            this.show_time = false;
-                        }
-
                         if (this.iwtsthing) {
 
                             synchronized (iwtsth_lock) {
@@ -7370,6 +7328,10 @@ public class Crupier implements Runnable {
                                     this.iwtsthing = false;
                                 }
                             }
+                        }
+
+                        synchronized (lock_mostrar) {
+                            this.show_time = false;
                         }
 
                         GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();

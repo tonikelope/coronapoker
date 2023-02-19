@@ -1966,7 +1966,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         Helpers.setScaledIconLabel(shield, getClass().getResource("/images/shield.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-        shield.setEnabled(GameFrame.RADAR_AVAILABLE && !"*".equals(avatar_path));
+        shield.setEnabled(GameFrame.RADAR_AVAILABLE && !nickname.contains("$"));
         shield.setToolTipText(Translator.translate(shield.isEnabled() ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
     }
 
@@ -1989,29 +1989,32 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void destaparCartas(boolean sound) {
 
-        if (getHoleCard1().isIniciada() && getHoleCard1().isTapada()) {
+        Helpers.GUIRun(() -> {
 
-            if (sound) {
-                Audio.playWavResource("misc/uncover.wav", false);
-            }
+            if (getHoleCard1().isIniciada() && getHoleCard1().isTapada()) {
 
-            chip_label.setVisible(false);
+                if (sound) {
+                    Audio.playWavResource("misc/uncover.wav", false);
+                }
 
-            getHoleCard1().destapar(false);
+                chip_label.setVisible(false);
 
-            getHoleCard2().destapar(false);
+                getHoleCard1().destapar(false);
 
-            if (iwtsth_blink_timer.isRunning()) {
+                getHoleCard2().destapar(false);
 
-                iwtsth_blink_timer.stop();
+                if (iwtsth_blink_timer.isRunning()) {
 
-                if (isLoser()) {
-                    player_action.setBackground(Color.RED);
-                    player_action.setForeground(Color.WHITE);
-                    player_action.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+                    iwtsth_blink_timer.stop();
+
+                    if (isLoser()) {
+                        player_action.setBackground(Color.RED);
+                        player_action.setForeground(Color.WHITE);
+                        player_action.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+                    }
                 }
             }
-        }
+        });
     }
 
     @Override

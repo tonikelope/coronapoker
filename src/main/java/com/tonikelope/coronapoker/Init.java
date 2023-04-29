@@ -87,7 +87,6 @@ public class Init extends javax.swing.JFrame {
 
     public static final boolean DEV_MODE = false;
 
-    public static final boolean OPENGL = true;
     public static final boolean DEBUG_FILE = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
@@ -907,13 +906,6 @@ public class Init extends javax.swing.JFrame {
                 }
             }
 
-            if (OPENGL && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("opengl", "true"))) {
-                System.setProperty("sun.java2d.d3d", "false");
-                System.setProperty("sun.java2d.ddoffscreen", "false");
-                System.setProperty("sun.java2d.noddraw", "true");
-                System.setProperty("sun.java2d.opengl", "true");
-            }
-
             Logger.getLogger(Init.class.getName()).log(Level.INFO, "java2d.opengl -> {0}", String.valueOf(System.getProperty("sun.java2d.opengl")));
 
             /* Set the Nimbus look and feel */
@@ -1035,10 +1027,6 @@ public class Init extends javax.swing.JFrame {
 
                 VENTANA_INICIO.setVisible(true);
             });
-
-            if (Init.coronaHMACVM()) {
-                Helpers.mostrarMensajeInformativo(VENTANA_INICIO, "Parece que estás ejecutando CoronaPoker en una máquina virtual.\n(Por motivos de rendimiento y seguridad esto no es recomendable).");
-            }
 
             if (PEGI18_MOD && !Files.isReadable(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"))) {
 

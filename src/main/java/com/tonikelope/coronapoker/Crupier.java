@@ -3019,7 +3019,7 @@ public class Crupier implements Runnable {
         }
     }
 
-    private void sqlNewShowdown(Player jugador, Hand jugada, boolean win) {
+    private void sqlNewShowdown(Player jugador, Hand jugada, boolean win, boolean tapadas) {
 
         synchronized (GameFrame.SQL_LOCK) {
 
@@ -3030,11 +3030,11 @@ public class Crupier implements Runnable {
 
                 statement.setString(2, jugador != null ? jugador.getNickname() : "-----");
 
-                statement.setString(3, (jugador == null || jugador.getHoleCard1().isTapada()) ? null : jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString());
+                statement.setString(3, (jugador == null || tapadas) ? null : jugador.getHoleCard1().toShortString() + "#" + jugador.getHoleCard2().toShortString());
 
-                statement.setString(4, (jugador == null || jugador.getHoleCard1().isTapada() || jugada == null) ? null : Card.collection2ShortString(jugada.getMano()));
+                statement.setString(4, (jugador == null || tapadas || jugada == null) ? null : Card.collection2ShortString(jugada.getMano()));
 
-                statement.setInt(5, (jugador == null || jugador.getHoleCard1().isTapada() || jugada == null) ? -1 : jugada.getValue());
+                statement.setInt(5, (jugador == null || tapadas || jugada == null) ? -1 : jugada.getValue());
 
                 statement.setBoolean(6, win);
 
@@ -6577,7 +6577,7 @@ public class Crupier implements Runnable {
 
                         jugador_actual.setWinner(jugada.getName());
 
-                        this.sqlNewShowdown(jugador_actual, jugada, true);
+                        this.sqlNewShowdown(jugador_actual, jugada, true, false);
 
                         if (GameFrame.SONIDOS_CHORRA && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -6614,7 +6614,9 @@ public class Crupier implements Runnable {
                             }
                         }
 
-                        this.sqlNewShowdown(jugador_actual, jugada, false);
+                        synchronized (lock_mostrar) {
+                            this.sqlNewShowdown(jugador_actual, jugada, false, jugador_actual.getHoleCard1().isTapada());
+                        }
 
                         if (GameFrame.SONIDOS_CHORRA && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -6641,7 +6643,7 @@ public class Crupier implements Runnable {
 
                         jugador_actual.setWinner(jugada.getName());
 
-                        this.sqlNewShowdown(jugador_actual, jugada, true);
+                        this.sqlNewShowdown(jugador_actual, jugada, true, false);
 
                         if (GameFrame.SONIDOS_CHORRA && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -6672,7 +6674,7 @@ public class Crupier implements Runnable {
                             GameFrame.getInstance().getLocalPlayer().setMuestra(true);
                         }
 
-                        this.sqlNewShowdown(jugador_actual, jugada, false);
+                        this.sqlNewShowdown(jugador_actual, jugada, false, false);
 
                         if (GameFrame.SONIDOS_CHORRA && jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -7020,7 +7022,7 @@ public class Crupier implements Runnable {
 
                             ganadores.put(resisten.get(0), null);
 
-                            this.sqlNewShowdown(resisten.get(0), null, true);
+                            this.sqlNewShowdown(resisten.get(0), null, true, true);
 
                         } else {
 

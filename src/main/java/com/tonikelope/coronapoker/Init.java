@@ -906,8 +906,6 @@ public class Init extends javax.swing.JFrame {
                 }
             }
 
-            Logger.getLogger(Init.class.getName()).log(Level.INFO, "java2d.opengl -> {0}", String.valueOf(System.getProperty("sun.java2d.opengl")));
-
             /* Set the Nimbus look and feel */
             //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
             /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.

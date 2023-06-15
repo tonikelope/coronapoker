@@ -891,6 +891,13 @@ public class Init extends javax.swing.JFrame {
 
             INIT = true;
 
+            if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("opengl", "false"))) {
+                System.setProperty("sun.java2d.opengl", Helpers.PROPERTIES.getProperty("opengl", "true"));
+                Helpers.PROPERTIES.setProperty("opengl", "true");
+            } else {
+                Helpers.PROPERTIES.setProperty("opengl", "false");
+            }
+
             if (!Init.DEV_MODE) {
                 SQL_FILE = CORONA_DIR + "/coronapoker.db";
             } else {
@@ -922,6 +929,8 @@ public class Init extends javax.swing.JFrame {
                 Logger.getLogger(Init.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
             }
             //</editor-fold>
+
+            Logger.getLogger(Init.class.getName()).log(Level.INFO, "sun.java2d.opengl " + System.getProperty("sun.java2d.opengl"));
 
             EmojiPanel.initClass();
 

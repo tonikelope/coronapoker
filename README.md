@@ -52,12 +52,8 @@ https://aur.archlinux.org/packages/coronapoker-bin</p>
 ```
 mvn install:install-file -Dfile=coronaHMAC_x.y.jar -DgroupId=com.tonikelope.coronahmac -DartifactId=coronahmac -Dversion=x.y -Dpackaging=jar
 ```
-<p align="justify">CoronaHMAC is a small library that is loaded at game startup to mitigate any player trying to cheat using a different binary version of the game than other players. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies, go to OPTION C).
 
-<p align="center"><img src="https://github.com/tonikelope/coronapoker/raw/master/coronahmac.png"></p>
-
-
-#### Step 2 (build):
+#### Step 2 (build CoronaPoker):
 ```
 mvn clean install
 ```
@@ -89,5 +85,7 @@ to:
 mvn clean install
 ```
 
+### EXTRA What is CoronaHMAC?: 
+<p align="justify">CoronaHMAC is a small library that is loaded at game startup to mitigate any player trying to cheat using a different binary version of the game than other players. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies but you want to build CoronaPoker, go to OPTION C).
 
-
+<p align="center"><img src="https://github.com/tonikelope/coronapoker/raw/master/coronahmac.png"></p>

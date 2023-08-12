@@ -139,6 +139,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             Helpers.IMAGEN_BB = createPositionChipImageIcon(Player.BIG_BLIND);
             Helpers.IMAGEN_SB = createPositionChipImageIcon(Player.SMALL_BLIND);
             Helpers.IMAGEN_DEALER = createPositionChipImageIcon(Player.DEALER);
+            Helpers.IMAGEN_DEAD_DEALER = createPositionChipImageIcon(Player.DEAD_DEALER);
 
             if (((Object[]) BARAJAS.get(GameFrame.BARAJA))[2] != null) {
                 CARTAS_SONIDO = Arrays.asList(((String) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[2]).split(" *, *"));
@@ -161,6 +162,11 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             case Player.DEALER:
 
                 image = "/images/dealer.png";
+                break;
+            
+            case Player.DEAD_DEALER:
+
+                image = "/images/dead_dealer.png";
                 break;
 
             case Player.BIG_BLIND:

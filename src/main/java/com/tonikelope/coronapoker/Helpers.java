@@ -254,6 +254,7 @@ public class Helpers {
     public static volatile ImageIcon IMAGEN_BB = null;
     public static volatile ImageIcon IMAGEN_SB = null;
     public static volatile ImageIcon IMAGEN_DEALER = null;
+    public static volatile ImageIcon IMAGEN_DEAD_DEALER = null;
 
     public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
     public volatile static int DECK_RANDOM_GENERATOR = Helpers.TRNG_CSPRNG;
@@ -265,6 +266,7 @@ public class Helpers {
     public volatile static boolean GENERATING_GIFSICLE_CACHE = false;
     public volatile static String GIFSICLE_CACHE_ZOOM = "";
     public volatile static long GIFSICLE_CACHE_THREAD;
+    
 
     static {
 

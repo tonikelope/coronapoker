@@ -49,6 +49,7 @@ public interface Player {
     public static final int DEALER = 11;
     public static final int SMALL_BLIND = 12;
     public static final int BIG_BLIND = 13;
+    public static final int DEAD_DEALER = 14;
 
     public static final int BORDER = 10;
 

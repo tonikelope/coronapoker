@@ -1,14 +1,14 @@
 <h1>CoronaPoker</h1>
 
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg) [![macOS](https://svgshare.com/i/ZjP.svg)](https://svgshare.com/i/ZjP.svg) [![Windows](https://svgshare.com/i/ZhY.svg)](https://svgshare.com/i/ZhY.svg)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 <p align="justify">This is the project of a perfectionist, who one day during the confinement of COVID19, came up with the idea of developing the most complete and fun open source game of Texas hold'em for his friends. I hope you enjoy playing it as much as I enjoy programming it. Carpe diem.</p>
 
-<p align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><img src="https://raw.githubusercontent.com/tonikelope/megabasterd/master/src/main/resources/images/linux-mac-windows.png"></a></p>
-
-<h3 align="center"><a href="https://www.youtube.com/watch?v=lAUBjjssKGk"><b>GAMEPLAY VIDEO</b></a></h3>
+<p align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><img src="https://raw.githubusercontent.com/tonikelope/megabasterd/master/src/main/resources/images/linux-mac-windows.png"></a></p><p align="center"><b>(Proudly) developed with:</b><br><img src="java_swing_mini.png" height="100"></p>
 
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
+
+<h3 align="center"><a href="https://www.youtube.com/watch?v=lAUBjjssKGk"><b>GAMEPLAY VIDEO</b></a></h3>
 
 ## Some features:
 - Cross platform.
@@ -52,12 +52,8 @@ https://aur.archlinux.org/packages/coronapoker-bin</p>
 ```
 mvn install:install-file -Dfile=coronaHMAC_x.y.jar -DgroupId=com.tonikelope.coronahmac -DartifactId=coronahmac -Dversion=x.y -Dpackaging=jar
 ```
-<p align="justify">CoronaHMAC is a small library that is loaded at game startup to mitigate any player trying to cheat using a different binary version of the game than other players. For obvious reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies, go to OPTION C).
 
-<p align="center"><img src="https://github.com/tonikelope/coronapoker/raw/master/coronahmac.png"></p>
-
-
-#### Step 2 (build):
+#### Step 2 (build CoronaPoker):
 ```
 mvn clean install
 ```
@@ -89,5 +85,7 @@ to:
 mvn clean install
 ```
 
+### EXTRA What is CoronaHMAC?: 
+<p align="justify">CoronaHMAC is a small library that is loaded at game startup to mitigate any player trying to cheat using a different binary version of the game than other players. For security reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies but you want to build CoronaPoker, go to OPTION C).
 
-
+<p align="center"><img src="https://github.com/tonikelope/coronapoker/raw/master/coronahmac.png"></p>

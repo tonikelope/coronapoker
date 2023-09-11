@@ -89,3 +89,7 @@ mvn clean install
 <p align="justify">CoronaHMAC is a small library that is loaded at game startup to mitigate any player trying to cheat using a different binary version of the game than other players. For security reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies but you want to build CoronaPoker, go to OPTION C).
 
 <p align="center"><img src="https://github.com/tonikelope/coronapoker/raw/master/coronahmac.png"></p>
+
+In addition to this system, CoronaPoker includes an (optional) feature that allows players to obtain at any time during the game a "snapshot" of any player's process list, as well as a screenshot of his screen, in case he is using any external application to cheat.
+
+Finally, CoronaPoker is designed in such a way that only the game server "knows" the cards dealt to the players and they will be sent to the rest of the players if necessary at the moment they are needed. In addition, the permutation of the current hand's deck is stored on the server in encrypted form with a key that is sent to other players (and not stored by the server).

@@ -90,6 +90,6 @@ mvn clean install
 
 <p align="center"><img src="https://github.com/tonikelope/coronapoker/raw/master/coronahmac.png"></p>
 
-<p align="justify">In addition to this system, CoronaPoker includes an (optional) feature that allows players to obtain at any time during the game a "snapshot" of any player's process list, as well as a screenshot of his screen, in case he/she is using any external application to cheat.</p>
+<p align="justify">In addition to this system, CoronaPoker includes an feature that allows players to obtain at any time during the game a "snapshot" of any player's process list, as well as a screenshot of his screen, in case he/she is using any external application to cheat. (This feature can be activated or deactivated by the server when setting the game options).</p>
 
 <p align="justify">Finally, CoronaPoker is designed in such a way that only the game server "knows" the cards dealt to the players and they will be sent to the rest of the players if necessary at the moment they are needed. In addition, for emergency recovery mode, the permutation of the current hand's deck is stored on the server hdd in encrypted form with a key that is sent to other players (and not stored by the server in any form).</p>

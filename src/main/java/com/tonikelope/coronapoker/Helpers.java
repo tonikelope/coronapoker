@@ -223,6 +223,7 @@ import static com.tonikelope.coronapoker.Init.RADAR_DIR;
 import java.io.FilenameFilter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.TreeMap;
 
 /**
  *
@@ -3445,8 +3446,16 @@ public class Helpers {
 
             BARAJAS_MENU = new JMenu("Barajas");
             BARAJAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
+            
+            HashMap hm=new HashMap<String, Object[]>();
+            
+            hm.putAll(Card.BARAJAS);
+            
+            TreeMap<String, Object[]> sorted_hm = new TreeMap<>();
+            
+            sorted_hm.putAll(hm);
 
-            for (Map.Entry<String, Object[]> entry : Card.BARAJAS.entrySet()) {
+            for (Map.Entry<String, Object[]> entry : sorted_hm.entrySet()) {
 
                 javax.swing.JRadioButtonMenuItem menu_item = new javax.swing.JRadioButtonMenuItem(entry.getKey());
 

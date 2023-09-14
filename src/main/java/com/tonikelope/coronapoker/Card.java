@@ -53,7 +53,7 @@ import javax.swing.SwingUtilities;
  */
 public class Card extends javax.swing.JLayeredPane implements ZoomableInterface, Comparable {
 
-    public final static ConcurrentHashMap<String, Object[]> BARAJAS = new ConcurrentHashMap<>(Map.ofEntries(new HashMap.SimpleEntry<>("coronapoker", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("interstate60", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("goliat", new Object[]{1.345f, false, null})));
+    public final static ConcurrentHashMap<String, Object[]> BARAJAS = new ConcurrentHashMap<>(Map.ofEntries(new HashMap.SimpleEntry<>("coronapoker", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("interstate60", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("goliat", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("goliat4", new Object[]{1.345f, false, null})));
     public final static int DEFAULT_HEIGHT = 200;
     public final static String[] PALOS = {"P", "C", "T", "D"};
     public final static String PALOS_STRING = "PCTD";

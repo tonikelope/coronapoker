@@ -6,9 +6,9 @@
 
 <p align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><img src="https://raw.githubusercontent.com/tonikelope/megabasterd/master/src/main/resources/images/linux-mac-windows.png"></a></p><p align="center"><b>(Proudly) developed with:</b><br><img src="java_swing_mini.png" height="100"></p>
 
-<p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/1.png"><br><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/gh-pages/screenshots/13.png"></a></p>
 
-<h3 align="center"><a href="https://www.youtube.com/watch?v=lAUBjjssKGk"><b>GAMEPLAY VIDEO</b></a></h3>
+https://github.com/tonikelope/coronapoker/assets/1344008/b8d5b8e8-5f41-464d-ba54-4d4498cc5576
+
 
 ## Some features:
 - Cross platform.
@@ -85,7 +85,11 @@ to:
 mvn clean install
 ```
 
-### EXTRA What is CoronaHMAC?: 
+### EXTRA (AntiCheat) What is CoronaHMAC?: 
 <p align="justify">CoronaHMAC is a small library that is loaded at game startup to mitigate any player trying to cheat using a different binary version of the game than other players. For security reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies but you want to build CoronaPoker, go to OPTION C).
 
 <p align="center"><img src="https://github.com/tonikelope/coronapoker/raw/master/coronahmac.png"></p>
+
+<p align="justify">In addition to this system, CoronaPoker includes an feature that allows players to obtain at any time during the game a "snapshot" of any player's process list, as well as a screenshot of his screen, in case he/she is using any external application to cheat. (This feature can be activated or deactivated by the server when setting the game options).</p>
+
+<p align="justify">Finally, CoronaPoker is designed in such a way that only the game server "knows" the cards dealt to the players and they will be sent to the rest of the players if necessary at the moment they are needed. In addition, for emergency recovery mode, the permutation of the current hand's deck is stored on the server hdd in encrypted form with a key that is sent to other players (and not stored by the server in any form).</p>

@@ -220,6 +220,9 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import static com.tonikelope.coronapoker.Init.RADAR_DIR;
+import java.awt.color.ColorSpace;
+import java.awt.image.ColorConvertOp;
+import java.awt.image.RescaleOp;
 import java.io.FilenameFilter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -267,7 +270,6 @@ public class Helpers {
     public volatile static boolean GENERATING_GIFSICLE_CACHE = false;
     public volatile static String GIFSICLE_CACHE_ZOOM = "";
     public volatile static long GIFSICLE_CACHE_THREAD;
-    
 
     static {
 
@@ -1685,8 +1687,18 @@ public class Helpers {
         return bimage;
     }
 
+    public static BufferedImage desaturate(BufferedImage source, float opacity) {
+        ColorConvertOp colorConvert = new ColorConvertOp(ColorSpace.getInstance(ColorSpace.CS_GRAY), null);
+        float[] scales = {1f, opacity};
+        float[] offsets = new float[2];
+        RescaleOp rop = new RescaleOp(scales, offsets, null);
+
+        return rop.filter(colorConvert.filter(source, null), null);
+    }
+
     //Thanks -> https://stackoverflow.com/a/7603815
     public static BufferedImage makeImageRoundedCorner(Image image, int cornerRadius) {
+
         int w = image.getWidth(null);
         int h = image.getHeight(null);
 
@@ -3446,13 +3458,13 @@ public class Helpers {
 
             BARAJAS_MENU = new JMenu("Barajas");
             BARAJAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
-            
-            HashMap hm=new HashMap<String, Object[]>();
-            
+
+            HashMap hm = new HashMap<String, Object[]>();
+
             hm.putAll(Card.BARAJAS);
-            
+
             TreeMap<String, Object[]> sorted_hm = new TreeMap<>();
-            
+
             sorted_hm.putAll(hm);
 
             for (Map.Entry<String, Object[]> entry : sorted_hm.entrySet()) {

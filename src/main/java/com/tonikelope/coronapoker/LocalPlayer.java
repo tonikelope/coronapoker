@@ -505,9 +505,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             chip_label_icon = Helpers.IMAGEN_SB;
         } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
-            Helpers.setScaledIconLabel(player_name, getClass().getResource(GameFrame.getInstance().getCrupier().isDead_dealer()?"/images/dead_dealer.png":"/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+            Helpers.setScaledIconLabel(player_name, getClass().getResource(GameFrame.getInstance().getCrupier().isDead_dealer() ? "/images/dead_dealer.png" : "/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
 
-            chip_label_icon = GameFrame.getInstance().getCrupier().isDead_dealer()?Helpers.IMAGEN_DEAD_DEALER:Helpers.IMAGEN_DEALER;
+            chip_label_icon = GameFrame.getInstance().getCrupier().isDead_dealer() ? Helpers.IMAGEN_DEAD_DEALER : Helpers.IMAGEN_DEALER;
         } else {
             chip_label_icon = null;
         }

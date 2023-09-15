@@ -64,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
@@ -1521,7 +1522,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void generarBarajasMenu() {
 
-        for (Map.Entry<String, Object[]> entry : Card.BARAJAS.entrySet()) {
+        HashMap hm = new HashMap<String, Object[]>();
+
+        hm.putAll(Card.BARAJAS);
+
+        TreeMap<String, Object[]> sorted_hm = new TreeMap<>();
+
+        sorted_hm.putAll(hm);
+
+        for (Map.Entry<String, Object[]> entry : sorted_hm.entrySet()) {
 
             javax.swing.JRadioButtonMenuItem menu_item = new javax.swing.JRadioButtonMenuItem(entry.getKey());
 
@@ -1783,7 +1792,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.preserveOriginalFontSizes(THIS);
 
         Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
-        
+
         tapete.getCommunityCards().getTiempo_partida().setFont(new Font("Monospaced", Font.BOLD, 26));
 
         Helpers.translateComponents(THIS, false);

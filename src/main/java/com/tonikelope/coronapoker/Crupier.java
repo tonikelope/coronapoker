@@ -296,12 +296,12 @@ public class Crupier implements Runnable {
     private volatile int limpers;
     private volatile int game_recovered = 0;
     private volatile Object[] ciegas_update = null;
-    private volatile boolean dead_dealer=false;
+    private volatile boolean dead_dealer = false;
 
     public boolean isDead_dealer() {
         return dead_dealer;
     }
-    
+
     public Object[] getCiegas_update() {
         return ciegas_update;
     }
@@ -5144,7 +5144,7 @@ public class Crupier implements Runnable {
 
     //DEAD BUTTON STRATEGY
     private void calcularPosiciones() {
-        
+
         String old_dealer_nick = this.dealer_nick;
 
         String old_big_blind = this.big_blind_nick;
@@ -5324,7 +5324,7 @@ public class Crupier implements Runnable {
             }
 
         }
-        
+
         this.dead_dealer = (this.dealer_nick.equals(old_dealer_nick));
     }
 

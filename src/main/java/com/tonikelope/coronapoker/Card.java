@@ -59,6 +59,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     public final static String PALOS_STRING = "PCTD";
     public final static String[] VALORES = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"};
     public final static int DEFAULT_CORNER = 20;
+    public static float DISABLED_CARD_OPACITY = 0.45f;
     private final static HashMap<String, String> UNICODE_TABLE = loadUnicodeTable();
     private static volatile int CARD_WIDTH = -1;
     private static volatile int CARD_HEIGHT = -1;
@@ -68,6 +69,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private static volatile ImageIcon IMAGEN_JOKER = null;
     private static volatile List<String> CARTAS_SONIDO = null;
     private static volatile float CURRENT_ZOOM = 0f;
+    
 
     private volatile String valor = "";
     private volatile String palo = "";
@@ -134,7 +136,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             CARD_HEIGHT = Math.round(DEFAULT_HEIGHT * zoom);
             CARD_CORNER = Math.round(Card.DEFAULT_CORNER * zoom);
             IMAGEN_TRASERA = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
-            IMAGEN_TRASERA_B = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera_b.jpg");
+            IMAGEN_TRASERA_B = createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
             IMAGEN_JOKER = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/joker.jpg");
             Helpers.IMAGEN_BB = createPositionChipImageIcon(Player.BIG_BLIND);
             Helpers.IMAGEN_SB = createPositionChipImageIcon(Player.SMALL_BLIND);
@@ -163,7 +165,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                 image = "/images/dealer.png";
                 break;
-            
+
             case Player.DEAD_DEALER:
 
                 image = "/images/dead_dealer.png";
@@ -208,6 +210,29 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         }
 
         return new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(img.getScaledInstance(CARD_WIDTH, CARD_HEIGHT, Image.SCALE_SMOOTH)).getImage(), CARD_CORNER));
+
+    }
+
+    private static ImageIcon createDisabledCardImageIcon(String path) {
+
+        Image img;
+
+        boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
+
+        if (baraja_mod) {
+
+            if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + path.replace("/images/decks/", "")))) {
+                img = new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + path.replace("/images/decks/", "")).getImage();
+            } else {
+                img = new ImageIcon(Card.class.getResource(path.replace(GameFrame.BARAJA, "coronapoker"))).getImage();
+                Logger.getLogger(Card.class.getName()).log(Level.WARNING, "No existe {0}", Helpers.getCurrentJarParentPath() + "/mod/decks/" + path.replace("/images/decks/", ""));
+            }
+        } else {
+            img = new ImageIcon(Card.class.getResource(path)).getImage();
+
+        }
+
+        return new ImageIcon(Helpers.desaturate(Helpers.makeImageRoundedCorner(new ImageIcon(img.getScaledInstance(CARD_WIDTH, CARD_HEIGHT, Image.SCALE_SMOOTH)).getImage(), CARD_CORNER), DISABLED_CARD_OPACITY));
 
     }
 
@@ -337,7 +362,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                                 if (image_b != null) {
                                     img = image_b;
                                 } else {
-                                    img = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg");
+                                    img = createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
                                     image_b = img;
 
                                 }
@@ -401,7 +426,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                         }
 
                         if (image_b == null) {
-                            image_b = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + "_b.jpg");
+                            image_b = createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
                         }
                     }
 

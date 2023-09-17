@@ -69,7 +69,6 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private static volatile ImageIcon IMAGEN_JOKER = null;
     private static volatile List<String> CARTAS_SONIDO = null;
     private static volatile float CURRENT_ZOOM = 0f;
-    
 
     private volatile String valor = "";
     private volatile String palo = "";

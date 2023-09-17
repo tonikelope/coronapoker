@@ -69,7 +69,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public static final int MIN_ACTION_WIDTH = 200;
     public static final int MIN_ACTION_HEIGHT = 45;
     public static final int MAX_ACTION_HAND_LENGTH = 14;
-    public static final float MAX_ACTION_HAND_LENGTH_ZOOM = 0.85f;
+    public static final float MAX_ACTION_HAND_LENGTH_ZOOM = 0.80f;
 
     private volatile String nickname;
     private volatile float stack = 0f;
@@ -165,7 +165,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             int pos_y = 0;
 
-            getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)));
+            getChat_notify_label().setIcon(new ImageIcon(Helpers.setColorImageOpacity(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)).getImage()), 0.80f)));
 
             getChat_notify_label().setSize(sound_icon_size_w, sound_icon_size_h);
 

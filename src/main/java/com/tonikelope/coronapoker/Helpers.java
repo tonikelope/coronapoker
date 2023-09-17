@@ -61,7 +61,6 @@ import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.FontFormatException;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
@@ -602,11 +601,8 @@ public class Helpers {
     }
 
     public static BufferedImage convertToGrayScale(BufferedImage image) {
-        BufferedImage result = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
-        Graphics g = result.getGraphics();
-        g.drawImage(image, 0, 0, null);
-        g.dispose();
-        return result;
+        ColorConvertOp colorConvert = new ColorConvertOp(ColorSpace.getInstance(ColorSpace.CS_GRAY), null);
+        return colorConvert.filter(image, null);
     }
 
     public static String downloadUpdater() throws IOException {
@@ -1694,6 +1690,15 @@ public class Helpers {
         RescaleOp rop = new RescaleOp(scales, offsets, null);
 
         return rop.filter(colorConvert.filter(source, null), null);
+    }
+
+    public static BufferedImage setColorImageOpacity(BufferedImage source, float opacity) {
+
+        float[] scales = {1f, 1f, 1f, opacity};
+        float[] offsets = new float[4];
+        RescaleOp rop = new RescaleOp(scales, offsets, null);
+
+        return rop.filter(source, null);
     }
 
     //Thanks -> https://stackoverflow.com/a/7603815

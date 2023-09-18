@@ -165,7 +165,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             int pos_y = 0;
 
-            getChat_notify_label().setIcon(new ImageIcon(Helpers.setColorImageOpacity(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)).getImage()), 0.80f)));
+            getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)));
 
             getChat_notify_label().setSize(sound_icon_size_w, sound_icon_size_h);
 

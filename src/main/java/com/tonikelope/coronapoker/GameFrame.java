@@ -133,6 +133,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int GUI_ZOOM_WAIT = 250;
     public static final boolean TEST_MODE = false;
     public static final int TTS_NO_SOUND_TIMEOUT = 3000;
+    public static final int NOTIFY_INGAME_GIF_REPEAT = 2;
     public static final ConcurrentLinkedQueue<Object[]> NOTIFY_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
     public static final Object SQL_LOCK = new Object();
 

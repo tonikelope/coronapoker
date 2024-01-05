@@ -36,7 +36,7 @@ import javax.swing.plaf.LayerUI;
 
 public class BrightnessLayerUI extends LayerUI<JComponent> {
 
-    public static final float LIGHTS_OFF_BRIGHTNESS = 0.30f;
+    public static final float LIGHTS_OFF_BRIGHTNESS = 0.40f;
     private float brightness = 0f;
 
     public void lightsOFF() {

@@ -59,7 +59,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     public final static String PALOS_STRING = "PCTD";
     public final static String[] VALORES = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"};
     public final static int DEFAULT_CORNER = 20;
-    public static float DISABLED_CARD_OPACITY = 0.45f;
+    public static float DISABLED_CARD_OPACITY = 0.30f;
     private final static HashMap<String, String> UNICODE_TABLE = loadUnicodeTable();
     private static volatile int CARD_WIDTH = -1;
     private static volatile int CARD_HEIGHT = -1;

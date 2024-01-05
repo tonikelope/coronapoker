@@ -128,6 +128,7 @@ public class PauseDialog extends javax.swing.JDialog {
         });
 
         pausa_label.setFont(new java.awt.Font("Dialog", 1, 52)); // NOI18N
+        pausa_label.setForeground(new java.awt.Color(255, 0, 0));
         pausa_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         pausa_label.setText("TIMBA PAUSADA");
         pausa_label.setDoubleBuffered(true);

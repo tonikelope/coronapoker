@@ -99,7 +99,7 @@ public class Init extends javax.swing.JFrame {
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
     public static final Object LOCK_CINEMATICS = new Object();
-    public static final int QUOTE_DELAY = 10000;
+    public static final int QUOTE_DELAY = 8000;
     public static final String CORONA_INIT_IMAGE = "/images/corona_init.png";
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile ConcurrentHashMap<String, Object> MOD = null;

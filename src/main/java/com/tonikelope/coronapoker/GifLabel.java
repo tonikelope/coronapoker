@@ -76,8 +76,8 @@ public class GifLabel extends JLabel {
     @Override
     public boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h) {
 
-        repaint();
-
+        repaint(0L,x,y,w,h);
+        
         if (!gif_finished) {
 
             if ((infoflags & FRAMEBITS) != 0) {

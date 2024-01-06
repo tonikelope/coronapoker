@@ -47,6 +47,10 @@ public class GifLabel extends JLabel {
     private volatile CyclicBarrier gif_barrier = null;
     private volatile boolean audio_playing = false;
 
+    public GifLabel() {
+        setDoubleBuffered(true);
+    }
+
     @Override
     public void setIcon(Icon icon) {
         gif_finished = false;
@@ -76,7 +80,7 @@ public class GifLabel extends JLabel {
     @Override
     public boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h) {
 
-        repaint(0L,x,y,w,h);
+        repaint(0L);
         
         if (!gif_finished) {
 

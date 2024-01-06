@@ -59,13 +59,16 @@ public class GifPanel extends javax.swing.JPanel {
      * Creates new form NewJPanel
      */
     public GifPanel() {
+        setDoubleBuffered(true);
         initComponents();
+        
     }
 
     /**
      * Creates new form NewJPanel
      */
     public GifPanel(boolean b) {
+        setDoubleBuffered(true);
         initComponents();
         brillo = b;
     }

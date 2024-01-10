@@ -2245,7 +2245,7 @@ public class Helpers {
 
     private static Integer[] getRandomIntegerSequence(int method, Integer min, Integer max, Integer[] init) throws Exception {
 
-        if ((method <= Helpers.TRNG || init == null) && (min == null || max == null || min < 0 || min > max)) {
+        if ((method == Helpers.TRNG || method == Helpers.TRNG_CSPRNG || init == null) && (min == null || max == null || min < 0 || min > max)) {
             throw new Exception("BAD INTEGER SEQUENCE PARAMETERS!");
         }
 
@@ -2338,18 +2338,18 @@ public class Helpers {
                         }
                     });
 
-                    Integer[] per = (Integer[]) future.get(Helpers.RANDOMORG_TIMEOUT, TimeUnit.MILLISECONDS);
+                    Integer[] randomorg_shuffle = (Integer[]) future.get(Helpers.RANDOMORG_TIMEOUT, TimeUnit.MILLISECONDS);
 
-                    if (per != null) {
+                    if (randomorg_shuffle != null) {
 
                         if (method == Helpers.TRNG_CSPRNG) {
 
-                            //Second shuffle with CSPRNG
-                            return getRandomIntegerSequence(Helpers.CSPRNG, per);
+                            //Second shuffle with CSPRNG (PARANOID MODE)
+                            return getRandomIntegerSequence(Helpers.CSPRNG, randomorg_shuffle);
 
                         }
 
-                        return per;
+                        return randomorg_shuffle;
                     }
 
                 } catch (InterruptedException | ExecutionException | TimeoutException ex) {
@@ -2424,15 +2424,13 @@ public class Helpers {
                     Collections.shuffle(permutacion, Helpers.CSPRNG_GENERATOR); //Fisher-Yates
 
                     return permutacion.toArray(new Integer[0]);
-                }
-
-            default:
-
-                if (Helpers.CSPRNG_GENERATOR != null) {
-                    return getRandomIntegerSequence(Helpers.CSPRNG, min, max, init);
                 } else {
                     throw new Exception("NO RNG AVAILABLE!");
                 }
+
+            default:
+                return getRandomIntegerSequence(Helpers.CSPRNG, min, max, init);
+
         }
 
     }

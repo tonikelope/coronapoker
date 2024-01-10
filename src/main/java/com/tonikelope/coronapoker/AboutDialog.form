@@ -354,7 +354,7 @@
                 <DimensionLayout dim="0">
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Component id="jLabel12" alignment="0" max="32767" attributes="0"/>
-                      <Component id="jLabel9" alignment="0" pref="154" max="32767" attributes="0"/>
+                      <Component id="jLabel9" alignment="0" max="32767" attributes="0"/>
                   </Group>
                 </DimensionLayout>
                 <DimensionLayout dim="1">
@@ -394,7 +394,7 @@
                     <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
                       <Image iconType="3" name="/images/cruz.png"/>
                     </Property>
-                    <Property name="text" type="java.lang.String" value="MADE IN SPAIN"/>
+                    <Property name="text" type="java.lang.String" value="HANDMADE IN SPAIN by tonikelope &#xa9; 2020"/>
                     <Property name="toolTipText" type="java.lang.String" value="PLVS VLTRA"/>
                   </Properties>
                 </Component>

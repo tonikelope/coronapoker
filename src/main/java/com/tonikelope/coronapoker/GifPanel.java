@@ -61,7 +61,7 @@ public class GifPanel extends javax.swing.JPanel {
     public GifPanel() {
         setDoubleBuffered(true);
         initComponents();
-        
+
     }
 
     /**

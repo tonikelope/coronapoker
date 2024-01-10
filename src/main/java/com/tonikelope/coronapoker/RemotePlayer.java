@@ -197,7 +197,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 int gif_l = ChatImageDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageDialog.GIF_CACHE.get(url)[1] : -1;
 
-                int timeout = ((isgif = (gif_l != -1 || Helpers.isImageGIF(new URL(url)))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT)*NOTIFY_INGAME_GIF_REPEAT;
+                int timeout = ((isgif = (gif_l != -1 || Helpers.isImageGIF(new URL(url)))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT) * NOTIFY_INGAME_GIF_REPEAT;
 
                 Helpers.threadRun(() -> {
                     chat_notify_thread = Thread.currentThread().getId();

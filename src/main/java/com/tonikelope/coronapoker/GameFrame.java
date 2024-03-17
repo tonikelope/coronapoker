@@ -164,7 +164,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "false"));
     public static volatile boolean LOCAL_POSITION_CHIP = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("local_pos_chip", "true"));
     public static volatile String SERVER_HISTORY = Helpers.PROPERTIES.getProperty("server_history", "");
-    public static volatile boolean RADAR_AVAILABLE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("radar", "true"));
+    public static volatile boolean RADAR_AVAILABLE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("radar", "false"));
     public static volatile boolean RECOVER = false;
     public static volatile Boolean MAC_NATIVE_FULLSCREEN = null;
     public static volatile boolean TTS_SERVER = true;

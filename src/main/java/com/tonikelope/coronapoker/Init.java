@@ -256,28 +256,30 @@ public class Init extends javax.swing.JFrame {
             @Override
             public void resizeTimedOut() {
 
-                if (Init.VENTANA_INICIO.getWidth() <= 1920 || Init.VENTANA_INICIO.getHeight() <= 1080 - 150) {
+                if (Init.VENTANA_INICIO.isVisible()) {
+                    if (Init.VENTANA_INICIO.getWidth() <= 1920 || Init.VENTANA_INICIO.getHeight() <= 1080 - 150) {
 
-                    int new_w = Init.VENTANA_INICIO.getWidth();
+                        int new_w = Init.VENTANA_INICIO.getWidth();
 
-                    int new_h = Math.round(1080 * new_w / 1920);
+                        int new_h = Math.round(1080 * new_w / 1920);
 
-                    if (new_h > Init.VENTANA_INICIO.getHeight() - 150) {
-                        new_h = Init.VENTANA_INICIO.getHeight() - 150;
+                        if (new_h > Init.VENTANA_INICIO.getHeight() - 150) {
+                            new_h = Init.VENTANA_INICIO.getHeight() - 150;
 
-                        new_w = Math.round(1920 * new_h / 1080);
+                            new_w = Math.round(1920 * new_h / 1080);
+                        }
+
+                        Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(new_w * 0.9f), Math.round(new_h * 0.9f));
+                    } else {
+                        Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(1920 * 0.9f), Math.round(1080 * 0.9f));
                     }
 
-                    Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(new_w * 0.9f), Math.round(new_h * 0.9f));
-                } else {
-                    Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(1920 * 0.9f), Math.round(1080 * 0.9f));
+                    quote.setSize((int) getWidth(), 150);
+                    quote.setLocation(0, Init.VENTANA_INICIO.getHeight() - 125);
+                    quote.setVisible(true);
+                    quote.revalidate();
+                    quote.repaint();
                 }
-
-                quote.setSize((int) getWidth(), 150);
-                quote.setLocation(0, Init.VENTANA_INICIO.getHeight() - 125);
-                quote.setVisible(true);
-                quote.revalidate();
-                quote.repaint();
             }
         });
 

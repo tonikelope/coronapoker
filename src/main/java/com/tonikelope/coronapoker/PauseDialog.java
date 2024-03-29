@@ -127,6 +127,9 @@ public class PauseDialog extends javax.swing.JDialog {
             }
         });
 
+        panel.setBackground(new java.awt.Color(255, 255, 255));
+
+        pausa_label.setBackground(new java.awt.Color(255, 255, 255));
         pausa_label.setFont(new java.awt.Font("Dialog", 1, 52)); // NOI18N
         pausa_label.setForeground(new java.awt.Color(255, 0, 0));
         pausa_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -172,6 +175,7 @@ public class PauseDialog extends javax.swing.JDialog {
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
         this.timer.stop();
+
     }//GEN-LAST:event_formWindowClosed
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened

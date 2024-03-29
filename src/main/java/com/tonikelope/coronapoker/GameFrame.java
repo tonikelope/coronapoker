@@ -216,6 +216,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
     private volatile int test_card_count = 0;
+    private volatile boolean lights;
 
     public JCheckBoxMenuItem getAuto_fullscreen_menu() {
         return auto_fullscreen_menu;
@@ -727,18 +728,37 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             this.timba_pausada = !this.timba_pausada;
 
             if (this.timba_pausada) {
+
+                this.lights = GameFrame.getInstance().getCapa_brillo().isLightsON();
+
+                Helpers.GUIRunAndWait(() -> {
+                    GameFrame.getInstance().getCapa_brillo().lightsOFF();
+                    if (GameFrame.getInstance().getFastchat_dialog() != null) {
+                        GameFrame.getInstance().getFastchat_dialog().refreshColors();
+                    }
+
+                    if (GameFrame.getInstance().getNotify_dialog() != null) {
+                        GameFrame.getInstance().getNotify_dialog().repaint();
+                    }
+
+                    GameFrame.getInstance().repaint();
+
+                });
+
                 this.nick_pause = user != null ? user : this.getNick_local();
 
                 if (!GameFrame.getInstance().getCrupier().isIwtsthing()) {
                     Audio.playWavResource("misc/pause.wav");
                 }
             } else {
+
                 this.nick_pause = null;
             }
 
             this.lock_pause.notifyAll();
 
             Helpers.GUIRun(() -> {
+
                 if (pausa_dialog == null) {
                     pausa_dialog = new PauseDialog(getFrame(), false);
                 }
@@ -771,6 +791,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     pausa_dialog.setVisible(false);
                     pausa_dialog.dispose();
                     pausa_dialog = null;
+
+                    if (this.lights) {
+
+                        GameFrame.getInstance().getCapa_brillo().lightsON();
+                        if (GameFrame.getInstance().getFastchat_dialog() != null) {
+                            GameFrame.getInstance().getFastchat_dialog().refreshColors();
+                        }
+
+                        if (GameFrame.getInstance().getNotify_dialog() != null) {
+                            GameFrame.getInstance().getNotify_dialog().repaint();
+                        }
+
+                        GameFrame.getInstance().repaint();
+
+                    }
 
                 }
             });

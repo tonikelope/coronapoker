@@ -394,7 +394,7 @@
                     <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
                       <Image iconType="3" name="/images/cruz.png"/>
                     </Property>
-                    <Property name="text" type="java.lang.String" value="HANDMADE IN SPAIN by tonikelope &#xa9; 2020"/>
+                    <Property name="text" type="java.lang.String" value="HANDMADE WITH LOVE IN SPAIN by tonikelope (c) 2020"/>
                     <Property name="toolTipText" type="java.lang.String" value="PLVS VLTRA"/>
                   </Properties>
                 </Component>

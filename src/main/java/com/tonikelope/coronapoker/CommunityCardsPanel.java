@@ -755,7 +755,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void lights_labelMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lights_labelMouseReleased
         // TODO add your handling code here:
 
-        if (!GameFrame.getInstance().isTimba_pausada() && (evt == null || new Rectangle(new Dimension(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()))).contains(evt.getPoint()))) {
+        if (evt == null || new Rectangle(new Dimension(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()))).contains(evt.getPoint())) {
             if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
                 Audio.playWavResource("misc/button_off.wav");
@@ -778,7 +778,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 GameFrame.getInstance().getNotify_dialog().repaint();
             }
 
-            GameFrame.getInstance().repaint();
+            GameFrame.getInstance().getFrame().revalidate();
+            GameFrame.getInstance().getFrame().repaint();
         }
 
     }//GEN-LAST:event_lights_labelMouseReleased

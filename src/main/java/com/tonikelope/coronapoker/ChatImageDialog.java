@@ -81,8 +81,16 @@ public class ChatImageDialog extends javax.swing.JDialog {
      * Creates new form ChatImageURLDialog
      */
     public ChatImageDialog(java.awt.Frame parent, boolean modal, int h) {
+
         super(parent, modal);
+
         initComponents();
+
+        historial_panel.setLayout(new Helpers.WrapLayoutGPT());
+
+        historial_panel.setFocusTraversalPolicy(new Helpers.WrapLayoutFocusTraversalPolicyGPT());
+
+        historial_panel.setFocusTraversalPolicyProvider(true);
 
         Helpers.setTranslatedTitle(this, "Enviar imagen");
 
@@ -256,6 +264,8 @@ public class ChatImageDialog extends javax.swing.JDialog {
                                 }
                             });
                             synchronized (LOAD_IMAGES_LOCK) {
+
+                                ((Helpers.WrapLayoutFocusTraversalPolicyGPT) THIS.historial_panel.getFocusTraversalPolicy()).addComponent(label);
 
                                 THIS.historial_panel.add(label);
                                 THIS.historial_panel.revalidate();
@@ -545,8 +555,17 @@ public class ChatImageDialog extends javax.swing.JDialog {
         scroll_panel.setDoubleBuffered(true);
         scroll_panel.setFocusCycleRoot(true);
 
-        historial_panel.setFocusCycleRoot(true);
-        historial_panel.setLayout(new javax.swing.BoxLayout(historial_panel, javax.swing.BoxLayout.Y_AXIS));
+        javax.swing.GroupLayout historial_panelLayout = new javax.swing.GroupLayout(historial_panel);
+        historial_panel.setLayout(historial_panelLayout);
+        historial_panelLayout.setHorizontalGroup(
+            historial_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 504, Short.MAX_VALUE)
+        );
+        historial_panelLayout.setVerticalGroup(
+            historial_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 22, Short.MAX_VALUE)
+        );
+
         scroll_panel.setViewportView(historial_panel);
 
         barra.setDoubleBuffered(true);
@@ -609,7 +628,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
+                .addComponent(scroll_panel)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(auto_recibir_checkbox)

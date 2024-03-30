@@ -219,6 +219,10 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import static com.tonikelope.coronapoker.Init.RADAR_DIR;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.FocusTraversalPolicy;
+import java.awt.Insets;
 import java.awt.color.ColorSpace;
 import java.awt.image.ColorConvertOp;
 import java.awt.image.RescaleOp;
@@ -3212,6 +3216,127 @@ public class Helpers {
     }
 
     private Helpers() {
+    }
+
+    public static class WrapLayoutFocusTraversalPolicyGPT extends FocusTraversalPolicy {
+
+        private ArrayList<Component> components = new ArrayList<>();
+
+        public void addComponent(Component component) {
+            components.add(component);
+        }
+
+        @Override
+        public Component getComponentAfter(Container aContainer, Component aComponent) {
+            int idx = (components.indexOf(aComponent) + 1) % components.size();
+            return components.get(idx);
+        }
+
+        @Override
+        public Component getComponentBefore(Container aContainer, Component aComponent) {
+            int idx = components.indexOf(aComponent) - 1;
+            if (idx < 0) {
+                idx = components.size() - 1;
+            }
+            return components.get(idx);
+        }
+
+        @Override
+        public Component getFirstComponent(Container aContainer) {
+            return components.get(0);
+        }
+
+        @Override
+        public Component getLastComponent(Container aContainer) {
+            return components.get(components.size() - 1);
+        }
+
+        @Override
+        public Component getDefaultComponent(Container aContainer) {
+            return getFirstComponent(aContainer);
+        }
+    }
+
+    public static class WrapLayoutGPT extends FlowLayout {
+
+        public WrapLayoutGPT() {
+            super();
+        }
+
+        public WrapLayoutGPT(int align) {
+            super(align);
+        }
+
+        public WrapLayoutGPT(int align, int hgap, int vgap) {
+            super(align, hgap, vgap);
+        }
+
+        @Override
+        public Dimension preferredLayoutSize(Container target) {
+            return layoutSize(target, true);
+        }
+
+        @Override
+        public Dimension minimumLayoutSize(Container target) {
+            Dimension minimum = layoutSize(target, false);
+            minimum.width -= (getHgap() + 1);
+            return minimum;
+        }
+
+        private Dimension layoutSize(Container target, boolean preferred) {
+            synchronized (target.getTreeLock()) {
+                int targetWidth = target.getSize().width;
+                Container container = target;
+
+                while (container.getSize().width == 0 && container.getParent() != null) {
+                    container = container.getParent();
+                }
+
+                targetWidth = container.getSize().width;
+
+                if (targetWidth == 0) {
+                    targetWidth = Integer.MAX_VALUE;
+                }
+
+                int hgap = getHgap();
+                int vgap = getVgap();
+                Insets insets = target.getInsets();
+                int horizontalInsetsAndGap = insets.left + insets.right + (hgap * 2);
+                int maxWidth = targetWidth - horizontalInsetsAndGap;
+
+                Dimension dim = new Dimension(0, 0);
+                int rowWidth = 0;
+                int rowHeight = 0;
+
+                int nmembers = target.getComponentCount();
+
+                for (int i = 0; i < nmembers; i++) {
+                    Dimension d = preferred ? target.getComponent(i).getPreferredSize()
+                            : target.getComponent(i).getMinimumSize();
+
+                    if (rowWidth + d.width > maxWidth) {
+                        rowWidth = 0;
+                        dim.height += vgap + rowHeight;
+                        rowHeight = d.height;
+                    } else {
+                        if (i > 0) {
+                            rowWidth += hgap;
+                        }
+                        rowHeight = Math.max(rowHeight, d.height);
+                    }
+                    rowWidth += d.width;
+                    dim.width = Math.max(dim.width, rowWidth);
+
+                    if (i == nmembers - 1) {
+                        dim.height += vgap + rowHeight;
+                    }
+                }
+                dim.width += horizontalInsetsAndGap;
+                dim.height += insets.top + insets.bottom + vgap * 2;
+
+                return dim;
+            }
+        }
     }
 
     public static class JTextFieldRegularPopupMenu {

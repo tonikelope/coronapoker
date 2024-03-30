@@ -86,7 +86,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        historial_panel.setLayout(new Helpers.WrapLayoutGPT());
+        historial_panel.setLayout(new Helpers.WrapLayout());
 
         historial_panel.setFocusTraversalPolicy(new Helpers.WrapLayoutFocusTraversalPolicyGPT());
 

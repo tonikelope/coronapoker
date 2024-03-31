@@ -2119,6 +2119,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Helpers.savePropertiesFile();
 
+            if (Helpers.OSValidator.isWindows()) {
+                Helpers.restoreWindowsGlobalZoom();
+            }
+
             System.exit(0);
         }
     }
@@ -2792,6 +2796,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
 
         if (getLocalPlayer().isExit() && Helpers.mostrarMensajeInformativoSINO(getFrame(), "¿FORZAR CIERRE?") == 0) {
+            if (Helpers.OSValidator.isWindows()) {
+                Helpers.restoreWindowsGlobalZoom();
+            }
             System.exit(1);
         }
 

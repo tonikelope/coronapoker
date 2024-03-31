@@ -1916,6 +1916,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 } catch (Exception ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                     mostrarMensajeError(THIS, "ERROR INESPERADO");
+                    if (Helpers.OSValidator.isWindows()) {
+                        Helpers.restoreWindowsGlobalZoom();
+                    }
                     System.exit(1);
                 }
                 if (WaitingRoomFrame.getInstance().isPartida_empezada()) {
@@ -3291,6 +3294,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                         if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                             exit = true;
                             Helpers.savePropertiesFile();
+                            if (Helpers.OSValidator.isWindows()) {
+                                Helpers.restoreWindowsGlobalZoom();
+                            }
                             System.exit(1);
                         }
 
@@ -3333,6 +3339,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             } else if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                 exit = true;
                 Helpers.savePropertiesFile();
+                if (Helpers.OSValidator.isWindows()) {
+                    Helpers.restoreWindowsGlobalZoom();
+                }
                 System.exit(1);
             }
 

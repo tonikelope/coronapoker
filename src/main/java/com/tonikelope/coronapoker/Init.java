@@ -93,6 +93,7 @@ public class Init extends javax.swing.JFrame {
     public static final String RADAR_DIR = CORONA_DIR + "/RADAR";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String GIFSICLE_DIR = CORONA_DIR + "/gifsicle";
+    public static final String SETDPI_DIR = CORONA_DIR + "/setdpi";
     public static final String CACHE_DIR = CORONA_DIR + "/Cache";
     public static final String SCREENSHOTS_DIR = CORONA_DIR + "/Screenshots";
     public static String SQL_FILE;
@@ -429,6 +430,9 @@ public class Init extends javax.swing.JFrame {
                     FORCE_CLOSE_DIALOG = true;
 
                     if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "¿FORZAR CIERRE?") == 0) {
+                        if (Helpers.OSValidator.isWindows()) {
+                            Helpers.restoreWindowsGlobalZoom();
+                        }
                         System.exit(1);
                     }
 
@@ -842,6 +846,9 @@ public class Init extends javax.swing.JFrame {
         // TODO add your handling code here:
         Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
         Helpers.savePropertiesFile();
+        if (Helpers.OSValidator.isWindows()) {
+            Helpers.restoreWindowsGlobalZoom();
+        }
     }//GEN-LAST:event_formWindowClosing
 
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
@@ -894,6 +901,10 @@ public class Init extends javax.swing.JFrame {
         if (!INIT) {
 
             INIT = true;
+
+            if (Helpers.OSValidator.isWindows()) {
+                Helpers.resetWindowsGlobalZoom();
+            }
 
             if (!Init.DEV_MODE) {
                 SQL_FILE = CORONA_DIR + "/coronapoker.db";
@@ -1039,6 +1050,9 @@ public class Init extends javax.swing.JFrame {
                         Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 } else {
+                    if (Helpers.OSValidator.isWindows()) {
+                        Helpers.restoreWindowsGlobalZoom();
+                    }
                     System.exit(0);
                 }
             }
@@ -1085,6 +1099,10 @@ public class Init extends javax.swing.JFrame {
                                 String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
 
                                 Runtime.getRuntime().exec(cmdArr);
+
+                                if (Helpers.OSValidator.isWindows()) {
+                                    Helpers.restoreWindowsGlobalZoom();
+                                }
 
                                 System.exit(0);
                             } else {

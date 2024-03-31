@@ -240,7 +240,9 @@ public class Reconnect2ServerDialog extends javax.swing.JDialog {
 
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
         // TODO add your handling code here:
-
+        if (Helpers.OSValidator.isWindows()) {
+            Helpers.restoreWindowsGlobalZoom();
+        }
         System.exit(1);
     }//GEN-LAST:event_exit_buttonActionPerformed
 

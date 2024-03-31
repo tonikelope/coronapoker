@@ -41,11 +41,15 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 /*
+    "De bien nacido es ser agradecido"
+
     SPECIAL THANKS TO: 
 
     https://www.java.com/
 
     https://netbeans.apache.org/
+
+    https://poker.cs.ualberta.ca/
 
     https://github.com/
 
@@ -56,10 +60,11 @@ import javax.swing.Timer;
     http://www.lcdf.org/gifsicle/
 
     https://www.blender.org/ ( https://www.youtube.com/watch?v=0JnmWfWuMDw )
+
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "17.63";
+    public static final String VERSION = "17.64";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

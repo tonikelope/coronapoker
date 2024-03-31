@@ -219,6 +219,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import static com.tonikelope.coronapoker.Init.RADAR_DIR;
+import static com.tonikelope.coronapoker.Init.SETDPI_DIR;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.FocusTraversalPolicy;
@@ -274,6 +275,7 @@ public class Helpers {
     public volatile static boolean GENERATING_GIFSICLE_CACHE = false;
     public volatile static String GIFSICLE_CACHE_ZOOM = "";
     public volatile static long GIFSICLE_CACHE_THREAD;
+    public volatile static String WINDOWS_ORIG_DPI = null;
 
     static {
 
@@ -652,6 +654,35 @@ public class Helpers {
 
     }
 
+    public static String getSetdpiBinaryPath() {
+
+        String path = null;
+
+        if (Helpers.OSValidator.isWindows()) {
+
+            path = SETDPI_DIR + "/setdpi.exe";
+
+            if (!Files.isReadable(Paths.get(path))) {
+
+                try {
+
+                    Files.createDirectory(Paths.get(SETDPI_DIR));
+
+                    Files.copy(Helpers.class.getResourceAsStream("/setdpi/setdpi.exe"), Paths.get(path), REPLACE_EXISTING);
+
+                } catch (Exception ex) {
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex);
+                    path = null;
+                }
+            }
+
+        }
+
+        return path;
+
+    }
+
     public static String getGifsicleBinaryPath() {
 
         String path = null;
@@ -801,6 +832,28 @@ public class Helpers {
             Logger.getLogger(Helpers.class
                     .getName()).log(Level.SEVERE, null, ex);
         }
+    }
+
+    public static void resetWindowsGlobalZoom() {
+
+        String[] output = Helpers.runProcess(new String[]{Helpers.getSetdpiBinaryPath(), "value"});
+
+        try {
+            Helpers.WINDOWS_ORIG_DPI = output[1].trim();
+            Helpers.runProcess(new String[]{Helpers.getSetdpiBinaryPath(), "100"});
+
+        } catch (Exception ex) {
+        }
+    }
+
+    public static void restoreWindowsGlobalZoom() {
+
+        if (Helpers.WINDOWS_ORIG_DPI != null) {
+
+            Helpers.runProcess(new String[]{Helpers.getSetdpiBinaryPath(), Helpers.WINDOWS_ORIG_DPI});
+
+        }
+
     }
 
     //card_id es baraja_valor_palo, por ejemplo "coronapoker_7_P"
@@ -2669,6 +2722,10 @@ public class Helpers {
                                 String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, Helpers.getCurrentJarParentPath() + "/mod", update_info.get(0), current_jar_path, update_info.get(1).replaceAll("___CORONA_VERSION___", coronapoker_latest_version), Init.MOD.containsKey("updatepassword") ? (String) Init.MOD.get("updatepassword") : "", "¡Santiago y cierra, España!"};
 
                                 Runtime.getRuntime().exec(cmdArr);
+
+                                if (Helpers.OSValidator.isWindows()) {
+                                    Helpers.restoreWindowsGlobalZoom();
+                                }
 
                                 System.exit(0);
                             } else {

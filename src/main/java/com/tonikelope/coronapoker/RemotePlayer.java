@@ -42,6 +42,7 @@ import java.awt.event.MouseEvent;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -182,6 +183,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
+    private boolean isBetGif(URL u) {
+
+        return (getClass().getResource("/images/bet1.gif").equals(u) || getClass().getResource("/images/bet2.gif").equals(u) || getClass().getResource("/images/bet3.gif").equals(u) || getClass().getResource("/images/bet4.gif").equals(u));
+    }
+
     @Override
     public void setNotifyImageChatLabel(URL u) {
 
@@ -193,16 +199,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 String url = chat_notify_image_url.toString();
 
-                final boolean isgif;
+                boolean isgif;
 
                 int gif_l = ChatImageDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageDialog.GIF_CACHE.get(url)[1] : -1;
 
-                int timeout = ((isgif = (gif_l != -1 || Helpers.isImageGIF(new URL(url)))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT) * NOTIFY_INGAME_GIF_REPEAT;
+                int timeout = (isgif = isBetGif(u)) ? (Math.round(Helpers.getGIFLength(u) * 0.7f)) : (((isgif = (gif_l != -1 || Helpers.isImageGIF(new URL(url)))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT) * NOTIFY_INGAME_GIF_REPEAT);
+
+                final boolean is_gif_f = isgif;
 
                 Helpers.threadRun(() -> {
                     chat_notify_thread = Thread.currentThread().getId();
                     synchronized (getChat_notify_label()) {
                         getChat_notify_label().notifyAll();
+
                         Helpers.GUIRunAndWait(() -> {
                             try {
                                 int max_width = panel_cartas.getWidth();
@@ -224,7 +233,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                         new_width = max_width;
                                     }
 
-                                    image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                    image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, is_gif_f ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                 }
 
                                 int pos_x = Math.round((panel_cartas.getWidth() - image.getIconWidth()) / 2);
@@ -241,7 +250,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                                 getChat_notify_label().revalidate();
 
-                                getChat_notify_label().repaint();
+                                getChat_notify_label().repaint(0L);
 
                                 getChat_notify_label().setLocation(pos_x, pos_y);
 
@@ -724,6 +733,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Audio.playWavResource("misc/raise.wav");
 
+        }
+
+        if (GameFrame.CINEMATICAS) {
+            int r = 1 + new Random().nextInt(4);
+
+            setNotifyImageChatLabel(getClass().getResource("/images/bet" + String.valueOf(r) + ".gif"));
         }
 
         finTurno();

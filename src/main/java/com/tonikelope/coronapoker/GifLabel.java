@@ -40,6 +40,8 @@ public class GifLabel extends JLabel {
 
     private volatile int frames = 0;
     private volatile int conta_frames = 0;
+    private volatile int repeat = 1;
+    private volatile int conta_repeat = 0;
     private volatile String audio = null;
     private volatile int audio_frame_start = -1;
     private volatile int audio_frame_end = -1;
@@ -67,6 +69,13 @@ public class GifLabel extends JLabel {
 
     public void setBarrier(CyclicBarrier barrier) {
         gif_barrier = barrier;
+    }
+
+    public void setRepeat(int r) {
+        if (r >= 1) {
+            conta_repeat = 0;
+            repeat = r;
+        }
     }
 
     public void addAudio(String aud, int start_frame, int end_frame) {
@@ -107,8 +116,17 @@ public class GifLabel extends JLabel {
 
             gif_finished = !imageupdate || (frames != 0 && conta_frames == frames);
 
-            if (gif_finished && gif_barrier != null) {
+            if (gif_finished) {
 
+                conta_repeat++;
+
+                if (conta_repeat < repeat) {
+                    gif_finished = false;
+                    conta_frames = 0;
+                }
+            }
+
+            if (gif_finished && gif_barrier != null) {
                 try {
                     gif_barrier.await();
                 } catch (Exception ex) {

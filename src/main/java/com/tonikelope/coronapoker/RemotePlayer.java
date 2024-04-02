@@ -243,7 +243,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                                 int pos_y = Math.round((getHoleCard1().getHeight() - image.getIconHeight()) / 2);
 
-                                if (action_gif) {
+                                if (isgif) {
                                     getChat_notify_label().setIcon(image, Helpers.getGIFFramesCount(u));
                                 } else {
                                     getChat_notify_label().setIcon(image);
@@ -280,10 +280,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
                     } else {
-                        try {
-                            getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
-                        } catch (Exception ex) {
-                            Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        synchronized (getChat_notify_label()) {
+                            try {
+                                getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
+                            } catch (Exception ex) {
+                                Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+                            }
                         }
                     }
 

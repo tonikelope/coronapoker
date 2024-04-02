@@ -57,6 +57,8 @@ public class GifLabel extends JLabel {
     public void setIcon(Icon icon) {
         gif_finished = false;
         conta_frames = 0;
+        conta_repeat = 0;
+        repeat = 1;
         audio = null;
         audio_playing = false;
         super.setIcon(icon);

@@ -28,6 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.GameFrame.NOTIFY_INGAME_GIF_REPEAT;
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
 import static com.tonikelope.coronapoker.Helpers.bufferedImagesEqual;
@@ -45,6 +46,7 @@ import java.awt.Robot;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -56,6 +58,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CyclicBarrier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -130,7 +133,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer icon_zoom_timer = null;
     private volatile URL chat_notify_image_url = null;
     private volatile Long chat_notify_thread = null;
-    private final JLabel chat_notify_label = new JLabel();
+    private final GifLabel chat_notify_label = new GifLabel();
     private final JLabel chip_label = new JLabel();
     private final JLabel sec_pot_win_label = new JLabel();
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
@@ -310,13 +313,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             chat_notify_image_url = u;
 
-            String url = chat_notify_image_url.toString();
+            final boolean isgif = (ChatImageDialog.GIF_CACHE.containsKey(u.toString()) || Helpers.isImageGIF(u));
 
-            final boolean isgif;
+            final CyclicBarrier gif_barrier = new CyclicBarrier(2);
 
-            int gif_l = ChatImageDialog.GIF_CACHE.containsKey(url) ? (int) ChatImageDialog.GIF_CACHE.get(url)[1] : -1;
+            getChat_notify_label().setBarrier(gif_barrier);
 
-            int timeout = ((isgif = (gif_l != -1 || Helpers.isImageGIF(new URL(url)))) ? Math.max(gif_l != -1 ? gif_l : (gif_l = Helpers.getGIFLength(new URL(url))), TTS_NO_SOUND_TIMEOUT) : TTS_NO_SOUND_TIMEOUT) * NOTIFY_INGAME_GIF_REPEAT;
+            getChat_notify_label().setRepeat(NOTIFY_INGAME_GIF_REPEAT);
 
             Helpers.threadRun(() -> {
                 chat_notify_thread = Thread.currentThread().getId();
@@ -324,7 +327,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     getChat_notify_label().notifyAll();
                     Helpers.GUIRunAndWait(() -> {
                         try {
-                            ImageIcon image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
+                            ImageIcon image = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
 
                             int max_width = panel_cartas.getWidth();
 
@@ -350,7 +353,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             int pos_y = Math.round(getHoleCard1().getHeight() / 2);
 
-                            getChat_notify_label().setIcon(image);
+                            if (isgif) {
+                                getChat_notify_label().setIcon(image, Helpers.getGIFFramesCount(u));
+                            } else {
+                                getChat_notify_label().setIcon(image);
+                            }
 
                             getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
 
@@ -367,14 +374,31 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             getChat_notify_label().setVisible(true);
                         } catch (MalformedURLException ex) {
                             Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                        } catch (IOException ex) {
+                            Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                        } catch (ImageProcessingException ex) {
+                            Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                         }
                     });
+                }
+
+                if (isgif) {
+
                     try {
-                        getChat_notify_label().wait(timeout);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        gif_barrier.await();
+                    } catch (Exception ex) {
+                        Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                } else {
+                    synchronized (getChat_notify_label()) {
+                        try {
+                            getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
+                        } catch (Exception ex) {
+                            Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
                 }
+
                 if (Thread.currentThread().getId() == chat_notify_thread) {
                     Helpers.GUIRunAndWait(() -> {
                         getChat_notify_label().setVisible(false);
@@ -809,7 +833,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    public JLabel getChat_notify_label() {
+    public GifLabel getChat_notify_label() {
         return chat_notify_label;
     }
 

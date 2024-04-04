@@ -319,8 +319,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             getChat_notify_label().setBarrier(gif_barrier);
 
-            getChat_notify_label().setRepeat(NOTIFY_INGAME_GIF_REPEAT);
-
             Helpers.threadRun(() -> {
                 chat_notify_thread = Thread.currentThread().getId();
                 synchronized (getChat_notify_label()) {
@@ -333,21 +331,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             int max_height = Math.round(getHoleCard1().getHeight() / 2);
 
-                            if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
+                            int new_height = max_height;
 
-                                int new_height = max_height;
+                            int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
 
-                                int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
+                            if (new_width > max_width) {
 
-                                if (new_width > max_width) {
+                                new_height = (int) Math.round((new_height * max_width) / new_width);
 
-                                    new_height = (int) Math.round((new_height * max_width) / new_width);
-
-                                    new_width = max_width;
-                                }
-
-                                image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                new_width = max_width;
                             }
+
+                            image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
 
                             int pos_x = panel_cartas.getWidth() - image.getIconWidth();
 
@@ -358,6 +353,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             } else {
                                 getChat_notify_label().setIcon(image);
                             }
+
+                            getChat_notify_label().setRepeat(NOTIFY_INGAME_GIF_REPEAT);
 
                             getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
 

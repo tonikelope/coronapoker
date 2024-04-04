@@ -189,7 +189,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private boolean isActionGif(URL u) {
 
-        String[] gif_actions = new String[]{"fold1", "fold2", "fold3", "bet1", "bet2", "bet3", "bet4"};
+        String[] gif_actions = new String[]{"fold1", "fold2", "fold3", "bet1", "bet2", "bet3", "bet4", "call1", "call2", "call3", "call4"};
 
         for (String gif : gif_actions) {
             if (getClass().getResource("/images/gif_actions/" + gif + ".gif").equals(u)) {
@@ -253,7 +253,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                     getChat_notify_label().setIcon(image);
                                 }
 
-                                getChat_notify_label().setRepeat(action_gif ? (raise ? 2 : 1) : NOTIFY_INGAME_GIF_REPEAT);
+                                getChat_notify_label().setRepeat(action_gif ? 1 : NOTIFY_INGAME_GIF_REPEAT);
 
                                 getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
 
@@ -753,7 +753,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             int r = 1 + new Random().nextInt(4);
 
-            setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/bet" + String.valueOf(r) + ".gif"));
+            setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/call" + String.valueOf(r) + ".gif"));
 
         }
 

@@ -780,7 +780,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.BET);
 
-        if (GameFrame.SONIDOS_CHORRA && reraise) {
+        if (GameFrame.SONIDOS_CHORRA && raise) {
 
             Audio.playWavResource("misc/raise.wav");
 

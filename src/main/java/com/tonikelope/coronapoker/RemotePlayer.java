@@ -109,6 +109,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private final JLabel chip_label = new JLabel();
     private final JLabel sec_pot_win_label = new JLabel();
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
+    private volatile boolean raise;
     private volatile boolean reraise;
     private volatile boolean muestra = false;
     private volatile int conta_win = 0;
@@ -216,8 +217,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 getChat_notify_label().setBarrier(gif_barrier);
 
-                getChat_notify_label().setRepeat(action_gif ? 1 : NOTIFY_INGAME_GIF_REPEAT);
-
                 Helpers.threadRun(() -> {
                     chat_notify_thread = Thread.currentThread().getId();
                     synchronized (getChat_notify_label()) {
@@ -225,27 +224,24 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         Helpers.GUIRunAndWait(() -> {
                             try {
-                                int max_width = panel_cartas.getWidth();
+                                ImageIcon image = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
 
-                                int max_height = holeCard1.getHeight();
+                                int max_width = Math.max(panel_cartas.getWidth(), image.getIconWidth());
 
-                                ImageIcon image = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));;
+                                int max_height = Math.max(panel_cartas.getHeight(), panel_cartas.getHeight());
 
-                                if (image.getIconHeight() > max_height || image.getIconWidth() > max_width) {
+                                int new_height = max_height;
 
-                                    int new_height = max_height;
+                                int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
 
-                                    int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
+                                if (new_width > max_width) {
 
-                                    if (new_width > max_width) {
+                                    new_height = (int) Math.round((new_height * max_width) / new_width);
 
-                                        new_height = (int) Math.round((new_height * max_width) / new_width);
-
-                                        new_width = max_width;
-                                    }
-
-                                    image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                    new_width = max_width;
                                 }
+
+                                image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
 
                                 int pos_x = Math.round((panel_cartas.getWidth() - image.getIconWidth()) / 2);
 
@@ -256,6 +252,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 } else {
                                     getChat_notify_label().setIcon(image);
                                 }
+
+                                getChat_notify_label().setRepeat(action_gif ? (raise ? 2 : 1) : NOTIFY_INGAME_GIF_REPEAT);
 
                                 getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
 
@@ -632,6 +630,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         this.decision = dec;
 
+        raise = false;
+
         reraise = false;
 
         switch (dec) {
@@ -650,12 +650,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.BET:
                 Helpers.GUIRunAndWait(() -> {
-                    if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
+                    if (isRaising()) {
                         player_action.setText((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
 
-                        if (GameFrame.getInstance().getCrupier().getConta_raise() > 0) {
-                            reraise = true;
-                        }
+                        raise = true;
+
+                        reraise = (GameFrame.getInstance().getCrupier().getConta_raise() > 0);
 
                     } else {
                         player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
@@ -749,6 +749,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.CHECK);
 
+        if (Helpers.float1DSecureCompare(0f, call_required) < 0 && GameFrame.CINEMATICAS) {
+
+            int r = 1 + new Random().nextInt(4);
+
+            setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/bet" + String.valueOf(r) + ".gif"));
+
+        }
+
         finTurno();
 
     }
@@ -759,6 +767,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    private boolean isRaising() {
+
+        return (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0);
+    }
+
     private void bet(float new_bet) {
 
         Audio.playWavResource("misc/bet.wav");
@@ -767,7 +780,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.BET);
 
-        if (GameFrame.SONIDOS_CHORRA && GameFrame.getInstance().getCrupier().getConta_raise() > 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
+        if (GameFrame.SONIDOS_CHORRA && reraise) {
 
             Audio.playWavResource("misc/raise.wav");
 

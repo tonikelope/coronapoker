@@ -2381,7 +2381,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_allin_buttonActionPerformed(null);
                 } else {
 
-                    Audio.playWavResource("misc/check.wav");
+                    if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                        Audio.playWavResource("misc/bet.wav");
+                    } else {
+                        Audio.playWavResource("misc/check.wav");
+                    }
 
                     desactivarControles();
 

@@ -189,7 +189,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private boolean isActionGif(URL u) {
 
-        String[] gif_actions = new String[]{"check","fold1", "fold2", "fold3", "bet1", "bet2", "bet3", "bet4", "call1", "call2", "call3", "call4"};
+        String[] gif_actions = new String[]{"check", "fold1", "fold2", "fold3", "bet1", "bet2", "bet3", "bet4", "call1", "call2", "call3", "call4"};
 
         for (String gif : gif_actions) {
             if (getClass().getResource("/images/gif_actions/" + gif + ".gif").equals(u)) {
@@ -254,6 +254,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 }
 
                                 getChat_notify_label().setRepeat(action_gif ? 1 : NOTIFY_INGAME_GIF_REPEAT);
+
+                                if (action_gif) {
+
+                                    if (getDecision() == Player.BET || (getDecision() == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) < 0)) {
+
+                                        getChat_notify_label().addAudio("misc/bet.wav", 32, 60);
+                                    } else if (getDecision() == Player.CHECK) {
+                                        getChat_notify_label().addAudio("misc/check.wav", 5, 14);
+                                    }
+                                }
 
                                 getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
 
@@ -725,8 +735,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void fold() {
 
-        Audio.playWavResource("misc/fold.wav");
-
         holeCard1.setVisibleCard(false);
         holeCard2.setVisibleCard(false);
 
@@ -738,12 +746,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/fold" + String.valueOf(r) + ".gif"));
         }
 
+        Audio.playWavResource("misc/fold.wav");
+
         finTurno();
     }
 
     private void check() {
-
-        Audio.playWavResource("misc/check.wav");
 
         setBet(GameFrame.getInstance().getCrupier().getApuesta_actual());
 
@@ -751,15 +759,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (GameFrame.CINEMATICAS) {
 
-            if(Helpers.float1DSecureCompare(0f, call_required) < 0){
-            int r = 1 + new Random().nextInt(4);
+            if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                int r = 1 + new Random().nextInt(4);
 
-            setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/call" + String.valueOf(r) + ".gif"));
+                setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/call" + String.valueOf(r) + ".gif"));
             } else {
                 setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/check.gif"));
             }
 
-        } 
+        } else {
+            if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                Audio.playWavResource("misc/bet.wav");
+            } else {
+                Audio.playWavResource("misc/check.wav");
+            }
+        }
 
         finTurno();
 
@@ -778,8 +792,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void bet(float new_bet) {
 
-        Audio.playWavResource("misc/bet.wav");
-
         setBet(new_bet);
 
         setDecision(Player.BET);
@@ -794,6 +806,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             int r = 1 + new Random().nextInt(4);
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/bet" + String.valueOf(r) + ".gif"));
+        } else {
+            Audio.playWavResource("misc/bet.wav");
         }
 
         finTurno();

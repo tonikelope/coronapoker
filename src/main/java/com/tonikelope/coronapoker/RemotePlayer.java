@@ -189,7 +189,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private boolean isActionGif(URL u) {
 
-        String[] gif_actions = new String[]{"check", "fold1", "fold2", "fold3", "bet1", "bet2", "bet3", "bet4", "call", "call1", "call2", "call3", "call4"};
+        String[] gif_actions = new String[]{"check", "fold1", "fold2", "fold3", "bet1", "bet2", "bet3", "bet4", "call1", "call2", "call3", "call4"};
 
         for (String gif : gif_actions) {
             if (getClass().getResource("/images/gif_actions/" + gif + ".gif").equals(u)) {
@@ -258,9 +258,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 if (action_gif) {
 
                                     if (getDecision() == Player.BET) {
-
                                         getChat_notify_label().addAudio("misc/bet.wav", 32, 60);
-                                    } else if ((getDecision() == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) < 0)) {
+                                    } else if (getDecision() == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) < 0) {
                                         getChat_notify_label().addAudio("misc/call.wav", 32, 60);
                                     } else if (getDecision() == Player.CHECK) {
                                         getChat_notify_label().addAudio("misc/check.wav", 5, 14);

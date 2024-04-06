@@ -73,6 +73,10 @@ public class GifLabel extends JLabel {
         gif_barrier = barrier;
     }
 
+    public CyclicBarrier getGif_barrier() {
+        return gif_barrier;
+    }
+
     public void setRepeat(int r) {
         if (r >= 1) {
             conta_repeat = 0;

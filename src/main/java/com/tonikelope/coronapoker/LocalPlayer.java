@@ -2727,8 +2727,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRunAndWait(() -> {
             if (!reraise) {
-                player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
-                player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
+
+                if (dec == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) == 0) {
+                    player_action.setBackground(new Color(0, 130, 0));
+                    player_action.setForeground(Color.WHITE);
+                } else {
+
+                    player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                    player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
+                }
 
                 player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
                 player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);

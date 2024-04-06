@@ -45,6 +45,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CyclicBarrier;
 import java.util.logging.Level;
@@ -213,7 +214,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 final boolean isgif = (action_gif || ChatImageDialog.GIF_CACHE.containsKey(u.toString()) || Helpers.isImageGIF(u));
 
-                final CyclicBarrier gif_barrier = new CyclicBarrier(2);
+                final CyclicBarrier gif_barrier = new CyclicBarrier(3);
 
                 getChat_notify_label().setBarrier(gif_barrier);
 
@@ -699,8 +700,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRunAndWait(() -> {
             if (!reraise) {
-                player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
-                player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
+
+                if (dec == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) == 0) {
+                    player_action.setBackground(new Color(0, 130, 0));
+                    player_action.setForeground(Color.WHITE);
+                } else {
+                    player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                    player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
+                }
 
                 player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
                 player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
@@ -741,13 +748,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.FOLD);
 
+        Audio.playWavResource("misc/fold.wav");
+
         if (GameFrame.CINEMATICAS) {
             int r = 1 + new Random().nextInt(3);
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/fold" + String.valueOf(r) + ".gif"));
-        }
 
-        Audio.playWavResource("misc/fold.wav");
+            try {
+                getChat_notify_label().getGif_barrier().await();
+            } catch (Exception ex) {
+                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
 
         finTurno();
     }
@@ -768,9 +781,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/check.gif"));
             }
 
+            try {
+                getChat_notify_label().getGif_barrier().await();
+            } catch (Exception ex) {
+                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
         } else {
             if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                Audio.playWavResource("misc/bet.wav");
+                Audio.playWavResource("misc/call.wav");
             } else {
                 Audio.playWavResource("misc/check.wav");
             }
@@ -797,18 +816,24 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.BET);
 
-        if (GameFrame.SONIDOS_CHORRA && raise) {
-
-            Audio.playWavResource("misc/raise.wav");
-
-        }
-
         if (GameFrame.CINEMATICAS) {
             int r = 1 + new Random().nextInt(4);
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/bet" + String.valueOf(r) + ".gif"));
+
+            try {
+                getChat_notify_label().getGif_barrier().await();
+            } catch (InterruptedException | BrokenBarrierException ex) {
+                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+            }
         } else {
             Audio.playWavResource("misc/bet.wav");
+        }
+
+        if (GameFrame.SONIDOS_CHORRA && raise) {
+
+            Audio.playWavResource("misc/raise.wav");
+
         }
 
         finTurno();

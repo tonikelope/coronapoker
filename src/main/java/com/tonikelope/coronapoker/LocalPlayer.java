@@ -2382,7 +2382,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 } else {
 
                     if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                        Audio.playWavResource("misc/bet.wav");
+                        Audio.playWavResource("misc/call.wav");
                     } else {
                         Audio.playWavResource("misc/check.wav");
                     }

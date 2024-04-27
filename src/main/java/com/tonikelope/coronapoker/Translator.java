@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"HECHO A MANO CON AMOR EN ESPAÑA por tonikelope (c) 2020", "HANDMADE WITH LOVE IN SPAIN by tonikelope (c) 2020"},
             {"Chat rápido", "Fast chat"},
             {"Enviar imagen", "Send image"},
             {"Vista compacta", "Compact view"},
@@ -56,7 +57,7 @@ public class Translator {
             {"Recomprar", "Rebuy"},
             {"Informes ANTI-TRAMPAS desactivados", "ANTI-CHEAT reports disabled"},
             {"Informes ANTI-TRAMPAS activados", "ANTI-CHEAT reports enabled"},
-            {"Fichero de recuperación de balance encontrado. ¿LO USAMOS?", "Balance recovery file found. shall we use it?"},
+            {"SE HA ENCONTRADO UN FICHERO DE RECUPERACIÓN DE BALANCE DE EMERGENCIA. ¿QUIERES USARLO?", "AN EMERGENCY BALANCE RECOVERY FILE HAS BEEN FOUND. DO YOU WANT TO USE IT?"},
             {"Activar pantalla completa al empezar", "Enable full-screen at game start"},
             {"Parece que estás ejecutando CoronaPoker en una máquina virtual.\n(Por motivos de rendimiento y seguridad esto no es recomendable).", "It looks like you are running CoronaPoker on a virtual machine.\n(For performance and security reasons this is not recommended)."},
             {"CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)", "CAUTION: the game executable of this user is different\n(It is possible that she/he is trying to cheat with a hacked version of the game)"},

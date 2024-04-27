@@ -1732,7 +1732,7 @@ public class Crupier implements Runnable {
                 }
             }
 
-            if ((Long) map.get("hand_end") == 0L) {
+            if (!saltar_primera_mano && (Long) map.get("hand_end") == 0L) {
 
                 permutacion_recuperada = this.recuperarPermutacion();
 
@@ -1846,7 +1846,7 @@ public class Crupier implements Runnable {
                     }
                 }
 
-            } catch (UnsupportedEncodingException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -3081,7 +3081,7 @@ public class Crupier implements Runnable {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            String[] balance = new String[auditor.size()];
+            String[] balance_float = new String[auditor.size()];
 
             int i = 0;
 
@@ -3093,13 +3093,12 @@ public class Crupier implements Runnable {
                     if (jugador != null) {
 
                         sqlUpdateHandBalance(jugador.getNickname(), jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f), jugador.getBuyin());
-                        balance[i] = Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "|" + Helpers.float2String(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f)) + "|" + String.valueOf(jugador.getBuyin());
-
+                        balance_float[i] = Base64.encodeBase64String(jugador.getNickname().getBytes("UTF-8")) + "|" + String.valueOf(jugador.getStack() + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f)) + "|" + String.valueOf(jugador.getBuyin());
                     } else {
 
                         Float[] pasta = entry.getValue();
                         sqlUpdateHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
-                        balance[i] = Base64.encodeBase64String(entry.getKey().getBytes("UTF-8")) + "|" + Helpers.float2String(pasta[0]) + "|" + String.valueOf(Math.round(pasta[1]));
+                        balance_float[i] = Base64.encodeBase64String(entry.getKey().getBytes("UTF-8")) + "|" + String.valueOf(pasta[0]) + "|" + String.valueOf(Math.round(pasta[1]));
                     }
                 } catch (Exception ex) {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -3108,10 +3107,10 @@ public class Crupier implements Runnable {
                 i++;
             }
 
-            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "BALANCE AFTER HAND(" + String.valueOf(conta_mano) + ") -> " + String.join("@", balance));
+            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "BALANCE AFTER HAND(" + String.valueOf(conta_mano) + ") -> " + String.join("@", balance_float));
 
             try {
-                Files.writeString(Paths.get(Init.CORONA_DIR + "/balance_temp"), String.join("@", balance));
+                Files.writeString(Paths.get(Init.CORONA_DIR + "/balance_temp"), String.join("@", balance_float));
             } catch (IOException ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -5650,7 +5649,7 @@ public class Crupier implements Runnable {
                 if (include_balance) {
 
                     //Recuperamos el balance 
-                    if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Fichero de recuperación de balance encontrado. ¿LO USAMOS?") == 0) {
+                    if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "SE HA ENCONTRADO UN FICHERO DE RECUPERACIÓN DE BALANCE DE EMERGENCIA. ¿QUIERES USARLO?") == 0) {
 
                         try {
                             String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));

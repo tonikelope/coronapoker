@@ -6912,515 +6912,531 @@ public class Crupier implements Runnable {
 
         while (!fin_de_la_transmision) {
 
-            if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
+            try {
 
-                if (this.NUEVA_MANO()) {
+                if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
 
-                    auditorCuentas();
+                    if (this.NUEVA_MANO()) {
 
-                    GameFrame.getInstance().getRegistro().print(this.big_blind_nick + Translator.translate(" es la CIEGA GRANDE (") + Helpers.float2String(this.ciega_grande) + ") / " + this.small_blind_nick + Translator.translate(" es la CIEGA PEQUEÑA (") + Helpers.float2String(this.ciega_pequeña) + ") / " + this.dealer_nick + Translator.translate(" es el DEALER"));
+                        auditorCuentas();
 
-                    ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));
+                        GameFrame.getInstance().getRegistro().print(this.big_blind_nick + Translator.translate(" es la CIEGA GRANDE (") + Helpers.float2String(this.ciega_grande) + ") / " + this.small_blind_nick + Translator.translate(" es la CIEGA PEQUEÑA (") + Helpers.float2String(this.ciega_pequeña) + ") / " + this.dealer_nick + Translator.translate(" es el DEALER"));
 
-                    GameFrame.getInstance().hideTapeteApuestas();
+                        ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));
 
-                    GameFrame.getInstance().getLocalPlayer().desactivarControles();
+                        GameFrame.getInstance().hideTapeteApuestas();
 
-                    if (GameFrame.AUTO_ACTION_BUTTONS) {
-                        GameFrame.getInstance().getLocalPlayer().desActivarPreBotones();
-                    }
+                        GameFrame.getInstance().getLocalPlayer().desactivarControles();
 
-                    if (!this.acciones_locales_recuperadas.isEmpty()) {
-
-                        this.acciones_locales_recuperadas.clear();
-
-                        if (recover_dialog != null) {
-
-                            Helpers.GUIRun(() -> {
-                                recover_dialog.setVisible(false);
-                                recover_dialog.dispose();
-                                recover_dialog = null;
-                                GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                            });
+                        if (GameFrame.AUTO_ACTION_BUTTONS) {
+                            GameFrame.getInstance().getLocalPlayer().desActivarPreBotones();
                         }
 
-                        this.setSincronizando_mano(false);
+                        if (!this.acciones_locales_recuperadas.isEmpty()) {
 
-                        GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+                            this.acciones_locales_recuperadas.clear();
 
-                        if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                            if (recover_dialog != null) {
 
-                            Audio.playWavResource("misc/startplay.wav");
-                        }
-
-                        if (GameFrame.MUSICA_AMBIENTAL) {
-                            Audio.stopLoopMp3("misc/recovering.mp3");
-                            Audio.playLoopMp3Resource("misc/background_music.mp3");
-                        }
-                    }
-
-                    this.show_time = true;
-
-                    HashMap<Player, Hand> jugadas;
-
-                    HashMap<Player, Hand> ganadores;
-
-                    synchronized (this.getLock_contabilidad()) {
-
-                        Iterator<Player> iterator = resisten.iterator();
-
-                        while (iterator.hasNext()) {
-                            Player jugador = iterator.next();
-
-                            if (jugador.isExit()) {
-                                iterator.remove();
-                            }
-
-                        }
-
-                        this.bote.genSidePots();
-
-                        badbeat = false;
-
-                        float sql_bote_total = this.bote_total;
-
-                        if (resisten.size() == 0) {
-
-                            GameFrame.getInstance().getRegistro().print("-----" + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
-
-                            Helpers.GUIRun(() -> {
-                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-
-                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.RED);
-
-                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
-                            });
-
-                            GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, 0f);
-
-                            if (Helpers.float1DSecureCompare(0f, this.bote_total) < 0) {
-                                this.bote_sobrante += this.bote_total;
-                            }
-
-                            ganadores = new HashMap<>();
-
-                        } else if (resisten.size() == 1) {
-
-                            //Todos se han tirado menos uno GANA SIN MOSTRAR
-                            resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("GANAS") : Translator.translate("GANA"));
-
-                            if (resisten.get(0) != GameFrame.getInstance().getLocalPlayer()) {
-                                resisten.get(0).getHoleCard1().desenfocar();
-                                resisten.get(0).getHoleCard2().desenfocar();
-                            }
-
-                            resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
-
-                            this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
-
-                            GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
-
-                            Helpers.GUIRun(() -> {
-                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-
-                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
-
-                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
-                            });
-
-                            GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
-
-                            this.bote_total = 0f;
-
-                            this.bote_sobrante = 0f;
-
-                            if (resisten.get(0) == GameFrame.getInstance().getLocalPlayer()) {
-                                GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(false);
-                            }
-
-                            if (resisten.get(0) == GameFrame.getInstance().getLocalPlayer()) {
-
-                                this.soundWinner(0, false);
-                            }
-
-                            ganadores = new HashMap<>();
-
-                            ganadores.put(resisten.get(0), null);
-
-                            this.sqlNewShowdown(resisten.get(0), null, true, true);
-
-                        } else {
-
-                            procesarCartasResistencia(resisten, false);
-
-                            if (!this.destapar_resistencia) {
-                                Helpers.pausar(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);
-                            }
-
-                            if (this.bote.getSidePot() == null) {
-
-                                //NO HAY BOTES DERIVADOS
-                                jugadas = this.calcularJugadas(resisten);
-
-                                ganadores = this.calcularGanadores(new HashMap<>(jugadas));
-
-                                float[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
-
-                                this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
-
-                                ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
-
-                                Player unganador = null;
-
-                                for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
-
-                                    Player ganador = entry.getKey();
-
-                                    Hand jugada = entry.getValue();
-
-                                    ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
-
-                                    for (Card carta : cartas) {
-                                        if (!cartas_usadas_jugadas.contains(carta)) {
-                                            cartas_usadas_jugadas.add(carta);
-                                        }
-                                    }
-
-                                    if (!cartas.contains(ganador.getHoleCard1())) {
-                                        ganador.getHoleCard1().desenfocar();
-                                    }
-
-                                    if (!cartas.contains(ganador.getHoleCard2())) {
-                                        ganador.getHoleCard2().desenfocar();
-                                    }
-
-                                    jugadas.remove(ganador);
-
-                                    ganador.pagar(cantidad_pagar_ganador[0], null);
-
-                                    this.bote_total -= cantidad_pagar_ganador[0];
-
-                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
-
-                                    unganador = ganador;
-
-                                    jugada_ganadora = jugada.getValue();
-                                }
-
-                                for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
-                                    if (!cartas_usadas_jugadas.contains(carta)) {
-                                        carta.desenfocar();
-                                    }
-                                }
-
-                                for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
-
-                                    Player perdedor = entry.getKey();
-
-                                    badbeat = badbeat(perdedor, unganador);
-
-                                    perdedores.put(perdedor, entry.getValue());
-
-                                    GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
-
-                                }
-
-                                this.showdown(jugadas, ganadores);
                                 Helpers.GUIRun(() -> {
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
+                                    recover_dialog.setVisible(false);
+                                    recover_dialog.dispose();
+                                    recover_dialog = null;
+                                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                                 });
+                            }
 
-                                GameFrame.getInstance().setTapeteBote(cantidad_pagar_ganador[0], this.beneficio_bote_principal);
+                            this.setSincronizando_mano(false);
 
-                            } else {
+                            GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
 
-                                //Vamos a ver los ganadores de cada bote_total
-                                jugadas = this.calcularJugadas(resisten);
+                            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
-                                ganadores = this.calcularGanadores(new HashMap<>(jugadas));
+                                Audio.playWavResource("misc/startplay.wav");
+                            }
 
-                                float[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
+                            if (GameFrame.MUSICA_AMBIENTAL) {
+                                Audio.stopLoopMp3("misc/recovering.mp3");
+                                Audio.playLoopMp3Resource("misc/background_music.mp3");
+                            }
+                        }
 
-                                this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
+                        this.show_time = true;
 
-                                String bote_tapete = "#1{" + Helpers.float2String(this.bote.getTotal()) + "}";
+                        HashMap<Player, Hand> jugadas;
 
-                                ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
+                        HashMap<Player, Hand> ganadores;
 
-                                Player unganador = null;
+                        synchronized (this.getLock_contabilidad()) {
 
-                                for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
+                            Iterator<Player> iterator = resisten.iterator();
 
-                                    Player ganador = entry.getKey();
+                            while (iterator.hasNext()) {
+                                Player jugador = iterator.next();
 
-                                    Hand jugada = entry.getValue();
-
-                                    ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
-
-                                    for (Card carta : cartas) {
-                                        if (!cartas_usadas_jugadas.contains(carta)) {
-                                            cartas_usadas_jugadas.add(carta);
-                                        }
-                                    }
-
-                                    if (!cartas.contains(ganador.getHoleCard1())) {
-                                        ganador.getHoleCard1().desenfocar();
-                                    }
-
-                                    if (!cartas.contains(ganador.getHoleCard2())) {
-                                        ganador.getHoleCard2().desenfocar();
-                                    }
-
-                                    jugadas.remove(ganador);
-
-                                    ganador.pagar(cantidad_pagar_ganador[0], 1);
-
-                                    this.bote_total -= cantidad_pagar_ganador[0];
-
-                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE PRINCIPAL (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
-
-                                    unganador = ganador;
-
-                                    jugada_ganadora = jugada.getValue();
+                                if (jugador.isExit()) {
+                                    iterator.remove();
                                 }
 
-                                for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
-                                    if (!cartas_usadas_jugadas.contains(carta)) {
-                                        carta.desenfocar();
-                                    }
-                                }
+                            }
 
-                                for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
+                            this.bote.genSidePots();
 
-                                    Player perdedor = entry.getKey();
+                            badbeat = false;
 
-                                    badbeat = badbeat(perdedor, unganador);
+                            float sql_bote_total = this.bote_total;
 
-                                    perdedores.put(perdedor, entry.getValue());
+                            if (resisten.size() == 0) {
 
-                                    GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE PRINCIPAL (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
-                                }
+                                GameFrame.getInstance().getRegistro().print("-----" + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
 
-                                this.showdown(jugadas, ganadores);
-
-                                HandPot current_pot = this.bote.getSidePot();
-
-                                int conta_bote_secundario = 2;
-
-                                while (current_pot != null) {
-
-                                    if (current_pot.getPlayers().size() == 1) {
-
-                                        bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.float2String(current_pot.getTotal()) + "}";
-
-                                        current_pot.getPlayers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
-
-                                        this.bote_total -= current_pot.getTotal();
-
-                                        GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + Translator.translate(" RECUPERA BOTE (SOBRANTE) SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(current_pot.getTotal()) + ")");
-
-                                        this.sqlUpdateShowdownPay(current_pot.getPlayers().get(0));
-
-                                    } else {
-
-                                        jugadas = this.calcularJugadas(current_pot.getPlayers());
-
-                                        ganadores = this.calcularGanadores(new HashMap<>(jugadas));
-
-                                        cantidad_pagar_ganador = this.calcularBoteParaGanador(current_pot.getTotal(), ganadores.size());
-
-                                        bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.float2String(current_pot.getTotal()) + "}";
-
-                                        for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
-
-                                            Player ganador = entry.getKey();
-
-                                            jugadas.remove(entry.getKey());
-
-                                            ganador.pagar(cantidad_pagar_ganador[0], conta_bote_secundario);
-
-                                            this.bote_total -= cantidad_pagar_ganador[0];
-
-                                            Hand jugada = entry.getValue();
-
-                                            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
-
-                                            this.sqlUpdateShowdownPay(ganador);
-                                        }
-
-                                        for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
-
-                                            Player perdedor = entry.getKey();
-
-                                            perdedores.put(perdedor, entry.getValue());
-
-                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
-                                        }
-
-                                    }
-
-                                    current_pot = current_pot.getSidePot();
-
-                                    conta_bote_secundario++;
-
-                                }
                                 Helpers.GUIRun(() -> {
                                     GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.BLACK);
+
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.RED);
+
                                     GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                                 });
 
-                                GameFrame.getInstance().setTapeteBote(bote_tapete);
-                            }
+                                GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, 0f);
 
-                            this.bote_sobrante = this.bote_total;
-                        }
-
-                        Helpers.GUIRun(() -> {
-                            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
-                        });
-
-                        for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
-                            if (carta.isTapada()) {
-                                carta.desenfocar();
-                            }
-                        }
-
-                        this.bote_total = 0f;
-
-                        if (!GameFrame.TEST_MODE && !resisten.contains(GameFrame.getInstance().getLocalPlayer())) {
-
-                            if (GameFrame.getInstance().getLocalPlayer().isActivo() && GameFrame.getInstance().getLocalPlayer().getParguela_counter() > 0) {
-
-                                GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(true);
-                            }
-
-                            this.soundShowdown();
-
-                        }
-
-                        sqlUpdateHandEnd(sql_bote_total);
-
-                        if (this.update_game_seats) {
-
-                            String players = "";
-
-                            for (String nick : this.nicks_permutados) {
-                                try {
-                                    players += "#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
-                                } catch (UnsupportedEncodingException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                if (Helpers.float1DSecureCompare(0f, this.bote_total) < 0) {
+                                    this.bote_sobrante += this.bote_total;
                                 }
-                            }
 
-                            sqlUpdateGameSeats(players.substring(1));
+                                ganadores = new HashMap<>();
 
-                            this.update_game_seats = false;
-                        }
+                            } else if (resisten.size() == 1) {
 
-                        this.bote_total = 0f;
+                                //Todos se han tirado menos uno GANA SIN MOSTRAR
+                                resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("GANAS") : Translator.translate("GANA"));
 
-                        for (Player jugador : GameFrame.getInstance().getJugadores()) {
-                            jugador.resetBote();
-                            jugador.checkGameOver();
-                        }
-                    }
+                                if (resisten.get(0) != GameFrame.getInstance().getLocalPlayer()) {
+                                    resisten.get(0).getHoleCard1().desenfocar();
+                                    resisten.get(0).getHoleCard2().desenfocar();
+                                }
 
-                    disableAllPlayersTimeout();
+                                resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
 
-                    startIWTSTHPlayersBlinking();
+                                this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
 
-                    if (!GameFrame.TEST_MODE) {
+                                GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
 
-                        if (getJugadoresActivos() > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
+                                Helpers.GUIRun(() -> {
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
 
-                            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? (resisten.size() > 1 ? PAUSA_ENTRE_MANOS : Math.round(0.5f * PAUSA_ENTRE_MANOS)) : Math.round(1.5f * PAUSA_ENTRE_MANOS));
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
 
-                        }
+                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
+                                });
 
-                        if (this.iwtsthing) {
+                                GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
 
-                            synchronized (iwtsth_lock) {
+                                this.bote_total = 0f;
 
-                                if (this.iwtsthing) {
+                                this.bote_sobrante = 0f;
 
-                                    try {
-                                        iwtsth_lock.wait(IWTSTH_TIMEOUT);
-                                    } catch (InterruptedException ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                if (resisten.get(0) == GameFrame.getInstance().getLocalPlayer()) {
+                                    GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(false);
+                                }
+
+                                if (resisten.get(0) == GameFrame.getInstance().getLocalPlayer()) {
+
+                                    this.soundWinner(0, false);
+                                }
+
+                                ganadores = new HashMap<>();
+
+                                ganadores.put(resisten.get(0), null);
+
+                                this.sqlNewShowdown(resisten.get(0), null, true, true);
+
+                            } else {
+
+                                procesarCartasResistencia(resisten, false);
+
+                                if (!this.destapar_resistencia) {
+                                    Helpers.pausar(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);
+                                }
+
+                                if (this.bote.getSidePot() == null) {
+
+                                    //NO HAY BOTES DERIVADOS
+                                    jugadas = this.calcularJugadas(resisten);
+
+                                    ganadores = this.calcularGanadores(new HashMap<>(jugadas));
+
+                                    float[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
+
+                                    this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
+
+                                    ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
+
+                                    Player unganador = null;
+
+                                    for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
+
+                                        Player ganador = entry.getKey();
+
+                                        Hand jugada = entry.getValue();
+
+                                        ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
+
+                                        for (Card carta : cartas) {
+                                            if (!cartas_usadas_jugadas.contains(carta)) {
+                                                cartas_usadas_jugadas.add(carta);
+                                            }
+                                        }
+
+                                        if (!cartas.contains(ganador.getHoleCard1())) {
+                                            ganador.getHoleCard1().desenfocar();
+                                        }
+
+                                        if (!cartas.contains(ganador.getHoleCard2())) {
+                                            ganador.getHoleCard2().desenfocar();
+                                        }
+
+                                        jugadas.remove(ganador);
+
+                                        ganador.pagar(cantidad_pagar_ganador[0], null);
+
+                                        this.bote_total -= cantidad_pagar_ganador[0];
+
+                                        GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+
+                                        unganador = ganador;
+
+                                        jugada_ganadora = jugada.getValue();
                                     }
 
-                                    this.iwtsthing = false;
+                                    for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                        if (!cartas_usadas_jugadas.contains(carta)) {
+                                            carta.desenfocar();
+                                        }
+                                    }
+
+                                    for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
+
+                                        Player perdedor = entry.getKey();
+
+                                        badbeat = badbeat(perdedor, unganador);
+
+                                        perdedores.put(perdedor, entry.getValue());
+
+                                        GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
+
+                                    }
+
+                                    this.showdown(jugadas, ganadores);
+                                    Helpers.GUIRun(() -> {
+                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
+                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
+                                    });
+
+                                    GameFrame.getInstance().setTapeteBote(cantidad_pagar_ganador[0], this.beneficio_bote_principal);
+
+                                } else {
+
+                                    //Vamos a ver los ganadores de cada bote_total
+                                    jugadas = this.calcularJugadas(resisten);
+
+                                    ganadores = this.calcularGanadores(new HashMap<>(jugadas));
+
+                                    float[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
+
+                                    this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
+
+                                    String bote_tapete = "#1{" + Helpers.float2String(this.bote.getTotal()) + "}";
+
+                                    ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
+
+                                    Player unganador = null;
+
+                                    for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
+
+                                        Player ganador = entry.getKey();
+
+                                        Hand jugada = entry.getValue();
+
+                                        ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
+
+                                        for (Card carta : cartas) {
+                                            if (!cartas_usadas_jugadas.contains(carta)) {
+                                                cartas_usadas_jugadas.add(carta);
+                                            }
+                                        }
+
+                                        if (!cartas.contains(ganador.getHoleCard1())) {
+                                            ganador.getHoleCard1().desenfocar();
+                                        }
+
+                                        if (!cartas.contains(ganador.getHoleCard2())) {
+                                            ganador.getHoleCard2().desenfocar();
+                                        }
+
+                                        jugadas.remove(ganador);
+
+                                        ganador.pagar(cantidad_pagar_ganador[0], 1);
+
+                                        this.bote_total -= cantidad_pagar_ganador[0];
+
+                                        GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE PRINCIPAL (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+
+                                        unganador = ganador;
+
+                                        jugada_ganadora = jugada.getValue();
+                                    }
+
+                                    for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                        if (!cartas_usadas_jugadas.contains(carta)) {
+                                            carta.desenfocar();
+                                        }
+                                    }
+
+                                    for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
+
+                                        Player perdedor = entry.getKey();
+
+                                        badbeat = badbeat(perdedor, unganador);
+
+                                        perdedores.put(perdedor, entry.getValue());
+
+                                        GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE PRINCIPAL (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
+                                    }
+
+                                    this.showdown(jugadas, ganadores);
+
+                                    HandPot current_pot = this.bote.getSidePot();
+
+                                    int conta_bote_secundario = 2;
+
+                                    while (current_pot != null) {
+
+                                        if (current_pot.getPlayers().size() == 1) {
+
+                                            bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.float2String(current_pot.getTotal()) + "}";
+
+                                            current_pot.getPlayers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
+
+                                            this.bote_total -= current_pot.getTotal();
+
+                                            GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + Translator.translate(" RECUPERA BOTE (SOBRANTE) SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(current_pot.getTotal()) + ")");
+
+                                            this.sqlUpdateShowdownPay(current_pot.getPlayers().get(0));
+
+                                        } else {
+
+                                            jugadas = this.calcularJugadas(current_pot.getPlayers());
+
+                                            ganadores = this.calcularGanadores(new HashMap<>(jugadas));
+
+                                            cantidad_pagar_ganador = this.calcularBoteParaGanador(current_pot.getTotal(), ganadores.size());
+
+                                            bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.float2String(current_pot.getTotal()) + "}";
+
+                                            for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
+
+                                                Player ganador = entry.getKey();
+
+                                                jugadas.remove(entry.getKey());
+
+                                                ganador.pagar(cantidad_pagar_ganador[0], conta_bote_secundario);
+
+                                                this.bote_total -= cantidad_pagar_ganador[0];
+
+                                                Hand jugada = entry.getValue();
+
+                                                GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+
+                                                this.sqlUpdateShowdownPay(ganador);
+                                            }
+
+                                            for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
+
+                                                Player perdedor = entry.getKey();
+
+                                                perdedores.put(perdedor, entry.getValue());
+
+                                                GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
+                                            }
+
+                                        }
+
+                                        current_pot = current_pot.getSidePot();
+
+                                        conta_bote_secundario++;
+
+                                    }
+                                    Helpers.GUIRun(() -> {
+                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
+                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.BLACK);
+                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
+                                    });
+
+                                    GameFrame.getInstance().setTapeteBote(bote_tapete);
                                 }
+
+                                this.bote_sobrante = this.bote_total;
+                            }
+
+                            Helpers.GUIRun(() -> {
+                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
+                            });
+
+                            for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                if (carta.isTapada()) {
+                                    carta.desenfocar();
+                                }
+                            }
+
+                            this.bote_total = 0f;
+
+                            if (!GameFrame.TEST_MODE && !resisten.contains(GameFrame.getInstance().getLocalPlayer())) {
+
+                                if (GameFrame.getInstance().getLocalPlayer().isActivo() && GameFrame.getInstance().getLocalPlayer().getParguela_counter() > 0) {
+
+                                    GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(true);
+                                }
+
+                                this.soundShowdown();
+
+                            }
+
+                            sqlUpdateHandEnd(sql_bote_total);
+
+                            if (this.update_game_seats) {
+
+                                String players = "";
+
+                                for (String nick : this.nicks_permutados) {
+                                    try {
+                                        players += "#" + Base64.encodeBase64String(nick.getBytes("UTF-8"));
+                                    } catch (UnsupportedEncodingException ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                }
+
+                                sqlUpdateGameSeats(players.substring(1));
+
+                                this.update_game_seats = false;
+                            }
+
+                            this.bote_total = 0f;
+
+                            for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                                jugador.resetBote();
+                                jugador.checkGameOver();
                             }
                         }
 
-                        synchronized (lock_mostrar) {
-                            this.show_time = false;
-                        }
+                        disableAllPlayersTimeout();
 
-                        GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
+                        startIWTSTHPlayersBlinking();
 
-                        GameFrame.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
+                        if (!GameFrame.TEST_MODE) {
 
-                        if (!this.isLast_hand()) {
+                            if (getJugadoresActivos() > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
 
-                            checkRebuyTime();
+                                this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? (resisten.size() > 1 ? PAUSA_ENTRE_MANOS : Math.round(0.5f * PAUSA_ENTRE_MANOS)) : Math.round(1.5f * PAUSA_ENTRE_MANOS));
 
-                            exitSpectatorBots();
+                            }
 
-                            updateExitPlayers();
+                            if (this.iwtsthing) {
+
+                                synchronized (iwtsth_lock) {
+
+                                    if (this.iwtsthing) {
+
+                                        try {
+                                            iwtsth_lock.wait(IWTSTH_TIMEOUT);
+                                        } catch (InterruptedException ex) {
+                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                        }
+
+                                        this.iwtsthing = false;
+                                    }
+                                }
+                            }
+
+                            synchronized (lock_mostrar) {
+                                this.show_time = false;
+                            }
+
+                            GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
+
+                            GameFrame.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
+
+                            if (!this.isLast_hand()) {
+
+                                checkRebuyTime();
+
+                                exitSpectatorBots();
+
+                                updateExitPlayers();
+
+                            } else {
+
+                                if (!GameFrame.getInstance().isPartida_local()) {
+                                    sqlRemovePermutationkey();
+                                }
+
+                                fin_de_la_transmision = true;
+                            }
 
                         } else {
 
-                            if (!GameFrame.getInstance().isPartida_local()) {
-                                sqlRemovePermutationkey();
+                            this.pausaConBarra(Crupier.PAUSA_ENTRE_MANOS_TEST);
+
+                            synchronized (lock_mostrar) {
+                                this.show_time = false;
                             }
 
-                            fin_de_la_transmision = true;
+                            GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
+
+                            GameFrame.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
+
+                            fin_de_la_transmision = this.isLast_hand();
+
                         }
-
-                    } else {
-
-                        this.pausaConBarra(Crupier.PAUSA_ENTRE_MANOS_TEST);
-
-                        synchronized (lock_mostrar) {
-                            this.show_time = false;
-                        }
-
-                        GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
-
-                        GameFrame.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
-
-                        fin_de_la_transmision = this.isLast_hand();
 
                     }
 
+                } else {
+
+                    if (!GameFrame.getInstance().getLocalPlayer().isSpectator() && Helpers.float1DSecureCompare(0f, this.bote_sobrante) < 0) {
+
+                        GameFrame.getInstance().getLocalPlayer().pagar(this.bote_sobrante, null);
+
+                        this.bote_sobrante = 0f;
+                    }
+
+                    for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                        carta.iniciarCarta();
+                    }
+
+                    GameFrame.getInstance().getTiempo_juego().stop();
+
+                    GameFrame.getInstance().getRegistro().print("LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
+
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
+
+                    fin_de_la_transmision = true;
                 }
 
-            } else {
+            } catch (Exception ex) {
 
-                if (!GameFrame.getInstance().getLocalPlayer().isSpectator() && Helpers.float1DSecureCompare(0f, this.bote_sobrante) < 0) {
+                if (!fin_de_la_transmision) {
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "CRUPIER: ERROR FATAL");
 
-                    GameFrame.getInstance().getLocalPlayer().pagar(this.bote_sobrante, null);
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
 
-                    this.bote_sobrante = 0f;
+                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "CRUPIER: ERROR FATAL");
+
+                    System.exit(1);
                 }
 
-                for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
-                    carta.iniciarCarta();
-                }
-
-                GameFrame.getInstance().getTiempo_juego().stop();
-
-                GameFrame.getInstance().getRegistro().print("LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
-
-                Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
-
-                fin_de_la_transmision = true;
             }
 
         }

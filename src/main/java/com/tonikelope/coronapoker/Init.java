@@ -902,6 +902,10 @@ public class Init extends javax.swing.JFrame {
 
             INIT = true;
 
+            if (GameFrame.TEST_MODE) {
+                GameFrame.CINEMATICAS = false;
+            }
+
             if (Helpers.OSValidator.isWindows()) {
                 Helpers.resetWindowsGlobalZoom();
             }

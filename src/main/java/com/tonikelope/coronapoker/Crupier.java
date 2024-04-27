@@ -297,6 +297,7 @@ public class Crupier implements Runnable {
     private volatile int game_recovered = 0;
     private volatile Object[] ciegas_update = null;
     private volatile boolean dead_dealer = false;
+    private volatile boolean force_reset_hand = false;
 
     public boolean isDead_dealer() {
         return dead_dealer;
@@ -1715,6 +1716,10 @@ public class Crupier implements Runnable {
 
             map = sqlRecoverServerLocalGameKeyData(true);
 
+            if (map.containsKey("forced_balance") && (boolean) map.get("forced_balance")) {
+                saltar_primera_mano = true;
+            }
+
             GameFrame.GAME_START_TIMESTAMP = (long) map.get("start");
 
             ArrayList<String> pendientes = new ArrayList<>();
@@ -3104,6 +3109,12 @@ public class Crupier implements Runnable {
             }
 
             Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "BALANCE AFTER HAND(" + String.valueOf(conta_mano) + ") -> " + String.join("@", balance));
+
+            try {
+                Files.writeString(Paths.get(Init.CORONA_DIR + "/balance_temp"), String.join("@", balance));
+            } catch (IOException ex) {
+                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            }
 
             try {
                 statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET play_time=? WHERE id=?");
@@ -5644,7 +5655,11 @@ public class Crupier implements Runnable {
                         try {
                             String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
 
+                            Files.move(Paths.get(Init.CORONA_DIR + "/balance"), Paths.get(Init.CORONA_DIR + "/balance_used"));
+
                             map.put("balance", balance.trim());
+
+                            map.put("forced_balance", true);
 
                             Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "Balance recuperado forzado");
 

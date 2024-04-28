@@ -228,6 +228,8 @@ import java.awt.color.ColorSpace;
 import java.awt.image.ColorConvertOp;
 import java.awt.image.RescaleOp;
 import java.io.FilenameFilter;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.TreeMap;
@@ -296,6 +298,25 @@ public class Helpers {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+    }
+    
+    public static void detectAndHandleDeadlocks() {
+        ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+        
+        long[] threadIds = threadMXBean.findDeadlockedThreads();
+
+        if (threadIds != null) {
+            
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Deadlock detected!");
+            
+            for (long threadId : threadIds) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Thread ID: " + threadId + " "+threadMXBean.getThreadInfo(threadId).getThreadName());
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, threadMXBean.getThreadInfo(threadId).getLockName()+ " "+threadMXBean.getThreadInfo(threadId).getLockInfo().getClassName());
+            }
+            
+            Helpers.mostrarMensajeError(null, "FATAL ERROR: DEADLOCK");
+            System.exit(1);
+        }
     }
 
     public static boolean bufferedImagesEqual(BufferedImage img1, BufferedImage img2) {

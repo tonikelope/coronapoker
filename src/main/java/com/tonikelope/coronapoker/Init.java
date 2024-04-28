@@ -901,6 +901,16 @@ public class Init extends javax.swing.JFrame {
         if (!INIT) {
 
             INIT = true;
+            
+            Helpers.threadRun(()->{
+                
+                //Deadlock detection
+                while(true){
+                    Helpers.detectAndHandleDeadlocks();
+                    Helpers.pausar(5000);
+                }
+            
+            });
 
             if (GameFrame.TEST_MODE) {
                 GameFrame.CINEMATICAS = false;

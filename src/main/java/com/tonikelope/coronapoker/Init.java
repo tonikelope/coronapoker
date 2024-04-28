@@ -96,6 +96,7 @@ public class Init extends javax.swing.JFrame {
     public static final String SETDPI_DIR = CORONA_DIR + "/setdpi";
     public static final String CACHE_DIR = CORONA_DIR + "/Cache";
     public static final String SCREENSHOTS_DIR = CORONA_DIR + "/Screenshots";
+    public static final int DEADLOCK_DETECT_WAIT = 5000;
     public static String SQL_FILE;
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
@@ -901,15 +902,15 @@ public class Init extends javax.swing.JFrame {
         if (!INIT) {
 
             INIT = true;
-            
-            Helpers.threadRun(()->{
-                
+
+            Helpers.threadRun(() -> {
+
                 //Deadlock detection
-                while(true){
+                while (true) {
                     Helpers.detectAndHandleDeadlocks();
-                    Helpers.pausar(5000);
+                    Helpers.pausar(DEADLOCK_DETECT_WAIT);
                 }
-            
+
             });
 
             if (GameFrame.TEST_MODE) {

@@ -7428,11 +7428,11 @@ public class Crupier implements Runnable {
             } catch (Exception ex) {
 
                 if (!fin_de_la_transmision) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "CRUPIER: ERROR FATAL");
+                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "CRUPIER FATAL ERROR");
 
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
 
-                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "CRUPIER: ERROR FATAL");
+                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "CRUPIER FATAL ERROR");
 
                     System.exit(1);
                 }

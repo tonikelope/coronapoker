@@ -299,21 +299,21 @@ public class Helpers {
         }
 
     }
-    
+
     public static void detectAndHandleDeadlocks() {
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-        
+
         long[] threadIds = threadMXBean.findDeadlockedThreads();
 
         if (threadIds != null) {
-            
+
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Deadlock detected!");
-            
+
             for (long threadId : threadIds) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Thread ID: " + threadId + " "+threadMXBean.getThreadInfo(threadId).getThreadName());
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, threadMXBean.getThreadInfo(threadId).getLockName()+ " "+threadMXBean.getThreadInfo(threadId).getLockInfo().getClassName());
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Thread ID: " + threadId + " " + threadMXBean.getThreadInfo(threadId).getThreadName());
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, threadMXBean.getThreadInfo(threadId).getLockName() + " " + threadMXBean.getThreadInfo(threadId).getLockInfo().getClassName());
             }
-            
+
             Helpers.mostrarMensajeError(null, "FATAL ERROR: DEADLOCK");
             System.exit(1);
         }

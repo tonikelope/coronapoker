@@ -297,7 +297,6 @@ public class Crupier implements Runnable {
     private volatile int game_recovered = 0;
     private volatile Object[] ciegas_update = null;
     private volatile boolean dead_dealer = false;
-    private volatile boolean force_reset_hand = false;
 
     public boolean isDead_dealer() {
         return dead_dealer;
@@ -406,6 +405,29 @@ public class Crupier implements Runnable {
 
     public void setCurrent_remote_cinematic_b64(String current_remote_cinematic_b64) {
         this.current_remote_cinematic_b64 = current_remote_cinematic_b64;
+    }
+
+    public String getPhaseName(int phase) {
+        String fase = null;
+
+        switch (phase) {
+            case Crupier.PREFLOP:
+                fase = "Preflop";
+                break;
+
+            case Crupier.FLOP:
+                fase = "Flop";
+                break;
+
+            case Crupier.TURN:
+                fase = "Turn";
+                break;
+
+            case Crupier.RIVER:
+                fase = "River";
+                break;
+        }
+        return fase;
     }
 
     public void rebuyNow(String nick, int buyin) {
@@ -2161,7 +2183,7 @@ public class Crupier implements Runnable {
             } while (!ready);
 
         } else {
-
+            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "SENDING SERVER NEWHANDREADY#{0}", String.valueOf(this.conta_mano + 1));
             this.sendGAMECommandToServer("NEWHANDREADY#" + String.valueOf(this.conta_mano + 1));
 
         }
@@ -4359,6 +4381,8 @@ public class Crupier implements Runnable {
 
     private ArrayList<Player> rondaApuestas(int fase, ArrayList<Player> resisten) {
 
+        Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "[HAND {0}] ({1})", new Object[]{String.valueOf(getMano()), getPhaseName(fase)});
+
         disableAllPlayersTimeout();
 
         Iterator<Player> iterator = resisten.iterator();
@@ -4383,6 +4407,7 @@ public class Crupier implements Runnable {
             if (GameFrame.getInstance().isPartida_local()) {
 
                 //Enviamos las cartas comunitarias de esta fase a todos jugadores remotos
+                Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "SENDING COM CARDS...");
                 String comando = null;
 
                 switch (fase) {
@@ -4417,6 +4442,7 @@ public class Crupier implements Runnable {
             } else {
 
                 //Recibimos las cartas comunitarias de esta fase del servidor
+                Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "WAITING COM CARDS...");
                 String carta;
                 String[] cartas, partes;
 
@@ -4458,7 +4484,8 @@ public class Crupier implements Runnable {
 
             }
 
-            //Destapamos una carta
+            //Destapamos carta/s comunitarias de esta fase
+            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "UNCOVER COM CARDS");
             destaparCartaComunitaria(fase, resisten);
         }
 
@@ -4516,6 +4543,7 @@ public class Crupier implements Runnable {
             actualizarContadoresTapete();
 
             do {
+
                 GameFrame.getInstance().checkPause();
 
                 turno++;
@@ -4525,6 +4553,8 @@ public class Crupier implements Runnable {
                 Object[] action = null;
 
                 Player current_player = GameFrame.getInstance().getJugadores().get(conta_pos);
+
+                Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "Read DECISION from -> " + current_player.getNickname());
 
                 if (current_player.isActivo() && current_player.getDecision() != Player.FOLD && current_player.getDecision() != Player.ALLIN) {
 

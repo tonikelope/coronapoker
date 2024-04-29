@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.Card.BARAJAS;
+import static com.tonikelope.coronapoker.Crupier.STREETS;
 import static com.tonikelope.coronapoker.Helpers.TapetePopupMenu.BARAJAS_MENU;
 import static com.tonikelope.coronapoker.Init.M2;
 
@@ -1357,9 +1358,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void setTapeteApuestas(float apuestas) {
 
         Helpers.GUIRun(() -> {
-            String fase = getCrupier().getPhaseName(getCrupier().getFase());
+            String street = STREETS[getCrupier().getStreet() - 1];
 
-            tapete.getCommunityCards().getBet_label().setText(fase + ": " + (Helpers.float1DSecureCompare(0f, apuestas) < 0 ? Helpers.float2String(apuestas) : "---"));
+            tapete.getCommunityCards().getBet_label().setText(street + ": " + (Helpers.float1DSecureCompare(0f, apuestas) < 0 ? Helpers.float2String(apuestas) : "---"));
 
             tapete.getCommunityCards().getBet_label().setVisible(true);
         });

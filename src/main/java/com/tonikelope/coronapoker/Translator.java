@@ -45,7 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
-            {"HECHO A MANO CON AMOR EN ESPAÑA por tonikelope (c) 2020", "HANDMADE WITH LOVE IN SPAIN by tonikelope (c) 2020"},
+            {"HECHO A MANO EN ESPAÑA CON AMOR por tonikelope (c) 2020", "HANDMADE IN SPAIN WITH LOVE by tonikelope (c) 2020"},
             {"Chat rápido", "Fast chat"},
             {"Enviar imagen", "Send image"},
             {"Vista compacta", "Compact view"},

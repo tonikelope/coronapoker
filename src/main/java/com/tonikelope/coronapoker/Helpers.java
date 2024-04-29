@@ -307,7 +307,7 @@ public class Helpers {
 
         if (threadIds != null) {
 
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Deadlock detected!");
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "*************DEADLOCK DETECTED!*************");
 
             for (long threadId : threadIds) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Thread ID: " + threadId + " " + threadMXBean.getThreadInfo(threadId).getThreadName());

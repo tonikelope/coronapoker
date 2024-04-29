@@ -75,7 +75,7 @@ public class Bot {
 
         float b;
 
-        switch (GameFrame.getInstance().getCrupier().getFase()) {
+        switch (GameFrame.getInstance().getCrupier().getStreet()) {
             case Crupier.PREFLOP:
                 b = Helpers.floatClean((1 + Helpers.CSPRNG_GENERATOR.nextInt(2) + GameFrame.getInstance().getCrupier().getLimpersCount()) * GameFrame.getInstance().getCrupier().getCiega_grande());
 
@@ -86,7 +86,7 @@ public class Bot {
                 break;
         }
 
-        if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), 0f) == 0 || (GameFrame.getInstance().getCrupier().getFase() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0)) {
+        if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), 0f) == 0 || (GameFrame.getInstance().getCrupier().getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0)) {
             return Math.max(GameFrame.getInstance().getCrupier().getCiega_grande(), b);
         } else {
             return Math.max(GameFrame.getInstance().getCrupier().getApuesta_actual() + min_raise, b);
@@ -98,7 +98,7 @@ public class Bot {
 
         int dec = Player.FOLD;
 
-        int fase = GameFrame.getInstance().getCrupier().getFase();
+        int fase = GameFrame.getInstance().getCrupier().getStreet();
 
         int activos = GameFrame.getInstance().getCrupier().getJugadoresActivos();
 

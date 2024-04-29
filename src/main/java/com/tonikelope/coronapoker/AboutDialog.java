@@ -64,7 +64,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "17.84";
+    public static final String VERSION = "17.86";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -338,7 +338,7 @@ public class AboutDialog extends javax.swing.JDialog {
         jLabel9.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel9.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/cruz.png"))); // NOI18N
-        jLabel9.setText("HECHO A MANO CON AMOR EN ESPAÑA por tonikelope (c) 2020");
+        jLabel9.setText("HECHO A MANO EN ESPAÑA CON AMOR por tonikelope (c) 2020");
         jLabel9.setToolTipText("PLVS VLTRA");
 
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);

@@ -71,6 +71,8 @@ public class Crupier implements Runnable {
 
     public static final boolean ALLIN_BOT_TEST = false; //TRUE FOR TESTING (Init.DEV_MODE MUST BE TRUE)
 
+    public static final String[] STREETS = new String[]{"Preflop", "Flop", "Turn", "River"};
+
     public static final Map.Entry<String, Object[][]> ALLIN_CINEMATICS = new HashMap.SimpleEntry<>("allin/",
             new Object[][]{
                 {"rounders.gif"},
@@ -256,7 +258,7 @@ public class Crupier implements Runnable {
     private volatile float bote_sobrante = 0f;
     private volatile String[] nicks_permutados;
     private volatile boolean fin_de_la_transmision = false;
-    private volatile int fase = PREFLOP;
+    private volatile int street = PREFLOP;
     private volatile HandPot bote = null;
     private volatile boolean cartas_resistencia = false;
     private volatile int ciegas_double = 0;
@@ -405,29 +407,6 @@ public class Crupier implements Runnable {
 
     public void setCurrent_remote_cinematic_b64(String current_remote_cinematic_b64) {
         this.current_remote_cinematic_b64 = current_remote_cinematic_b64;
-    }
-
-    public String getPhaseName(int phase) {
-        String fase = null;
-
-        switch (phase) {
-            case Crupier.PREFLOP:
-                fase = "Preflop";
-                break;
-
-            case Crupier.FLOP:
-                fase = "Flop";
-                break;
-
-            case Crupier.TURN:
-                fase = "Turn";
-                break;
-
-            case Crupier.RIVER:
-                fase = "River";
-                break;
-        }
-        return fase;
     }
 
     public void rebuyNow(String nick, int buyin) {
@@ -1016,8 +995,8 @@ public class Crupier implements Runnable {
         }
     }
 
-    public int getFase() {
-        return fase;
+    public int getStreet() {
+        return street;
     }
 
     public HandPot getBote() {
@@ -2557,7 +2536,7 @@ public class Crupier implements Runnable {
 
         this.perdedores.clear();
 
-        this.fase = PREFLOP;
+        this.street = PREFLOP;
 
         this.cartas_resistencia = false;
 
@@ -2877,7 +2856,7 @@ public class Crupier implements Runnable {
 
                 statement.setInt(3, this.conta_accion);
 
-                statement.setInt(4, this.fase);
+                statement.setInt(4, this.street);
 
                 statement.setInt(5, current_player.getDecision());
 
@@ -3173,7 +3152,7 @@ public class Crupier implements Runnable {
 
             String sql = "";
 
-            switch (this.fase) {
+            switch (this.street) {
 
                 case PREFLOP:
                     sql = "UPDATE hand SET preflop_players=?, com_cards=? WHERE id=?";
@@ -4352,11 +4331,11 @@ public class Crupier implements Runnable {
         return tot;
     }
 
-    private void destaparCartaComunitaria(int fase, ArrayList<Player> resisten) {
+    private void destaparCartaComunitaria(int street, ArrayList<Player> resisten) {
 
         GameFrame.getInstance().checkPause();
 
-        switch (fase) {
+        switch (street) {
             case FLOP:
                 destaparFlop(resisten);
                 break;
@@ -4379,9 +4358,9 @@ public class Crupier implements Runnable {
         return last_aggressor;
     }
 
-    private ArrayList<Player> rondaApuestas(int fase, ArrayList<Player> resisten) {
+    private ArrayList<Player> rondaApuestas(int street, ArrayList<Player> resisten) {
 
-        Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "[HAND {0}] ({1})", new Object[]{String.valueOf(getMano()), getPhaseName(fase)});
+        Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "[HAND {0}] ({1})", new Object[]{String.valueOf(getMano()), STREETS[street - 1]});
 
         disableAllPlayersTimeout();
 
@@ -4400,17 +4379,17 @@ public class Crupier implements Runnable {
             }
         }
 
-        this.fase = fase;
+        this.street = street;
 
-        if (fase > PREFLOP) {
+        if (street > PREFLOP) {
 
             if (GameFrame.getInstance().isPartida_local()) {
 
-                //Enviamos las cartas comunitarias de esta fase a todos jugadores remotos
+                //Enviamos las cartas comunitarias de esta calle a todos jugadores remotos
                 Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "SENDING COM CARDS...");
                 String comando = null;
 
-                switch (fase) {
+                switch (street) {
                     case FLOP:
 
                         flop_players.clear();
@@ -4441,12 +4420,12 @@ public class Crupier implements Runnable {
 
             } else {
 
-                //Recibimos las cartas comunitarias de esta fase del servidor
+                //Recibimos del servidor las cartas comunitarias de esta calle
                 Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "WAITING COM CARDS...");
                 String carta;
                 String[] cartas, partes;
 
-                switch (fase) {
+                switch (street) {
                     case FLOP:
 
                         flop_players.clear();
@@ -4484,16 +4463,16 @@ public class Crupier implements Runnable {
 
             }
 
-            //Destapamos carta/s comunitarias de esta fase
+            //Destapamos carta/s comunitarias de esta calle
             Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "UNCOVER COM CARDS");
-            destaparCartaComunitaria(fase, resisten);
+            destaparCartaComunitaria(street, resisten);
         }
 
         sqlUpdateHandPlayers(resisten);
 
         if (puedenApostar(resisten) > 0 && !this.cartas_resistencia) {
 
-            if (fase > PREFLOP) {
+            if (street > PREFLOP) {
                 this.apuesta_actual = 0f;
 
                 this.ultimo_raise = 0f;
@@ -4510,7 +4489,7 @@ public class Crupier implements Runnable {
 
             int conta_pos = 0;
 
-            if (fase == PREFLOP) {
+            if (street == PREFLOP) {
 
                 limpers = 0;
 
@@ -4823,13 +4802,13 @@ public class Crupier implements Runnable {
 
                                 resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), partial_raise ? (this.last_aggressor != null ? this.last_aggressor.getNickname() : null) : current_player.getNickname(), partial_raise);
 
-                                if (fase == PREFLOP) {
+                                if (street == PREFLOP) {
                                     limpers = 0;
                                 }
 
                                 end_pos = conta_pos;
 
-                            } else if (fase == PREFLOP && Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
+                            } else if (street == PREFLOP && Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
                                 limpers++;
                             }
 
@@ -4915,7 +4894,7 @@ public class Crupier implements Runnable {
 
             }
 
-            if (this.fase == Crupier.PREFLOP) {
+            if (this.street == Crupier.PREFLOP) {
                 nick2player.get(this.utg_nick).disableUTG();
             }
 
@@ -4930,12 +4909,12 @@ public class Crupier implements Runnable {
             }
         }
 
-        return (resisten.size() > 1 && fase < RIVER && getJugadoresActivos() > 1) ? rondaApuestas(fase + 1, resisten) : resisten;
+        return (resisten.size() > 1 && street < RIVER && getJugadoresActivos() > 1) ? rondaApuestas(street + 1, resisten) : resisten;
     }
 
     private void checkJugadasParciales(ArrayList<Player> resisten) {
 
-        if (this.destapar_resistencia && this.fase != Crupier.RIVER) {
+        if (this.destapar_resistencia && this.street != Crupier.RIVER) {
 
             HashMap<Player, Hand> jugadas = calcularJugadas(resisten);
 
@@ -6648,29 +6627,30 @@ public class Crupier implements Runnable {
 
                         Hand jugada = perdedores.get(jugador_actual);
 
-                        if (jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
+                        synchronized (lock_mostrar) {
 
-                            jugador_actual.setLoser(jugada.getName());
-
-                            if (!this.destapar_resistencia) {
-                                GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(false);
-                            } else {
-                                GameFrame.getInstance().getLocalPlayer().setMuestra(true);
-                            }
-
-                        } else {
-
-                            if (jugador_actual.getHoleCard1().isTapada()) {
-
-                                jugador_actual.setLoser(Translator.translate("PIERDE"));
-
-                            } else {
+                            if (jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
 
                                 jugador_actual.setLoser(jugada.getName());
-                            }
-                        }
 
-                        synchronized (lock_mostrar) {
+                                if (!this.destapar_resistencia) {
+                                    GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(false);
+                                } else {
+                                    GameFrame.getInstance().getLocalPlayer().setMuestra(true);
+                                }
+
+                            } else {
+
+                                if (jugador_actual.getHoleCard1().isTapada()) {
+
+                                    jugador_actual.setLoser(Translator.translate("PIERDE"));
+
+                                } else {
+
+                                    jugador_actual.setLoser(jugada.getName());
+                                }
+                            }
+
                             this.sqlNewShowdown(jugador_actual, jugada, false, jugador_actual.getHoleCard1().isTapada());
                         }
 
@@ -7953,7 +7933,7 @@ public class Crupier implements Runnable {
 
         org.alberta.poker.Hand board = new org.alberta.poker.Hand();
 
-        if (this.fase == Crupier.FLOP) {
+        if (this.street == Crupier.FLOP) {
             board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero()));
             board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero()));
             board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero()));
@@ -7961,7 +7941,7 @@ public class Crupier implements Runnable {
             deck.remove((Integer) GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero());
             deck.remove((Integer) GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero());
             deck.remove((Integer) GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero());
-        } else if (this.fase == Crupier.TURN) {
+        } else if (this.street == Crupier.TURN) {
             board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop1().getCartaComoEntero()));
             board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop2().getCartaComoEntero()));
             board.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTapete().getCommunityCards().getFlop3().getCartaComoEntero()));

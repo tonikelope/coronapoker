@@ -1357,27 +1357,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void setTapeteApuestas(float apuestas) {
 
         Helpers.GUIRun(() -> {
-            String fase = null;
+            String fase = getCrupier().getPhaseName(getCrupier().getFase());
 
-            switch (getCrupier().getFase()) {
-                case Crupier.PREFLOP:
-                    fase = "Preflop: ";
-                    break;
-
-                case Crupier.FLOP:
-                    fase = "Flop: ";
-                    break;
-
-                case Crupier.TURN:
-                    fase = "Turn: ";
-                    break;
-
-                case Crupier.RIVER:
-                    fase = "River: ";
-                    break;
-            }
-
-            tapete.getCommunityCards().getBet_label().setText(fase + (Helpers.float1DSecureCompare(0f, apuestas) < 0 ? Helpers.float2String(apuestas) : "---"));
+            tapete.getCommunityCards().getBet_label().setText(fase + ": " + (Helpers.float1DSecureCompare(0f, apuestas) < 0 ? Helpers.float2String(apuestas) : "---"));
 
             tapete.getCommunityCards().getBet_label().setVisible(true);
         });

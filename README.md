@@ -91,13 +91,13 @@ mvn clean install
 <p align="center"><img src="https://github.com/tonikelope/coronapoker/raw/master/coronahmac.png"></p>
 
 1) CoronaPoker.jar is executed normally.
-2) As soon as it starts, the WatchService API is called to start monitoring changes in the directory where CoronaPoker.jar is located (OC-TOU attacks).
+2) As soon as it starts, the WatchService API is called to start monitoring changes in the directory where CoronaPoker.jar is located.
 3) CoronaPoker.jar is restarted but this time disabling the option to use agents for debugging as well with a tcp port so that the new process can communicate and authenticate with the old process.
 4) The new CoronaPoker process sends to the old one a message authenticated with HMACSHA256 (with a pre-shared secret key that is obfuscated inside CoronaHMAC) that contains its PID concatenated with the random_nonce_1 sent by the original CoronaPoker process and a new random_nonce_2 generated from new CoronaPoker process at runtime.
 5) The original CoronaPoker process verifies the message and responds to the new process by resending the message received back authenticated with HMACSHA256 with the pre-shared secret key.
 6) Once mutually authenticated, new process calculates the HMACSHA256 (with the pre-shared secret key) of CoronaPoker.jar file that it will use as seed to authenticate and verify that the other players are using the same CoronaPoker.jar binary.
 7) Once the CoronaPoker.jar HMACSHA256 has been calculated, the new process generates a random_nonce_3 and sends it to the old process to let it know that it has finished. 
-8) The original process responds with a HMACSHA256 with new PID and all random nonces generated during the process concatenated.
+8) The original process responds with a HMACSHA256 with pid+all random nonces generated during the process concatenated (and any creation/delete/modification event detected in CoronaPoker.jar directory).
 9) After verifying the response of the old process, CoronaHMAC starts the game.
 
 Note: If the original process is terminated by an attacker or if an attacker performs a TOCTOU, the new process will find out by corrupting the internal HMAC of CoronaPoker.jar which will later betray you to other players as a cheater. In addition, authenticated messages with HMACSHA256 and random nonces of sufficient length are used to make any man-in-the-middle and/or replay attacks almost impossible.

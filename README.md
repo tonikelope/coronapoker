@@ -97,10 +97,10 @@ mvn clean install
 5) The original CoronaPoker process verifies the message and responds to the new process by resending the message received back authenticated with HMACSHA256 with the pre-shared secret key.
 6) Once mutually authenticated, new process calculates the HMACSHA256 (with the pre-shared secret key) of CoronaPoker.jar file that it will use as seed to authenticate and verify that the other players are using the same CoronaPoker.jar binary.
 7) Once the CoronaPoker.jar HMACSHA256 has been calculated, the new process generates a random_nonce_3 and sends it to the old process to let it know that it has finished. 
-8) The original process responds with a HMACSHA256 with pid+all random nonces generated during the process concatenated (and any creation/delete/modification event detected in CoronaPoker.jar directory).
+8) The original process responds with a HMACSHA256 with pid+all random nonces generated during the process concatenated with a flag for any creation/delete/modification event detected in CoronaPoker.jar directory.
 9) After verifying the response of the old process, CoronaHMAC starts the game.
 
-Note: If the original process is terminated by an attacker or if an attacker performs a TOCTOU, the new process will find out by corrupting the internal HMAC of CoronaPoker.jar which will later betray you to other players as a cheater. In addition, authenticated messages with HMACSHA256 and random nonces of sufficient length are used to make any man-in-the-middle and/or replay attacks almost impossible.
+Note: If the original process is terminated by an attacker or if an attacker performs a TOCTOU, the new process will find out and will corrupt the internal HMACSHA256 of CoronaPoker.jar which will later betray you to other players as a probably cheater. Authenticated messages with HMACSHA256 and random nonces of sufficient length are used to make any man-in-the-middle and/or replay attacks almost impossible.
 
 <p align="justify">In addition to this system, CoronaPoker includes an feature that allows players to obtain at any time during the game a "snapshot" of any player's process list, as well as a screenshot of his screen, in case he/she is using any external application to cheat. (This feature can be activated or deactivated by the server when setting the game options).</p>
 

@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>17.86</version>
+    <version>17.87</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -122,7 +122,7 @@
         <dependency>
             <groupId>com.tonikelope.coronahmac</groupId>
             <artifactId>coronahmac</artifactId>
-            <version>2.3</version>
+            <version>2.4</version>
         </dependency>
     </dependencies>
     <properties>

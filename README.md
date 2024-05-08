@@ -100,8 +100,6 @@ mvn clean install
 8) The original process responds with a HMACSHA256 with pid+all random nonces generated during the process concatenated with a flag for any creation/delete/modification event detected in CoronaPoker.jar directory.
 9) After verifying the response of the old process, CoronaHMAC starts the game.
 
-Note: If the original process is terminated by an attacker or if an attacker performs a TOCTOU, the new process will find out and will corrupt the internal HMACSHA256 of CoronaPoker.jar which will later betray you to other players as a probably cheater. Authenticated messages with HMACSHA256 and random nonces of sufficient length are used to make any man-in-the-middle and/or replay attacks almost impossible.
-
 <p align="justify">In addition to this system, CoronaPoker includes an feature that allows players to obtain at any time during the game a "snapshot" of any player's process list, as well as a screenshot of his screen, in case he/she is using any external application to cheat. (This feature can be activated or deactivated by the server when setting the game options).</p>
 
 <p align="justify">Finally, CoronaPoker is designed in such a way that only the game server "knows" the cards dealt to the players and they will be sent to the rest of the players if necessary at the moment they are needed. In addition, for emergency recovery mode, the permutation of the current hand's deck is stored on the server hdd in encrypted form with a key that is sent to other players (and not stored by the server in any form).</p>

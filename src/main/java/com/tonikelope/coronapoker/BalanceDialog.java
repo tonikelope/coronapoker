@@ -56,6 +56,8 @@ public class BalanceDialog extends javax.swing.JDialog {
         super(parent, modal);
 
         initComponents();
+        
+        date.setText(Helpers.getFechaHoraActual() + " ("+Helpers.seconds2FullTime(GameFrame.getInstance().getConta_tiempo_juego())+")");
 
         exit_button.requestFocus();
 
@@ -164,6 +166,7 @@ public class BalanceDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         title = new javax.swing.JLabel();
+        date = new javax.swing.JLabel();
         scroll_panel = new javax.swing.JScrollPane();
         jugadores = new javax.swing.JPanel();
         exit_button = new javax.swing.JButton();
@@ -192,6 +195,15 @@ public class BalanceDialog extends javax.swing.JDialog {
         title.setDoubleBuffered(true);
         title.setFocusable(false);
         title.setOpaque(true);
+
+        date.setBackground(new java.awt.Color(102, 102, 102));
+        date.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
+        date.setForeground(new java.awt.Color(255, 255, 255));
+        date.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        date.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        date.setDoubleBuffered(true);
+        date.setFocusable(false);
+        date.setOpaque(true);
 
         scroll_panel.setBorder(null);
         scroll_panel.setDoubleBuffered(true);
@@ -265,13 +277,16 @@ public class BalanceDialog extends javax.swing.JDialog {
                 .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addComponent(stats_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(log_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(date, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addComponent(title)
                 .addGap(0, 0, 0)
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
+                .addComponent(date)
+                .addGap(0, 0, 0)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 274, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(log_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -339,6 +354,7 @@ public class BalanceDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_formWindowActivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JLabel date;
     private javax.swing.JButton exit_button;
     private javax.swing.JPanel jugadores;
     private javax.swing.JButton log_button;

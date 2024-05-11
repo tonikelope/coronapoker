@@ -437,20 +437,22 @@ public class Init extends javax.swing.JFrame {
 
                 int tot = 0;
 
-                while ((reads = bis.read(buffer)) != -1) {
+                while (!ABORT_UPDATE && (reads = bis.read(buffer)) != -1) {
 
-                    bfos.write(buffer, 0, reads);
+                    if (!ABORT_UPDATE) {
+                        bfos.write(buffer, 0, reads);
 
-                    tot += reads;
+                        tot += reads;
 
-                    int t = tot;
+                        int t = tot;
 
-                    Helpers.GUIRun(new Runnable() {
+                        Helpers.GUIRun(new Runnable() {
 
-                        public void run() {
-                            ventana.getProgress_bar().setValue(t);
-                        }
-                    });
+                            public void run() {
+                                ventana.getProgress_bar().setValue(t);
+                            }
+                        });
+                    }
                 }
             }
 

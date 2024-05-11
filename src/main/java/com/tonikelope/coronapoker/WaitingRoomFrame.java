@@ -1237,7 +1237,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         this.protect_focus = false;
 
-        Helpers.mostrarMensajeInformativo(container, msg, "center", null);
+        Helpers.mostrarMensajeInformativo(container, msg, "center", null, null);
 
         this.protect_focus = focus_protection;
     }
@@ -1248,7 +1248,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
         this.protect_focus = false;
 
-        Helpers.mostrarMensajeInformativo(container, msg, align, width);
+        Helpers.mostrarMensajeInformativo(container, msg, align, width, null);
 
         this.protect_focus = focus_protection;
     }
@@ -1522,6 +1522,12 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                             recibido = readCommandFromServer();
 
                             GameFrame.RADAR_AVAILABLE = Boolean.parseBoolean(recibido);
+
+                            if (GameFrame.RADAR_AVAILABLE) {
+                                Helpers.threadRun(() -> {
+                                    Helpers.mostrarMensajeInformativo(THIS, "El servidor ha activado el RADAR anti-trampas para esta partida.\nCualquier jugador podrá solicitar un informe anti-trampas de otro jugador durante la partida,\nel cual incluye una captura de pantalla del jugador (sin mostrar sus cartas) así como su listado de procesos del sistema.", new ImageIcon(getClass().getResource("/images/shield.png")));
+                                });
+                            }
 
                             //Añadimos al servidor
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
@@ -2651,7 +2657,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addGap(0, 0, 0)
                 .addGroup(panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 367, Short.MAX_VALUE)))
+                    .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 739, Short.MAX_VALUE)))
         );
         panel_conLayout.setVerticalGroup(
             panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2765,7 +2771,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             }
         });
 
-        radar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/shield.png"))); // NOI18N
+        radar.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/shield.png")).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)));
         radar.setDoubleBuffered(true);
 
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
@@ -3062,7 +3068,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 50, Short.MAX_VALUE)
+                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 88, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())

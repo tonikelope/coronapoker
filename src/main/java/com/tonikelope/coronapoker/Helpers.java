@@ -2539,11 +2539,15 @@ public class Helpers {
         });
     }
 
-    public static void mostrarMensajeInformativo(Container container, String msg) {
-        mostrarMensajeInformativo(container, msg, "center", null);
+    public static void mostrarMensajeInformativo(Container container, String msg, ImageIcon icon) {
+        mostrarMensajeInformativo(container, msg, "center", null, icon);
     }
 
-    public static void mostrarMensajeInformativo(Container container, String msg, String align, Integer width) {
+    public static void mostrarMensajeInformativo(Container container, String msg) {
+        mostrarMensajeInformativo(container, msg, "center", null, null);
+    }
+
+    public static void mostrarMensajeInformativo(Container container, String msg, String align, Integer width, ImageIcon icon) {
 
         final String mensaje = Translator.translate(msg);
 
@@ -2554,13 +2558,14 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            JOptionPane.showMessageDialog(container, label);
+            JOptionPane.showMessageDialog(container, label, "Info", JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
 
         } else {
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
-                    JOptionPane.showMessageDialog(container, label);
+                    JOptionPane.showMessageDialog(container, label, "Info", JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
+
                 }
             });
         }

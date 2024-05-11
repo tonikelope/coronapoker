@@ -56,8 +56,8 @@ public class BalanceDialog extends javax.swing.JDialog {
         super(parent, modal);
 
         initComponents();
-        
-        date.setText(Helpers.getFechaHoraActual() + " ("+Helpers.seconds2FullTime(GameFrame.getInstance().getConta_tiempo_juego())+")");
+
+        date.setText(Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(GameFrame.getInstance().getConta_tiempo_juego()) + ")");
 
         exit_button.requestFocus();
 

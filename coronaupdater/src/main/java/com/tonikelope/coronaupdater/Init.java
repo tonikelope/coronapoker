@@ -30,6 +30,7 @@ public class Init extends javax.swing.JFrame {
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static volatile boolean MOD_UPDATE = false;
     public static volatile boolean SPANISH = false;
+    public static volatile boolean ABORT_UPDATE = false;
 
     /**
      * Creates new form Init
@@ -71,6 +72,11 @@ public class Init extends javax.swing.JFrame {
         setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
         setUndecorated(true);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
+            }
+        });
 
         logo.setBackground(new java.awt.Color(255, 255, 255));
         logo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -118,6 +124,14 @@ public class Init extends javax.swing.JFrame {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
+
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        // TODO add your handling code here:
+
+        if (Helpers.mostrarMensajeErrorSINO(this, SPANISH ? "¿SEGURO?" : "SURE?") == 0) {
+            ABORT_UPDATE = true;
+        }
+    }//GEN-LAST:event_formWindowClosing
 
     /*
           CORONAPOKER UPDATE PARAMS:
@@ -222,27 +236,33 @@ public class Init extends javax.swing.JFrame {
 
                     downloadMOD(ventana, args[3], zip_temp_file);
 
-                    ZipFile zipFile;
-
-                    if (!"".equals(args[4])) {
-                        zipFile = new ZipFile(zip_temp_file, args[4].toCharArray());
+                    if (ABORT_UPDATE) {
+                        Files.move(Paths.get(args[0] + "_bak"), Paths.get(args[0]));
+                        System.exit(1);
                     } else {
-                        zipFile = new ZipFile(zip_temp_file);
+
+                        ZipFile zipFile;
+
+                        if (!"".equals(args[4])) {
+                            zipFile = new ZipFile(zip_temp_file, args[4].toCharArray());
+                        } else {
+                            zipFile = new ZipFile(zip_temp_file);
+                        }
+
+                        zipFile.extractAll(args[0].replaceAll("/mod$", ""));
+
+                        StringBuilder java_bin = new StringBuilder();
+
+                        java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+
+                        String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
+
+                        Runtime.getRuntime().exec(cmdArr);
+
+                        Files.deleteIfExists(Paths.get(zip_temp_file));
+
+                        Helpers.deleteDirectory(args[0] + "_bak");
                     }
-
-                    zipFile.extractAll(args[0].replaceAll("/mod$", ""));
-
-                    StringBuilder java_bin = new StringBuilder();
-
-                    java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
-
-                    String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
-
-                    Runtime.getRuntime().exec(cmdArr);
-
-                    Files.deleteIfExists(Paths.get(zip_temp_file));
-
-                    Helpers.deleteDirectory(args[0] + "_bak");
 
                 } catch (Exception ex) {
                     ok = false;
@@ -278,15 +298,21 @@ public class Init extends javax.swing.JFrame {
 
                     downloadCoronaPoker(ventana, args[0], args[2]);
 
-                    StringBuilder java_bin = new StringBuilder();
+                    if (ABORT_UPDATE) {
+                        Files.move(Paths.get(args[1] + ".bak"), Paths.get(args[1]));
+                        System.exit(1);
+                    } else {
 
-                    java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+                        StringBuilder java_bin = new StringBuilder();
 
-                    String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
+                        java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
 
-                    Runtime.getRuntime().exec(cmdArr);
+                        String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
 
-                    Files.deleteIfExists(Paths.get(args[1] + ".bak"));
+                        Runtime.getRuntime().exec(cmdArr);
+
+                        Files.deleteIfExists(Paths.get(args[1] + ".bak"));
+                    }
 
                 } catch (Exception ex) {
 
@@ -351,20 +377,22 @@ public class Init extends javax.swing.JFrame {
 
                 int tot = 0;
 
-                while ((reads = bis.read(buffer)) != -1) {
+                while (!ABORT_UPDATE && (reads = bis.read(buffer)) != -1) {
 
-                    bfos.write(buffer, 0, reads);
+                    if (!ABORT_UPDATE) {
+                        bfos.write(buffer, 0, reads);
 
-                    tot += reads;
+                        tot += reads;
 
-                    int t = tot;
+                        int t = tot;
 
-                    Helpers.GUIRun(new Runnable() {
+                        Helpers.GUIRun(new Runnable() {
 
-                        public void run() {
-                            ventana.getProgress_bar().setValue(t);
-                        }
-                    });
+                            public void run() {
+                                ventana.getProgress_bar().setValue(t);
+                            }
+                        });
+                    }
                 }
             }
 

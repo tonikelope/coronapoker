@@ -41,7 +41,10 @@
     </DimensionLayout>
     <DimensionLayout dim="1">
       <Group type="103" groupAlignment="0" attributes="0">
-          <Component id="main_scroll_panel" alignment="1" max="32767" attributes="0"/>
+          <Group type="102" alignment="0" attributes="0">
+              <Component id="main_scroll_panel" pref="784" max="32767" attributes="0"/>
+              <EmptySpace max="-2" attributes="0"/>
+          </Group>
       </Group>
     </DimensionLayout>
   </Layout>
@@ -52,6 +55,9 @@
           <Border info="null"/>
         </Property>
         <Property name="doubleBuffered" type="boolean" value="true"/>
+        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+          <Dimension value="[700, 750]"/>
+        </Property>
       </Properties>
 
       <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
@@ -65,9 +71,9 @@
                       <EmptySpace max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Component id="danger_server" alignment="0" max="32767" attributes="0"/>
-                          <Component id="panel_arriba" alignment="0" max="32767" attributes="0"/>
+                          <Component id="panel_arriba" alignment="0" pref="688" max="32767" attributes="0"/>
                           <Component id="chat_notifications" alignment="0" max="32767" attributes="0"/>
-                          <Component id="chat_scroll" alignment="0" pref="679" max="32767" attributes="0"/>
+                          <Component id="chat_scroll" alignment="0" pref="0" max="32767" attributes="0"/>
                           <Component id="jPanel1" alignment="0" max="32767" attributes="0"/>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
@@ -84,16 +90,21 @@
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="chat_notifications" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
-                      <Component id="chat_scroll" pref="88" max="32767" attributes="0"/>
+                      <Component id="chat_scroll" pref="28" max="32767" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="jPanel1" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
+                      <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                   </Group>
               </Group>
             </DimensionLayout>
           </Layout>
           <SubComponents>
             <Container class="javax.swing.JPanel" name="panel_arriba">
+              <Properties>
+                <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                  <Dimension value="[700, 487]"/>
+                </Property>
+              </Properties>
 
               <Layout>
                 <DimensionLayout dim="0">
@@ -177,7 +188,7 @@
                               <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="0" attributes="0">
                                   <Component id="kick_user" max="32767" attributes="0"/>
-                                  <Component id="panel_conectados" pref="739" max="32767" attributes="0"/>
+                                  <Component id="panel_conectados" pref="376" max="32767" attributes="0"/>
                               </Group>
                           </Group>
                       </Group>

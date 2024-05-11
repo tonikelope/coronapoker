@@ -1111,9 +1111,15 @@ public class Init extends javax.swing.JFrame {
 
                                 Helpers.cleanCacheDIR();
 
-                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
+                                if (GameFrame.LANGUAGE.equals("es")) {
+                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
 
-                                Runtime.getRuntime().exec(cmdArr);
+                                    Runtime.getRuntime().exec(cmdArr);
+                                } else {
+                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path};
+
+                                    Runtime.getRuntime().exec(cmdArr);
+                                }
 
                                 if (Helpers.OSValidator.isWindows()) {
                                     Helpers.restoreWindowsGlobalZoom();

@@ -38,7 +38,7 @@ public class Helpers {
     public volatile static Font GUI_FONT = null;
 
     public static void deleteDirectory(String path) {
-        try ( var dirStream = Files.walk(Paths.get(path))) {
+        try (var dirStream = Files.walk(Paths.get(path))) {
             dirStream.map(Path::toFile).sorted(Comparator.reverseOrder()).forEach(File::delete);
         } catch (IOException ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);

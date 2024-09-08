@@ -903,6 +903,10 @@ public class Init extends javax.swing.JFrame {
 
             INIT = true;
 
+            System.setProperty("sun.java2d.noddraw", "true");
+
+            System.setProperty("sun.java2d.d3d", "false");
+
             Helpers.threadRun(() -> {
 
                 //Deadlock detection

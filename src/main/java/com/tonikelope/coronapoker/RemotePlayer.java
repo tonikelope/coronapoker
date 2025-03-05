@@ -139,9 +139,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(() -> {
             if (getChat_notify_label().isVisible()) {
                 Helpers.threadRun(() -> {
-                    if (chat_notify_image_url != null) {
-                        setNotifyImageChatLabel(chat_notify_image_url);
-                    } else {
+                    if (chat_notify_image_url == null) {
                         setNotifyTTSChatLabel();
                     }
                 });

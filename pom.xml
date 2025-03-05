@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>17.97</version>
+    <version>17.98</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -127,8 +127,8 @@
     </dependencies>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
     </properties>
     <description>Érase una plandemia y unos amigos que querían echarse su partida de los sábados.</description>
     <name>CoronaPoker</name>

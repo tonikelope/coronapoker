@@ -786,7 +786,7 @@ public class Crupier implements Runnable {
 
                                 long now = System.currentTimeMillis();
 
-                                Helpers.GUIRunAndWait(() -> {
+                                Helpers.GUIRun(() -> {
                                     try {
                                         gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
                                     } catch (Exception ex) {
@@ -2215,7 +2215,7 @@ public class Crupier implements Runnable {
 
                     if (GameFrame.CINEMATICAS) {
 
-                        Helpers.GUIRunAndWait(() -> {
+                        Helpers.GUIRun(() -> {
                             try {
                                 GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
 
@@ -2358,7 +2358,7 @@ public class Crupier implements Runnable {
 
                             if (GameFrame.CINEMATICAS) {
 
-                                Helpers.GUIRunAndWait(() -> {
+                                Helpers.GUIRun(() -> {
                                     try {
                                         GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
                                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());

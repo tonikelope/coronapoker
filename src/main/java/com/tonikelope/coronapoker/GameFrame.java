@@ -1553,7 +1553,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         i60_c = 0;
                         Helpers.GUIRunAndWait(() -> {
                             try {
-                                gif_dialog = new GifAnimationDialog(getFrame(), false, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFFramesCount(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
+                                gif_dialog = new GifAnimationDialog(getFrame(), true, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFFramesCount(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
                                 gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                 gif_dialog.setVisible(true);
                             } catch (Exception ex) {

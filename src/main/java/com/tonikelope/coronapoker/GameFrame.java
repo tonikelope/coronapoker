@@ -586,8 +586,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
                     GraphicsDevice device = env.getDefaultScreenDevice();
-                    menu_bar.setVisible(false);
-                    setVisible(false);
+                    GameFrame.getInstance().setVisible(false);
+                    GameFrame.getInstance().dispose();
+                    GameFrame.getInstance().menu_bar.setVisible(false);
+                    GameFrame.getInstance().setUndecorated(true);
                     device.setFullScreenWindow(GameFrame.getInstance());
                 }
 
@@ -619,9 +621,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
                     GraphicsDevice device = env.getDefaultScreenDevice();
                     device.setFullScreenWindow(null);
-                    setExtendedState(JFrame.MAXIMIZED_BOTH);
-                    setVisible(true);
-                    menu_bar.setVisible(true);
+                    GameFrame.getInstance().dispose();
+                    GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    GameFrame.getInstance().setUndecorated(false);
+                    GameFrame.getInstance().menu_bar.setVisible(true);
+                    GameFrame.getInstance().setVisible(true);
                 }
             }
 

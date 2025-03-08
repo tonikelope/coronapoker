@@ -786,16 +786,17 @@ public class Crupier implements Runnable {
 
                                 long now = System.currentTimeMillis();
 
-                                Helpers.GUIRun(() -> {
-                                    try {
-                                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
-                                    } catch (Exception ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
+                                try {
+                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
 
-                                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                                    gif_dialog.setVisible(true);
-                                });
+                                    Helpers.GUIRun(() -> {
+
+                                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                                        gif_dialog.setVisible(true);
+                                    });
+                                } catch (Exception ex) {
+                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                }
 
                                 while (Init.PLAYING_CINEMATIC && !gif_dialog.isForce_exit()) {
 

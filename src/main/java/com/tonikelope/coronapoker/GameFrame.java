@@ -199,7 +199,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile String nick_pause = null;
     private volatile PauseDialog pausa_dialog = null;
     private volatile boolean game_over_dialog = false;
-    private volatile WheelFrame full_screen_frame = null;
     private volatile AboutDialog about_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
@@ -502,7 +501,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public JFrame getFrame() {
-        return getFull_screen_frame() != null ? getFull_screen_frame() : this;
+        return this;
     }
 
     public void setConta_tiempo_juego(long tiempo_juego) {
@@ -515,10 +514,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public JMenuItem getExit_menu() {
         return exit_menu;
-    }
-
-    public JFrame getFull_screen_frame() {
-        return full_screen_frame;
     }
 
     public void closeWindow() {
@@ -556,28 +551,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (Helpers.OSValidator.isWindows()) {
                     setVisible(false);
-                    getContentPane().remove(frame_layer);
-                    full_screen_frame = new WheelFrame();
-                    full_screen_frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-                    full_screen_frame.addMouseWheelListener(full_screen_frame);
-                    full_screen_frame.addWindowListener(new java.awt.event.WindowAdapter() {
-                        @Override
-                        public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-                            GameFrame.getInstance().closeWindow();
-                        }
-                    });
-                    full_screen_frame.setTitle(GameFrame.getInstance().getTitle());
-                    full_screen_frame.setUndecorated(true);
-                    frame_layer = new JLayer<>(GameFrame.getInstance().getTapete(), capa_brillo);
-                    full_screen_frame.getContentPane().add(frame_layer);
-                    full_screen_frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-                    full_screen_frame.setVisible(true);
+                    dispose();
+                    menu_bar.setVisible(false);
+                    setUndecorated(true);
+                    setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    setVisible(true);
 
                     if (timba_pausada) {
 
                         pausa_dialog.setVisible(false);
                         pausa_dialog.dispose();
-                        pausa_dialog = new PauseDialog(full_screen_frame, false);
+                        pausa_dialog = new PauseDialog(this, false);
                         pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
                         pausa_dialog.setVisible(true);
                     }
@@ -597,15 +581,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (Helpers.OSValidator.isWindows()) {
 
-                    full_screen_frame.getContentPane().remove(GameFrame.getInstance().getTapete());
-                    full_screen_frame.setVisible(false);
-                    full_screen_frame.dispose();
-                    full_screen_frame = null;
-
-                    frame_layer = new JLayer<>(GameFrame.getInstance().getTapete(), capa_brillo);
-                    GameFrame.getInstance().getContentPane().add(frame_layer);
-                    GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
-                    GameFrame.getInstance().setVisible(true);
+                    setVisible(false);
+                    dispose();
+                    menu_bar.setVisible(true);
+                    setUndecorated(false);
+                    setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    setVisible(true);
 
                     if (timba_pausada) {
 

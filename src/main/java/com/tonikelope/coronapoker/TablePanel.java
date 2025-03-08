@@ -142,7 +142,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     }
                     fastbuttons.setLocation(0, (int) (getHeight() - fastbuttons.getSize().getHeight()));
                     GameFrame.getInstance().getFull_screen_menu().setEnabled(false);
-                    JFrame frame = GameFrame.getInstance().getFull_screen_frame();
+                    JFrame frame = GameFrame.getInstance();
                     if (GameFrame.getInstance().isFull_screen() && frame != null && frame.getExtendedState() != JFrame.MAXIMIZED_BOTH) {
 
                         frame.setVisible(false);

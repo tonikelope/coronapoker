@@ -322,61 +322,65 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.threadRun(() -> {
                 chat_notify_thread = Thread.currentThread().getId();
                 synchronized (getChat_notify_label()) {
-                    getChat_notify_label().notifyAll();
-                    Helpers.GUIRunAndWait(() -> {
-                        try {
-                            ImageIcon image = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
+                    try {
+                        getChat_notify_label().notifyAll();
 
-                            int max_width = panel_cartas.getWidth();
+                        final ImageIcon orig = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
 
-                            int max_height = Math.round(getHoleCard1().getHeight() / 2);
+                        int max_width = panel_cartas.getWidth();
 
-                            int new_height = max_height;
+                        int max_height = Math.round(getHoleCard1().getHeight() / 2);
 
-                            int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
+                        int new_height = max_height;
 
-                            if (new_width > max_width) {
+                        int new_width = (int) Math.round((orig.getIconWidth() * max_height) / orig.getIconHeight());
 
-                                new_height = (int) Math.round((new_height * max_width) / new_width);
+                        if (new_width > max_width) {
 
-                                new_width = max_width;
-                            }
+                            new_height = (int) Math.round((new_height * max_width) / new_width);
 
-                            image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-
-                            int pos_x = panel_cartas.getWidth() - image.getIconWidth();
-
-                            int pos_y = Math.round(getHoleCard1().getHeight() / 2);
-
-                            if (isgif) {
-                                getChat_notify_label().setIcon(image, Helpers.getGIFFramesCount(u));
-                            } else {
-                                getChat_notify_label().setIcon(image);
-                            }
-
-                            getChat_notify_label().setRepeat(NOTIFY_INGAME_GIF_REPEAT);
-
-                            getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
-
-                            getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
-
-                            getChat_notify_label().setOpaque(false);
-
-                            getChat_notify_label().revalidate();
-
-                            getChat_notify_label().repaint();
-
-                            getChat_notify_label().setLocation(pos_x, pos_y);
-
-                            getChat_notify_label().setVisible(true);
-                        } catch (MalformedURLException ex) {
-                            Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (IOException ex) {
-                            Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (ImageProcessingException ex) {
-                            Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                            new_width = max_width;
                         }
-                    });
+
+                        final ImageIcon image = new ImageIcon(orig.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+
+                        int pos_x = panel_cartas.getWidth() - image.getIconWidth();
+
+                        int pos_y = Math.round(getHoleCard1().getHeight() / 2);
+
+                        Helpers.GUIRunAndWait(() -> {
+                            try {
+
+                                if (isgif) {
+                                    getChat_notify_label().setIcon(image, Helpers.getGIFFramesCount(u));
+                                } else {
+                                    getChat_notify_label().setIcon(image);
+                                }
+
+                                getChat_notify_label().setRepeat(NOTIFY_INGAME_GIF_REPEAT);
+
+                                getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
+
+                                getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+
+                                getChat_notify_label().setOpaque(false);
+
+                                getChat_notify_label().revalidate();
+
+                                getChat_notify_label().repaint();
+
+                                getChat_notify_label().setLocation(pos_x, pos_y);
+
+                                getChat_notify_label().setVisible(true);
+                            } catch (MalformedURLException ex) {
+                                Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                            } catch (IOException | ImageProcessingException ex) {
+                                Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        });
+                    } catch (MalformedURLException ex) {
+                        Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
 
                 if (isgif) {

@@ -212,7 +212,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 final boolean isgif = (action_gif || ChatImageDialog.GIF_CACHE.containsKey(u.toString()) || Helpers.isImageGIF(u));
 
-                final CyclicBarrier gif_barrier = new CyclicBarrier(3);
+                final CyclicBarrier gif_barrier = new CyclicBarrier(action_gif?3:2);
 
                 getChat_notify_label().setBarrier(gif_barrier);
 
@@ -280,16 +280,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 getChat_notify_label().setVisible(true);
                             } catch (MalformedURLException ex) {
                                 Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
-                            } catch (IOException ex) {
-                                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
-                            } catch (ImageProcessingException ex) {
+                            } catch (IOException | ImageProcessingException ex) {
                                 Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                             }
                         });
                     }
 
                     if (isgif) {
-
+                        
                         try {
                             gif_barrier.await();
                         } catch (Exception ex) {
@@ -304,6 +302,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             }
                         }
                     }
+                    
+                    
 
                     if (Thread.currentThread().getId() == chat_notify_thread) {
                         Helpers.GUIRunAndWait(() -> {
@@ -1312,7 +1312,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void player_actionMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseClicked
         // TODO add your handling code here:
 
-        if (GameFrame.IWTSTH_RULE && isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsthing_request() && !GameFrame.getInstance().getCrupier().isIwtsth() && GameFrame.getInstance().getCrupier().isShow_time()) {
+        if (GameFrame.getInstance().isPartida_local() && this.timeout) {
+
+            if (!GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
+                GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nickname);
+            }
+
+        } else if (GameFrame.IWTSTH_RULE && isIwtsthCandidate() && GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized() && !GameFrame.getInstance().getCrupier().isIwtsthing() && !GameFrame.getInstance().getCrupier().isIwtsthing_request() && !GameFrame.getInstance().getCrupier().isIwtsth() && GameFrame.getInstance().getCrupier().isShow_time()) {
 
             GameFrame.getInstance().getCrupier().IWTSTH_REQUEST(GameFrame.getInstance().getLocalPlayer().getNickname());
         }
@@ -1333,9 +1339,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
 
-        if (GameFrame.getInstance().isPartida_local() && SwingUtilities.isRightMouseButton(evt)) {
+        if (GameFrame.getInstance().isPartida_local() && this.timeout) {
 
-            if (!GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && this.timeout && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
+            if (!GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
                 GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nickname);
             }
 

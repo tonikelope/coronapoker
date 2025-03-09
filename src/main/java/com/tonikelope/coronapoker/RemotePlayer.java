@@ -212,82 +212,87 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 final boolean isgif = (action_gif || ChatImageDialog.GIF_CACHE.containsKey(u.toString()) || Helpers.isImageGIF(u));
 
-                final CyclicBarrier gif_barrier = new CyclicBarrier(action_gif?3:2);
+                final CyclicBarrier gif_barrier = new CyclicBarrier(action_gif ? 3 : 2);
 
                 getChat_notify_label().setBarrier(gif_barrier);
 
                 Helpers.threadRun(() -> {
                     chat_notify_thread = Thread.currentThread().getId();
                     synchronized (getChat_notify_label()) {
-                        getChat_notify_label().notifyAll();
+                        try {
+                            getChat_notify_label().notifyAll();
 
-                        Helpers.GUIRunAndWait(() -> {
-                            try {
-                                ImageIcon image = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
+                            final ImageIcon orig = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
 
-                                int max_width = Math.max(panel_cartas.getWidth(), image.getIconWidth());
+                            int max_width = Math.max(panel_cartas.getWidth(), orig.getIconWidth());
 
-                                int max_height = Math.max(panel_cartas.getHeight(), panel_cartas.getHeight());
+                            int max_height = Math.max(panel_cartas.getHeight(), panel_cartas.getHeight());
 
-                                int new_height = max_height;
+                            int new_height = max_height;
 
-                                int new_width = (int) Math.round((image.getIconWidth() * max_height) / image.getIconHeight());
+                            int new_width = (int) Math.round((orig.getIconWidth() * max_height) / orig.getIconHeight());
 
-                                if (new_width > max_width) {
+                            if (new_width > max_width) {
 
-                                    new_height = (int) Math.round((new_height * max_width) / new_width);
+                                new_height = (int) Math.round((new_height * max_width) / new_width);
 
-                                    new_width = max_width;
-                                }
-
-                                image = new ImageIcon(image.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
-
-                                int pos_x = Math.round((panel_cartas.getWidth() - image.getIconWidth()) / 2);
-
-                                int pos_y = Math.round((getHoleCard1().getHeight() - image.getIconHeight()) / 2);
-
-                                if (isgif) {
-                                    getChat_notify_label().setIcon(image, Helpers.getGIFFramesCount(u));
-                                } else {
-                                    getChat_notify_label().setIcon(image);
-                                }
-
-                                getChat_notify_label().setRepeat(action_gif ? 1 : NOTIFY_INGAME_GIF_REPEAT);
-
-                                if (action_gif) {
-
-                                    if (getDecision() == Player.BET) {
-                                        getChat_notify_label().addAudio("misc/bet.wav", 32, 60);
-                                    } else if (getDecision() == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                                        getChat_notify_label().addAudio("misc/call.wav", 32, 60);
-                                    } else if (getDecision() == Player.CHECK) {
-                                        getChat_notify_label().addAudio("misc/check.wav", 5, 14);
-                                    }
-                                }
-
-                                getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
-
-                                getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
-
-                                getChat_notify_label().setOpaque(false);
-
-                                getChat_notify_label().revalidate();
-
-                                getChat_notify_label().repaint();
-
-                                getChat_notify_label().setLocation(pos_x, pos_y);
-
-                                getChat_notify_label().setVisible(true);
-                            } catch (MalformedURLException ex) {
-                                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
-                            } catch (IOException | ImageProcessingException ex) {
-                                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                                new_width = max_width;
                             }
-                        });
+
+                            final ImageIcon image = new ImageIcon(orig.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+
+                            int pos_x = Math.round((panel_cartas.getWidth() - image.getIconWidth()) / 2);
+
+                            int pos_y = Math.round((getHoleCard1().getHeight() - image.getIconHeight()) / 2);
+
+                            Helpers.GUIRunAndWait(() -> {
+                                try {
+
+                                    if (isgif) {
+                                        getChat_notify_label().setIcon(image, Helpers.getGIFFramesCount(u));
+                                    } else {
+                                        getChat_notify_label().setIcon(image);
+                                    }
+
+                                    getChat_notify_label().setRepeat(action_gif ? 1 : NOTIFY_INGAME_GIF_REPEAT);
+
+                                    if (action_gif) {
+
+                                        if (getDecision() == Player.BET) {
+                                            getChat_notify_label().addAudio("misc/bet.wav", 32, 60);
+                                        } else if (getDecision() == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                                            getChat_notify_label().addAudio("misc/call.wav", 32, 60);
+                                        } else if (getDecision() == Player.CHECK) {
+                                            getChat_notify_label().addAudio("misc/check.wav", 5, 14);
+                                        }
+                                    }
+
+                                    getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
+
+                                    getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+
+                                    getChat_notify_label().setOpaque(false);
+
+                                    getChat_notify_label().revalidate();
+
+                                    getChat_notify_label().repaint();
+
+                                    getChat_notify_label().setLocation(pos_x, pos_y);
+
+                                    getChat_notify_label().setVisible(true);
+                                } catch (MalformedURLException ex) {
+                                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                                } catch (IOException | ImageProcessingException ex) {
+                                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            });
+                        } catch (MalformedURLException ex) {
+                            Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
 
                     if (isgif) {
-                        
+
                         try {
                             gif_barrier.await();
                         } catch (Exception ex) {
@@ -302,8 +307,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             }
                         }
                     }
-                    
-                    
 
                     if (Thread.currentThread().getId() == chat_notify_thread) {
                         Helpers.GUIRunAndWait(() -> {

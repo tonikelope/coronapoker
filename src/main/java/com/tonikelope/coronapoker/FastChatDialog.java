@@ -55,6 +55,10 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
         initComponents();
 
+        setOpacity(0.5f);
+
+        history_chat.setText(GameFrame.getInstance().getSala_espera().getChat_text().toString());
+
         if (text != null) {
             chat_box.setText(text.getText());
             chat_box.setCaretPosition(text.getCaretPosition());
@@ -66,7 +70,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
         Helpers.setScaledIconLabel(icono, getClass().getResource("/images/chat.png"), chat_box.getHeight(), chat_box.getHeight());
 
-        chat_panel.setSize((int) Math.round(GameFrame.getInstance().getFrame().getWidth() * 0.3f), chat_box.getHeight());
+        chat_panel.setSize((int) Math.round(GameFrame.getInstance().getFrame().getWidth() * 0.3f), GameFrame.getInstance().getLocalPlayer().getHeight());
 
         chat_panel.setPreferredSize(chat_panel.getSize());
 
@@ -80,6 +84,13 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
     }
 
+    public void refreshChatHistory() {
+        Helpers.GUIRun(() -> {
+            history_chat.setText(GameFrame.getInstance().getSala_espera().getChat_text().toString());
+            chat_panel.repaint();
+        });
+    }
+
     public void refreshColors() {
 
         Helpers.GUIRun(() -> {
@@ -89,10 +100,14 @@ public final class FastChatDialog extends javax.swing.JDialog {
                     chat_panel.setBackground(Color.DARK_GRAY);
                     chat_box.setBackground(Color.DARK_GRAY);
                     chat_box.setForeground(Color.WHITE);
+                    history_chat.setBackground(Color.DARK_GRAY);
+                    history_chat.setForeground(Color.WHITE);
                 } else {
                     chat_panel.setBackground(Color.WHITE);
                     chat_box.setForeground(null);
                     chat_box.setBackground(null);
+                    history_chat.setBackground(null);
+                    history_chat.setForeground(null);
                 }
 
             } else {
@@ -122,11 +137,14 @@ public final class FastChatDialog extends javax.swing.JDialog {
         chat_panel = new javax.swing.JPanel();
         icono = new javax.swing.JLabel();
         chat_box = new javax.swing.JTextField();
+        history_scroll_panel = new javax.swing.JScrollPane();
+        history_chat = new javax.swing.JTextArea();
 
         setUndecorated(true);
 
         chat_panel.setBackground(new java.awt.Color(255, 255, 255));
 
+        icono.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/chat.png"))); // NOI18N
         icono.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         icono.setDoubleBuffered(true);
         icono.setFocusable(false);
@@ -161,24 +179,35 @@ public final class FastChatDialog extends javax.swing.JDialog {
             }
         });
 
+        history_scroll_panel.setFocusable(false);
+
+        history_chat.setEditable(false);
+        history_chat.setColumns(20);
+        history_chat.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
+        history_chat.setRows(5);
+        history_chat.setText("[JUANCHO]: adjakjdklajdasd\nadasdasd\n\nasdasdasd\nerter\nertert\nertertert\n");
+        history_chat.setDoubleBuffered(true);
+        history_chat.setFocusable(false);
+        history_scroll_panel.setViewportView(history_chat);
+
         javax.swing.GroupLayout chat_panelLayout = new javax.swing.GroupLayout(chat_panel);
         chat_panel.setLayout(chat_panelLayout);
         chat_panelLayout.setHorizontalGroup(
             chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(history_scroll_panel)
             .addGroup(chat_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
                 .addComponent(icono)
                 .addGap(0, 0, 0)
-                .addComponent(chat_box))
+                .addComponent(chat_box, javax.swing.GroupLayout.PREFERRED_SIZE, 449, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         chat_panelLayout.setVerticalGroup(
             chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(chat_panelLayout.createSequentialGroup()
+                .addComponent(history_scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 337, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
-                .addGroup(chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(chat_box)
-                    .addComponent(icono))
-                .addGap(0, 0, Short.MAX_VALUE))
+                .addGroup(chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(chat_box, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(icono)))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -361,6 +390,8 @@ public final class FastChatDialog extends javax.swing.JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextField chat_box;
     private javax.swing.JPanel chat_panel;
+    private javax.swing.JTextArea history_chat;
+    private javax.swing.JScrollPane history_scroll_panel;
     private javax.swing.JLabel icono;
     // End of variables declaration//GEN-END:variables
 }

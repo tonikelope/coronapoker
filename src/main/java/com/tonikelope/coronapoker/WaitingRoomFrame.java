@@ -2341,26 +2341,32 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
         chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") " + msg + "\n");
 
         Helpers.GUIRun(() -> {
-            if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive() && WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
+            if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive()) {
 
-                if (msg.startsWith("img://") || msg.startsWith("imgs://")) {
+                if (GameFrame.getInstance().getFastchat_dialog() != null) {
+                    GameFrame.getInstance().getFastchat_dialog().refreshChatHistory();
+                }
+                
+                if (WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
+                    if (msg.startsWith("img://") || msg.startsWith("imgs://")) {
 
-                    try {
-                        GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, new URL(msg.replaceAll("^img", "http"))});
-                    } catch (MalformedURLException ex) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        try {
+                            GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, new URL(msg.replaceAll("^img", "http"))});
+                        } catch (MalformedURLException ex) {
+                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                    } else {
+
+                        String tts_msg = cleanTTSChatMessage(msg);
+
+                        GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, tts_msg});
+
                     }
 
-                } else {
-
-                    String tts_msg = cleanTTSChatMessage(msg);
-
-                    GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, tts_msg});
-
-                }
-
-                synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
-                    GameFrame.NOTIFY_CHAT_QUEUE.notifyAll();
+                    synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
+                        GameFrame.NOTIFY_CHAT_QUEUE.notifyAll();
+                    }
                 }
             }
         });

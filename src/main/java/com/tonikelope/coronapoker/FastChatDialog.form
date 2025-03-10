@@ -46,12 +46,8 @@
       <Layout>
         <DimensionLayout dim="0">
           <Group type="103" groupAlignment="0" attributes="0">
-              <Component id="history_scroll_panel" max="32767" attributes="0"/>
-              <Group type="102" attributes="0">
-                  <Component id="icono" max="-2" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Component id="chat_box" min="-2" pref="449" max="-2" attributes="0"/>
-              </Group>
+              <Component id="history_scroll_panel" pref="595" max="32767" attributes="0"/>
+              <Component id="chat_box" alignment="1" max="32767" attributes="0"/>
           </Group>
         </DimensionLayout>
         <DimensionLayout dim="1">
@@ -59,30 +55,12 @@
               <Group type="102" alignment="0" attributes="0">
                   <Component id="history_scroll_panel" pref="337" max="32767" attributes="0"/>
                   <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Group type="103" groupAlignment="1" attributes="0">
-                      <Component id="chat_box" min="-2" max="-2" attributes="0"/>
-                      <Component id="icono" min="-2" max="-2" attributes="0"/>
-                  </Group>
+                  <Component id="chat_box" min="-2" max="-2" attributes="0"/>
               </Group>
           </Group>
         </DimensionLayout>
       </Layout>
       <SubComponents>
-        <Component class="javax.swing.JLabel" name="icono">
-          <Properties>
-            <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-              <Image iconType="3" name="/images/menu/chat.png"/>
-            </Property>
-            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-              <Color id="Cursor de Mano"/>
-            </Property>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
-          <Events>
-            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="iconoMouseClicked"/>
-          </Events>
-        </Component>
         <Component class="javax.swing.JTextField" name="chat_box">
           <Properties>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
@@ -105,6 +83,13 @@
         </Component>
         <Container class="javax.swing.JScrollPane" name="history_scroll_panel">
           <Properties>
+            <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+              <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
+                <LineBorder>
+                  <Color PropertyName="color" blue="ff" green="ff" red="ff" type="rgb"/>
+                </LineBorder>
+              </Border>
+            </Property>
             <Property name="focusable" type="boolean" value="false"/>
           </Properties>
           <AuxValues>
@@ -120,8 +105,12 @@
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Dialog" size="18" style="0"/>
                 </Property>
+                <Property name="lineWrap" type="boolean" value="true"/>
                 <Property name="rows" type="int" value="5"/>
-                <Property name="text" type="java.lang.String" value="[JUANCHO]: adjakjdklajdasd&#xa;adasdasd&#xa;&#xa;asdasdasd&#xa;erter&#xa;ertert&#xa;ertertert&#xa;"/>
+                <Property name="text" type="java.lang.String" value="&#xa;"/>
+                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                  <Border info="null"/>
+                </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
                 <Property name="focusable" type="boolean" value="false"/>
               </Properties>

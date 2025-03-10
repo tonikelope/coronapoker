@@ -33,6 +33,8 @@ import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.BorderFactory;
+import static javax.swing.BorderFactory.createCompoundBorder;
 import javax.swing.JTextField;
 import javax.swing.text.BadLocationException;
 
@@ -55,20 +57,20 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        setOpacity(0.5f);
-
-        history_chat.setText(GameFrame.getInstance().getSala_espera().getChat_text().toString());
+        setOpacity(0.8f);
 
         if (text != null) {
             chat_box.setText(text.getText());
             chat_box.setCaretPosition(text.getCaretPosition());
         }
+        
+        history_chat.setBorder(createCompoundBorder(history_chat.getBorder(), BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
         pack();
 
-        Helpers.setScaledIconLabel(icono, getClass().getResource("/images/chat.png"), chat_box.getHeight(), chat_box.getHeight());
+        //Helpers.setScaledIconLabel(icono, getClass().getResource("/images/chat.png"), chat_box.getHeight(), chat_box.getHeight());
 
         chat_panel.setSize((int) Math.round(GameFrame.getInstance().getFrame().getWidth() * 0.3f), GameFrame.getInstance().getLocalPlayer().getHeight());
 
@@ -77,6 +79,8 @@ public final class FastChatDialog extends javax.swing.JDialog {
         setSize(chat_panel.getSize());
 
         setPreferredSize(getSize());
+        
+        refreshChatHistory();
 
         refreshColors();
 
@@ -103,18 +107,16 @@ public final class FastChatDialog extends javax.swing.JDialog {
                     history_chat.setBackground(Color.DARK_GRAY);
                     history_chat.setForeground(Color.WHITE);
                 } else {
-                    chat_panel.setBackground(Color.WHITE);
-                    chat_box.setForeground(null);
-                    chat_box.setBackground(null);
-                    history_chat.setBackground(null);
-                    history_chat.setForeground(null);
+                    chat_panel.setBackground(Color.BLACK);
+                    chat_box.setBackground(Color.BLACK);
+                    chat_box.setForeground(Color.WHITE);
+                    history_chat.setBackground(Color.BLACK);
+                    history_chat.setForeground(Color.WHITE);
                 }
 
             } else {
 
-                chat_box.setBackground(Color.YELLOW);
-                chat_panel.setBackground(Color.YELLOW);
-                chat_box.setForeground(null);
+                chat_box.setForeground(Color.RED);
             }
 
             chat_panel.repaint();
@@ -135,7 +137,6 @@ public final class FastChatDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         chat_panel = new javax.swing.JPanel();
-        icono = new javax.swing.JLabel();
         chat_box = new javax.swing.JTextField();
         history_scroll_panel = new javax.swing.JScrollPane();
         history_chat = new javax.swing.JTextArea();
@@ -143,16 +144,6 @@ public final class FastChatDialog extends javax.swing.JDialog {
         setUndecorated(true);
 
         chat_panel.setBackground(new java.awt.Color(255, 255, 255));
-
-        icono.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/chat.png"))); // NOI18N
-        icono.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        icono.setDoubleBuffered(true);
-        icono.setFocusable(false);
-        icono.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                iconoMouseClicked(evt);
-            }
-        });
 
         chat_box.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
         chat_box.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -179,13 +170,16 @@ public final class FastChatDialog extends javax.swing.JDialog {
             }
         });
 
+        history_scroll_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
         history_scroll_panel.setFocusable(false);
 
         history_chat.setEditable(false);
         history_chat.setColumns(20);
         history_chat.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
+        history_chat.setLineWrap(true);
         history_chat.setRows(5);
-        history_chat.setText("[JUANCHO]: adjakjdklajdasd\nadasdasd\n\nasdasdasd\nerter\nertert\nertertert\n");
+        history_chat.setText("\n");
+        history_chat.setBorder(null);
         history_chat.setDoubleBuffered(true);
         history_chat.setFocusable(false);
         history_scroll_panel.setViewportView(history_chat);
@@ -194,20 +188,15 @@ public final class FastChatDialog extends javax.swing.JDialog {
         chat_panel.setLayout(chat_panelLayout);
         chat_panelLayout.setHorizontalGroup(
             chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(history_scroll_panel)
-            .addGroup(chat_panelLayout.createSequentialGroup()
-                .addComponent(icono)
-                .addGap(0, 0, 0)
-                .addComponent(chat_box, javax.swing.GroupLayout.PREFERRED_SIZE, 449, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addComponent(history_scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 595, Short.MAX_VALUE)
+            .addComponent(chat_box, javax.swing.GroupLayout.Alignment.TRAILING)
         );
         chat_panelLayout.setVerticalGroup(
             chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(chat_panelLayout.createSequentialGroup()
                 .addComponent(history_scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 337, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
-                .addGroup(chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(chat_box, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(icono)))
+                .addComponent(chat_box, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -323,11 +312,11 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
             if (chat_box.getText().length() <= Audio.MAX_TTS_LENGTH) {
 
-                if (chat_box.getBackground() != Color.WHITE || chat_box.getBackground() != Color.DARK_GRAY) {
+                if (chat_box.getBackground() != Color.WHITE) {
                     refreshColors();
                 }
 
-            } else if (chat_box.getBackground() != Color.YELLOW) {
+            } else if (chat_box.getBackground() != Color.RED) {
                 refreshColors();
             }
         }
@@ -370,11 +359,6 @@ public final class FastChatDialog extends javax.swing.JDialog {
         }
     }//GEN-LAST:event_chat_boxFocusGained
 
-    private void iconoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_iconoMouseClicked
-        // TODO add your handling code here:
-        setVisible(false);
-    }//GEN-LAST:event_iconoMouseClicked
-
     private void chat_boxKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_chat_boxKeyReleased
         // TODO add your handling code here:
         if (evt.getKeyCode() != KeyEvent.VK_ENTER && (evt.getKeyChar() != 'º' || evt.isControlDown()) && evt.getKeyCode() != KeyEvent.VK_UP && evt.getKeyCode() != KeyEvent.VK_DOWN && current_message != null) {
@@ -392,6 +376,5 @@ public final class FastChatDialog extends javax.swing.JDialog {
     private javax.swing.JPanel chat_panel;
     private javax.swing.JTextArea history_chat;
     private javax.swing.JScrollPane history_scroll_panel;
-    private javax.swing.JLabel icono;
     // End of variables declaration//GEN-END:variables
 }

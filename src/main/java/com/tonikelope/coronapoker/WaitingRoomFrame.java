@@ -2346,7 +2346,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                 if (GameFrame.getInstance().getFastchat_dialog() != null) {
                     GameFrame.getInstance().getFastchat_dialog().refreshChatHistory();
                 }
-                
+
                 if (WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
                     if (msg.startsWith("img://") || msg.startsWith("imgs://")) {
 
@@ -3223,7 +3223,6 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                 this.empezar_timba.setEnabled(false);
-                this.empezar_timba.setVisible(false);
                 this.new_bot_button.setEnabled(false);
                 this.new_bot_button.setVisible(false);
                 game_info_buyin.setToolTipText(null);
@@ -3694,6 +3693,15 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
+
+        if (isPartida_empezada() && panel_arriba.isVisible()) {
+
+            panel_arriba.setVisible(false);
+
+            Helpers.setScaledIconLabel(max_min_label, getClass().getResource("/images/" + (panel_arriba.isVisible() ? "maximize" : "minimize") + ".png"), chat_box.getHeight(), chat_box.getHeight());
+
+            main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
+        }
 
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 

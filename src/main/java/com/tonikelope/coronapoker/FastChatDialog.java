@@ -90,7 +90,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
     public void refreshChatHistory() {
         Helpers.GUIRun(() -> {
-            history_chat.setText(GameFrame.getInstance().getSala_espera().getChat_text().toString());
+            history_chat.setText(GameFrame.getInstance().getSala_espera().getChat_text().toString().trim());
             chat_panel.repaint();
         });
     }
@@ -238,8 +238,8 @@ public final class FastChatDialog extends javax.swing.JDialog {
             GameFrame.getInstance().getSala_espera().enviarMensajeChat(GameFrame.getInstance().getLocalPlayer().getNickname(), mensaje);
 
             chat_box.setText("");
-
-            setVisible(false);
+            
+            refreshChatHistory();
 
             if (WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
 
@@ -260,8 +260,6 @@ public final class FastChatDialog extends javax.swing.JDialog {
                     GameFrame.getInstance().getSala_espera().setChat_enabled(true);
                 });
             });
-        } else {
-            setVisible(false);
         }
     }//GEN-LAST:event_chat_boxActionPerformed
 
@@ -361,7 +359,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
     private void chat_boxKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_chat_boxKeyReleased
         // TODO add your handling code here:
-        if (evt.getKeyCode() != KeyEvent.VK_ENTER && (evt.getKeyChar() != 'º' || evt.isControlDown()) && evt.getKeyCode() != KeyEvent.VK_UP && evt.getKeyCode() != KeyEvent.VK_DOWN && current_message != null) {
+        if (HISTORIAL_INDEX<HISTORIAL.size() && evt.getKeyCode() != KeyEvent.VK_ENTER && (evt.getKeyChar() != 'º' || evt.isControlDown()) && evt.getKeyCode() != KeyEvent.VK_UP && evt.getKeyCode() != KeyEvent.VK_DOWN && current_message != null) {
 
             if (HISTORIAL.get(HISTORIAL_INDEX)[1] == null) {
                 HISTORIAL.set(HISTORIAL_INDEX, new String[]{chat_box.getText(), HISTORIAL.get(HISTORIAL_INDEX)[0]});

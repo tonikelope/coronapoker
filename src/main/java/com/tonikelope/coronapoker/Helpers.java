@@ -4048,6 +4048,10 @@ public class Helpers {
                         GameFrame.getInstance().getAuto_action_menu().doClick();
                     }
                 };
+                
+                JMenuItem shortcuts = new JMenuItem(shortcutsAction);
+                shortcuts.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/keyboard.png")));
+                popup.add(shortcuts);
 
                 JMenuItem chat = new JMenuItem(chatAction);
                 chat.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat.png")));
@@ -4122,9 +4126,7 @@ public class Helpers {
 
                 popup.addSeparator();
 
-                JMenuItem shortcuts = new JMenuItem(shortcutsAction);
-                shortcuts.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/keyboard.png")));
-                popup.add(shortcuts);
+                
                 CONFIRM_MENU = new JCheckBoxMenuItem(confirmAction);
                 CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/confirmation.png")));
                 CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);

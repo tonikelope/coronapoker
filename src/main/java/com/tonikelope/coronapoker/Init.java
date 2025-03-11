@@ -126,6 +126,13 @@ public class Init extends javax.swing.JFrame {
 
     static {
 
+        if (Helpers.OSValidator.isUnix()) {
+            System.setProperty("sun.java2d.opengl", "true");
+        }
+
+        System.setProperty("sun.java2d.noddraw", "true");
+        System.setProperty("sun.java2d.d3d", "false");
+
         try {
             CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
             CORONA_HMAC_VM = Class.forName("com.tonikelope.coronahmac.M").getMethod("VM", new Class<?>[]{});
@@ -902,10 +909,6 @@ public class Init extends javax.swing.JFrame {
         if (!INIT) {
 
             INIT = true;
-
-            System.setProperty("sun.java2d.noddraw", "true");
-
-            System.setProperty("sun.java2d.d3d", "false");
 
             Helpers.threadRun(() -> {
 

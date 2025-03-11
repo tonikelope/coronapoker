@@ -128,10 +128,11 @@ public class Init extends javax.swing.JFrame {
 
         if (Helpers.OSValidator.isUnix()) {
             System.setProperty("sun.java2d.opengl", "true");
+            System.setProperty("sun.java2d.d3d", "false");
+        } else if (Helpers.OSValidator.isWindows()) {
+            System.setProperty("sun.java2d.opengl", "false");
+            System.setProperty("sun.java2d.d3d", "true");
         }
-
-        System.setProperty("sun.java2d.noddraw", "true");
-        System.setProperty("sun.java2d.d3d", "false");
 
         try {
             CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});

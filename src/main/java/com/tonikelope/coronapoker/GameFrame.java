@@ -1531,31 +1531,30 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.threadRun(() -> {
                     cambiarBaraja();
                     if (Init.M2 != null && GameFrame.BARAJA.equals("interstate60") && i60_c == 5) {
+
                         try {
+                            Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"), (byte[]) M2.invoke(null, "e"));
+                        } catch (Exception ex) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                        i60_c = 0;
+
+                        Helpers.GUIRunAndWait(() -> {
                             try {
-                                Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"), (byte[]) M2.invoke(null, "e"));
-                            } catch (Exception ex) {
-                                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                            i60_c = 0;
-                            gif_dialog = new GifAnimationDialog(getFrame(), true, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFFramesCount(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
-
-                            Helpers.GUIRunAndWait(() -> {
-
+                                gif_dialog = new GifAnimationDialog(getFrame(), true, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFFramesCount(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
                                 gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                 gif_dialog.setVisible(true);
-
-                            });
-                            try {
-                                Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"));
-                            } catch (IOException ex) {
-                                Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
+                            } catch (IOException | ImageProcessingException ex) {
+                                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                             }
+
+                        });
+                        try {
+                            Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"));
                         } catch (IOException ex) {
-                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (ImageProcessingException ex) {
-                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                         }
+
                     }
                 });
             });
@@ -2060,27 +2059,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 final URL f_url_icon = url_icon;
 
-                try {
-                    gif_dialog = new GifAnimationDialog(getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
-                } catch (IOException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (ImageProcessingException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                }
-
                 Helpers.GUIRun(() -> {
-
-                    gif_dialog.addMouseListener(new MouseAdapter() {
-                        @Override
-                        public void mouseClicked(MouseEvent e) {
-                            {
-                                exitNOW();
+                    try {
+                        gif_dialog = new GifAnimationDialog(getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
+                        gif_dialog.addMouseListener(new MouseAdapter() {
+                            @Override
+                            public void mouseClicked(MouseEvent e) {
+                                {
+                                    exitNOW();
+                                }
                             }
-                        }
-                    });
+                        });
 
-                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                    gif_dialog.setVisible(true);
+                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                        gif_dialog.setVisible(true);
+                    } catch (IOException | ImageProcessingException ex) {
+                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 });
             }
 

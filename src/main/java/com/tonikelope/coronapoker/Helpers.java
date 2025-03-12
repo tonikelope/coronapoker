@@ -223,6 +223,8 @@ import static com.tonikelope.coronapoker.Init.SETDPI_DIR;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.FocusTraversalPolicy;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
 import java.awt.Insets;
 import java.awt.color.ColorSpace;
 import java.awt.image.ColorConvertOp;
@@ -297,6 +299,26 @@ public class Helpers {
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
+
+    }
+
+    public static GraphicsDevice obtenerPantallaActual(Window ventana) {
+
+        GraphicsConfiguration config = ventana.getGraphicsConfiguration();
+
+        GraphicsDevice myScreen = config.getDevice();
+
+        GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
+
+        GraphicsDevice[] allScreens = env.getScreenDevices();
+
+        for (GraphicsDevice allScreen : allScreens) {
+            if (allScreen.equals(myScreen)) {
+                return allScreen;
+            }
+        }
+
+        return env.getDefaultScreenDevice();
 
     }
 

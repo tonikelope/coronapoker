@@ -28,7 +28,6 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.Color;
 import java.awt.event.ActionEvent;
 import javax.swing.Timer;
 
@@ -49,10 +48,6 @@ public class PauseDialog extends javax.swing.JDialog {
 
         initComponents();
 
-        setBackground(new Color(0, 0, 0, 0));
-
-        pausa_label.setBackground(new Color(0, 0, 0, 0));
-
         last_zoom = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
         Helpers.preserveOriginalFontSizes(this);
@@ -67,8 +62,6 @@ public class PauseDialog extends javax.swing.JDialog {
 
         pack();
 
-        PauseDialog tthis = this;
-
         timer = new Timer(1000, (ActionEvent ae) -> {
             pausa_label.setVisible(!pausa_label.isVisible());
             if (pausa_label.isVisible()) {
@@ -81,7 +74,7 @@ public class PauseDialog extends javax.swing.JDialog {
                             pack();
                             Helpers.setScaledIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
                             pack();
-                            Helpers.setLocationContainerRelativeTo(getParent(), tthis);
+                            Helpers.setLocationContainerRelativeTo(getParent(), this);
                         });
                     });
                 }

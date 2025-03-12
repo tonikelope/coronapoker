@@ -788,17 +788,15 @@ public class Crupier implements Runnable {
 
                                 long now = System.currentTimeMillis();
 
-                                try {
-                                    gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
-
-                                    Helpers.GUIRun(() -> {
-
+                                Helpers.GUIRun(() -> {
+                                    try {
+                                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
                                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                         gif_dialog.setVisible(true);
-                                    });
-                                } catch (Exception ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                }
+                                    } catch (IOException | ImageProcessingException ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                });
 
                                 while (Init.PLAYING_CINEMATIC && !gif_dialog.isForce_exit()) {
 
@@ -2218,23 +2216,20 @@ public class Crupier implements Runnable {
 
                     if (GameFrame.CINEMATICAS) {
 
-                        try {
-                            GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
-
-                            Helpers.GUIRun(() -> {
-
+                        Helpers.GUIRun(() -> {
+                            try {
+                                GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
                                 gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-
                                 gif_dialog.setVisible(true);
+                            } catch (URISyntaxException | IOException | ImageProcessingException ex) {
+                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            }
 
-                            });
+                        });
 
-                            Helpers.pausar(500);
+                        Helpers.pausar(500);
 
-                            Audio.playWavResourceAndWait("misc/iwtsth.wav");
-                        } catch (URISyntaxException | IOException | ImageProcessingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
+                        Audio.playWavResourceAndWait("misc/iwtsth.wav");
 
                     } else {
                         Audio.playWavResourceAndWait("misc/iwtsth.wav");
@@ -2361,18 +2356,18 @@ public class Crupier implements Runnable {
                             GameFrame.getInstance().getRegistro().print(Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
 
                             if (GameFrame.CINEMATICAS) {
-                                try {
-                                    GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
 
-                                    Helpers.GUIRun(() -> {
+                                Helpers.GUIRun(() -> {
+                                    try {
+                                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
 
                                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                         gif_dialog.setVisible(true);
+                                    } catch (URISyntaxException | IOException | ImageProcessingException ex) {
+                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
 
-                                    });
-                                } catch (URISyntaxException | IOException | ImageProcessingException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                                }
+                                });
 
                             }
 

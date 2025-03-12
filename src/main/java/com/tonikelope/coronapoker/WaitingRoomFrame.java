@@ -92,7 +92,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultCaret;
-import javax.swing.text.html.HTMLEditorKit;
 import org.apache.commons.codec.binary.Base64;
 
 /**

@@ -63,11 +63,6 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         super(parent, modal);
         initComponents();
 
-        this.setFocusable(modal);
-        this.setFocusCycleRoot(modal);
-        this.setAutoRequestFocus(modal);
-        this.setFocusableWindowState(modal);
-
         gif_panel.getGif().setBarrier(gif_barrier);
 
         int height, width;

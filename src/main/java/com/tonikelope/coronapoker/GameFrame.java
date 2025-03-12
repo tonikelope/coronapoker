@@ -558,15 +558,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     setExtendedState(JFrame.MAXIMIZED_BOTH);
                     setVisible(true);
 
-                    if (timba_pausada) {
-
-                        pausa_dialog.setVisible(false);
-                        pausa_dialog.dispose();
-                        pausa_dialog = new PauseDialog(this, false);
-                        pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
-                        pausa_dialog.setVisible(true);
-                    }
-
                 } else {
 
                     GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
@@ -576,6 +567,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     GameFrame.getInstance().menu_bar.setVisible(false);
                     GameFrame.getInstance().setUndecorated(true);
                     device.setFullScreenWindow(GameFrame.getInstance());
+                }
+
+                if (timba_pausada) {
+
+                    pausa_dialog.setVisible(false);
+                    pausa_dialog.dispose();
+                    pausa_dialog = new PauseDialog(this, false);
+                    pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
+                    pausa_dialog.setVisible(true);
                 }
 
             } else {
@@ -589,15 +589,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     setExtendedState(JFrame.MAXIMIZED_BOTH);
                     setVisible(true);
 
-                    if (timba_pausada) {
-
-                        pausa_dialog.setVisible(false);
-                        pausa_dialog.dispose();
-                        pausa_dialog = new PauseDialog(GameFrame.getInstance(), false);
-                        pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
-                        pausa_dialog.setVisible(true);
-                    }
-
                 } else {
 
                     GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
@@ -608,6 +599,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     GameFrame.getInstance().setUndecorated(false);
                     GameFrame.getInstance().menu_bar.setVisible(true);
                     GameFrame.getInstance().setVisible(true);
+                }
+
+                if (timba_pausada) {
+
+                    pausa_dialog.setVisible(false);
+                    pausa_dialog.dispose();
+                    pausa_dialog = new PauseDialog(GameFrame.getInstance(), false);
+                    pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
+                    pausa_dialog.setVisible(true);
                 }
             }
 

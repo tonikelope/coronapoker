@@ -50,7 +50,7 @@ public class InGameNotifyDialog extends javax.swing.JDialog {
         super(parent, modal);
 
         initComponents();
-        
+
         setOpacity(0.8f);
 
         panel.getMsg().setText(message);

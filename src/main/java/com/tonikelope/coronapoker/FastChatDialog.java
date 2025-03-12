@@ -63,7 +63,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
             chat_box.setText(text.getText());
             chat_box.setCaretPosition(text.getCaretPosition());
         }
-        
+
         history_chat.setBorder(createCompoundBorder(history_chat.getBorder(), BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
@@ -71,7 +71,6 @@ public final class FastChatDialog extends javax.swing.JDialog {
         pack();
 
         //Helpers.setScaledIconLabel(icono, getClass().getResource("/images/chat.png"), chat_box.getHeight(), chat_box.getHeight());
-
         chat_panel.setSize((int) Math.round(GameFrame.getInstance().getFrame().getWidth() * 0.3f), GameFrame.getInstance().getLocalPlayer().getHeight());
 
         chat_panel.setPreferredSize(chat_panel.getSize());
@@ -79,7 +78,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
         setSize(chat_panel.getSize());
 
         setPreferredSize(getSize());
-        
+
         refreshChatHistory();
 
         refreshColors();
@@ -238,7 +237,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
             GameFrame.getInstance().getSala_espera().enviarMensajeChat(GameFrame.getInstance().getLocalPlayer().getNickname(), mensaje);
 
             chat_box.setText("");
-            
+
             refreshChatHistory();
 
             if (WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
@@ -359,7 +358,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
 
     private void chat_boxKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_chat_boxKeyReleased
         // TODO add your handling code here:
-        if (HISTORIAL_INDEX<HISTORIAL.size() && evt.getKeyCode() != KeyEvent.VK_ENTER && (evt.getKeyChar() != 'º' || evt.isControlDown()) && evt.getKeyCode() != KeyEvent.VK_UP && evt.getKeyCode() != KeyEvent.VK_DOWN && current_message != null) {
+        if (HISTORIAL_INDEX < HISTORIAL.size() && evt.getKeyCode() != KeyEvent.VK_ENTER && (evt.getKeyChar() != 'º' || evt.isControlDown()) && evt.getKeyCode() != KeyEvent.VK_UP && evt.getKeyCode() != KeyEvent.VK_DOWN && current_message != null) {
 
             if (HISTORIAL.get(HISTORIAL_INDEX)[1] == null) {
                 HISTORIAL.set(HISTORIAL_INDEX, new String[]{chat_box.getText(), HISTORIAL.get(HISTORIAL_INDEX)[0]});

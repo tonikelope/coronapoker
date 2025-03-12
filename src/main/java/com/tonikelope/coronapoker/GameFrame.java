@@ -560,7 +560,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 } else {
 
-                    GraphicsDevice device = Helpers.obtenerPantallaActual(GameFrame.getInstance());
+                    GraphicsDevice device = GameFrame.getInstance().getGraphicsConfiguration().getDevice();
                     GameFrame.getInstance().setVisible(false);
                     GameFrame.getInstance().dispose();
                     GameFrame.getInstance().menu_bar.setVisible(false);
@@ -590,7 +590,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 } else {
 
-                    GraphicsDevice device = Helpers.obtenerPantallaActual(GameFrame.getInstance());
+                    GraphicsDevice device = GameFrame.getInstance().getGraphicsConfiguration().getDevice();
                     device.setFullScreenWindow(null);
                     GameFrame.getInstance().dispose();
                     GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);

@@ -302,26 +302,6 @@ public class Helpers {
 
     }
 
-    public static GraphicsDevice obtenerPantallaActual(Window ventana) {
-
-        GraphicsConfiguration config = ventana.getGraphicsConfiguration();
-
-        GraphicsDevice myScreen = config.getDevice();
-
-        GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
-
-        GraphicsDevice[] allScreens = env.getScreenDevices();
-
-        for (GraphicsDevice allScreen : allScreens) {
-            if (allScreen.equals(myScreen)) {
-                return allScreen;
-            }
-        }
-
-        return env.getDefaultScreenDevice();
-
-    }
-
     public static void detectAndHandleDeadlocks() {
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
 

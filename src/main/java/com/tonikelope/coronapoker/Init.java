@@ -299,8 +299,6 @@ public class Init extends javax.swing.JFrame {
             language_combobox.setSelectedIndex(1);
         }
 
-        VENTANA_INICIO = this;
-
         create_button.setBackground(Color.WHITE);
 
         join_button.setBackground(Color.WHITE);
@@ -480,6 +478,10 @@ public class Init extends javax.swing.JFrame {
         Helpers.translateComponents(this, false);
 
         Helpers.setScaledIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
+
+        revalidate();
+
+        repaint();
 
     }
 
@@ -1056,10 +1058,10 @@ public class Init extends javax.swing.JFrame {
 
             Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading INIT WINDOW...");
 
-            VENTANA_INICIO = new Init();
-
             Helpers.GUIRunAndWait(() -> {
-                VENTANA_INICIO.setExtendedState(VENTANA_INICIO.getExtendedState() | JFrame.MAXIMIZED_BOTH);
+                VENTANA_INICIO = new Init();
+
+                VENTANA_INICIO.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
                 VENTANA_INICIO.setVisible(true);
             });

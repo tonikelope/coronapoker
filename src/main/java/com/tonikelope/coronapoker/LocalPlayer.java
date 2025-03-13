@@ -34,16 +34,21 @@ import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
 import static com.tonikelope.coronapoker.Helpers.bufferedImagesEqual;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_BACK_COLOR;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_FORE_COLOR;
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.Robot;
 import java.awt.event.*;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -140,6 +145,48 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean reraise;
     private volatile int conta_win = 0;
     private volatile boolean radar_ckecking = false;
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        Graphics2D g2d = (Graphics2D) g.create();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Dibujar el fondo redondeado si el componente tiene un color de fondo
+        if (isOpaque()) {
+            g2d.setColor(getBackground());
+            g2d.fill(new RoundRectangle2D.Double(
+                    0, 0,
+                    getWidth(),
+                    getHeight(),
+                    Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP),
+                    Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)
+            ));
+        }
+
+        g2d.dispose();
+    }
+
+    @Override
+    protected void paintBorder(Graphics g) {
+        float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+        float arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+        Graphics2D g2d = (Graphics2D) g.create();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Dibuja el borde redondeado
+        g2d.setColor(border_color); // Usa el color del borde
+        g2d.setStroke(new BasicStroke(border_size)); // Usa el grosor del borde
+        g2d.draw(new RoundRectangle2D.Double(
+                border_size / 2.0, // Ajusta la posición para que el borde no se corte
+                border_size / 2.0,
+                getWidth() - border_size,
+                getHeight() - border_size,
+                arc,
+                arc
+        ));
+
+        g2d.dispose();
+    }
 
     public boolean isRADAR_ckecking() {
         return radar_ckecking;

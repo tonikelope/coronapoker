@@ -223,8 +223,6 @@ import static com.tonikelope.coronapoker.Init.SETDPI_DIR;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.FocusTraversalPolicy;
-import java.awt.GraphicsConfiguration;
-import java.awt.GraphicsDevice;
 import java.awt.Insets;
 import java.awt.color.ColorSpace;
 import java.awt.image.ColorConvertOp;
@@ -1748,19 +1746,31 @@ public class Helpers {
      * @return The converted BufferedImage
      */
     public static BufferedImage toBufferedImage(Image img) {
+        // Verificar si la imagen es nula
+        if (img == null) {
+            throw new IllegalArgumentException("La imagen no puede ser nula.");
+        }
+
+        // Si la imagen ya es un BufferedImage, devolverla directamente
         if (img instanceof BufferedImage) {
             return (BufferedImage) img;
         }
 
-        // Create a buffered image with transparency
-        BufferedImage bimage = new BufferedImage(img.getWidth(null), img.getHeight(null), BufferedImage.TYPE_INT_ARGB);
+        // Crear un BufferedImage con transparencia
+        BufferedImage bimage = new BufferedImage(
+                img.getWidth(null),
+                img.getHeight(null),
+                BufferedImage.TYPE_INT_ARGB
+        );
 
-        // Draw the image on to the buffered image
+        // Dibujar la imagen en el BufferedImage
         Graphics2D bGr = bimage.createGraphics();
-        bGr.drawImage(img, 0, 0, null);
-        bGr.dispose();
+        try {
+            bGr.drawImage(img, 0, 0, null);
+        } finally {
+            bGr.dispose(); // Asegurarse de liberar recursos
+        }
 
-        // Return the buffered image
         return bimage;
     }
 
@@ -1784,26 +1794,26 @@ public class Helpers {
 
     //Thanks -> https://stackoverflow.com/a/7603815
     public static BufferedImage makeImageRoundedCorner(Image image, int cornerRadius) {
+        // Obtener las dimensiones de la imagen original
+        int width = image.getWidth(null);
+        int height = image.getHeight(null);
 
-        int w = image.getWidth(null);
-        int h = image.getHeight(null);
-
-        BufferedImage output = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        // Crear una nueva imagen con transparencia
+        BufferedImage output = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = output.createGraphics();
 
-        // This is what we want, but it only does hard-clipping, i.e. aliasing
-        // g2.setClip(new RoundRectangle2D ...)
-        // so instead fake soft-clipping by first drawing the desired clip shape
-        // in fully opaque white with antialiasing enabled...
-        g2.setComposite(AlphaComposite.Src);
+        // Habilitar antialiasing para bordes suaves
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setColor(Color.WHITE);
-        g2.fill(new RoundRectangle2D.Float(0, 0, w, h, cornerRadius, cornerRadius));
 
-        // ... then compositing the image on top,
-        // using the white shape from above as alpha source
-        g2.setComposite(AlphaComposite.SrcAtop);
+        // Dibujar un rectángulo redondeado blanco como máscara
+        g2.setColor(Color.WHITE);
+        g2.fill(new RoundRectangle2D.Float(0, 0, width, height, cornerRadius, cornerRadius));
+
+        // Configurar el modo de composición para aplicar la máscara
+        g2.setComposite(AlphaComposite.SrcIn);
         g2.drawImage(image, 0, 0, null);
+
+        // Liberar recursos
         g2.dispose();
 
         return output;

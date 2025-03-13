@@ -496,15 +496,16 @@ public class ChatImageDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        image_url = new javax.swing.JTextField();
-        send_button = new javax.swing.JButton();
-        jLabel1 = new javax.swing.JLabel();
-        jLabel2 = new javax.swing.JLabel();
         scroll_panel = new javax.swing.JScrollPane();
         historial_panel = new javax.swing.JPanel();
         barra = new javax.swing.JProgressBar();
         clear_button = new javax.swing.JButton();
         auto_recibir_checkbox = new javax.swing.JCheckBox();
+        jPanel1 = new javax.swing.JPanel();
+        image_url = new javax.swing.JTextField();
+        jLabel1 = new javax.swing.JLabel();
+        send_button = new javax.swing.JButton();
+        jLabel2 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("Enviar imagen");
@@ -514,43 +515,6 @@ public class ChatImageDialog extends javax.swing.JDialog {
             }
         });
 
-        image_url.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
-        image_url.setDoubleBuffered(true);
-        image_url.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                image_urlActionPerformed(evt);
-            }
-        });
-        image_url.addKeyListener(new java.awt.event.KeyAdapter() {
-            public void keyPressed(java.awt.event.KeyEvent evt) {
-                image_urlKeyPressed(evt);
-            }
-        });
-
-        send_button.setBackground(new java.awt.Color(0, 130, 0));
-        send_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        send_button.setForeground(new java.awt.Color(255, 255, 255));
-        send_button.setText("Enviar");
-        send_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        send_button.setDoubleBuffered(true);
-        send_button.setFocusable(false);
-        send_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                send_buttonActionPerformed(evt);
-            }
-        });
-
-        jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel1.setText("URL:");
-        jLabel1.setDoubleBuffered(true);
-        jLabel1.setFocusable(false);
-
-        jLabel2.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
-        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel2.setText("Nota: también puedes buscar desde aquí imágenes en Google introduciendo palabras clave.");
-        jLabel2.setDoubleBuffered(true);
-        jLabel2.setFocusable(false);
-
         scroll_panel.setBorder(null);
         scroll_panel.setDoubleBuffered(true);
         scroll_panel.setFocusCycleRoot(true);
@@ -559,11 +523,11 @@ public class ChatImageDialog extends javax.swing.JDialog {
         historial_panel.setLayout(historial_panelLayout);
         historial_panelLayout.setHorizontalGroup(
             historial_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 504, Short.MAX_VALUE)
+            .addGap(0, 516, Short.MAX_VALUE)
         );
         historial_panelLayout.setVerticalGroup(
             historial_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 22, Short.MAX_VALUE)
+            .addGap(0, 555, Short.MAX_VALUE)
         );
 
         scroll_panel.setViewportView(historial_panel);
@@ -593,6 +557,72 @@ public class ChatImageDialog extends javax.swing.JDialog {
             }
         });
 
+        image_url.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
+        image_url.setDoubleBuffered(true);
+        image_url.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                image_urlActionPerformed(evt);
+            }
+        });
+        image_url.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyPressed(java.awt.event.KeyEvent evt) {
+                image_urlKeyPressed(evt);
+            }
+        });
+
+        jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        jLabel1.setText("URL:");
+        jLabel1.setDoubleBuffered(true);
+        jLabel1.setFocusable(false);
+
+        send_button.setBackground(new java.awt.Color(0, 130, 0));
+        send_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        send_button.setForeground(new java.awt.Color(255, 255, 255));
+        send_button.setText("Enviar");
+        send_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        send_button.setDoubleBuffered(true);
+        send_button.setFocusable(false);
+        send_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                send_buttonActionPerformed(evt);
+            }
+        });
+
+        jLabel2.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
+        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel2.setText("Nota: también puedes buscar desde aquí imágenes en Google introduciendo palabras clave.");
+        jLabel2.setDoubleBuffered(true);
+        jLabel2.setFocusable(false);
+
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                        .addComponent(jLabel1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(image_url)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(send_button))
+                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(image_url)
+                    .addComponent(jLabel1)
+                    .addComponent(send_button))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel2)
+                .addContainerGap())
+        );
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -601,34 +631,23 @@ public class ChatImageDialog extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addComponent(jLabel1)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(image_url)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(send_button))
-                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(auto_recibir_checkbox)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(clear_button)))
+                        .addComponent(clear_button))
+                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(image_url)
-                    .addComponent(jLabel1)
-                    .addComponent(send_button))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jLabel2)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(scroll_panel)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(auto_recibir_checkbox)
@@ -856,6 +875,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
     private javax.swing.JTextField image_url;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
+    private javax.swing.JPanel jPanel1;
     private javax.swing.JScrollPane scroll_panel;
     private javax.swing.JButton send_button;
     // End of variables declaration//GEN-END:variables

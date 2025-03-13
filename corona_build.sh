@@ -36,9 +36,14 @@ if [ ! -f CoronaPokerLINUX_"${RELEASE_VERSION}"_portable.zip ]; then
 	zip -r CoronaPokerLINUX_"${RELEASE_VERSION}"_portable.zip CoronaPokerLINUX/
 fi
 
-if [ ! -f CoronaPokerMACOS_"${RELEASE_VERSION}"_portable.zip ]; then
-	cp -f /home/tonikelope/TRASTERO/CoronaPokerReleases/CoronaPoker_"${RELEASE_VERSION}".jar /home/tonikelope/TRASTERO/CoronaPokerReleases/CoronaPokerMACOS/CoronaPoker.app/Contents/MacOS/jar/CoronaPoker.jar
-	zip -r CoronaPokerMACOS_"${RELEASE_VERSION}"_portable.zip CoronaPokerMACOS/
+if [ ! -f CoronaPokerMACOSx64_"${RELEASE_VERSION}"_portable.zip ]; then
+	cp -f /home/tonikelope/TRASTERO/CoronaPokerReleases/CoronaPoker_"${RELEASE_VERSION}".jar /home/tonikelope/TRASTERO/CoronaPokerReleases/CoronaPokerMACOSx64/CoronaPoker.app/Contents/MacOS/jar/CoronaPoker.jar
+	zip -r CoronaPokerMACOSx64_"${RELEASE_VERSION}"_portable.zip CoronaPokerMACOSx64/
+fi
+
+if [ ! -f CoronaPokerMACOSaarch64_"${RELEASE_VERSION}"_portable.zip ]; then
+	cp -f /home/tonikelope/TRASTERO/CoronaPokerReleases/CoronaPoker_"${RELEASE_VERSION}".jar /home/tonikelope/TRASTERO/CoronaPokerReleases/CoronaPokerMACOSaarch64/CoronaPoker.app/Contents/MacOS/jar/CoronaPoker.jar
+	zip -r CoronaPokerMACOSaarch64_"${RELEASE_VERSION}"_portable.zip CoronaPokerMACOSaarch64/
 fi
 
 if [ ! -f CoronaPokerWINDOWS32_"${RELEASE_VERSION}"_portable.zip ]; then

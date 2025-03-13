@@ -602,8 +602,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(() -> {
                 setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-                GameFrame.getInstance().getTapete().refresh();
-
                 player_action.setBackground(new Color(204, 204, 204, 75));
 
                 player_action.setForeground(Color.LIGHT_GRAY);

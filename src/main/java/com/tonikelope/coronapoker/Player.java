@@ -51,7 +51,8 @@ public interface Player {
     public static final int BIG_BLIND = 13;
     public static final int DEAD_DEALER = 14;
 
-    public static final int BORDER = 10;
+    public static final int BORDER = 12;
+    public static final int ARC = 30;
 
     public static final Color RERAISE_BACK_COLOR = new Color(125, 5, 225);
 

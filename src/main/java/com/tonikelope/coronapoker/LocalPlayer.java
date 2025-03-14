@@ -188,6 +188,30 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         g2d.dispose();
     }
 
+    private void setActionBackground(Color color) {
+        Helpers.GUIRun(() -> {
+            player_action.setOpaque(false);
+            player_action_panel.setOpaque(true);
+            player_action_panel.setBackground(color);
+        });
+    }
+
+    private void setPlayerPotBackground(Color color) {
+        Helpers.GUIRun(() -> {
+            player_pot.setOpaque(false);
+            player_pot_panel.setOpaque(true);
+            player_pot_panel.setBackground(color);
+        });
+    }
+
+    private void setPlayerStackBackground(Color color) {
+        Helpers.GUIRun(() -> {
+            player_stack.setOpaque(false);
+            player_stack_panel.setOpaque(true);
+            player_stack_panel.setBackground(color);
+        });
+    }
+
     public boolean isRADAR_ckecking() {
         return radar_ckecking;
     }
@@ -395,37 +419,26 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         int pos_y = Math.round(getHoleCard1().getHeight() / 2);
 
+                        int gif_frames_count = isgif ? Helpers.getGIFFramesCount(u) : 0;
+
                         Helpers.GUIRunAndWait(() -> {
-                            try {
-
-                                if (isgif) {
-                                    getChat_notify_label().setIcon(image, Helpers.getGIFFramesCount(u));
-                                } else {
-                                    getChat_notify_label().setIcon(image);
-                                }
-
-                                getChat_notify_label().setRepeat(NOTIFY_INGAME_GIF_REPEAT);
-
-                                getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
-
-                                getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
-
-                                getChat_notify_label().setOpaque(false);
-
-                                getChat_notify_label().revalidate();
-
-                                getChat_notify_label().repaint();
-
-                                getChat_notify_label().setLocation(pos_x, pos_y);
-
-                                getChat_notify_label().setVisible(true);
-                            } catch (MalformedURLException ex) {
-                                Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
-                            } catch (IOException | ImageProcessingException ex) {
-                                Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                            if (isgif) {
+                                getChat_notify_label().setIcon(image, gif_frames_count);
+                            } else {
+                                getChat_notify_label().setIcon(image);
                             }
+                            getChat_notify_label().setRepeat(NOTIFY_INGAME_GIF_REPEAT);
+                            getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
+                            getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+                            getChat_notify_label().setOpaque(false);
+                            getChat_notify_label().revalidate();
+                            getChat_notify_label().repaint();
+                            getChat_notify_label().setLocation(pos_x, pos_y);
+                            getChat_notify_label().setVisible(true);
                         });
                     } catch (MalformedURLException ex) {
+                        Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (IOException | ImageProcessingException ex) {
                         Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
@@ -639,7 +652,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_pot.setText("----");
                 player_pot.setForeground(Color.white);
-                player_pot.setBackground(new Color(204, 204, 204, 75));
+                setPlayerPotBackground(new Color(204, 204, 204, 75));
                 utg_icon.setVisible(false);
                 holeCard1.resetearCarta();
                 holeCard2.resetearCarta();
@@ -650,11 +663,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 sec_pot_win_label.setVisible(false);
 
                 if (buyin > GameFrame.BUYIN) {
-                    player_stack.setBackground(Color.CYAN);
+                    setPlayerStackBackground(Color.CYAN);
                     player_stack.setForeground(Color.BLACK);
                 } else {
 
-                    player_stack.setBackground(new Color(51, 153, 0));
+                    setPlayerStackBackground(new Color(51, 153, 0));
                     player_stack.setForeground(Color.WHITE);
                 }
 
@@ -785,7 +798,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 holeCard1.resetearCarta();
                 holeCard2.resetearCarta();
-                player_action.setBackground(new Color(255, 102, 0));
+                setActionBackground(new Color(255, 102, 0));
                 player_action.setForeground(Color.WHITE);
                 player_action.setText(Translator.translate("ABANDONAS LA TIMBA"));
                 setPlayerActionIcon("exit.png");
@@ -836,19 +849,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (!player_stack_click) {
             Helpers.GUIRunAndWait(() -> {
                 if (getNickname() != null && GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
-                    player_stack.setBackground(Color.YELLOW);
+                    setPlayerStackBackground(Color.YELLOW);
                     player_stack.setForeground(Color.BLACK);
                     player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
 
                 } else {
 
                     if (buyin > GameFrame.BUYIN) {
-                        player_stack.setBackground(Color.CYAN);
+                        setPlayerStackBackground(Color.CYAN);
 
                         player_stack.setForeground(Color.BLACK);
                     } else {
 
-                        player_stack.setBackground(new Color(51, 153, 0));
+                        setPlayerStackBackground(new Color(51, 153, 0));
 
                         player_stack.setForeground(Color.WHITE);
                     }
@@ -1029,7 +1042,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (!player_stack_click) {
             Helpers.GUIRun(() -> {
                 player_stack.setText(Helpers.float2String(stack));
-                player_stack.setBackground(Color.CYAN);
+                setPlayerStackBackground(Color.CYAN);
                 player_stack.setForeground(Color.BLACK);
             });
         }
@@ -1072,7 +1085,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_fold_button.setBackground(Color.DARK_GRAY);
                 player_fold_button.setForeground(Color.WHITE);
                 Helpers.setScaledIconButton(player_fold_button, getClass().getResource("/images/action/down.png"), Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()));
-                player_action.setBackground(new Color(204, 204, 204, 75));
+                setActionBackground(new Color(204, 204, 204, 75));
                 player_action.setForeground(Color.WHITE);
                 //Comprobamos si podemos ver la apuesta actual
                 if (Helpers.float1DSecureCompare(call_required, stack) < 0) {
@@ -1240,11 +1253,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
                                                 if (player_action.getBackground() != Color.GRAY) {
                                                     setPlayerBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-                                                    player_action.setBackground(Color.GRAY);
+                                                    setActionBackground(Color.GRAY);
                                                     player_action.setForeground(Color.WHITE);
                                                 } else {
                                                     setPlayerBorder(orig_color, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
-                                                    player_action.setBackground(new Color(204, 204, 204, 75));
+                                                    setActionBackground(new Color(204, 204, 204, 75));
                                                     player_action.setForeground(Color.WHITE);
                                                 }
 
@@ -1452,7 +1465,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(() -> {
             if (old_dec != Player.BET || Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
-                player_pot.setBackground(new Color(204, 204, 204, 75));
+                setPlayerPotBackground(new Color(204, 204, 204, 75));
                 player_pot.setForeground(Color.WHITE);
             }
 
@@ -1543,7 +1556,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(() -> {
             player_action.setText(" ");
             player_action.setForeground(Color.LIGHT_GRAY);
-            player_action.setBackground(new Color(204, 204, 204, 75));
+            setActionBackground(new Color(204, 204, 204, 75));
             setPlayerActionIcon(null);
         });
     }
@@ -1568,7 +1581,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             player_pot.setText("----");
 
-            player_pot.setBackground(new Color(204, 204, 204, 75));
+            setPlayerPotBackground(new Color(204, 204, 204, 75));
 
             player_pot.setForeground(Color.WHITE);
 
@@ -1581,12 +1594,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (!player_stack_click) {
                 if (buyin > GameFrame.BUYIN) {
-                    player_stack.setBackground(Color.CYAN);
+                    setPlayerStackBackground(Color.CYAN);
 
                     player_stack.setForeground(Color.BLACK);
                 } else {
 
-                    player_stack.setBackground(new Color(51, 153, 0));
+                    setPlayerStackBackground(new Color(51, 153, 0));
 
                     player_stack.setForeground(Color.WHITE);
                 }
@@ -1929,7 +1942,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         indicadores_arriba = new javax.swing.JPanel();
         avatar_panel = new javax.swing.JPanel();
         avatar = new javax.swing.JLabel();
+        player_pot_panel = new RoundedPanel(20);
         player_pot = new javax.swing.JLabel();
+        player_stack_panel = new RoundedPanel(20);
         player_stack = new javax.swing.JLabel();
         nick_panel = new javax.swing.JPanel();
         player_name = new javax.swing.JLabel();
@@ -1941,10 +1956,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_check_button = new javax.swing.JButton();
         player_bet_button = new javax.swing.JButton();
         bet_spinner = new javax.swing.JSpinner();
-        player_action = new javax.swing.JLabel();
         panel_cartas = new javax.swing.JLayeredPane();
         holeCard1 = new com.tonikelope.coronapoker.Card();
         holeCard2 = new com.tonikelope.coronapoker.Card();
+        player_action_panel = new RoundedPanel(20);
+        player_action = new javax.swing.JLabel();
 
         setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204, 75), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL*com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
         setFocusable(false);
@@ -1974,6 +1990,23 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_pot.setFocusable(false);
         player_pot.setOpaque(true);
 
+        javax.swing.GroupLayout player_pot_panelLayout = new javax.swing.GroupLayout(player_pot_panel);
+        player_pot_panel.setLayout(player_pot_panelLayout);
+        player_pot_panelLayout.setHorizontalGroup(
+            player_pot_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(player_pot_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(player_pot)
+                .addGap(0, 0, 0))
+        );
+        player_pot_panelLayout.setVerticalGroup(
+            player_pot_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(player_pot_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(player_pot, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(0, 0, 0))
+        );
+
         player_stack.setBackground(new java.awt.Color(51, 153, 0));
         player_stack.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         player_stack.setForeground(new java.awt.Color(255, 255, 255));
@@ -1990,6 +2023,23 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
+        javax.swing.GroupLayout player_stack_panelLayout = new javax.swing.GroupLayout(player_stack_panel);
+        player_stack_panel.setLayout(player_stack_panelLayout);
+        player_stack_panelLayout.setHorizontalGroup(
+            player_stack_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(player_stack_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(player_stack)
+                .addGap(0, 0, 0))
+        );
+        player_stack_panelLayout.setVerticalGroup(
+            player_stack_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(player_stack_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(player_stack)
+                .addGap(0, 0, 0))
+        );
+
         javax.swing.GroupLayout avatar_panelLayout = new javax.swing.GroupLayout(avatar_panel);
         avatar_panel.setLayout(avatar_panelLayout);
         avatar_panelLayout.setHorizontalGroup(
@@ -1997,16 +2047,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             .addGroup(avatar_panelLayout.createSequentialGroup()
                 .addComponent(avatar)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(player_stack)
+                .addComponent(player_stack_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(player_pot))
+                .addComponent(player_pot_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         avatar_panelLayout.setVerticalGroup(
             avatar_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(avatar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(player_pot, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(player_pot_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(avatar_panelLayout.createSequentialGroup()
-                .addComponent(player_stack)
+                .addComponent(player_stack_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
@@ -2163,15 +2213,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addContainerGap())
         );
 
-        player_action.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
-        player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        player_action.setText("ESCALERA DE COLOR");
-        player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
-        player_action.setDoubleBuffered(true);
-        player_action.setFocusable(false);
-        player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
-        player_action.setOpaque(true);
-
         panel_cartas.setDoubleBuffered(true);
 
         panel_cartas.setLayer(holeCard1, javax.swing.JLayeredPane.DEFAULT_LAYER);
@@ -2182,11 +2223,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         panel_cartasLayout.setHorizontalGroup(
             panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panel_cartasLayout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
+                .addGap(0, 12, Short.MAX_VALUE)
                 .addComponent(holeCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(holeCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, Short.MAX_VALUE))
+                .addGap(0, 12, Short.MAX_VALUE))
         );
         panel_cartasLayout.setVerticalGroup(
             panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2198,6 +2239,32 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addContainerGap())
         );
 
+        player_action.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
+        player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        player_action.setText("ESCALERA DE COLOR");
+        player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_action.setDoubleBuffered(true);
+        player_action.setFocusable(false);
+        player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
+        player_action.setOpaque(true);
+
+        javax.swing.GroupLayout player_action_panelLayout = new javax.swing.GroupLayout(player_action_panel);
+        player_action_panel.setLayout(player_action_panelLayout);
+        player_action_panelLayout.setHorizontalGroup(
+            player_action_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(player_action_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(player_action, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(0, 0, 0))
+        );
+        player_action_panelLayout.setVerticalGroup(
+            player_action_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(player_action_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(player_action, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0))
+        );
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -2205,13 +2272,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(player_action, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(indicadores_arriba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(panel_cartas))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(botonera, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                        .addComponent(botonera, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(player_action_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -2224,9 +2291,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(panel_cartas))
                     .addComponent(botonera, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(0, 0, 0)
-                .addComponent(player_action, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(player_action_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
         );
     }// </editor-fold>//GEN-END:initComponents
 
@@ -2344,7 +2411,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 }
                                 Hand jugada = new Hand(cartas_jugada);
                                 player_action.setForeground(Color.WHITE);
-                                player_action.setBackground(new Color(51, 153, 255));
+                                setActionBackground(new Color(51, 153, 255));
                                 player_action.setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
                                 if (GameFrame.SONIDOS_CHORRA && decision == Player.FOLD) {
 
@@ -2555,7 +2622,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_stack_click = true;
 
                 player_stack.setText(Helpers.float2String((float) this.buyin));
-                player_stack.setBackground(Color.GRAY);
+                setPlayerStackBackground(Color.GRAY);
                 player_stack.setForeground(Color.WHITE);
 
                 Helpers.threadRun(() -> {
@@ -2563,19 +2630,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     float s = getStack();
                     Helpers.GUIRun(() -> {
                         if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
-                            player_stack.setBackground(Color.YELLOW);
+                            setPlayerStackBackground(Color.YELLOW);
                             player_stack.setForeground(Color.BLACK);
                             player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
 
                         } else {
 
                             if (buyin > GameFrame.BUYIN) {
-                                player_stack.setBackground(Color.CYAN);
+                                setPlayerStackBackground(Color.CYAN);
 
                                 player_stack.setForeground(Color.BLACK);
                             } else {
 
-                                player_stack.setBackground(new Color(51, 153, 0));
+                                setPlayerStackBackground(new Color(51, 153, 0));
 
                                 player_stack.setForeground(Color.WHITE);
                             }
@@ -2615,13 +2682,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JPanel nick_panel;
     private javax.swing.JLayeredPane panel_cartas;
     private javax.swing.JLabel player_action;
+    private javax.swing.JPanel player_action_panel;
     private javax.swing.JButton player_allin_button;
     private javax.swing.JButton player_bet_button;
     private javax.swing.JButton player_check_button;
     private javax.swing.JButton player_fold_button;
     private javax.swing.JLabel player_name;
     private javax.swing.JLabel player_pot;
+    private javax.swing.JPanel player_pot_panel;
     private javax.swing.JLabel player_stack;
+    private javax.swing.JPanel player_stack_panel;
     private javax.swing.JLabel utg_icon;
     // End of variables declaration//GEN-END:variables
 
@@ -2633,7 +2703,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(() -> {
             setPlayerBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-            player_action.setBackground(Color.GREEN);
+            setActionBackground(Color.GREEN);
             player_action.setForeground(Color.BLACK);
             player_action.setText(msg);
             setPlayerActionIcon("action/happy.png");
@@ -2690,7 +2760,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(() -> {
             setPlayerBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
 
-            player_action.setBackground(Color.RED);
+            setActionBackground(Color.RED);
             player_action.setForeground(Color.WHITE);
 
             holeCard1.desenfocar();
@@ -2785,21 +2855,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             if (!reraise) {
 
                 if (dec == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) == 0) {
-                    player_action.setBackground(new Color(0, 130, 0));
+                    setActionBackground(new Color(0, 130, 0));
                     player_action.setForeground(Color.WHITE);
                 } else {
 
-                    player_action.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                    setActionBackground(ACTIONS_COLORS[dec - 1][0]);
                     player_action.setForeground(ACTIONS_COLORS[dec - 1][1]);
                 }
 
-                player_pot.setBackground(ACTIONS_COLORS[dec - 1][0]);
+                setPlayerPotBackground(ACTIONS_COLORS[dec - 1][0]);
                 player_pot.setForeground(ACTIONS_COLORS[dec - 1][1]);
             } else {
-                player_action.setBackground(RERAISE_BACK_COLOR);
+                setActionBackground(RERAISE_BACK_COLOR);
                 player_action.setForeground(RERAISE_FORE_COLOR);
 
-                player_pot.setBackground(RERAISE_BACK_COLOR);
+                setPlayerPotBackground(RERAISE_BACK_COLOR);
                 player_pot.setForeground(RERAISE_FORE_COLOR);
             }
 
@@ -2843,7 +2913,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void showCards(String jugada) {
         this.muestra = true;
         Helpers.GUIRun(() -> {
-            player_action.setBackground(new Color(51, 153, 255));
+            setActionBackground(new Color(51, 153, 255));
             player_action.setForeground(Color.WHITE);
             player_action.setText("MUESTRA (" + jugada + ")");
         });
@@ -2865,10 +2935,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
 
-            avatar = new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH));
+            avatar = new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH)).getImage(), 20));
         } else {
 
-            avatar = new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH));
+            avatar = new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH)).getImage(), 20));
         }
 
         Helpers.GUIRun(() -> {
@@ -2970,7 +3040,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void setJugadaParcial(Hand jugada, boolean ganador, float win_per) {
         Helpers.GUIRun(() -> {
-            player_action.setBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
+            setActionBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
             player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
             player_action.setText(jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)"));
             setPlayerActionIcon(null);

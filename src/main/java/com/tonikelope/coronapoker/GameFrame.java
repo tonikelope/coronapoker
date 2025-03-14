@@ -1272,13 +1272,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return tapete.getCommunityCards().getCartasComunes();
     }
 
+    private void setHandBackground(Color color) {
+        Helpers.GUIRun(() -> {
+            tapete.getCommunityCards().getHand_label().setOpaque(false);
+            tapete.getCommunityCards().getHand_panel().setOpaque(true);
+            tapete.getCommunityCards().getHand_panel().setBackground(color);
+        });
+    }
+
     public void setTapeteMano(int mano) {
 
         Helpers.GUIRun(() -> {
             tapete.getCommunityCards().getHand_label().setText("#" + String.valueOf(mano) + (GameFrame.MANOS != -1 ? "/" + String.valueOf(GameFrame.MANOS) : ""));
 
             if (GameFrame.MANOS != -1 && crupier.getMano() > GameFrame.MANOS) {
-                tapete.getCommunityCards().getHand_label().setBackground(Color.red);
+                setHandBackground(Color.red);
                 tapete.getCommunityCards().getHand_label().setForeground(Color.WHITE);
                 tapete.getCommunityCards().getHand_label().setOpaque(true);
             } else if (GameFrame.MANOS == -1 && tapete.getCommunityCards().getHand_label().getBackground() == Color.RED) {

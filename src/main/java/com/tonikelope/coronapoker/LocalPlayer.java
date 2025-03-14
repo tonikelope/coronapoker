@@ -952,6 +952,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             });
             icon_zoom_timer.setRepeats(false);
             icon_zoom_timer.setCoalesce(false);
+
         });
 
     }
@@ -1193,6 +1194,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.translateComponents(botonera, false);
                 Helpers.translateComponents(player_action, false);
                 setPlayerActionIcon("action/thinking.png");
+
+                Helpers.setSpinnerColors(bet_spinner, player_bet_button.getBackground(), player_bet_button.getForeground());
+
                 if (GameFrame.TEST_MODE) {
                     Helpers.threadRun(() -> {
                         Helpers.pausar(GameFrame.TEST_MODE_PAUSE);
@@ -1589,6 +1593,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             disablePlayerAction();
+
         });
     }
 

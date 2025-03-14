@@ -223,6 +223,7 @@ import static com.tonikelope.coronapoker.Init.SETDPI_DIR;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.FocusTraversalPolicy;
+import java.awt.FontMetrics;
 import java.awt.Insets;
 import java.awt.color.ColorSpace;
 import java.awt.image.ColorConvertOp;
@@ -234,6 +235,9 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.TreeMap;
 import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
+import javax.swing.plaf.synth.SynthFormattedTextFieldUI;
+import javax.swing.text.JTextComponent;
 
 /**
  *
@@ -300,6 +304,79 @@ public class Helpers {
 
     }
 
+    public static void setSpinnerColors(JSpinner spinner, Color background, Color foreground) {
+
+        final JComponent editor = spinner.getEditor();
+
+        int c = editor.getComponentCount();
+
+        for (int i = 0; i < c; i++) {
+            final Component comp = editor.getComponent(i);
+
+            if (comp instanceof JTextComponent) {
+
+                ((JTextComponent) comp).setUI(new SynthFormattedTextFieldUI() {
+
+                    @Override
+                    protected void paint(javax.swing.plaf.synth.SynthContext context, java.awt.Graphics g) {
+
+                        if (comp.isEnabled()) {
+                            // Habilitar antialiasing para el texto
+                            Graphics2D g2d = (Graphics2D) g;
+                            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                            g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+                            // Fondo personalizado
+                            g.setColor(background);
+                            g.fillRect(3, 3, getComponent().getWidth() - 6, getComponent().getHeight() - 6);
+
+                            // Cambiar color del texto
+                            g.setColor(foreground); // 🔥 TEXTO ROJO 🔥
+                            g.setFont(getComponent().getFont());
+
+                            // Dibujar el texto manualmente
+                            String text = ((JTextComponent) comp).getText();
+
+                            FontMetrics fm = g.getFontMetrics();
+
+                            int alignment = JTextField.LEFT;  // Valor por defecto
+
+                            // Verificar si el componente es un JTextField
+                            if (comp instanceof JTextField) {
+                                alignment = ((JTextField) comp).getHorizontalAlignment();
+                            }
+
+                            // Calcular la posición X en función de la alineación
+                            int x = 5;  // Margen izquierdo por defecto
+
+                            if (alignment == JTextField.RIGHT) {
+                                x = getComponent().getWidth() - fm.stringWidth(text) - 5;  // Alinear a la derecha
+                            } else if (alignment == JTextField.CENTER) {
+                                x = (getComponent().getWidth() - fm.stringWidth(text)) / 2;  // Centrar el texto
+                            }
+
+                            int y = (getComponent().getHeight() + fm.getAscent()) / 2 - 2; // Centrado verticalmente
+
+                            // Dibujar el texto
+                            g.drawString(text, x, y);
+
+                        } else {
+                            super.paint(context, g);
+                        }
+                    }
+                ;
+            }
+
+        
+    
+
+    );
+             }
+
+            }
+    }
+    
+    
     public static void detectAndHandleDeadlocks() {
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
 

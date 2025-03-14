@@ -39,6 +39,7 @@ import java.util.logging.Logger;
 import javax.swing.JButton;
 import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
@@ -65,6 +66,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 lights_labelMouseReleased(null);
             });
         }
+    }
+
+    public JPanel getLast_hand_panel() {
+        return last_hand_panel;
     }
 
     public JLabel getLast_hand_label() {
@@ -95,8 +100,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return flop3;
     }
 
+    public JPanel getHand_panel() {
+        return hand_panel;
+    }
+
     public JLabel getHand_label() {
         return hand_label;
+    }
+
+    public JPanel getPot_panel() {
+        return pot_panel;
     }
 
     public JLabel getPot_label() {
@@ -165,7 +178,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     public CommunityCardsPanel() {
         Helpers.GUIRunAndWait(() -> {
             initComponents();
-            last_hand_label.setVisible(false);
+            last_hand_panel.setVisible(false);
             random_button.setVisible(false);
             hand_limit_spinner.setVisible(false);
             hand_limit_spinner.addChangeListener(e -> {
@@ -218,19 +231,26 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         });
     }
 
+    private void setHandBackground(Color color) {
+        Helpers.GUIRun(() -> {
+            getHand_label().setOpaque(false);
+            getHand_panel().setOpaque(true);
+            getHand_panel().setBackground(color);
+        });
+    }
+
     public void last_hand_on() {
         GameFrame.getInstance().getCrupier().setLast_hand(true);
 
-        var tthis = GameFrame.getInstance().getTapete().getCommunityCards();
-
         Helpers.GUIRun(() -> {
-            tthis.getHand_label().setOpaque(true);
-            tthis.getHand_label().setBackground(Color.YELLOW);
-            tthis.getHand_label().setForeground(Color.BLACK);
-            tthis.getHand_label().setToolTipText(Translator.translate("ÚLTIMA MANO"));
-            tthis.getLast_hand_label().setVisible(true);
+            setHandBackground(Color.YELLOW);
+            getHand_label().setForeground(Color.BLACK);
+            getHand_label().setToolTipText(Translator.translate("ÚLTIMA MANO"));
+            getLast_hand_panel().setVisible(true);
             GameFrame.getInstance().getLast_hand_menu().setSelected(true);
             Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(true);
+            revalidate();
+            repaint();
         });
 
         Audio.playWavResource("misc/last_hand_on.wav");
@@ -241,21 +261,20 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         GameFrame.getInstance().getCrupier().setLast_hand(false);
 
-        var tthis = GameFrame.getInstance().getTapete().getCommunityCards();
-
         Helpers.GUIRun(() -> {
-            tthis.getHand_label().setOpaque(false);
-            tthis.getHand_label().setForeground(color_contadores);
-            tthis.getHand_label().setToolTipText(null);
-            tthis.getLast_hand_label().setVisible(false);
+            getHand_panel().setOpaque(false);
+            getHand_label().setForeground(color_contadores);
+            getHand_label().setToolTipText(null);
+            getLast_hand_panel().setVisible(false);
 
             if (GameFrame.MANOS != -1 && GameFrame.getInstance().getCrupier().getMano() > GameFrame.MANOS) {
-                tthis.getHand_label().setBackground(Color.red);
-                tthis.getHand_label().setForeground(Color.WHITE);
-                tthis.getHand_label().setOpaque(true);
+                setHandBackground(Color.red);
+                getHand_label().setForeground(Color.WHITE);
             }
             GameFrame.getInstance().getLast_hand_menu().setSelected(false);
             Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(false);
+            revalidate();
+            repaint();
         });
 
         Audio.playWavResource("misc/last_hand_off.wav");
@@ -293,10 +312,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        pot_label = new javax.swing.JLabel();
         bet_label = new javax.swing.JLabel();
         blinds_label = new javax.swing.JLabel();
-        hand_label = new javax.swing.JLabel();
         tiempo_partida = new javax.swing.JLabel();
         sound_icon = new javax.swing.JLabel();
         panel_barra = new javax.swing.JPanel();
@@ -308,21 +325,19 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         turn = new com.tonikelope.coronapoker.Card();
         flop1 = new com.tonikelope.coronapoker.Card();
         pause_button = new javax.swing.JButton();
-        last_hand_label = new javax.swing.JLabel();
         random_button = new javax.swing.JButton();
         hand_limit_spinner = new javax.swing.JSpinner();
         max_hands_button = new javax.swing.JButton();
         lights_label = new javax.swing.JLabel();
+        pot_panel = new RoundedPanel(20);
+        pot_label = new javax.swing.JLabel();
+        last_hand_panel = new RoundedPanel(20);
+        last_hand_label = new javax.swing.JLabel();
+        hand_panel = new RoundedPanel(20);
+        hand_label = new javax.swing.JLabel();
 
         setFocusable(false);
         setOpaque(false);
-
-        pot_label.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
-        pot_label.setForeground(new java.awt.Color(153, 204, 0));
-        pot_label.setText(" ");
-        pot_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
-        pot_label.setDoubleBuffered(true);
-        pot_label.setFocusable(false);
 
         bet_label.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
         bet_label.setForeground(new java.awt.Color(153, 204, 0));
@@ -341,20 +356,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         blinds_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 blinds_labelMouseClicked(evt);
-            }
-        });
-
-        hand_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
-        hand_label.setForeground(new java.awt.Color(153, 204, 0));
-        hand_label.setText(" ");
-        hand_label.setToolTipText("CLICK IZQ: ÚLTIMA MANO / CLICK DCHO: LÍMITE DE MANOS");
-        hand_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
-        hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        hand_label.setDoubleBuffered(true);
-        hand_label.setFocusable(false);
-        hand_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                hand_labelMouseClicked(evt);
             }
         });
 
@@ -392,7 +393,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         );
         panel_barraLayout.setVerticalGroup(
             panel_barraLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 30, Short.MAX_VALUE)
+            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 1, Short.MAX_VALUE)
         );
 
         cards_panel.setFocusable(false);
@@ -438,20 +439,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
-        last_hand_label.setBackground(new java.awt.Color(255, 255, 0));
-        last_hand_label.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
-        last_hand_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        last_hand_label.setText("ÚLTIMA MANO");
-        last_hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        last_hand_label.setDoubleBuffered(true);
-        last_hand_label.setFocusable(false);
-        last_hand_label.setOpaque(true);
-        last_hand_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                last_hand_labelMouseClicked(evt);
-            }
-        });
-
         random_button.setBackground(new java.awt.Color(255, 0, 0));
         random_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         random_button.setForeground(new java.awt.Color(255, 255, 255));
@@ -491,13 +478,104 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
+        pot_panel.setOpaque(false);
+
+        pot_label.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
+        pot_label.setForeground(new java.awt.Color(153, 204, 0));
+        pot_label.setText(" ");
+        pot_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
+        pot_label.setDoubleBuffered(true);
+        pot_label.setFocusable(false);
+
+        javax.swing.GroupLayout pot_panelLayout = new javax.swing.GroupLayout(pot_panel);
+        pot_panel.setLayout(pot_panelLayout);
+        pot_panelLayout.setHorizontalGroup(
+            pot_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(pot_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(pot_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(0, 0, 0))
+        );
+        pot_panelLayout.setVerticalGroup(
+            pot_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(pot_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(pot_label)
+                .addGap(0, 0, 0))
+        );
+
+        last_hand_panel.setBackground(new java.awt.Color(255, 255, 0));
+
+        last_hand_label.setBackground(new java.awt.Color(255, 255, 0));
+        last_hand_label.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
+        last_hand_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        last_hand_label.setText("ÚLTIMA MANO");
+        last_hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        last_hand_label.setDoubleBuffered(true);
+        last_hand_label.setFocusable(false);
+        last_hand_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                last_hand_labelMouseClicked(evt);
+            }
+        });
+
+        javax.swing.GroupLayout last_hand_panelLayout = new javax.swing.GroupLayout(last_hand_panel);
+        last_hand_panel.setLayout(last_hand_panelLayout);
+        last_hand_panelLayout.setHorizontalGroup(
+            last_hand_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(last_hand_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(last_hand_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(0, 0, 0))
+        );
+        last_hand_panelLayout.setVerticalGroup(
+            last_hand_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(last_hand_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(last_hand_label)
+                .addGap(0, 0, 0))
+        );
+
+        hand_panel.setOpaque(false);
+
+        hand_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
+        hand_label.setForeground(new java.awt.Color(153, 204, 0));
+        hand_label.setText(" ");
+        hand_label.setToolTipText("CLICK IZQ: ÚLTIMA MANO / CLICK DCHO: LÍMITE DE MANOS");
+        hand_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
+        hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        hand_label.setDoubleBuffered(true);
+        hand_label.setFocusable(false);
+        hand_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                hand_labelMouseClicked(evt);
+            }
+        });
+
+        javax.swing.GroupLayout hand_panelLayout = new javax.swing.GroupLayout(hand_panel);
+        hand_panel.setLayout(hand_panelLayout);
+        hand_panelLayout.setHorizontalGroup(
+            hand_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(hand_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(hand_label)
+                .addGap(0, 0, 0))
+        );
+        hand_panelLayout.setVerticalGroup(
+            hand_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(hand_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(hand_label)
+                .addGap(0, 0, 0))
+        );
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(pot_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGap(0, 0, 0)
+                .addComponent(pot_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(bet_label))
             .addGroup(layout.createSequentialGroup()
                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -516,26 +594,26 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(max_hands_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(hand_label))
+                .addComponent(hand_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
             .addComponent(panel_barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(last_hand_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(cards_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(last_hand_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(pot_label)
-                    .addComponent(bet_label))
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(bet_label)
+                    .addComponent(pot_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(last_hand_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(last_hand_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(12, 12, 12)
                 .addComponent(cards_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(hand_label)
                             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                                 .addComponent(blinds_label)
                                 .addComponent(pause_button)
@@ -543,7 +621,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                                 .addComponent(hand_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(tiempo_partida)
                                 .addComponent(max_hands_button)
-                                .addComponent(lights_label)))
+                                .addComponent(lights_label))
+                            .addComponent(hand_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(panel_barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
@@ -562,13 +641,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hand_labelMouseClicked
         // TODO add your handling code here:
 
-        var tthis = GameFrame.getInstance().getTapete().getCommunityCards();
-
-        if (GameFrame.getInstance().isPartida_local() && tthis.getHand_label().isEnabled()) {
+        if (GameFrame.getInstance().isPartida_local() && getHand_label().isEnabled()) {
 
             if ((evt == null && hand_label_click_type == 1) || (evt != null && SwingUtilities.isLeftMouseButton(evt))) {
 
-                tthis.getHand_label().setEnabled(false);
+                getHand_panel().setEnabled(false);
 
                 if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿ÚLTIMA MANO?") == 0) {
 
@@ -582,12 +659,12 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                             last_hand_off();
                         }
                         Helpers.GUIRun(() -> {
-                            tthis.getHand_label().setEnabled(true);
+                            getHand_panel().setEnabled(true);
                         });
                     });
 
                 } else {
-                    tthis.getHand_label().setEnabled(true);
+                    getHand_panel().setEnabled(true);
                     GameFrame.getInstance().getLast_hand_menu().setSelected(false);
                     Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(false);
                 }
@@ -602,22 +679,21 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     }//GEN-LAST:event_hand_labelMouseClicked
 
     private void click_max_hands() {
-        var tthis = GameFrame.getInstance().getTapete().getCommunityCards();
 
-        if (tthis.getHand_limit_spinner().isVisible()) {
+        if (getHand_limit_spinner().isVisible()) {
 
             GameFrame.getInstance().getMax_hands_menu().setOpaque(false);
             GameFrame.getInstance().getMax_hands_menu().setBackground(null);
             Helpers.TapetePopupMenu.MAX_HANDS_MENU.setOpaque(false);
             Helpers.TapetePopupMenu.MAX_HANDS_MENU.setBackground(null);
 
-            tthis.getHand_limit_spinner().setVisible(false);
+            getHand_limit_spinner().setVisible(false);
 
             max_hands_button.setVisible(false);
 
             tiempo_partida.setVisible(GameFrame.SHOW_CLOCK);
 
-            tthis.getHand_label().setEnabled(false);
+            getHand_panel().setEnabled(false);
 
             int manos = (int) (GameFrame.getInstance().getTapete().getCommunityCards().getHand_limit_spinner().getValue());
 
@@ -639,25 +715,25 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("MAXHANDS#" + String.valueOf(GameFrame.MANOS), null);
                     GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
                     Helpers.GUIRun(() -> {
-                        tthis.getHand_label().setEnabled(true);
+                        getHand_panel().setEnabled(true);
                     });
                 });
 
             } else {
-                tthis.getHand_label().setEnabled(true);
+                getHand_panel().setEnabled(true);
             }
 
         } else {
 
             tiempo_partida.setVisible(false);
 
-            tthis.getHand_limit_spinner().setModel(new SpinnerNumberModel(GameFrame.MANOS != -1 ? GameFrame.MANOS : 0, 0, null, 1));
+            getHand_limit_spinner().setModel(new SpinnerNumberModel(GameFrame.MANOS != -1 ? GameFrame.MANOS : 0, 0, null, 1));
 
-            ((JSpinner.DefaultEditor) tthis.getHand_limit_spinner().getEditor()).getTextField().setEditable(false);
+            ((JSpinner.DefaultEditor) getHand_limit_spinner().getEditor()).getTextField().setEditable(false);
 
-            tthis.getHand_limit_spinner().setVisible(true);
+            getHand_limit_spinner().setVisible(true);
 
-            tthis.getMax_hands_button().setVisible(true);
+            getMax_hands_button().setVisible(true);
 
             GameFrame.getInstance().getMax_hands_menu().setBackground(Color.YELLOW);
             GameFrame.getInstance().getMax_hands_menu().setOpaque(true);
@@ -674,8 +750,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void pause_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pause_buttonActionPerformed
         // TODO add your handling code here:
 
-        var tthis = GameFrame.getInstance().getTapete().getCommunityCards();
-
         int pause_now = -2;
 
         if (!GameFrame.getInstance().getCrupier().isIwtsthing() && !(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && (GameFrame.getInstance().isPartida_local()) && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
@@ -689,17 +763,17 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (!(!GameFrame.getInstance().isPartida_local() && (GameFrame.getInstance().getCrupier().isIwtsthing() || GameFrame.getInstance().getCrupier().isIwtsthing_request())) && pause_now < 1 && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && ((!GameFrame.getInstance().isPartida_local() && pause_now == 0) || (GameFrame.getInstance().getLocalPlayer().isTurno() && pause_now == -2) || (GameFrame.getInstance().isPartida_local() && ((GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) || GameFrame.getInstance().isTimba_pausada() || pause_now == 0 || GameFrame.getInstance().getLocalPlayer().isSpectator())))) {
 
-            tthis.getPause_button().setBackground(null);
-            tthis.getPause_button().setForeground(null);
+            getPause_button().setBackground(null);
+            getPause_button().setForeground(null);
 
             if (!GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().isPartida_local()) {
 
                 GameFrame.getInstance().getLocalPlayer().setPause_counter(GameFrame.getInstance().getLocalPlayer().getPause_counter() - 1);
-                Helpers.setScaledIconButton(tthis.getPause_button(), getClass().getResource("/images/pause.png"), Math.round(0.6f * tthis.getPause_button().getHeight()), Math.round(0.6f * tthis.getPause_button().getHeight()));
-                tthis.getPause_button().setText(Translator.translate("PAUSAR") + " (" + GameFrame.getInstance().getLocalPlayer().getPause_counter() + ")");
+                Helpers.setScaledIconButton(getPause_button(), getClass().getResource("/images/pause.png"), Math.round(0.6f * getPause_button().getHeight()), Math.round(0.6f * getPause_button().getHeight()));
+                getPause_button().setText(Translator.translate("PAUSAR") + " (" + GameFrame.getInstance().getLocalPlayer().getPause_counter() + ")");
             }
 
-            tthis.getPause_button().setEnabled(false);
+            getPause_button().setEnabled(false);
 
             Helpers.threadRun(() -> {
                 GameFrame.getInstance().pauseTimba(GameFrame.getInstance().isPartida_local() ? null : GameFrame.getInstance().getLocalPlayer().getNickname());
@@ -709,8 +783,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             if (!GameFrame.getInstance().getLocalPlayer().isAuto_pause()) {
 
-                tthis.getPause_button().setBackground(Color.WHITE);
-                tthis.getPause_button().setForeground(new Color(255, 102, 0));
+                getPause_button().setBackground(Color.WHITE);
+                getPause_button().setForeground(new Color(255, 102, 0));
                 GameFrame.getInstance().getLocalPlayer().setAuto_pause(true);
                 Audio.playWavResource("misc/button_on.wav");
 
@@ -720,8 +794,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 }
 
             } else {
-                tthis.getPause_button().setBackground(null);
-                tthis.getPause_button().setForeground(null);
+                getPause_button().setBackground(null);
+                getPause_button().setForeground(null);
                 GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
                 Audio.playWavResource("misc/button_off.wav");
             }
@@ -807,12 +881,15 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private com.tonikelope.coronapoker.Card flop3;
     private javax.swing.JLabel hand_label;
     private javax.swing.JSpinner hand_limit_spinner;
+    private javax.swing.JPanel hand_panel;
     private javax.swing.JLabel last_hand_label;
+    private javax.swing.JPanel last_hand_panel;
     private javax.swing.JLabel lights_label;
     private javax.swing.JButton max_hands_button;
     private javax.swing.JPanel panel_barra;
     private javax.swing.JButton pause_button;
     private javax.swing.JLabel pot_label;
+    private javax.swing.JPanel pot_panel;
     private javax.swing.JButton random_button;
     private com.tonikelope.coronapoker.Card river;
     private javax.swing.JLabel sound_icon;

@@ -2434,10 +2434,18 @@ public class Crupier implements Runnable {
         return flop_players.contains(GameFrame.getInstance().getLocalPlayer());
     }
 
+    private void setPotBackground(Color color) {
+        Helpers.GUIRun(() -> {
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_panel().setOpaque(true);
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_panel().setBackground(color);
+        });
+    }
+
     private boolean NUEVA_MANO() {
 
         Helpers.GUIRun(() -> {
-            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(false);
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_panel().setOpaque(false);
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.LEADING);
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText("---"); //Para que se mantenga la altura de la fila del bote
@@ -7003,9 +7011,7 @@ public class Crupier implements Runnable {
                                 GameFrame.getInstance().getRegistro().print("-----" + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
 
                                 Helpers.GUIRun(() -> {
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.RED);
+                                    setPotBackground(Color.RED);
 
                                     GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                                 });
@@ -7035,9 +7041,8 @@ public class Crupier implements Runnable {
                                 GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
 
                                 Helpers.GUIRun(() -> {
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
 
-                                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
+                                    setPotBackground(Color.GREEN);
 
                                     GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
                                 });
@@ -7141,8 +7146,8 @@ public class Crupier implements Runnable {
 
                                     this.showdown(jugadas, ganadores);
                                     Helpers.GUIRun(() -> {
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.GREEN);
+
+                                        setPotBackground(Color.GREEN);
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
                                     });
 
@@ -7281,8 +7286,8 @@ public class Crupier implements Runnable {
 
                                     }
                                     Helpers.GUIRun(() -> {
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setOpaque(true);
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setBackground(Color.BLACK);
+
+                                        setPotBackground(Color.BLACK);
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                                     });
 

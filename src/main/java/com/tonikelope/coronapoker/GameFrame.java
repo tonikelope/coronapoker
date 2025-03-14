@@ -1953,9 +1953,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 if (partida_terminada) {
 
                     Helpers.GUIRunAndWait(() -> {
-                        BalanceDialog balance = new BalanceDialog(getFrame(), true);
+                        BalanceDialog balance = new BalanceDialog(GameFrame.getInstance(), true);
 
-                        balance.setLocationRelativeTo(getFrame());
+                        balance.setLocationRelativeTo(balance.getParent());
 
                         balance.setVisible(true);
 

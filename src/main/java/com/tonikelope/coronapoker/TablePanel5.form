@@ -21,12 +21,12 @@
               <Component id="jPanel3" min="-2" max="-2" attributes="0"/>
               <Group type="103" groupAlignment="0" attributes="0">
                   <Group type="102" attributes="0">
-                      <EmptySpace pref="257" max="32767" attributes="0"/>
+                      <EmptySpace type="unrelated" max="32767" attributes="0"/>
                       <Group type="103" groupAlignment="0" max="-2" attributes="0">
                           <Component id="communityCards" alignment="0" min="-2" max="-2" attributes="0"/>
                           <Component id="jPanel2" max="32767" attributes="0"/>
                       </Group>
-                      <EmptySpace pref="269" max="32767" attributes="0"/>
+                      <EmptySpace type="unrelated" max="32767" attributes="0"/>
                   </Group>
                   <Group type="102" alignment="0" attributes="0">
                       <EmptySpace max="32767" attributes="0"/>
@@ -52,9 +52,9 @@
                           <Component id="jPanel1" min="-2" max="-2" attributes="0"/>
                           <Component id="jPanel5" min="-2" max="-2" attributes="0"/>
                       </Group>
-                      <EmptySpace pref="38" max="32767" attributes="0"/>
+                      <EmptySpace type="unrelated" max="32767" attributes="0"/>
                       <Component id="communityCards" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace pref="32" max="32767" attributes="0"/>
+                      <EmptySpace type="unrelated" max="32767" attributes="0"/>
                       <Component id="jPanel2" min="-2" max="-2" attributes="0"/>
                   </Group>
                   <Component id="jPanel3" alignment="0" max="32767" attributes="0"/>

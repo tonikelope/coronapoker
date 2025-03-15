@@ -104,11 +104,11 @@ public class BalanceDialog extends javax.swing.JDialog {
 
             } else if (avatar_path != null && "*".equals(avatar_path)) {
 
-                Helpers.setScaledIconLabel(label, getClass().getResource("/images/avatar_bot.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledRoundedIconLabel(label, getClass().getResource("/images/avatar_bot.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
 
             } else {
 
-                Helpers.setScaledIconLabel(label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledRoundedIconLabel(label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             }
 
             ranking.add(new Object[]{ganancia, label});

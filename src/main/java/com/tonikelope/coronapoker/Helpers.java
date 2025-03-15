@@ -1288,6 +1288,7 @@ public class Helpers {
     public static void setLocationContainerRelativeTo(Container reference, Container current) {
 
         Helpers.GUIRun(new Runnable() {
+            @Override
             public void run() {
                 int reference_center_x = (int) (reference.getLocation().getX() + Math.round(reference.getWidth() / 2));
                 int reference_center_y = (int) (reference.getLocation().getY() + Math.round(reference.getHeight() / 2));
@@ -1305,6 +1306,7 @@ public class Helpers {
 
     public static void setScaledIconLabel(JLabel label, String path, int width, int height) {
         Helpers.GUIRunAndWait(new Runnable() {
+            @Override
             public void run() {
                 try {
                     label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
@@ -1319,8 +1321,33 @@ public class Helpers {
 
     public static void setScaledIconLabel(JLabel label, URL path, int width, int height) {
         Helpers.GUIRunAndWait(new Runnable() {
+            @Override
             public void run() {
                 label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+            }
+        });
+    }
+
+    public static void setScaledRoundedIconLabel(JLabel label, String path, int width, int height) {
+        Helpers.GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    label.setIcon(new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)).getImage(), 20)));
+
+                } catch (MalformedURLException ex) {
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
+    }
+
+    public static void setScaledRoundedIconLabel(JLabel label, URL path, int width, int height) {
+        Helpers.GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+                label.setIcon(new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)).getImage(), 20)));
             }
         });
     }

@@ -595,6 +595,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
 
+        Helpers.GUIRun(() -> {
+            GameFrame.getInstance().revalidate();
+            GameFrame.getInstance().repaint();
+        });
+
         if (this.getDecision() == Player.NODEC) {
 
             call_required = GameFrame.getInstance().getCrupier().getApuesta_actual() - bet;
@@ -749,7 +754,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
         }
 
-        Helpers.GUIRunAndWait(() -> {
+        Helpers.GUIRun(() -> {
             if (!reraise) {
 
                 if (dec == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) == 0) {

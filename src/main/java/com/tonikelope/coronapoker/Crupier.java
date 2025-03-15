@@ -2822,6 +2822,11 @@ public class Crupier implements Runnable {
 
             disableAllPlayersTimeout();
 
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().revalidate();
+                GameFrame.getInstance().repaint();
+            });
+
             return true;
 
         } else {
@@ -2845,9 +2850,15 @@ public class Crupier implements Runnable {
 
             disableAllPlayersTimeout();
 
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().revalidate();
+                GameFrame.getInstance().repaint();
+            });
+
             return false;
 
         }
+
     }
 
     private void sqlNewAction(Player current_player) {

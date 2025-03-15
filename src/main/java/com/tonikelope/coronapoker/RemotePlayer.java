@@ -611,6 +611,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerActionIcon("action/thinking.png");
 
                 Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+
+                revalidate();
+                repaint();
             });
 
             if (!GameFrame.TEST_MODE) {
@@ -811,6 +814,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                 GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
             }
+
+            revalidate();
+            repaint();
         });
     }
 

@@ -1255,7 +1255,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         Color orig_color = border_color;
                                         hurryup_timer = new Timer(1000, (ActionEvent ae1) -> {
                                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
-                                                if (player_action.getBackground() != Color.GRAY) {
+                                                if (border_color != Color.GRAY) {
                                                     setPlayerBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
                                                     setActionBackground(Color.GRAY);
                                                     player_action.setForeground(Color.WHITE);

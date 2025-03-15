@@ -66,7 +66,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends javax.swing.JDialog {
 
-    public static final String VERSION = "18.26";
+    public static final String VERSION = "18.27";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -179,6 +179,7 @@ public class AboutDialog extends javax.swing.JDialog {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("¿De dónde ha salido esto?");
+        setBackground(new java.awt.Color(255, 255, 255));
         setModal(true);
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowActivated(java.awt.event.WindowEvent evt) {
@@ -200,6 +201,8 @@ public class AboutDialog extends javax.swing.JDialog {
 
         main_scroll_panel.setBorder(null);
         main_scroll_panel.setDoubleBuffered(true);
+
+        jPanel2.setBackground(new java.awt.Color(255, 255, 255));
 
         jLabel2.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -266,6 +269,8 @@ public class AboutDialog extends javax.swing.JDialog {
 
         jPanel1.setOpaque(false);
 
+        jPanel3.setOpaque(false);
+
         mod_label.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         mod_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         mod_label.setText("MOD");
@@ -326,6 +331,8 @@ public class AboutDialog extends javax.swing.JDialog {
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
+        jPanel4.setOpaque(false);
+
         jLabel12.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel12.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/open-book.png"))); // NOI18N
         jLabel12.setToolTipText("Reglas de Robert");
@@ -381,7 +388,7 @@ public class AboutDialog extends javax.swing.JDialog {
                 .addComponent(jvm))
             .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(merecemos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, 893, Short.MAX_VALUE)
+            .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jLabel6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jLabel7, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jLabel8, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -435,25 +442,20 @@ public class AboutDialog extends javax.swing.JDialog {
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
+                .addGap(0, 0, 0)
                 .addComponent(main_scroll_panel)
-                .addContainerGap())
+                .addGap(0, 0, 0))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
+                .addGap(0, 0, 0)
                 .addComponent(main_scroll_panel)
-                .addContainerGap())
+                .addGap(0, 0, 0))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
-
-    private void corona_icon_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_corona_icon_labelMouseClicked
-        // TODO add your handling code here:
-        Helpers.openBrowserURL("https://tonikelope.github.io/coronapoker/");
-    }//GEN-LAST:event_corona_icon_labelMouseClicked
 
     private void jLabel12MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jLabel12MouseClicked
         // TODO add your handling code here:
@@ -521,6 +523,18 @@ public class AboutDialog extends javax.swing.JDialog {
         memory_timer.stop();
     }//GEN-LAST:event_formWindowClosed
 
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        // TODO add your handling code here:
+        if (!mod_bar.isVisible()) {
+            dispose();
+        }
+    }//GEN-LAST:event_formWindowClosing
+
+    private void corona_icon_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_corona_icon_labelMouseClicked
+        // TODO add your handling code here:
+        Helpers.openBrowserURL("https://tonikelope.github.io/coronapoker/");
+    }//GEN-LAST:event_corona_icon_labelMouseClicked
+
     private void mod_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_mod_labelMouseClicked
         // TODO add your handling code here:
 
@@ -538,13 +552,6 @@ public class AboutDialog extends javax.swing.JDialog {
             });
         }
     }//GEN-LAST:event_mod_labelMouseClicked
-
-    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
-        // TODO add your handling code here:
-        if (!mod_bar.isVisible()) {
-            dispose();
-        }
-    }//GEN-LAST:event_formWindowClosing
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel corona_icon_label;

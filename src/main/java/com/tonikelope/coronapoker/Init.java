@@ -537,7 +537,7 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
-        botones_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0), 8));
+        botones_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255), 15));
         botones_panel.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         botones_panel.setOpaque(false);
 
@@ -706,7 +706,7 @@ public class Init extends javax.swing.JFrame {
         );
         baraja_panelLayout.setVerticalGroup(
             baraja_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(baraja_fondo, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 1830, Short.MAX_VALUE)
+            .addComponent(baraja_fondo, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 1855, Short.MAX_VALUE)
         );
 
         tapete.setLayer(botones_panel, javax.swing.JLayeredPane.POPUP_LAYER);

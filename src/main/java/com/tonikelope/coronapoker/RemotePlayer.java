@@ -1669,8 +1669,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void setLoser(String msg) {
         this.loser = true;
 
-        var tthis = this;
-
         Helpers.GUIRun(() -> {
             if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
                 player_action.setFont(orig_action_font);
@@ -1691,8 +1689,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setActionBackground(Color.WHITE);
                 player_action.setForeground(Color.RED);
                 player_action.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                holeCard1.setIwtsth_candidate(tthis);
-                holeCard2.setIwtsth_candidate(tthis);
+                holeCard1.setIwtsth_candidate(this);
+                holeCard2.setIwtsth_candidate(this);
             }
 
             if (msg.length() > MAX_ACTION_HAND_LENGTH) {

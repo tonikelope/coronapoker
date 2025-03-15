@@ -1067,6 +1067,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
 
+        Helpers.GUIRun(() -> {
+            GameFrame.getInstance().revalidate();
+            GameFrame.getInstance().repaint();
+        });
+
         if (this.getDecision() == Player.NODEC) {
             Audio.playWavResource("misc/yourturn.wav");
 
@@ -2857,7 +2862,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 break;
         }
 
-        Helpers.GUIRunAndWait(() -> {
+        Helpers.GUIRun(() -> {
             if (!reraise) {
 
                 if (dec == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) == 0) {

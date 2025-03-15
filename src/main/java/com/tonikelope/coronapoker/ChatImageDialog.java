@@ -179,48 +179,57 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
                                 @Override
                                 public void keyPressed(KeyEvent ke) {
-                                    if (ke.getKeyCode() == KeyEvent.VK_S) {
-                                        THIS.image_url.setText(h);
-                                        THIS.image_url.setEnabled(false);
-                                        THIS.send_buttonActionPerformed(null);
-                                    } else if (ke.getKeyCode() == KeyEvent.VK_1) {
-                                        if (!THIS.exiting) {
-                                            THIS.exiting = true;
-                                            Helpers.threadRun(() -> {
-                                                synchronized (LOAD_IMAGES_LOCK) {
-                                                    THIS.exit = true;
-                                                }
-                                                Helpers.GUIRun(() -> {
-                                                    THIS.dispose();
+                                    switch (ke.getKeyCode()) {
+                                        case KeyEvent.VK_ESCAPE:
+                                            formWindowClosing(null);
+                                            break;
+                                        case KeyEvent.VK_S:
+                                            THIS.image_url.setText(h);
+                                            THIS.image_url.setEnabled(false);
+                                            THIS.send_buttonActionPerformed(null);
+                                            break;
+                                        case KeyEvent.VK_1:
+                                            if (!THIS.exiting) {
+                                                THIS.exiting = true;
+                                                Helpers.threadRun(() -> {
+                                                    synchronized (LOAD_IMAGES_LOCK) {
+                                                        THIS.exit = true;
+                                                    }
+                                                    Helpers.GUIRun(() -> {
+                                                        THIS.dispose();
 
-                                                    if (WaitingRoomFrame.getInstance().isVisible()) {
-                                                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+                                                        if (WaitingRoomFrame.getInstance().isVisible()) {
+                                                            WaitingRoomFrame.getInstance().getChat_box().requestFocus();
+                                                        }
+                                                    });
+                                                });
+                                            }
+                                            break;
+                                        case KeyEvent.VK_BACK_SPACE:
+                                            label.setBorder(new LineBorder(Color.RED, 5));
+                                            if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+                                                Helpers.threadRun(() -> {
+                                                    synchronized (LOAD_IMAGES_LOCK) {
+                                                        if (!THIS.exit) {
+                                                            Helpers.GUIRunAndWait(() -> {
+                                                                THIS.historial_panel.remove(label);
+                                                                THIS.historial_panel.revalidate();
+                                                                THIS.historial_panel.repaint();
+
+                                                                if (THIS.last_focused != null) {
+                                                                    THIS.last_focused.requestFocus();
+                                                                }
+                                                            });
+                                                            ChatImageDialog.removeFromHistory(h);
+                                                        }
                                                     }
                                                 });
-                                            });
-                                        }
-                                    } else if (ke.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
-                                        label.setBorder(new LineBorder(Color.RED, 5));
-                                        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
-                                            Helpers.threadRun(() -> {
-                                                synchronized (LOAD_IMAGES_LOCK) {
-                                                    if (!THIS.exit) {
-                                                        Helpers.GUIRunAndWait(() -> {
-                                                            THIS.historial_panel.remove(label);
-                                                            THIS.historial_panel.revalidate();
-                                                            THIS.historial_panel.repaint();
-
-                                                            if (THIS.last_focused != null) {
-                                                                THIS.last_focused.requestFocus();
-                                                            }
-                                                        });
-                                                        ChatImageDialog.removeFromHistory(h);
-                                                    }
-                                                }
-                                            });
-                                        } else {
-                                            label.requestFocus();
-                                        }
+                                            } else {
+                                                label.requestFocus();
+                                            }
+                                            break;
+                                        default:
+                                            break;
                                     }
                                 }
 
@@ -509,6 +518,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("Enviar imagen");
+        setUndecorated(true);
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);

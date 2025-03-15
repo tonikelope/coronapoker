@@ -129,9 +129,6 @@ public class Init extends javax.swing.JFrame {
         if (Helpers.OSValidator.isUnix()) {
             System.setProperty("sun.java2d.opengl", "true");
             System.setProperty("sun.java2d.d3d", "false");
-        } else if (Helpers.OSValidator.isWindows()) {
-            System.setProperty("sun.java2d.opengl", "false");
-            System.setProperty("sun.java2d.d3d", "true");
         }
 
         try {

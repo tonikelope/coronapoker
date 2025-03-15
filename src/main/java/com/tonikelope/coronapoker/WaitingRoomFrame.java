@@ -2513,9 +2513,9 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
             label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
 
             if (avatar != null) {
-                Helpers.setScaledIconLabel(label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledRoundedIconLabel(label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             } else {
-                Helpers.setScaledIconLabel(label, getClass().getResource((server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                Helpers.setScaledRoundedIconLabel(label, getClass().getResource((server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
             }
 
             ((DefaultListModel) conectados.getModel()).addElement(label);

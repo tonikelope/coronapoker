@@ -596,7 +596,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
 
         Helpers.GUIRun(() -> {
-            GameFrame.getInstance().revalidate();
             GameFrame.getInstance().repaint();
         });
 

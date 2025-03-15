@@ -1318,9 +1318,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
                         GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
                     }
-                    revalidate();
-                    repaint();
+
                 }
+
+                revalidate();
+                repaint();
+
             });
 
         } else {
@@ -1350,6 +1353,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             if (GameFrame.AUTO_ACTION_BUTTONS && getDecision() != Player.ALLIN && getDecision() != Player.FOLD) {
                 activarPreBotones();
             }
+
+            revalidate();
+            repaint();
         });
     }
 

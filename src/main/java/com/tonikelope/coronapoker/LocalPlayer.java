@@ -190,24 +190,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void setActionBackground(Color color) {
         Helpers.GUIRun(() -> {
-            player_action.setOpaque(false);
-            player_action_panel.setOpaque(true);
             player_action_panel.setBackground(color);
         });
     }
 
     private void setPlayerPotBackground(Color color) {
         Helpers.GUIRun(() -> {
-            player_pot.setOpaque(false);
-            player_pot_panel.setOpaque(true);
             player_pot_panel.setBackground(color);
         });
     }
 
     private void setPlayerStackBackground(Color color) {
         Helpers.GUIRun(() -> {
-            player_stack.setOpaque(false);
-            player_stack_panel.setOpaque(true);
             player_stack_panel.setBackground(color);
         });
     }
@@ -530,6 +524,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.pause_counter = pause_counter;
     }
 
+    @Override
     public boolean isTurno() {
         return turno;
     }
@@ -1998,7 +1993,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_pot.setText("----");
         player_pot.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_pot.setFocusable(false);
-        player_pot.setOpaque(true);
 
         javax.swing.GroupLayout player_pot_panelLayout = new javax.swing.GroupLayout(player_pot_panel);
         player_pot_panel.setLayout(player_pot_panelLayout);
@@ -2026,7 +2020,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setFocusable(false);
-        player_stack.setOpaque(true);
         player_stack.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 player_stackMouseClicked(evt);
@@ -2256,7 +2249,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
         player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
-        player_action.setOpaque(true);
 
         javax.swing.GroupLayout player_action_panelLayout = new javax.swing.GroupLayout(player_action_panel);
         player_action_panel.setLayout(player_action_panelLayout);
@@ -2642,7 +2634,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
                             setPlayerStackBackground(Color.YELLOW);
                             player_stack.setForeground(Color.BLACK);
-                            player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
+                            player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(Float.valueOf((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
 
                         } else {
 
@@ -2861,7 +2853,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 break;
         }
 
-        Helpers.GUIRun(() -> {
+        Helpers.GUIRunAndWait(() -> {
             if (!reraise) {
 
                 if (dec == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) == 0) {
@@ -2883,8 +2875,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setForeground(RERAISE_FORE_COLOR);
             }
 
-            revalidate();
-            repaint();
+            player_action_panel.repaint();
+            player_pot_panel.repaint();
         });
     }
 

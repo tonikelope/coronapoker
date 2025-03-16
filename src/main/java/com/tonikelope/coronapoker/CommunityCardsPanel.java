@@ -232,10 +232,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     }
 
     private void setHandBackground(Color color) {
-        Helpers.GUIRun(() -> {
-            getHand_label().setOpaque(false);
-            getHand_panel().setOpaque(true);
+        Helpers.GUIRunAndWait(() -> {
             getHand_panel().setBackground(color);
+            getHand_panel().repaint();
         });
     }
 
@@ -243,6 +242,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         GameFrame.getInstance().getCrupier().setLast_hand(true);
 
         Helpers.GUIRun(() -> {
+            getHand_panel().setOpaque(true);
             setHandBackground(Color.YELLOW);
             getHand_label().setForeground(Color.BLACK);
             getHand_label().setToolTipText(Translator.translate("ÚLTIMA MANO"));

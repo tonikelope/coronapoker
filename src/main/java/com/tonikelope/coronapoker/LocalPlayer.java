@@ -191,6 +191,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void setActionBackground(Color color) {
         Helpers.GUIRun(() -> {
             player_action_panel.setBackground(color);
+            player_action_panel.revalidate();
             player_action_panel.repaint();
         });
     }
@@ -198,6 +199,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void setPlayerPotBackground(Color color) {
         Helpers.GUIRun(() -> {
             player_pot_panel.setBackground(color);
+            player_pot_panel.revalidate();
             player_pot_panel.repaint();
         });
     }
@@ -205,6 +207,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void setPlayerStackBackground(Color color) {
         Helpers.GUIRun(() -> {
             player_stack_panel.setBackground(color);
+            player_stack_panel.revalidate();
             player_stack_panel.repaint();
         });
     }

@@ -232,8 +232,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     }
 
     private void setHandBackground(Color color) {
-        Helpers.GUIRunAndWait(() -> {
+        Helpers.GUIRun(() -> {
             getHand_panel().setBackground(color);
+            getHand_panel().revalidate();
             getHand_panel().repaint();
         });
     }

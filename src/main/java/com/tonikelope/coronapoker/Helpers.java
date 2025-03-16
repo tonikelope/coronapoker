@@ -3079,7 +3079,6 @@ public class Helpers {
                 SwingUtilities.invokeAndWait(r);
             } else {
                 r.run();
-
             }
         } catch (InterruptedException | InvocationTargetException ex) {
             Logger.getLogger(Helpers.class

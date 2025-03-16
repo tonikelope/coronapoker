@@ -195,10 +195,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
     public boolean isMuestra() {
         return muestra;
     }
 
+    @Override
     public void setNotifyTTSChatLabel() {
 
         chat_notify_image_url = null;
@@ -416,6 +418,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return chip_label;
     }
 
+    @Override
     public GifLabel getChat_notify_label() {
         return chat_notify_label;
     }
@@ -424,6 +427,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return panel_cartas;
     }
 
+    @Override
     public boolean isTimeout() {
         return timeout;
     }
@@ -441,6 +445,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return player_name;
     }
 
+    @Override
     public int getResponseTime() {
 
         return GameFrame.TIEMPO_PENSAR - response_counter;
@@ -450,10 +455,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return bot;
     }
 
+    @Override
     public boolean isTurno() {
         return turno;
     }
 
+    @Override
     public void refreshPos() {
 
         if (this.isActivo()) {
@@ -484,6 +491,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
+    @Override
     public boolean isWinner() {
         return winner;
     }
@@ -496,14 +504,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return avatar;
     }
 
+    @Override
     public int getBuyin() {
         return buyin;
     }
 
+    @Override
     public synchronized boolean isExit() {
         return exit;
     }
 
+    @Override
     public synchronized void setExit() {
 
         if (!this.exit) {
@@ -534,14 +545,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
     public synchronized float getPagar() {
         return pagar;
     }
 
+    @Override
     public synchronized float getBote() {
         return bote;
     }
 
+    @Override
     public synchronized void setStack(float stack) {
         this.stack = Helpers.floatClean(stack);
 
@@ -563,6 +577,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
+    @Override
     public synchronized void setBet(float new_bet) {
 
         float old_bet = bet;
@@ -590,6 +605,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
     public void esTuTurno() {
         turno = true;
 
@@ -753,7 +769,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
         }
 
-        Helpers.GUIRun(() -> {
+        Helpers.GUIRunAndWait(() -> {
             if (!reraise) {
 
                 if (dec == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) == 0) {
@@ -775,31 +791,25 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 player_pot.setForeground(RERAISE_FORE_COLOR);
             }
 
-            revalidate();
-            repaint();
+            player_action_panel.repaint();
+            player_pot_panel.repaint();
         });
     }
 
     private void setActionBackground(Color color) {
         Helpers.GUIRun(() -> {
-            player_action.setOpaque(false);
-            player_action_panel.setOpaque(true);
             player_action_panel.setBackground(color);
         });
     }
 
     private void setPlayerPotBackground(Color color) {
         Helpers.GUIRun(() -> {
-            player_pot.setOpaque(false);
-            player_pot_panel.setOpaque(true);
             player_pot_panel.setBackground(color);
         });
     }
 
     private void setPlayerStackBackground(Color color) {
         Helpers.GUIRun(() -> {
-            player_stack.setOpaque(false);
-            player_stack_panel.setOpaque(true);
             player_stack_panel.setBackground(color);
         });
     }
@@ -1196,7 +1206,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_pot.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_pot.setDoubleBuffered(true);
         player_pot.setFocusable(false);
-        player_pot.setOpaque(true);
 
         javax.swing.GroupLayout player_pot_panelLayout = new javax.swing.GroupLayout(player_pot_panel);
         player_pot_panel.setLayout(player_pot_panelLayout);
@@ -1225,7 +1234,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setDoubleBuffered(true);
         player_stack.setFocusable(false);
-        player_stack.setOpaque(true);
         player_stack.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 player_stackMouseClicked(evt);
@@ -1365,7 +1373,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
-        player_action.setOpaque(true);
         player_action.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 player_actionMouseClicked(evt);
@@ -1806,6 +1813,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
+    @Override
     public synchronized float getStack() {
         return stack;
     }
@@ -1814,6 +1822,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return player_action;
     }
 
+    @Override
     public void resetGUI() {
         Helpers.GUIRunAndWait(() -> {
             if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
@@ -1894,7 +1903,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {
 
-            int rebuy = (Integer) GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname);
+            int rebuy = GameFrame.getInstance().getCrupier().getRebuy_now().get(nickname);
 
             GameFrame.getInstance().getCrupier().getRebuy_now().remove(nickname);
 
@@ -1977,6 +1986,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
     public void resetBetDecision() {
         int old_dec = this.decision;
 
@@ -1993,6 +2003,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
     public void disableUTG() {
 
         if (this.utg) {
@@ -2044,11 +2055,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return action;
     }
 
+    @Override
     public void setBuyin(int buyin) {
         this.buyin = buyin;
 
     }
 
+    @Override
     public void setSpectator(String msg) {
         if (!this.exit) {
             this.spectator = true;
@@ -2119,6 +2132,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
+    @Override
     public void unsetSpectator() {
         this.spectator = false;
 

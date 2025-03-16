@@ -211,7 +211,6 @@
                     </Property>
                     <Property name="doubleBuffered" type="boolean" value="true"/>
                     <Property name="focusable" type="boolean" value="false"/>
-                    <Property name="opaque" type="boolean" value="true"/>
                   </Properties>
                 </Component>
               </SubComponents>
@@ -266,7 +265,6 @@
                     </Property>
                     <Property name="doubleBuffered" type="boolean" value="true"/>
                     <Property name="focusable" type="boolean" value="false"/>
-                    <Property name="opaque" type="boolean" value="true"/>
                   </Properties>
                   <Events>
                     <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="player_stackMouseClicked"/>
@@ -438,7 +436,6 @@
             </Property>
             <Property name="doubleBuffered" type="boolean" value="true"/>
             <Property name="focusable" type="boolean" value="false"/>
-            <Property name="opaque" type="boolean" value="true"/>
           </Properties>
           <Events>
             <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="player_actionMouseClicked"/>

@@ -3561,7 +3561,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                 game_info_hands.setText(GameFrame.MANOS != -1 ? String.valueOf(GameFrame.MANOS) : "");
 
-                game_info_hands.setVisible(game_info_hands.getText() != "");
+                game_info_hands.setVisible(!"".equals(game_info_hands.getText()));
 
                 Helpers.threadRun(() -> {
                     try {

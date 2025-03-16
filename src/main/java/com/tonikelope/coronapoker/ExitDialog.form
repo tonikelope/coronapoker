@@ -42,7 +42,7 @@
         </Property>
         <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
           <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
-            <LineBorder thickness="8">
+            <LineBorder thickness="10">
               <Color PropertyName="color" blue="0" green="66" red="ff" type="rgb"/>
             </LineBorder>
           </Border>
@@ -80,7 +80,7 @@
                       <Component id="exit_button" min="-2" max="-2" attributes="0"/>
                       <Component id="exit_checkbox" alignment="1" min="-2" max="-2" attributes="0"/>
                   </Group>
-                  <EmptySpace pref="20" max="32767" attributes="0"/>
+                  <EmptySpace pref="16" max="32767" attributes="0"/>
               </Group>
           </Group>
         </DimensionLayout>

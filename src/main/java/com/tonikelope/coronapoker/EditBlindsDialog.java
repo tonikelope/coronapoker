@@ -142,7 +142,7 @@ public class EditBlindsDialog extends javax.swing.JDialog {
         setUndecorated(true);
 
         jPanel2.setBackground(new java.awt.Color(255, 255, 255));
-        jPanel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 51, 255), 8));
+        jPanel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 102, 0), 10));
 
         jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
@@ -150,7 +150,6 @@ public class EditBlindsDialog extends javax.swing.JDialog {
         doblar_checkbox.setText("Aumentar ciegas");
         doblar_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         doblar_checkbox.setDoubleBuffered(true);
-        doblar_checkbox.setOpaque(false);
         doblar_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 doblar_checkboxActionPerformed(evt);
@@ -166,7 +165,6 @@ public class EditBlindsDialog extends javax.swing.JDialog {
         double_blinds_radio_minutos.setText("Minutos:");
         double_blinds_radio_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         double_blinds_radio_minutos.setDoubleBuffered(true);
-        double_blinds_radio_minutos.setOpaque(false);
         double_blinds_radio_minutos.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 double_blinds_radio_minutosActionPerformed(evt);
@@ -177,7 +175,6 @@ public class EditBlindsDialog extends javax.swing.JDialog {
         double_blinds_radio_manos.setText("Manos:");
         double_blinds_radio_manos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         double_blinds_radio_manos.setDoubleBuffered(true);
-        double_blinds_radio_manos.setOpaque(false);
         double_blinds_radio_manos.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 double_blinds_radio_manosActionPerformed(evt);

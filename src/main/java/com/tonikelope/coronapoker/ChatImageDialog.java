@@ -505,16 +505,17 @@ public class ChatImageDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        scroll_panel = new javax.swing.JScrollPane();
-        historial_panel = new javax.swing.JPanel();
-        barra = new javax.swing.JProgressBar();
-        clear_button = new javax.swing.JButton();
-        auto_recibir_checkbox = new javax.swing.JCheckBox();
+        jPanel2 = new javax.swing.JPanel();
         jPanel1 = new javax.swing.JPanel();
         image_url = new javax.swing.JTextField();
         jLabel1 = new javax.swing.JLabel();
         send_button = new javax.swing.JButton();
         jLabel2 = new javax.swing.JLabel();
+        auto_recibir_checkbox = new javax.swing.JCheckBox();
+        clear_button = new javax.swing.JButton();
+        barra = new javax.swing.JProgressBar();
+        scroll_panel = new javax.swing.JScrollPane();
+        historial_panel = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("Enviar imagen");
@@ -525,47 +526,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
             }
         });
 
-        scroll_panel.setBorder(null);
-        scroll_panel.setDoubleBuffered(true);
-        scroll_panel.setFocusCycleRoot(true);
-
-        javax.swing.GroupLayout historial_panelLayout = new javax.swing.GroupLayout(historial_panel);
-        historial_panel.setLayout(historial_panelLayout);
-        historial_panelLayout.setHorizontalGroup(
-            historial_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 516, Short.MAX_VALUE)
-        );
-        historial_panelLayout.setVerticalGroup(
-            historial_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 555, Short.MAX_VALUE)
-        );
-
-        scroll_panel.setViewportView(historial_panel);
-
-        barra.setDoubleBuffered(true);
-        barra.setFocusable(false);
-
-        clear_button.setBackground(new java.awt.Color(255, 0, 0));
-        clear_button.setForeground(new java.awt.Color(255, 255, 255));
-        clear_button.setText("Borrar historial");
-        clear_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        clear_button.setDoubleBuffered(true);
-        clear_button.setFocusable(false);
-        clear_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                clear_buttonActionPerformed(evt);
-            }
-        });
-
-        auto_recibir_checkbox.setText("Añadir imágenes recibidas al historial");
-        auto_recibir_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        auto_recibir_checkbox.setDoubleBuffered(true);
-        auto_recibir_checkbox.setFocusable(false);
-        auto_recibir_checkbox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                auto_recibir_checkboxActionPerformed(evt);
-            }
-        });
+        jPanel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 102, 0), 10));
 
         image_url.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         image_url.setDoubleBuffered(true);
@@ -633,36 +594,92 @@ public class ChatImageDialog extends javax.swing.JDialog {
                 .addContainerGap())
         );
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(scroll_panel)
-            .addGroup(layout.createSequentialGroup()
+        auto_recibir_checkbox.setText("Añadir imágenes recibidas al historial");
+        auto_recibir_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        auto_recibir_checkbox.setDoubleBuffered(true);
+        auto_recibir_checkbox.setFocusable(false);
+        auto_recibir_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                auto_recibir_checkboxActionPerformed(evt);
+            }
+        });
+
+        clear_button.setBackground(new java.awt.Color(255, 0, 0));
+        clear_button.setForeground(new java.awt.Color(255, 255, 255));
+        clear_button.setText("Borrar historial");
+        clear_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        clear_button.setDoubleBuffered(true);
+        clear_button.setFocusable(false);
+        clear_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                clear_buttonActionPerformed(evt);
+            }
+        });
+
+        barra.setDoubleBuffered(true);
+        barra.setFocusable(false);
+
+        scroll_panel.setBorder(null);
+        scroll_panel.setDoubleBuffered(true);
+        scroll_panel.setFocusCycleRoot(true);
+
+        javax.swing.GroupLayout historial_panelLayout = new javax.swing.GroupLayout(historial_panel);
+        historial_panel.setLayout(historial_panelLayout);
+        historial_panelLayout.setHorizontalGroup(
+            historial_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 516, Short.MAX_VALUE)
+        );
+        historial_panelLayout.setVerticalGroup(
+            historial_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 555, Short.MAX_VALUE)
+        );
+
+        scroll_panel.setViewportView(historial_panel);
+
+        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
+        jPanel2.setLayout(jPanel2Layout);
+        jPanel2Layout.setHorizontalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
                     .addComponent(barra, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(layout.createSequentialGroup()
+                    .addGroup(jPanel2Layout.createSequentialGroup()
                         .addComponent(auto_recibir_checkbox)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(clear_button))
                     .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
+        jPanel2Layout.setVerticalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(scroll_panel)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 523, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(auto_recibir_checkbox)
                     .addComponent(clear_button))
                 .addContainerGap())
+        );
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jPanel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(0, 0, 0))
         );
 
         pack();
@@ -886,6 +903,7 @@ public class ChatImageDialog extends javax.swing.JDialog {
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane scroll_panel;
     private javax.swing.JButton send_button;
     // End of variables declaration//GEN-END:variables

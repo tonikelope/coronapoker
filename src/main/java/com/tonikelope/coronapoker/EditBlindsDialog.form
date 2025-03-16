@@ -41,8 +41,8 @@
         </Property>
         <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
           <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
-            <LineBorder thickness="8">
-              <Color PropertyName="color" blue="ff" green="33" red="0" type="rgb"/>
+            <LineBorder thickness="10">
+              <Color PropertyName="color" blue="0" green="66" red="ff" type="rgb"/>
             </LineBorder>
           </Border>
         </Property>
@@ -156,7 +156,6 @@
                   <Color id="Cursor de Mano"/>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="opaque" type="boolean" value="false"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="doblar_checkboxActionPerformed"/>
@@ -186,7 +185,6 @@
                   <Color id="Cursor de Mano"/>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="opaque" type="boolean" value="false"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="double_blinds_radio_minutosActionPerformed"/>
@@ -202,7 +200,6 @@
                   <Color id="Cursor de Mano"/>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="opaque" type="boolean" value="false"/>
               </Properties>
               <Events>
                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="double_blinds_radio_manosActionPerformed"/>

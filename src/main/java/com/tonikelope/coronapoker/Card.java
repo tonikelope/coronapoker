@@ -809,17 +809,17 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
                 if (!isTapada()) {
 
-                    visor = new CardVisorDialog(GameFrame.getInstance().getFrame(), false, this.valor, this.palo, false);
+                    visor = new CardVisorDialog(GameFrame.getInstance(), false, this.valor, this.palo, false);
 
                 } else {
 
-                    visor = new CardVisorDialog(GameFrame.getInstance().getFrame(), false, 53, false);
+                    visor = new CardVisorDialog(GameFrame.getInstance(), false, 53, false);
 
                 }
 
             } else {
 
-                visor = new CardVisorDialog(GameFrame.getInstance().getFrame(), false, 54, false);
+                visor = new CardVisorDialog(GameFrame.getInstance(), false, 54, false);
 
             }
 

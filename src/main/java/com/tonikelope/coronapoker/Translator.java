@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"TAPETE REFRESCADO", "MAT REFRESHED"},
             {"El servidor ha activado el RADAR anti-trampas para esta partida.\nCualquier jugador podrá solicitar un informe anti-trampas de otro jugador durante la partida,\nel cual incluye una captura de pantalla del jugador (sin mostrar sus cartas) así como su listado de procesos del sistema.", "The server has activated anti-cheating RADAR for this game.\nAny player may request an anti-cheating report from another player during the game,\nwhich includes a screenshot of the player (without showing his cards) as well as his/her system process listing."},
             {"HECHO A MANO EN ESPAÑA CON AMOR por tonikelope (c) 2020", "HANDMADE IN SPAIN WITH LOVE by tonikelope (c) 2020"},
             {"Chat rápido", "Fast chat"},

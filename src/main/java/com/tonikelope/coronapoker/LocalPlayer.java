@@ -768,6 +768,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
 
         setBorder(javax.swing.BorderFactory.createLineBorder(color, size));
+
+        Helpers.GUIRun(() -> {
+            revalidate();
+            repaint();
+        });
     }
 
     public JLabel getAvatar() {
@@ -1067,10 +1072,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         turno = true;
 
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
-
-        Helpers.GUIRun(() -> {
-            GameFrame.getInstance().repaint();
-        });
 
         if (this.getDecision() == Player.NODEC) {
             Audio.playWavResource("misc/yourturn.wav");
@@ -2331,7 +2332,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (pre_pulsado == Player.FOLD || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
 
-                if (GameFrame.TEST_MODE || Helpers.float1DSecureCompare(0f, call_required) < 0 || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SEGURO?") == 0) {
+                if (GameFrame.TEST_MODE || Helpers.float1DSecureCompare(0f, call_required) < 0 || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "¿SEGURO?") == 0) {
 
                     Audio.playWavResource("misc/fold.wav");
 
@@ -2670,9 +2671,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // TODO add your handling code here:
         if (!GameFrame.getInstance().isPartida_local()) {
 
-            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance().getFrame(), true, player_name.getText(), GameFrame.getInstance().getSala_espera().getLocal_client_aes_key());
+            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance(), true, player_name.getText(), GameFrame.getInstance().getSala_espera().getLocal_client_aes_key());
 
-            identicon.setLocationRelativeTo(GameFrame.getInstance().getFrame());
+            identicon.setLocationRelativeTo(GameFrame.getInstance());
 
             identicon.setVisible(true);
         }

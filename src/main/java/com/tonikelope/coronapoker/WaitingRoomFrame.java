@@ -1077,7 +1077,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                     if (this.reconnect_dialog == null) {
 
                                         Helpers.GUIRun(() -> {
-                                            reconnect_dialog = new Reconnect2ServerDialog(GameFrame.getInstance() != null ? GameFrame.getInstance().getFrame() : THIS, true, server_ip_port);
+                                            reconnect_dialog = new Reconnect2ServerDialog(GameFrame.getInstance() != null ? GameFrame.getInstance() : THIS, true, server_ip_port);
                                             reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
                                             reconnect_dialog.setVisible(true);
                                         });
@@ -1684,7 +1684,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
 
                                                                     Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
 
-                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, GameFrame.TTS_SERVER ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR", GameFrame.TTS_SERVER ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, 2000);
+                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.TTS_SERVER ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR", GameFrame.TTS_SERVER ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, 2000);
 
                                                                     dialog.setLocation(dialog.getParent().getLocation());
 
@@ -1745,7 +1745,7 @@ public class WaitingRoomFrame extends javax.swing.JFrame {
                                                                 exit = true;
 
                                                                 if (!GameFrame.CINEMATICAS) {
-                                                                    mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "EL SERVIDOR HA TERMINADO LA TIMBA");
+                                                                    mostrarMensajeInformativo(GameFrame.getInstance(), "EL SERVIDOR HA TERMINADO LA TIMBA");
                                                                 }
                                                                 break;
                                                             default:

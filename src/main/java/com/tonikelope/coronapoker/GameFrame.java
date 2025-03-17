@@ -241,9 +241,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.getInstance().toggleFullScreen();
         }
 
-        THIS.getFrame().setVisible(false);
-
-        THIS.getFrame().dispose();
+        THIS.setVisible(false);
 
         THIS.dispose();
 
@@ -340,7 +338,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 full_screen_lock.notifyAll();
                             }
 
-                            GameFrame.getInstance().getFrame().requestFocus();
+                            GameFrame.getInstance().requestFocus();
                         });
                     } else if (method.getName().equals("windowExitedFullScreen")) {
                         Helpers.GUIRun(() -> {
@@ -355,7 +353,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 full_screen_lock.notifyAll();
                             }
 
-                            GameFrame.getInstance().getFrame().requestFocus();
+                            GameFrame.getInstance().requestFocus();
                         });
                     }
                     return true;
@@ -391,8 +389,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             if (!Init.DEV_MODE && fullscreen) {
                 full_screen_menu.doClick();
             } else {
-                GameFrame.getInstance().getFrame().setExtendedState(JFrame.MAXIMIZED_BOTH);
-                GameFrame.getInstance().getFrame().setVisible(true);
+                GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
+                GameFrame.getInstance().setVisible(true);
             }
 
             GameFrame.getInstance().setEnabled(false);
@@ -498,10 +496,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public JMenuItem getZoom_menu_reset() {
         return zoom_menu_reset;
-    }
-
-    public JFrame getFrame() {
-        return this;
     }
 
     public void setConta_tiempo_juego(long tiempo_juego) {
@@ -615,7 +609,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 full_screen_lock.notifyAll();
             }
 
-            GameFrame.getInstance().getFrame().requestFocus();
+            GameFrame.getInstance().requestFocus();
         });
 
     }
@@ -729,7 +723,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.GUIRun(() -> {
 
                 if (pausa_dialog == null) {
-                    pausa_dialog = new PauseDialog(getFrame(), false);
+                    pausa_dialog = new PauseDialog(this, false);
                 }
 
                 if (timba_pausada) {
@@ -834,8 +828,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.GUIRunAndWait(() -> {
             if (GameFrame.CHAT_IMAGES_INGAME) {
 
-                ChatImageDialog chat_image_dialog = new ChatImageDialog(getFrame(), true, getFrame().getHeight());
-                chat_image_dialog.setLocation((int) (getFrame().getLocation().getX() + getFrame().getWidth()) - chat_image_dialog.getWidth(), (int) getFrame().getLocation().getY());
+                ChatImageDialog chat_image_dialog = new ChatImageDialog(this, true, this.getHeight());
+                chat_image_dialog.setLocation((int) (this.getLocation().getX() + this.getWidth()) - chat_image_dialog.getWidth(), (int) this.getLocation().getY());
                 chat_image_dialog.setVisible(true);
             }
         });
@@ -847,15 +841,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 FastChatDialog old_dialog = fastchat_dialog;
 
-                fastchat_dialog = new FastChatDialog(getFrame(), false, fastchat_dialog.getChat_box());
+                fastchat_dialog = new FastChatDialog(this, false, fastchat_dialog.getChat_box());
 
                 old_dialog.dispose();
 
             } else {
-                fastchat_dialog = new FastChatDialog(getFrame(), false, null);
+                fastchat_dialog = new FastChatDialog(this, false, null);
             }
 
-            fastchat_dialog.setLocation(getFrame().getX(), getFrame().getY() + getFrame().getHeight() - fastchat_dialog.getHeight());
+            fastchat_dialog.setLocation(this.getX(), this.getY() + this.getHeight() - fastchat_dialog.getHeight());
 
             fastchat_dialog.setVisible(true);
         });
@@ -864,6 +858,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void setupGlobalShortcuts() {
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), new AbstractAction("REFRESH") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                GameFrame.getInstance().revalidate();
+                GameFrame.getInstance().repaint(0L);
+
+                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "TAPETE REFRESCADO", Color.ORANGE, Color.BLACK, null, 2000);
+                dialog.setLocation(dialog.getParent().getLocation());
+                dialog.setVisible(true);
+
+            }
+        });
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Q, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("QUIT") {
             @Override
@@ -1182,7 +1189,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         GameFrame.key_event_dispatcher = (KeyEvent e) -> {
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-            JFrame frame = GameFrame.getInstance().getFrame();
+            JFrame frame = GameFrame.getInstance();
             if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && keyStroke.equals(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK))))) {
                 final Action a = actionMap.get(keyStroke);
                 final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
@@ -1373,7 +1380,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
 
             Helpers.GUIRunAndWait(() -> {
-                JFrame frame = getFrame();
+                JFrame frame = this;
                 frame.getContentPane().remove(frame_layer);
                 tapete = nuevo_tapete;
                 zoomables = new ZoomableInterface[]{tapete};
@@ -1546,7 +1553,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         Helpers.GUIRunAndWait(() -> {
                             try {
-                                gif_dialog = new GifAnimationDialog(getFrame(), true, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFFramesCount(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
+                                gif_dialog = new GifAnimationDialog(this, true, new ImageIcon(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif"))), Helpers.getGIFFramesCount(Paths.get(System.getProperty("java.io.tmpdir") + "/M2e.gif").toUri().toURL()));
                                 gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                 gif_dialog.setVisible(true);
                             } catch (IOException | ImageProcessingException ex) {
@@ -2066,7 +2073,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Helpers.GUIRun(() -> {
                     try {
-                        gif_dialog = new GifAnimationDialog(getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
+                        gif_dialog = new GifAnimationDialog(this, true, icon, Helpers.getGIFFramesCount(f_url_icon));
                         gif_dialog.addMouseListener(new MouseAdapter() {
                             @Override
                             public void mouseClicked(MouseEvent e) {
@@ -2147,7 +2154,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void AJUGAR() {
 
         Helpers.GUIRunAndWait(() -> {
-            registro_dialog = new GameLogDialog(getFrame(), false);
+            registro_dialog = new GameLogDialog(this, false);
         });
 
         TTSWatchdog();
@@ -2209,9 +2216,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                     Helpers.GUIRun(() -> {
                                         if (temp_notify_blocked) {
-                                            notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.YELLOW, Color.BLACK, getClass().getResource("/images/sound_b.png"), null);
+                                            notify_dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.YELLOW, Color.BLACK, getClass().getResource("/images/sound_b.png"), null);
                                         } else {
-                                            notify_dialog = new InGameNotifyDialog(getFrame(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
+                                            notify_dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + nick + "]: " + WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
                                         }
 
                                         notify_dialog.setLocation(notify_dialog.getParent().getLocation());
@@ -2774,7 +2781,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void exit_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_menuActionPerformed
         // TODO add your handling code here:
 
-        if (getLocalPlayer().isExit() && Helpers.mostrarMensajeInformativoSINO(getFrame(), "¿FORZAR CIERRE?") == 0) {
+        if (getLocalPlayer().isExit() && Helpers.mostrarMensajeInformativoSINO(this, "¿FORZAR CIERRE?") == 0) {
             if (Helpers.OSValidator.isWindows()) {
                 Helpers.restoreWindowsGlobalZoom();
             }
@@ -2785,8 +2792,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             if (jugadores.size() > 1) {
 
-                ExitDialog exit_dialog = new ExitDialog(getFrame(), true, "¡CUIDADO! ERES EL ANFITRIÓN Y SI SALES SE TERMINARÁ LA TIMBA.");
-                exit_dialog.setLocationRelativeTo(getFrame());
+                ExitDialog exit_dialog = new ExitDialog(this, true, "¡CUIDADO! ERES EL ANFITRIÓN Y SI SALES SE TERMINARÁ LA TIMBA.");
+                exit_dialog.setLocationRelativeTo(this);
                 exit_dialog.setVisible(true);
 
                 // 0=yes, 1=no, 2=cancel
@@ -2814,8 +2821,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         } else {
 
-            ExitDialog exit_dialog = new ExitDialog(getFrame(), true, "Si sales no podrás volver a entrar.");
-            exit_dialog.setLocationRelativeTo(getFrame());
+            ExitDialog exit_dialog = new ExitDialog(this, true, "Si sales no podrás volver a entrar.");
+            exit_dialog.setLocationRelativeTo(this);
             exit_dialog.setVisible(true);
 
             // 0=yes, 1=no, 2=cancel
@@ -2963,21 +2970,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void registro_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_registro_menuActionPerformed
         // TODO add your handling code here:
 
-        if (registro_dialog.getParent() != getFrame()) {
+        if (registro_dialog.getParent() != this) {
             registro_dialog.setVisible(false);
             registro_dialog.dispose();
-            registro_dialog = new GameLogDialog(getFrame(), false);
+            registro_dialog = new GameLogDialog(this, false);
         }
 
         if (!registro_dialog.isVisible()) {
 
-            registro_dialog.setSize(Math.round(0.8f * getFrame().getWidth()), Math.round(0.8f * getFrame().getHeight()));
+            registro_dialog.setSize(Math.round(0.8f * this.getWidth()), Math.round(0.8f * this.getHeight()));
 
             registro_dialog.setPreferredSize(registro_dialog.getSize());
 
             registro_dialog.pack();
 
-            registro_dialog.setLocationRelativeTo(getFrame());
+            registro_dialog.setLocationRelativeTo(this);
 
             registro_dialog.setVisible(true);
         }
@@ -2995,7 +3002,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             this.sala_espera.setVisible(false);
         }
 
-        this.sala_espera.setLocationRelativeTo(getFrame());
+        this.sala_espera.setLocationRelativeTo(this);
         this.sala_espera.setExtendedState(JFrame.NORMAL);
         this.sala_espera.setVisible(true);
 
@@ -3092,11 +3099,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         jugadas_menu.setEnabled(false);
 
         if (jugadas_dialog == null) {
-            jugadas_dialog = new HandGeneratorDialog(getFrame(), false);
-        } else if (jugadas_dialog.getParent() != getFrame()) {
+            jugadas_dialog = new HandGeneratorDialog(this, false);
+        } else if (jugadas_dialog.getParent() != this) {
             jugadas_dialog.setVisible(false);
             jugadas_dialog.dispose();
-            jugadas_dialog = new HandGeneratorDialog(getFrame(), false);
+            jugadas_dialog = new HandGeneratorDialog(this, false);
         }
 
         if (!jugadas_dialog.isVisible()) {
@@ -3104,7 +3111,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 jugadas_dialog.pintarJugada();
                 Helpers.GUIRun(() -> {
                     jugadas_dialog.pack();
-                    jugadas_dialog.setLocationRelativeTo(getFrame());
+                    jugadas_dialog.setLocationRelativeTo(this);
                     jugadas_dialog.setVisible(true);
                     jugadas_menu.setEnabled(true);
                 });
@@ -3604,7 +3611,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (shortcuts_dialog == null) {
 
-            shortcuts_dialog = new ShortcutsDialog(getFrame(), false);
+            shortcuts_dialog = new ShortcutsDialog(this, false);
 
         }
 
@@ -3615,7 +3622,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.threadRun(() -> {
                 Helpers.zoomFonts(shortcuts_dialog, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
                 Helpers.GUIRun(() -> {
-                    shortcuts_dialog.setLocation(getFrame().getX() + getFrame().getWidth() - shortcuts_dialog.getWidth(), getFrame().getY() + getFrame().getHeight() - shortcuts_dialog.getHeight());
+                    shortcuts_dialog.setLocation(this.getX() + this.getWidth() - shortcuts_dialog.getWidth(), this.getY() + this.getHeight() - shortcuts_dialog.getHeight());
 
                     shortcuts_dialog.setVisible(true);
 
@@ -3657,7 +3664,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(null);
 
-                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "TTS ACTIVADO POR EL SERVIDOR", new Color(0, 130, 0), Color.WHITE, null, 2000);
+                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "TTS ACTIVADO POR EL SERVIDOR", new Color(0, 130, 0), Color.WHITE, null, 2000);
 
                         dialog.setLocation(dialog.getParent().getLocation());
 
@@ -3667,7 +3674,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             }
 
-        } else if (GameFrame.getInstance().isPartida_local() && Helpers.mostrarMensajeInformativoSINO(getFrame(), "¿DESACTIVAR EL CHAT DE VOZ PARA TODOS?") == 0) {
+        } else if (GameFrame.getInstance().isPartida_local() && Helpers.mostrarMensajeInformativoSINO(this, "¿DESACTIVAR EL CHAT DE VOZ PARA TODOS?") == 0) {
 
             GameFrame.TTS_SERVER = false;
 
@@ -3686,7 +3693,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(true);
 
-                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance().getFrame(), false, "TTS DESACTIVADO POR EL SERVIDOR", Color.RED, Color.WHITE, null, 2000);
+                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "TTS DESACTIVADO POR EL SERVIDOR", Color.RED, Color.WHITE, null, 2000);
 
                     dialog.setLocation(dialog.getParent().getLocation());
 
@@ -3742,7 +3749,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         } else {
 
-            rebuy_dialog = new RebuyDialog(GameFrame.getInstance().getFrame(), true, true, -1);
+            rebuy_dialog = new RebuyDialog(GameFrame.getInstance(), true, true, -1);
 
             rebuy_dialog.setLocationRelativeTo(rebuy_dialog.getParent());
 
@@ -3950,7 +3957,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void force_reconnect_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_force_reconnect_menuActionPerformed
         // TODO add your handling code here:
 
-        if (isPartida_local() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿FORZAR RECONEXIÓN DE TODOS LOS JUGADORES?", new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+        if (isPartida_local() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "¿FORZAR RECONEXIÓN DE TODOS LOS JUGADORES?", new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
             boolean ok = false;
 
@@ -3963,7 +3970,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
 
             if (!ok) {
-                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "NO HAY JUGADORES HUMANOS CONECTADOS");
+                Helpers.mostrarMensajeError(GameFrame.getInstance(), "NO HAY JUGADORES HUMANOS CONECTADOS");
             }
         }
     }//GEN-LAST:event_force_reconnect_menuActionPerformed

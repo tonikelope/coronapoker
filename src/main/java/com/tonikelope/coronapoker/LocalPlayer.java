@@ -649,7 +649,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 desactivarControles();
                 setOpaque(false);
                 setBackground(null);
-                setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                setPlayerBorder(new Color(204, 204, 204, 75));
 
                 player_pot.setText("----");
                 player_pot.setForeground(Color.white);
@@ -710,7 +710,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.spectator = false;
 
         Helpers.GUIRun(() -> {
-            setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            setPlayerBorder(new Color(204, 204, 204, 75));
             player_name.setIcon(null);
             player_stack.setEnabled(true);
             GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
@@ -745,10 +745,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(() -> {
                 if (val) {
 
-                    setPlayerBorder(Color.MAGENTA, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                    setPlayerBorder(Color.MAGENTA);
                     setPlayerActionIcon("action/timeout.png");
                 } else {
-                    setPlayerBorder(border_color != null ? border_color : new java.awt.Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                    setPlayerBorder(border_color != null ? border_color : new java.awt.Color(204, 204, 204, 75));
                     setPlayerActionIcon(player_action_icon);
                 }
             });
@@ -761,13 +761,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    private void setPlayerBorder(Color color, int size) {
+    private void setPlayerBorder(Color color) {
 
         if (!timeout) {
             border_color = color;
         }
-
-        setBorder(javax.swing.BorderFactory.createLineBorder(color, size));
 
         Helpers.GUIRun(() -> {
             revalidate();
@@ -800,7 +798,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             desactivarControles();
 
             Helpers.GUIRun(() -> {
-                setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                setPlayerBorder(new Color(204, 204, 204, 75));
 
                 holeCard1.resetearCarta();
                 holeCard2.resetearCarta();
@@ -1080,19 +1078,27 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             min_raise = Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getUltimo_raise()) < 0 ? GameFrame.getInstance().getCrupier().getUltimo_raise() : Helpers.floatClean(GameFrame.getInstance().getCrupier().getCiega_grande());
 
-            Helpers.GUIRunAndWait(() -> {
+            Helpers.GUIRun(() -> {
                 desarmarBotonesAccion();
-                setPlayerBorder(Color.ORANGE, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+
+                setPlayerBorder(Color.ORANGE);
+
                 player_allin_button.setText("ALL IN");
                 player_allin_button.setEnabled(true);
+
                 Helpers.setScaledIconButton(player_allin_button, getClass().getResource("/images/action/glasses.png"), Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()));
+
                 player_fold_button.setText("NO IR");
                 player_fold_button.setEnabled(true);
                 player_fold_button.setBackground(Color.DARK_GRAY);
                 player_fold_button.setForeground(Color.WHITE);
+
                 Helpers.setScaledIconButton(player_fold_button, getClass().getResource("/images/action/down.png"), Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()));
+
                 setActionBackground(new Color(204, 204, 204, 75));
+
                 player_action.setForeground(Color.WHITE);
+
                 //Comprobamos si podemos ver la apuesta actual
                 if (Helpers.float1DSecureCompare(call_required, stack) < 0) {
 
@@ -1129,6 +1135,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_check_button.setText(" ");
                     player_check_button.setEnabled(false);
                 }
+
                 if ((GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
                         || (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
 
@@ -1202,26 +1209,38 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         bet_spinner.setEnabled(false);
                     }
                 }
+
                 guardarColoresBotonesAccion();
+
                 if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 || ((GameFrame.getInstance().getCrupier().getLast_aggressor() != null && nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())))) && Helpers.float1DSecureCompare(call_required, stack) < 0) {
                     player_allin_button.setText(" ");
                     player_allin_button.setEnabled(false);
                     player_allin_button.setIcon(null);
                 }
+
                 Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+
                 player_action.setText("HABLAS TÚ");
+
                 Helpers.translateComponents(botonera, false);
+
                 Helpers.translateComponents(player_action, false);
+
                 setPlayerActionIcon("action/thinking.png");
 
                 Helpers.setSpinnerColors(bet_spinner, player_bet_button.getBackground(), player_bet_button.getForeground());
 
                 if (GameFrame.TEST_MODE) {
+
                     Helpers.threadRun(() -> {
+
                         Helpers.pausar(GameFrame.TEST_MODE_PAUSE);
+
                         ArrayList<JButton> botones = new ArrayList<>(Arrays.asList(new JButton[]{player_check_button, player_bet_button, player_allin_button, player_fold_button}));
+
                         Iterator<JButton> iterator = botones.iterator();
-                        Helpers.GUIRunAndWait(() -> {
+
+                        Helpers.GUIRun(() -> {
                             while (iterator.hasNext()) {
                                 JButton boton = iterator.next();
 
@@ -1235,12 +1254,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             botones.get(eleccion).doClick();
                         });
                     });
+
                 } else {
+
                     //Tiempo máximo para pensar
                     response_counter = GameFrame.TIEMPO_PENSAR;
+
                     if (auto_action != null) {
                         auto_action.stop();
                     }
+
                     auto_action = new Timer(1000, new ActionListener() {
                         long t = GameFrame.getInstance().getCrupier().getTurno();
 
@@ -1258,11 +1281,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         hurryup_timer = new Timer(1000, (ActionEvent ae1) -> {
                                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
                                                 if (border_color != Color.GRAY) {
-                                                    setPlayerBorder(Color.GRAY, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                                                    setPlayerBorder(Color.GRAY);
                                                     setActionBackground(Color.GRAY);
                                                     player_action.setForeground(Color.WHITE);
                                                 } else {
-                                                    setPlayerBorder(orig_color, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                                                    setPlayerBorder(orig_color);
                                                     setActionBackground(new Color(204, 204, 204, 75));
                                                     player_action.setForeground(Color.WHITE);
                                                 }
@@ -1274,6 +1297,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         hurryup_timer.start();
                                     }
                                 }
+
                                 if (response_counter == 0 || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
                                     Helpers.threadRun(() -> {
                                         if (response_counter == 0) {
@@ -1304,7 +1328,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             }
                         }
                     });
+
                     auto_action.start();
+
                     if (!auto_pause && GameFrame.AUTO_ACTION_BUTTONS && pre_pulsado != Player.NODEC) {
 
                         if (player_fold_button.isEnabled() && pre_pulsado == Player.FOLD) {
@@ -1332,6 +1358,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             });
 
+            Helpers.GUIRun(() -> {
+
+                revalidate();
+                repaint();
+
+            });
+
         } else {
 
             finTurno();
@@ -1347,7 +1380,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(() -> {
             if (decision != Player.ALLIN && decision != Player.FOLD) {
-                setPlayerBorder(new Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                setPlayerBorder(new Color(204, 204, 204, 75));
             }
 
             turno = false;
@@ -1581,7 +1614,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             setBackground(null);
 
-            setPlayerBorder(new java.awt.Color(204, 204, 204, 75), Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            setPlayerBorder(new java.awt.Color(204, 204, 204, 75));
 
             player_name.setIcon(null);
 
@@ -1827,7 +1860,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     hidePlayerActionIcon();
                     player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * zoom_factor)));
-                    setPlayerBorder(((LineBorder) getBorder()).getLineColor(), Math.round(Player.BORDER * zoom_factor));
+                    setPlayerBorder(((LineBorder) getBorder()).getLineColor());
                     getAvatar().setVisible(false);
                     utg_icon.setVisible(false);
 
@@ -2710,7 +2743,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.conta_win++;
 
         Helpers.GUIRun(() -> {
-            setPlayerBorder(Color.GREEN, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            setPlayerBorder(Color.GREEN);
 
             setActionBackground(Color.GREEN);
             player_action.setForeground(Color.BLACK);
@@ -2767,7 +2800,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.loser = true;
 
         Helpers.GUIRun(() -> {
-            setPlayerBorder(Color.RED, Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+            setPlayerBorder(Color.RED);
 
             setActionBackground(Color.RED);
             player_action.setForeground(Color.WHITE);
@@ -2839,7 +2872,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.ALLIN:
                 Helpers.GUIRunAndWait(() -> {
-                    setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                    setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
                     if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet + stack) < 0) {
                         player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(bet + stack - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
@@ -2851,7 +2884,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             default:
                 Helpers.GUIRunAndWait(() -> {
-                    setPlayerBorder(ACTIONS_COLORS[dec - 1][0], Math.round(Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)));
+                    setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
                     player_action.setText(ACTIONS_LABELS[dec - 1][0]);
 

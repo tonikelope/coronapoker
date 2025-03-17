@@ -75,8 +75,8 @@
           <Properties>
             <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
               <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
-                <LineBorder thickness="5">
-                  <Color PropertyName="color" blue="ff" green="ff" red="ff" type="rgb"/>
+                <LineBorder thickness="15">
+                  <Color PropertyName="color" blue="0" green="c8" id="orange" palette="1" red="ff" type="palette"/>
                 </LineBorder>
               </Border>
             </Property>

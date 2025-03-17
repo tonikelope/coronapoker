@@ -154,26 +154,26 @@ public class InitPanel extends javax.swing.JLayeredPane {
 
                     if (tp != null) {
 
-                        Graphics2D g2 = (Graphics2D) g.create();
+                        Graphics2D g2d = (Graphics2D) g.create();
 
-                        g2.setPaint(tp);
+                        g2d.setPaint(tp);
 
-                        g2.fill(getBounds());
+                        g2d.fill(getBounds());
 
-                        g2.dispose();
+                        g2d.dispose();
                     }
 
                     ok = true;
 
                 } else if (tp != null) {
 
-                    Graphics2D g2 = (Graphics2D) g.create();
+                    Graphics2D g2d = (Graphics2D) g.create();
 
-                    g2.setPaint(tp);
+                    g2d.setPaint(tp);
 
-                    g2.fill(getBounds());
+                    g2d.fill(getBounds());
 
-                    g2.dispose();
+                    g2d.dispose();
 
                     ok = true;
                 }

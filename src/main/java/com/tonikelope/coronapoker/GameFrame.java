@@ -865,7 +865,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.getInstance().revalidate();
                 GameFrame.getInstance().repaint(0L);
 
-                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "TAPETE REFRESCADO", Color.ORANGE, Color.BLACK, null, 2000);
+                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "TAPETE REFRESCADO", Color.YELLOW, Color.BLACK, null, 2000);
+                dialog.setOpacity(0.5f);
                 dialog.setLocation(dialog.getParent().getLocation());
                 dialog.setVisible(true);
 

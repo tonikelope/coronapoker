@@ -368,13 +368,18 @@ public class Helpers {
                 ;
             }
 
-    );
+        
+        );
              }
 
             }
+        
+        Helpers.GUIRun(() -> {
+            spinner.revalidate();
+            spinner.repaint();
+        });
     }
-    
-    
+
     public static void detectAndHandleDeadlocks() {
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
 

@@ -84,6 +84,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return bet_label;
     }
 
+    public JPanel getBlinds_panel() {
+        return blinds_panel;
+    }
+
     public JLabel getBlinds_label() {
         return blinds_label;
     }
@@ -150,19 +154,19 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         this.color_contadores = color;
 
         Helpers.GUIRun(() -> {
-            if (!pot_label.isOpaque()) {
+            if (!pot_panel.isOpaque()) {
                 pot_label.setForeground(color);
             }
 
             bet_label.setForeground(color);
 
-            if (!blinds_label.isOpaque()) {
+            if (!blinds_panel.isOpaque()) {
                 blinds_label.setForeground(color);
             }
 
             tiempo_partida.setForeground(color);
 
-            if (!hand_label.isOpaque()) {
+            if (!hand_panel.isOpaque()) {
                 hand_label.setForeground(color);
             }
         });
@@ -314,7 +318,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void initComponents() {
 
         bet_label = new javax.swing.JLabel();
-        blinds_label = new javax.swing.JLabel();
         tiempo_partida = new javax.swing.JLabel();
         sound_icon = new javax.swing.JLabel();
         panel_barra = new javax.swing.JPanel();
@@ -336,6 +339,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         last_hand_label = new javax.swing.JLabel();
         hand_panel = new RoundedPanel(20);
         hand_label = new javax.swing.JLabel();
+        blinds_panel = new RoundedPanel(20);
+        blinds_label = new javax.swing.JLabel();
 
         setFocusable(false);
         setOpaque(false);
@@ -346,19 +351,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         bet_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         bet_label.setDoubleBuffered(true);
         bet_label.setFocusable(false);
-
-        blinds_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
-        blinds_label.setForeground(new java.awt.Color(153, 204, 0));
-        blinds_label.setText(" ");
-        blinds_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
-        blinds_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        blinds_label.setDoubleBuffered(true);
-        blinds_label.setFocusable(false);
-        blinds_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                blinds_labelMouseClicked(evt);
-            }
-        });
 
         tiempo_partida.setFont(new java.awt.Font("Monospaced", 1, 26)); // NOI18N
         tiempo_partida.setForeground(new java.awt.Color(153, 204, 0));
@@ -570,6 +562,36 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addGap(0, 0, 0))
         );
 
+        blinds_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
+        blinds_label.setForeground(new java.awt.Color(153, 204, 0));
+        blinds_label.setText(" ");
+        blinds_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
+        blinds_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        blinds_label.setDoubleBuffered(true);
+        blinds_label.setFocusable(false);
+        blinds_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                blinds_labelMouseClicked(evt);
+            }
+        });
+
+        javax.swing.GroupLayout blinds_panelLayout = new javax.swing.GroupLayout(blinds_panel);
+        blinds_panel.setLayout(blinds_panelLayout);
+        blinds_panelLayout.setHorizontalGroup(
+            blinds_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(blinds_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(blinds_label)
+                .addGap(0, 0, 0))
+        );
+        blinds_panelLayout.setVerticalGroup(
+            blinds_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(blinds_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(blinds_label)
+                .addGap(0, 0, 0))
+        );
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -581,8 +603,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             .addGroup(layout.createSequentialGroup()
                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(blinds_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(blinds_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(12, 12, 12)
                 .addComponent(pause_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(random_button)
@@ -616,14 +638,14 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                .addComponent(blinds_label)
                                 .addComponent(pause_button)
                                 .addComponent(random_button)
                                 .addComponent(hand_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(tiempo_partida)
                                 .addComponent(max_hands_button)
                                 .addComponent(lights_label))
-                            .addComponent(hand_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(hand_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(blinds_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(panel_barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
@@ -876,6 +898,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private javax.swing.JProgressBar barra_tiempo;
     private javax.swing.JLabel bet_label;
     private javax.swing.JLabel blinds_label;
+    private javax.swing.JPanel blinds_panel;
     private javax.swing.JPanel cards_panel;
     private com.tonikelope.coronapoker.Card flop1;
     private com.tonikelope.coronapoker.Card flop2;

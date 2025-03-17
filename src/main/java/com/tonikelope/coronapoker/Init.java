@@ -534,7 +534,7 @@ public class Init extends javax.swing.JFrame {
             }
         });
 
-        botones_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255), 5));
+        botones_panel.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.orange, 15));
         botones_panel.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         botones_panel.setOpaque(false);
 

@@ -1482,8 +1482,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             disablePlayerAction();
-
-            player_action.setText(Translator.translate("ESPERANDO PARA HABLAR..."));
         });
 
     }
@@ -1620,10 +1618,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             disablePlayerAction();
-
-            if (isActivo()) {
-                player_action.setText(Translator.translate("ESPERANDO PARA HABLAR..."));
-            }
 
         });
     }

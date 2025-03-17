@@ -1458,12 +1458,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.GUIRun(() -> {
             if (crupier.getCiegas_update() != null) {
-                tapete.getCommunityCards().getBlinds_label().setOpaque(true);
-                tapete.getCommunityCards().getBlinds_label().setBackground(Color.YELLOW);
+                tapete.getCommunityCards().getBlinds_panel().setOpaque(true);
+                tapete.getCommunityCards().getBlinds_panel().setBackground(Color.YELLOW);
                 tapete.getCommunityCards().getBlinds_label().setForeground(Color.BLACK);
             } else {
-                tapete.getCommunityCards().getBlinds_label().setOpaque(false);
-                tapete.getCommunityCards().getBlinds_label().setBackground(null);
+                tapete.getCommunityCards().getBlinds_panel().setOpaque(false);
+                tapete.getCommunityCards().getBlinds_panel().setBackground(null);
                 tapete.getCommunityCards().getBlinds_label().setForeground(tapete.getCommunityCards().getPot_label().getForeground());
             }
 

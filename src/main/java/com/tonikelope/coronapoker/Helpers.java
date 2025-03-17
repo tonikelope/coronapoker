@@ -325,20 +325,18 @@ public class Helpers {
                             Graphics2D g2d = (Graphics2D) g;
                             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                             g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                            g2d.dispose();
 
                             // Fondo personalizado
-                            g.setColor(background);
-                            g.fillRect(3, 3, getComponent().getWidth() - 6, getComponent().getHeight() - 6);
+                            g2d.setColor(background);
+                            g2d.fillRect(3, 3, getComponent().getWidth() - 6, getComponent().getHeight() - 6);
 
                             // Cambiar color del texto
-                            g.setColor(foreground); // 🔥 TEXTO ROJO 🔥
-                            g.setFont(getComponent().getFont());
+                            g2d.setColor(foreground);
+                            g2d.setFont(getComponent().getFont());
 
                             // Dibujar el texto manualmente
                             String text = ((JTextComponent) comp).getText();
-
-                            FontMetrics fm = g.getFontMetrics();
+                            FontMetrics fm = g2d.getFontMetrics();
 
                             int alignment = JTextField.LEFT;  // Valor por defecto
 
@@ -359,7 +357,9 @@ public class Helpers {
                             int y = (getComponent().getHeight() + fm.getAscent()) / 2 - 2; // Centrado verticalmente
 
                             // Dibujar el texto
-                            g.drawString(text, x, y);
+                            g2d.drawString(text, x, y);
+
+                            g2d.dispose();
 
                         } else {
                             super.paint(context, g);
@@ -367,9 +367,6 @@ public class Helpers {
                     }
                 ;
             }
-
-        
-    
 
     );
              }
@@ -1869,11 +1866,11 @@ public class Helpers {
         );
 
         // Dibujar la imagen en el BufferedImage
-        Graphics2D bGr = bimage.createGraphics();
+        Graphics2D g2d = bimage.createGraphics();
         try {
-            bGr.drawImage(img, 0, 0, null);
+            g2d.drawImage(img, 0, 0, null);
         } finally {
-            bGr.dispose(); // Asegurarse de liberar recursos
+            g2d.dispose(); // Asegurarse de liberar recursos
         }
 
         return bimage;
@@ -1905,21 +1902,21 @@ public class Helpers {
 
         // Crear una nueva imagen con transparencia
         BufferedImage output = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2 = output.createGraphics();
+        Graphics2D g2d = output.createGraphics();
 
         // Habilitar antialiasing para bordes suaves
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         // Dibujar un rectángulo redondeado blanco como máscara
-        g2.setColor(Color.WHITE);
-        g2.fill(new RoundRectangle2D.Float(0, 0, width, height, cornerRadius, cornerRadius));
+        g2d.setColor(Color.WHITE);
+        g2d.fill(new RoundRectangle2D.Float(0, 0, width, height, cornerRadius, cornerRadius));
 
         // Configurar el modo de composición para aplicar la máscara
-        g2.setComposite(AlphaComposite.SrcIn);
-        g2.drawImage(image, 0, 0, null);
+        g2d.setComposite(AlphaComposite.SrcIn);
+        g2d.drawImage(image, 0, 0, null);
 
         // Liberar recursos
-        g2.dispose();
+        g2d.dispose();
 
         return output;
     }

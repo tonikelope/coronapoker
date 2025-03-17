@@ -790,7 +790,7 @@ public class Crupier implements Runnable {
 
                                 Helpers.GUIRun(() -> {
                                     try {
-                                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
+                                        gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true, icon, Helpers.getGIFFramesCount(f_url_icon));
                                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                         gif_dialog.setVisible(true);
                                     } catch (IOException | ImageProcessingException ex) {
@@ -1057,7 +1057,7 @@ public class Crupier implements Runnable {
                     GameFrame.getInstance().getRegistro().print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: " + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum) + " / INDIVISIBLE: " + Helpers.float2String(this.bote_sobrante));
 
                     if (Helpers.float1DSecureCompare(Helpers.floatClean(stack_sum) + Helpers.floatClean(this.bote_sobrante), buyin_sum) != 0) {
-                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN");
+                        Helpers.mostrarMensajeError(GameFrame.getInstance(), "¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN");
                         GameFrame.getInstance().getRegistro().print("¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + INDIVISIBLE) != BUYIN");
                     }
 
@@ -1170,7 +1170,7 @@ public class Crupier implements Runnable {
                         }
 
                         // 0=yes, 1=no, 2=cancel
-                        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET DEL SOCKET de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("¿FORZAMOS RESET DEL SOCKET de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                             for (String nick : pending) {
                                 GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
                             }
@@ -1741,7 +1741,7 @@ public class Crupier implements Runnable {
                 if (permutacion_recuperada == null) {
 
                     Helpers.threadRun(() -> {
-                        Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
+                        Helpers.mostrarMensajeError(GameFrame.getInstance(), "ERROR: NO SE HA PODIDO RECUPERAR LA CLAVE DE PERMUTACIÓN DE ESTA MANO");
                     });
 
                     map.put("permutation_key", false);
@@ -2151,7 +2151,7 @@ public class Crupier implements Runnable {
                         Helpers.threadRun(() -> {
                             if (!timeout_msg[0]) {
                                 timeout_msg[0] = true;
-                                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO (SEGUIMOS ESPERANDO...)");
+                                Helpers.mostrarMensajeError(GameFrame.getInstance(), "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO (SEGUIMOS ESPERANDO...)");
                                 timeout_msg[0] = false;
                             }
                         });
@@ -2218,7 +2218,7 @@ public class Crupier implements Runnable {
 
                         Helpers.GUIRun(() -> {
                             try {
-                                GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
+                                GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth.gif").toURI().toURL()));
                                 gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                 gif_dialog.setVisible(true);
                             } catch (URISyntaxException | IOException | ImageProcessingException ex) {
@@ -2237,7 +2237,7 @@ public class Crupier implements Runnable {
 
                     if (GameFrame.getInstance().isPartida_local()) {
 
-                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + Translator.translate(") ¿AUTORIZAMOS?")) == 0) {
+                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + Translator.translate(") ¿AUTORIZAMOS?")) == 0) {
                             IWTSTH_SHOW(iwtsther, true);
                         } else {
                             IWTSTH_SHOW(iwtsther, false);
@@ -2359,7 +2359,7 @@ public class Crupier implements Runnable {
 
                                 Helpers.GUIRun(() -> {
                                     try {
-                                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance().getFrame(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
+                                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
 
                                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                         gif_dialog.setVisible(true);
@@ -2425,7 +2425,7 @@ public class Crupier implements Runnable {
             }
 
         } else {
-            Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("TIENES QUE ESPERAR ") + Helpers.seconds2FullTime(Math.round(((float) (IWTSTH_ANTI_FLOOD_TIME - (System.currentTimeMillis() - this.last_iwtsth_rejected))) / 1000)) + Translator.translate(" PARA VOLVER A SOLICITAR IWTSTH"));
+            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("TIENES QUE ESPERAR ") + Helpers.seconds2FullTime(Math.round(((float) (IWTSTH_ANTI_FLOOD_TIME - (System.currentTimeMillis() - this.last_iwtsth_rejected))) / 1000)) + Translator.translate(" PARA VOLVER A SOLICITAR IWTSTH"));
         }
     }
 
@@ -2482,7 +2482,7 @@ public class Crupier implements Runnable {
                 GameFrame.getInstance().getRegistro().print(Translator.translate("LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO"));
 
                 Helpers.threadRun(() -> {
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO");
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO");
                 });
 
             }
@@ -2614,7 +2614,7 @@ public class Crupier implements Runnable {
                     GameFrame.getInstance().getTapete().repaint();
                 }
 
-                recover_dialog = new RecoverDialog(GameFrame.getInstance().getFrame(), true);
+                recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
                 recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
                 recover_dialog.setVisible(true);
 
@@ -3646,7 +3646,7 @@ public class Crupier implements Runnable {
             if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
 
                 // 0=yes, 1=no, 2=cancel
-                if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                     for (String nick : pendientes) {
                         GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
                     }
@@ -3884,7 +3884,7 @@ public class Crupier implements Runnable {
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
 
                     // 0=yes, 1=no, 2=cancel
-                    if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                    if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                         for (String nick : pendientes) {
                             GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
                         }
@@ -3970,7 +3970,7 @@ public class Crupier implements Runnable {
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
 
                     // 0=yes, 1=no, 2=cancel
-                    if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                    if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                         for (String nick : pendientes) {
                             GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
                         }
@@ -4037,13 +4037,13 @@ public class Crupier implements Runnable {
             RemotePlayer jugador = (RemotePlayer) nick2player.get(suspicious);
             int[] a = new int[]{0};
             Helpers.threadRun(() -> {
-                Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), Translator.translate("SE HA RECIBIDO UN INFORME ANTICHEAT DE [") + suspicious + Translator.translate("]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."));
+                Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("SE HA RECIBIDO UN INFORME ANTICHEAT DE [") + suspicious + Translator.translate("]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."));
 
                 a[0] = 1;
 
-                if (jugador.getRadar_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0 && !isFin_de_la_transmision()) {
+                if (jugador.getRadar_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0 && !isFin_de_la_transmision()) {
 
-                    jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                    jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance());
                     jugador.getRadar_dialog().setVisible(true);
                 }
             });
@@ -4058,11 +4058,11 @@ public class Crupier implements Runnable {
                 }
                 Files.write(Paths.get(path + ".log"), process_list.getBytes("UTF-8"));
                 Helpers.GUIRun(() -> {
-                    jugador.setRadar_dialog(new RadarLogDialog(GameFrame.getInstance().getFrame(), false, path, timestamp));
+                    jugador.setRadar_dialog(new RadarLogDialog(GameFrame.getInstance(), false, path, timestamp));
 
-                    if (a[0] == 1 && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
+                    if (a[0] == 1 && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
 
-                        jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                        jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance());
                         jugador.getRadar_dialog().setVisible(true);
                     }
                 });
@@ -4281,7 +4281,7 @@ public class Crupier implements Runnable {
                             }
 
                             // 0=yes, 1=no, 2=cancel
-                            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), jugador.getNickname() + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                            if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), jugador.getNickname() + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
                                 GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).forceSocketReconnect();
 
@@ -5099,7 +5099,7 @@ public class Crupier implements Runnable {
                     if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
 
                         // 0=yes, 1=no, 2=cancel
-                        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
                             if (!nick2player.isEmpty()) {
                                 for (String nick : pendientes) {
@@ -5668,7 +5668,7 @@ public class Crupier implements Runnable {
                 if (include_balance) {
 
                     //Recuperamos el balance 
-                    if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "SE HA ENCONTRADO UN FICHERO DE RECUPERACIÓN DE BALANCE DE EMERGENCIA. ¿QUIERES USARLO?") == 0) {
+                    if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "SE HA ENCONTRADO UN FICHERO DE RECUPERACIÓN DE BALANCE DE EMERGENCIA. ¿QUIERES USARLO?") == 0) {
 
                         try {
                             String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
@@ -7437,7 +7437,7 @@ public class Crupier implements Runnable {
 
                     GameFrame.getInstance().getRegistro().print("LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
 
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance().getFrame(), "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
 
                     fin_de_la_transmision = true;
                 }
@@ -7449,7 +7449,7 @@ public class Crupier implements Runnable {
 
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
 
-                    Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), "CRUPIER FATAL ERROR");
+                    Helpers.mostrarMensajeError(GameFrame.getInstance(), "CRUPIER FATAL ERROR");
 
                     System.exit(1);
                 }
@@ -7500,7 +7500,7 @@ public class Crupier implements Runnable {
                         GameFrame.getInstance().getTapete().repaint();
                     }
 
-                    gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true);
+                    gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true);
 
                     GameFrame.getInstance().setGame_over_dialog(true);
 
@@ -7571,7 +7571,7 @@ public class Crupier implements Runnable {
                         GameFrame.getInstance().getTapete().repaint();
                     }
 
-                    gameover_dialog = new GameOverDialog(GameFrame.getInstance().getFrame(), true, true);
+                    gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true, true);
 
                     GameFrame.getInstance().setGame_over_dialog(true);
 
@@ -7605,7 +7605,7 @@ public class Crupier implements Runnable {
 
                     if (rebuy_players.contains(jugador.getNickname()) && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()) != null && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
 
-                        int res = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname(), new ImageIcon(getClass().getResource("/images/pot.png")));
+                        int res = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname(), new ImageIcon(getClass().getResource("/images/pot.png")));
 
                         rebuy_players.remove(jugador.getNickname());
 

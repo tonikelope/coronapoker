@@ -325,6 +325,7 @@ public class Helpers {
                             Graphics2D g2d = (Graphics2D) g;
                             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                             g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                            g2d.dispose();
 
                             // Fondo personalizado
                             g.setColor(background);
@@ -2560,7 +2561,7 @@ public class Helpers {
                     Helpers.threadRun(new Runnable() {
                         public void run() {
 
-                            int res = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance() != null ? GameFrame.getInstance().getFrame() : null, "Parece que hubo algún problema con RANDOM.ORG (se usará el CSPRNG en su lugar)\n¿Quieres desactivar RANDOM.ORG para el resto de la partida?");
+                            int res = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance() != null ? GameFrame.getInstance() : null, "Parece que hubo algún problema con RANDOM.ORG (se usará el CSPRNG en su lugar)\n¿Quieres desactivar RANDOM.ORG para el resto de la partida?");
 
                             if (res == 0) {
 

@@ -307,7 +307,7 @@ public class BalanceDialog extends javax.swing.JDialog {
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
         // TODO add your handling code here:
-        StatsDialog dialog = new StatsDialog(GameFrame.getInstance().getFrame(), true);
+        StatsDialog dialog = new StatsDialog(GameFrame.getInstance(), true);
 
         dialog.setLocationRelativeTo(this);
 
@@ -316,7 +316,7 @@ public class BalanceDialog extends javax.swing.JDialog {
 
     private void log_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_log_buttonActionPerformed
         // TODO add your handling code here:
-        GameFrame.getInstance().getRegistro_dialog().setPreferredSize(new Dimension(Math.round(0.7f * GameFrame.getInstance().getFrame().getWidth()), Math.round(0.7f * GameFrame.getInstance().getFrame().getHeight())));
+        GameFrame.getInstance().getRegistro_dialog().setPreferredSize(new Dimension(Math.round(0.7f * GameFrame.getInstance().getWidth()), Math.round(0.7f * GameFrame.getInstance().getHeight())));
 
         GameFrame.getInstance().getRegistro_dialog().pack();
 

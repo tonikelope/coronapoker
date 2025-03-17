@@ -289,7 +289,7 @@ public class GameOverDialog extends javax.swing.JDialog {
 
         dispose();
 
-        buyin_dialog = new RebuyDialog(GameFrame.getInstance().getFrame(), true, false, 10);
+        buyin_dialog = new RebuyDialog(GameFrame.getInstance(), true, false, 10);
 
         buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
 

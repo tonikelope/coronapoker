@@ -793,7 +793,7 @@ public class Participant implements Runnable {
                         } else {
 
                             // 0=yes, 1=no, 2=cancel
-                            if (!this.force_reset_socket && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), nick + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+                            if (!this.force_reset_socket && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), nick + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
                                 this.forceSocketReconnect();
 

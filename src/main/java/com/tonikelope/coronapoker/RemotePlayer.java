@@ -439,6 +439,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
 
         setBorder(javax.swing.BorderFactory.createLineBorder(color, size));
+
+        Helpers.GUIRun(() -> {
+            revalidate();
+            repaint();
+        });
     }
 
     public JLabel getPlayer_name() {
@@ -610,10 +615,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         turno = true;
 
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
-
-        Helpers.GUIRun(() -> {
-            GameFrame.getInstance().repaint();
-        });
 
         if (this.getDecision() == Player.NODEC) {
 
@@ -1464,7 +1465,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (GameFrame.getInstance().isPartida_local() && this.timeout) {
 
-            if (!GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
+            if (!GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
                 GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nickname);
             }
 
@@ -1478,9 +1479,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         // TODO add your handling code here:
         if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu()) {
 
-            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance().getFrame(), true, this.nickname, GameFrame.getInstance().getParticipantes().get(this.nickname).getAes_key());
+            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance(), true, this.nickname, GameFrame.getInstance().getParticipantes().get(this.nickname).getAes_key());
 
-            identicon.setLocationRelativeTo(GameFrame.getInstance().getFrame());
+            identicon.setLocationRelativeTo(GameFrame.getInstance());
 
             identicon.setVisible(true);
         }
@@ -1491,7 +1492,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (GameFrame.getInstance().isPartida_local() && this.timeout) {
 
-            if (!GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
+            if (!GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "Este usuario tiene problemas de conexión. ¿EXPULSAR DE LA TIMBA?") == 0) {
                 GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nickname);
             }
 
@@ -1499,10 +1500,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             if (this.radar_dialog != null) {
 
-                this.radar_dialog.setLocationRelativeTo(GameFrame.getInstance().getFrame());
+                this.radar_dialog.setLocationRelativeTo(GameFrame.getInstance());
                 this.radar_dialog.setVisible(true);
 
-            } else if (!this.nickname.contains("$") && !isRadar_checking() && !isExit() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance().getFrame(), "¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).") == 0) {
+            } else if (!this.nickname.contains("$") && !isRadar_checking() && !isExit() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "¿SOLICITAR INFORME ANTICHEAT?\n(AVISO: sólo puedes pedir uno por jugador y timba, así que elige bien el momento).") == 0) {
 
                 radar_checking = true;
 
@@ -1523,7 +1524,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
 
             } else if (!this.nickname.contains("$") && isRadar_checking() && !isExit()) {
-                Helpers.mostrarMensajeError(GameFrame.getInstance().getFrame(), Translator.translate("Espera a que termine la solicitud que tienes en curso."));
+                Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("Espera a que termine la solicitud que tienes en curso."));
             }
 
         }

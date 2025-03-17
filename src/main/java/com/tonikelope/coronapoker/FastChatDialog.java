@@ -71,7 +71,7 @@ public final class FastChatDialog extends javax.swing.JDialog {
         pack();
 
         //Helpers.setScaledIconLabel(icono, getClass().getResource("/images/chat.png"), chat_box.getHeight(), chat_box.getHeight());
-        chat_panel.setSize((int) Math.round(GameFrame.getInstance().getFrame().getWidth() * 0.3f), GameFrame.getInstance().getLocalPlayer().getHeight());
+        chat_panel.setSize((int) Math.round(GameFrame.getInstance().getWidth() * 0.3f), GameFrame.getInstance().getLocalPlayer().getHeight());
 
         chat_panel.setPreferredSize(chat_panel.getSize());
 

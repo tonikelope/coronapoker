@@ -670,10 +670,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     });
                     auto_action.start();
                 });
-
-                Helpers.revalidateAndRepaintComponent(this);
-
             }
+
+            Helpers.revalidateAndRepaintComponent(this);
 
         } else {
 
@@ -800,25 +799,26 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void setActionBackground(Color color) {
         Helpers.GUIRun(() -> {
             player_action_panel.setBackground(color);
-            player_action_panel.revalidate();
-            player_action_panel.repaint();
+
         });
+        Helpers.revalidateAndRepaintComponent(player_action_panel);
     }
 
     private void setPlayerPotBackground(Color color) {
         Helpers.GUIRun(() -> {
             player_pot_panel.setBackground(color);
-            player_pot_panel.revalidate();
-            player_pot_panel.repaint();
         });
+
+        Helpers.revalidateAndRepaintComponent(player_pot_panel);
     }
 
     private void setPlayerStackBackground(Color color) {
         Helpers.GUIRun(() -> {
             player_stack_panel.setBackground(color);
-            player_stack_panel.revalidate();
-            player_stack_panel.repaint();
+
         });
+
+        Helpers.revalidateAndRepaintComponent(player_stack_panel);
     }
 
     public void finTurno() {

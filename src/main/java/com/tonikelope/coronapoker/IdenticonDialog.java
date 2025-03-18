@@ -44,7 +44,7 @@ import javax.swing.ImageIcon;
  *
  * @author tonikelope
  */
-public class IdenticonDialog extends javax.swing.JDialog {
+public class IdenticonDialog extends CoronaDialog {
 
     /**
      * Creates new form Identicon

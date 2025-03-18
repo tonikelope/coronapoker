@@ -44,7 +44,7 @@ import javax.swing.ImageIcon;
  *
  * @author tonikelope
  */
-public class QRChatDialog extends javax.swing.JDialog implements ClipboardChangeObserver {
+public class QRChatDialog extends CoronaDialog implements ClipboardChangeObserver {
 
     public static final int QR_SIZE = 300;
     private volatile boolean cboard_monitor = false;

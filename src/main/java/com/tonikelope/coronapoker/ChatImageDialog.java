@@ -61,7 +61,7 @@ import org.apache.commons.codec.binary.Base64;
  *
  * @author tonikelope
  */
-public class ChatImageDialog extends javax.swing.JDialog {
+public class ChatImageDialog extends CoronaDialog {
 
     public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.20f);
     public static final ConcurrentHashMap<String, ImageIcon> STATIC_IMAGE_CACHE = new ConcurrentHashMap<>();

@@ -35,7 +35,7 @@ import javax.swing.ImageIcon;
  *
  * @author tonikelope
  */
-public class GameOverDialog extends javax.swing.JDialog {
+public class GameOverDialog extends CoronaDialog {
 
     public static final int COUNTDOWN_PAUSE = 1350;
     private volatile boolean continua = false;

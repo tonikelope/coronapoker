@@ -65,7 +65,7 @@ import javax.swing.text.BadLocationException;
  *
  * @author tonikelope
  */
-public class NewGameDialog extends javax.swing.JDialog {
+public class NewGameDialog extends CoronaDialog {
 
     public final static int DEFAULT_PORT = 7234;
     public final static int DEFAULT_AVATAR_WIDTH = 50;

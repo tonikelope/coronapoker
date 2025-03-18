@@ -41,7 +41,7 @@ import javax.swing.JLabel;
  *
  * @author tonikelope
  */
-public class BalanceDialog extends javax.swing.JDialog {
+public class BalanceDialog extends CoronaDialog {
 
     private volatile boolean retry = false;
 

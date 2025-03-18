@@ -36,7 +36,7 @@ import javax.swing.JTextArea;
  *
  * @author tonikelope
  */
-public final class GameLogDialog extends javax.swing.JDialog {
+public final class GameLogDialog extends CoronaDialog {
 
     public final static String TITLE = "REGISTRO DE LA TIMBA";
     private static volatile String LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n";

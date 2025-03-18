@@ -125,6 +125,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     protected void paintComponent(Graphics g) {
+        revalidate();
         Graphics2D g2d = (Graphics2D) g.create();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
@@ -145,6 +146,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     protected void paintBorder(Graphics g) {
+        revalidate();
         float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         float arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         Graphics2D g2d = (Graphics2D) g.create();
@@ -673,12 +675,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             }
 
-            Helpers.GUIRun(() -> {
-
-                revalidate();
-                repaint();
-
-            });
         } else {
 
             finTurno();

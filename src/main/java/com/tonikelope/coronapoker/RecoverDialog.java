@@ -34,7 +34,7 @@ import javax.swing.ImageIcon;
  *
  * @author tonikelope
  */
-public class RecoverDialog extends javax.swing.JDialog {
+public class RecoverDialog extends CoronaDialog {
 
     /**
      * Creates new form Mantenimiento

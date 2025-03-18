@@ -62,7 +62,7 @@ import org.apache.commons.codec.binary.Base64;
  *
  * @author tonikelope
  */
-public class StatsDialog extends javax.swing.JDialog {
+public class StatsDialog extends CoronaDialog {
 
     private final HashMap<String, HashMap<String, Object>> game = new HashMap<>();
     private final HashMap<String, HashMap<String, Object>> hand = new HashMap<>();

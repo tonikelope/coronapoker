@@ -42,6 +42,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
+import javax.swing.JFrame;
 import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 
@@ -139,7 +140,22 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                         repaint();
 
                     }
+
                     fastbuttons.setLocation(0, (int) (getHeight() - fastbuttons.getSize().getHeight()));
+
+                    if (Helpers.OSValidator.isWindows() && GameFrame.getInstance().isFull_screen() && GameFrame.getInstance() != null && GameFrame.getInstance().getExtendedState() != JFrame.MAXIMIZED_BOTH) {
+
+                        GameFrame.getInstance().getFull_screen_menu().setEnabled(false);
+
+                        GameFrame.getInstance().setVisible(false);
+
+                        GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+                        GameFrame.getInstance().setVisible(true);
+
+                        GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                    }
+
                 }
             });
         });

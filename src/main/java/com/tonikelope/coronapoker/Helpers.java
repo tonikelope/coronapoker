@@ -1,15 +1,15 @@
 /*
  * Copyright (C) 2020 tonikelope
- _              _ _        _                  
-| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
+ _              _ _        _
+| |_ ___  _ __ (_) | _____| | ___  _ __   ___
 | __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
 | || (_) | | | | |   <  __/ | (_) | |_) |  __/
  \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
- ____    ___  ____    ___  
-|___ \  / _ \|___ \  / _ \ 
+ ____    ___  ____    ___
+|___ \  / _ \|___ \  / _ \
   __) || | | | __) || | | |
  / __/ | |_| |/ __/ | |_| |
-|_____| \___/|_____| \___/ 
+|_____| \___/|_____| \___/
 
 https://github.com/tonikelope/coronapoker
  *
@@ -373,7 +373,7 @@ public class Helpers {
              }
 
             }
-        
+
         Helpers.GUIRun(() -> {
             spinner.revalidate();
             spinner.repaint();
@@ -412,6 +412,15 @@ public class Helpers {
             return false;
         }
         return true;
+    }
+
+    public static void revalidateAndRepaintComponent(JComponent c) {
+        Helpers.GUIRun(() -> {
+
+            c.revalidate();
+            c.repaint();
+
+        });
     }
 
     public static String[] runProcess(String[] command) {
@@ -2587,21 +2596,21 @@ public class Helpers {
 
             case Helpers.CSPRNG:
 
-                /* 
+                /*
                     EYE ON FISHER-YATES WHEN SHUFFLING A POKER DECK:
-                    
-                    The Fisher-Yates shuffling algorithm guarantees that all permutations are equally likely, but in 
+
+                    The Fisher-Yates shuffling algorithm guarantees that all permutations are equally likely, but in
                     order to randomly generate ANY of the mathematically possible permutations, a suitable random number
                     generator is required.
-                
+
                     A 52 cards poker deck can be sorted in [52! = 80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000]
-                    different ways. In order to generate ANY of the 52! permutations, a minimum period of 2^226 
-                    may be required, although it would be advisable to exceed several orders of magnitude this amount. 
-                    CSPRNG HASH-DRBG SHA-512 has an average period of 2^512 (2^1024 internal state length) which 
+                    different ways. In order to generate ANY of the 52! permutations, a minimum period of 2^226
+                    may be required, although it would be advisable to exceed several orders of magnitude this amount.
+                    CSPRNG HASH-DRBG SHA-512 has an average period of 2^512 (2^1024 internal state length) which
                     is M-A-N-Y orders of magnitude greater than required.
-                
+
                     Note: reshuffling the same deck continuously might mitigate a short period PRNG. See constant INFINITE_DECK_SHUFFLE.
-                
+
                  */
                 if (Helpers.CSPRNG_GENERATOR != null) {
 

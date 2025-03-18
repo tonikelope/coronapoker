@@ -148,7 +148,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     protected void paintComponent(Graphics g) {
-        revalidate();
+
         Graphics2D g2d = (Graphics2D) g.create();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
@@ -169,7 +169,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     protected void paintBorder(Graphics g) {
-        revalidate();
+
         float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         float arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         Graphics2D g2d = (Graphics2D) g.create();
@@ -1355,10 +1355,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 }
 
-                revalidate();
-                repaint();
-
             });
+
+            Helpers.revalidateAndRepaintComponent(this);
 
         } else {
 
@@ -1388,9 +1387,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 activarPreBotones();
             }
 
-            revalidate();
-            repaint();
         });
+
+        Helpers.revalidateAndRepaintComponent(this);
     }
 
     public void desactivarControles() {

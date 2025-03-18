@@ -359,8 +359,6 @@ public class Helpers {
                             // Dibujar el texto
                             g2d.drawString(text, x, y);
 
-                            g2d.dispose();
-
                         } else {
                             super.paint(context, g);
                         }

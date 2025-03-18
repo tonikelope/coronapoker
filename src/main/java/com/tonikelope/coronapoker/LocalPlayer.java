@@ -149,7 +149,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     protected void paintComponent(Graphics g) {
 
-        Graphics2D g2d = (Graphics2D) g.create();
+        Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         // Dibujar el fondo redondeado si el componente tiene un color de fondo
@@ -164,7 +164,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             ));
         }
 
-        g2d.dispose();
     }
 
     @Override
@@ -172,7 +171,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         float arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
-        Graphics2D g2d = (Graphics2D) g.create();
+        Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         // Dibuja el borde redondeado
@@ -187,7 +186,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 arc
         ));
 
-        g2d.dispose();
     }
 
     private void setActionBackground(Color color) {
@@ -195,7 +193,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             player_action_panel.setBackground(color);
 
         });
-        Helpers.revalidateAndRepaintComponent(player_action_panel);
+
     }
 
     private void setPlayerPotBackground(Color color) {
@@ -203,7 +201,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             player_pot_panel.setBackground(color);
         });
 
-        Helpers.revalidateAndRepaintComponent(player_pot_panel);
     }
 
     private void setPlayerStackBackground(Color color) {
@@ -212,7 +209,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         });
 
-        Helpers.revalidateAndRepaintComponent(player_stack_panel);
     }
 
     public boolean isRADAR_ckecking() {

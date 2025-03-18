@@ -39,7 +39,7 @@ import javax.swing.ImageIcon;
  *
  * @author tonikelope
  */
-public class GifAnimationDialog extends javax.swing.JDialog {
+public class GifAnimationDialog extends CoronaDialog {
 
     private final CyclicBarrier gif_barrier = new CyclicBarrier(2);
     private volatile boolean force_exit = false;
@@ -93,24 +93,25 @@ public class GifAnimationDialog extends javax.swing.JDialog {
         pack();
 
         Helpers.threadRun(() -> {
-            int old_priority = Thread.currentThread().getPriority();
-            Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+
             try {
                 gif_barrier.await();
             } catch (Exception ex) {
                 Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
+
             Helpers.GUIRunAndWait(this::dispose);
+
             if (!force_exit) {
 
                 Init.PLAYING_CINEMATIC = false;
             }
+
             synchronized (Init.LOCK_CINEMATICS) {
 
                 Init.LOCK_CINEMATICS.notifyAll();
 
             }
-            Thread.currentThread().setPriority(old_priority);
         });
     }
 

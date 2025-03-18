@@ -35,7 +35,7 @@ import java.util.Collections;
  *
  * @author tonikelope
  */
-public class HandGeneratorDialog extends javax.swing.JDialog {
+public class HandGeneratorDialog extends CoronaDialog {
 
     public final static String TITLE = "Generador de jugadas";
     public final static String[] PALOS = {"P", "C", "T", "D"};

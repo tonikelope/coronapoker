@@ -99,7 +99,7 @@ import org.apache.commons.codec.binary.Base64;
  *
  * @author tonikelope
  */
-public class WaitingRoomFrame extends javax.swing.JFrame {
+public class WaitingRoomFrame extends CoronaFrame {
 
     public static final int MAX_PARTICIPANTES = 10;
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";

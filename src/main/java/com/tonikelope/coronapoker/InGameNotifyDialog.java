@@ -39,7 +39,7 @@ import javax.swing.Timer;
  *
  * @author tonikelope
  */
-public class InGameNotifyDialog extends javax.swing.JDialog {
+public class InGameNotifyDialog extends CoronaDialog {
 
     private volatile Timer timer = null;
 

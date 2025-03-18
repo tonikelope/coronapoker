@@ -35,7 +35,7 @@ import javax.swing.Timer;
  *
  * @author tonikelope
  */
-public class PauseDialog extends javax.swing.JDialog {
+public class PauseDialog extends CoronaDialog {
 
     private volatile Timer timer = null;
     private volatile Float last_zoom = null;

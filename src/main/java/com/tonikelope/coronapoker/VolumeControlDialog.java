@@ -37,7 +37,7 @@ import javax.swing.Timer;
  *
  * @author tonikelope
  */
-public class VolumeControlDialog extends javax.swing.JDialog {
+public class VolumeControlDialog extends CoronaDialog {
 
     public static final int TIMEOUT = 1000;
     private volatile Timer timer = null;

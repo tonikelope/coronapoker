@@ -42,7 +42,7 @@ import javax.swing.ImageIcon;
  *
  * @author tonikelope
  */
-public class RadarLogDialog extends javax.swing.JDialog {
+public class RadarLogDialog extends CoronaDialog {
 
     /**
      * Creates new form AntiCheatLogDialog

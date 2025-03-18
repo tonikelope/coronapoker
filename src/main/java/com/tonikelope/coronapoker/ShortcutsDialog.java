@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  *
  * @author tonikelope
  */
-public class ShortcutsDialog extends javax.swing.JDialog implements ZoomableInterface {
+public class ShortcutsDialog extends CoronaDialog implements ZoomableInterface {
 
     /**
      * Creates new form ShortcutsDialog

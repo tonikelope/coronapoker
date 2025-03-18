@@ -85,7 +85,7 @@ import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.Timer;
 
-class WheelFrame extends JFrame implements MouseWheelListener {
+class WheelFrame extends CoronaFrame implements MouseWheelListener {
 
     @Override
     public void mouseWheelMoved(MouseWheelEvent e) {

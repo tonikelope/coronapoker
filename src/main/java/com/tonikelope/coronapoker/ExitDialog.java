@@ -32,7 +32,7 @@ package com.tonikelope.coronapoker;
  *
  * @author tonikelope
  */
-public class ExitDialog extends javax.swing.JDialog {
+public class ExitDialog extends CoronaDialog {
 
     private volatile boolean exit = false;
 
@@ -65,9 +65,10 @@ public class ExitDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         jPanel1 = new javax.swing.JPanel();
-        exit_button = new javax.swing.JButton();
         message = new javax.swing.JLabel();
+        jPanel2 = new javax.swing.JPanel();
         exit_checkbox = new javax.swing.JCheckBox();
+        exit_button = new javax.swing.JButton();
         continue_button = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
@@ -77,8 +78,26 @@ public class ExitDialog extends javax.swing.JDialog {
         jPanel1.setBackground(new java.awt.Color(255, 255, 255));
         jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 102, 0), 10));
 
+        message.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        message.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        message.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit.png"))); // NOI18N
+        message.setText("Si sales, no podrás volver a entrar.");
+        message.setDoubleBuffered(true);
+        message.setFocusable(false);
+
+        jPanel2.setOpaque(false);
+
+        exit_checkbox.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        exit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        exit_checkbox.setDoubleBuffered(true);
+        exit_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exit_checkboxActionPerformed(evt);
+            }
+        });
+
         exit_button.setBackground(new java.awt.Color(255, 0, 0));
-        exit_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        exit_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         exit_button.setForeground(new java.awt.Color(255, 255, 255));
         exit_button.setText("SALIR DE LA TIMBA");
         exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -90,23 +109,8 @@ public class ExitDialog extends javax.swing.JDialog {
             }
         });
 
-        message.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        message.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit.png"))); // NOI18N
-        message.setText("Si sales, no podrás volver a entrar.");
-        message.setDoubleBuffered(true);
-        message.setFocusable(false);
-
-        exit_checkbox.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        exit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        exit_checkbox.setDoubleBuffered(true);
-        exit_checkbox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                exit_checkboxActionPerformed(evt);
-            }
-        });
-
         continue_button.setBackground(new java.awt.Color(0, 130, 0));
-        continue_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        continue_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         continue_button.setForeground(new java.awt.Color(255, 255, 255));
         continue_button.setText("SEGUIR JUGANDO");
         continue_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -117,21 +121,39 @@ public class ExitDialog extends javax.swing.JDialog {
             }
         });
 
+        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
+        jPanel2.setLayout(jPanel2Layout);
+        jPanel2Layout.setHorizontalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(continue_button)
+                .addGap(18, 18, 18)
+                .addComponent(exit_checkbox)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(exit_button)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        jPanel2Layout.setVerticalGroup(
+            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(continue_button)
+                    .addComponent(exit_button)
+                    .addComponent(exit_checkbox, javax.swing.GroupLayout.Alignment.TRAILING))
+                .addContainerGap())
+        );
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(message, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
-                        .addComponent(continue_button)
-                        .addGap(18, 18, 18)
-                        .addComponent(exit_checkbox)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(exit_button)))
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(message, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -140,18 +162,17 @@ public class ExitDialog extends javax.swing.JDialog {
                 .addContainerGap()
                 .addComponent(message)
                 .addGap(18, 18, 18)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(continue_button)
-                    .addComponent(exit_button)
-                    .addComponent(exit_checkbox, javax.swing.GroupLayout.Alignment.TRAILING))
-                .addContainerGap(16, Short.MAX_VALUE))
+                .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -185,6 +206,7 @@ public class ExitDialog extends javax.swing.JDialog {
     private javax.swing.JButton exit_button;
     private javax.swing.JCheckBox exit_checkbox;
     private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel jPanel2;
     private javax.swing.JLabel message;
     // End of variables declaration//GEN-END:variables
 }

@@ -35,7 +35,7 @@ import javax.swing.SpinnerNumberModel;
  *
  * @author tonikelope
  */
-public class RebuyDialog extends javax.swing.JDialog {
+public class RebuyDialog extends CoronaDialog {
 
     private volatile boolean rebuy = false;
     private volatile boolean touched = false;

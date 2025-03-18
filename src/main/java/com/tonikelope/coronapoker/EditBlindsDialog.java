@@ -35,7 +35,7 @@ import javax.swing.SpinnerNumberModel;
  *
  * @author tonikelope
  */
-public class EditBlindsDialog extends javax.swing.JDialog {
+public class EditBlindsDialog extends CoronaDialog {
 
     private volatile boolean init = false;
 

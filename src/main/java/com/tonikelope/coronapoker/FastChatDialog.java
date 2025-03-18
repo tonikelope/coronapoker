@@ -42,7 +42,7 @@ import javax.swing.text.BadLocationException;
  *
  * @author tonikelope
  */
-public final class FastChatDialog extends javax.swing.JDialog {
+public final class FastChatDialog extends CoronaDialog {
 
     private volatile static ArrayList<String[]> HISTORIAL = new ArrayList<>();
     private volatile static int HISTORIAL_INDEX = 0;

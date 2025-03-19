@@ -6538,6 +6538,23 @@ public class Crupier implements Runnable {
 
     }
 
+    public void refreshActionPlayers() {
+
+        Helpers.GUIRun(() -> {
+
+            if (GameFrame.getInstance().getLocalPlayer().isTurno() || GameFrame.getInstance().getLocalPlayer().isWinner() || GameFrame.getInstance().getLocalPlayer().isLoser()) {
+                Helpers.revalidateAndRepaintComponent(GameFrame.getInstance().getLocalPlayer());
+            }
+
+            for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
+
+                if (rp.isTurno() || rp.isWinner() || rp.isLoser()) {
+                    Helpers.revalidateAndRepaintComponent(rp);
+                }
+            }
+        });
+    }
+
     public void pausaConBarra(int tiempo) {
 
         this.setTiempo_pausa(tiempo);
@@ -6550,13 +6567,15 @@ public class Crupier implements Runnable {
 
                     if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision() && !isIwtsthing()) {
 
-                        this.tiempo_pausa--;
+                        tiempo_pausa--;
 
-                        int val = this.tiempo_pausa;
+                        int val = tiempo_pausa;
 
                         Helpers.GUIRun(() -> {
                             GameFrame.getInstance().getBarra_tiempo().setValue(val);
+                            refreshActionPlayers();
                         });
+
                     }
 
                 } catch (InterruptedException ex) {

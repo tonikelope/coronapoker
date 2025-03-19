@@ -191,15 +191,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void setActionBackground(Color color) {
         Helpers.GUIRun(() -> {
             player_action_panel.setBackground(color);
-
         });
+
+        Helpers.forceRepaintComponent(player_action_panel);
 
     }
 
     private void setPlayerPotBackground(Color color) {
         Helpers.GUIRun(() -> {
             player_pot_panel.setBackground(color);
+
         });
+        Helpers.forceRepaintComponent(player_pot_panel);
 
     }
 
@@ -209,6 +212,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         });
 
+        Helpers.forceRepaintComponent(player_stack_panel);
     }
 
     public boolean isRADAR_ckecking() {
@@ -766,10 +770,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             border_color = color;
         }
 
-        Helpers.GUIRun(() -> {
-            revalidate();
-            repaint();
-        });
+        Helpers.forceRepaintComponent(this);
     }
 
     public JLabel getAvatar() {
@@ -1267,9 +1268,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         long t = GameFrame.getInstance().getCrupier().getTurno();
 
                         public void actionPerformed(ActionEvent ae) {
+
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
                                 response_counter--;
+
                                 GameFrame.getInstance().getBarra_tiempo().setValue(response_counter);
+
                                 if (response_counter == 10) {
                                     Audio.playWavResource("misc/hurryup.wav");
                                     if ((hurryup_timer == null || !hurryup_timer.isRunning()) && Helpers.float1DSecureCompare(0f, call_required) < 0) {
@@ -1302,7 +1306,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         if (response_counter == 0) {
                                             Audio.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
                                         }
+
                                         GameFrame.getInstance().checkPause();
+
                                         Helpers.GUIRun(() -> {
                                             if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno() && getDecision() == Player.NODEC) {
 
@@ -1324,6 +1330,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         });
                                     });
                                 }
+
                             }
                         }
                     });
@@ -1345,6 +1352,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             desPrePulsarAutoTodo();
                         }
                     }
+
                     if (auto_pause) {
                         GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
                         GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
@@ -1354,7 +1362,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             });
 
-            Helpers.revalidateAndRepaintComponent(this);
+            Helpers.forceRepaintComponent(this);
 
         } else {
 
@@ -1386,7 +1394,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         });
 
-        Helpers.revalidateAndRepaintComponent(this);
+        Helpers.forceRepaintComponent(this);
+
     }
 
     public void desactivarControles() {
@@ -2747,6 +2756,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 hands_win.setVisible(true);
             }
         });
+
+        Helpers.forceRepaintComponent(this);
     }
 
     public void refreshSecPotLabel() {
@@ -2803,6 +2814,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             setPlayerActionIcon("action/angry.png");
         });
 
+        Helpers.forceRepaintComponent(this);
     }
 
     @Override
@@ -3041,6 +3053,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 setOpaque(true);
                 setBackground(Color.RED);
             });
+
+            Helpers.forceRepaintComponent(this);
         }
     }
 

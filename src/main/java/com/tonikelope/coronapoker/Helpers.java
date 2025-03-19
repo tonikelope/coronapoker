@@ -412,12 +412,11 @@ public class Helpers {
         return true;
     }
 
-    public static void revalidateAndRepaintComponent(JComponent c) {
+    public static void forceRepaintComponent(JComponent c) {
         Helpers.GUIRun(() -> {
-
+            c.invalidate();
             c.revalidate();
-            c.repaint();
-
+            c.repaint(0L);
         });
     }
 

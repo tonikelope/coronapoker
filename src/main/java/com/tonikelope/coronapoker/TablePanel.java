@@ -249,8 +249,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         this.invalidate = true;
 
         Helpers.GUIRunAndWait(() -> {
+            GameFrame.getInstance().invalidate();
             GameFrame.getInstance().revalidate();
-            GameFrame.getInstance().repaint();
+            GameFrame.getInstance().repaint(0L);
         });
     }
 

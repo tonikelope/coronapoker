@@ -62,6 +62,7 @@ import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -536,6 +537,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
+    public void refresh() {
+        Helpers.GUIRun(() -> {
+
+            GameFrame.getInstance().invalidate();
+            GameFrame.getInstance().revalidate();
+            GameFrame.getInstance().repaint(0L);
+
+        });
+    }
+
     public void toggleFullScreen() {
 
         Helpers.GUIRun(() -> {
@@ -862,8 +873,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), new AbstractAction("REFRESH") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                GameFrame.getInstance().revalidate();
-                GameFrame.getInstance().repaint(0L);
+                refresh();
 
                 InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("TAPETE REFRESCADO"), Color.YELLOW, Color.BLACK, null, 2000);
                 dialog.setOpacity(0.5f);
@@ -1376,9 +1386,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameFrame.getInstance().getJugadores().clear();
 
-            for (Player jugador : nuevo_tapete.getPlayers()) {
-                GameFrame.getInstance().getJugadores().add(jugador);
-            }
+            GameFrame.getInstance().getJugadores().addAll(Arrays.asList(nuevo_tapete.getPlayers()));
 
             Helpers.GUIRunAndWait(() -> {
                 JFrame frame = this;

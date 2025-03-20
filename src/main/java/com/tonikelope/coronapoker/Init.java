@@ -39,6 +39,7 @@ import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowEvent;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -508,12 +509,14 @@ public class Init extends CoronaFrame {
         botones_panel = new javax.swing.JPanel();
         corona_init_panel = new javax.swing.JPanel();
         sound_icon = new javax.swing.JLabel();
-        create_button = new javax.swing.JButton();
-        join_button = new javax.swing.JButton();
         language_combobox = new javax.swing.JComboBox<>();
         update_label = new javax.swing.JLabel();
         update_button = new javax.swing.JButton();
+        exit_button = new javax.swing.JButton();
+        action_buttons_panel = new javax.swing.JPanel();
+        join_button = new javax.swing.JButton();
         stats_button = new javax.swing.JButton();
+        create_button = new javax.swing.JButton();
         baraja_panel = new javax.swing.JPanel();
         baraja_fondo = new javax.swing.JLabel();
 
@@ -550,26 +553,45 @@ public class Init extends CoronaFrame {
             }
         });
 
-        create_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        create_button.setForeground(new java.awt.Color(102, 0, 204));
-        create_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/crear.png"))); // NOI18N
-        create_button.setText("CREAR TIMBA");
-        create_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
-        create_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        create_button.setDoubleBuffered(true);
-        create_button.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                create_buttonMouseEntered(evt);
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                create_buttonMouseExited(evt);
-            }
-        });
-        create_button.addActionListener(new java.awt.event.ActionListener() {
+        language_combobox.setFont(new java.awt.Font("sansserif", 0, 20)); // NOI18N
+        language_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Español", "English" }));
+        language_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        language_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                create_buttonActionPerformed(evt);
+                language_comboboxActionPerformed(evt);
             }
         });
+
+        update_label.setBackground(new java.awt.Color(0, 102, 255));
+        update_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        update_label.setForeground(new java.awt.Color(255, 255, 255));
+        update_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        update_label.setText("COMPROBANDO ACTUALIZACIÓN...");
+        update_label.setOpaque(true);
+
+        update_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        update_button.setText("ACTUALIZAR");
+        update_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        update_button.setDoubleBuffered(true);
+        update_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                update_buttonActionPerformed(evt);
+            }
+        });
+
+        exit_button.setBackground(new java.awt.Color(204, 0, 0));
+        exit_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        exit_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit2.png"))); // NOI18N
+        exit_button.setText("SALIR");
+        exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        exit_button.setDoubleBuffered(true);
+        exit_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exit_buttonActionPerformed(evt);
+            }
+        });
+
+        action_buttons_panel.setOpaque(false);
 
         join_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         join_button.setForeground(new java.awt.Color(102, 0, 204));
@@ -592,30 +614,8 @@ public class Init extends CoronaFrame {
             }
         });
 
-        language_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Español", "English" }));
-        language_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        language_combobox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                language_comboboxActionPerformed(evt);
-            }
-        });
-
-        update_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        update_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        update_label.setText("COMPROBANDO ACTUALIZACIÓN...");
-
-        update_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        update_button.setText("ACTUALIZAR");
-        update_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        update_button.setDoubleBuffered(true);
-        update_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                update_buttonActionPerformed(evt);
-            }
-        });
-
         stats_button.setBackground(new java.awt.Color(255, 102, 0));
-        stats_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        stats_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         stats_button.setForeground(new java.awt.Color(255, 255, 255));
         stats_button.setText("ESTADÍSTICAS");
         stats_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -626,61 +626,103 @@ public class Init extends CoronaFrame {
             }
         });
 
+        create_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        create_button.setForeground(new java.awt.Color(102, 0, 204));
+        create_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/crear.png"))); // NOI18N
+        create_button.setText("CREAR TIMBA");
+        create_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
+        create_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        create_button.setDoubleBuffered(true);
+        create_button.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                create_buttonMouseEntered(evt);
+            }
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                create_buttonMouseExited(evt);
+            }
+        });
+        create_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                create_buttonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout action_buttons_panelLayout = new javax.swing.GroupLayout(action_buttons_panel);
+        action_buttons_panel.setLayout(action_buttons_panelLayout);
+        action_buttons_panelLayout.setHorizontalGroup(
+            action_buttons_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(action_buttons_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(action_buttons_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(action_buttons_panelLayout.createSequentialGroup()
+                        .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, 350, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addComponent(join_button, javax.swing.GroupLayout.DEFAULT_SIZE, 350, Short.MAX_VALUE))
+                    .addComponent(stats_button, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
+                .addGap(0, 0, 0))
+        );
+        action_buttons_panelLayout.setVerticalGroup(
+            action_buttons_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(action_buttons_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(action_buttons_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(join_button, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(stats_button)
+                .addGap(0, 0, 0))
+        );
+
         javax.swing.GroupLayout corona_init_panelLayout = new javax.swing.GroupLayout(corona_init_panel);
         corona_init_panel.setLayout(corona_init_panelLayout);
         corona_init_panelLayout.setHorizontalGroup(
             corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(update_button, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
             .addGroup(corona_init_panelLayout.createSequentialGroup()
-                .addComponent(create_button, javax.swing.GroupLayout.DEFAULT_SIZE, 330, Short.MAX_VALUE)
+                .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, 475, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
-                .addComponent(join_button, javax.swing.GroupLayout.DEFAULT_SIZE, 330, Short.MAX_VALUE))
-            .addComponent(update_label, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, corona_init_panelLayout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 183, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-            .addComponent(stats_button, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
+            .addComponent(update_label, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+            .addComponent(action_buttons_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         corona_init_panelLayout.setVerticalGroup(
             corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(corona_init_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(join_button, javax.swing.GroupLayout.PREFERRED_SIZE, 78, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, 78, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(stats_button)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(action_buttons_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(12, 12, 12)
                 .addComponent(update_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(update_label))
+                .addComponent(update_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(exit_button, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(0, 0, 0))
         );
 
         javax.swing.GroupLayout botones_panelLayout = new javax.swing.GroupLayout(botones_panel);
         botones_panel.setLayout(botones_panelLayout);
         botones_panelLayout.setHorizontalGroup(
             botones_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 100, Short.MAX_VALUE)
+            .addGap(0, 0, Short.MAX_VALUE)
             .addGroup(botones_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(botones_panelLayout.createSequentialGroup()
-                    .addContainerGap()
+                    .addGap(10, 10, 10)
                     .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                    .addGap(10, 10, 10)))
         );
         botones_panelLayout.setVerticalGroup(
             botones_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 100, Short.MAX_VALUE)
+            .addGap(0, 0, Short.MAX_VALUE)
             .addGroup(botones_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(botones_panelLayout.createSequentialGroup()
-                    .addContainerGap()
+                    .addGap(10, 10, 10)
                     .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                    .addGap(10, 10, 10)))
         );
 
         baraja_panel.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -699,11 +741,14 @@ public class Init extends CoronaFrame {
         baraja_panel.setLayout(baraja_panelLayout);
         baraja_panelLayout.setHorizontalGroup(
             baraja_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(baraja_fondo, javax.swing.GroupLayout.DEFAULT_SIZE, 2722, Short.MAX_VALUE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, baraja_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(baraja_fondo, javax.swing.GroupLayout.DEFAULT_SIZE, 2878, Short.MAX_VALUE)
+                .addContainerGap())
         );
         baraja_panelLayout.setVerticalGroup(
             baraja_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(baraja_fondo, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 1855, Short.MAX_VALUE)
+            .addComponent(baraja_fondo, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 2009, Short.MAX_VALUE)
         );
 
         tapete.setLayer(botones_panel, javax.swing.JLayeredPane.POPUP_LAYER);
@@ -743,38 +788,6 @@ public class Init extends CoronaFrame {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
-
-    private void create_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_create_buttonActionPerformed
-        // TODO add your handling code here:
-
-        NewGameDialog dialog = new NewGameDialog(this, true, true);
-
-        dialog.setLocationRelativeTo(dialog.getParent());
-
-        dialog.setVisible(true);
-
-        if (!dialog.isDialog_ok()) {
-            setVisible(true);
-        } else {
-            setVisible(false);
-        }
-    }//GEN-LAST:event_create_buttonActionPerformed
-
-    private void join_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_join_buttonActionPerformed
-        // TODO add your handling code here:
-
-        NewGameDialog dialog = new NewGameDialog(this, true, false);
-
-        dialog.setLocationRelativeTo(dialog.getParent());
-
-        dialog.setVisible(true);
-
-        if (!dialog.isDialog_ok()) {
-            setVisible(true);
-        } else {
-            setVisible(false);
-        }
-    }//GEN-LAST:event_join_buttonActionPerformed
 
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
         // TODO add your handling code here:
@@ -822,15 +835,6 @@ public class Init extends CoronaFrame {
         }
     }//GEN-LAST:event_language_comboboxActionPerformed
 
-    private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
-        // TODO add your handling code here:
-        StatsDialog dialog = new StatsDialog(this, true);
-
-        dialog.setLocationRelativeTo(this);
-
-        dialog.setVisible(true);
-    }//GEN-LAST:event_stats_buttonActionPerformed
-
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
 
@@ -877,11 +881,27 @@ public class Init extends CoronaFrame {
         }
     }//GEN-LAST:event_baraja_fondoMouseClicked
 
-    private void create_buttonMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_create_buttonMouseEntered
+    private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
         // TODO add your handling code here:
-        create_button.setBackground(new Color(102, 0, 204));
-        create_button.setForeground(Color.WHITE);
-    }//GEN-LAST:event_create_buttonMouseEntered
+        WindowEvent windowEvent = new WindowEvent(this, WindowEvent.WINDOW_CLOSING);
+        processWindowEvent(windowEvent);
+    }//GEN-LAST:event_exit_buttonActionPerformed
+
+    private void create_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_create_buttonActionPerformed
+        // TODO add your handling code here:
+
+        NewGameDialog dialog = new NewGameDialog(this, true, true);
+
+        dialog.setLocationRelativeTo(dialog.getParent());
+
+        dialog.setVisible(true);
+
+        if (!dialog.isDialog_ok()) {
+            setVisible(true);
+        } else {
+            setVisible(false);
+        }
+    }//GEN-LAST:event_create_buttonActionPerformed
 
     private void create_buttonMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_create_buttonMouseExited
         // TODO add your handling code here:
@@ -889,17 +909,48 @@ public class Init extends CoronaFrame {
         create_button.setBackground(Color.WHITE);
     }//GEN-LAST:event_create_buttonMouseExited
 
-    private void join_buttonMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_join_buttonMouseEntered
+    private void create_buttonMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_create_buttonMouseEntered
         // TODO add your handling code here:
-        join_button.setBackground(new Color(102, 0, 204));
-        join_button.setForeground(Color.WHITE);
-    }//GEN-LAST:event_join_buttonMouseEntered
+        create_button.setBackground(new Color(102, 0, 204));
+        create_button.setForeground(Color.WHITE);
+    }//GEN-LAST:event_create_buttonMouseEntered
+
+    private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
+        // TODO add your handling code here:
+        StatsDialog dialog = new StatsDialog(this, true);
+
+        dialog.setLocationRelativeTo(this);
+
+        dialog.setVisible(true);
+    }//GEN-LAST:event_stats_buttonActionPerformed
+
+    private void join_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_join_buttonActionPerformed
+        // TODO add your handling code here:
+
+        NewGameDialog dialog = new NewGameDialog(this, true, false);
+
+        dialog.setLocationRelativeTo(dialog.getParent());
+
+        dialog.setVisible(true);
+
+        if (!dialog.isDialog_ok()) {
+            setVisible(true);
+        } else {
+            setVisible(false);
+        }
+    }//GEN-LAST:event_join_buttonActionPerformed
 
     private void join_buttonMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_join_buttonMouseExited
         // TODO add your handling code here:
         join_button.setForeground(new Color(102, 0, 204));
         join_button.setBackground(Color.WHITE);
     }//GEN-LAST:event_join_buttonMouseExited
+
+    private void join_buttonMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_join_buttonMouseEntered
+        // TODO add your handling code here:
+        join_button.setBackground(new Color(102, 0, 204));
+        join_button.setForeground(Color.WHITE);
+    }//GEN-LAST:event_join_buttonMouseEntered
 
     /**
      * @param args the command line arguments
@@ -1095,7 +1146,7 @@ public class Init extends CoronaFrame {
 
         Helpers.threadRun(() -> {
             Helpers.GUIRun(() -> {
-                VENTANA_INICIO.setEnabled(false);
+                VENTANA_INICIO.action_buttons_panel.setEnabled(false);
                 VENTANA_INICIO.update_label.setVisible(true);
                 VENTANA_INICIO.update_button.setVisible(false);
             });
@@ -1155,7 +1206,7 @@ public class Init extends CoronaFrame {
                     VENTANA_INICIO.update_button.setVisible(true);
                 }
 
-                VENTANA_INICIO.setEnabled(true);
+                VENTANA_INICIO.action_buttons_panel.setEnabled(true);
             });
         });
 
@@ -1186,11 +1237,13 @@ public class Init extends CoronaFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JPanel action_buttons_panel;
     private javax.swing.JLabel baraja_fondo;
     private javax.swing.JPanel baraja_panel;
     private javax.swing.JPanel botones_panel;
     private javax.swing.JPanel corona_init_panel;
     private javax.swing.JButton create_button;
+    private javax.swing.JButton exit_button;
     private javax.swing.JButton join_button;
     private javax.swing.JComboBox<String> language_combobox;
     private javax.swing.JLabel sound_icon;

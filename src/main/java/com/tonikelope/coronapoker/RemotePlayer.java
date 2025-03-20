@@ -437,7 +437,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             border_color = color;
         }
 
-        Helpers.forceRepaintComponent(this);
+        Helpers.forceRepaintComponentNow(this);
     }
 
     public JLabel getPlayer_name() {
@@ -672,7 +672,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 });
             }
 
-            Helpers.forceRepaintComponent(this);
+            Helpers.forceRepaintComponentNow(this);
 
         } else {
 
@@ -801,7 +801,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             player_action_panel.setBackground(color);
         });
 
-        Helpers.forceRepaintComponent(player_action_panel);
+        Helpers.forceRepaintComponentNow(player_action_panel);
 
     }
 
@@ -810,7 +810,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             player_pot_panel.setBackground(color);
 
         });
-        Helpers.forceRepaintComponent(player_pot_panel);
+        Helpers.forceRepaintComponentNow(player_pot_panel);
 
     }
 
@@ -820,7 +820,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         });
 
-        Helpers.forceRepaintComponent(player_stack_panel);
+        Helpers.forceRepaintComponentNow(player_stack_panel);
     }
 
     public void finTurno() {
@@ -840,7 +840,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         });
 
-        Helpers.forceRepaintComponent(this);
+        Helpers.forceRepaintComponentNow(this);
     }
 
     private void fold() {
@@ -1684,7 +1684,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 hands_win.setVisible(true);
             }
         });
-        Helpers.forceRepaintComponent(this);
+        Helpers.forceRepaintComponentNow(this);
     }
 
     public Timer getIwtsth_blink_timer() {
@@ -1729,7 +1729,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             setPlayerActionIcon("action/angry.png");
         });
 
-        Helpers.forceRepaintComponent(this);
+        Helpers.forceRepaintComponentNow(this);
 
     }
 
@@ -2128,6 +2128,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                     }
                 });
+                Helpers.forceRepaintComponentNow(this);
             });
 
         }
@@ -2153,6 +2154,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             player_stack.setEnabled(true);
             disablePlayerAction();
         });
+
+        Helpers.forceRepaintComponentNow(this);
     }
 
     private void actionIconZoom() {
@@ -2326,7 +2329,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setBackground(Color.RED);
             });
 
-            Helpers.forceRepaintComponent(this);
+            Helpers.forceRepaintComponentNow(this);
 
         }
     }

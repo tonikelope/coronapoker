@@ -193,7 +193,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             player_action_panel.setBackground(color);
         });
 
-        Helpers.forceRepaintComponent(player_action_panel);
+        Helpers.forceRepaintComponentNow(player_action_panel);
 
     }
 
@@ -202,7 +202,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             player_pot_panel.setBackground(color);
 
         });
-        Helpers.forceRepaintComponent(player_pot_panel);
+        Helpers.forceRepaintComponentNow(player_pot_panel);
 
     }
 
@@ -212,7 +212,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         });
 
-        Helpers.forceRepaintComponent(player_stack_panel);
+        Helpers.forceRepaintComponentNow(player_stack_panel);
     }
 
     public boolean isRADAR_ckecking() {
@@ -648,7 +648,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             this.spectator = true;
             this.bote = 0f;
 
-            Helpers.GUIRunAndWait(() -> {
+            Helpers.GUIRun(() -> {
                 desactivarControles();
                 setOpaque(false);
                 setBackground(null);
@@ -704,6 +704,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                     }
                 });
+                Helpers.forceRepaintComponentNow(this);
             });
 
         }
@@ -719,6 +720,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
             disablePlayerAction();
         });
+
+        Helpers.forceRepaintComponentNow(this);
     }
 
     public void desactivar_boton_mostrar() {
@@ -770,7 +773,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             border_color = color;
         }
 
-        Helpers.forceRepaintComponent(this);
+        Helpers.forceRepaintComponentNow(this);
     }
 
     public JLabel getAvatar() {
@@ -1362,7 +1365,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             });
 
-            Helpers.forceRepaintComponent(this);
+            Helpers.forceRepaintComponentNow(this);
 
         } else {
 
@@ -1394,7 +1397,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         });
 
-        Helpers.forceRepaintComponent(this);
+        Helpers.forceRepaintComponentNow(this);
 
     }
 
@@ -2757,7 +2760,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        Helpers.forceRepaintComponent(this);
+        Helpers.forceRepaintComponentNow(this);
     }
 
     public void refreshSecPotLabel() {
@@ -2814,7 +2817,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             setPlayerActionIcon("action/angry.png");
         });
 
-        Helpers.forceRepaintComponent(this);
+        Helpers.forceRepaintComponentNow(this);
     }
 
     @Override
@@ -3054,7 +3057,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 setBackground(Color.RED);
             });
 
-            Helpers.forceRepaintComponent(this);
+            Helpers.forceRepaintComponentNow(this);
         }
     }
 

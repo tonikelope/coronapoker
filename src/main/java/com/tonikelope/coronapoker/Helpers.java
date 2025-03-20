@@ -388,8 +388,8 @@ public class Helpers {
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "*************DEADLOCK DETECTED!*************");
 
             for (long threadId : threadIds) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Thread ID: " + threadId + " " + threadMXBean.getThreadInfo(threadId).getThreadName());
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, threadMXBean.getThreadInfo(threadId).getLockName() + " " + threadMXBean.getThreadInfo(threadId).getLockInfo().getClassName());
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Thread ID: {0} {1}", new Object[]{threadId, threadMXBean.getThreadInfo(threadId).getThreadName()});
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "{0} {1}", new Object[]{threadMXBean.getThreadInfo(threadId).getLockName(), threadMXBean.getThreadInfo(threadId).getLockInfo().getClassName()});
             }
 
             Helpers.mostrarMensajeError(null, "FATAL ERROR: DEADLOCK");
@@ -412,7 +412,7 @@ public class Helpers {
         return true;
     }
 
-    public static void forceRepaintComponent(JComponent c) {
+    public static void forceRepaintComponentNow(JComponent c) {
         Helpers.GUIRun(() -> {
             c.invalidate();
             c.revalidate();

@@ -540,9 +540,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void refresh() {
         Helpers.GUIRun(() -> {
 
-            GameFrame.getInstance().invalidate();
             GameFrame.getInstance().revalidate();
-            GameFrame.getInstance().repaint(0L);
+            GameFrame.getInstance().repaint();
 
         });
     }

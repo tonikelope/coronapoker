@@ -414,9 +414,8 @@ public class Helpers {
 
     public static void forceRepaintComponentNow(JComponent c) {
         Helpers.GUIRun(() -> {
-            c.invalidate();
             c.revalidate();
-            c.repaint(0L);
+            c.repaint();
         });
     }
 

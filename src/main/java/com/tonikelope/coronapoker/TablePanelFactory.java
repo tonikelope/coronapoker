@@ -115,6 +115,7 @@ public class TablePanelFactory {
                 nuevo_panel.getLocalPlayer().setPause_counter(panel.getLocalPlayer().getPause_counter());
                 nuevo_panel.getLocalPlayer().setAuto_pause(panel.getLocalPlayer().isAuto_pause());
                 nuevo_panel.getLocalPlayer().setAuto_pause_warning(panel.getLocalPlayer().isAuto_pause_warning());
+                nuevo_panel.getLocalPlayer().setConta_rabbit(panel.getLocalPlayer().getConta_rabbit());
 
                 if (GameFrame.VISTA_COMPACTA != 2) {
                     for (Card carta : nuevo_panel.getCommunityCards().getCartasComunes()) {

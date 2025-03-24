@@ -190,6 +190,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    public void setConta_rabbit(int conta_rabbit) {
+        synchronized (rabbit_lock) {
+            this.conta_rabbit = conta_rabbit;
+        }
+    }
+
     public int getConta_rabbit() {
         synchronized (rabbit_lock) {
             return conta_rabbit;

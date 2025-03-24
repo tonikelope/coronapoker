@@ -236,13 +236,13 @@ public class Crupier implements Runnable {
     private final Object lock_apuestas = new Object();
     private final Object lock_contabilidad = new Object();
     private final Object lock_mostrar = new Object();
-    private final Object iwtsth_lock = new Object();
+    private final Object lock_iwtsth = new Object();
     private final Object lock_last_hand = new Object();
     private final Object lock_nueva_mano = new Object();
-    private final Object lock_rabbit_bote = new Object();
+    private final Object lock_rabbit = new Object();
     private final Object lock_rebuynow = new Object();
-    private final Object lock_tiempo_pausa_barra = new Object();
-    private final Object permutation_key_lock = new Object();
+    private final Object lock_pausa_barra = new Object();
+    private final Object lock_permutation_key = new Object();
     private final Object lock_fin_mano = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
@@ -304,6 +304,10 @@ public class Crupier implements Runnable {
     private volatile int game_recovered = 0;
     private volatile Object[] ciegas_update = null;
     private volatile boolean dead_dealer = false;
+
+    public Object getLock_rabbit() {
+        return lock_rabbit;
+    }
 
     public ConcurrentLinkedQueue<String> getRabbit_players() {
         return rabbit_players;
@@ -378,7 +382,7 @@ public class Crupier implements Runnable {
     }
 
     public Object getPermutation_key_lock() {
-        return permutation_key_lock;
+        return lock_permutation_key;
     }
 
     public ConcurrentHashMap<String, Integer> getRebuy_now() {
@@ -645,7 +649,7 @@ public class Crupier implements Runnable {
 
     public void setTiempo_pausa(int tiempo) {
 
-        synchronized (lock_tiempo_pausa_barra) {
+        synchronized (lock_pausa_barra) {
             this.tiempo_pausa = tiempo;
 
             Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), tiempo);
@@ -655,7 +659,7 @@ public class Crupier implements Runnable {
 
     public int getTiempoPausa() {
 
-        synchronized (lock_tiempo_pausa_barra) {
+        synchronized (lock_pausa_barra) {
 
             return tiempo_pausa;
         }
@@ -2199,7 +2203,7 @@ public class Crupier implements Runnable {
 
             Helpers.threadRun(() -> {
 
-                synchronized (lock_rabbit_bote) {
+                synchronized (lock_rabbit) {
 
                     rabbit_players.add(nick);
 
@@ -2269,6 +2273,9 @@ public class Crupier implements Runnable {
                         } catch (UnsupportedEncodingException ex) {
                             Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                         }
+
+                        GameFrame.getInstance().getParticipantes().get(nick).setRabbit_pending(false);
+
                     } else if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
                         try {
                             sendGAMECommandToServer("RABBIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + String.valueOf(conta_rabbit));
@@ -2277,6 +2284,7 @@ public class Crupier implements Runnable {
                         }
                     }
 
+                    lock_rabbit.notifyAll();
                 }
 
             });
@@ -2285,7 +2293,7 @@ public class Crupier implements Runnable {
     }
 
     public Object getIwtsth_lock() {
-        return iwtsth_lock;
+        return lock_iwtsth;
     }
 
     public void IWTSTH_HANDLER(String iwtsther) {
@@ -2298,7 +2306,7 @@ public class Crupier implements Runnable {
 
                 iwtsth = true;
 
-                synchronized (iwtsth_lock) {
+                synchronized (lock_iwtsth) {
 
                     if (iwtsth_requests.containsKey(iwtsther)) {
                         iwtsth_requests.put(iwtsther, (int) iwtsth_requests.get(iwtsther) + 1);
@@ -2373,7 +2381,7 @@ public class Crupier implements Runnable {
 
             Helpers.threadRun(() -> {
 
-                synchronized (iwtsth_lock) {
+                synchronized (lock_iwtsth) {
 
                     if (this.iwtsthing) {
 
@@ -2515,8 +2523,8 @@ public class Crupier implements Runnable {
 
                 iwtsthing_request = false;
 
-                synchronized (iwtsth_lock) {
-                    iwtsth_lock.notifyAll();
+                synchronized (lock_iwtsth) {
+                    lock_iwtsth.notifyAll();
                 }
 
             });
@@ -5169,6 +5177,39 @@ public class Crupier implements Runnable {
         }
     }
 
+    private void waitRabbitProcessing() {
+
+        boolean pending;
+
+        do {
+            pending = false;
+
+            for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
+
+                Participant p = entry.getValue();
+
+                if (p != null && !p.isCpu() && !p.isExit() && p.isRabbit_pending()) {
+
+                    pending = true;
+                    break;
+
+                }
+
+            }
+
+            if (pending) {
+                synchronized (lock_rabbit) {
+                    try {
+                        lock_rabbit.wait(1000);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+
+        } while (pending);
+    }
+
     private void sentarParticipantes() {
 
         String pivote = GameFrame.getInstance().getNick_local();
@@ -6038,10 +6079,10 @@ public class Crupier implements Runnable {
                         this.waitSyncConfirmations(id, pendientes);
 
                         while (this.permutation_key == null) {
-                            synchronized (this.permutation_key_lock) {
+                            synchronized (this.lock_permutation_key) {
 
                                 try {
-                                    permutation_key_lock.wait(1000);
+                                    lock_permutation_key.wait(1000);
 
                                 } catch (InterruptedException ex) {
                                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
@@ -6743,9 +6784,9 @@ public class Crupier implements Runnable {
 
         while (getTiempoPausa() > 0) {
 
-            synchronized (lock_tiempo_pausa_barra) {
+            synchronized (lock_pausa_barra) {
                 try {
-                    lock_tiempo_pausa_barra.wait(1000);
+                    lock_pausa_barra.wait(1000);
 
                     if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision() && !isIwtsthing()) {
 
@@ -6770,8 +6811,8 @@ public class Crupier implements Runnable {
             GameFrame.getInstance().getBarra_tiempo().setValue(tiempo);
         });
 
-        synchronized (iwtsth_lock) {
-            iwtsth_lock.notifyAll();
+        synchronized (lock_iwtsth) {
+            lock_iwtsth.notifyAll();
         }
     }
 
@@ -7573,12 +7614,12 @@ public class Crupier implements Runnable {
 
                                 if (this.iwtsthing) {
 
-                                    synchronized (iwtsth_lock) {
+                                    synchronized (lock_iwtsth) {
 
                                         if (this.iwtsthing) {
 
                                             try {
-                                                iwtsth_lock.wait(IWTSTH_TIMEOUT);
+                                                lock_iwtsth.wait(IWTSTH_TIMEOUT);
                                             } catch (InterruptedException ex) {
                                                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                                             }
@@ -7603,6 +7644,10 @@ public class Crupier implements Runnable {
                                     exitSpectatorBots();
 
                                     updateExitPlayers();
+
+                                    if (GameFrame.RABBIT_HUNTING != 0) {
+                                        waitRabbitProcessing();
+                                    }
 
                                 } else {
 

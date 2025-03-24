@@ -226,11 +226,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             getChat_notify_label().setOpaque(false);
 
+            getChat_notify_label().setLocation(pos_x, pos_y);
+
             getChat_notify_label().revalidate();
 
             getChat_notify_label().repaint();
 
-            getChat_notify_label().setLocation(pos_x, pos_y);
         });
     }
 
@@ -320,14 +321,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                     getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
 
                                     getChat_notify_label().setOpaque(false);
+                                    getChat_notify_label().setLocation(pos_x, pos_y);
+
+                                    getChat_notify_label().setVisible(true);
 
                                     getChat_notify_label().revalidate();
 
                                     getChat_notify_label().repaint();
 
-                                    getChat_notify_label().setLocation(pos_x, pos_y);
-
-                                    getChat_notify_label().setVisible(true);
                                 } catch (MalformedURLException ex) {
                                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                                 } catch (IOException | ImageProcessingException ex) {
@@ -644,6 +645,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         public void actionPerformed(ActionEvent ae) {
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == GameFrame.getInstance().getCrupier().getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
+                                GameFrame.getInstance().refresh();
 
                                 response_counter--;
 
@@ -673,9 +675,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     auto_action.start();
 
                     Helpers.forceRepaintComponentNow(this);
+                    GameFrame.getInstance().refresh();
                 });
             } else {
                 Helpers.forceRepaintComponentNow(this);
+                GameFrame.getInstance().refresh();
             }
 
         } else {
@@ -1015,7 +1019,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             sec_pot_win_label.setOpaque(true);
             sec_pot_win_label.setFocusable(false);
             sec_pot_win_label.setFont(player_action.getFont().deriveFont(player_action.getFont().getStyle(), Math.round(player_action.getFont().getSize() * 0.7f)));
-            panel_cartas.add(sec_pot_win_label, new Integer(1003));
+            panel_cartas.add(sec_pot_win_label, Integer.valueOf(1003));
             chat_notify_label.setVisible(false);
             chat_notify_label.setDoubleBuffered(true);
             chat_notify_label.setFocusable(false);
@@ -1035,14 +1039,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     });
                 }
             });
-            panel_cartas.add(chat_notify_label, new Integer(1002));
+            panel_cartas.add(chat_notify_label, Integer.valueOf(1002));
             chip_label.setVisible(false);
             chip_label.setDoubleBuffered(true);
             chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             chip_label.setOpaque(false);
             chip_label.setFocusable(false);
             chip_label.setSize(new Dimension(100, 100));
-            panel_cartas.add(chip_label, new Integer(1001));
+            panel_cartas.add(chip_label, Integer.valueOf(1001));
             border_color = ((LineBorder) getBorder()).getLineColor();
             danger.setVisible(false);
             player_pot.setText("----");
@@ -1990,9 +1994,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 chip_label.setIcon(chip_label_icon);
                 chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
                 chip_label.setLocation(0, 0);
+                chip_label.setVisible(true);
                 chip_label.revalidate();
                 chip_label.repaint();
-                chip_label.setVisible(true);
 
             } else {
 
@@ -2213,7 +2217,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void showCards(String jugada) {
         this.muestra = true;
         Helpers.GUIRun(() -> {
-            setActionBackground(new Color(51, 153, 255));
+            if (GameFrame.getInstance().getCrupier().getRabbit_players().contains(nickname)) {
+                setActionBackground(Color.BLUE);
+                setPlayerActionIcon("action/rabbit_action.png");
+            } else {
+                setActionBackground(new Color(51, 153, 255));
+            }
+
             player_action.setForeground(Color.WHITE);
             player_action.setText(jugada);
         });

@@ -3845,6 +3845,7 @@ public class Helpers {
 
         public static JMenu BARAJAS_MENU = null;
         public static JMenu TAPETES_MENU = null;
+        public static JMenu RABBIT_MENU = null;
         public static JMenu ZOOM_MENU = null;
         public static JMenuItem MAX_HANDS_MENU;
         public static JCheckBoxMenuItem AUTO_FULLSCREEN_MENU;
@@ -3869,6 +3870,10 @@ public class Helpers {
         public static JRadioButtonMenuItem TAPETE_ROJO;
         public static JRadioButtonMenuItem TAPETE_NEGRO;
         public static JRadioButtonMenuItem TAPETE_MADERA;
+        public static JRadioButtonMenuItem RABBIT_OFF;
+        public static JRadioButtonMenuItem RABBIT_FREE;
+        public static JRadioButtonMenuItem RABBIT_SB;
+        public static JRadioButtonMenuItem RABBIT_BB;
         public static JPopupMenu popup = null;
 
         private static void generarBarajasMenu() {
@@ -3973,6 +3978,56 @@ public class Helpers {
 
         }
 
+        private static void generarRabbitMenu() {
+
+            Action rabbitOffAction = new AbstractAction("OFF") {
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+                    GameFrame.getInstance().getMenu_rabbit_off().doClick();
+                }
+            };
+
+            Action rabbitFreeAction = new AbstractAction("FREE") {
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+                    GameFrame.getInstance().getMenu_rabbit_free().doClick();
+                }
+            };
+
+            Action rabbitSbAction = new AbstractAction("FREE + SB") {
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+                    GameFrame.getInstance().getMenu_rabbit_sb().doClick();
+                }
+            };
+
+            Action rabbitBbAction = new AbstractAction("FREE + SB + BB") {
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+                    GameFrame.getInstance().getMenu_rabbit_bb().doClick();
+                }
+            };
+
+            RABBIT_OFF = new JRadioButtonMenuItem(rabbitOffAction);
+            RABBIT_FREE = new JRadioButtonMenuItem(rabbitFreeAction);
+            RABBIT_SB = new JRadioButtonMenuItem(rabbitSbAction);
+            RABBIT_BB = new JRadioButtonMenuItem(rabbitBbAction);
+
+            RABBIT_MENU = new JMenu("Rabbit Hunting");
+            RABBIT_MENU.add(RABBIT_OFF);
+            RABBIT_MENU.add(RABBIT_FREE);
+            RABBIT_MENU.add(RABBIT_SB);
+            RABBIT_MENU.add(RABBIT_BB);
+
+            RABBIT_OFF.setSelected(GameFrame.RABBIT_HUNTING == 0);
+            RABBIT_FREE.setSelected(GameFrame.RABBIT_HUNTING == 1);
+            RABBIT_SB.setSelected(GameFrame.RABBIT_HUNTING == 2);
+            RABBIT_BB.setSelected(GameFrame.RABBIT_HUNTING == 3);
+
+            RABBIT_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/rabbit.png")));
+
+        }
+
         public static void addTo(TablePanel tapete, boolean reset) {
 
             if (popup == null || reset) {
@@ -3982,6 +4037,8 @@ public class Helpers {
                 generarBarajasMenu();
 
                 generarTapetesMenu();
+
+                generarRabbitMenu();
 
                 Action shortcutsAction = new AbstractAction("Ver atajos") {
                     @Override
@@ -4302,6 +4359,10 @@ public class Helpers {
                 IWTSTH_RULE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/eyes.png")));
                 IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
                 popup.add(IWTSTH_RULE_MENU);
+
+                popup.addSeparator();
+
+                popup.add(RABBIT_MENU);
 
                 popup.addSeparator();
 

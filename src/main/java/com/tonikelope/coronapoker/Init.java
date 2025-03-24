@@ -86,7 +86,7 @@ import javax.swing.text.StyledDocument;
  */
 public class Init extends CoronaFrame {
 
-    public static final boolean DEV_MODE = true;
+    public static final boolean DEV_MODE = false;
 
     public static final boolean DEBUG_FILE = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";

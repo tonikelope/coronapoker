@@ -1131,12 +1131,12 @@ public class Init extends CoronaFrame {
                 VENTANA_INICIO.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
                 VENTANA_INICIO.setVisible(true);
-                
+
                 VENTANA_INICIO.revalidate();
-                
+
                 VENTANA_INICIO.repaint();
             });
-            
+
             if (PEGI18_MOD && !Files.isReadable(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"))) {
 
                 if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "EL MOD CARGADO CONTIENE MATERIAL CALIFICADO SÓLO PARA MAYORES DE 18 AÑOS. ¿Continuar?", new ImageIcon(Init.class.getResource("/images/pegi18.png"))) == 0) {

@@ -85,6 +85,15 @@ public class Participant implements Runnable {
     private volatile boolean async_wait = false;
     private volatile boolean force_reset_socket = false;
     private volatile int conta_rabbit = 0;
+    private volatile boolean rabbit_pending = false;
+
+    public boolean isRabbit_pending() {
+        return rabbit_pending;
+    }
+
+    public void setRabbit_pending(boolean rabbit_pending) {
+        this.rabbit_pending = rabbit_pending;
+    }
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
@@ -711,10 +720,12 @@ public class Participant implements Runnable {
 
                                         case "RABBIT":
 
-                                            if (GameFrame.getInstance().getCrupier().isShow_time()) {
+                                            synchronized (GameFrame.getInstance().getCrupier().getLock_rabbit()) {
                                                 conta_rabbit++;
-                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(nick, conta_rabbit);
+                                                rabbit_pending = true;
                                             }
+
+                                            GameFrame.getInstance().getCrupier().RABBIT_HANDLER(nick, conta_rabbit);
 
                                             break;
 

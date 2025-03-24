@@ -508,15 +508,16 @@ public class Init extends CoronaFrame {
         tapete = new com.tonikelope.coronapoker.InitPanel();
         botones_panel = new javax.swing.JPanel();
         corona_init_panel = new javax.swing.JPanel();
-        sound_icon = new javax.swing.JLabel();
-        language_combobox = new javax.swing.JComboBox<>();
         update_label = new javax.swing.JLabel();
         update_button = new javax.swing.JButton();
-        exit_button = new javax.swing.JButton();
         action_buttons_panel = new javax.swing.JPanel();
         join_button = new javax.swing.JButton();
         stats_button = new javax.swing.JButton();
         create_button = new javax.swing.JButton();
+        jPanel1 = new javax.swing.JPanel();
+        sound_icon = new javax.swing.JLabel();
+        exit_button = new javax.swing.JButton();
+        language_combobox = new javax.swing.JComboBox<>();
         baraja_panel = new javax.swing.JPanel();
         baraja_fondo = new javax.swing.JLabel();
 
@@ -543,25 +544,6 @@ public class Init extends CoronaFrame {
 
         corona_init_panel.setOpaque(false);
 
-        sound_icon.setBackground(new java.awt.Color(153, 153, 153));
-        sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
-        sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
-        sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                sound_iconMouseClicked(evt);
-            }
-        });
-
-        language_combobox.setFont(new java.awt.Font("sansserif", 0, 20)); // NOI18N
-        language_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Español", "English" }));
-        language_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        language_combobox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                language_comboboxActionPerformed(evt);
-            }
-        });
-
         update_label.setBackground(new java.awt.Color(0, 102, 255));
         update_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         update_label.setForeground(new java.awt.Color(255, 255, 255));
@@ -576,18 +558,6 @@ public class Init extends CoronaFrame {
         update_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 update_buttonActionPerformed(evt);
-            }
-        });
-
-        exit_button.setBackground(new java.awt.Color(204, 0, 0));
-        exit_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        exit_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit2.png"))); // NOI18N
-        exit_button.setText("SALIR");
-        exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        exit_button.setDoubleBuffered(true);
-        exit_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                exit_buttonActionPerformed(evt);
             }
         });
 
@@ -673,35 +643,84 @@ public class Init extends CoronaFrame {
                 .addGap(0, 0, 0))
         );
 
-        javax.swing.GroupLayout corona_init_panelLayout = new javax.swing.GroupLayout(corona_init_panel);
-        corona_init_panel.setLayout(corona_init_panelLayout);
-        corona_init_panelLayout.setHorizontalGroup(
-            corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(update_button, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-            .addGroup(corona_init_panelLayout.createSequentialGroup()
+        jPanel1.setOpaque(false);
+
+        sound_icon.setBackground(new java.awt.Color(153, 153, 153));
+        sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
+        sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
+        sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                sound_iconMouseClicked(evt);
+            }
+        });
+
+        exit_button.setBackground(new java.awt.Color(204, 0, 0));
+        exit_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        exit_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit2.png"))); // NOI18N
+        exit_button.setText("SALIR");
+        exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        exit_button.setDoubleBuffered(true);
+        exit_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exit_buttonActionPerformed(evt);
+            }
+        });
+
+        language_combobox.setFont(new java.awt.Font("sansserif", 0, 20)); // NOI18N
+        language_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Español", "English" }));
+        language_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        language_combobox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                language_comboboxActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
                 .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, 475, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
                 .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 183, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(language_combobox, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE)
+                    .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(0, 0, 0))
+        );
+
+        javax.swing.GroupLayout corona_init_panelLayout = new javax.swing.GroupLayout(corona_init_panel);
+        corona_init_panel.setLayout(corona_init_panelLayout);
+        corona_init_panelLayout.setHorizontalGroup(
+            corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(update_button, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
             .addComponent(update_label, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
             .addComponent(action_buttons_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, corona_init_panelLayout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(0, 0, 0))
         );
         corona_init_panelLayout.setVerticalGroup(
             corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(corona_init_panelLayout.createSequentialGroup()
                 .addComponent(action_buttons_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGap(12, 12, 12)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(update_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(update_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(exit_button, javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(language_combobox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(0, 0, 0))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
 
         javax.swing.GroupLayout botones_panelLayout = new javax.swing.GroupLayout(botones_panel);
@@ -1106,14 +1125,18 @@ public class Init extends CoronaFrame {
 
             Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading INIT WINDOW...");
 
-            Helpers.GUIRunAndWait(() -> {
+            Helpers.GUIRun(() -> {
                 VENTANA_INICIO = new Init();
 
                 VENTANA_INICIO.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
                 VENTANA_INICIO.setVisible(true);
+                
+                VENTANA_INICIO.revalidate();
+                
+                VENTANA_INICIO.repaint();
             });
-
+            
             if (PEGI18_MOD && !Files.isReadable(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"))) {
 
                 if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "EL MOD CARGADO CONTIENE MATERIAL CALIFICADO SÓLO PARA MAYORES DE 18 AÑOS. ¿Continuar?", new ImageIcon(Init.class.getResource("/images/pegi18.png"))) == 0) {
@@ -1244,6 +1267,7 @@ public class Init extends CoronaFrame {
     private javax.swing.JPanel corona_init_panel;
     private javax.swing.JButton create_button;
     private javax.swing.JButton exit_button;
+    private javax.swing.JPanel jPanel1;
     private javax.swing.JButton join_button;
     private javax.swing.JComboBox<String> language_combobox;
     private javax.swing.JLabel sound_icon;

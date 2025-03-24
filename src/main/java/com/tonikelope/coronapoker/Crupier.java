@@ -5164,6 +5164,8 @@ public class Crupier implements Runnable {
             }
 
             GameFrame.getInstance().getRegistro().print(String.join("\n\n", stats_registro));
+
+            GameFrame.getInstance().refresh();
         }
     }
 
@@ -6741,8 +6743,6 @@ public class Crupier implements Runnable {
 
         while (getTiempoPausa() > 0) {
 
-            GameFrame.getInstance().refresh();
-
             synchronized (lock_tiempo_pausa_barra) {
                 try {
                     lock_tiempo_pausa_barra.wait(1000);
@@ -6762,6 +6762,8 @@ public class Crupier implements Runnable {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
+
+            GameFrame.getInstance().refresh();
         }
 
         Helpers.GUIRun(() -> {

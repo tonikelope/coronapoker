@@ -628,7 +628,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
 
-                Helpers.forceRepaintComponentNow(this);
             });
 
             if (!GameFrame.TEST_MODE) {
@@ -674,11 +673,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     auto_action.start();
 
-                    Helpers.forceRepaintComponentNow(this);
                     GameFrame.getInstance().refresh();
                 });
             } else {
-                Helpers.forceRepaintComponentNow(this);
+
                 GameFrame.getInstance().refresh();
             }
 
@@ -800,7 +798,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerPotBackground(RERAISE_BACK_COLOR);
                 player_pot.setForeground(RERAISE_FORE_COLOR);
             }
-
+            GameFrame.getInstance().refresh();
         });
     }
 
@@ -840,7 +838,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             turno = false;
 
-            Helpers.forceRepaintComponentNow(this);
+            GameFrame.getInstance().refresh();
 
             synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                 GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -1691,7 +1689,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 hands_win.setVisible(true);
             }
 
-            Helpers.forceRepaintComponentNow(this);
+            GameFrame.getInstance().refresh();
         });
 
     }
@@ -1737,7 +1735,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             setPlayerActionIcon("action/angry.png");
 
-            Helpers.forceRepaintComponentNow(this);
+            GameFrame.getInstance().refresh();
         });
 
     }
@@ -2136,7 +2134,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                         setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                     }
-                    Helpers.forceRepaintComponentNow(this);
+                    GameFrame.getInstance().refresh();
                 });
 
             });
@@ -2164,7 +2162,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             player_stack.setEnabled(true);
             disablePlayerAction();
 
-            Helpers.forceRepaintComponentNow(this);
+            GameFrame.getInstance().refresh();
         });
 
     }
@@ -2344,7 +2342,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerActionIcon("action/skull.png");
                 setOpaque(true);
                 setBackground(Color.RED);
-                Helpers.forceRepaintComponentNow(this);
+                GameFrame.getInstance().refresh();
             });
 
         }

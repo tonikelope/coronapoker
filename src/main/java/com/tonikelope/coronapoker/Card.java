@@ -924,7 +924,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     private void card_imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_card_imageMouseClicked
         // TODO add your handling code here:
 
-        if (rabbit == RABBIT_TAPADA) {
+        if (rabbit == RABBIT_TAPADA && GameFrame.getInstance().getCrupier().isShow_time()) {
             Helpers.threadRun(() -> {
                 GameFrame.getInstance().getCrupier().destaparRabbitCards();
             });

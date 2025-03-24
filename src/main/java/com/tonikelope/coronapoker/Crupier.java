@@ -2205,86 +2205,84 @@ public class Crupier implements Runnable {
 
                 synchronized (lock_rabbit) {
 
-                    rabbit_players.add(nick);
+                    try {
+                        rabbit_players.add(nick);
 
-                    Player jugador = nick2player.get(nick);
-                    float stack = jugador.getStack();
-                    float coste_rabbit = 0f;
+                        Player jugador = nick2player.get(nick);
+                        float stack = jugador.getStack();
+                        float coste_rabbit = 0f;
 
-                    if (GameFrame.RABBIT_HUNTING == 2 && conta_rabbit > 1) {
-                        coste_rabbit = ciega_pequeña;
-                        bote_sobrante += coste_rabbit;
-                        jugador.setStack(stack - coste_rabbit);
-                    } else if (GameFrame.RABBIT_HUNTING == 3) {
-                        if (conta_rabbit == 2) {
+                        if (GameFrame.RABBIT_HUNTING == 2 && conta_rabbit > 1) {
                             coste_rabbit = ciega_pequeña;
                             bote_sobrante += coste_rabbit;
                             jugador.setStack(stack - coste_rabbit);
-                        } else if (conta_rabbit > 2) {
-                            coste_rabbit = ciega_grande;
-                            bote_sobrante += coste_rabbit;
-                            jugador.setStack(stack - coste_rabbit);
-                        }
-                    }
-
-                    GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" SOLICITÓ RABBIT HUNTING ") + "(" + Helpers.float2String(coste_rabbit) + ")");
-
-                    if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                        ArrayList<Card> cartas = new ArrayList<>();
-
-                        for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
-
-                            if (!carta_comun.isTapada()) {
-                                cartas.add(carta_comun);
+                        } else if (GameFrame.RABBIT_HUNTING == 3) {
+                            if (conta_rabbit == 2) {
+                                coste_rabbit = ciega_pequeña;
+                                bote_sobrante += coste_rabbit;
+                                jugador.setStack(stack - coste_rabbit);
+                            } else if (conta_rabbit > 2) {
+                                coste_rabbit = ciega_grande;
+                                bote_sobrante += coste_rabbit;
+                                jugador.setStack(stack - coste_rabbit);
                             }
                         }
 
-                        GameFrame.getInstance().getRegistro().print(Translator.translate("[RABBIT HUNTING] CARTAS COMUNITARIAS -> ") + Card.collection2String(cartas));
+                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" SOLICITÓ RABBIT HUNTING ") + "(" + Helpers.float2String(coste_rabbit) + ")");
 
-                        cartas = GameFrame.getInstance().getLocalPlayer().getHoleCards();
+                        if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+                            ArrayList<Card> cartas = new ArrayList<>();
 
-                        GameFrame.getInstance().getRegistro().print(Translator.translate("[RABBIT HUNTING] TU MANO REPARTIDA -> ") + Card.collection2String(cartas));
+                            for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
-                        for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
-
-                            if (!carta_comun.isTapada()) {
-                                cartas.add(carta_comun);
+                                if (!carta_comun.isTapada()) {
+                                    cartas.add(carta_comun);
+                                }
                             }
+
+                            GameFrame.getInstance().getRegistro().print(Translator.translate("[RABBIT HUNTING] CARTAS COMUNITARIAS -> ") + Card.collection2String(cartas));
+
+                            cartas = GameFrame.getInstance().getLocalPlayer().getHoleCards();
+
+                            GameFrame.getInstance().getRegistro().print(Translator.translate("[RABBIT HUNTING] TU MANO REPARTIDA -> ") + Card.collection2String(cartas));
+
+                            for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+
+                                if (!carta_comun.isTapada()) {
+                                    cartas.add(carta_comun);
+                                }
+                            }
+
+                            Hand jugada = new Hand(cartas);
+
+                            GameFrame.getInstance().getRegistro().print(Translator.translate("[RABBIT HUNTING] MEJOR (HIPOTÉTICA) JUGADA POSIBLE -> ") + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
+
+                            Helpers.GUIRun(() -> {
+                                GameFrame.getInstance().getLocalPlayer().setPlayerActionIcon("action/rabbit_action.png");
+                                GameFrame.getInstance().getLocalPlayer().setActionBackground(Color.BLUE);
+                                GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
+                                GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(jugada.getName());
+                                GameFrame.getInstance().getLocalPlayer().getPlayer_action().revalidate();
+                                GameFrame.getInstance().getLocalPlayer().getPlayer_action().repaint();
+                                GameFrame.getInstance().refresh();
+                            });
                         }
 
-                        Hand jugada = new Hand(cartas);
+                        String comando = "RABBIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + String.valueOf(conta_rabbit);
 
-                        GameFrame.getInstance().getRegistro().print(Translator.translate("[RABBIT HUNTING] MEJOR (HIPOTÉTICA) JUGADA POSIBLE -> ") + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
+                        if (GameFrame.getInstance().isPartida_local()) {
 
-                        Helpers.GUIRun(() -> {
-                            GameFrame.getInstance().getLocalPlayer().setPlayerActionIcon("action/rabbit_action.png");
-                            GameFrame.getInstance().getLocalPlayer().setActionBackground(Color.BLUE);
-                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
-                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(jugada.getName());
-                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().revalidate();
-                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().repaint();
-                            GameFrame.getInstance().refresh();
-                        });
+                            broadcastGAMECommandFromServer(comando, nick);
+                            GameFrame.getInstance().getParticipantes().get(nick).setRabbit_pending(false);
+
+                        } else if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+                            sendGAMECommandToServer(comando);
+                        }
+
+                        lock_rabbit.notifyAll();
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
-                    if (GameFrame.getInstance().isPartida_local()) {
-                        try {
-                            broadcastGAMECommandFromServer("RABBIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + String.valueOf(conta_rabbit), nick);
-                        } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-
-                        GameFrame.getInstance().getParticipantes().get(nick).setRabbit_pending(false);
-
-                    } else if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                        try {
-                            sendGAMECommandToServer("RABBIT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + String.valueOf(conta_rabbit));
-                        } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    }
-
-                    lock_rabbit.notifyAll();
                 }
 
             });
@@ -2711,7 +2709,7 @@ public class Crupier implements Runnable {
 
             Audio.playWavResource("misc/cash_register.wav");
 
-            GameFrame.getInstance().getRegistro().print(Translator.translate("BOTE SOBRANTE NO DIVISIBLE") + " -> " + Helpers.float2String(bote_sobrante));
+            GameFrame.getInstance().getRegistro().print(Translator.translate("BOTE SOBRANTE") + " -> " + Helpers.float2String(bote_sobrante));
 
         }
 

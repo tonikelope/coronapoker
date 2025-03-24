@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {" SOLICITÓ RABBIT HUNTING ", " REQUESTED RABBIT HUNTING "},
             {"[RABBIT HUNTING] MEJOR (HIPOTÉTICA) JUGADA POSIBLE -> ", "[RABBIT HUNTING] BEST (HYPOTHETICAL) HAND -> "},
             {"[RABBIT HUNTING] CARTAS COMUNITARIAS -> ", "[RABBIT HUNTING] COMMUNITY CARDS -> "},
             {"[RABBIT HUNTING] TU MANO REPARTIDA -> ", "[RABBIT HUNTING] YOUR HOLE CARDS -> "},

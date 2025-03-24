@@ -718,7 +718,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                     }
                 });
-                Helpers.forceRepaintComponentNow(this);
+                GameFrame.getInstance().refresh();
             });
 
         }
@@ -733,7 +733,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             player_stack.setEnabled(true);
             GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
             disablePlayerAction();
-            Helpers.forceRepaintComponentNow(this);
+            GameFrame.getInstance().refresh();
         });
 
     }
@@ -1379,8 +1379,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 }
 
-                Helpers.forceRepaintComponentNow(this);
-
                 GameFrame.getInstance().refresh();
 
             });
@@ -1413,7 +1411,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 activarPreBotones();
             }
 
-            Helpers.forceRepaintComponentNow(this);
+            GameFrame.getInstance().refresh();
 
         });
 
@@ -2777,7 +2775,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 hands_win.setVisible(true);
             }
 
-            Helpers.forceRepaintComponentNow(this);
+            GameFrame.getInstance().refresh();
         });
 
     }
@@ -2835,7 +2833,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             player_action.setText(msg);
             setPlayerActionIcon("action/angry.png");
 
-            Helpers.forceRepaintComponentNow(this);
+            GameFrame.getInstance().refresh();
         });
 
     }
@@ -2940,7 +2938,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerPotBackground(RERAISE_BACK_COLOR);
                 player_pot.setForeground(RERAISE_FORE_COLOR);
             }
-
+            GameFrame.getInstance().refresh();
         });
     }
 
@@ -3082,7 +3080,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerActionIcon("action/skull.png");
                 setOpaque(true);
                 setBackground(Color.RED);
-                Helpers.forceRepaintComponentNow(this);
+                GameFrame.getInstance().refresh();
             });
 
         }

@@ -24,6 +24,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 - ALL-IN side pots fully supported.
 - "Dead button" rule for BB/SB/DE positions.
 - IWTSTH rule available by default (can be dis/enabled by the server during the game).
+- RABBIT HUNTING (can be dis/enabled by the server during the game).
 - All blinds stuff adjustable by the server before or during the game.
 - Rebuy available.
 - Waiting room chat with emojis, custom gifs and urls support.

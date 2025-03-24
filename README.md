@@ -23,9 +23,9 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 - Cool sounds, decks, mats, cinematics and 3D card effects.
 - ALL-IN side pots fully supported.
 - "Dead button" rule for BB/SB/DE positions.
-- IWTSTH rule available by default (can be dis/enabled by the server during the game).
-- RABBIT HUNTING (can be dis/enabled by the server during the game).
-- All blinds stuff adjustable by the server before or during the game.
+- IWTSTH rule available (can be enabled/disabled by the host during the game).
+- RABBIT HUNTING (can be enabled/disabled by the host during the game).
+- All blinds stuff adjustable by the host during the game.
 - Rebuy available.
 - Waiting room chat with emojis, custom gifs and urls support.
 - Google Meet link QR generator for easy sharing with all players.

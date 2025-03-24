@@ -44,7 +44,6 @@ public class Init extends javax.swing.JFrame {
                 logo_mod.setVisible(false);
                 Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
                 Helpers.updateFonts(getContentPane(), Helpers.GUI_FONT, null);
-                pack();
             }
         });
     }

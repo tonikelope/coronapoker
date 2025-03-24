@@ -71,7 +71,7 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class Crupier implements Runnable {
 
-    public static final boolean ALLIN_BOT_TEST = false; //TRUE FOR TESTING (Init.DEV_MODE MUST BE TRUE)
+    public static final boolean ALLIN_BOT_TEST = true; //TRUE FOR TESTING (Init.DEV_MODE MUST BE TRUE)
 
     public static final String[] STREETS = new String[]{"Preflop", "Flop", "Turn", "River"};
 

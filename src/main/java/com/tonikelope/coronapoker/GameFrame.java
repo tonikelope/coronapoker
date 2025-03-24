@@ -1405,14 +1405,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.getInstance().getJugadores().addAll(Arrays.asList(nuevo_tapete.getPlayers()));
 
             Helpers.GUIRunAndWait(() -> {
-                JFrame frame = this;
-                frame.getContentPane().remove(frame_layer);
+                GameFrame.getInstance().getContentPane().remove(frame_layer);
                 tapete = nuevo_tapete;
                 zoomables = new ZoomableInterface[]{tapete};
                 frame_layer = new JLayer<>(tapete, capa_brillo);
-                frame.getContentPane().add(frame_layer);
+                GameFrame.getInstance().getContentPane().add(frame_layer);
+
                 Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+
                 updateSoundIcon();
+
                 switch (GameFrame.COLOR_TAPETE) {
 
                     case "verde":
@@ -1439,28 +1441,37 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         cambiarColorContadoresTapete(Color.WHITE);
                         break;
                 }
+
                 Helpers.TapetePopupMenu.addTo(tapete, true);
+
                 setupGlobalShortcuts();
-                Helpers.preserveOriginalFontSizes(frame);
-                Helpers.updateFonts(frame, Helpers.GUI_FONT, null);
-                Helpers.translateComponents(frame, false);
+
+                Helpers.preserveOriginalFontSizes(GameFrame.getInstance());
+
+                Helpers.updateFonts(GameFrame.getInstance(), Helpers.GUI_FONT, null);
+
+                Helpers.translateComponents(GameFrame.getInstance(), false);
+
+                if (Helpers.OSValidator.isWindows() && GameFrame.getInstance().isFull_screen() && GameFrame.getInstance().getExtendedState() != JFrame.MAXIMIZED_BOTH) {
+
+                    GameFrame.getInstance().getFull_screen_menu().setEnabled(false);
+
+                    GameFrame.getInstance().setVisible(false);
+
+                    GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+                    GameFrame.getInstance().setVisible(true);
+
+                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                }
+
                 if (GameFrame.ZOOM_LEVEL != 0) {
                     Helpers.threadRun(() -> {
                         GameFrame.getInstance().zoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
-                        Helpers.GUIRunAndWait(() -> {
-                            frame.pack();
-
-                            frame.revalidate();
-
-                            frame.repaint();
-                        });
+                        GameFrame.getInstance().refresh();
                     });
                 } else {
-                    frame.pack();
-
-                    frame.revalidate();
-
-                    frame.repaint();
+                    GameFrame.getInstance().refresh();
                 }
             });
 
@@ -1843,8 +1854,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.translateComponents(THIS, false);
 
         Helpers.translateComponents(Helpers.TapetePopupMenu.popup, false);
-
-        pack();
 
     }
 

@@ -146,7 +146,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
     public static volatile boolean REBUY = true;
     public static volatile int MANOS = -1;
-    public static boolean IWTSTH_RULE = true;
+    public static volatile boolean IWTSTH_RULE = false;
+    public static volatile int RABBIT_HUNTING = 0;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
     public static volatile boolean SONIDOS_TTS = true;
@@ -863,6 +864,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             fastchat_dialog.setVisible(true);
         });
+    }
+
+    public JRadioButtonMenuItem getMenu_rabbit_bb() {
+        return menu_rabbit_bb;
+    }
+
+    public JRadioButtonMenuItem getMenu_rabbit_free() {
+        return menu_rabbit_free;
+    }
+
+    public JRadioButtonMenuItem getMenu_rabbit_off() {
+        return menu_rabbit_off;
+    }
+
+    public JRadioButtonMenuItem getMenu_rabbit_sb() {
+        return menu_rabbit_sb;
     }
 
     private void setupGlobalShortcuts() {
@@ -1721,6 +1738,35 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             cambiarColorContadoresTapete(Color.WHITE);
         }
 
+        menu_rabbit_off.setSelected(false);
+        menu_rabbit_free.setSelected(false);
+        menu_rabbit_sb.setSelected(false);
+        menu_rabbit_bb.setSelected(false);
+
+        if (!isPartida_local()) {
+            menu_rabbit_off.setEnabled(false);
+            menu_rabbit_free.setEnabled(false);
+            menu_rabbit_sb.setEnabled(false);
+            menu_rabbit_bb.setEnabled(false);
+        }
+
+        switch (GameFrame.RABBIT_HUNTING) {
+            case 0:
+                menu_rabbit_off.setSelected(true);
+                break;
+            case 1:
+                menu_rabbit_free.setSelected(true);
+                break;
+            case 2:
+                menu_rabbit_sb.setSelected(true);
+                break;
+            case 3:
+                menu_rabbit_bb.setSelected(true);
+                break;
+            default:
+                break;
+        }
+
         if (!isPartida_local()) {
             tapete.getCommunityCards().getPause_button().setText(Translator.translate("PAUSAR") + " (" + getLocalPlayer().getPause_counter() + ")");
         } else {
@@ -2320,6 +2366,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         rebuy_now_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator2 = new javax.swing.JPopupMenu.Separator();
         iwtsth_rule_menu = new javax.swing.JCheckBoxMenuItem();
+        jSeparator10 = new javax.swing.JPopupMenu.Separator();
+        menu_rabbit = new javax.swing.JMenu();
+        menu_rabbit_off = new javax.swing.JRadioButtonMenuItem();
+        menu_rabbit_free = new javax.swing.JRadioButtonMenuItem();
+        menu_rabbit_sb = new javax.swing.JRadioButtonMenuItem();
+        menu_rabbit_bb = new javax.swing.JRadioButtonMenuItem();
         help_menu = new javax.swing.JMenu();
         shortcuts_menu = new javax.swing.JMenuItem();
         robert_rules_menu = new javax.swing.JMenuItem();
@@ -2740,6 +2792,51 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
         opciones_menu.add(iwtsth_rule_menu);
+        opciones_menu.add(jSeparator10);
+
+        menu_rabbit.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rabbit.png"))); // NOI18N
+        menu_rabbit.setText("Rabbit Hunting");
+        menu_rabbit.setDoubleBuffered(true);
+        menu_rabbit.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+
+        menu_rabbit_off.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        menu_rabbit_off.setSelected(true);
+        menu_rabbit_off.setText("OFF");
+        menu_rabbit_off.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                menu_rabbit_offActionPerformed(evt);
+            }
+        });
+        menu_rabbit.add(menu_rabbit_off);
+
+        menu_rabbit_free.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        menu_rabbit_free.setText("FREE");
+        menu_rabbit_free.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                menu_rabbit_freeActionPerformed(evt);
+            }
+        });
+        menu_rabbit.add(menu_rabbit_free);
+
+        menu_rabbit_sb.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        menu_rabbit_sb.setText("FREE + SB");
+        menu_rabbit_sb.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                menu_rabbit_sbActionPerformed(evt);
+            }
+        });
+        menu_rabbit.add(menu_rabbit_sb);
+
+        menu_rabbit_bb.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        menu_rabbit_bb.setText("FREE + SB + BB");
+        menu_rabbit_bb.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                menu_rabbit_bbActionPerformed(evt);
+            }
+        });
+        menu_rabbit.add(menu_rabbit_bb);
+
+        opciones_menu.add(menu_rabbit);
 
         menu_bar.add(opciones_menu);
 
@@ -3935,10 +4032,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(iwtsth_rule_menu.isSelected());
 
-        GameFrame.IWTSTH_RULE = iwtsth_rule_menu.isSelected();
-
         Helpers.threadRun(() -> {
-            synchronized (crupier.getIwtsth_lock()) {
+            synchronized (crupier.getLock_fin_mano()) {
+                GameFrame.IWTSTH_RULE = iwtsth_rule_menu.isSelected();
                 getCrupier().broadcastGAMECommandFromServer("IWTSTHRULE#" + (GameFrame.IWTSTH_RULE ? "1" : "0"), null);
                 if (isPartida_local()) {
                     Helpers.GUIRun(() -> {
@@ -3994,6 +4090,179 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.savePropertiesFile();
     }//GEN-LAST:event_auto_fullscreen_menuActionPerformed
 
+    private void menu_rabbit_offActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_rabbit_offActionPerformed
+        // TODO add your handling code here:
+        menu_rabbit_off.setSelected(true);
+        menu_rabbit_free.setSelected(false);
+        menu_rabbit_sb.setSelected(false);
+        menu_rabbit_bb.setSelected(false);
+
+        menu_rabbit_off.setEnabled(false);
+        menu_rabbit_free.setEnabled(false);
+        menu_rabbit_sb.setEnabled(false);
+        menu_rabbit_bb.setEnabled(false);
+
+        Helpers.TapetePopupMenu.RABBIT_OFF.setSelected(true);
+        Helpers.TapetePopupMenu.RABBIT_FREE.setSelected(false);
+        Helpers.TapetePopupMenu.RABBIT_SB.setSelected(false);
+        Helpers.TapetePopupMenu.RABBIT_BB.setSelected(false);
+
+        Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(false);
+
+        Helpers.threadRun(() -> {
+            synchronized (crupier.getLock_fin_mano()) {
+                GameFrame.RABBIT_HUNTING = 0;
+                getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(GameFrame.RABBIT_HUNTING), null);
+                if (isPartida_local()) {
+                    Helpers.GUIRun(() -> {
+                        menu_rabbit_off.setEnabled(true);
+                        menu_rabbit_free.setEnabled(true);
+                        menu_rabbit_sb.setEnabled(true);
+                        menu_rabbit_bb.setEnabled(true);
+
+                        Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(true);
+                    });
+                }
+            }
+        });
+
+    }//GEN-LAST:event_menu_rabbit_offActionPerformed
+
+    private void menu_rabbit_freeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_rabbit_freeActionPerformed
+        // TODO add your handling code here:
+        menu_rabbit_off.setSelected(false);
+        menu_rabbit_free.setSelected(true);
+        menu_rabbit_sb.setSelected(false);
+        menu_rabbit_bb.setSelected(false);
+
+        menu_rabbit_off.setEnabled(false);
+        menu_rabbit_free.setEnabled(false);
+        menu_rabbit_sb.setEnabled(false);
+        menu_rabbit_bb.setEnabled(false);
+
+        Helpers.TapetePopupMenu.RABBIT_OFF.setSelected(false);
+        Helpers.TapetePopupMenu.RABBIT_FREE.setSelected(true);
+        Helpers.TapetePopupMenu.RABBIT_SB.setSelected(false);
+        Helpers.TapetePopupMenu.RABBIT_BB.setSelected(false);
+
+        Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(false);
+
+        Helpers.threadRun(() -> {
+            synchronized (crupier.getLock_fin_mano()) {
+                GameFrame.RABBIT_HUNTING = 1;
+                getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(GameFrame.RABBIT_HUNTING), null);
+                if (isPartida_local()) {
+                    Helpers.GUIRun(() -> {
+                        menu_rabbit_off.setEnabled(true);
+                        menu_rabbit_free.setEnabled(true);
+                        menu_rabbit_sb.setEnabled(true);
+                        menu_rabbit_bb.setEnabled(true);
+
+                        Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(true);
+                    });
+                }
+            }
+        });
+    }//GEN-LAST:event_menu_rabbit_freeActionPerformed
+
+    private void menu_rabbit_sbActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_rabbit_sbActionPerformed
+        // TODO add your handling code here:
+        menu_rabbit_off.setSelected(false);
+        menu_rabbit_free.setSelected(false);
+        menu_rabbit_sb.setSelected(true);
+        menu_rabbit_bb.setSelected(false);
+
+        menu_rabbit_off.setEnabled(false);
+        menu_rabbit_free.setEnabled(false);
+        menu_rabbit_sb.setEnabled(false);
+        menu_rabbit_bb.setEnabled(false);
+
+        Helpers.TapetePopupMenu.RABBIT_OFF.setSelected(false);
+        Helpers.TapetePopupMenu.RABBIT_FREE.setSelected(false);
+        Helpers.TapetePopupMenu.RABBIT_SB.setSelected(true);
+        Helpers.TapetePopupMenu.RABBIT_BB.setSelected(false);
+
+        Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(false);
+
+        Helpers.threadRun(() -> {
+            synchronized (crupier.getLock_fin_mano()) {
+                GameFrame.RABBIT_HUNTING = 2;
+                getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(GameFrame.RABBIT_HUNTING), null);
+                if (isPartida_local()) {
+                    Helpers.GUIRun(() -> {
+                        menu_rabbit_off.setEnabled(true);
+                        menu_rabbit_free.setEnabled(true);
+                        menu_rabbit_sb.setEnabled(true);
+                        menu_rabbit_bb.setEnabled(true);
+
+                        Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(true);
+                    });
+                }
+            }
+        });
+    }//GEN-LAST:event_menu_rabbit_sbActionPerformed
+
+    private void menu_rabbit_bbActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_rabbit_bbActionPerformed
+        // TODO add your handling code here:
+        menu_rabbit_off.setSelected(false);
+        menu_rabbit_free.setSelected(false);
+        menu_rabbit_sb.setSelected(false);
+        menu_rabbit_bb.setSelected(true);
+
+        menu_rabbit_off.setEnabled(false);
+        menu_rabbit_free.setEnabled(false);
+        menu_rabbit_sb.setEnabled(false);
+        menu_rabbit_bb.setEnabled(false);
+
+        Helpers.TapetePopupMenu.RABBIT_OFF.setSelected(false);
+        Helpers.TapetePopupMenu.RABBIT_FREE.setSelected(false);
+        Helpers.TapetePopupMenu.RABBIT_SB.setSelected(false);
+        Helpers.TapetePopupMenu.RABBIT_BB.setSelected(true);
+
+        Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(false);
+        Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(false);
+
+        Helpers.threadRun(() -> {
+            synchronized (crupier.getLock_fin_mano()) {
+                GameFrame.RABBIT_HUNTING = 3;
+                getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(GameFrame.RABBIT_HUNTING), null);
+                if (isPartida_local()) {
+                    Helpers.GUIRun(() -> {
+                        menu_rabbit_off.setEnabled(true);
+                        menu_rabbit_free.setEnabled(true);
+                        menu_rabbit_sb.setEnabled(true);
+                        menu_rabbit_bb.setEnabled(true);
+
+                        Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(true);
+                        Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(true);
+                    });
+                }
+            }
+        });
+    }//GEN-LAST:event_menu_rabbit_bbActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
@@ -4013,6 +4282,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JMenu help_menu;
     private javax.swing.JCheckBoxMenuItem iwtsth_rule_menu;
     private javax.swing.JPopupMenu.Separator jSeparator1;
+    private javax.swing.JPopupMenu.Separator jSeparator10;
     private javax.swing.JPopupMenu.Separator jSeparator2;
     private javax.swing.JPopupMenu.Separator jSeparator3;
     private javax.swing.JPopupMenu.Separator jSeparator4;
@@ -4027,6 +4297,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JMenuBar menu_bar;
     private javax.swing.JMenu menu_barajas;
     private javax.swing.JCheckBoxMenuItem menu_cinematicas;
+    private javax.swing.JMenu menu_rabbit;
+    private javax.swing.JRadioButtonMenuItem menu_rabbit_bb;
+    private javax.swing.JRadioButtonMenuItem menu_rabbit_free;
+    private javax.swing.JRadioButtonMenuItem menu_rabbit_off;
+    private javax.swing.JRadioButtonMenuItem menu_rabbit_sb;
     private javax.swing.JRadioButtonMenuItem menu_tapete_azul;
     private javax.swing.JRadioButtonMenuItem menu_tapete_madera;
     private javax.swing.JRadioButtonMenuItem menu_tapete_negro;

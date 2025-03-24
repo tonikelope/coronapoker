@@ -1591,7 +1591,7 @@ public class WaitingRoomFrame extends CoronaFrame {
                                         String[] partes_comando = recibido.split("#");
                                         switch (partes_comando[0]) {
                                             case "PONG":
-                                                pong = Integer.parseInt(partes_comando[1]);
+                                                pong = Integer.valueOf(partes_comando[1]);
                                                 break;
                                             case "PING":
                                                 writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
@@ -1619,7 +1619,7 @@ public class WaitingRoomFrame extends CoronaFrame {
                                             case "GAME":
                                                 //Confirmamos recepción al servidor
                                                 String subcomando = partes_comando[2];
-                                                int id = Integer.valueOf(partes_comando[1]);
+                                                int id = Integer.parseInt(partes_comando[1]);
                                                 writeCommandToServer("CONF#" + String.valueOf(id + 1) + "#OK");
                                                 if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != id) {
                                                     last_received.put(subcomando, id);
@@ -1658,7 +1658,7 @@ public class WaitingRoomFrame extends CoronaFrame {
                                                                 break;
                                                             case "IWTSTHRULE":
                                                                 Helpers.threadRun(() -> {
-                                                                    synchronized (GameFrame.getInstance().getCrupier().getIwtsth_lock()) {
+                                                                    synchronized (GameFrame.getInstance().getCrupier().getLock_fin_mano()) {
                                                                         GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
                                                                         Helpers.GUIRun(() -> {
                                                                             GameFrame.getInstance().getIwtsth_rule_menu().setSelected(GameFrame.IWTSTH_RULE);
@@ -1666,6 +1666,46 @@ public class WaitingRoomFrame extends CoronaFrame {
                                                                         });
                                                                     }
                                                                 });
+                                                                break;
+                                                            case "RABBITRULE":
+                                                                Helpers.threadRun(() -> {
+                                                                    synchronized (GameFrame.getInstance().getCrupier().getLock_fin_mano()) {
+                                                                        GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
+                                                                        Helpers.GUIRun(() -> {
+
+                                                                            GameFrame.getInstance().getMenu_rabbit_off().setSelected(false);
+                                                                            GameFrame.getInstance().getMenu_rabbit_free().setSelected(false);
+                                                                            GameFrame.getInstance().getMenu_rabbit_sb().setSelected(false);
+                                                                            GameFrame.getInstance().getMenu_rabbit_bb().setSelected(false);
+
+                                                                            switch (GameFrame.RABBIT_HUNTING) {
+                                                                                case 0:
+                                                                                    GameFrame.getInstance().getMenu_rabbit_off().setSelected(true);
+                                                                                    break;
+                                                                                case 1:
+                                                                                    GameFrame.getInstance().getMenu_rabbit_free().setSelected(true);
+                                                                                    break;
+                                                                                case 2:
+                                                                                    GameFrame.getInstance().getMenu_rabbit_sb().setSelected(true);
+                                                                                    break;
+                                                                                case 3:
+                                                                                    GameFrame.getInstance().getMenu_rabbit_bb().setSelected(true);
+                                                                                    break;
+                                                                                default:
+                                                                                    break;
+                                                                            }
+
+                                                                            //TODO POPUP MENU
+                                                                        });
+                                                                    }
+                                                                });
+                                                                break;
+                                                            case "RABBIT":
+
+                                                                if (GameFrame.getInstance().getCrupier().isShow_time()) {
+
+                                                                    GameFrame.getInstance().getCrupier().RABBIT_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Integer.parseInt(partes_comando[4]));
+                                                                }
                                                                 break;
                                                             case "TIMEOUT":
 

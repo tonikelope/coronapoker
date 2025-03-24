@@ -44,6 +44,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.JLayeredPane;
 import javax.swing.JMenu;
 import javax.swing.SwingUtilities;
 
@@ -51,7 +52,7 @@ import javax.swing.SwingUtilities;
  *
  * @author tonikelope
  */
-public class Card extends javax.swing.JLayeredPane implements ZoomableInterface, Comparable {
+public class Card extends JLayeredPane implements ZoomableInterface, Comparable {
 
     public final static ConcurrentHashMap<String, Object[]> BARAJAS = new ConcurrentHashMap<>(Map.ofEntries(new HashMap.SimpleEntry<>("coronapoker", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("interstate60", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("goliat", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("goliat4", new Object[]{1.345f, false, null})));
     public final static int DEFAULT_HEIGHT = 200;
@@ -64,12 +65,18 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private static volatile int CARD_WIDTH = -1;
     private static volatile int CARD_HEIGHT = -1;
     private static volatile int CARD_CORNER = -1;
+    private static volatile int RABBIT_OFF = 0;
+    private static volatile int RABBIT_TAPADA = 1;
+    private static volatile int RABBIT_DESTAPADA = 2;
     private static volatile ImageIcon IMAGEN_TRASERA = null;
     private static volatile ImageIcon IMAGEN_TRASERA_B = null;
     private static volatile ImageIcon IMAGEN_JOKER = null;
+    private static volatile ImageIcon IMAGEN_RABBIT_HUNTING = null;
+    private static volatile ImageIcon IMAGEN_RABBIT_HUNTING_B = null;
+    private static volatile ImageIcon IMAGEN_RABBIT_BB;
+    private static volatile ImageIcon IMAGEN_RABBIT_SB;
     private static volatile List<String> CARTAS_SONIDO = null;
     private static volatile float CURRENT_ZOOM = 0f;
-
     private volatile String valor = "";
     private volatile String palo = "";
     private volatile boolean iniciada = false;
@@ -83,6 +90,20 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private volatile RemotePlayer iwtsth_candidate = null;
     private final Object image_precache_lock = new Object();
     private volatile boolean secure_hidden = false;
+    private volatile int rabbit = RABBIT_OFF;
+
+    public void taparRabbit() {
+        rabbit = RABBIT_TAPADA;
+        refreshCard();
+    }
+
+    public void destaparRabbit() {
+        if (rabbit == RABBIT_TAPADA) {
+            rabbit = RABBIT_DESTAPADA;
+            tapada = false;
+            refreshCard();
+        }
+    }
 
     public boolean isSecure_hidden() {
         return secure_hidden;
@@ -137,6 +158,11 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             IMAGEN_TRASERA = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
             IMAGEN_TRASERA_B = createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
             IMAGEN_JOKER = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/joker.jpg");
+            IMAGEN_RABBIT_HUNTING = createRabbitCardImageIcon("/images/bugs2.png");
+            IMAGEN_RABBIT_HUNTING_B = createRabbitCardImageIcon("/images/bugs2_b.png");
+            IMAGEN_RABBIT_BB = createRabbitChipImageIcon(Player.BIG_BLIND);
+            IMAGEN_RABBIT_SB = createRabbitChipImageIcon(Player.SMALL_BLIND);
+
             Helpers.IMAGEN_BB = createPositionChipImageIcon(Player.BIG_BLIND);
             Helpers.IMAGEN_SB = createPositionChipImageIcon(Player.SMALL_BLIND);
             Helpers.IMAGEN_DEALER = createPositionChipImageIcon(Player.DEALER);
@@ -185,6 +211,27 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     }
 
+    private static ImageIcon createRabbitChipImageIcon(int position) {
+
+        String image = "";
+
+        switch (position) {
+
+            case Player.BIG_BLIND:
+
+                image = "/images/bb.png";
+                break;
+
+            case Player.SMALL_BLIND:
+
+                image = "/images/sb.png";
+                break;
+        }
+
+        return new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.40f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.40f), Image.SCALE_SMOOTH));
+
+    }
+
     public JLabel getCard_image() {
         return card_image;
     }
@@ -207,6 +254,16 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             img = new ImageIcon(Card.class.getResource(path)).getImage();
 
         }
+
+        return new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(img.getScaledInstance(CARD_WIDTH, CARD_HEIGHT, Image.SCALE_SMOOTH)).getImage(), CARD_CORNER));
+
+    }
+
+    private static ImageIcon createRabbitCardImageIcon(String path) {
+
+        Image img;
+
+        img = new ImageIcon(Card.class.getResource(path)).getImage();
 
         return new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(img.getScaledInstance(CARD_WIDTH, CARD_HEIGHT, Image.SCALE_SMOOTH)).getImage(), CARD_CORNER));
 
@@ -238,19 +295,22 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     /**
      * Creates new form PlayingCard
      */
-    public Card(boolean gui) {
+    public Card(boolean g) {
 
-        this.gui = gui;
+        gui = g;
 
         Helpers.GUIRunAndWait(() -> {
             initComponents();
-            setLayer(card_image, new Integer(1000));
         });
 
     }
 
     public Card() {
-        Helpers.GUIRunAndWait(this::initComponents);
+        gui = true;
+
+        Helpers.GUIRunAndWait(() -> {
+            initComponents();
+        });
     }
 
     private static HashMap<String, String> loadUnicodeTable() {
@@ -341,8 +401,14 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                     if (isIniciada()) {
 
                         if (isTapada()) {
+                            if (rabbit == RABBIT_TAPADA) {
 
-                            img = isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA;
+                                img = IMAGEN_RABBIT_HUNTING;
+
+                            } else {
+
+                                img = isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA;
+                            }
 
                         } else {
 
@@ -375,22 +441,68 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
                 }
                 if (notifier == null) {
                     Helpers.GUIRun(() -> {
+
                         card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                         card_image.setIcon(img);
                         card_image.setVisible(isVisible_card());
+
+                        if (rabbit == RABBIT_DESTAPADA) {
+                            rabbit_image.setPreferredSize(card_image.getPreferredSize());
+                            rabbit_image.setIcon(IMAGEN_RABBIT_HUNTING_B);
+                            rabbit_image.setVisible(isVisible_card());
+                        } else if (rabbit == RABBIT_TAPADA && GameFrame.RABBIT_HUNTING > 1) {
+
+                            int conta_rabbit = GameFrame.getInstance().getLocalPlayer().getConta_rabbit();
+
+                            if (GameFrame.RABBIT_HUNTING == 2 && conta_rabbit >= 1) {
+                                rabbit_image.setIcon(IMAGEN_RABBIT_SB);
+                                rabbit_image.setSize(rabbit_image.getIcon().getIconWidth(), rabbit_image.getIcon().getIconHeight());
+                                rabbit_image.setLocation(0, 0);
+                                rabbit_image.setPreferredSize(rabbit_image.getSize());
+                                rabbit_image.setVisible(isVisible_card());
+                            } else if (GameFrame.RABBIT_HUNTING == 3 && conta_rabbit >= 1) {
+                                if (conta_rabbit == 1) {
+                                    rabbit_image.setIcon(IMAGEN_RABBIT_SB);
+                                } else if (conta_rabbit > 1) {
+                                    rabbit_image.setIcon(IMAGEN_RABBIT_BB);
+                                }
+                                rabbit_image.setSize(rabbit_image.getIcon().getIconWidth(), rabbit_image.getIcon().getIconHeight());
+                                rabbit_image.setLocation(0, 0);
+                                rabbit_image.setPreferredSize(rabbit_image.getSize());
+                                rabbit_image.setVisible(isVisible_card());
+                            } else {
+                                rabbit_image.setVisible(false);
+                            }
+
+                        } else {
+                            rabbit_image.setVisible(false);
+                        }
+
                         setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                         revalidate();
                         repaint();
                     });
+
                 } else {
                     Helpers.GUIRunAndWait(() -> {
+
                         card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                         card_image.setIcon(img);
                         card_image.setVisible(isVisible_card());
+
+                        if (rabbit == RABBIT_DESTAPADA) {
+                            rabbit_image.setPreferredSize(card_image.getPreferredSize());
+                            rabbit_image.setIcon(IMAGEN_RABBIT_HUNTING_B);
+                            rabbit_image.setVisible(isVisible_card());
+                        } else {
+                            rabbit_image.setVisible(false);
+                        }
+
                         setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
                         revalidate();
                         repaint();
                     });
+
                     synchronized (notifier) {
                         notifier.add(Thread.currentThread().getId());
                         notifier.notifyAll();
@@ -464,6 +576,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
         synchronized (image_precache_lock) {
             this.iniciada = false;
             this.tapada = false;
+            this.rabbit = RABBIT_OFF;
             this.desenfocada = false;
             this.visible_card = visible;
             this.valor = "";
@@ -768,7 +881,9 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
     private void initComponents() {
 
         card_image = new javax.swing.JLabel();
+        rabbit_image = new javax.swing.JLabel();
 
+        setDoubleBuffered(true);
         setFocusable(false);
         setPreferredSize(new java.awt.Dimension(148, 200));
 
@@ -781,24 +896,39 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
             }
         });
 
+        rabbit_image.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        rabbit_image.setVerticalAlignment(javax.swing.SwingConstants.TOP);
+        rabbit_image.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        rabbit_image.setDoubleBuffered(true);
+        rabbit_image.setFocusable(false);
+
         setLayer(card_image, javax.swing.JLayeredPane.DEFAULT_LAYER);
+        setLayer(rabbit_image, javax.swing.JLayeredPane.PALETTE_LAYER);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(card_image, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(card_image, javax.swing.GroupLayout.DEFAULT_SIZE, 148, Short.MAX_VALUE)
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addComponent(rabbit_image, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 148, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(card_image, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(card_image, javax.swing.GroupLayout.DEFAULT_SIZE, 200, Short.MAX_VALUE)
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addComponent(rabbit_image, javax.swing.GroupLayout.DEFAULT_SIZE, 200, Short.MAX_VALUE))
         );
     }// </editor-fold>//GEN-END:initComponents
 
     private void card_imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_card_imageMouseClicked
         // TODO add your handling code here:
 
-        if (SwingUtilities.isLeftMouseButton(evt) && isTapada() && iwtsth_candidate != null) {
+        if (rabbit == RABBIT_TAPADA) {
+            Helpers.threadRun(() -> {
+                GameFrame.getInstance().getCrupier().destaparRabbitCards();
+            });
+        } else if (SwingUtilities.isLeftMouseButton(evt) && isTapada() && iwtsth_candidate != null) {
 
             iwtsth_candidate.playerActionClick();
 
@@ -850,6 +980,7 @@ public class Card extends javax.swing.JLayeredPane implements ZoomableInterface,
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel card_image;
+    private javax.swing.JLabel rabbit_image;
     // End of variables declaration//GEN-END:variables
 
     @Override

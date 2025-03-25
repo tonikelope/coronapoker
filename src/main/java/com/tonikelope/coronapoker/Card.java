@@ -92,13 +92,17 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     private volatile boolean secure_hidden = false;
     private volatile int rabbit = RABBIT_OFF;
 
+    public boolean isRabbitTapada() {
+        return (rabbit == RABBIT_TAPADA);
+    }
+
     public void taparRabbit() {
         rabbit = RABBIT_TAPADA;
         refreshCard();
     }
 
     public void destaparRabbit() {
-        if (rabbit == RABBIT_TAPADA) {
+        if (isRabbitTapada()) {
             rabbit = RABBIT_DESTAPADA;
             tapada = false;
             refreshCard();
@@ -926,7 +930,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
         if (rabbit == RABBIT_TAPADA && GameFrame.getInstance().getCrupier().isShow_time()) {
             Helpers.threadRun(() -> {
-                GameFrame.getInstance().getCrupier().destaparRabbitCards();
+                GameFrame.getInstance().getLocalPlayer().incrementContaRabbit();
+                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getConta_rabbit());
             });
         } else if (SwingUtilities.isLeftMouseButton(evt) && isTapada() && iwtsth_candidate != null) {
 

@@ -2215,7 +2215,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void showCards(String jugada) {
         this.muestra = true;
         Helpers.GUIRun(() -> {
-            if (GameFrame.getInstance().getCrupier().getRabbit_players().contains(nickname)) {
+            if (GameFrame.getInstance().getCrupier().getRabbit_players().containsKey(nickname)) {
                 setActionBackground(Color.BLUE);
                 setPlayerActionIcon("action/rabbit_action.png");
             } else {

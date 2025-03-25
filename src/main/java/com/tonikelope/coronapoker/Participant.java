@@ -84,15 +84,6 @@ public class Participant implements Runnable {
     private volatile String avatar_chat_src;
     private volatile boolean async_wait = false;
     private volatile boolean force_reset_socket = false;
-    private volatile boolean rabbit_pending = false;
-
-    public boolean isRabbit_pending() {
-        return rabbit_pending;
-    }
-
-    public void setRabbit_pending(boolean rabbit_pending) {
-        this.rabbit_pending = rabbit_pending;
-    }
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
@@ -718,13 +709,8 @@ public class Participant implements Runnable {
                                             break;
 
                                         case "RABBIT":
-
-                                            synchronized (GameFrame.getInstance().getCrupier().getLock_rabbit()) {
-                                                rabbit_pending = true;
-                                            }
-
+                                            //Estos paquetes hay que procesarlos aunque lleguen "tarde" porque afectan al balance general
                                             GameFrame.getInstance().getCrupier().RABBIT_HANDLER(nick, Integer.parseInt(partes_comando[4]));
-
                                             break;
 
                                         case "REBUYNOW":

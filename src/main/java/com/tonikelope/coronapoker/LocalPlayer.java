@@ -723,8 +723,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                         setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                     }
+                    GameFrame.getInstance().refresh();
                 });
-                GameFrame.getInstance().refresh();
+
             });
 
         }

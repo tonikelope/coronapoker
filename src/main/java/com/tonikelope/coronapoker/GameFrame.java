@@ -1452,17 +1452,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Helpers.translateComponents(GameFrame.getInstance(), false);
 
-                if (Helpers.OSValidator.isWindows() && GameFrame.getInstance().isFull_screen() && GameFrame.getInstance().getExtendedState() != JFrame.MAXIMIZED_BOTH) {
-
-                    GameFrame.getInstance().getFull_screen_menu().setEnabled(false);
-
-                    GameFrame.getInstance().setVisible(false);
-
+                if (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen() && GameFrame.getInstance().getExtendedState() != JFrame.MAXIMIZED_BOTH) {
                     GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
-
-                    GameFrame.getInstance().setVisible(true);
-
-                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
                 }
 
                 if (GameFrame.ZOOM_LEVEL != 0) {
@@ -1476,6 +1467,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             });
 
             crupier.actualizarContadoresTapete();
+        } else {
+            GameFrame.getInstance().refresh();
         }
     }
 

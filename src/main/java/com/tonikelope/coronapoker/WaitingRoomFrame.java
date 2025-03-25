@@ -1658,46 +1658,46 @@ public class WaitingRoomFrame extends CoronaFrame {
                                                                 break;
                                                             case "IWTSTHRULE":
                                                                 Helpers.threadRun(() -> {
-                                                                    synchronized (GameFrame.getInstance().getCrupier().getLock_fin_mano()) {
-                                                                        GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
-                                                                        Helpers.GUIRun(() -> {
-                                                                            GameFrame.getInstance().getIwtsth_rule_menu().setSelected(GameFrame.IWTSTH_RULE);
-                                                                            Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
-                                                                        });
-                                                                    }
+
+                                                                    GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
+                                                                    Helpers.GUIRun(() -> {
+                                                                        GameFrame.getInstance().getIwtsth_rule_menu().setSelected(GameFrame.IWTSTH_RULE);
+                                                                        Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
+                                                                    });
+
                                                                 });
                                                                 break;
                                                             case "RABBITRULE":
                                                                 Helpers.threadRun(() -> {
-                                                                    synchronized (GameFrame.getInstance().getCrupier().getLock_fin_mano()) {
-                                                                        GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
-                                                                        Helpers.GUIRun(() -> {
 
-                                                                            GameFrame.getInstance().getMenu_rabbit_off().setSelected(false);
-                                                                            GameFrame.getInstance().getMenu_rabbit_free().setSelected(false);
-                                                                            GameFrame.getInstance().getMenu_rabbit_sb().setSelected(false);
-                                                                            GameFrame.getInstance().getMenu_rabbit_bb().setSelected(false);
+                                                                    GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
+                                                                    Helpers.GUIRun(() -> {
 
-                                                                            switch (GameFrame.RABBIT_HUNTING) {
-                                                                                case 0:
-                                                                                    GameFrame.getInstance().getMenu_rabbit_off().setSelected(true);
-                                                                                    break;
-                                                                                case 1:
-                                                                                    GameFrame.getInstance().getMenu_rabbit_free().setSelected(true);
-                                                                                    break;
-                                                                                case 2:
-                                                                                    GameFrame.getInstance().getMenu_rabbit_sb().setSelected(true);
-                                                                                    break;
-                                                                                case 3:
-                                                                                    GameFrame.getInstance().getMenu_rabbit_bb().setSelected(true);
-                                                                                    break;
-                                                                                default:
-                                                                                    break;
-                                                                            }
+                                                                        GameFrame.getInstance().getMenu_rabbit_off().setSelected(false);
+                                                                        GameFrame.getInstance().getMenu_rabbit_free().setSelected(false);
+                                                                        GameFrame.getInstance().getMenu_rabbit_sb().setSelected(false);
+                                                                        GameFrame.getInstance().getMenu_rabbit_bb().setSelected(false);
 
-                                                                            //TODO POPUP MENU
-                                                                        });
-                                                                    }
+                                                                        switch (GameFrame.RABBIT_HUNTING) {
+                                                                            case 0:
+                                                                                GameFrame.getInstance().getMenu_rabbit_off().setSelected(true);
+                                                                                break;
+                                                                            case 1:
+                                                                                GameFrame.getInstance().getMenu_rabbit_free().setSelected(true);
+                                                                                break;
+                                                                            case 2:
+                                                                                GameFrame.getInstance().getMenu_rabbit_sb().setSelected(true);
+                                                                                break;
+                                                                            case 3:
+                                                                                GameFrame.getInstance().getMenu_rabbit_bb().setSelected(true);
+                                                                                break;
+                                                                            default:
+                                                                                break;
+                                                                        }
+
+                                                                        //TODO POPUP MENU
+                                                                    });
+
                                                                 });
                                                                 break;
                                                             case "RABBIT":

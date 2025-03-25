@@ -2984,7 +2984,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.muestra = true;
         Helpers.GUIRun(() -> {
 
-            if (GameFrame.getInstance().getCrupier().getRabbit_players().contains(nickname)) {
+            if (GameFrame.getInstance().getCrupier().getRabbit_players().containsKey(nickname)) {
                 setActionBackground(Color.BLUE);
                 setPlayerActionIcon("action/rabbit_action.png");
             } else {

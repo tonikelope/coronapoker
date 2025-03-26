@@ -6,6 +6,7 @@
 
 <p align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><img src="https://raw.githubusercontent.com/tonikelope/megabasterd/master/src/main/resources/images/linux-mac-windows.png"></a></p><p align="center"><b>(Proudly) developed with:</b><br><img src="java_swing_mini.png" height="100"></p>
 
+<h1 align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest"><b>DOWNLOAD</b></a></h1>
 
 https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62-3567c593482d
 

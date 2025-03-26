@@ -1663,6 +1663,9 @@ public class WaitingRoomFrame extends CoronaFrame {
                                                                     Helpers.GUIRun(() -> {
                                                                         GameFrame.getInstance().getIwtsth_rule_menu().setSelected(GameFrame.IWTSTH_RULE);
                                                                         Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
+                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.IWTSTH_RULE ? Translator.translate("REGLA IWTSTH ACTIVADA") : Translator.translate("REGLA IWTSTH DESACTIVADA"), GameFrame.IWTSTH_RULE ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, 2000);
+                                                                        dialog.setLocation(dialog.getParent().getLocation());
+                                                                        dialog.setVisible(true);
                                                                     });
 
                                                                 });
@@ -1678,24 +1681,38 @@ public class WaitingRoomFrame extends CoronaFrame {
                                                                         GameFrame.getInstance().getMenu_rabbit_sb().setSelected(false);
                                                                         GameFrame.getInstance().getMenu_rabbit_bb().setSelected(false);
 
+                                                                        String notification = "";
+
                                                                         switch (GameFrame.RABBIT_HUNTING) {
                                                                             case 0:
                                                                                 GameFrame.getInstance().getMenu_rabbit_off().setSelected(true);
+                                                                                notification = Translator.translate("RABBIT HUNTING DESACTIVADO");
                                                                                 break;
                                                                             case 1:
                                                                                 GameFrame.getInstance().getMenu_rabbit_free().setSelected(true);
+                                                                                notification = Translator.translate("RABBIT HUNTING ACTIVADO (FREE)");
                                                                                 break;
                                                                             case 2:
                                                                                 GameFrame.getInstance().getMenu_rabbit_sb().setSelected(true);
+                                                                                notification = Translator.translate("RABBIT HUNTING ACTIVADO (FREE + SB)");
                                                                                 break;
                                                                             case 3:
                                                                                 GameFrame.getInstance().getMenu_rabbit_bb().setSelected(true);
+                                                                                notification = Translator.translate("RABBIT HUNTING ACTIVADO (FREE + SB + BB)");
                                                                                 break;
                                                                             default:
                                                                                 break;
                                                                         }
 
-                                                                        //TODO POPUP MENU
+                                                                        Helpers.TapetePopupMenu.RABBIT_OFF.setSelected(GameFrame.getInstance().getMenu_rabbit_off().isSelected());
+                                                                        Helpers.TapetePopupMenu.RABBIT_FREE.setSelected(GameFrame.getInstance().getMenu_rabbit_free().isSelected());
+                                                                        Helpers.TapetePopupMenu.RABBIT_SB.setSelected(GameFrame.getInstance().getMenu_rabbit_sb().isSelected());
+                                                                        Helpers.TapetePopupMenu.RABBIT_BB.setSelected(GameFrame.getInstance().getMenu_rabbit_bb().isSelected());
+
+                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, notification, GameFrame.RABBIT_HUNTING != 0 ? Color.BLUE : Color.RED, Color.WHITE, getClass().getResource("/images/action/rabbit_action.png"), 2000);
+                                                                        dialog.setLocation(dialog.getParent().getLocation());
+                                                                        dialog.setVisible(true);
+
                                                                     });
 
                                                                 });
@@ -1724,7 +1741,7 @@ public class WaitingRoomFrame extends CoronaFrame {
 
                                                                     Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
 
-                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.TTS_SERVER ? "TTS ACTIVADO POR EL SERVIDOR" : "TTS DESACTIVADO POR EL SERVIDOR", GameFrame.TTS_SERVER ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, 2000);
+                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.TTS_SERVER ? Translator.translate("TTS ACTIVADO POR EL SERVIDOR") : Translator.translate("TTS DESACTIVADO POR EL SERVIDOR"), GameFrame.TTS_SERVER ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, 2000);
 
                                                                     dialog.setLocation(dialog.getParent().getLocation());
 

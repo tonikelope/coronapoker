@@ -1806,6 +1806,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.TapetePopupMenu.addTo(tapete, true);
 
+        Helpers.TapetePopupMenu.RABBIT_OFF.setSelected(menu_rabbit_off.isSelected());
+        Helpers.TapetePopupMenu.RABBIT_FREE.setSelected(menu_rabbit_free.isSelected());
+        Helpers.TapetePopupMenu.RABBIT_SB.setSelected(menu_rabbit_sb.isSelected());
+        Helpers.TapetePopupMenu.RABBIT_BB.setSelected(menu_rabbit_bb.isSelected());
+
+        Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(menu_rabbit_off.isEnabled());
+        Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(menu_rabbit_free.isEnabled());
+        Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(menu_rabbit_sb.isEnabled());
+        Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(menu_rabbit_bb.isEnabled());
+
         rebuy_now_menu.setEnabled(GameFrame.REBUY);
 
         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
@@ -3770,7 +3780,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(null);
 
-                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "TTS ACTIVADO POR EL SERVIDOR", new Color(0, 130, 0), Color.WHITE, null, 2000);
+                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("TTS ACTIVADO POR EL SERVIDOR"), new Color(0, 130, 0), Color.WHITE, null, 2000);
 
                         dialog.setLocation(dialog.getParent().getLocation());
 
@@ -3799,7 +3809,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(true);
 
-                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "TTS DESACTIVADO POR EL SERVIDOR", Color.RED, Color.WHITE, null, 2000);
+                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("TTS DESACTIVADO POR EL SERVIDOR"), Color.RED, Color.WHITE, null, 2000);
 
                     dialog.setLocation(dialog.getParent().getLocation());
 

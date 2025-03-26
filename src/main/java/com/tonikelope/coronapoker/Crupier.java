@@ -216,6 +216,7 @@ public class Crupier implements Runnable {
     public static final int NEW_HAND_READY_WAIT = 1000;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
+    public static final int TIEMPO_PENSAR = 40; //Segundos
     public static final int PAUSA_ENTRE_MANOS = 10; //Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; //Segundos
@@ -851,7 +852,7 @@ public class Crupier implements Runnable {
                                     gif_dialog.dispose();
                                 }
 
-                                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+                                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
                             });
 
                             synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
@@ -877,7 +878,7 @@ public class Crupier implements Runnable {
 
                         current_remote_cinematic_b64 = null;
 
-                        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+                        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                         synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                             GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -901,7 +902,7 @@ public class Crupier implements Runnable {
 
                     current_remote_cinematic_b64 = null;
 
-                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                     synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                         GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -1216,7 +1217,7 @@ public class Crupier implements Runnable {
 
         }
 
-        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
     }
 
     public synchronized void remotePlayerQuit(String nick) {
@@ -2968,7 +2969,7 @@ public class Crupier implements Runnable {
 
             repartir();
 
-            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getExit_menu().setEnabled(true);
@@ -2991,7 +2992,7 @@ public class Crupier implements Runnable {
 
             }
 
-            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getExit_menu().setEnabled(true);
@@ -7099,7 +7100,7 @@ public class Crupier implements Runnable {
     @Override
     public void run() {
 
-        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
         if (GameFrame.getInstance().isPartida_local()) {
 

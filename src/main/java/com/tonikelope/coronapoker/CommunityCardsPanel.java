@@ -352,10 +352,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         bet_label.setDoubleBuffered(true);
         bet_label.setFocusable(false);
 
-        tiempo_partida.setFont(new java.awt.Font("Monospaced", 1, 26)); // NOI18N
+        tiempo_partida.setFont(new java.awt.Font("Monospaced", 1, 28)); // NOI18N
         tiempo_partida.setForeground(new java.awt.Color(153, 204, 0));
+        tiempo_partida.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         tiempo_partida.setText("00:00:00");
-        tiempo_partida.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         tiempo_partida.setDoubleBuffered(true);
         tiempo_partida.setFocusable(false);
 
@@ -386,7 +386,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         );
         panel_barraLayout.setVerticalGroup(
             panel_barraLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 1, Short.MAX_VALUE)
+            .addComponent(barra_tiempo, javax.swing.GroupLayout.DEFAULT_SIZE, 2, Short.MAX_VALUE)
         );
 
         cards_panel.setFocusable(false);
@@ -641,11 +641,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                                 .addComponent(pause_button)
                                 .addComponent(random_button)
                                 .addComponent(hand_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(tiempo_partida)
                                 .addComponent(max_hands_button)
                                 .addComponent(lights_label))
                             .addComponent(hand_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(blinds_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(blinds_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(tiempo_partida, javax.swing.GroupLayout.Alignment.TRAILING))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(panel_barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()

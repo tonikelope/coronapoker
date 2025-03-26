@@ -118,12 +118,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final float MIN_BIG_BLIND = 0.20f;
     public static final float ZOOM_STEP = 0.05f;
 
-    public static final int TIEMPO_PENSAR = 35; //Segundos
     public static final int WAIT_QUEUES = 1000;
     public static final int WAIT_PAUSE = 1000;
     public static final int CLIENT_RECEPTION_TIMEOUT = 10000;
     public static final int CONFIRMATION_TIMEOUT = 10000;
-    public static final int CLIENT_RECON_TIMEOUT = 2 * TIEMPO_PENSAR * 1000; // Tiempo en milisegundos que esperaremos cliente que perdió la conexión antes (preguntar) si echarle de la timba
+    public static final int CLIENT_RECON_TIMEOUT = 2 * Crupier.TIEMPO_PENSAR * 1000; // Tiempo en milisegundos que esperaremos cliente que perdió la conexión antes (preguntar) si echarle de la timba
     public static final int CLIENT_RECON_ERROR_PAUSE = 5000;
     public static final int REBUY_TIMEOUT = 25000;
     public static final int MAX_TIMEOUT_CONFIRMATION_ERROR = 10;
@@ -1411,7 +1410,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 frame_layer = new JLayer<>(tapete, capa_brillo);
                 GameFrame.getInstance().getContentPane().add(frame_layer);
 
-                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                 updateSoundIcon();
 
@@ -1781,7 +1780,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         updateSoundIcon();
 
-        Helpers.resetBarra(tapete.getCommunityCards().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+        Helpers.resetBarra(tapete.getCommunityCards().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
         server_separator_menu.setVisible(partida_local);
 

@@ -448,7 +448,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public int getResponseTime() {
 
-        return GameFrame.TIEMPO_PENSAR - response_counter;
+        return Crupier.TIEMPO_PENSAR - response_counter;
     }
 
     public Bot getBot() {
@@ -626,7 +626,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setPlayerActionIcon("action/thinking.png");
 
-                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.TIEMPO_PENSAR);
+                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
             });
 
@@ -634,7 +634,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 //Tiempo máximo para pensar
                 Helpers.GUIRun(() -> {
-                    response_counter = GameFrame.TIEMPO_PENSAR;
+                    response_counter = Crupier.TIEMPO_PENSAR;
                     if (auto_action != null) {
                         auto_action.stop();
                     }
@@ -690,7 +690,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void setDecisionFromRemotePlayer(int decision, float bet) {
 
         Helpers.GUIRunAndWait(() -> {
-            GameFrame.getInstance().getBarra_tiempo().setValue(GameFrame.TIEMPO_PENSAR);
+            GameFrame.getInstance().getBarra_tiempo().setValue(Crupier.TIEMPO_PENSAR);
             if (auto_action != null) {
                 auto_action.stop();
             }

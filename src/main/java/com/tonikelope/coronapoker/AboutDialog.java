@@ -66,7 +66,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends CoronaDialog {
 
-    public static final String VERSION = "18.67";
+    public static final String VERSION = "18.68";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

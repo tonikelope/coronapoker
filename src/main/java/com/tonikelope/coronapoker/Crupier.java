@@ -2211,6 +2211,35 @@ public class Crupier implements Runnable {
                 }
 
                 Player jugador = nick2player.get(nick);
+
+                if (jugador instanceof RemotePlayer) {
+                    RemotePlayer rp = (RemotePlayer) jugador;
+
+                    Helpers.threadRun(() -> {
+
+                        Helpers.GUIRunAndWait(() -> {
+
+                            rp.setNotifyRabbitLabel();
+                            rp.getChat_notify_label().setVisible(true);
+
+                        });
+
+                        synchronized (rp.getChat_notify_label()) {
+                            Helpers.pausar(2000);
+
+                            Helpers.GUIRun(() -> {
+
+                                rp.getChat_notify_label().setVisible(false);
+
+                            });
+
+                            rp.getChat_notify_label().notifyAll();
+                        }
+
+                    });
+
+                }
+
                 float stack = jugador.getStack();
                 float coste_rabbit = 0f;
 

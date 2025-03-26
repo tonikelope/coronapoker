@@ -235,6 +235,41 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
+    public void setNotifyRabbitLabel() {
+
+        chat_notify_image_url = null;
+
+        synchronized (getChat_notify_label()) {
+
+            getChat_notify_label().notifyAll();
+        }
+
+        Helpers.GUIRun(() -> {
+            int icon_size_h = getHoleCard1().getHeight();
+
+            int icon_size_w = Math.round((484 * icon_size_h) / 556);
+
+            int pos_x = Math.round((panel_cartas.getWidth() - icon_size_w) / 2);
+
+            int pos_y = 0;
+
+            getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/bugs_notify.png")).getImage().getScaledInstance(icon_size_w, icon_size_h, Image.SCALE_SMOOTH)));
+
+            getChat_notify_label().setSize(icon_size_w, icon_size_h);
+
+            getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+
+            getChat_notify_label().setOpaque(false);
+
+            getChat_notify_label().setLocation(pos_x, pos_y);
+
+            getChat_notify_label().revalidate();
+
+            getChat_notify_label().repaint();
+
+        });
+    }
+
     private boolean isActionGif(URL u) {
 
         String[] gif_actions = new String[]{"check", "fold1", "fold2", "fold3", "bet1", "bet2", "bet3", "bet4", "call1", "call2", "call3", "call4"};

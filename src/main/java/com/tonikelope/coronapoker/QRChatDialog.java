@@ -39,12 +39,13 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.ImageIcon;
+import javax.swing.JDialog;
 
 /**
  *
  * @author tonikelope
  */
-public class QRChatDialog extends CoronaDialog implements ClipboardChangeObserver {
+public class QRChatDialog extends JDialog implements ClipboardChangeObserver {
 
     public static final int QR_SIZE = 300;
     private volatile boolean cboard_monitor = false;

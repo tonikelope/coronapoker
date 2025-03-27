@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import javax.swing.JButton;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
 import javax.swing.JTextField;
@@ -37,7 +38,7 @@ import javax.swing.JTextField;
  *
  * @author tonikelope
  */
-public class Reconnect2ServerDialog extends CoronaDialog {
+public class Reconnect2ServerDialog extends JDialog {
 
     private volatile boolean reconectar = false;
 

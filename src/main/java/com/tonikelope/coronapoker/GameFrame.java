@@ -1430,23 +1430,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Helpers.translateComponents(GameFrame.getInstance(), false);
 
-                if (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen() && GameFrame.getInstance().getExtendedState() != JFrame.MAXIMIZED_BOTH) {
+                if (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen()) {
                     GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
                 }
 
                 if (GameFrame.ZOOM_LEVEL != 0) {
                     Helpers.threadRun(() -> {
                         GameFrame.getInstance().zoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
-                        Helpers.forceRepaintComponentNow(tapete);
                     });
-                } else {
-                    Helpers.forceRepaintComponentNow(tapete);
                 }
             });
 
             crupier.actualizarContadoresTapete();
-        } else {
-            Helpers.forceRepaintComponentNow(tapete);
         }
     }
 

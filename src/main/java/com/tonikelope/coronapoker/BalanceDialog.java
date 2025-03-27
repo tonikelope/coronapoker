@@ -35,13 +35,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 
 /**
  *
  * @author tonikelope
  */
-public class BalanceDialog extends CoronaDialog {
+public class BalanceDialog extends JDialog {
 
     private volatile boolean retry = false;
 

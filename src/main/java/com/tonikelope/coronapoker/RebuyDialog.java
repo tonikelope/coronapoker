@@ -28,6 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import javax.swing.JDialog;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 
@@ -35,7 +36,7 @@ import javax.swing.SpinnerNumberModel;
  *
  * @author tonikelope
  */
-public class RebuyDialog extends CoronaDialog {
+public class RebuyDialog extends JDialog {
 
     private volatile boolean rebuy = false;
     private volatile boolean touched = false;

@@ -28,6 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import javax.swing.JDialog;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 
@@ -35,7 +36,7 @@ import javax.swing.SpinnerNumberModel;
  *
  * @author tonikelope
  */
-public class EditBlindsDialog extends CoronaDialog {
+public class EditBlindsDialog extends JDialog {
 
     private volatile boolean init = false;
 

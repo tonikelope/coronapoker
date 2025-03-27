@@ -29,13 +29,14 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import java.awt.event.ActionEvent;
+import javax.swing.JDialog;
 import javax.swing.Timer;
 
 /**
  *
  * @author tonikelope
  */
-public class PauseDialog extends CoronaDialog {
+public class PauseDialog extends JDialog {
 
     private volatile Timer timer = null;
     private volatile Float last_zoom = null;

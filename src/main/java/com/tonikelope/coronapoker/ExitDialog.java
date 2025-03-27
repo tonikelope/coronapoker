@@ -28,11 +28,13 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import javax.swing.JDialog;
+
 /**
  *
  * @author tonikelope
  */
-public class ExitDialog extends CoronaDialog {
+public class ExitDialog extends JDialog {
 
     private volatile boolean exit = false;
 

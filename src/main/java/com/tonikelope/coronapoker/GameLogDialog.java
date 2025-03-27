@@ -30,13 +30,14 @@ package com.tonikelope.coronapoker;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.swing.JDialog;
 import javax.swing.JTextArea;
 
 /**
  *
  * @author tonikelope
  */
-public final class GameLogDialog extends CoronaDialog {
+public final class GameLogDialog extends JDialog {
 
     public final static String TITLE = "REGISTRO DE LA TIMBA";
     private static volatile String LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n";

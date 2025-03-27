@@ -29,12 +29,13 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
+import javax.swing.JDialog;
 
 /**
  *
  * @author tonikelope
  */
-public class ShortcutsDialog extends CoronaDialog implements ZoomableInterface {
+public class ShortcutsDialog extends JDialog implements ZoomableInterface {
 
     /**
      * Creates new form ShortcutsDialog

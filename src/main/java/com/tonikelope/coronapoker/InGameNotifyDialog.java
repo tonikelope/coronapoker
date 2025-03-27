@@ -33,13 +33,14 @@ import static com.tonikelope.coronapoker.GameFrame.ZOOM_STEP;
 import java.awt.Color;
 import java.awt.event.ActionEvent;
 import java.net.URL;
+import javax.swing.JDialog;
 import javax.swing.Timer;
 
 /**
  *
  * @author tonikelope
  */
-public class InGameNotifyDialog extends CoronaDialog {
+public class InGameNotifyDialog extends JDialog {
 
     private volatile Timer timer = null;
 

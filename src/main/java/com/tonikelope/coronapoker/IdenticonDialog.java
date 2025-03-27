@@ -39,12 +39,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.spec.SecretKeySpec;
 import javax.swing.ImageIcon;
+import javax.swing.JDialog;
 
 /**
  *
  * @author tonikelope
  */
-public class IdenticonDialog extends CoronaDialog {
+public class IdenticonDialog extends JDialog {
 
     /**
      * Creates new form Identicon

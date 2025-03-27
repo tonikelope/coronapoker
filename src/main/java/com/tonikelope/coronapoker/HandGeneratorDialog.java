@@ -30,12 +30,13 @@ package com.tonikelope.coronapoker;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import javax.swing.JDialog;
 
 /**
  *
  * @author tonikelope
  */
-public class HandGeneratorDialog extends CoronaDialog {
+public class HandGeneratorDialog extends JDialog {
 
     public final static String TITLE = "Generador de jugadas";
     public final static String[] PALOS = {"P", "C", "T", "D"};

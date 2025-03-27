@@ -35,6 +35,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import static javax.swing.BorderFactory.createCompoundBorder;
+import javax.swing.JDialog;
 import javax.swing.JTextField;
 import javax.swing.text.BadLocationException;
 
@@ -42,7 +43,7 @@ import javax.swing.text.BadLocationException;
  *
  * @author tonikelope
  */
-public final class FastChatDialog extends CoronaDialog {
+public final class FastChatDialog extends JDialog {
 
     private volatile static ArrayList<String[]> HISTORIAL = new ArrayList<>();
     private volatile static int HISTORIAL_INDEX = 0;

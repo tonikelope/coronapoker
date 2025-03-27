@@ -29,12 +29,13 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import javax.swing.ImageIcon;
+import javax.swing.JDialog;
 
 /**
  *
  * @author tonikelope
  */
-public class RecoverDialog extends CoronaDialog {
+public class RecoverDialog extends JDialog {
 
     /**
      * Creates new form Mantenimiento

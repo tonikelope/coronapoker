@@ -1131,10 +1131,6 @@ public class Init extends CoronaFrame {
                 VENTANA_INICIO.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
                 VENTANA_INICIO.setVisible(true);
-
-                VENTANA_INICIO.revalidate();
-
-                VENTANA_INICIO.repaint();
             });
 
             if (PEGI18_MOD && !Files.isReadable(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"))) {

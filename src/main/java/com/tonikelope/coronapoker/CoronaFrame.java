@@ -39,7 +39,7 @@ public class CoronaFrame extends JFrame {
     @Override
     public void setVisible(boolean b) {
         revalidate();
-        super.setVisible(b); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/OverriddenMethodBody
+        super.setVisible(b);
     }
 
 }

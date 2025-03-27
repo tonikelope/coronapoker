@@ -237,6 +237,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return radar_ckecking;
     }
 
+    public void setRabbitJugada(String jugada) {
+        Helpers.GUIRun(() -> {
+            setPlayerActionIcon("action/rabbit_action.png");
+            setActionBackground(Color.BLUE);
+            getPlayer_action().setForeground(Color.WHITE);
+            getPlayer_action().setText(jugada);
+            Helpers.forceRepaintComponentNow(this);
+        });
+    }
+
     public boolean secureHideHoleCards(long pause, long timeout) throws Exception {
 
         long time_limit = System.currentTimeMillis() + timeout;
@@ -1293,6 +1303,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     auto_action = new Timer(1000, new ActionListener() {
                         long t = GameFrame.getInstance().getCrupier().getTurno();
 
+                        @Override
                         public void actionPerformed(ActionEvent ae) {
 
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {

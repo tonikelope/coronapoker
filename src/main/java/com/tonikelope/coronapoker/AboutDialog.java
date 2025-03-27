@@ -37,6 +37,7 @@ import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import javax.swing.JDialog;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
@@ -64,9 +65,9 @@ import javax.swing.Timer;
     ZERO GPT CODE
 
  */
-public class AboutDialog extends CoronaDialog {
+public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "18.71";
+    public static final String VERSION = "18.72";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

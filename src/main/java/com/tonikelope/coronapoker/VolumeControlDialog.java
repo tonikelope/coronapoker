@@ -31,13 +31,14 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
+import javax.swing.JDialog;
 import javax.swing.Timer;
 
 /**
  *
  * @author tonikelope
  */
-public class VolumeControlDialog extends CoronaDialog {
+public class VolumeControlDialog extends JDialog {
 
     public static final int TIMEOUT = 1000;
     private volatile Timer timer = null;

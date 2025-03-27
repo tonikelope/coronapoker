@@ -84,7 +84,7 @@ import javax.swing.text.StyledDocument;
  *
  * @author tonikelope
  */
-public class Init extends CoronaFrame {
+public class Init extends JFrame {
 
     public static final boolean DEV_MODE = false;
 

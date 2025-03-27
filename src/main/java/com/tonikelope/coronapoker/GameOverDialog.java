@@ -30,12 +30,13 @@ package com.tonikelope.coronapoker;
 
 import java.awt.event.KeyEvent;
 import javax.swing.ImageIcon;
+import javax.swing.JDialog;
 
 /**
  *
  * @author tonikelope
  */
-public class GameOverDialog extends CoronaDialog {
+public class GameOverDialog extends JDialog {
 
     public static final int COUNTDOWN_PAUSE = 1350;
     private volatile boolean continua = false;

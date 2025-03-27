@@ -34,12 +34,13 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import javax.swing.JDialog;
 
 /**
  *
  * @author tonikelope
  */
-public class GifAnimationDialog extends CoronaDialog {
+public class GifAnimationDialog extends JDialog {
 
     private final CyclicBarrier gif_barrier = new CyclicBarrier(2);
     private volatile boolean force_exit = false;

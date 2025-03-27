@@ -49,6 +49,7 @@ import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.ImageIcon;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JSpinner.DefaultEditor;
@@ -65,7 +66,7 @@ import javax.swing.text.BadLocationException;
  *
  * @author tonikelope
  */
-public class NewGameDialog extends CoronaDialog {
+public class NewGameDialog extends JDialog {
 
     public final static int DEFAULT_PORT = 7234;
     public final static int DEFAULT_AVATAR_WIDTH = 50;

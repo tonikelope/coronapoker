@@ -167,29 +167,14 @@
       </Layout>
       <SubComponents>
         <Component class="com.tonikelope.coronapoker.Card" name="card4">
-          <Properties>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
         </Component>
         <Component class="com.tonikelope.coronapoker.Card" name="card2">
-          <Properties>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
         </Component>
         <Component class="com.tonikelope.coronapoker.Card" name="card5">
-          <Properties>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
         </Component>
         <Component class="com.tonikelope.coronapoker.Card" name="card1">
-          <Properties>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
         </Component>
         <Component class="com.tonikelope.coronapoker.Card" name="card3">
-          <Properties>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
         </Component>
       </SubComponents>
     </Container>

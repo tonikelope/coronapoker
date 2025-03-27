@@ -53,6 +53,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.JDialog;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -62,7 +63,7 @@ import org.apache.commons.codec.binary.Base64;
  *
  * @author tonikelope
  */
-public class StatsDialog extends CoronaDialog {
+public class StatsDialog extends JDialog {
 
     private final HashMap<String, HashMap<String, Object>> game = new HashMap<>();
     private final HashMap<String, HashMap<String, Object>> hand = new HashMap<>();

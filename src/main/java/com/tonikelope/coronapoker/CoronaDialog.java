@@ -40,7 +40,9 @@ public class CoronaDialog extends JDialog {
 
     @Override
     public void setVisible(boolean b) {
-        getParent().revalidate();
+        if (getParent() != null) {
+            getParent().revalidate();
+        }
         super.setVisible(b); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/OverriddenMethodBody
     }
 

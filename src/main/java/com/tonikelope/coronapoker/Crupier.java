@@ -2286,18 +2286,11 @@ public class Crupier implements Runnable {
                     }
 
                     Hand jugada = new Hand(cartas);
-
+                    
+                    GameFrame.getInstance().getLocalPlayer().setRabbitJugada(jugada.getName());
+                    
                     GameFrame.getInstance().getRegistro().print(Translator.translate("[RABBIT HUNTING] MEJOR (HIPOTÉTICA) JUGADA POSIBLE -> ") + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
 
-                    Helpers.GUIRun(() -> {
-                        GameFrame.getInstance().getLocalPlayer().setPlayerActionIcon("action/rabbit_action.png");
-                        GameFrame.getInstance().getLocalPlayer().setActionBackground(Color.BLUE);
-                        GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
-                        GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(jugada.getName());
-                        GameFrame.getInstance().getLocalPlayer().getPlayer_action().revalidate();
-                        GameFrame.getInstance().getLocalPlayer().getPlayer_action().repaint();
-                        Helpers.forceRepaintComponentNow(GameFrame.getInstance().getLocalPlayer());
-                    });
                 }
 
                 //Avisamos al server o al resto de jugadores si procede

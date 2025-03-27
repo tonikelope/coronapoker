@@ -217,7 +217,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    private void setPlayerPotBackground(Color color) {
+    public void setPlayerPotBackground(Color color) {
 
         Helpers.GUIRunAndWait(() -> {
             player_pot_panel.setBackground(color);
@@ -226,7 +226,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    private void setPlayerStackBackground(Color color) {
+    public void setPlayerStackBackground(Color color) {
         Helpers.GUIRunAndWait(() -> {
             player_stack_panel.setBackground(color);
             Helpers.forceRepaintComponentNow(player_stack_panel);
@@ -723,7 +723,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
                         setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                     }
-                    GameFrame.getInstance().refresh();
+                    Helpers.forceRepaintComponentNow(this);
                 });
 
             });
@@ -740,7 +740,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             player_stack.setEnabled(true);
             GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().setVisible(true);
             disablePlayerAction();
-            GameFrame.getInstance().refresh();
+            Helpers.forceRepaintComponentNow(this);
         });
 
     }
@@ -879,7 +879,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if (getNickname() != null && GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
                     setPlayerStackBackground(Color.YELLOW);
                     player_stack.setForeground(Color.BLACK);
-                    player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(new Float((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
+                    player_stack.setText(Helpers.float2String(stack) + " + " + Helpers.float2String(Float.valueOf((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
 
                 } else {
 
@@ -1288,13 +1288,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         auto_action.stop();
                     }
 
+                    final LocalPlayer lp = this;
+
                     auto_action = new Timer(1000, new ActionListener() {
                         long t = GameFrame.getInstance().getCrupier().getTurno();
 
                         public void actionPerformed(ActionEvent ae) {
 
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
-                                GameFrame.getInstance().refresh();
+                                Helpers.forceRepaintComponentNow(lp);
 
                                 response_counter--;
 
@@ -1386,7 +1388,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 }
 
-                GameFrame.getInstance().refresh();
+                Helpers.forceRepaintComponentNow(this);
 
             });
 
@@ -1418,7 +1420,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 activarPreBotones();
             }
 
-            GameFrame.getInstance().refresh();
+            Helpers.forceRepaintComponentNow(this);
 
         });
 
@@ -2782,7 +2784,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 hands_win.setVisible(true);
             }
 
-            GameFrame.getInstance().refresh();
+            Helpers.forceRepaintComponentNow(this);
         });
 
     }
@@ -2840,7 +2842,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             player_action.setText(msg);
             setPlayerActionIcon("action/angry.png");
 
-            GameFrame.getInstance().refresh();
+            Helpers.forceRepaintComponentNow(this);
         });
 
     }
@@ -2945,7 +2947,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerPotBackground(RERAISE_BACK_COLOR);
                 player_pot.setForeground(RERAISE_FORE_COLOR);
             }
-            GameFrame.getInstance().refresh();
+            Helpers.forceRepaintComponentNow(this);
         });
     }
 
@@ -3087,7 +3089,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerActionIcon("action/skull.png");
                 setOpaque(true);
                 setBackground(Color.RED);
-                GameFrame.getInstance().refresh();
+                Helpers.forceRepaintComponentNow(this);
             });
 
         }

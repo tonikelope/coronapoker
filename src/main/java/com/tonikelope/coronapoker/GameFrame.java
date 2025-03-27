@@ -86,27 +86,6 @@ import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.Timer;
 
-class WheelFrame extends CoronaFrame implements MouseWheelListener {
-
-    @Override
-    public void mouseWheelMoved(MouseWheelEvent e) {
-        e.consume();
-
-        if (e.isControlDown()) {
-
-            if (e.getWheelRotation() < 0) {
-                GameFrame.getInstance().getZoom_menu_in().doClick();
-            } else {
-                GameFrame.getInstance().getZoom_menu_out().doClick();
-            }
-
-        } else if (getParent() != null) {
-            getParent().dispatchEvent(e);
-        }
-    }
-
-}
-
 /**
  *
  * @author tonikelope
@@ -1458,16 +1437,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 if (GameFrame.ZOOM_LEVEL != 0) {
                     Helpers.threadRun(() -> {
                         GameFrame.getInstance().zoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
-                        GameFrame.getInstance().refresh();
+                        Helpers.forceRepaintComponentNow(tapete);
                     });
                 } else {
-                    GameFrame.getInstance().refresh();
+                    Helpers.forceRepaintComponentNow(tapete);
                 }
             });
 
             crupier.actualizarContadoresTapete();
         } else {
-            GameFrame.getInstance().refresh();
+            Helpers.forceRepaintComponentNow(tapete);
         }
     }
 
@@ -3845,10 +3824,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 crupier.rebuyNow(player.getNickname(), -1);
                 Helpers.GUIRun(() -> {
                     if (player.getBuyin() > GameFrame.BUYIN) {
-                        player.getPlayer_stack().setBackground(Color.CYAN);
+                        player.setPlayerStackBackground(Color.CYAN);
                         player.getPlayer_stack().setForeground(Color.BLACK);
                     } else {
-                        player.getPlayer_stack().setBackground(new Color(51, 153, 0));
+                        player.setPlayerStackBackground(new Color(51, 153, 0));
                         player.getPlayer_stack().setForeground(Color.WHITE);
                     }
 
@@ -3859,6 +3838,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     rebuy_now_menu.setOpaque(false);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
+                    Helpers.forceRepaintComponentNow(player);
                 });
                 Audio.playWavResource("misc/button_off.wav");
             });
@@ -3872,9 +3852,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             rebuy_dialog.setVisible(true);
 
             if (rebuy_dialog.isRebuy()) {
-                player.getPlayer_stack().setBackground(Color.YELLOW);
+                player.setPlayerStackBackground(Color.YELLOW);
                 player.getPlayer_stack().setForeground(Color.BLACK);
-                player.getPlayer_stack().setText(Helpers.float2String(player.getStack()) + " + " + Helpers.float2String(new Float((int) rebuy_dialog.getRebuy_spinner().getValue())));
+                player.getPlayer_stack().setText(Helpers.float2String(player.getStack()) + " + " + Helpers.float2String(Float.valueOf((int) rebuy_dialog.getRebuy_spinner().getValue())));
                 this.rebuy_now_menu.setBackground(Color.YELLOW);
                 this.rebuy_now_menu.setOpaque(true);
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(Color.YELLOW);
@@ -3886,6 +3866,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         rebuy_now_menu.setEnabled(true);
                         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                         rebuy_dialog = null;
+                        Helpers.forceRepaintComponentNow(player);
                     });
                     Audio.playWavResource("misc/button_on.wav");
                 });
@@ -3899,6 +3880,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
                 rebuy_dialog = null;
+                Helpers.forceRepaintComponentNow(player);
             }
 
         }

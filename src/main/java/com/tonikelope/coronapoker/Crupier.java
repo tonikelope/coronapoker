@@ -2296,7 +2296,7 @@ public class Crupier implements Runnable {
                         GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(jugada.getName());
                         GameFrame.getInstance().getLocalPlayer().getPlayer_action().revalidate();
                         GameFrame.getInstance().getLocalPlayer().getPlayer_action().repaint();
-                        GameFrame.getInstance().refresh();
+                        Helpers.forceRepaintComponentNow(GameFrame.getInstance().getTapete());
                     });
                 }
 
@@ -2611,7 +2611,7 @@ public class Crupier implements Runnable {
                     carta.destaparRabbit();
                 }
 
-                GameFrame.getInstance().refresh();
+                Helpers.forceRepaintComponentNow(GameFrame.getInstance().getTapete());
             }
         }
     }
@@ -5214,7 +5214,7 @@ public class Crupier implements Runnable {
 
             GameFrame.getInstance().getRegistro().print(String.join("\n\n", stats_registro));
 
-            GameFrame.getInstance().refresh();
+            Helpers.forceRepaintComponentNow(GameFrame.getInstance().getTapete());
         }
     }
 
@@ -6841,8 +6841,6 @@ public class Crupier implements Runnable {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-
-            GameFrame.getInstance().refresh();
         }
 
         Helpers.GUIRun(() -> {
@@ -7640,7 +7638,7 @@ public class Crupier implements Runnable {
                                     }
                                 }
 
-                                GameFrame.getInstance().refresh();
+                                Helpers.forceRepaintComponentNow(GameFrame.getInstance().getTapete());
                             }
 
                             startIWTSTHPlayersBlinking();

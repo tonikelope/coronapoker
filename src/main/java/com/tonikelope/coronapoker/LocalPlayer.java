@@ -1307,7 +1307,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         public void actionPerformed(ActionEvent ae) {
 
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
-                                Helpers.forceRepaintComponentNow(lp);
+                                GameFrame.getInstance().getCrupier().refreshPlayersAndCommunity();
 
                                 response_counter--;
 
@@ -1434,7 +1434,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.forceRepaintComponentNow(this);
 
         });
-
     }
 
     public void desactivarControles() {

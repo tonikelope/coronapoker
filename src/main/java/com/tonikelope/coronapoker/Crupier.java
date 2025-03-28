@@ -670,6 +670,19 @@ public class Crupier implements Runnable {
         return turno;
     }
 
+    public void refreshPlayersAndCommunity() {
+        Helpers.GUIRun(() -> {
+
+            Helpers.forceRepaintComponentNow(GameFrame.getInstance().getLocalPlayer());
+
+            for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
+                Helpers.forceRepaintComponentNow(rp);
+            }
+
+            Helpers.forceRepaintComponentNow(GameFrame.getInstance().getTapete().getCommunityCards());
+        });
+    }
+
     public boolean localCinematicAllin() {
 
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD) : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
@@ -2286,9 +2299,9 @@ public class Crupier implements Runnable {
                     }
 
                     Hand jugada = new Hand(cartas);
-                    
+
                     GameFrame.getInstance().getLocalPlayer().setRabbitJugada(jugada.getName());
-                    
+
                     GameFrame.getInstance().getRegistro().print(Translator.translate("[RABBIT HUNTING] MEJOR (HIPOTÉTICA) JUGADA POSIBLE -> ") + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
 
                 }
@@ -6832,6 +6845,8 @@ public class Crupier implements Runnable {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
+
+            refreshPlayersAndCommunity();
         }
 
         Helpers.GUIRun(() -> {

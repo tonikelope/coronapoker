@@ -240,7 +240,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         THIS = null;
 
-        GameFrame.IWTSTH_RULE = true;
+        GameFrame.IWTSTH_RULE = false;
     }
 
     public BrightnessLayerUI getCapa_brillo() {

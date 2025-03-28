@@ -670,19 +670,6 @@ public class Crupier implements Runnable {
         return turno;
     }
 
-    public void refreshPlayersAndCommunity() {
-        Helpers.GUIRun(() -> {
-
-            Helpers.forceRepaintComponentNow(GameFrame.getInstance().getLocalPlayer());
-
-            for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
-                Helpers.forceRepaintComponentNow(rp);
-            }
-
-            Helpers.forceRepaintComponentNow(GameFrame.getInstance().getTapete().getCommunityCards());
-        });
-    }
-
     public boolean localCinematicAllin() {
 
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD) : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
@@ -6846,7 +6833,7 @@ public class Crupier implements Runnable {
                 }
             }
 
-            refreshPlayersAndCommunity();
+            GameFrame.getInstance().refreshPlayersAndCommunity();
         }
 
         Helpers.GUIRun(() -> {

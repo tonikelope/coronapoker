@@ -213,6 +213,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return notify_dialog;
     }
 
+    public void refreshPlayersAndCommunity() {
+        Helpers.GUIRun(() -> {
+
+            Helpers.forceRepaintComponentNow(getLocalPlayer());
+
+            for (RemotePlayer rp : getTapete().getRemotePlayers()) {
+                Helpers.forceRepaintComponentNow(rp);
+            }
+
+            Helpers.forceRepaintComponentNow(getTapete().getCommunityCards());
+        });
+    }
+
     public static void resetInstance() {
 
         GameFrame.getInstance().getFull_screen_menu().setEnabled(false);
@@ -519,8 +532,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void refresh() {
         Helpers.GUIRun(() -> {
 
-            GameFrame.getInstance().revalidate();
-            GameFrame.getInstance().repaint();
+            revalidate();
+            repaint();
 
         });
     }

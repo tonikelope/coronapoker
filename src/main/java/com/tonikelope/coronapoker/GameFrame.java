@@ -241,6 +241,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         THIS = null;
 
         GameFrame.IWTSTH_RULE = false;
+        
+        GameFrame.RABBIT_HUNTING = 0;
     }
 
     public BrightnessLayerUI getCapa_brillo() {

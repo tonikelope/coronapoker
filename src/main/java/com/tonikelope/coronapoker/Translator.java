@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"CONEXIÓN CON EL SERVIDOR RECUPERADA", "CONNECTION TO SERVER RECOVERED"},
             {"REGLA IWTSTH ACTIVADA", "IWTSTH RULE ENABLED"},
             {"REGLA IWTSTH DESACTIVADA", "IWTSTH RULE DISABLED"},
             {"TTS ACTIVADO POR EL SERVIDOR", "TTS ENABLED BY SERVER"},

@@ -1298,8 +1298,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         auto_action.stop();
                     }
 
-                    final LocalPlayer lp = this;
-
                     auto_action = new Timer(1000, new ActionListener() {
                         long t = GameFrame.getInstance().getCrupier().getTurno();
 
@@ -1307,7 +1305,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         public void actionPerformed(ActionEvent ae) {
 
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
-                                GameFrame.getInstance().getCrupier().refreshPlayersAndCommunity();
+                                GameFrame.getInstance().refreshPlayersAndCommunity();
 
                                 response_counter--;
 

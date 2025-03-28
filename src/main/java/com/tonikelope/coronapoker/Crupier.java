@@ -7286,11 +7286,18 @@ public class Crupier implements Runnable {
 
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                                     });
+
                                     GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, 0f);
+
                                     if (Helpers.float1DSecureCompare(0f, this.bote_total) < 0) {
                                         this.bote_sobrante += this.bote_total;
                                     }
                                     ganadores = new HashMap<>();
+
+                                    for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                        carta.desenfocar();
+                                    }
+
                                     break;
                                 case 1:
                                     //Todos se han tirado menos uno GANA SIN MOSTRAR
@@ -7308,9 +7315,15 @@ public class Crupier implements Runnable {
 
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
                                     });
+
                                     GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
                                     this.bote_total = 0f;
                                     this.bote_sobrante = 0f;
+
+                                    for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                        carta.desenfocar();
+                                    }
+
                                     if (resisten.get(0) == GameFrame.getInstance().getLocalPlayer()) {
                                         GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(false);
                                     }

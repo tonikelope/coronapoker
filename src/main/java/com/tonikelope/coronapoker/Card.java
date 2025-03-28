@@ -91,6 +91,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     private final Object image_precache_lock = new Object();
     private volatile boolean secure_hidden = false;
     private volatile int rabbit = RABBIT_OFF;
+    private volatile boolean mouse_hover = false;
 
     public boolean isRabbitTapada() {
         return (rabbit == RABBIT_TAPADA);
@@ -416,7 +417,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
                         } else {
 
-                            if (!isDesenfocada()) {
+                            if (!isDesenfocada() || mouse_hover) {
 
                                 if (image != null) {
                                     img = image;
@@ -898,6 +899,12 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 card_imageMouseClicked(evt);
             }
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                card_imageMouseEntered(evt);
+            }
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                card_imageMouseExited(evt);
+            }
         });
 
         rabbit_image.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
@@ -982,6 +989,18 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             }
         }
     }//GEN-LAST:event_card_imageMouseClicked
+
+    private void card_imageMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_card_imageMouseEntered
+        // TODO add your handling code here:
+        mouse_hover = true;
+        refreshCard();
+    }//GEN-LAST:event_card_imageMouseEntered
+
+    private void card_imageMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_card_imageMouseExited
+        // TODO add your handling code here:
+        mouse_hover = false;
+        refreshCard();
+    }//GEN-LAST:event_card_imageMouseExited
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel card_image;

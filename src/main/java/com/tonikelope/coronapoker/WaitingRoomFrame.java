@@ -1128,6 +1128,13 @@ public class WaitingRoomFrame extends JFrame {
 
                 if (ok_rec) {
                     Audio.playWavResource("misc/yahoo.wav");
+                    if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
+                        Helpers.GUIRun(() -> {
+                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("CONEXIÓN CON EL SERVIDOR RECUPERADA"), Color.MAGENTA, Color.BLACK, getClass().getResource("/images/action/plug.png"), 2000);
+                            dialog.setLocation(dialog.getParent().getLocation());
+                            dialog.setVisible(true);
+                        });
+                    }
                 }
 
                 this.reconnecting = false;

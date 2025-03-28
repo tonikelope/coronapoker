@@ -20,7 +20,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 - Up to 10 simultaneous human/bot players.
 - Intuitive interface (with comfortable key shortcuts).
 - Global in-game zoom (UHD resolution supported).
-- TRUE RANDOM shuffle (powered by https://www.random.org).
+- TRUE RANDOM shuffle (<a href="https://github.com/tonikelope/coronapoker/raw/master/shuffle.pdf">MORE INFO</a>).
 - Cool sounds, decks, mats, cinematics and 3D card effects.
 - ALL-IN side pots fully supported.
 - "Dead button" rule for BB/SB/DE positions.

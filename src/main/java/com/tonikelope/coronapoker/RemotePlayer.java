@@ -682,7 +682,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         @Override
                         public void actionPerformed(ActionEvent ae) {
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == GameFrame.getInstance().getCrupier().getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
-                                Helpers.forceRepaintComponentNow(rp);
+                                GameFrame.getInstance().getCrupier().refreshPlayersAndCommunity();
 
                                 response_counter--;
 

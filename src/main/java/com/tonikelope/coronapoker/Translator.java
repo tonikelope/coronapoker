@@ -227,7 +227,7 @@ public class Translator {
             {"Auto ajustar", "Auto fit"},
             {"NO TENGO PERMISOS DE ESCRITURA.\n(TENDRÁS QUE DESCARGARTE LA ÚLTIMA VERSIÓN MANUALMENTE)", "I DO NOT HAVE WRITING PERMISSION.\n(YOU WILL HAVE TO DOWNLOAD THE LATEST VERSION MANUALLY)"},
             {"HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?", "THERE IS A NEW CORONAPOKER VERSION. UPDATE?"},
-            {"(CONTINUANDO TIMBA ANTERIOR)", "(RESUMING PREVIOUS GAME)"},
+            {"CONTINUANDO TIMBA ANTERIOR", "RESUMING PREVIOUS GAME"},
             {"ERROR AL RECUPERAR LA MANO", "ERROR RECOVERING HAND"},
             {"ESTE JUGADOR TIENE PROBLEMAS DE CONEXIÓN", "THIS PLAYER HAS CONNECTION PROBLEMS"},
             {"Este usuario tiene problemas de conexión que bloquean la partida.\n(El servidor decidirá si esperar a que se recupere o echarle).", "This user has connection problems that block the game.\n(The server will decide whether to wait for him to recover or kick him/her out)."},

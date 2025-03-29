@@ -126,6 +126,7 @@ public class WaitingRoomFrame extends JFrame {
     private final String local_nick;
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<Long> client_threads = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
     private volatile ServerSocket server_socket = null;
     private volatile SecretKeySpec local_client_aes_key = null;
     private volatile SecretKeySpec local_client_hmac_key = null;
@@ -218,6 +219,7 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public static void resetInstance() {
+        THIS.late_clients_warning.clear();
         THIS.protect_focus = false;
         THIS.setVisible(false);
         THIS.dispose();
@@ -684,7 +686,9 @@ public class WaitingRoomFrame extends JFrame {
         danger_server.setVisible(false);
 
         if (GameFrame.isRECOVER()) {
-            game_info_buyin.setText("(CONTINUANDO TIMBA ANTERIOR)");
+            game_info_buyin.setText("CONTINUANDO TIMBA ANTERIOR");
+            game_info_buyin.setOpaque(true);
+            game_info_buyin.setBackground(Color.YELLOW);
             game_info_buyin.setIcon(null);
             game_info_blinds.setVisible(false);
             game_info_hands.setVisible(false);
@@ -2194,6 +2198,26 @@ public class WaitingRoomFrame extends JFrame {
                         writeCommandFromServer(Helpers.encryptCommand("BADPASSWORD", aes_key, hmac_key), client_socket);
                     } else if (WaitingRoomFrame.getInstance().isPartida_empezando() || WaitingRoomFrame.getInstance().isPartida_empezada()) {
                         writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
+
+                        try {
+                            String ipCliente = client_socket.getInetAddress().getHostAddress();
+
+                            if (!late_clients_warning.contains(ipCliente)) {
+                                Audio.playWavResource("misc/new_user.wav");
+                                Helpers.GUIRun(() -> {
+                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick + Translator.translate("] LLEGA TARDE"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), 2000);
+                                    dialog.setLocation(dialog.getParent().getLocation());
+                                    dialog.setVisible(true);
+                                });
+
+                                late_clients_warning.add(ipCliente);
+                            }
+
+                        } catch (Exception e) {
+                        }
+
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El usuario {0} LLEGA TARDE -> DENEGADO", client_nick);
+
                     } else if (participantes.size() == MAX_PARTICIPANTES) {
                         writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
                     } else if (participantes.containsKey(client_nick)) {

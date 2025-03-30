@@ -512,6 +512,8 @@ public class Init extends JFrame {
 
         dialog.setVisible(true);
 
+        setEnabled(true);
+
         if (!dialog.isDialog_ok()) {
             setVisible(true);
         } else {

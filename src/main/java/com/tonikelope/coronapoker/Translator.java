@@ -47,6 +47,7 @@ public class Translator {
         String[][] rosetta = {
             {"CONTINUAR ESTA TIMBA", "CONTINUE THIS GAME"},
             {"RECONECTAR AL SERVIDOR", "RECONNECT TO SERVER"},
+            {"MENÚ PRINCIPAL", "MAIN MENU"},
             {"CONEXIÓN CON EL SERVIDOR RECUPERADA", "CONNECTION TO SERVER RECOVERED"},
             {"REGLA IWTSTH ACTIVADA", "IWTSTH RULE ENABLED"},
             {"REGLA IWTSTH DESACTIVADA", "IWTSTH RULE DISABLED"},

@@ -44,10 +44,10 @@ import javax.swing.JLabel;
  */
 public class BalanceDialog extends JDialog {
 
-    private volatile boolean retry = false;
+    private volatile boolean recover = false;
 
-    public boolean isRetry() {
-        return retry;
+    public boolean isRecover() {
+        return recover;
     }
 
     /**
@@ -59,8 +59,6 @@ public class BalanceDialog extends JDialog {
         initComponents();
 
         date.setText(Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(GameFrame.getInstance().getConta_tiempo_juego()) + ")");
-
-        exit_button.requestFocus();
 
         scroll_panel.getVerticalScrollBar().setUnitIncrement(20);
 
@@ -96,6 +94,8 @@ public class BalanceDialog extends JDialog {
                 label.setBackground(new Color(255, 255, 153));
                 label.setOpaque(true);
             }
+
+            recover_button.setText(GameFrame.getInstance().isPartida_local() ? "CONTINUAR ESTA TIMBA" : "RECONECTAR AL SERVIDOR");
 
             String avatar_path = GameFrame.getInstance().getNick2avatar().get(entry.getKey());
 
@@ -134,9 +134,9 @@ public class BalanceDialog extends JDialog {
 
         Helpers.setScaledIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
 
-        Helpers.setScaledIconButton(exit_button, getClass().getResource("/images/exit.png"), exit_button.getHeight(), exit_button.getHeight());
+        Helpers.setScaledIconButton(recover_button, getClass().getResource("/images/start.png"), menu_button.getHeight(), menu_button.getHeight());
 
-        Helpers.setScaledIconButton(retry_button, getClass().getResource("/images/start.png"), retry_button.getHeight(), retry_button.getHeight());
+        menu_button.setSize(recover_button.getSize());
 
         setSize(getWidth(), Math.round(getParent().getHeight() * 0.9f));
 
@@ -170,10 +170,10 @@ public class BalanceDialog extends JDialog {
         date = new javax.swing.JLabel();
         scroll_panel = new javax.swing.JScrollPane();
         jugadores = new javax.swing.JPanel();
-        exit_button = new javax.swing.JButton();
         stats_button = new javax.swing.JButton();
         log_button = new javax.swing.JButton();
-        retry_button = new javax.swing.JButton();
+        menu_button = new javax.swing.JButton();
+        recover_button = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setUndecorated(true);
@@ -216,19 +216,6 @@ public class BalanceDialog extends JDialog {
         jugadores.setLayout(new java.awt.GridLayout(0, 1));
         scroll_panel.setViewportView(jugadores);
 
-        exit_button.setBackground(new java.awt.Color(255, 0, 0));
-        exit_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        exit_button.setForeground(new java.awt.Color(255, 255, 255));
-        exit_button.setText("SALIR");
-        exit_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        exit_button.setDoubleBuffered(true);
-        exit_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                exit_buttonActionPerformed(evt);
-            }
-        });
-
         stats_button.setBackground(new java.awt.Color(255, 102, 0));
         stats_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         stats_button.setForeground(new java.awt.Color(255, 255, 255));
@@ -253,16 +240,29 @@ public class BalanceDialog extends JDialog {
             }
         });
 
-        retry_button.setBackground(new java.awt.Color(0, 153, 255));
-        retry_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        retry_button.setForeground(new java.awt.Color(255, 255, 255));
-        retry_button.setText("OTRA TIMBA");
-        retry_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        retry_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        retry_button.setDoubleBuffered(true);
-        retry_button.addActionListener(new java.awt.event.ActionListener() {
+        menu_button.setBackground(new java.awt.Color(0, 153, 255));
+        menu_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        menu_button.setForeground(new java.awt.Color(255, 255, 255));
+        menu_button.setText("MENÚ PRINCIPAL");
+        menu_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        menu_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        menu_button.setDoubleBuffered(true);
+        menu_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                retry_buttonActionPerformed(evt);
+                menu_buttonActionPerformed(evt);
+            }
+        });
+
+        recover_button.setBackground(new java.awt.Color(0, 130, 0));
+        recover_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
+        recover_button.setForeground(new java.awt.Color(255, 255, 255));
+        recover_button.setText("RECONECTAR AL MISMO SERVIDOR");
+        recover_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        recover_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        recover_button.setDoubleBuffered(true);
+        recover_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                recover_buttonActionPerformed(evt);
             }
         });
 
@@ -272,13 +272,15 @@ public class BalanceDialog extends JDialog {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(scroll_panel)
-            .addGroup(layout.createSequentialGroup()
-                .addComponent(retry_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addComponent(stats_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(log_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(date, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(stats_button, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(recover_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(menu_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(log_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -287,24 +289,20 @@ public class BalanceDialog extends JDialog {
                 .addGap(0, 0, 0)
                 .addComponent(date)
                 .addGap(0, 0, 0)
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 274, Short.MAX_VALUE)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 199, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(log_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(stats_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(exit_button)
-                    .addComponent(retry_button)))
+                .addComponent(recover_button)
+                .addGap(18, 18, 18)
+                .addComponent(menu_button)
+                .addContainerGap())
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
-
-    private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
-        // TODO add your handling code here:
-        dispose();
-    }//GEN-LAST:event_exit_buttonActionPerformed
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
         // TODO add your handling code here:
@@ -329,12 +327,11 @@ public class BalanceDialog extends JDialog {
 
     }//GEN-LAST:event_log_buttonActionPerformed
 
-    private void retry_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_retry_buttonActionPerformed
+    private void menu_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_buttonActionPerformed
         // TODO add your handling code here:
-        retry = true;
         dispose();
 
-    }//GEN-LAST:event_retry_buttonActionPerformed
+    }//GEN-LAST:event_menu_buttonActionPerformed
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
         // TODO add your handling code here:
@@ -354,12 +351,18 @@ public class BalanceDialog extends JDialog {
 
     }//GEN-LAST:event_formWindowActivated
 
+    private void recover_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_recover_buttonActionPerformed
+        // TODO add your handling code here:
+        recover = true;
+        dispose();
+    }//GEN-LAST:event_recover_buttonActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel date;
-    private javax.swing.JButton exit_button;
     private javax.swing.JPanel jugadores;
     private javax.swing.JButton log_button;
-    private javax.swing.JButton retry_button;
+    private javax.swing.JButton menu_button;
+    private javax.swing.JButton recover_button;
     private javax.swing.JScrollPane scroll_panel;
     private javax.swing.JButton stats_button;
     private javax.swing.JLabel title;

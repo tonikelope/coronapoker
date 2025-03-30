@@ -2052,11 +2052,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     }
 
-    private void RESET_ALL(boolean force_recover) {
+    private void RESET_ALL(boolean recover) {
 
         new Thread(() -> {
 
-            boolean partida_local = GameFrame.getInstance().isPartida_local();
+            boolean local = GameFrame.getInstance().isPartida_local();
 
             Audio.stopAllCurrentLoopMp3Resource();
             Audio.stopAllWavResources();
@@ -2082,15 +2082,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             }
 
-            if (force_recover) {
-                Init.VENTANA_INICIO.continueLastGame(partida_local);
-            } else {
-                Audio.playLoopMp3Resource("misc/background_music.mp3");
-                Helpers.GUIRunAndWait(() -> {
-                    Init.VENTANA_INICIO.getTapete().refresh();
-                    Init.VENTANA_INICIO.setVisible(true);
-                });
-            }
+            Audio.playLoopMp3Resource("misc/background_music.mp3");
+            Helpers.GUIRunAndWait(() -> {
+                Init.VENTANA_INICIO.getTapete().refresh();
+                Init.VENTANA_INICIO.setVisible(true);
+
+                if (recover) {
+                    Init.VENTANA_INICIO.setEnabled(false);
+                    Init.VENTANA_INICIO.continueLastGame(local);
+                }
+            });
 
         }).start();
     }

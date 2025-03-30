@@ -263,6 +263,7 @@ public class Helpers {
     public static final int DECK_ELEMENTS = 52;
     public static final int MIN_GIF_FRAME_DELAY = 3;
     public static final int DIALOG_ICON_SIZE = 70;
+    public static final float MESSAGE_DIALOG_ZOOM = 1.3f;
     public static final ArrayList<String> GIFSICLE_FAST_TEMP_FILES = new ArrayList<>();
     public static ArrayList<String> POKER_QUOTES_ES = new ArrayList<>();
     public static ArrayList<String> POKER_QUOTES_EN = new ArrayList<>();
@@ -2678,7 +2679,7 @@ public class Helpers {
         Audio.playWavResource("misc/warning.wav");
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
-        Helpers.updateFonts(label, GUI_FONT, 1.2f);
+        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM);
 
         if (SwingUtilities.isEventDispatchThread()) {
 
@@ -2712,7 +2713,7 @@ public class Helpers {
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
 
-        Helpers.updateFonts(label, GUI_FONT, 1.2f);
+        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM);
 
         if (SwingUtilities.isEventDispatchThread()) {
 
@@ -2759,7 +2760,7 @@ public class Helpers {
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
 
-        Helpers.updateFonts(label, GUI_FONT, 1.2f);
+        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM);
 
         if (SwingUtilities.isEventDispatchThread()) {
 
@@ -2790,7 +2791,7 @@ public class Helpers {
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
 
-        Helpers.updateFonts(label, GUI_FONT, 1.2f);
+        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM);
 
         if (SwingUtilities.isEventDispatchThread()) {
 

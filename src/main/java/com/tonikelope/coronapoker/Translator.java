@@ -257,7 +257,7 @@ public class Translator {
             {"Actualizar timba", "Uodate game"},
             {"Tienes que seleccionar algún participante antes", "You must select a participant before"},
             {"Listar sólo timbas donde participó este jugador", "Only list games joined by this player"},
-            {"¿FORZAR CIERRE?", "FORCE CLOSE?"},
+            {"¿FORZAR CIERRE DE CORONAPOKER?", "FORCE CORONAPOKER CLOSE?"},
             {"¿SEGURO?", "ARE YOU SURE?"},
             {"Click para gestionar contraseña", "Click to manage password"},
             {"Click para obtener datos de conexión", "Click to get connection data"},

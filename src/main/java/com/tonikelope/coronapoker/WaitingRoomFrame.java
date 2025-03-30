@@ -109,7 +109,7 @@ public class WaitingRoomFrame extends JFrame {
     public static final int MAX_PING_PONG_ERROR = 3;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
-    public static final int CLIENT_REC_WAIT = 15;
+    public static final int CLIENT_REC_WAIT = 5;
     public static final int ANTI_FLOOD_CHAT = 1000;
     public static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_game_notifications", "true"));
     private static volatile WaitingRoomFrame THIS = null;
@@ -3402,7 +3402,7 @@ public class WaitingRoomFrame extends JFrame {
 
                     if (exit || reconnecting) {
 
-                        if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
+                        if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE DE CORONAPOKER?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                             exit = true;
                             Helpers.savePropertiesFile();
                             if (Helpers.OSValidator.isWindows()) {
@@ -3447,7 +3447,7 @@ public class WaitingRoomFrame extends JFrame {
                     setVisible(false);
                 }
 
-            } else if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
+            } else if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE DE CORONAPOKER?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                 exit = true;
                 Helpers.savePropertiesFile();
                 if (Helpers.OSValidator.isWindows()) {
@@ -3459,6 +3459,13 @@ public class WaitingRoomFrame extends JFrame {
             synchronized (lock_client_reconnect) {
                 lock_client_reconnect.notifyAll();
             }
+        } else if (booting && mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE DE CORONAPOKER?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
+            exit = true;
+            Helpers.savePropertiesFile();
+            if (Helpers.OSValidator.isWindows()) {
+                Helpers.restoreWindowsGlobalZoom();
+            }
+            System.exit(1);
         }
 
     }//GEN-LAST:event_formWindowClosing

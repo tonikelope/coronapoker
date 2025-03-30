@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.Helpers.JTextFieldRegularPopupMenu;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.Toolkit;
@@ -480,6 +481,7 @@ public class NewGameDialog extends JDialog {
         random_label = new javax.swing.JLabel();
         randomorg_apikey = new javax.swing.JTextField();
         random_combobox = new javax.swing.JComboBox<>();
+        info_shuffle_icon = new javax.swing.JLabel();
         nick_pass_panel = new javax.swing.JPanel();
         nick = new javax.swing.JTextField();
         nick_label = new javax.swing.JLabel();
@@ -804,7 +806,7 @@ public class NewGameDialog extends JDialog {
 
         random_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153), 2));
 
-        randomorg_label.setFont(new java.awt.Font("Dialog", 3, 14)); // NOI18N
+        randomorg_label.setFont(new java.awt.Font("Dialog", 3, 12)); // NOI18N
         randomorg_label.setText("RANDOM.ORG API KEY (opcional):");
         randomorg_label.setToolTipText("Random.org API KEY");
         randomorg_label.setDoubleBuffered(true);
@@ -821,7 +823,7 @@ public class NewGameDialog extends JDialog {
             }
         });
 
-        randomorg_apikey.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        randomorg_apikey.setFont(new java.awt.Font("Dialog", 0, 12)); // NOI18N
         randomorg_apikey.setDoubleBuffered(true);
 
         random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
@@ -833,6 +835,14 @@ public class NewGameDialog extends JDialog {
             }
         });
 
+        info_shuffle_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/info.png"))); // NOI18N
+        info_shuffle_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        info_shuffle_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                info_shuffle_iconMouseClicked(evt);
+            }
+        });
+
         javax.swing.GroupLayout random_panelLayout = new javax.swing.GroupLayout(random_panel);
         random_panel.setLayout(random_panelLayout);
         random_panelLayout.setHorizontalGroup(
@@ -840,7 +850,9 @@ public class NewGameDialog extends JDialog {
             .addGroup(random_panelLayout.createSequentialGroup()
                 .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(random_panelLayout.createSequentialGroup()
-                        .addGap(12, 12, 12)
+                        .addContainerGap()
+                        .addComponent(info_shuffle_icon)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(random_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(random_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -857,7 +869,8 @@ public class NewGameDialog extends JDialog {
                 .addContainerGap()
                 .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(random_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(random_label))
+                    .addComponent(random_label)
+                    .addComponent(info_shuffle_icon, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(randomorg_label)
@@ -1354,6 +1367,10 @@ public class NewGameDialog extends JDialog {
 
                 this.doblar_checkbox.setEnabled(false);
 
+                this.recover_checkbox_label.setOpaque(true);
+
+                this.recover_checkbox_label.setBackground(Color.YELLOW);
+
                 String[] parts = ((String) this.game_combo.getSelectedItem()).split(" @ ");
 
                 this.nick.setText(parts[0]);
@@ -1366,6 +1383,8 @@ public class NewGameDialog extends JDialog {
 
             } else {
 
+                this.recover_checkbox_label.setOpaque(false);
+                this.recover_checkbox_label.setBackground(null);
                 this.recover_checkbox.setSelected(false);
                 this.game_combo.setEnabled(false);
                 this.recover_checkbox.setEnabled(false);
@@ -1387,6 +1406,9 @@ public class NewGameDialog extends JDialog {
             this.ciegas_combobox.setEnabled(true);
 
             this.doblar_checkbox.setEnabled(true);
+
+            this.recover_checkbox_label.setOpaque(false);
+            this.recover_checkbox_label.setBackground(null);
 
             if (this.doblar_checkbox.isSelected()) {
 
@@ -1612,6 +1634,11 @@ public class NewGameDialog extends JDialog {
         dispose();
     }//GEN-LAST:event_cancel_buttonActionPerformed
 
+    private void info_shuffle_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_info_shuffle_iconMouseClicked
+        // TODO add your handling code here:
+        random_labelMouseClicked(evt);
+    }//GEN-LAST:event_info_shuffle_iconMouseClicked
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
     private javax.swing.JLabel buyin_label;
@@ -1626,6 +1653,7 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JRadioButton double_blinds_radio_manos;
     private javax.swing.JRadioButton double_blinds_radio_minutos;
     private javax.swing.JComboBox<String> game_combo;
+    private javax.swing.JLabel info_shuffle_icon;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;

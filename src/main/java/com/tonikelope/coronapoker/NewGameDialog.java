@@ -50,6 +50,8 @@ import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -85,6 +87,19 @@ public class NewGameDialog extends JDialog {
     private volatile boolean init = false;
     private final static ConcurrentLinkedQueue<String> SERVER_HISTORY_QUEUE = loadServerHistory();
     private volatile int conta_history = SERVER_HISTORY_QUEUE.isEmpty() ? 0 : SERVER_HISTORY_QUEUE.size() - 1;
+    private volatile boolean force_recover = false;
+
+    public void setForce_recover(boolean force_recover) {
+        this.force_recover = force_recover;
+    }
+
+    public JCheckBox getRecover_checkbox() {
+        return recover_checkbox;
+    }
+
+    public JButton getVamos() {
+        return vamos;
+    }
 
     public boolean isDialog_ok() {
         return dialog_ok;
@@ -1235,9 +1250,9 @@ public class NewGameDialog extends JDialog {
 
                 String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-                GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
+                GameFrame.CIEGA_GRANDE = Float.parseFloat(valores_ciegas[1].trim());
 
-                GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].trim());
+                GameFrame.CIEGA_PEQUEÑA = Float.parseFloat(valores_ciegas[0].trim());
 
                 if (this.doblar_checkbox.isSelected()) {
 
@@ -1379,8 +1394,10 @@ public class NewGameDialog extends JDialog {
 
                 pack();
 
-                Helpers.mostrarMensajeInformativo(this, "En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos. Si esto no fuera posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).", "justify", (int) Math.round(getWidth() * 0.8f), null);
+                if (!this.force_recover) {
 
+                    Helpers.mostrarMensajeInformativo(this, "En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos. Si esto no fuera posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).", "justify", (int) Math.round(getWidth() * 0.8f), null);
+                }
             } else {
 
                 this.recover_checkbox_label.setOpaque(false);
@@ -1574,6 +1591,11 @@ public class NewGameDialog extends JDialog {
         if (isModal()) {
             Init.CURRENT_MODAL_DIALOG.add(this);
         }
+
+        if (force_recover) {
+            vamosActionPerformed(null);
+        }
+
     }//GEN-LAST:event_formWindowActivated
 
     private void manos_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_manos_checkboxActionPerformed

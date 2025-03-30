@@ -496,6 +496,30 @@ public class Init extends JFrame {
 
     }
 
+    public void continueLastGame(boolean local) {
+
+        NewGameDialog dialog = new NewGameDialog(this, true, local);
+
+        dialog.setForce_recover(true);
+
+        if (local) {
+            dialog.getRecover_checkbox().doClick();
+        }
+
+        dialog.setLocationRelativeTo(dialog.getParent());
+
+        dialog.setEnabled(false);
+
+        dialog.setVisible(true);
+
+        if (!dialog.isDialog_ok()) {
+            setVisible(true);
+        } else {
+            setVisible(false);
+        }
+
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always

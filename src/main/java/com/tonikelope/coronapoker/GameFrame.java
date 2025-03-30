@@ -44,14 +44,11 @@ import java.awt.KeyboardFocusManager;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -192,7 +189,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile int tapete_counter = 0;
     private volatile int i60_c = 0;
     private volatile JLayer<JComponent> frame_layer = null;
-    private volatile boolean retry = false;
+    private volatile boolean recover = false;
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
     private volatile int test_card_count = 0;
@@ -2028,7 +2025,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         balance.setVisible(true);
 
-                        retry = balance.isRetry();
+                        recover = balance.isRecover();
                     });
                 }
 
@@ -2048,128 +2045,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
                 }
 
-                if (retry) {
-                    RETRY();
-                } else {
-                    BYEBYE(partida_terminada);
-                }
+                RESET_ALL(recover);
             }
 
         }
 
     }
 
-    private void BYEBYE(boolean partida_terminada) {
-
-        if (partida_terminada && GameFrame.CINEMATICAS) {
-
-            HashMap<KeyStroke, Action> actionMap = new HashMap<>();
-
-            actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), new AbstractAction("EXIT") {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    exitNOW();
-                }
-            });
-
-            actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), new AbstractAction("EXIT2") {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    exitNOW();
-                }
-            });
-
-            actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), new AbstractAction("EXIT3") {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    exitNOW();
-                }
-            });
-
-            KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-
-            GameFrame.key_event_dispatcher = (KeyEvent e) -> {
-                KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-                if (actionMap.containsKey(keyStroke)) {
-                    final Action a = actionMap.get(keyStroke);
-                    final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
-                    Helpers.GUIRun(() -> {
-                        a.actionPerformed(ae);
-                    });
-                    return true;
-                }
-                return false;
-            };
-
-            kfm.addKeyEventDispatcher(GameFrame.key_event_dispatcher);
-
-            final ImageIcon icon;
-
-            URL url_icon = null;
-
-            if (Init.MOD != null && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif"))) {
-                try {
-                    url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/misc/end.gif").toUri().toURL();
-                } catch (MalformedURLException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            } else if (getClass().getResource("/cinematics/misc/end.gif") != null) {
-                url_icon = getClass().getResource("/cinematics/misc/end.gif");
-            } else {
-                url_icon = null;
-            }
-
-            if (url_icon != null) {
-
-                icon = new ImageIcon(url_icon);
-
-                final URL f_url_icon = url_icon;
-
-                Helpers.GUIRun(() -> {
-                    try {
-                        gif_dialog = new GifAnimationDialog(this, true, icon, Helpers.getGIFFramesCount(f_url_icon));
-                        gif_dialog.addMouseListener(new MouseAdapter() {
-                            @Override
-                            public void mouseClicked(MouseEvent e) {
-                                {
-                                    exitNOW();
-                                }
-                            }
-                        });
-
-                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                        gif_dialog.setVisible(true);
-                    } catch (IOException | ImageProcessingException ex) {
-                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                });
-            }
-
-            Audio.muteAllLoopMp3();
-
-            Audio.playWavResourceAndWait("misc/end.wav", true, true);
-        }
-
-        exitNOW();
-    }
-
-    private void exitNOW() {
-        synchronized (exit_now_lock) {
-            Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
-
-            Helpers.savePropertiesFile();
-
-            if (Helpers.OSValidator.isWindows()) {
-                Helpers.restoreWindowsGlobalZoom();
-            }
-
-            System.exit(0);
-        }
-    }
-
-    private void RETRY() {
+    private void RESET_ALL(boolean force_recover) {
 
         new Thread(() -> {
+
+            boolean partida_local = GameFrame.getInstance().isPartida_local();
+
             Audio.stopAllCurrentLoopMp3Resource();
             Audio.stopAllWavResources();
             WaitingRoomFrame.getInstance().setExit(true);
@@ -2193,11 +2081,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Audio.unmuteAll();
 
             }
-            Audio.playLoopMp3Resource("misc/background_music.mp3");
-            Helpers.GUIRunAndWait(() -> {
-                Init.VENTANA_INICIO.getTapete().refresh();
-                Init.VENTANA_INICIO.setVisible(true);
-            });
+
+            if (force_recover) {
+                Init.VENTANA_INICIO.continueLastGame(partida_local);
+            } else {
+                Audio.playLoopMp3Resource("misc/background_music.mp3");
+                Helpers.GUIRunAndWait(() -> {
+                    Init.VENTANA_INICIO.getTapete().refresh();
+                    Init.VENTANA_INICIO.setVisible(true);
+                });
+            }
+
         }).start();
     }
 

@@ -1439,6 +1439,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.preserveOriginalFontSizes(GameFrame.getInstance());
 
                 Helpers.updateFonts(GameFrame.getInstance(), Helpers.GUI_FONT, null);
+                
+                tapete.getCommunityCards().getTiempo_partida().setFont(new Font("Monospaced", Font.BOLD, 28));
 
                 Helpers.translateComponents(GameFrame.getInstance(), false);
 
@@ -1837,7 +1839,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.updateFonts(THIS, Helpers.GUI_FONT, null);
 
-        tapete.getCommunityCards().getTiempo_partida().setFont(new Font("Monospaced", Font.BOLD, 26));
+        tapete.getCommunityCards().getTiempo_partida().setFont(new Font("Monospaced", Font.BOLD, 28));
 
         Helpers.translateComponents(THIS, false);
 

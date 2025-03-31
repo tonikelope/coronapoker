@@ -2018,6 +2018,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (partida_terminada) {
 
+                    WaitingRoomFrame.getInstance().setExit(true);
+
+                    if (WaitingRoomFrame.getInstance().isServer()) {
+                        WaitingRoomFrame.getInstance().closeServerSocket();
+                    } else {
+                        WaitingRoomFrame.getInstance().closeClientSocket();
+                    }
+
+                    if (isPartida_local() && getSala_espera().isUpnp()) {
+                        Helpers.UPnPClose(getSala_espera().getServer_port());
+                    }
+
                     Helpers.GUIRunAndWait(() -> {
                         BalanceDialog balance = new BalanceDialog(GameFrame.getInstance(), true);
 
@@ -2035,43 +2047,38 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Helpers.cleanGifsicleFiles();
 
-                if (isPartida_local() && getSala_espera().isUpnp()) {
-                    Helpers.UPnPClose(getSala_espera().getServer_port());
-                }
-
                 KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 
                 if (GameFrame.key_event_dispatcher != null) {
                     kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
                 }
 
-                RESET_ALL(recover);
+                RESET_GAME(recover);
             }
 
         }
 
     }
 
-    private void RESET_ALL(boolean recover) {
+    private void RESET_GAME(boolean recover) {
 
         new Thread(() -> {
 
             boolean local = GameFrame.getInstance().isPartida_local();
 
             Audio.stopAllCurrentLoopMp3Resource();
+
             Audio.stopAllWavResources();
-            WaitingRoomFrame.getInstance().setExit(true);
-            if (WaitingRoomFrame.getInstance().isServer()) {
-                WaitingRoomFrame.getInstance().closeServerSocket();
-            } else {
-                WaitingRoomFrame.getInstance().closeClientSocket();
-            }
+
             GameLogDialog.resetLOG();
+
             Helpers.GUIRunAndWait(() -> {
                 WaitingRoomFrame.resetInstance();
                 GameFrame.resetInstance();
             });
+
             Helpers.SHUTDOWN_THREAD_POOL();
+
             if (!GameFrame.SONIDOS) {
 
                 Audio.muteAll();
@@ -2083,6 +2090,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
 
             Audio.playLoopMp3Resource("misc/background_music.mp3");
+
             Helpers.GUIRunAndWait(() -> {
                 Init.VENTANA_INICIO.getTapete().refresh();
                 Init.VENTANA_INICIO.setVisible(true);

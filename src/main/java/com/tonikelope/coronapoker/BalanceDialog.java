@@ -136,6 +136,8 @@ public class BalanceDialog extends JDialog {
 
         Helpers.setScaledIconButton(recover_button, getClass().getResource("/images/start.png"), menu_button.getHeight(), menu_button.getHeight());
 
+        Helpers.setScaledIconButton(menu_button, getClass().getResource("/images/avatar_default.png"), menu_button.getHeight(), menu_button.getHeight());
+
         menu_button.setSize(recover_button.getSize());
 
         setSize(getWidth(), Math.round(getParent().getHeight() * 0.9f));

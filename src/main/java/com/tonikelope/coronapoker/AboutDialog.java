@@ -60,6 +60,8 @@ import javax.swing.Timer;
 
     http://www.lcdf.org/gifsicle/
 
+    https://www.picturetopeople.org/
+
     https://www.blender.org/ ( https://www.youtube.com/watch?v=0JnmWfWuMDw )
 
     ZERO GPT CODE
@@ -67,7 +69,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "18.83";
+    public static final String VERSION = "18.84";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

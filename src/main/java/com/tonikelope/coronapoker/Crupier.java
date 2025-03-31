@@ -7569,6 +7569,7 @@ public class Crupier implements Runnable {
 
                             Helpers.GUIRun(() -> {
                                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
+
                             });
 
                             this.bote_total = 0f;
@@ -7581,7 +7582,6 @@ public class Crupier implements Runnable {
                                 }
 
                                 this.soundShowdown();
-
                             }
 
                             sqlUpdateHandEnd(sql_bote_total);
@@ -7612,6 +7612,8 @@ public class Crupier implements Runnable {
                         }
 
                         disableAllPlayersTimeout();
+
+                        GameFrame.getInstance().refreshPlayersAndCommunity();
 
                         synchronized (lock_fin_mano) {
 

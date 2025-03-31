@@ -2013,6 +2013,7 @@ public class WaitingRoomFrame extends JFrame {
                         for (int i = CLIENT_REC_WAIT; i > 0 && !exit; i--) {
                             int j = i;
                             Helpers.GUIRun(() -> {
+                                status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
                                 status.setText(Translator.translate("ERROR (Reconexión en ") + j + Translator.translate(" segs...)"));
                                 barra.setValue(j);
                             });

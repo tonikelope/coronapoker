@@ -5162,6 +5162,8 @@ public class Crupier implements Runnable {
                 p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p), -1);
             }
 
+            GameFrame.getInstance().refreshPlayersAndCommunity();
+
             HashMap<Player, Integer[]> multiverse = monteCarlo(resisten, MONTECARLO_ITERATIONS);
 
             for (Player p : resisten) {

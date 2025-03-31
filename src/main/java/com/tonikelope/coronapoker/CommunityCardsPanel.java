@@ -875,8 +875,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 GameFrame.getInstance().getNotify_dialog().repaint();
             }
 
-            GameFrame.getInstance().revalidate();
-            GameFrame.getInstance().repaint();
+            GameFrame.getInstance().refresh();
         }
 
     }//GEN-LAST:event_lights_labelMouseReleased

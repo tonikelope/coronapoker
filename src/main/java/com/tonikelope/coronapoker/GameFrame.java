@@ -193,6 +193,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
     private volatile int test_card_count = 0;
+    private volatile GraphicsDevice device = null;
 
     public JCheckBoxMenuItem getAuto_fullscreen_menu() {
         return auto_fullscreen_menu;
@@ -554,7 +555,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 } else {
 
-                    GraphicsDevice device = GameFrame.getInstance().getGraphicsConfiguration().getDevice();
+                    device = GameFrame.getInstance().isVisible() ? GameFrame.getInstance().getGraphicsConfiguration().getDevice() : WaitingRoomFrame.getInstance().getGraphicsConfiguration().getDevice();
                     GameFrame.getInstance().setVisible(false);
                     GameFrame.getInstance().dispose();
                     GameFrame.getInstance().menu_bar.setVisible(false);
@@ -584,7 +585,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 } else {
 
-                    GraphicsDevice device = GameFrame.getInstance().getGraphicsConfiguration().getDevice();
                     device.setFullScreenWindow(null);
                     GameFrame.getInstance().dispose();
                     GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -775,13 +775,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         boolean paused = false;
 
-        while (this.timba_pausada || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+        while (GameFrame.getInstance() != null && (timba_pausada || GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
 
             paused = true;
 
-            synchronized (this.lock_pause) {
+            synchronized (lock_pause) {
                 try {
-                    this.lock_pause.wait(GameFrame.WAIT_PAUSE);
+                    lock_pause.wait(GameFrame.WAIT_PAUSE);
                 } catch (InterruptedException ex) {
                     Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -2072,12 +2072,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameLogDialog.resetLOG();
 
+            Helpers.SHUTDOWN_THREAD_POOL();
+
+            //Reiniciamos
             Helpers.GUIRunAndWait(() -> {
                 WaitingRoomFrame.resetInstance();
                 GameFrame.resetInstance();
             });
 
-            Helpers.SHUTDOWN_THREAD_POOL();
+            Helpers.CREATE_THREAD_POOL();
 
             if (!GameFrame.SONIDOS) {
 

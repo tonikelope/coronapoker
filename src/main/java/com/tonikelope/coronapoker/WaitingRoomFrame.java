@@ -2036,14 +2036,16 @@ public class WaitingRoomFrame extends JFrame {
             synchronized (keep_alive_lock) {
                 keep_alive_lock.notifyAll();
             }
-            Helpers.GUIRunAndWait(() -> {
-                Init.VENTANA_INICIO.setVisible(true);
+            if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                Helpers.GUIRunAndWait(() -> {
+                    Init.VENTANA_INICIO.setVisible(true);
 
-                dispose();
-            });
-            Audio.stopLoopMp3("misc/waiting_room.mp3");
-            if (GameFrame.MUSICA_AMBIENTAL) {
-                Audio.unmuteLoopMp3("misc/background_music.mp3");
+                    dispose();
+                });
+                Audio.stopLoopMp3("misc/waiting_room.mp3");
+                if (GameFrame.MUSICA_AMBIENTAL) {
+                    Audio.unmuteLoopMp3("misc/background_music.mp3");
+                }
             }
         });
     }
@@ -2390,14 +2392,16 @@ public class WaitingRoomFrame extends JFrame {
             if (upnp) {
                 Helpers.UPnPClose(server_port);
             }
-            Helpers.GUIRun(() -> {
-                Init.VENTANA_INICIO.setVisible(true);
+            if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                Helpers.GUIRun(() -> {
+                    Init.VENTANA_INICIO.setVisible(true);
 
-                dispose();
-            });
-            Audio.stopLoopMp3("misc/waiting_room.mp3");
-            if (GameFrame.MUSICA_AMBIENTAL) {
-                Audio.unmuteLoopMp3("misc/background_music.mp3");
+                    dispose();
+                });
+                Audio.stopLoopMp3("misc/waiting_room.mp3");
+                if (GameFrame.MUSICA_AMBIENTAL) {
+                    Audio.unmuteLoopMp3("misc/background_music.mp3");
+                }
             }
         });
     }

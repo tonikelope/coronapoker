@@ -2864,6 +2864,8 @@ public class Crupier implements Runnable {
             GameFrame.setRECOVER(false);
 
             this.game_recovered = 1;
+
+            GameFrame.getInstance().refresh();
         }
 
         this.apuesta_actual = this.ciega_grande;
@@ -6209,6 +6211,7 @@ public class Crupier implements Runnable {
                     recover_dialog = null;
                     GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
                     Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                    GameFrame.getInstance().refresh();
                 });
             }
 
@@ -7237,6 +7240,7 @@ public class Crupier implements Runnable {
                                     recover_dialog = null;
                                     GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
                                     Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                                    GameFrame.getInstance().refresh();
                                 });
                             }
 

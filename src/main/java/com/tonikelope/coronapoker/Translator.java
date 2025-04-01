@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Cerrar esta ventana después de enviar un mensaje.", "Close this window after sending a message."},
             {"CONTINUAR ESTA TIMBA", "CONTINUE THIS GAME"},
             {"RECONECTAR AL SERVIDOR", "RECONNECT TO SERVER"},
             {"MENÚ PRINCIPAL", "MAIN MENU"},

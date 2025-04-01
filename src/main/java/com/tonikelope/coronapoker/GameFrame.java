@@ -842,12 +842,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 FastChatDialog old_dialog = fastchat_dialog;
 
-                fastchat_dialog = new FastChatDialog(this, false, fastchat_dialog.getChat_box());
+                fastchat_dialog = new FastChatDialog(this, false, fastchat_dialog.getChat_box(), old_dialog.isAuto_close());
 
                 old_dialog.dispose();
 
             } else {
-                fastchat_dialog = new FastChatDialog(this, false, null);
+                fastchat_dialog = new FastChatDialog(this, false, null, true);
             }
 
             fastchat_dialog.setLocation(this.getX(), this.getY() + this.getHeight() - fastchat_dialog.getHeight());
@@ -1439,7 +1439,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.preserveOriginalFontSizes(GameFrame.getInstance());
 
                 Helpers.updateFonts(GameFrame.getInstance(), Helpers.GUI_FONT, null);
-                
+
                 tapete.getCommunityCards().getTiempo_partida().setFont(new Font("Monospaced", Font.BOLD, 28));
 
                 Helpers.translateComponents(GameFrame.getInstance(), false);

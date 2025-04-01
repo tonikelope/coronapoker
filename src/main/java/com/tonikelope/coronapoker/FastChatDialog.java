@@ -49,14 +49,21 @@ public final class FastChatDialog extends JDialog {
     private volatile static int HISTORIAL_INDEX = 0;
     private volatile boolean focusing = false;
     private volatile String current_message = null;
+    private volatile boolean auto_close;
+
+    public boolean isAuto_close() {
+        return auto_close;
+    }
 
     /**
      * Creates new form FastChatDialog
      */
-    public FastChatDialog(java.awt.Frame parent, boolean modal, JTextField text) {
+    public FastChatDialog(java.awt.Frame parent, boolean modal, JTextField text, boolean auto_close_window) {
         super(parent, modal);
 
         initComponents();
+
+        this.auto_close = auto_close_window;
 
         setOpacity(0.8f);
 
@@ -64,6 +71,8 @@ public final class FastChatDialog extends JDialog {
             chat_box.setText(text.getText());
             chat_box.setCaretPosition(text.getCaretPosition());
         }
+
+        auto_close_checkbox.setSelected(auto_close_window);
 
         history_chat.setBorder(createCompoundBorder(history_chat.getBorder(), BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
@@ -140,6 +149,7 @@ public final class FastChatDialog extends JDialog {
         chat_box = new javax.swing.JTextField();
         history_scroll_panel = new javax.swing.JScrollPane();
         history_chat = new javax.swing.JTextArea();
+        auto_close_checkbox = new javax.swing.JCheckBox();
 
         setUndecorated(true);
 
@@ -184,17 +194,32 @@ public final class FastChatDialog extends JDialog {
         history_chat.setFocusable(false);
         history_scroll_panel.setViewportView(history_chat);
 
+        auto_close_checkbox.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        auto_close_checkbox.setForeground(new java.awt.Color(255, 255, 255));
+        auto_close_checkbox.setText("Cerrar esta ventana después de enviar un mensaje.");
+        auto_close_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        auto_close_checkbox.setDoubleBuffered(true);
+        auto_close_checkbox.setFocusable(false);
+        auto_close_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                auto_close_checkboxActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout chat_panelLayout = new javax.swing.GroupLayout(chat_panel);
         chat_panel.setLayout(chat_panelLayout);
         chat_panelLayout.setHorizontalGroup(
             chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(history_scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 595, Short.MAX_VALUE)
-            .addComponent(chat_box, javax.swing.GroupLayout.Alignment.TRAILING)
+            .addComponent(chat_box)
+            .addComponent(auto_close_checkbox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 595, Short.MAX_VALUE)
+            .addComponent(history_scroll_panel)
         );
         chat_panelLayout.setVerticalGroup(
             chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(chat_panelLayout.createSequentialGroup()
-                .addComponent(history_scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 337, Short.MAX_VALUE)
+                .addComponent(history_scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 221, Short.MAX_VALUE)
+                .addGap(0, 0, 0)
+                .addComponent(auto_close_checkbox)
                 .addGap(0, 0, 0)
                 .addComponent(chat_box, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
@@ -260,6 +285,10 @@ public final class FastChatDialog extends JDialog {
                     GameFrame.getInstance().getSala_espera().setChat_enabled(true);
                 });
             });
+
+            if (auto_close) {
+                setVisible(false);
+            }
         }
     }//GEN-LAST:event_chat_boxActionPerformed
 
@@ -369,7 +398,13 @@ public final class FastChatDialog extends JDialog {
         }
     }//GEN-LAST:event_chat_boxKeyReleased
 
+    private void auto_close_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_close_checkboxActionPerformed
+        // TODO add your handling code here:
+        auto_close = auto_close_checkbox.isSelected();
+    }//GEN-LAST:event_auto_close_checkboxActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JCheckBox auto_close_checkbox;
     private javax.swing.JTextField chat_box;
     private javax.swing.JPanel chat_panel;
     private javax.swing.JTextArea history_chat;

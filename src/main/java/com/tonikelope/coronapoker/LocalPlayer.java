@@ -1399,6 +1399,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.forceRepaintComponentNow(this);
 
+                GameFrame.getInstance().refreshPlayersAndCommunity();
+
             });
 
         } else {
@@ -1431,9 +1433,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.forceRepaintComponentNow(this);
 
+            GameFrame.getInstance().refreshPlayersAndCommunity();
         });
-
-        GameFrame.getInstance().refreshPlayersAndCommunity();
     }
 
     public void desactivarControles() {

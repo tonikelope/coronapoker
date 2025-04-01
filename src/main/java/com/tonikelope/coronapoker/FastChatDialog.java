@@ -62,7 +62,7 @@ public final class FastChatDialog extends JDialog {
         super(parent, modal);
 
         initComponents();
-        
+
         Helpers.translateComponents(this, false);
 
         this.auto_close = auto_close_window;

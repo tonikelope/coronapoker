@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"QUIERE ENTRAR EN LA TIMBA", "WANTS TO GET IN THE GAME"},
             {"Esperar a que termine la mano para salir", "Wait for the end of the hand to exit"},
             {"¿PROGRAMAR PARADA AL TERMINAR ESTA MANO?", "SCHEDULE HALT AT THE END OF THIS HAND?"},
             {"PARADA PROGRAMADA AL TERMINAR ESTA MANO", "SCHEDULED HALT AT THE END OF THIS HAND"},

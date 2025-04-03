@@ -2864,6 +2864,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         finTransmision(true);
                     });
 
+                } else {
+                    getCrupier().setForce_recover(false);
                 }
 
             } else {

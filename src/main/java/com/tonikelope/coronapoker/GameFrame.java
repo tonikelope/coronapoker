@@ -111,6 +111,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final boolean TEST_MODE = false;
     public static final int TTS_NO_SOUND_TIMEOUT = 3000;
     public static final int NOTIFY_INGAME_GIF_REPEAT = 2;
+    public static final int HALT_PAUSE = 5000;
     public static final ConcurrentLinkedQueue<Object[]> NOTIFY_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
     public static final Object SQL_LOCK = new Object();
 
@@ -2064,12 +2065,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         });
                     } else if (!isPartida_local()) {
                         Helpers.GUIRun(() -> {
-                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "EL SERVIDOR HA DETENIDO LA TIMBA (ESPERANDO PARA RECONECTAR...)", Color.WHITE, Color.BLACK, getClass().getResource("/images/stop.png"), 5000);
+                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "EL SERVIDOR HA DETENIDO LA TIMBA (ESPERANDO PARA RECONECTAR...)", Color.WHITE, Color.BLACK, getClass().getResource("/images/stop.png"), HALT_PAUSE);
                             dialog.setLocation(dialog.getParent().getLocation());
                             dialog.setVisible(true);
                         });
 
-                        Helpers.pausar(5000);
+                        Helpers.pausar(HALT_PAUSE);
                     }
                 }
 

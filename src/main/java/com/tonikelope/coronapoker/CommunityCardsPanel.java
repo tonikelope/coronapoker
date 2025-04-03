@@ -33,6 +33,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseEvent;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -247,10 +248,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         GameFrame.getInstance().getCrupier().setLast_hand(true);
 
         Helpers.GUIRun(() -> {
+            last_hand_label.setText(Translator.translate(GameFrame.getInstance().getCrupier().isForce_recover() ? "PARADA PROGRAMADA AL TERMINAR ESTA MANO" : "ÚLTIMA MANO"));
             getHand_panel().setOpaque(true);
             setHandBackground(Color.YELLOW);
             getHand_label().setForeground(Color.BLACK);
-            getHand_label().setToolTipText(Translator.translate("ÚLTIMA MANO"));
+            getHand_label().setToolTipText(Translator.translate(GameFrame.getInstance().getCrupier().isForce_recover() ? "PARADA PROGRAMADA AL TERMINAR ESTA MANO" : "ÚLTIMA MANO"));
             getLast_hand_panel().setVisible(true);
             GameFrame.getInstance().getLast_hand_menu().setSelected(true);
             Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(true);
@@ -670,14 +672,20 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 getHand_panel().setEnabled(false);
 
-                if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "¿ÚLTIMA MANO?") == 0) {
+                if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), (evt != null && (evt.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0) ? "¿PROGRAMAR PARADA AL TERMINAR ESTA MANO?" : "¿ÚLTIMA MANO?") == 0) {
 
                     Helpers.threadRun(() -> {
                         if (!GameFrame.getInstance().getCrupier().isLast_hand()) {
-                            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#1", null);
+
+                            if (evt != null && (evt.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0) {
+                                GameFrame.getInstance().getCrupier().setForce_recover(true);
+                            }
+
+                            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#" + (GameFrame.getInstance().getCrupier().isForce_recover() ? "2" : "1"), null);
                             last_hand_on();
 
                         } else {
+                            GameFrame.getInstance().getCrupier().setForce_recover(false);
                             GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#0", null);
                             last_hand_off();
                         }

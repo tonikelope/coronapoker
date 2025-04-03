@@ -305,6 +305,15 @@ public class Crupier implements Runnable {
     private volatile int game_recovered = 0;
     private volatile Object[] ciegas_update = null;
     private volatile boolean dead_dealer = false;
+    private volatile boolean force_recover = false;
+
+    public boolean isForce_recover() {
+        return force_recover;
+    }
+
+    public void setForce_recover(boolean force_recover) {
+        this.force_recover = force_recover;
+    }
 
     public Object getLock_rabbit() {
         return lock_rabbit;

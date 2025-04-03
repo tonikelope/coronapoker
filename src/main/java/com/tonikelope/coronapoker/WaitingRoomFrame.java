@@ -1552,7 +1552,7 @@ public class WaitingRoomFrame extends JFrame {
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
                             //Cada X segundos mandamos un comando KEEP ALIVE al server
                             Helpers.threadRun(() -> {
-                                while (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                                while (!exit && WaitingRoomFrame.getInstance() != null && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                                     int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
@@ -1574,7 +1574,7 @@ public class WaitingRoomFrame extends JFrame {
                                         }
                                     }
 
-                                    if (!exit && !WaitingRoomFrame.getInstance().isPartida_empezada() && pong != null && ping + 1 != pong) {
+                                    if (!exit && WaitingRoomFrame.getInstance() != null && !WaitingRoomFrame.getInstance().isPartida_empezada() && pong != null && ping + 1 != pong) {
 
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
 
@@ -1812,10 +1812,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                 break;
                                                             case "SERVEREXIT":
                                                                 exit = true;
-
-                                                                if (!GameFrame.CINEMATICAS) {
-                                                                    mostrarMensajeInformativo(GameFrame.getInstance(), "EL SERVIDOR HA TERMINADO LA TIMBA");
-                                                                }
+                                                                break;
+                                                            case "SERVEREXITRECOVER":
+                                                                exit = true;
+                                                                GameFrame.getInstance().getCrupier().setForce_recover(true);
                                                                 break;
                                                             default:
                                                                 
@@ -1956,10 +1956,12 @@ public class WaitingRoomFrame extends JFrame {
                                             case "CONF":
                                                 //Es una confirmación del servidor
 
-                                                WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
-                                                synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
+                                                if (WaitingRoomFrame.getInstance() != null) {
+                                                    WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
+                                                    synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
 
-                                                    WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
+                                                        WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
+                                                    }
                                                 }
                                                 break;
                                             default:
@@ -1979,7 +1981,7 @@ public class WaitingRoomFrame extends JFrame {
                                         last_received.clear();
                                     }
 
-                                    if (recibido == null && (!exit && (!isPartida_empezada() || !GameFrame.getInstance().getLocalPlayer().isExit())) && !reconectarCliente()) {
+                                    if (recibido == null && (!exit && ((WaitingRoomFrame.getInstance() != null && !isPartida_empezada()) || (GameFrame.getInstance() != null && !GameFrame.getInstance().getLocalPlayer().isExit()))) && !reconectarCliente()) {
                                         exit = true;
                                     }
                                 }
@@ -1995,13 +1997,14 @@ public class WaitingRoomFrame extends JFrame {
                     //Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
                 } catch (Exception ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    mostrarMensajeError(THIS, "ERROR INESPERADO");
+                    mostrarMensajeError(THIS, "ERROR INESPERADO -> " + ex.toString());
                     if (Helpers.OSValidator.isWindows()) {
                         Helpers.restoreWindowsGlobalZoom();
                     }
                     System.exit(1);
                 }
-                if (WaitingRoomFrame.getInstance().isPartida_empezada()) {
+
+                if (WaitingRoomFrame.getInstance() != null && GameFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada()) {
                     GameFrame.getInstance().finTransmision(exit);
                 } else if (!exit) {
                     if (local_client_socket == null) {
@@ -2031,6 +2034,7 @@ public class WaitingRoomFrame extends JFrame {
                         mostrarMensajeError(THIS, "ALGO HA FALLADO. Has perdido la conexión con el servidor.");
                     }
                 }
+
             } while (!exit && local_client_socket == null);
             exit = true;
             synchronized (keep_alive_lock) {

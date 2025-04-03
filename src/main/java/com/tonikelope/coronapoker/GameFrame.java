@@ -872,6 +872,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return menu_rabbit_sb;
     }
 
+    public JMenuItem getHalt_game_menu() {
+        return halt_game_menu;
+    }
+
     private void setupGlobalShortcuts() {
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
@@ -900,6 +904,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e) {
                 GameFrame.getInstance().getLocalPlayer().player_stack_click();
+            }
+        });
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_H, KeyEvent.ALT_DOWN_MASK), new AbstractAction("HALT") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                GameFrame.getInstance().getHalt_game_menu().doClick();
             }
         });
 
@@ -1820,6 +1831,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         if (!partida_local) {
+            halt_game_menu.setEnabled(false);
             last_hand_menu.setEnabled(false);
             Helpers.TapetePopupMenu.LAST_HAND_MENU.setEnabled(false);
             max_hands_menu.setEnabled(false);
@@ -1928,11 +1940,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     exit_menu.setEnabled(false);
 
                     menu_bar.setVisible(false);
+
+                    setEnabled(false);
                 });
 
                 if (partida_terminada) {
 
                     getRegistro().print("\n*************** LA TIMBA HA TERMINADO ***************");
+
+                    if (this.getCrupier().isForce_recover()) {
+                        getRegistro().print("\n*************** (EL SERVER HA PARADO PARA PERMITIR QUE ENTREN JUGADORES NUEVOS) ***************");
+                    }
 
                     getRegistro().print(Translator.translate("FIN DE LA TIMBA -> ") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
 
@@ -2032,15 +2050,27 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         Helpers.UPnPClose(getSala_espera().getServer_port());
                     }
 
-                    Helpers.GUIRunAndWait(() -> {
-                        BalanceDialog balance = new BalanceDialog(GameFrame.getInstance(), true);
+                    recover = getCrupier().isForce_recover();
 
-                        balance.setLocationRelativeTo(balance.getParent());
+                    if (!recover) {
+                        Helpers.GUIRunAndWait(() -> {
+                            BalanceDialog balance = new BalanceDialog(GameFrame.getInstance(), true);
 
-                        balance.setVisible(true);
+                            balance.setLocationRelativeTo(balance.getParent());
 
-                        recover = balance.isRecover();
-                    });
+                            balance.setVisible(true);
+
+                            recover = balance.isRecover();
+                        });
+                    } else if (!isPartida_local()) {
+                        Helpers.GUIRun(() -> {
+                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "EL SERVIDOR HA DETENIDO LA TIMBA (ESPERANDO PARA RECONECTAR...)", Color.WHITE, Color.BLACK, getClass().getResource("/images/stop.png"), 5000);
+                            dialog.setLocation(dialog.getParent().getLocation());
+                            dialog.setVisible(true);
+                        });
+
+                        Helpers.pausar(5000);
+                    }
                 }
 
                 Helpers.SQLITEVAC();
@@ -2237,6 +2267,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         jSeparator3 = new javax.swing.JPopupMenu.Separator();
         force_reconnect_menu = new javax.swing.JMenuItem();
         jSeparator9 = new javax.swing.JPopupMenu.Separator();
+        halt_game_menu = new javax.swing.JMenuItem();
+        jSeparator11 = new javax.swing.JPopupMenu.Separator();
         exit_menu = new javax.swing.JMenuItem();
         zoom_menu = new javax.swing.JMenu();
         zoom_menu_in = new javax.swing.JMenuItem();
@@ -2366,6 +2398,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
         file_menu.add(force_reconnect_menu);
         file_menu.add(jSeparator9);
+
+        halt_game_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        halt_game_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/stop.png"))); // NOI18N
+        halt_game_menu.setText("DETENER LA TIMBA (ALT+H)");
+        halt_game_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                halt_game_menuActionPerformed(evt);
+            }
+        });
+        file_menu.add(halt_game_menu);
+        file_menu.add(jSeparator11);
 
         exit_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         exit_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/close.png"))); // NOI18N
@@ -2816,7 +2859,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     Helpers.threadRun(() -> {
                         //Hay que avisar a los clientes de que la timba ha terminado
-                        crupier.broadcastGAMECommandFromServer("SERVEREXIT", null, false);
+                        crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" : "SERVEREXIT", null, false);
 
                         finTransmision(true);
                     });
@@ -4174,6 +4217,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
     }//GEN-LAST:event_menu_rabbit_bbActionPerformed
 
+    private void halt_game_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_halt_game_menuActionPerformed
+        // TODO add your handling code here:
+        getCrupier().setForce_recover(true);
+        exit_menuActionPerformed(evt);
+    }//GEN-LAST:event_halt_game_menuActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
@@ -4190,10 +4239,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JMenu file_menu;
     private javax.swing.JMenuItem force_reconnect_menu;
     private javax.swing.JMenuItem full_screen_menu;
+    private javax.swing.JMenuItem halt_game_menu;
     private javax.swing.JMenu help_menu;
     private javax.swing.JCheckBoxMenuItem iwtsth_rule_menu;
     private javax.swing.JPopupMenu.Separator jSeparator1;
     private javax.swing.JPopupMenu.Separator jSeparator10;
+    private javax.swing.JPopupMenu.Separator jSeparator11;
     private javax.swing.JPopupMenu.Separator jSeparator2;
     private javax.swing.JPopupMenu.Separator jSeparator3;
     private javax.swing.JPopupMenu.Separator jSeparator4;

@@ -28,6 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 
 /**
@@ -44,7 +45,13 @@ public class ExitDialog extends JDialog {
     public ExitDialog(java.awt.Frame parent, boolean modal, String msg) {
         super(parent, modal);
         initComponents();
-        message.setText(msg);
+
+        message.setText(GameFrame.getInstance().getCrupier().isForce_recover() ? "SE VA A DETENER LA TIMBA PARA PERMITIR UNIRSE A JUGADORES NUEVOS" : msg);
+
+        if (GameFrame.getInstance().getCrupier().isForce_recover()) {
+            message.setIcon(new ImageIcon(getClass().getResource("/images/stop.png")));
+            exit_button.setText("DETENER LA TIMBA");
+        }
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 

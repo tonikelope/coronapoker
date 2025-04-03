@@ -45,6 +45,9 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"EL SERVIDOR HA DETENIDO LA TIMBA (ESPERANDO PARA RECONECTAR...)", "THE SERVER HAS HALTED THE GAME (WAITING TO RECONNECT...)"},
+            {"SE VA A DETENER LA TIMBA PARA PERMITIR UNIRSE A JUGADORES NUEVOS", "THE GAME WILL BE HALTED TO ALLOW NEW PLAYERS TO JOIN."},
+            {"DETENER LA TIMBA", "HALT GAME"},
             {"Cerrar esta ventana después de enviar un mensaje.", "Close this window after sending a message."},
             {"CONTINUAR ESTA TIMBA", "CONTINUE THIS GAME"},
             {"RECONECTAR AL SERVIDOR", "RECONNECT TO SERVER"},
@@ -435,6 +438,7 @@ public class Translator {
             {"IR", "CALL"},
             {"HABLAS TÚ", "YOUR TURN"},
             {"Archivo", "File"},
+            {"DETENER LA TIMBA (ALT+H)", "HALT GAME (ALT+H)"},
             {"Ver chat (ALT+C)", "Show chat (ALT+C)"},
             {"Ver chat", "Show chat"},
             {"Ver registro (ALT+R)", "Show log (ALT+R)"},

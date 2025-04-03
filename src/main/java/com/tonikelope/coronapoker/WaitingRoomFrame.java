@@ -2217,14 +2217,14 @@ public class WaitingRoomFrame extends JFrame {
 
                             if (!late_clients_warning.contains(ipCliente)) {
                                 Audio.playWavResource("misc/new_user.wav");
-                                Helpers.GUIRun(() -> {
-                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick + Translator.translate("] LLEGA TARDE"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), 2000);
-                                    dialog.setLocation(dialog.getParent().getLocation());
-                                    dialog.setVisible(true);
-                                });
-
                                 late_clients_warning.add(ipCliente);
                             }
+
+                            Helpers.GUIRun(() -> {
+                                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick + "] " + Translator.translate("QUIERE ENTRAR EN LA TIMBA"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), 5000);
+                                dialog.setLocation(dialog.getParent().getLocation());
+                                dialog.setVisible(true);
+                            });
 
                         } catch (Exception e) {
                         }

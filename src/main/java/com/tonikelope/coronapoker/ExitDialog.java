@@ -37,9 +37,9 @@ import javax.swing.JDialog;
  * @author tonikelope
  */
 public class ExitDialog extends JDialog {
-    
+
     private volatile boolean exit = false;
-    
+
     public JCheckBox getProgramar_parada_checkbox() {
         return programar_parada_checkbox;
     }
@@ -50,22 +50,22 @@ public class ExitDialog extends JDialog {
     public ExitDialog(java.awt.Frame parent, boolean modal, String msg) {
         super(parent, modal);
         initComponents();
-        
+
         message.setText(GameFrame.getInstance().getCrupier().isForce_recover() ? "SE VA A DETENER LA TIMBA PARA PERMITIR UNIRSE A JUGADORES NUEVOS" : msg);
-        
+
         if (GameFrame.getInstance().getCrupier().isForce_recover()) {
             message.setIcon(new ImageIcon(getClass().getResource("/images/stop.png")));
             exit_button.setText("DETENER LA TIMBA");
             programar_parada_checkbox.setSelected(true);
         }
-        
+
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-        
+
         Helpers.translateComponents(this, false);
-        
+
         pack();
     }
-    
+
     public boolean isExit() {
         return exit;
     }
@@ -195,15 +195,15 @@ public class ExitDialog extends JDialog {
 
         exit_button.setEnabled(exit_checkbox.isSelected());
         programar_parada_checkbox.setEnabled(exit_checkbox.isSelected());
-        
+
         Audio.playWavResource("misc/button_" + (exit_checkbox.isSelected() ? "on" : "off") + ".wav");
     }//GEN-LAST:event_exit_checkboxActionPerformed
-    
+
     private void continue_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_continue_buttonActionPerformed
         // TODO add your handling code here:
         setVisible(false);
     }//GEN-LAST:event_continue_buttonActionPerformed
-    
+
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
         // TODO add your handling code here:
         exit = true;

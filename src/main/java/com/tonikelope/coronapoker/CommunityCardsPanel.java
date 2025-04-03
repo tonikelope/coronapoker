@@ -672,7 +672,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 getHand_panel().setEnabled(false);
 
-                if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), (evt != null && (evt.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0) ? "¿PROGRAMAR PARADA AL TERMINAR ESTA MANO?" : "¿ÚLTIMA MANO?") == 0) {
+                if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), (GameFrame.getInstance().getCrupier().isForce_recover() || (evt != null && (evt.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0)) ? "¿PROGRAMAR PARADA AL TERMINAR ESTA MANO?" : "¿ÚLTIMA MANO?") == 0) {
 
                     Helpers.threadRun(() -> {
                         if (!GameFrame.getInstance().getCrupier().isLast_hand()) {
@@ -695,6 +695,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     });
 
                 } else {
+                    GameFrame.getInstance().getCrupier().setForce_recover(false);
                     getHand_panel().setEnabled(true);
                     GameFrame.getInstance().getLast_hand_menu().setSelected(false);
                     Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(false);

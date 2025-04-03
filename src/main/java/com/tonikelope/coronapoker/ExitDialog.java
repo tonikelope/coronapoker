@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import javax.swing.ImageIcon;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 
 /**
@@ -36,8 +37,12 @@ import javax.swing.JDialog;
  * @author tonikelope
  */
 public class ExitDialog extends JDialog {
-
+    
     private volatile boolean exit = false;
+    
+    public JCheckBox getProgramar_parada_checkbox() {
+        return programar_parada_checkbox;
+    }
 
     /**
      * Creates new form ExitDialog
@@ -45,21 +50,22 @@ public class ExitDialog extends JDialog {
     public ExitDialog(java.awt.Frame parent, boolean modal, String msg) {
         super(parent, modal);
         initComponents();
-
+        
         message.setText(GameFrame.getInstance().getCrupier().isForce_recover() ? "SE VA A DETENER LA TIMBA PARA PERMITIR UNIRSE A JUGADORES NUEVOS" : msg);
-
+        
         if (GameFrame.getInstance().getCrupier().isForce_recover()) {
             message.setIcon(new ImageIcon(getClass().getResource("/images/stop.png")));
             exit_button.setText("DETENER LA TIMBA");
+            programar_parada_checkbox.setSelected(true);
         }
-
+        
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-
+        
         Helpers.translateComponents(this, false);
-
+        
         pack();
     }
-
+    
     public boolean isExit() {
         return exit;
     }
@@ -78,6 +84,7 @@ public class ExitDialog extends JDialog {
         exit_checkbox = new javax.swing.JCheckBox();
         continue_button = new javax.swing.JButton();
         exit_button = new javax.swing.JButton();
+        programar_parada_checkbox = new javax.swing.JCheckBox();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setModal(true);
@@ -127,21 +134,30 @@ public class ExitDialog extends JDialog {
             }
         });
 
+        programar_parada_checkbox.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
+        programar_parada_checkbox.setText("Esperar a que termine la mano para salir");
+        programar_parada_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        programar_parada_checkbox.setDoubleBuffered(true);
+        programar_parada_checkbox.setEnabled(false);
+        programar_parada_checkbox.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+            .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addComponent(message, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(exit_checkbox))
-                    .addGroup(jPanel1Layout.createSequentialGroup()
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
                         .addComponent(continue_button, javax.swing.GroupLayout.PREFERRED_SIZE, 500, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(18, 18, Short.MAX_VALUE)
-                        .addComponent(exit_button, javax.swing.GroupLayout.PREFERRED_SIZE, 500, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(programar_parada_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, 500, Short.MAX_VALUE))))
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -151,6 +167,8 @@ public class ExitDialog extends JDialog {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(message)
                     .addComponent(exit_checkbox))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(programar_parada_checkbox)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(continue_button, javax.swing.GroupLayout.DEFAULT_SIZE, 72, Short.MAX_VALUE)
@@ -176,15 +194,16 @@ public class ExitDialog extends JDialog {
         // TODO add your handling code here:
 
         exit_button.setEnabled(exit_checkbox.isSelected());
-
+        programar_parada_checkbox.setEnabled(exit_checkbox.isSelected());
+        
         Audio.playWavResource("misc/button_" + (exit_checkbox.isSelected() ? "on" : "off") + ".wav");
     }//GEN-LAST:event_exit_checkboxActionPerformed
-
+    
     private void continue_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_continue_buttonActionPerformed
         // TODO add your handling code here:
         setVisible(false);
     }//GEN-LAST:event_continue_buttonActionPerformed
-
+    
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
         // TODO add your handling code here:
         exit = true;
@@ -197,5 +216,6 @@ public class ExitDialog extends JDialog {
     private javax.swing.JCheckBox exit_checkbox;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JLabel message;
+    private javax.swing.JCheckBox programar_parada_checkbox;
     // End of variables declaration//GEN-END:variables
 }

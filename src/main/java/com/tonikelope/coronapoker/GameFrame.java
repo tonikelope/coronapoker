@@ -2856,14 +2856,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 // 0=yes, 1=no, 2=cancel
                 if (exit_dialog.isExit()) {
 
-                    getLocalPlayer().setExit();
+                    if (exit_dialog.getProgramar_parada_checkbox().isSelected()) {
+                        GameFrame.getInstance().getLast_hand_menu().doClick();
+                    } else {
 
-                    Helpers.threadRun(() -> {
-                        //Hay que avisar a los clientes de que la timba ha terminado
-                        crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" : "SERVEREXIT", null, false);
+                        getLocalPlayer().setExit();
 
-                        finTransmision(true);
-                    });
+                        Helpers.threadRun(() -> {
+                            //Hay que avisar a los clientes de que la timba ha terminado
+                            crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" : "SERVEREXIT", null, false);
+
+                            finTransmision(true);
+                        });
+                    }
 
                 } else {
                     getCrupier().setForce_recover(false);

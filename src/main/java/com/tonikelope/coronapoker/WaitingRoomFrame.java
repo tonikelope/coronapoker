@@ -1792,8 +1792,14 @@ public class WaitingRoomFrame extends JFrame {
                                                             case "LASTHAND":
 
                                                                 if (partes_comando[3].equals("0")) {
+                                                                    GameFrame.getInstance().getCrupier().setForce_recover(false);
                                                                     GameFrame.getInstance().getTapete().getCommunityCards().last_hand_off();
                                                                 } else {
+
+                                                                    if (partes_comando[3].equals("2")) {
+                                                                        GameFrame.getInstance().getCrupier().setForce_recover(true);
+                                                                    }
+
                                                                     GameFrame.getInstance().getTapete().getCommunityCards().last_hand_on();
                                                                 }
 

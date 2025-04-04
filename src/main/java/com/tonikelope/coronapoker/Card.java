@@ -967,7 +967,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
             Audio.playWavResource("misc/card_visor.wav");
 
-            visor.setLocationRelativeTo(visor.getParent());
+            visor.setLocationRelativeTo(GameFrame.getInstance());
 
             visor.setVisible(true);
 

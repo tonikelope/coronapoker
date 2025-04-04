@@ -7699,13 +7699,13 @@ public class Crupier implements Runnable {
 
                                 GameFrame.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
 
-                                checkRebuyTime();
-
-                                exitSpectatorBots();
-
-                                updateExitPlayers();
-
                                 if (!this.isLast_hand()) {
+
+                                    checkRebuyTime();
+
+                                    exitSpectatorBots();
+
+                                    updateExitPlayers();
 
                                     if (GameFrame.RABBIT_HUNTING != 0) {
                                         waitRabbitProcessing();

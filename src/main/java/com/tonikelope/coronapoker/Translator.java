@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Llegas TARDE. La timba ya ha empezado.\n(Habla con el administrador por otro canal para que te permita entrar).", "You are LATE. The game has already started.\n(Talk to the administrator through another channel to be allowed to enter)."},
             {"QUIERE ENTRAR EN LA TIMBA", "WANTS TO GET IN THE GAME"},
             {"Esperar a que termine la mano para salir", "Wait for the end of the hand to exit"},
             {"¿PROGRAMAR PARADA AL TERMINAR ESTA MANO?", "SCHEDULE HALT AT THE END OF THIS HAND?"},

@@ -1833,6 +1833,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (!partida_local) {
             halt_game_menu.setEnabled(false);
+            Helpers.TapetePopupMenu.HALT_GAME_MENU.setEnabled(false);
             last_hand_menu.setEnabled(false);
             Helpers.TapetePopupMenu.LAST_HAND_MENU.setEnabled(false);
             max_hands_menu.setEnabled(false);

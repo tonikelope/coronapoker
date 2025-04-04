@@ -1427,7 +1427,7 @@ public class WaitingRoomFrame extends JFrame {
                             break;
                         case "YOUARELATE":
                             exit = true;
-                            mostrarMensajeError(THIS, "Llegas TARDE. La partida ya ha empezado.");
+                            mostrarMensajeError(THIS, "Llegas TARDE. La timba ya ha empezado.\n(Habla con el administrador por otro canal para que te permita entrar).");
                             break;
                         case "NOSPACE":
                             exit = true;
@@ -1637,6 +1637,28 @@ public class WaitingRoomFrame extends JFrame {
                                                     last_received.put(subcomando, id);
                                                     if (isPartida_empezada()) {
                                                         switch (subcomando) {
+                                                            case "YOUARELATE":
+                                                                String client_nick = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+                                                                String ipCliente = partes_comando[4];
+
+                                                                try {
+
+                                                                    if (!late_clients_warning.contains(ipCliente)) {
+                                                                        Audio.playWavResource("misc/new_user.wav");
+                                                                        late_clients_warning.add(ipCliente);
+                                                                    }
+
+                                                                    Helpers.GUIRun(() -> {
+                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick + "] " + Translator.translate("QUIERE ENTRAR EN LA TIMBA"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), 5000);
+                                                                        dialog.setLocation(dialog.getParent().getLocation());
+                                                                        dialog.setVisible(true);
+                                                                    });
+
+                                                                } catch (Exception e) {
+                                                                }
+
+                                                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El usuario {0} LLEGA TARDE -> DENEGADO", client_nick);
+                                                                break;
                                                             case "RADAR":
 
                                                                 if (partes_comando.length == 4) {
@@ -1863,7 +1885,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                 borrarParticipante(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                                 break;
                                                             case "NEWUSER":
-                                                                Audio.playWavResource("misc/new_user.wav");
+                                                                Audio.playWavResource("misc/laser.wav");
 
                                                                 String nick = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
 
@@ -2213,7 +2235,7 @@ public class WaitingRoomFrame extends JFrame {
                         writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
 
                         try {
-                            String ipCliente = client_socket.getInetAddress().getHostAddress();
+                            String ipCliente = Base64.encodeBase64String(MessageDigest.getInstance("SHA-256").digest(client_socket.getInetAddress().getHostAddress().getBytes()));
 
                             if (!late_clients_warning.contains(ipCliente)) {
                                 Audio.playWavResource("misc/new_user.wav");
@@ -2226,6 +2248,13 @@ public class WaitingRoomFrame extends JFrame {
                                 dialog.setVisible(true);
                             });
 
+                            Helpers.threadRun(() -> {
+                                try {
+                                    GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("YOUARELATE#" + Base64.encodeBase64String(client_nick.getBytes("UTF-8")) + "#" + ipCliente, null);
+                                } catch (UnsupportedEncodingException ex) {
+                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            });
                         } catch (Exception e) {
                         }
 
@@ -2285,7 +2314,7 @@ public class WaitingRoomFrame extends JFrame {
                                 if (participantes.size() < MAX_PARTICIPANTES && !WaitingRoomFrame.getInstance().isPartida_empezando() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
                                     //Añadimos al participante
                                     nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key, false, false);
-                                    Audio.playWavResource("misc/new_user.wav");
+                                    Audio.playWavResource("misc/laser.wav");
                                     if (!partes[1].split("@")[1].equals(client_jar_hmac)) {
 
                                         participantes.get(client_nick).setUnsecure_player(true);

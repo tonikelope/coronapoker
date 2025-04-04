@@ -3848,6 +3848,7 @@ public class Helpers {
         public static JMenu RABBIT_MENU = null;
         public static JMenu ZOOM_MENU = null;
         public static JMenuItem MAX_HANDS_MENU;
+        public static JMenuItem HALT_GAME_MENU;
         public static JCheckBoxMenuItem AUTO_FULLSCREEN_MENU;
         public static JCheckBoxMenuItem FULLSCREEN_MENU;
         public static JCheckBoxMenuItem SONIDOS_MENU;
@@ -4044,6 +4045,13 @@ public class Helpers {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getShortcuts_menu().doClick();
+                    }
+                };
+
+                Action haltAction = new AbstractAction("DETENER LA TIMBA (ALT+H)") {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getHalt_game_menu().doClick();
                     }
                 };
 
@@ -4379,6 +4387,11 @@ public class Helpers {
                 JMenuItem rules = new JMenuItem(rulesAction);
                 rules.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/book.png")));
                 popup.add(rules);
+
+                popup.addSeparator();
+                HALT_GAME_MENU = new JMenuItem(haltAction);
+                HALT_GAME_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/stop.png")));
+                popup.add(HALT_GAME_MENU);
 
                 popup.addSeparator();
                 JMenuItem exit_menu = new JMenuItem(exitAction);

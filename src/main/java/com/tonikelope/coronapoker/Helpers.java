@@ -1291,6 +1291,9 @@ public class Helpers {
                     } while (hbar.isVisible() && new_width < max_width);
                 }
 
+                window.revalidate();
+                window.repaint();
+
             }
         });
 

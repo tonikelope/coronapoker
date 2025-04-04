@@ -42,6 +42,7 @@ import javax.swing.Timer;
  */
 public class InGameNotifyDialog extends JDialog {
 
+    public static final int NOTIFICATION_TIMEOUT = 5000;
     private volatile Timer timer = null;
 
     /**

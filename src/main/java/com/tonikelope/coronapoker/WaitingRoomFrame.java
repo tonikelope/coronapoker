@@ -94,6 +94,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultCaret;
 import org.apache.commons.codec.binary.Base64;
+import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT;
 
 /**
  * Appearances can be deceiving...
@@ -851,6 +852,9 @@ public class WaitingRoomFrame extends JFrame {
         } else {
             cliente();
         }
+
+        revalidate();
+        repaint();
     }
 
     public JScrollPane getEmoji_scroll_panel() {
@@ -1134,7 +1138,7 @@ public class WaitingRoomFrame extends JFrame {
                     Audio.playWavResource("misc/yahoo.wav");
                     if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
                         Helpers.GUIRun(() -> {
-                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("CONEXIÓN CON EL SERVIDOR RECUPERADA"), Color.MAGENTA, Color.BLACK, getClass().getResource("/images/action/plug.png"), 2000);
+                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("CONEXIÓN CON EL SERVIDOR RECUPERADA"), Color.MAGENTA, Color.BLACK, getClass().getResource("/images/action/plug.png"), NOTIFICATION_TIMEOUT);
                             dialog.setLocation(dialog.getParent().getLocation());
                             dialog.setVisible(true);
                         });
@@ -1649,7 +1653,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     }
 
                                                                     Helpers.GUIRun(() -> {
-                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick + "] " + Translator.translate("QUIERE ENTRAR EN LA TIMBA"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), 5000);
+                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick + "] " + Translator.translate("QUIERE ENTRAR EN LA TIMBA"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), NOTIFICATION_TIMEOUT);
                                                                         dialog.setLocation(dialog.getParent().getLocation());
                                                                         dialog.setVisible(true);
                                                                     });
@@ -1697,7 +1701,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     Helpers.GUIRun(() -> {
                                                                         GameFrame.getInstance().getIwtsth_rule_menu().setSelected(GameFrame.IWTSTH_RULE);
                                                                         Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
-                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.IWTSTH_RULE ? Translator.translate("REGLA IWTSTH ACTIVADA") : Translator.translate("REGLA IWTSTH DESACTIVADA"), GameFrame.IWTSTH_RULE ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, 2000);
+                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.IWTSTH_RULE ? Translator.translate("REGLA IWTSTH ACTIVADA") : Translator.translate("REGLA IWTSTH DESACTIVADA"), GameFrame.IWTSTH_RULE ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, NOTIFICATION_TIMEOUT);
                                                                         dialog.setLocation(dialog.getParent().getLocation());
                                                                         dialog.setVisible(true);
                                                                     });
@@ -1743,7 +1747,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         Helpers.TapetePopupMenu.RABBIT_SB.setSelected(GameFrame.getInstance().getMenu_rabbit_sb().isSelected());
                                                                         Helpers.TapetePopupMenu.RABBIT_BB.setSelected(GameFrame.getInstance().getMenu_rabbit_bb().isSelected());
 
-                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, notification, GameFrame.RABBIT_HUNTING != 0 ? Color.BLUE : Color.RED, Color.WHITE, getClass().getResource("/images/action/rabbit_action.png"), 2000);
+                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, notification, GameFrame.RABBIT_HUNTING != 0 ? Color.BLUE : Color.RED, Color.WHITE, getClass().getResource("/images/action/rabbit_action.png"), NOTIFICATION_TIMEOUT);
                                                                         dialog.setLocation(dialog.getParent().getLocation());
                                                                         dialog.setVisible(true);
 
@@ -1775,7 +1779,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                                                     Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
 
-                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.TTS_SERVER ? Translator.translate("TTS ACTIVADO POR EL SERVIDOR") : Translator.translate("TTS DESACTIVADO POR EL SERVIDOR"), GameFrame.TTS_SERVER ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, 2000);
+                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.TTS_SERVER ? Translator.translate("TTS ACTIVADO POR EL SERVIDOR") : Translator.translate("TTS DESACTIVADO POR EL SERVIDOR"), GameFrame.TTS_SERVER ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, NOTIFICATION_TIMEOUT);
 
                                                                     dialog.setLocation(dialog.getParent().getLocation());
 
@@ -2243,7 +2247,7 @@ public class WaitingRoomFrame extends JFrame {
                             }
 
                             Helpers.GUIRun(() -> {
-                                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick + "] " + Translator.translate("QUIERE ENTRAR EN LA TIMBA"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), 5000);
+                                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick + "] " + Translator.translate("QUIERE ENTRAR EN LA TIMBA"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), NOTIFICATION_TIMEOUT);
                                 dialog.setLocation(dialog.getParent().getLocation());
                                 dialog.setVisible(true);
                             });
@@ -2310,6 +2314,8 @@ public class WaitingRoomFrame extends JFrame {
                                     game_info_buyin.setEnabled(false);
                                     game_info_blinds.setEnabled(false);
                                     game_info_hands.setEnabled(false);
+                                    revalidate();
+                                    repaint();
                                 });
                                 if (participantes.size() < MAX_PARTICIPANTES && !WaitingRoomFrame.getInstance().isPartida_empezando() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
                                     //Añadimos al participante
@@ -2359,6 +2365,8 @@ public class WaitingRoomFrame extends JFrame {
                                     game_info_buyin.setEnabled(true);
                                     game_info_blinds.setEnabled(true);
                                     game_info_hands.setEnabled(true);
+                                    revalidate();
+                                    repaint();
                                 });
                             }
                         }
@@ -2606,6 +2614,9 @@ public class WaitingRoomFrame extends JFrame {
                 }
 
                 chatHTMLAppendExitUser(nick, avatar_src);
+
+                revalidate();
+                repaint();
             });
 
             if (this.isServer() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !exit) {
@@ -3417,7 +3428,6 @@ public class WaitingRoomFrame extends JFrame {
                         Helpers.GUIRunAndWait(new Runnable() {
                             public void run() {
                                 new GameFrame(THIS, local_nick, true);
-
                             }
                         });
 
@@ -3431,6 +3441,9 @@ public class WaitingRoomFrame extends JFrame {
 
             chat_box.requestFocus();
         }
+
+        revalidate();
+        repaint();
 
     }//GEN-LAST:event_empezar_timbaActionPerformed
 
@@ -3587,8 +3600,9 @@ public class WaitingRoomFrame extends JFrame {
                             empezar_timba.setEnabled(true);
                             kick_user.setEnabled(true);
                             new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
-
                             chat_box.requestFocus();
+                            revalidate();
+                            repaint();
                         });
                     }
                 } catch (UnsupportedEncodingException ex) {

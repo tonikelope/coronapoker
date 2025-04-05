@@ -7203,10 +7203,7 @@ public class Crupier implements Runnable {
         }
 
         if (GameFrame.MUSICA_AMBIENTAL) {
-
-            if (!GameFrame.RECOVER) {
-                Audio.unmuteLoopMp3("misc/background_music.mp3");
-            }
+            Audio.unmuteLoopMp3("misc/background_music.mp3");
         }
 
         GameFrame.getInstance().autoZoomFullScreen(GameFrame.AUTO_FULLSCREEN);

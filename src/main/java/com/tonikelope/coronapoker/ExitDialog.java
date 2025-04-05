@@ -51,7 +51,7 @@ public class ExitDialog extends JDialog {
         super(parent, modal);
         initComponents();
 
-        message.setText(GameFrame.getInstance().getCrupier().isForce_recover() ? "SE VA A DETENER LA TIMBA PARA PERMITIR UNIRSE A JUGADORES NUEVOS" : msg);
+        message.setText(GameFrame.getInstance().getCrupier().isForce_recover() ? "¿DETENER LA TIMBA PARA PERMITIR UNIRSE A NUEVOS JUGADORES?" : msg);
 
         if (GameFrame.getInstance().getCrupier().isForce_recover()) {
             message.setIcon(new ImageIcon(getClass().getResource("/images/stop.png")));
@@ -93,10 +93,10 @@ public class ExitDialog extends JDialog {
         jPanel1.setBackground(new java.awt.Color(255, 255, 255));
         jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 102, 0), 10));
 
-        message.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        message.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
         message.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         message.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit.png"))); // NOI18N
-        message.setText("Si sales, no podrás volver a entrar.");
+        message.setText("¿SALIR DE LA TIMBA?");
         message.setDoubleBuffered(true);
         message.setFocusable(false);
 

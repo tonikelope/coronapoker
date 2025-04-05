@@ -2851,7 +2851,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             if (jugadores.size() > 1) {
 
-                ExitDialog exit_dialog = new ExitDialog(this, true, "¡CUIDADO! ERES EL ANFITRIÓN Y SI SALES SE TERMINARÁ LA TIMBA.");
+                ExitDialog exit_dialog = new ExitDialog(this, true, "¿SALIR DE LA TIMBA?");
                 exit_dialog.setLocationRelativeTo(this);
                 exit_dialog.setVisible(true);
 
@@ -2887,7 +2887,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         } else {
 
-            ExitDialog exit_dialog = new ExitDialog(this, true, "Si sales no podrás volver a entrar.");
+            ExitDialog exit_dialog = new ExitDialog(this, true, "¿SALIR DE LA TIMBA?");
             exit_dialog.setLocationRelativeTo(this);
             exit_dialog.setVisible(true);
 

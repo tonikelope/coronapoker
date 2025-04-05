@@ -2791,31 +2791,34 @@ public class Crupier implements Runnable {
 
             GameFrame.getInstance().getRegistro().print("RECUPERANDO TIMBA...");
 
-            final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
-
-            Helpers.GUIRun(() -> {
-                if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                    GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
-
-                    GameFrame.getInstance().getTapete().repaint();
-                }
-
-                recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
-                recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
-                recover_dialog.setVisible(true);
-
-                if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                    GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
-
-                    GameFrame.getInstance().getTapete().repaint();
-                }
-
-                GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
-            });
-
             recuperarDatosClavePartida();
 
             if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
+
+                Audio.stopLoopMp3("misc/background_music.mp3");
+                Audio.playLoopMp3Resource("misc/recovering.mp3");
+
+                final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
+
+                Helpers.GUIRun(() -> {
+                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+
+                        GameFrame.getInstance().getTapete().repaint();
+                    }
+
+                    recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
+                    recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
+                    recover_dialog.setVisible(true);
+
+                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
+
+                        GameFrame.getInstance().getTapete().repaint();
+                    }
+
+                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+                });
 
                 if (GameFrame.getInstance().isPartida_local() || GameFrame.getInstance().getLocalPlayer().isActivo()) {
                     recuperarAccionesLocales();
@@ -2850,10 +2853,6 @@ public class Crupier implements Runnable {
                     Audio.playWavResource("misc/startplay.wav");
                 }
 
-                if (GameFrame.MUSICA_AMBIENTAL) {
-                    Audio.stopLoopMp3("misc/recovering.mp3");
-                    Audio.playLoopMp3Resource("misc/background_music.mp3");
-                }
                 Helpers.GUIRun(() -> {
                     recover_dialog.setVisible(false);
                     recover_dialog.dispose();
@@ -7207,9 +7206,6 @@ public class Crupier implements Runnable {
 
             if (!GameFrame.RECOVER) {
                 Audio.unmuteLoopMp3("misc/background_music.mp3");
-            } else {
-                Audio.stopLoopMp3("misc/background_music.mp3");
-                Audio.playLoopMp3Resource("misc/recovering.mp3");
             }
         }
 

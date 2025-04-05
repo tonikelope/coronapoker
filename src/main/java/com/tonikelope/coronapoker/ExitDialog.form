@@ -97,13 +97,13 @@
         <Component class="javax.swing.JLabel" name="message">
           <Properties>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="24" style="1"/>
+              <Font name="Dialog" size="30" style="1"/>
             </Property>
             <Property name="horizontalAlignment" type="int" value="0"/>
             <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
               <Image iconType="3" name="/images/exit.png"/>
             </Property>
-            <Property name="text" type="java.lang.String" value="Si sales, no podr&#xe1;s volver a entrar."/>
+            <Property name="text" type="java.lang.String" value="&#xbf;SALIR DE LA TIMBA?"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
             <Property name="focusable" type="boolean" value="false"/>
           </Properties>

@@ -45,13 +45,14 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿SALIR DE LA TIMBA?", "EXIT GAME?"},
             {"Llegas TARDE. La timba ya ha empezado.\n(Habla con el administrador por otro canal para que te permita entrar).", "You are LATE. The game has already started.\n(Talk to the administrator through another channel to be allowed to enter)."},
             {"QUIERE ENTRAR EN LA TIMBA", "WANTS TO GET IN THE GAME"},
             {"Esperar a que termine la mano para salir", "Wait for the end of the hand to exit"},
             {"¿PROGRAMAR PARADA AL TERMINAR ESTA MANO?", "SCHEDULE HALT AT THE END OF THIS HAND?"},
             {"PARADA PROGRAMADA AL TERMINAR ESTA MANO", "SCHEDULED HALT AT THE END OF THIS HAND"},
             {"EL SERVIDOR HA DETENIDO LA TIMBA (ESPERANDO PARA RECONECTAR...)", "THE SERVER HAS HALTED THE GAME (WAITING TO RECONNECT...)"},
-            {"SE VA A DETENER LA TIMBA PARA PERMITIR UNIRSE A JUGADORES NUEVOS", "THE GAME WILL BE HALTED TO ALLOW NEW PLAYERS TO JOIN."},
+            {"¿DETENER LA TIMBA PARA PERMITIR UNIRSE A NUEVOS JUGADORES?", "HALT GAME TO ALLOW NEW PLAYERS TO JOIN?"},
             {"DETENER LA TIMBA", "HALT GAME"},
             {"Cerrar esta ventana después de enviar un mensaje.", "Close this window after sending a message."},
             {"CONTINUAR ESTA TIMBA", "CONTINUE THIS GAME"},

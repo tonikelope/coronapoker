@@ -37,6 +37,7 @@ import java.awt.event.MouseEvent;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
@@ -672,7 +673,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 getHand_panel().setEnabled(false);
 
-                if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), (GameFrame.getInstance().getCrupier().isForce_recover() || (evt != null && (evt.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0)) ? "¿PROGRAMAR PARADA AL TERMINAR ESTA MANO?" : "¿ÚLTIMA MANO?") == 0) {
+                boolean is_recover = (GameFrame.getInstance().getCrupier().isForce_recover() || (evt != null && (evt.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0));
+
+                if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), is_recover ? "¿PROGRAMAR PARADA AL TERMINAR ESTA MANO?" : "¿ÚLTIMA MANO?", new ImageIcon(getClass().getResource(is_recover ? "/images/stop.png" : "/images/exit.png"))) == 0) {
 
                     Helpers.threadRun(() -> {
                         if (!GameFrame.getInstance().getCrupier().isLast_hand()) {

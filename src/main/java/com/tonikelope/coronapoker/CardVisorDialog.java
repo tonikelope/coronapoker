@@ -73,7 +73,7 @@ public class CardVisorDialog extends javax.swing.JDialog {
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
-        HandScrollListener scrollListener = new HandScrollListener(card);
+        HandScrollListener scrollListener = new HandScrollListener(card, this);
         scroll_panel.getViewport().addMouseMotionListener(scrollListener);
         scroll_panel.getViewport().addMouseListener(scrollListener);
 
@@ -109,7 +109,7 @@ public class CardVisorDialog extends javax.swing.JDialog {
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
-        HandScrollListener scrollListener = new HandScrollListener(card);
+        HandScrollListener scrollListener = new HandScrollListener(card, this);
         scroll_panel.getViewport().addMouseMotionListener(scrollListener);
         scroll_panel.getViewport().addMouseListener(scrollListener);
 
@@ -198,15 +198,15 @@ public class CardVisorDialog extends javax.swing.JDialog {
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 773, Short.MAX_VALUE)
-                .addContainerGap())
+                .addGap(0, 0, 0)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 785, Short.MAX_VALUE)
+                .addGap(0, 0, 0))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 572, Short.MAX_VALUE))
+                .addGap(0, 0, 0)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 578, Short.MAX_VALUE))
         );
 
         pack();

@@ -691,9 +691,11 @@ public class Helpers {
         private final Cursor hndCursor = Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR);
         private final Point pp = new Point();
         private final JLabel image;
+        private final Window parent;
 
-        public HandScrollListener(JLabel image) {
+        public HandScrollListener(JLabel image, Window parent) {
             this.image = image;
+            this.parent = parent;
         }
 
         public void mouseDragged(final MouseEvent e) {
@@ -706,6 +708,11 @@ public class Helpers {
         }
 
         public void mousePressed(MouseEvent e) {
+
+            if (this.parent != null && SwingUtilities.isRightMouseButton(e)) {
+                this.parent.setVisible(false);
+            }
+
             image.setCursor(hndCursor);
             pp.setLocation(e.getPoint());
         }

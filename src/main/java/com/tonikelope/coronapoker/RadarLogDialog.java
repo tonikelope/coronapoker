@@ -78,7 +78,7 @@ public class RadarLogDialog extends JDialog {
         jScrollPane2.getVerticalScrollBar().setUnitIncrement(16);
         jScrollPane2.getHorizontalScrollBar().setUnitIncrement(16);
 
-        HandScrollListener scrollListener = new HandScrollListener(screenshot);
+        HandScrollListener scrollListener = new HandScrollListener(screenshot, null);
         jScrollPane1.getViewport().addMouseMotionListener(scrollListener);
         jScrollPane1.getViewport().addMouseListener(scrollListener);
 

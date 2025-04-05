@@ -2794,9 +2794,10 @@ public class Crupier implements Runnable {
             recuperarDatosClavePartida();
 
             if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
-
-                Audio.stopLoopMp3("misc/background_music.mp3");
-                Audio.playLoopMp3Resource("misc/recovering.mp3");
+                if (GameFrame.MUSICA_AMBIENTAL) {
+                    Audio.stopLoopMp3("misc/background_music.mp3");
+                    Audio.playLoopMp3Resource("misc/recovering.mp3");
+                }
 
                 final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
 
@@ -2837,10 +2838,13 @@ public class Crupier implements Runnable {
                         Audio.stopLoopMp3("misc/recovering.mp3");
                         Audio.playLoopMp3Resource("misc/background_music.mp3");
                     }
+
                     Helpers.GUIRun(() -> {
-                        recover_dialog.setVisible(false);
-                        recover_dialog.dispose();
-                        recover_dialog = null;
+                        if (recover_dialog != null) {
+                            recover_dialog.setVisible(false);
+                            recover_dialog.dispose();
+                            recover_dialog = null;
+                        }
                         GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
                         Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                     });
@@ -2854,9 +2858,6 @@ public class Crupier implements Runnable {
                 }
 
                 Helpers.GUIRun(() -> {
-                    recover_dialog.setVisible(false);
-                    recover_dialog.dispose();
-                    recover_dialog = null;
                     GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
                     Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                 });
@@ -6211,17 +6212,17 @@ public class Crupier implements Runnable {
 
         if (this.acciones_locales_recuperadas.isEmpty()) {
 
-            if (recover_dialog != null) {
-
-                Helpers.GUIRun(() -> {
+            Helpers.GUIRun(() -> {
+                if (recover_dialog != null) {
                     recover_dialog.setVisible(false);
                     recover_dialog.dispose();
                     recover_dialog = null;
-                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                    GameFrame.getInstance().refresh();
-                });
-            }
+                }
+
+                GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                GameFrame.getInstance().refresh();
+            });
 
             this.setSincronizando_mano(false);
 
@@ -7234,17 +7235,16 @@ public class Crupier implements Runnable {
 
                             this.acciones_locales_recuperadas.clear();
 
-                            if (recover_dialog != null) {
-
-                                Helpers.GUIRun(() -> {
+                            Helpers.GUIRun(() -> {
+                                if (recover_dialog != null) {
                                     recover_dialog.setVisible(false);
                                     recover_dialog.dispose();
                                     recover_dialog = null;
-                                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
-                                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
-                                    GameFrame.getInstance().refresh();
-                                });
-                            }
+                                }
+                                GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                                GameFrame.getInstance().refresh();
+                            });
 
                             this.setSincronizando_mano(false);
 

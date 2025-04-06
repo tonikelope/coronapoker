@@ -4225,11 +4225,11 @@ public class Crupier implements Runnable {
             RemotePlayer jugador = (RemotePlayer) nick2player.get(suspicious);
             int[] a = new int[]{0};
             Helpers.threadRun(() -> {
-                Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("SE HA RECIBIDO UN INFORME ANTICHEAT DE [") + suspicious + Translator.translate("]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."));
+                Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("SE HA RECIBIDO UN INFORME ANTICHEAT DE [") + suspicious + Translator.translate("]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."), new ImageIcon(Init.class.getResource("/images/shield.png")));
 
                 a[0] = 1;
 
-                if (jugador.getRadar_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0 && !isFin_de_la_transmision()) {
+                if (jugador.getRadar_dialog() != null && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("INFORME ANTICHEAT DE [") + suspicious + Translator.translate("] DISPONIBLE\n\n¿Quieres verlo?"), new ImageIcon(Init.class.getResource("/images/shield.png"))) == 0 && !isFin_de_la_transmision()) {
 
                     jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance());
                     jugador.getRadar_dialog().setVisible(true);
@@ -4248,7 +4248,7 @@ public class Crupier implements Runnable {
                 Helpers.GUIRun(() -> {
                     jugador.setRadar_dialog(new RadarLogDialog(GameFrame.getInstance(), false, path, timestamp));
 
-                    if (a[0] == 1 && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "INFORME ANTICHEAT DE [" + suspicious + "] DISPONIBLE\n\n¿Quieres verlo?") == 0) {
+                    if (a[0] == 1 && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("INFORME ANTICHEAT DE [") + suspicious + Translator.translate("] DISPONIBLE\n\n¿Quieres verlo?"), new ImageIcon(Init.class.getResource("/images/shield.png"))) == 0) {
 
                         jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance());
                         jugador.getRadar_dialog().setVisible(true);

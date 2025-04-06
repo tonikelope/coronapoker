@@ -336,7 +336,7 @@
       <Layout>
         <DimensionLayout dim="0">
           <Group type="103" groupAlignment="0" attributes="0">
-              <Component id="player_bet_button" alignment="1" max="32767" attributes="0"/>
+              <Component id="player_bet_button" alignment="1" pref="258" max="32767" attributes="0"/>
               <Component id="player_allin_button" alignment="1" max="32767" attributes="0"/>
               <Component id="player_check_button" alignment="1" max="32767" attributes="0"/>
               <Component id="player_fold_button" alignment="1" max="32767" attributes="0"/>

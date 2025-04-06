@@ -399,10 +399,6 @@ public class NewGameDialog extends JDialog {
 
         pack();
 
-        Helpers.setScaledIconButton(vamos, getClass().getResource("/images/action/vamos.png"), Math.round(vamos.getHeight() * 0.8f), Math.round(vamos.getHeight() * 0.8f));
-
-        pack();
-
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 
         int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
@@ -588,7 +584,7 @@ public class NewGameDialog extends JDialog {
                 .addContainerGap()
                 .addComponent(jLabel5)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(server_ip_textfield, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(server_ip_textfield, javax.swing.GroupLayout.DEFAULT_SIZE, 512, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
                 .addComponent(server_port_puntos)
                 .addGap(0, 0, 0)
@@ -1062,7 +1058,7 @@ public class NewGameDialog extends JDialog {
         );
 
         cancel_button.setBackground(new java.awt.Color(204, 0, 0));
-        cancel_button.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
+        cancel_button.setFont(new java.awt.Font("Dialog", 1, 48)); // NOI18N
         cancel_button.setForeground(new java.awt.Color(255, 255, 255));
         cancel_button.setText("CANCELAR");
         cancel_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1080,9 +1076,11 @@ public class NewGameDialog extends JDialog {
             .addComponent(url_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(nick_pass_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(vamos, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(recover_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(cancel_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(main_panelLayout.createSequentialGroup()
+                .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE))
         );
         main_panelLayout.setVerticalGroup(
             main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1096,9 +1094,9 @@ public class NewGameDialog extends JDialog {
                 .addGap(18, 18, Short.MAX_VALUE)
                 .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(vamos, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(cancel_button)
+                .addGroup(main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(0, 0, 0))
         );
 
@@ -1636,7 +1634,7 @@ public class NewGameDialog extends JDialog {
                 + "\n"
                 + "<b>MODO CASINO:</b> este modo utiliza la API de Random.org para obtener una permutación de 52 elementos. La aleatoriedad de Random.org proviene de un generador de números ALEATORIOS AUTÉNTICOS obtenidos a partir de RUIDO ATMOSFÉRICO, siendo por tanto capaz de generar cualquiera de las permutaciones posibles de una baraja de póker de forma impredecible y equiprobable.\n"
                 + "\n"
-                + "<b>MODO PARANOICO:</b> este modo es un HÍBRIDO entre el MODO CASINO y el NORMAL. Primero se baraja usando el MODO CASINO y después se vuelve a barajar usando el MODO NORMAL. De esta forma, en un hipotético y MUY improbable caso de que la permutación devuelta por Random.org no fuera totalmente aleatoria por cualquier motivo (fortuito o malicioso), al volver a barajar quedaría neutralizado.", "justify", (int) Math.round(getWidth() * 0.8f), null);
+                + "<b>MODO PARANOICO:</b> este modo es un HÍBRIDO entre el MODO CASINO y el NORMAL. Primero se baraja usando el MODO CASINO y después se vuelve a barajar usando el MODO NORMAL. De esta forma, en un hipotético y MUY improbable caso de que la permutación devuelta por Random.org no fuera totalmente aleatoria por cualquier motivo (fortuito o malicioso), al volver a barajar quedaría neutralizado.", "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(Init.class.getResource("/images/dados.png")));
     }//GEN-LAST:event_random_labelMouseClicked
 
     private void radar_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_radar_labelMouseClicked

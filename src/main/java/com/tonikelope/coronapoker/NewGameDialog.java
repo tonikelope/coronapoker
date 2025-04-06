@@ -766,7 +766,7 @@ public class NewGameDialog extends JDialog {
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(jPanel3Layout.createSequentialGroup()
                         .addComponent(rebuy_checkbox)
                         .addGap(0, 0, 0)
@@ -776,17 +776,17 @@ public class NewGameDialog extends JDialog {
                         .addGap(0, 0, 0)
                         .addComponent(jLabel4)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(manos_spinner))
+                        .addComponent(manos_spinner, javax.swing.GroupLayout.DEFAULT_SIZE, 140, Short.MAX_VALUE))
                     .addGroup(jPanel3Layout.createSequentialGroup()
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(buyin_label)
                             .addComponent(ciegas_label))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(ciegas_combobox, 0, 220, Short.MAX_VALUE)
                             .addComponent(buyin_spinner))))
                 .addGap(18, 18, 18)
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel3Layout.setVerticalGroup(
@@ -1394,7 +1394,7 @@ public class NewGameDialog extends JDialog {
 
                 if (!this.force_recover) {
 
-                    Helpers.mostrarMensajeInformativo(this, "En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos. Si esto no fuera posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).", "justify", (int) Math.round(getWidth() * 0.8f), null);
+                    Helpers.mostrarMensajeInformativo(this, "En el <b>MODO RECUPERACIÓN</b> se continuará la timba anterior desde donde se paró:\n\n1) Es <b>OBLIGATORIO</b> que los jugadores antiguos usen los <b>MISMOS NICKS</b>.\n\n2) Para poder continuar desde el <b>PUNTO EXACTO</b> de la mano es <b>OBLIGATORIO</b> que se conecten <b>TODOS</b> los jugadores antiguos. Si esto no fuera posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba <b>jugadores nuevos</b> (estarán la primera mano de espectadores).", "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(getClass().getResource("/images/action/robot.png")));
                 }
             } else {
 

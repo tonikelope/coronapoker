@@ -55,6 +55,10 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         return chat.isVisible();
     }
 
+    public JLabel getMenu() {
+        return menu;
+    }
+
     /**
      * Creates new form ChatImageTapetePanel
      */

@@ -290,6 +290,8 @@ public final class FastChatDialog extends JDialog {
 
             if (auto_close) {
                 setVisible(false);
+                GameFrame.getInstance().getTapete().getFastbuttons().setEnabled(true);
+                GameFrame.getInstance().getTapete().getFastbuttons().getMenu().setVisible(true);
             }
         }
     }//GEN-LAST:event_chat_boxActionPerformed
@@ -300,6 +302,9 @@ public final class FastChatDialog extends JDialog {
         if (evt.getKeyChar() == 'º') {
             if (!evt.isControlDown()) {
                 setVisible(false);
+                GameFrame.getInstance().getTapete().getFastbuttons().setEnabled(true);
+                GameFrame.getInstance().getTapete().getFastbuttons().getMenu().setVisible(true);
+
             } else {
                 try {
                     chat_box.getDocument().insertString(chat_box.getCaretPosition(), "º", null);

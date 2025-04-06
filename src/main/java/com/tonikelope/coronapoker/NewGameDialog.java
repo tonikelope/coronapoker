@@ -1223,8 +1223,6 @@ public class NewGameDialog extends JDialog {
                     Helpers.PROPERTIES.setProperty("avatar", "");
                 }
 
-                Helpers.PROPERTIES.setProperty("radar", String.valueOf(radar_checkbox.isSelected()));
-
                 Helpers.savePropertiesFile();
 
                 GameFrame.RADAR_AVAILABLE = radar_checkbox.isSelected();

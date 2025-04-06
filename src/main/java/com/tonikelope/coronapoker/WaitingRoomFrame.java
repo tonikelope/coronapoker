@@ -1514,7 +1514,8 @@ public class WaitingRoomFrame extends JFrame {
 
                             if (GameFrame.RADAR_AVAILABLE) {
                                 Helpers.threadRun(() -> {
-                                    Helpers.mostrarMensajeInformativo(THIS, "El servidor ha activado el RADAR anti-trampas para esta partida.\nCualquier jugador podrá solicitar un informe anti-trampas de otro jugador durante la partida,\nel cual incluye una captura de pantalla del jugador (sin mostrar sus cartas) así como su listado de procesos del sistema.", new ImageIcon(getClass().getResource("/images/shield.png")));
+                                    Helpers.mostrarMensajeInformativo(this, "El servidor ha activado el RADAR anti-trampas para esta partida. Cualquier jugador podrá solicitar un informe anti-trampas de otro jugador durante la partida, el cual incluye una captura de pantalla del jugador (sin mostrar sus cartas) así como su listado de procesos del sistema.", "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(Init.class.getResource("/images/shield.png")));
+
                                 });
                             }
 

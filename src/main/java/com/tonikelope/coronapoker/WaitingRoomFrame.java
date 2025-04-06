@@ -255,23 +255,6 @@ public class WaitingRoomFrame extends JFrame {
         return partida_empezando;
     }
 
-    public String getVideo_chat_link() {
-        return video_chat_link;
-    }
-
-    public void setVideo_chat_link(String video_chat_link) {
-
-        if (!server && (this.video_chat_link == null || !this.video_chat_link.equals(video_chat_link))) {
-            Audio.playWavResource("misc/chat_alert.wav");
-        }
-
-        this.video_chat_link = video_chat_link;
-
-        Helpers.GUIRun(() -> {
-            video_chat_button.setEnabled(true);
-        });
-    }
-
     public boolean isUnsecure_server() {
         return unsecure_server;
     }
@@ -398,14 +381,8 @@ public class WaitingRoomFrame extends JFrame {
                 editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
             } catch (Exception ex) {
             }
-            Helpers.threadRun(() -> {
-                Helpers.GUIRun(() -> {
-                    chat.revalidate();
-                    chat.repaint();
-                    chat_scroll.revalidate();
-                    chat_scroll.repaint();
-                });
-            });
+            revalidate();
+            repaint();
         });
 
     }
@@ -797,7 +774,6 @@ public class WaitingRoomFrame extends JFrame {
             conectados.repaint();
 
         } else {
-            video_chat_button.setEnabled(false);
             empezar_timba.setVisible(false);
             new_bot_button.setVisible(false);
             kick_user.setVisible(false);
@@ -1524,19 +1500,11 @@ public class WaitingRoomFrame extends JFrame {
                             } catch (Exception ex) {
                                 server_avatar = null;
                             }   //Leemos el contenido del chat
+
                             recibido = readCommandFromServer();
                             if (!"*".equals(recibido)) {
 
                                 chat_text = new StringBuffer(new String(Base64.decodeBase64(recibido), "UTF-8"));
-                            }
-
-                            //Leemos el enlace del videochat (si existe)
-                            recibido = readCommandFromServer();
-                            if (!"*".equals(recibido)) {
-                                String video_chat_link1 = new String(Base64.decodeBase64(recibido), "UTF-8");
-                                if (video_chat_link1.toLowerCase().startsWith("http")) {
-                                    setVideo_chat_link(video_chat_link1);
-                                }
                             }
 
                             //Leemos si el RADAR está activado
@@ -1786,10 +1754,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     dialog.setVisible(true);
                                                                 });
                                                                 break;
-                                                            case "VIDEOCHAT":
-                                                                setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
 
-                                                                break;
                                                             case "PAUSE":
                                                                 Helpers.threadRun(() -> {
                                                                     synchronized (GameFrame.getInstance().getLock_pause()) {
@@ -1882,9 +1847,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     }
                                                                 });
                                                                 break;
-                                                            case "VIDEOCHAT":
-                                                                setVideo_chat_link(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-                                                                break;
+
                                                             case "DELUSER":
                                                                 borrarParticipante(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
                                                                 break;
@@ -2302,8 +2265,7 @@ public class WaitingRoomFrame extends JFrame {
                         writeCommandFromServer(Helpers.encryptCommand(Base64.encodeBase64String(local_nick.getBytes("UTF-8")) + (avatar_bytes != null ? "#" + Base64.encodeBase64String(avatar_bytes) : ""), aes_key, hmac_key), client_socket);
                         //Mandamos el contenido del chat
                         writeCommandFromServer(Helpers.encryptCommand(chat_text.toString().isEmpty() ? "*" : Base64.encodeBase64String(chat_text.toString().getBytes("UTF-8")), aes_key, hmac_key), client_socket);
-                        //Mandamos el link del videochat
-                        writeCommandFromServer(Helpers.encryptCommand(getVideo_chat_link() != null ? Base64.encodeBase64String(getVideo_chat_link().getBytes("UTF-8")) : "*", aes_key, hmac_key), client_socket);
+
                         //Mandamos si el RADAR está activado
                         writeCommandFromServer(Helpers.encryptCommand(String.valueOf(GameFrame.RADAR_AVAILABLE), aes_key, hmac_key), client_socket);
 
@@ -2585,6 +2547,10 @@ public class WaitingRoomFrame extends JFrame {
             Helpers.GUIRun(() -> {
                 tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
 
+                tot_conectados.revalidate();
+
+                tot_conectados.repaint();
+
                 DefaultListModel model = (DefaultListModel) conectados.getModel();
 
                 ParticipantsListLabel rem_element = null;
@@ -2650,6 +2616,10 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.GUIRun(() -> {
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
 
+            tot_conectados.revalidate();
+
+            tot_conectados.repaint();
+
             ParticipantsListLabel label = new ParticipantsListLabel();
 
             label.setText(nick);
@@ -2673,6 +2643,9 @@ public class WaitingRoomFrame extends JFrame {
                 chatHTMLAppendNewUser(nick);
 
             }
+
+            revalidate();
+            repaint();
         });
 
     }
@@ -2701,7 +2674,6 @@ public class WaitingRoomFrame extends JFrame {
         new_bot_button = new javax.swing.JButton();
         game_info_blinds = new javax.swing.JLabel();
         game_info_hands = new javax.swing.JLabel();
-        video_chat_button = new javax.swing.JButton();
         logo = new javax.swing.JLabel();
         game_info_buyin = new javax.swing.JLabel();
         jPanel3 = new javax.swing.JPanel();
@@ -2871,20 +2843,6 @@ public class WaitingRoomFrame extends JFrame {
             }
         });
 
-        video_chat_button.setBackground(new java.awt.Color(102, 153, 255));
-        video_chat_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        video_chat_button.setForeground(new java.awt.Color(255, 255, 255));
-        video_chat_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/duo.png"))); // NOI18N
-        video_chat_button.setText("Videollamada");
-        video_chat_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        video_chat_button.setDoubleBuffered(true);
-        video_chat_button.setFocusable(false);
-        video_chat_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                video_chat_buttonActionPerformed(evt);
-            }
-        });
-
         logo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         logo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_15.png"))); // NOI18N
         logo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -2967,7 +2925,6 @@ public class WaitingRoomFrame extends JFrame {
                 .addGap(0, 0, 0)
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(video_chat_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(new_bot_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(jPanel2Layout.createSequentialGroup()
@@ -2990,9 +2947,7 @@ public class WaitingRoomFrame extends JFrame {
                     .addComponent(game_info_hands, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(game_info_buyin))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(new_bot_button, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(video_chat_button)
+                .addComponent(new_bot_button, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, 0))
         );
 
@@ -3612,51 +3567,6 @@ public class WaitingRoomFrame extends JFrame {
         }
     }//GEN-LAST:event_new_bot_buttonActionPerformed
 
-    private void video_chat_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_video_chat_buttonActionPerformed
-        // TODO add your handling code here:
-
-        boolean auto_f = protect_focus;
-
-        protect_focus = false;
-
-        QRChatDialog chat_dialog = new QRChatDialog(this, true, this.getVideo_chat_link(), server);
-
-        chat_dialog.setLocationRelativeTo(this);
-
-        chat_dialog.setVisible(true);
-
-        protect_focus = auto_f;
-
-        if (server && !chat_dialog.isCancel() && chat_dialog.getLink() != null) {
-
-            this.setVideo_chat_link(chat_dialog.getLink());
-
-            try {
-
-                if (isPartida_empezada()) {
-
-                    GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("VIDEOCHAT#" + Base64.encodeBase64String(this.getVideo_chat_link().getBytes("UTF-8")), null);
-
-                } else {
-
-                    broadcastASYNCGAMECommandFromServer("VIDEOCHAT#" + Base64.encodeBase64String(this.getVideo_chat_link().getBytes("UTF-8")), null);
-
-                }
-
-            } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-            String chat_msg = Translator.translate("SE HA ACTUALIZADO EL ENLACE DEL VIDEOCHAT");
-
-            chatHTMLAppend(local_nick + ":(" + Helpers.getLocalTimeString() + ") " + chat_msg + "\n");
-
-            enviarMensajeChat(local_nick, chat_msg);
-        }
-
-        chat_box.requestFocus();
-    }//GEN-LAST:event_video_chat_buttonActionPerformed
-
     private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_pass_iconMouseClicked
         // TODO add your handling code here:
 
@@ -4006,6 +3916,5 @@ public class WaitingRoomFrame extends JFrame {
     private javax.swing.JLabel status1;
     private javax.swing.JLabel tot_conectados;
     private javax.swing.JLabel tts_warning;
-    private javax.swing.JButton video_chat_button;
     // End of variables declaration//GEN-END:variables
 }

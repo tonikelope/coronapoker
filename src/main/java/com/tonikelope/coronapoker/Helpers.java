@@ -272,7 +272,6 @@ public class Helpers {
     public static volatile ImageIcon IMAGEN_DEALER = null;
     public static volatile ImageIcon IMAGEN_DEAD_DEALER = null;
 
-    public volatile static ClipboardSpy CLIPBOARD_SPY = new ClipboardSpy();
     public volatile static int DECK_RANDOM_GENERATOR = Helpers.TRNG_CSPRNG;
     public volatile static String RANDOM_ORG_APIKEY = "";
     public volatile static SecureRandom CSPRNG_GENERATOR = null;

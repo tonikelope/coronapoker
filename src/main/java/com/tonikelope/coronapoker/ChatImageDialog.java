@@ -872,7 +872,7 @@ public class ChatImageDialog extends JDialog {
 
     private void image_urlKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_image_urlKeyPressed
         // TODO add your handling code here:
-        if (evt.getKeyCode() == KeyEvent.VK_1 && evt.isControlDown()) {
+        if (evt.getKeyCode() == KeyEvent.VK_ESCAPE || (evt.getKeyCode() == KeyEvent.VK_1 && evt.isControlDown())) {
 
             if (!exiting) {
                 exiting = true;

@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"¿SEGURO QUE TE QUIERES TIRAR?", "SURE YOU WANT FOLD?"},
             {"¿SALIR DE LA TIMBA?", "EXIT GAME?"},
             {"Llegas TARDE. La timba ya ha empezado.\n(Habla con el administrador por otro canal para que te permita entrar).", "You are LATE. The game has already started.\n(Talk to the administrator through another channel to be allowed to enter)."},
             {"QUIERE ENTRAR EN LA TIMBA", "WANTS TO GET IN THE GAME"},
@@ -414,7 +415,7 @@ public class Translator {
             {"MODO CASINO [TRNG]", "CASINO MODE [TRNG]"},
             {"MODO NORMAL [CSPRNG]", "NORMAL MODE [CSPRNG]"},
             {"LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)", "GAME IS OVER (NO PLAYERS LEFT)"},
-            {"En el MODO RECUPERACIÓN se continuará la timba anterior desde donde se paró:\n\n1) Es OBLIGATORIO que los jugadores antiguos usen los MISMOS NICKS.\n\n2) Para poder continuar desde el PUNTO EXACTO (con la mismas cartas) es OBLIGATORIO que se conecten TODOS los jugadores antiguos. Si esto no fuera posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba jugadores nuevos (estarán la primera mano de espectadores).", "In the RECOVERY MODE the previous game will be continued from where it was stopped:\n\n1) It is MANDATORY that the old players use the SAME NICKS.\n\n2) In order to continue from the EXACT POINT (with the same cards) it is MANDATORY that ALL the old players connect. If this is not possible, the hand that was in progress when the game was interrupted will be lost.\n\n3) New players are allowed to join the game (they will be the first hand as spectators)."},
+            {"En el <b>MODO RECUPERACIÓN</b> se continuará la timba anterior desde donde se paró:\n\n1) Es <b>OBLIGATORIO</b> que los jugadores antiguos usen los <b>MISMOS NICKS</b>.\n\n2) Para poder continuar desde el <b>PUNTO EXACTO</b> de la mano es <b>OBLIGATORIO</b> que se conecten <b>TODOS</b> los jugadores antiguos. Si esto no fuera posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba <b>jugadores nuevos</b> (estarán la primera mano de espectadores).", "In the <b>RECOVERY MODE</b> the previous game will be continued from where it was stopped:\n\n1) It is <b>MANDATORY</b> that the old players use the <b>SAME NICKS</b>.\n\n2) In order to continue from the <b>EXACT POINT</b> (with the same cards) it is <b>MANDATORY</b> that <b>ALL</b> the old players connect. If this is not possible, the hand that was in progress when the game was interrupted will be lost.\n\n3) <b>New players</b> are allowed to join the game (they will be the first hand as spectators)."},
             {"¡A LA PUTA CALLE!", "GET OUT OF HERE!"},
             {"EL SERVIDOR HA TERMINADO LA TIMBA", "THE SERVER HAS FINISHED THE GAME"},
             {"A ver, se acabó el tiempo para llorar. ¿TE REENGANCHAS O QUÉ?", "Time for crying is over. YOU REBUY OR WHAT?"},

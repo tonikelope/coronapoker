@@ -91,9 +91,12 @@
                       <Component id="url_panel" alignment="1" max="32767" attributes="0"/>
                       <Component id="config_partida_panel" alignment="0" max="32767" attributes="0"/>
                       <Component id="nick_pass_panel" alignment="0" max="32767" attributes="0"/>
-                      <Component id="vamos" alignment="1" max="32767" attributes="0"/>
                       <Component id="recover_panel" max="32767" attributes="0"/>
-                      <Component id="cancel_button" alignment="1" max="32767" attributes="0"/>
+                      <Group type="102" attributes="0">
+                          <Component id="vamos" pref="400" max="32767" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
+                          <Component id="cancel_button" pref="400" max="32767" attributes="0"/>
+                      </Group>
                   </Group>
                 </DimensionLayout>
                 <DimensionLayout dim="1">
@@ -108,9 +111,10 @@
                           <EmptySpace type="separate" max="32767" attributes="0"/>
                           <Component id="nick_pass_panel" min="-2" max="-2" attributes="0"/>
                           <EmptySpace type="unrelated" max="32767" attributes="0"/>
-                          <Component id="vamos" min="-2" pref="100" max="-2" attributes="0"/>
-                          <EmptySpace max="-2" attributes="0"/>
-                          <Component id="cancel_button" min="-2" max="-2" attributes="0"/>
+                          <Group type="103" groupAlignment="0" max="-2" attributes="0">
+                              <Component id="vamos" max="32767" attributes="0"/>
+                              <Component id="cancel_button" max="32767" attributes="0"/>
+                          </Group>
                           <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                       </Group>
                   </Group>
@@ -147,7 +151,7 @@
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="jLabel5" min="-2" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
-                              <Component id="server_ip_textfield" max="32767" attributes="0"/>
+                              <Component id="server_ip_textfield" pref="512" max="32767" attributes="0"/>
                               <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                               <Component id="server_port_puntos" min="-2" max="-2" attributes="0"/>
                               <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
@@ -984,7 +988,7 @@
                       <Color blue="0" green="0" red="cc" type="rgb"/>
                     </Property>
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="36" style="1"/>
+                      <Font name="Dialog" size="48" style="1"/>
                     </Property>
                     <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
                       <Color blue="ff" green="ff" red="ff" type="rgb"/>

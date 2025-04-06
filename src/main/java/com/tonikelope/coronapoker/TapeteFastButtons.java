@@ -67,6 +67,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
             Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H));
             ((JLabel) b[0]).setToolTipText(Translator.translate((String) b[2]));
         }
+
+        Helpers.setScaledIconLabel(menu, getClass().getResource("/images/fast_panel/menu.png"), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H));
+
         pref_size = getPreferredSize();
         hideButtons();
         setComListeners();
@@ -116,6 +119,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
             for (Object[] b : botones) {
                 ((Component) b[0]).setVisible(false);
             }
+            menu.setVisible(true);
         });
     }
 
@@ -124,21 +128,24 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         if (zoom_factor != (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)) {
             zoomIcons(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         }
+        Helpers.GUIRun(() -> {
+            for (Object[] b : botones) {
 
-        for (Object[] b : botones) {
-
-            if (((Component) b[0]) == image) {
-                ((Component) b[0]).setVisible(GameFrame.CHAT_IMAGES_INGAME);
-            } else {
-                ((Component) b[0]).setVisible(true);
+                if (((Component) b[0]) == image) {
+                    ((Component) b[0]).setVisible(GameFrame.CHAT_IMAGES_INGAME);
+                } else {
+                    ((Component) b[0]).setVisible(true);
+                }
             }
-        }
 
-        if (getPref_size() != getPreferredSize()) {
-            pref_size = getPreferredSize();
-            setSize(pref_size);
-            setLocation(0, (int) (GameFrame.getInstance().getTapete().getHeight() - getSize().getHeight()));
-        }
+            if (getPref_size() != getPreferredSize()) {
+                pref_size = getPreferredSize();
+                setSize(pref_size);
+                setLocation(0, (int) (GameFrame.getInstance().getTapete().getHeight() - getSize().getHeight()));
+            }
+
+            menu.setVisible(false);
+        });
 
     }
 
@@ -151,6 +158,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        menu = new javax.swing.JLabel();
         chat = new javax.swing.JLabel();
         image = new javax.swing.JLabel();
         rebuy = new javax.swing.JLabel();
@@ -172,6 +180,11 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
             }
         });
         setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 10, 5));
+
+        menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/menu.png"))); // NOI18N
+        menu.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        menu.setDoubleBuffered(true);
+        add(menu);
 
         chat.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/chat.png"))); // NOI18N
         chat.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -373,6 +386,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     private javax.swing.JLabel fullscreen;
     private javax.swing.JLabel image;
     private javax.swing.JLabel log;
+    private javax.swing.JLabel menu;
     private javax.swing.JLabel rebuy;
     private javax.swing.JLabel zoom_in;
     private javax.swing.JLabel zoom_out;

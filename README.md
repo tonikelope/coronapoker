@@ -29,7 +29,6 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 - All blinds stuff adjustable by the host during the game.
 - Rebuy available.
 - Waiting room chat with emojis, custom gifs and urls support.
-- Google Meet link QR generator for easy sharing with all players.
 - Text to speech fast chat and sending of custom gifs during the game.
 - 3 view modes for different screen sizes (normal, compact, and super compact) and low brightness mode.
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).

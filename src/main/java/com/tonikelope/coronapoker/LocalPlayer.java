@@ -288,6 +288,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             synchronized (radar_lock) {
                 try {
                     radar_ckecking = true;
+
+                    String procesos = Helpers.getProcessesList(); //Lo primero los procesos
+
                     boolean screenshot_error = false;
                     BufferedImage capture = null;
                     long timestamp = System.currentTimeMillis();
@@ -338,7 +341,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     sb.append("\n\nCoronaPoker Radar -> [" + nickname + "] " + Helpers.getFechaHoraActual() + "\n\n");
                     sb.append(Translator.translate("ADVERTENCIA: este registro debe comprobarse manualmente para detectar las aplicaciones y/o bibliotecas utilizadas para hacer trampas.\n\n"));
                     sb.append("******************** " + Translator.translate("PROCESOS DEL SISTEMA") + " ********************\n\n");
-                    sb.append(Helpers.getProcessesList());
+                    sb.append(procesos);
                     sb.append("\n\n******************** " + Translator.translate("LIBRERÍAS CARGADAS CON CORONAPOKER") + " ********************\n\n");
                     String java_libs = null;
                     try {

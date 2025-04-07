@@ -88,7 +88,7 @@ public class InitPanel extends javax.swing.JLayeredPane {
 
                 if (GameFrame.COLOR_TAPETE.endsWith("*")) {
                     invalidate = true;
-                    invalidate();
+
                     revalidate();
                     repaint();
 
@@ -102,7 +102,7 @@ public class InitPanel extends javax.swing.JLayeredPane {
         this.invalidate = true;
 
         Helpers.GUIRun(() -> {
-            invalidate();
+
             revalidate();
             repaint();
         });
@@ -147,7 +147,7 @@ public class InitPanel extends javax.swing.JLayeredPane {
                             tp = new TexturePaint(tile, tr);
                             invalidate = false;
                             Helpers.GUIRun(() -> {
-                                invalidate();
+
                                 revalidate();
                                 repaint();
                             });

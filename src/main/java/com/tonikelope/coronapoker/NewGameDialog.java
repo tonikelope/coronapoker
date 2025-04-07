@@ -397,7 +397,6 @@ public class NewGameDialog extends JDialog {
             config_partida_panel.setVisible(false);
         }
 
-        invalidate();
         revalidate();
         repaint();
 

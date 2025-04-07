@@ -533,7 +533,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void refresh() {
         Helpers.GUIRun(() -> {
-            invalidate();
+
             revalidate();
             repaint();
 
@@ -1476,7 +1476,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.GUIRun(() -> {
             tapete.getCommunityCards().getBet_label().setVisible(false);
-            tapete.getCommunityCards().getBet_label().invalidate();
+
             tapete.getCommunityCards().getBet_label().revalidate();
             tapete.getCommunityCards().getBet_label().repaint();
         });

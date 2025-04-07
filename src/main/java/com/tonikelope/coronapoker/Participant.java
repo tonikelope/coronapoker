@@ -146,7 +146,7 @@ public class Participant implements Runnable {
             this.async_wait = async_w;
 
             Helpers.GUIRun(() -> {
-                WaitingRoomFrame.getInstance().getConectados().invalidate();
+
                 WaitingRoomFrame.getInstance().getConectados().revalidate();
                 WaitingRoomFrame.getInstance().getConectados().repaint();
             });

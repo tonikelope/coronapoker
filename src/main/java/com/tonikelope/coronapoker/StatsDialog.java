@@ -2082,7 +2082,7 @@ public class StatsDialog extends JDialog {
 
         if (game_textarea_scrollpane.isVisible() && last_button == 1) {
             game_textarea_scrollpane.setVisible(false);
-            invalidate();
+
             revalidate();
             repaint();
         } else {
@@ -2184,7 +2184,7 @@ public class StatsDialog extends JDialog {
         // TODO add your handling code here:
         if (game_textarea_scrollpane.isVisible() && last_button == 2) {
             game_textarea_scrollpane.setVisible(false);
-            invalidate();
+
             revalidate();
             repaint();
         } else {

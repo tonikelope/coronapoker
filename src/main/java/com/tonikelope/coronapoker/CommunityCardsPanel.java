@@ -192,7 +192,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 Component mySpinnerEditor = hand_limit_spinner.getEditor();
                 JFormattedTextField jftf = ((JSpinner.DefaultEditor) mySpinnerEditor).getTextField();
                 jftf.setColumns(String.valueOf((int) hand_limit_spinner.getValue()).length());
-                invalidate();
+
                 revalidate();
                 repaint();
 
@@ -241,7 +241,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void setHandBackground(Color color) {
         Helpers.GUIRun(() -> {
             getHand_panel().setBackground(color);
-            getHand_panel().invalidate();
+
             getHand_panel().revalidate();
             getHand_panel().repaint();
         });
@@ -283,7 +283,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
             GameFrame.getInstance().getLast_hand_menu().setSelected(false);
             Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(false);
-            invalidate();
+
             revalidate();
             repaint();
         });
@@ -997,7 +997,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 } else {
                     icon_zoom_timer.start();
                 }
-                invalidate();
+
                 revalidate();
                 repaint();
             });

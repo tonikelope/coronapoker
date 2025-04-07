@@ -484,7 +484,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                         }
 
                         setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                        invalidate();
+
                         revalidate();
                         repaint();
                     });
@@ -505,7 +505,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                         }
 
                         setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                        invalidate();
+
                         revalidate();
                         repaint();
                     });

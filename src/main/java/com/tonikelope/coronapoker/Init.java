@@ -286,7 +286,7 @@ public class Init extends JFrame {
                     quote.setSize((int) getWidth(), 150);
                     quote.setLocation(0, Init.VENTANA_INICIO.getHeight() - 125);
                     quote.setVisible(true);
-                    quote.invalidate();
+
                     quote.revalidate();
                     quote.repaint();
                 }
@@ -478,8 +478,6 @@ public class Init extends JFrame {
         Helpers.translateComponents(this, false);
 
         Helpers.setScaledIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
-
-        invalidate();
 
         revalidate();
 

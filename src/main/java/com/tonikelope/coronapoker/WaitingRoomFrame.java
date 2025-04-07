@@ -3322,7 +3322,7 @@ public class WaitingRoomFrame extends JFrame {
 
             }
 
-            boolean vamos = ("".equals(missing_players) || mostrarMensajeInformativoSINO(this, missing_players + Translator.translate("Hay jugadores de la timba anterior que no se han vuelto a conectar.\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n¿EMPEZAMOS YA?")) == 0);
+            boolean vamos = ("".equals(missing_players) || mostrarMensajeInformativoSINO(this, missing_players + Translator.translate("<b>HAY JUGADORES QUE TODAVÍA NO HAN RECONECTADO.</b>\n\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n<b>¿EMPEZAMOS YA?</b>"), new ImageIcon(Init.class.getResource("/images/action/timeout.png"))) == 0);
 
             if (vamos) {
 

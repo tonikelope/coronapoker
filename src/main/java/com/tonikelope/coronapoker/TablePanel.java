@@ -135,7 +135,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     }
                     if (GameFrame.COLOR_TAPETE.endsWith("*")) {
                         invalidate = true;
-                        invalidate();
+
                         revalidate();
                         repaint();
 
@@ -181,7 +181,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 getCentral_label().setIcon(icon, frames);
                 getCentral_label().addAudio(audio, audio_frame_start, audio_frame_end);
                 getCentral_label().setVisible(true);
-                getCentral_label().invalidate();
+
                 getCentral_label().revalidate();
                 getCentral_label().repaint();
             }
@@ -241,7 +241,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         this.invalidate = true;
 
         Helpers.GUIRun(() -> {
-            invalidate();
+
             revalidate();
             repaint();
         });
@@ -286,7 +286,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                             tp = new TexturePaint(tile, tr);
                             invalidate = false;
                             Helpers.GUIRun(() -> {
-                                invalidate();
+
                                 revalidate();
                                 repaint();
                             });

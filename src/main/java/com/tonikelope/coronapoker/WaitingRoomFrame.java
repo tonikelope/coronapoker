@@ -381,7 +381,7 @@ public class WaitingRoomFrame extends JFrame {
                 editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
             } catch (Exception ex) {
             }
-            invalidate();
+
             revalidate();
             repaint();
         });
@@ -771,7 +771,7 @@ public class WaitingRoomFrame extends JFrame {
 
             listModel.addElement(label);
             conectados.setModel(listModel);
-            conectados.invalidate();
+
             conectados.revalidate();
             conectados.repaint();
 
@@ -785,7 +785,7 @@ public class WaitingRoomFrame extends JFrame {
             max_min_label.setEnabled(false);
             barra.setVisible(true);
             conectados.setModel(listModel);
-            conectados.invalidate();
+
             conectados.revalidate();
             conectados.repaint();
             game_info_buyin.setToolTipText(null);
@@ -831,7 +831,7 @@ public class WaitingRoomFrame extends JFrame {
         } else {
             cliente();
         }
-        invalidate();
+
         revalidate();
         repaint();
     }
@@ -2280,7 +2280,7 @@ public class WaitingRoomFrame extends JFrame {
                                     game_info_buyin.setEnabled(false);
                                     game_info_blinds.setEnabled(false);
                                     game_info_hands.setEnabled(false);
-                                    invalidate();
+
                                     revalidate();
                                     repaint();
                                 });
@@ -2332,7 +2332,7 @@ public class WaitingRoomFrame extends JFrame {
                                     game_info_buyin.setEnabled(true);
                                     game_info_blinds.setEnabled(true);
                                     game_info_hands.setEnabled(true);
-                                    invalidate();
+
                                     revalidate();
                                     repaint();
                                 });
@@ -2434,10 +2434,10 @@ public class WaitingRoomFrame extends JFrame {
                     chat.setText(html);
                     CoronaHTMLEditorKit.USE_GIF_CACHE = false;
                     chat_box_panel.setVisible(true);
-                    chat.invalidate();
+
                     chat.revalidate();
                     chat.repaint();
-                    chat_scroll.invalidate();
+
                     chat_scroll.revalidate();
                     chat_scroll.repaint();
                 });
@@ -2555,8 +2555,6 @@ public class WaitingRoomFrame extends JFrame {
             Helpers.GUIRun(() -> {
                 tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
 
-                tot_conectados.invalidate();
-
                 tot_conectados.revalidate();
 
                 tot_conectados.repaint();
@@ -2575,8 +2573,6 @@ public class WaitingRoomFrame extends JFrame {
 
                 model.removeElement(rem_element);
 
-                conectados.invalidate();
-
                 conectados.revalidate();
 
                 conectados.repaint();
@@ -2592,8 +2588,6 @@ public class WaitingRoomFrame extends JFrame {
                 }
 
                 chatHTMLAppendExitUser(nick, avatar_src);
-
-                invalidate();
 
                 revalidate();
                 repaint();
@@ -2630,8 +2624,6 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.GUIRun(() -> {
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
 
-            tot_conectados.invalidate();
-
             tot_conectados.revalidate();
 
             tot_conectados.repaint();
@@ -2659,7 +2651,7 @@ public class WaitingRoomFrame extends JFrame {
                 chatHTMLAppendNewUser(nick);
 
             }
-            invalidate();
+
             revalidate();
             repaint();
         });
@@ -3412,7 +3404,7 @@ public class WaitingRoomFrame extends JFrame {
 
             chat_box.requestFocus();
         }
-        invalidate();
+
         revalidate();
         repaint();
 
@@ -3572,7 +3564,7 @@ public class WaitingRoomFrame extends JFrame {
                             kick_user.setEnabled(true);
                             new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                             chat_box.requestFocus();
-                            invalidate();
+
                             revalidate();
                             repaint();
                         });
@@ -3689,7 +3681,7 @@ public class WaitingRoomFrame extends JFrame {
         emoji_scroll_panel.setVisible(!emoji_scroll_panel.isVisible());
 
         chat_box.requestFocus();
-        invalidate();
+
         revalidate();
 
         repaint();
@@ -3717,7 +3709,7 @@ public class WaitingRoomFrame extends JFrame {
             if (emoji_scroll_panel.isVisible()) {
 
                 emoji_scroll_panel.setVisible(false);
-                invalidate();
+
                 revalidate();
 
                 repaint();
@@ -3797,7 +3789,7 @@ public class WaitingRoomFrame extends JFrame {
         main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
 
         chat_box.requestFocus();
-        invalidate();
+
         revalidate();
 
         repaint();
@@ -3888,10 +3880,10 @@ public class WaitingRoomFrame extends JFrame {
 
     private void chatCaretUpdate(javax.swing.event.CaretEvent evt) {//GEN-FIRST:event_chatCaretUpdate
         // TODO add your handling code here:
-        chat.invalidate();
+
         chat.revalidate();
         chat.repaint();
-        chat_scroll.invalidate();
+
         chat_scroll.revalidate();
         chat_scroll.repaint();
     }//GEN-LAST:event_chatCaretUpdate

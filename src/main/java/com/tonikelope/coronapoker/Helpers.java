@@ -375,7 +375,7 @@ public class Helpers {
             }
 
         Helpers.GUIRun(() -> {
-            spinner.invalidate();
+
             spinner.revalidate();
             spinner.repaint();
         });
@@ -417,7 +417,7 @@ public class Helpers {
 
     public static void forceRepaintComponentNow(JComponent c) {
         Helpers.GUIRun(() -> {
-            c.invalidate();
+
             c.revalidate();
             c.repaint();
         });
@@ -1298,7 +1298,7 @@ public class Helpers {
 
                     } while (hbar.isVisible() && new_width < max_width);
                 }
-                window.invalidate();
+
                 window.revalidate();
                 window.repaint();
 
@@ -3197,9 +3197,8 @@ public class Helpers {
                         Font new_font = old_font.deriveFont(old_font.getStyle(), Math.round(font_reference_size * zoom_factor));
 
                         component.setFont(new_font);
-                        component.invalidate();
-                        component.revalidate();
 
+                        component.revalidate();
                         component.repaint();
                     }
                 }
@@ -3287,7 +3286,7 @@ public class Helpers {
                             Font new_font = old_font.deriveFont(old_font.getStyle(), Math.round(Helpers.ORIGINAL_FONT_SIZE.get(component) * zoom_factor));
 
                             component.setFont(new_font);
-                            component.invalidate();
+
                             component.revalidate();
 
                             component.repaint();

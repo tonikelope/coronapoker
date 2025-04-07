@@ -426,7 +426,7 @@ public class Translator {
             {"¡CUIDADO! ERES EL ANFITRIÓN Y SI SALES SE TERMINARÁ LA TIMBA. ¿ESTÁS SEGURO?", "BEWARE! YOU'RE THE HOST AND IF YOU COME OUT THE GAME WILL BE OVER. ARE YOU SURE?"},
             {"¡CUIDADO! Si sales de la timba no podrás volver a entrar. ¿ESTÁS SEGURO?", "CAUTION! If you get out of the game you won't be able to get back in. ARE YOU SURE?"},
             {"Este usuario tiene problemas de conexión que bloquean la partida. ¿Quieres expulsarlo?", "This user has connection problems that block the game. Do you want to kick him/her out?"},
-            {"Hay jugadores de la timba anterior que no se han vuelto a conectar.\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n¿EMPEZAMOS YA?", "There are players from the previous game who have not reconnected.\n(If they do not connect, the last hand in progress cannot be retrieved.)\n\nSHALL WE START NOW?"},
+            {"<b>HAY JUGADORES QUE TODAVÍA NO HAN RECONECTADO.</b>\n\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n<b>¿EMPEZAMOS YA?</b>", "<b>THERE ARE PLAYERS WHO HAVE NOT RECONNECTED YET.</b>\n\n(If they do not connect, the last hand in progress cannot be recovered).\n\n<b>ARE WE STARTING NOW?</b>"},
             {"Te falta algún campo obligatorio por completar", "You are missing a required field"},
             {"Versión de CoronaPoker incorrecta", "Wrong CoronaPoker version"},
             {"Llegas TARDE. La partida ya ha empezado.", "You're LATE. The game has already started."},

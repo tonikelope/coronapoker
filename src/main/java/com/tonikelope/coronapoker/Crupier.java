@@ -6839,6 +6839,7 @@ public class Crupier implements Runnable {
 
                         Helpers.GUIRun(() -> {
                             GameFrame.getInstance().getBarra_tiempo().setValue(val);
+                            GameFrame.getInstance().refreshPlayersAndCommunity();
                         });
                     }
 
@@ -6846,12 +6847,11 @@ public class Crupier implements Runnable {
                     Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-
-            GameFrame.getInstance().refreshPlayersAndCommunity();
         }
 
         Helpers.GUIRun(() -> {
             GameFrame.getInstance().getBarra_tiempo().setValue(tiempo);
+            GameFrame.getInstance().refreshPlayersAndCommunity();
         });
 
         synchronized (lock_iwtsth) {

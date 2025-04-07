@@ -123,7 +123,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
             for (Object[] b : botones) {
                 ((Component) b[0]).setVisible(false);
             }
-            menu.setVisible(true);
+            if (isEnabled()) {
+                menu.setVisible(true);
+            }
         });
     }
 

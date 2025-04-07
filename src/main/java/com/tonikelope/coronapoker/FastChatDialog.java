@@ -154,6 +154,11 @@ public final class FastChatDialog extends JDialog {
         auto_close_checkbox = new javax.swing.JCheckBox();
 
         setUndecorated(true);
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentShown(java.awt.event.ComponentEvent evt) {
+                formComponentShown(evt);
+            }
+        });
 
         chat_panel.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -409,6 +414,12 @@ public final class FastChatDialog extends JDialog {
         // TODO add your handling code here:
         auto_close = auto_close_checkbox.isSelected();
     }//GEN-LAST:event_auto_close_checkboxActionPerformed
+
+    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
+        // TODO add your handling code here:
+        GameFrame.getInstance().getTapete().getFastbuttons().setEnabled(false);
+        GameFrame.getInstance().getTapete().getFastbuttons().getMenu().setVisible(false);
+    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JCheckBox auto_close_checkbox;

@@ -839,7 +839,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public void showFastChatDialog() {
-        Helpers.GUIRunAndWait(() -> {
+        Helpers.GUIRun(() -> {
             if (fastchat_dialog != null) {
 
                 FastChatDialog old_dialog = fastchat_dialog;
@@ -851,10 +851,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             } else {
                 fastchat_dialog = new FastChatDialog(this, false, null, true);
             }
-
-            GameFrame.getInstance().getTapete().getFastbuttons().getMenu().setVisible(false);
-
-            GameFrame.getInstance().getTapete().getFastbuttons().setEnabled(false);
 
             fastchat_dialog.setLocation(this.getX(), this.getY() + this.getHeight() - fastchat_dialog.getHeight());
 

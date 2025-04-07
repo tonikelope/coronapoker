@@ -155,6 +155,7 @@ public class ChatImageDialog extends JDialog {
                             label.setBorder(new EmptyBorder(10, 0, 10, 0));
                             label.setCursor(new Cursor(Cursor.HAND_CURSOR));
                             label.setIcon(new ImageIcon(getClass().getResource("/images/loading.gif")));
+                            label.invalidate();
                             label.revalidate();
                             label.repaint();
                             label.addFocusListener(new FocusListener() {
@@ -214,6 +215,7 @@ public class ChatImageDialog extends JDialog {
                                                         if (!THIS.exit) {
                                                             Helpers.GUIRunAndWait(() -> {
                                                                 THIS.historial_panel.remove(label);
+                                                                THIS.historial_panel.invalidate();
                                                                 THIS.historial_panel.revalidate();
                                                                 THIS.historial_panel.repaint();
 
@@ -254,6 +256,7 @@ public class ChatImageDialog extends JDialog {
                                                     if (!exit) {
                                                         Helpers.GUIRunAndWait(() -> {
                                                             THIS.historial_panel.remove(label);
+                                                            THIS.historial_panel.invalidate();
                                                             THIS.historial_panel.revalidate();
                                                             THIS.historial_panel.repaint();
 
@@ -278,6 +281,7 @@ public class ChatImageDialog extends JDialog {
                                 ((Helpers.WrapLayoutFocusTraversalPolicyGPT) THIS.historial_panel.getFocusTraversalPolicy()).addComponent(label);
 
                                 THIS.historial_panel.add(label);
+                                THIS.historial_panel.invalidate();
                                 THIS.historial_panel.revalidate();
                                 THIS.historial_panel.repaint();
                                 loadImage(label, h);
@@ -294,6 +298,7 @@ public class ChatImageDialog extends JDialog {
 
                 THIS.send_button.setEnabled(true);
                 THIS.clear_button.setEnabled(!HISTORIAL.isEmpty());
+                THIS.invalidate();
                 THIS.revalidate();
                 THIS.repaint();
             });
@@ -334,8 +339,10 @@ public class ChatImageDialog extends JDialog {
 
                             Helpers.GUIRun(() -> {
                                 label.setIcon(image);
+                                label.invalidate();
                                 label.revalidate();
                                 label.repaint();
+                                THIS.historial_panel.invalidate();
                                 THIS.historial_panel.revalidate();
                                 THIS.historial_panel.repaint();
                             });
@@ -356,6 +363,7 @@ public class ChatImageDialog extends JDialog {
                                     if (!exit) {
                                         Helpers.GUIRunAndWait(() -> {
                                             THIS.historial_panel.remove(label);
+                                            THIS.historial_panel.invalidate();
                                             THIS.historial_panel.revalidate();
                                             THIS.historial_panel.repaint();
                                         });
@@ -846,6 +854,8 @@ public class ChatImageDialog extends JDialog {
             historial_panel.removeAll();
 
             clear_button.setEnabled(false);
+
+            historial_panel.invalidate();
 
             historial_panel.revalidate();
 

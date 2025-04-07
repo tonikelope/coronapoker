@@ -70,8 +70,8 @@ public class ParticipantsListLabel extends JLabel implements ListCellRenderer {
                 this.setOpaque(false);
                 this.setForeground(Color.BLACK);
             }
-
-            this.revalidate();
+            invalidate();
+            revalidate();
         }
 
         return this;

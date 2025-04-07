@@ -228,6 +228,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             getChat_notify_label().setLocation(pos_x, pos_y);
 
+            getChat_notify_label().invalidate();
+
             getChat_notify_label().revalidate();
 
             getChat_notify_label().repaint();
@@ -262,6 +264,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             getChat_notify_label().setOpaque(false);
 
             getChat_notify_label().setLocation(pos_x, pos_y);
+
+            getChat_notify_label().invalidate();
 
             getChat_notify_label().revalidate();
 
@@ -359,6 +363,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                     getChat_notify_label().setLocation(pos_x, pos_y);
 
                                     getChat_notify_label().setVisible(true);
+
+                                    getChat_notify_label().invalidate();
 
                                     getChat_notify_label().revalidate();
 
@@ -2035,6 +2041,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
                 chip_label.setLocation(0, 0);
                 chip_label.setVisible(true);
+                chip_label.invalidate();
                 chip_label.revalidate();
                 chip_label.repaint();
 
@@ -2234,7 +2241,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             } else {
                 player_name.setIcon(null);
             }
-
+            player_name.invalidate();
             player_name.revalidate();
             player_name.repaint();
         });
@@ -2401,6 +2408,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.GUIRun(() -> {
                 player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/" + icon)).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
+                invalidate();
                 revalidate();
                 repaint();
             });

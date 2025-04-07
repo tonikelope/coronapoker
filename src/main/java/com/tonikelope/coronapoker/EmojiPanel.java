@@ -97,6 +97,7 @@ public class EmojiPanel extends javax.swing.JPanel {
                     for (int i = 1; i <= EMOJI_COUNT; i++) {
                         createEmoji(emoji_panel, i);
                     }
+                    invalidate();
 
                     revalidate();
 
@@ -115,6 +116,8 @@ public class EmojiPanel extends javax.swing.JPanel {
         for (Integer i : HISTORIAL) {
             createEmoji(history_panel, i);
         }
+
+        invalidate();
 
         revalidate();
 

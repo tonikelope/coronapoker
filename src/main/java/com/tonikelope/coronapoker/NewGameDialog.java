@@ -112,6 +112,8 @@ public class NewGameDialog extends JDialog {
 
         update = true;
 
+        titulo_ventana.setText("MODIFICAR OPCIONES DE LA TIMBA");
+
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
         url_panel.setVisible(false);
@@ -186,7 +188,6 @@ public class NewGameDialog extends JDialog {
         }
 
         Helpers.setTranslatedTitle(this, "Actualizar timba");
-        Helpers.updateFonts(this.vamos, Helpers.GUI_FONT, 0.75f);
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
 
@@ -247,6 +248,8 @@ public class NewGameDialog extends JDialog {
         super(parent, modal);
 
         initComponents();
+
+        titulo_ventana.setText(loc ? "CREAR TIMBA" : "UNIRME A TIMBA");
 
         partida_local = loc;
 
@@ -506,6 +509,7 @@ public class NewGameDialog extends JDialog {
         radar_label = new javax.swing.JLabel();
         radar_checkbox = new javax.swing.JCheckBox();
         cancel_button = new javax.swing.JButton();
+        titulo_ventana = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("CoronaPoker - Nueva timba");
@@ -527,7 +531,7 @@ public class NewGameDialog extends JDialog {
         scroll_panel.setDoubleBuffered(true);
 
         vamos.setBackground(new java.awt.Color(0, 130, 0));
-        vamos.setFont(new java.awt.Font("Dialog", 1, 48)); // NOI18N
+        vamos.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         vamos.setForeground(new java.awt.Color(255, 255, 255));
         vamos.setText("¡VAMOS!");
         vamos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1058,7 +1062,7 @@ public class NewGameDialog extends JDialog {
         );
 
         cancel_button.setBackground(new java.awt.Color(204, 0, 0));
-        cancel_button.setFont(new java.awt.Font("Dialog", 1, 48)); // NOI18N
+        cancel_button.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         cancel_button.setForeground(new java.awt.Color(255, 255, 255));
         cancel_button.setText("CANCELAR");
         cancel_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1102,6 +1106,14 @@ public class NewGameDialog extends JDialog {
 
         scroll_panel.setViewportView(main_panel);
 
+        titulo_ventana.setBackground(new java.awt.Color(102, 153, 255));
+        titulo_ventana.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
+        titulo_ventana.setForeground(new java.awt.Color(255, 255, 255));
+        titulo_ventana.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        titulo_ventana.setText("CREAR TIMBA");
+        titulo_ventana.setDoubleBuffered(true);
+        titulo_ventana.setOpaque(true);
+
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
@@ -1110,11 +1122,13 @@ public class NewGameDialog extends JDialog {
                 .addContainerGap()
                 .addComponent(scroll_panel)
                 .addContainerGap())
+            .addComponent(titulo_ventana, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
+                .addComponent(titulo_ventana)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(scroll_panel)
                 .addContainerGap())
         );
@@ -1123,11 +1137,13 @@ public class NewGameDialog extends JDialog {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         pack();
@@ -1707,6 +1723,7 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JTextField server_ip_textfield;
     private javax.swing.JLabel server_port_puntos;
     private javax.swing.JTextField server_port_textfield;
+    private javax.swing.JLabel titulo_ventana;
     private javax.swing.JCheckBox upnp_checkbox;
     private javax.swing.JPanel url_panel;
     private javax.swing.JButton vamos;

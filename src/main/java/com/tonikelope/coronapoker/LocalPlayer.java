@@ -1310,7 +1310,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         public void actionPerformed(ActionEvent ae) {
 
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
-                                GameFrame.getInstance().refreshPlayersAndCommunity();
 
                                 response_counter--;
 
@@ -1335,8 +1334,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                                     player_action.setForeground(Color.WHITE);
                                                 }
 
-                                                revalidate();
-                                                repaint();
                                             }
                                         });
                                         hurryup_timer.start();
@@ -1373,6 +1370,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     });
                                 }
 
+                                revalidate();
+                                repaint();
+
                             }
                         }
                     });
@@ -1401,8 +1401,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
 
                 }
-
-                Helpers.forceRepaintComponentNow(this);
 
                 GameFrame.getInstance().refreshPlayersAndCommunity();
 
@@ -1435,8 +1433,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             if (GameFrame.AUTO_ACTION_BUTTONS && getDecision() != Player.ALLIN && getDecision() != Player.FOLD) {
                 activarPreBotones();
             }
-
-            Helpers.forceRepaintComponentNow(this);
 
             GameFrame.getInstance().refreshPlayersAndCommunity();
         });

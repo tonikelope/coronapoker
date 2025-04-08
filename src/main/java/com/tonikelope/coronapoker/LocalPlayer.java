@@ -210,7 +210,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setActionBackground(Color color) {
 
-        Helpers.GUIRunAndWait(() -> {
+        Helpers.GUIRun(() -> {
             player_action_panel.setBackground(color);
             Helpers.forceRepaintComponentNow(player_action_panel);
         });
@@ -219,7 +219,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setPlayerPotBackground(Color color) {
 
-        Helpers.GUIRunAndWait(() -> {
+        Helpers.GUIRun(() -> {
             player_pot_panel.setBackground(color);
             Helpers.forceRepaintComponentNow(player_pot_panel);
         });
@@ -227,7 +227,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void setPlayerStackBackground(Color color) {
-        Helpers.GUIRunAndWait(() -> {
+        Helpers.GUIRun(() -> {
             player_stack_panel.setBackground(color);
             Helpers.forceRepaintComponentNow(player_stack_panel);
         });
@@ -2890,7 +2890,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         switch (dec) {
             case Player.CHECK:
 
-                Helpers.GUIRunAndWait(() -> {
+                Helpers.GUIRun(() -> {
                     if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
                         player_action.setText(ACTIONS_LABELS[dec - 1][1]);
                     } else {
@@ -2902,7 +2902,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 break;
             case Player.BET:
-                Helpers.GUIRunAndWait(() -> {
+                Helpers.GUIRun(() -> {
                     if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0) {
                         player_action.setText((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
 
@@ -2916,7 +2916,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 });
                 break;
             case Player.ALLIN:
-                Helpers.GUIRunAndWait(() -> {
+                Helpers.GUIRun(() -> {
                     setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
                     if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet + stack) < 0) {
@@ -2928,7 +2928,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 });
                 break;
             default:
-                Helpers.GUIRunAndWait(() -> {
+                Helpers.GUIRun(() -> {
                     setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
                     player_action.setText(ACTIONS_LABELS[dec - 1][0]);

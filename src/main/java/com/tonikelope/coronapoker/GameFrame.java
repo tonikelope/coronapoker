@@ -156,6 +156,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private static final Object ZOOM_LOCK = new Object();
 
     private static volatile GameFrame THIS = null;
+    public static volatile Boolean IWTSTH_RULE_RECOVER = null;
+    public static volatile Integer RABBIT_HUNTING_RECOVER = null;
 
     public static GameFrame getInstance() {
         return THIS;
@@ -234,15 +236,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.getInstance().toggleFullScreen();
         }
 
+        GameFrame.IWTSTH_RULE = false;
+
+        GameFrame.RABBIT_HUNTING = 0;
+
         THIS.setVisible(false);
 
         THIS.dispose();
 
         THIS = null;
-
-        GameFrame.IWTSTH_RULE = false;
-
-        GameFrame.RABBIT_HUNTING = 0;
     }
 
     public BrightnessLayerUI getCapa_brillo() {
@@ -2101,6 +2103,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         new Thread(() -> {
 
             boolean local = GameFrame.getInstance().isPartida_local();
+
+            if (GameFrame.getInstance().isPartida_local()) {
+                GameFrame.IWTSTH_RULE_RECOVER = recover ? GameFrame.IWTSTH_RULE : null;
+                GameFrame.RABBIT_HUNTING_RECOVER = recover ? GameFrame.RABBIT_HUNTING : null;
+            }
 
             Audio.stopAllCurrentLoopMp3Resource();
 

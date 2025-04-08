@@ -436,7 +436,7 @@ public class Init extends JFrame {
 
                     FORCE_CLOSE_DIALOG = true;
 
-                    if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "¿FORZAR CIERRE?") == 0) {
+                    if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "¿FORZAR CIERRE?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                         if (Helpers.OSValidator.isWindows()) {
                             Helpers.restoreWindowsGlobalZoom();
                         }
@@ -1200,7 +1200,7 @@ public class Init extends JFrame {
             do {
                 NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
                 if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
-                    if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?") == 0) {
+                    if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?", new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
                         Helpers.GUIRun(() -> {
                             VENTANA_INICIO.update_label.setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
                         });

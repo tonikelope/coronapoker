@@ -43,6 +43,8 @@ import javax.swing.Timer;
 public class InGameNotifyDialog extends JDialog {
 
     public static final int NOTIFICATION_TIMEOUT = 5000;
+    public static volatile InGameNotifyDialog LATEST_NOTIFICATION = null;
+    public static final Object LATEST_LOCK = new Object();
     private volatile Timer timer = null;
 
     /**
@@ -82,6 +84,7 @@ public class InGameNotifyDialog extends JDialog {
             timer.setRepeats(false);
             timer.setCoalesce(false);
         }
+
     }
 
     /**
@@ -105,6 +108,11 @@ public class InGameNotifyDialog extends JDialog {
         addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 formMouseClicked(evt);
+            }
+        });
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentShown(java.awt.event.ComponentEvent evt) {
+                formComponentShown(evt);
             }
         });
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -150,6 +158,19 @@ public class InGameNotifyDialog extends JDialog {
         // TODO add your handling code here:
         dispose();
     }//GEN-LAST:event_formMouseClicked
+
+    private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
+        // TODO add your handling code here:
+
+        synchronized (LATEST_LOCK) {
+
+            if (LATEST_NOTIFICATION != null) {
+                LATEST_NOTIFICATION.setVisible(false);
+            }
+
+            LATEST_NOTIFICATION = this;
+        }
+    }//GEN-LAST:event_formComponentShown
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.InGameNotifyPanel panel;

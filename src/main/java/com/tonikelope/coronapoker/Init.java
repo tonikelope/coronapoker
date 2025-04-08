@@ -518,10 +518,11 @@ public class Init extends JFrame {
 
         if (!dialog.isDialog_ok()) {
             setVisible(true);
+            GameFrame.IWTSTH_RULE_RECOVER = null;
+            GameFrame.RABBIT_HUNTING_RECOVER = null;
         } else {
             setVisible(false);
         }
-
     }
 
     /**

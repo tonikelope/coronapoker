@@ -2725,6 +2725,10 @@ public class Crupier implements Runnable {
             this.setPositions();
         }
 
+        if (GameFrame.isRECOVER() && GameFrame.getInstance().isPartida_local()) {
+            resyncRECOVERGLOBALS();
+        }
+
         this.badbeat = false;
 
         this.jugada_ganadora = 0;
@@ -2829,6 +2833,7 @@ public class Crupier implements Runnable {
                     this.sincronizando_mano = true;
                 } else {
                     GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+
                     if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
                         Audio.playWavResource("misc/startplay.wav");
@@ -2848,6 +2853,7 @@ public class Crupier implements Runnable {
                         GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
                         Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                     });
+
                 }
 
             } else {
@@ -2861,6 +2867,7 @@ public class Crupier implements Runnable {
                     GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
                     Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                 });
+
             }
 
             //Actualizamos el contador de manos ganadas de cada jugador
@@ -6240,6 +6247,7 @@ public class Crupier implements Runnable {
                 Audio.playLoopMp3Resource("misc/background_music.mp3");
 
             }
+
         }
 
         return res;
@@ -7131,6 +7139,39 @@ public class Crupier implements Runnable {
         }
     }
 
+    private void resyncRECOVERGLOBALS() {
+        if (Boolean.TRUE.equals(GameFrame.IWTSTH_RULE_RECOVER)) {
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().getIwtsth_rule_menu().setSelected(false);
+                GameFrame.getInstance().getIwtsth_rule_menu().doClick();
+                GameFrame.IWTSTH_RULE_RECOVER = null;
+            });
+
+        }
+
+        if (GameFrame.RABBIT_HUNTING_RECOVER != null && GameFrame.RABBIT_HUNTING_RECOVER != 0) {
+            Helpers.GUIRun(() -> {
+                switch (GameFrame.RABBIT_HUNTING_RECOVER) {
+                    case 1:
+                        GameFrame.getInstance().getMenu_rabbit_free().setSelected(false);
+                        GameFrame.getInstance().getMenu_rabbit_free().doClick();
+                        break;
+                    case 2:
+                        GameFrame.getInstance().getMenu_rabbit_sb().setSelected(false);
+                        GameFrame.getInstance().getMenu_rabbit_sb().doClick();
+                        break;
+                    case 3:
+                        GameFrame.getInstance().getMenu_rabbit_bb().setSelected(false);
+                        GameFrame.getInstance().getMenu_rabbit_bb().doClick();
+                        break;
+
+                }
+                GameFrame.RABBIT_HUNTING_RECOVER = null;
+            });
+
+        }
+    }
+
     //RUN CRUPIER
     @Override
     public void run() {
@@ -7260,6 +7301,7 @@ public class Crupier implements Runnable {
                                 Audio.stopLoopMp3("misc/recovering.mp3");
                                 Audio.playLoopMp3Resource("misc/background_music.mp3");
                             }
+
                         }
 
                         this.show_time = true;

@@ -2396,7 +2396,7 @@ public class Crupier implements Runnable {
 
                     if (GameFrame.getInstance().isPartida_local()) {
 
-                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + Translator.translate(") ¿AUTORIZAMOS?")) == 0) {
+                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther) || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + Translator.translate(") ¿AUTORIZAMOS?"), new ImageIcon(Init.class.getResource("/images/action/robot.png"))) == 0) {
                             IWTSTH_SHOW(iwtsther, true);
                         } else {
                             IWTSTH_SHOW(iwtsther, false);
@@ -2666,7 +2666,7 @@ public class Crupier implements Runnable {
                 GameFrame.getInstance().getRegistro().print(Translator.translate("LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO"));
 
                 Helpers.threadRun(() -> {
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO");
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO", new ImageIcon(Init.class.getResource("/images/ciegas_big.png")));
                 });
 
             }
@@ -5946,7 +5946,7 @@ public class Crupier implements Runnable {
                 if (include_balance) {
 
                     //Recuperamos el balance
-                    if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "SE HA ENCONTRADO UN FICHERO DE RECUPERACIÓN DE BALANCE DE EMERGENCIA. ¿QUIERES USARLO?") == 0) {
+                    if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "SE HA ENCONTRADO UN FICHERO DE RECUPERACIÓN DE BALANCE DE EMERGENCIA. ¿QUIERES USARLO?", new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
 
                         try {
                             String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
@@ -7766,7 +7766,7 @@ public class Crupier implements Runnable {
 
                     GameFrame.getInstance().getRegistro().print("LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
 
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)", new ImageIcon(Init.class.getResource("/images/exit.png")));
 
                     fin_de_la_transmision = true;
                 }

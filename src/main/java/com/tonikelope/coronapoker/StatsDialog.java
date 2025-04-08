@@ -53,6 +53,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.table.DefaultTableModel;
@@ -2009,7 +2010,7 @@ public class StatsDialog extends JDialog {
 
         delete_game_button.setEnabled(false);
 
-        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), "¿ELIMINAR ESTA TIMBA?\n(Nota: las timbas eliminadas no se pueden continuar)") == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), "¿ELIMINAR ESTA TIMBA?\n(Nota: las timbas eliminadas no se pueden continuar)", new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
 
             Audio.playWavResource("misc/toilet.wav");
 
@@ -2134,7 +2135,7 @@ public class StatsDialog extends JDialog {
         // TODO add your handling code here:
         purge_games_button.setEnabled(false);
 
-        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("¿ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR?\n(Nota: las timbas eliminadas no se pueden continuar)")) == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("¿ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR?\n(Nota: las timbas eliminadas no se pueden continuar)"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
             Audio.playWavResource("misc/toilet.wav");
 
             Helpers.threadRun(() -> {
@@ -2152,7 +2153,7 @@ public class StatsDialog extends JDialog {
                         game_combo_filter.setBackground(Color.BLACK);
                         game_combo_filter.setForeground(Color.WHITE);
                     });
-                    Helpers.mostrarMensajeInformativo(getContentPane(), "SE HAN BORRADO TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR");
+                    Helpers.mostrarMensajeInformativo(getContentPane(), "SE HAN BORRADO TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR", new ImageIcon(Init.class.getResource("/images/mantenimiento.png")));
                     Helpers.GUIRunAndWait(() -> {
                         game_combo_filter.setText("");
                         game_combo_filter.setBackground(null);

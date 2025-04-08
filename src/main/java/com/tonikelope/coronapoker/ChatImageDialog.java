@@ -209,7 +209,7 @@ public class ChatImageDialog extends JDialog {
                                             break;
                                         case KeyEvent.VK_BACK_SPACE:
                                             label.setBorder(new LineBorder(Color.RED, 5));
-                                            if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+                                            if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?", new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
                                                 Helpers.threadRun(() -> {
                                                     synchronized (LOAD_IMAGES_LOCK) {
                                                         if (!THIS.exit) {
@@ -250,7 +250,7 @@ public class ChatImageDialog extends JDialog {
                                         THIS.send_buttonActionPerformed(null);
                                     } else if (SwingUtilities.isRightMouseButton(e)) {
                                         label.setBorder(new LineBorder(Color.RED, 5));
-                                        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?") == 0) {
+                                        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?", new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
                                             Helpers.threadRun(() -> {
                                                 synchronized (LOAD_IMAGES_LOCK) {
                                                     if (!exit) {
@@ -843,7 +843,7 @@ public class ChatImageDialog extends JDialog {
 
     private void clear_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clear_buttonActionPerformed
         // TODO add your handling code here:
-        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿BORRAR TODAS LAS IMÁGENES DEL HISTORIAL?\n(Nota: puedes borrar una imagen en concreto haciendo click derecho encima de ella)") == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO(THIS, "¿BORRAR TODAS LAS IMÁGENES DEL HISTORIAL?\n(Nota: puedes borrar una imagen en concreto haciendo click derecho encima de ella)", new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
 
             STATIC_IMAGE_CACHE.clear();
 

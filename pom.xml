@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>19.23</version>
+    <version>19.24</version>
     <packaging>jar</packaging>
     <build>
         <plugins>

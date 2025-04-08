@@ -2855,7 +2855,7 @@ public class Helpers {
 
                 if (new_version_major != null && (Integer.parseInt(current_version_major) < Integer.parseInt(new_version_major) || (Integer.parseInt(current_version_major) == Integer.parseInt(new_version_major) && Integer.parseInt(current_version_minor) < Integer.parseInt(new_version_minor)))) {
 
-                    if (Helpers.mostrarMensajeInformativoSINO(container, "HAY UNA VERSIÓN NUEVA DEL MOD. ¿QUIERES ACTUALIZAR?") == 0) {
+                    if (Helpers.mostrarMensajeInformativoSINO(container, "HAY UNA VERSIÓN NUEVA DEL MOD. ¿QUIERES ACTUALIZAR?", new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
 
                         if (container.equals(VENTANA_INICIO)) {
                             Helpers.GUIRun(new Runnable() {
@@ -2903,7 +2903,7 @@ public class Helpers {
                         Helpers.openBrowserURL(update_info.get(1));
                     }
                 } else if (!container.equals(VENTANA_INICIO)) {
-                    Helpers.mostrarMensajeInformativo(container, "YA TIENES LA ÚLTIMA VERSIÓN DEL MOD");
+                    Helpers.mostrarMensajeInformativo(container, "YA TIENES LA ÚLTIMA VERSIÓN DEL MOD", new ImageIcon(Init.class.getResource("/images/avatar_default.png")));
 
                 }
             } catch (Exception ex) {

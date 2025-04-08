@@ -792,7 +792,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (!GameFrame.getInstance().getCrupier().isIwtsthing() && !(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && (GameFrame.getInstance().isPartida_local()) && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
 
-            pause_now = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "¿PAUSAR AHORA MISMO?");
+            pause_now = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "¿PAUSAR AHORA MISMO?", new ImageIcon(getClass().getResource("/images/pause.png")));
 
         } else if (GameFrame.getInstance().getCrupier().isIwtsthing()) {
 
@@ -828,7 +828,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 if (!GameFrame.getInstance().getLocalPlayer().isAuto_pause_warning()) {
                     GameFrame.getInstance().getLocalPlayer().setAuto_pause_warning(true);
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO");
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO", new ImageIcon(getClass().getResource("/images/pause.png")));
                 }
 
             } else {
@@ -848,7 +848,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         GameFrame.getInstance().getTapete().getCommunityCards().getRandom_button().setVisible(false);
 
-        Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "SE HA REACTIVADO RANDOM.ORG");
+        Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "SE HA REACTIVADO RANDOM.ORG", new ImageIcon(Init.class.getResource("/images/dados.png")));
 
     }//GEN-LAST:event_random_buttonActionPerformed
 

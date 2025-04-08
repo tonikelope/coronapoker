@@ -5218,6 +5218,8 @@ public class Crupier implements Runnable {
                 stats_registro[i++] = p.getNickname() + " (" + Card.collection2String(p.getHoleCards()) + Translator.translate(")   MULTIVERSO(") + stats[0] + Translator.translate(") -> GANA: ") + Helpers.floatClean(((float) stats[1] / stats[0]) * 100, 2) + Translator.translate("%   PIERDE: ") + Helpers.floatClean(((float) stats[2] / stats[0]) * 100, 2) + Translator.translate("%   EMPATA: ") + Helpers.floatClean(((float) stats[3] / stats[0]) * 100, 2) + "%   (LOKI: " + Helpers.floatClean((float) jugadas.get(p).getFuerza(), 2) + "%)";
             }
 
+            GameFrame.getInstance().refreshPlayersAndCommunity();
+
             GameFrame.getInstance().getRegistro().print(String.join("\n\n", stats_registro));
         }
     }

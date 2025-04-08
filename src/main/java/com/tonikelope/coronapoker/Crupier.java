@@ -6827,6 +6827,8 @@ public class Crupier implements Runnable {
 
         this.setTiempo_pausa(tiempo);
 
+        GameFrame.getInstance().refreshPlayersAndCommunity();
+
         while (getTiempoPausa() > 0) {
 
             synchronized (lock_pausa_barra) {
@@ -6841,7 +6843,7 @@ public class Crupier implements Runnable {
 
                         Helpers.GUIRun(() -> {
                             GameFrame.getInstance().getBarra_tiempo().setValue(val);
-                            GameFrame.getInstance().refreshPlayersAndCommunity();
+                            Helpers.forceRepaintComponentNow(GameFrame.getInstance().getBarra_tiempo());
                         });
                     }
 
@@ -6851,10 +6853,7 @@ public class Crupier implements Runnable {
             }
         }
 
-        Helpers.GUIRun(() -> {
-            GameFrame.getInstance().getBarra_tiempo().setValue(tiempo);
-            GameFrame.getInstance().refreshPlayersAndCommunity();
-        });
+        GameFrame.getInstance().refreshPlayersAndCommunity();
 
         synchronized (lock_iwtsth) {
             lock_iwtsth.notifyAll();

@@ -680,7 +680,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         @Override
                         public void actionPerformed(ActionEvent ae) {
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == GameFrame.getInstance().getCrupier().getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
-                                GameFrame.getInstance().refreshPlayersAndCommunity();
 
                                 response_counter--;
 
@@ -704,18 +703,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 }
 
                             }
+                            revalidate();
+                            repaint();
                         }
+
                     });
 
                     auto_action.start();
 
-                    Helpers.forceRepaintComponentNow(this);
-
                     GameFrame.getInstance().refreshPlayersAndCommunity();
                 });
             } else {
-
-                Helpers.forceRepaintComponentNow(this);
 
                 GameFrame.getInstance().refreshPlayersAndCommunity();
             }
@@ -881,8 +879,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                 GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
             }
-
-            Helpers.forceRepaintComponentNow(this);
 
             GameFrame.getInstance().refreshPlayersAndCommunity();
 

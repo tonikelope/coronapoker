@@ -45,6 +45,7 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"hilos", "threads"},
             {"MODIFICAR OPCIONES DE LA TIMBA", "UPDATE GAME OPTIONS"},
             {"Esta funcionalidad permite a cualquier jugador obtener un captura de la pantalla y la lista de procesos de otro jugador, si sospecha que está haciendo trampas o ayudándose de software de terceros para jugar. Como anfitrión, ten en cuenta por favor las implicaciones de privacidad que esto puede suponer antes de activar esta opción (no se puede cambiar durante la partida).\n\nNota: esta funcionalidad es bastante dependiente de la plataforma, por lo que no está garantizado que funcione perfectamente en todos los clientes.", "This feature allows any player to obtain a screenshot and list of another player's processes, if they suspect that they are cheating or using third party software to play. As a host, please be aware of the privacy implications this may entail before enabling this option (cannot be switched during the game).\n\nNote: this functionality is quite platform dependent, so it is not guaranteed to work perfectly on all clients."},
             {"¿SEGURO QUE TE QUIERES TIRAR?", "SURE YOU WANT FOLD?"},
@@ -77,7 +78,7 @@ public class Translator {
             {"CANCELAR", "CANCEL"},
             {"TAPETE REFRESCADO", "MAT REFRESHED"},
             {"El servidor ha activado el RADAR anti-trampas para esta partida. Cualquier jugador podrá solicitar un informe anti-trampas de otro jugador durante la partida, el cual incluye una captura de pantalla del jugador (sin mostrar sus cartas) así como su listado de procesos del sistema.", "The server has activated anti-cheating RADAR for this game. Any player may request an anti-cheating report from another player during the game, which includes a screenshot of the player (without showing his cards) as well as his/her system process listing."},
-            {"HECHO A MANO EN ESPAÑA CON AMOR por tonikelope (c) 2020", "HANDMADE IN SPAIN WITH LOVE by tonikelope (c) 2020"},
+            {"Hecho a mano en España con amor por tonikelope (c) 2020", "Handmade in Spain with love by tonikelope (c) 2020"},
             {"Chat rápido", "Fast chat"},
             {"Enviar imagen", "Send image"},
             {"Vista compacta", "Compact view"},

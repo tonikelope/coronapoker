@@ -175,6 +175,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         zoom_in = new javax.swing.JLabel();
         fullscreen = new javax.swing.JLabel();
 
+        setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         setFocusable(false);
         setOpaque(false);
         addMouseListener(new java.awt.event.MouseAdapter() {
@@ -185,7 +186,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
                 formMouseExited(evt);
             }
         });
-        setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 10, 5));
+        setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT));
 
         menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/menu.png"))); // NOI18N
         menu.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));

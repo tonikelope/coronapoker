@@ -69,7 +69,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "19.28";
+    public static final String VERSION = "19.29";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -91,7 +91,7 @@ public class AboutDialog extends JDialog {
         main_scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         main_scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
         memory_usage.setText(Helpers.getMemoryUsage());
-        threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + "/" + String.valueOf(Helpers.THREAD_POOL.getPoolSize() + 2) + " threads");
+        threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + "/" + String.valueOf(Helpers.THREAD_POOL.getPoolSize() + 2) + " " + Translator.translate("hilos"));
 
         if (Init.MOD != null) {
             mod_label.setText(Init.MOD.get("name") + " " + Init.MOD.get("version"));
@@ -138,7 +138,7 @@ public class AboutDialog extends JDialog {
 
         memory_timer = new Timer(MEM_TIMER, (ActionEvent ae) -> {
             memory_usage.setText(Helpers.getMemoryUsage());
-            threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + "/" + String.valueOf(Helpers.THREAD_POOL.getPoolSize() + 2) + " threads");
+            threads.setText(String.valueOf(Helpers.THREAD_POOL.getActiveCount() + 2) + "/" + String.valueOf(Helpers.THREAD_POOL.getPoolSize() + 2) + " " + Translator.translate("hilos"));
         });
 
         memory_timer.setRepeats(true);
@@ -212,7 +212,7 @@ public class AboutDialog extends JDialog {
         jLabel2.setText("Gracias a todos los amigos que han colaborado en esta aventura, en especial a Pepsi por sus barajas y el \"hilo fino\",");
         jLabel2.setDoubleBuffered(true);
 
-        dedicado.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
+        dedicado.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         dedicado.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         dedicado.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/luto.png"))); // NOI18N
         dedicado.setText("En memoria de todas las víctimas de la COVID-19");
@@ -235,7 +235,7 @@ public class AboutDialog extends JDialog {
         jLabel4.setText("(Todos los céntimos desaparecidos en las betas fueron para una buena causa).");
         jLabel4.setDoubleBuffered(true);
 
-        merecemos.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        merecemos.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         merecemos.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         merecemos.setText("El videojuego de Texas hold 'em NL que nos merecemos, no el que necesitamos ¿o era al revés?");
         merecemos.setDoubleBuffered(true);
@@ -350,7 +350,7 @@ public class AboutDialog extends JDialog {
         jLabel9.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel9.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/cruz.png"))); // NOI18N
-        jLabel9.setText("HECHO A MANO EN ESPAÑA CON AMOR por tonikelope (c) 2020");
+        jLabel9.setText("Hecho a mano en España con amor por tonikelope (c) 2020");
         jLabel9.setToolTipText("PLVS VLTRA");
 
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
@@ -379,7 +379,6 @@ public class AboutDialog extends JDialog {
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(jLabel10, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(dedicado, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
                 .addComponent(jLabel3)
@@ -389,18 +388,23 @@ public class AboutDialog extends JDialog {
                 .addComponent(memory_usage)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jvm))
-            .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(merecemos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jLabel6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jLabel7, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jLabel8, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jLabel11, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jPanel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap()
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(jPanel2Layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(jLabel5, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)

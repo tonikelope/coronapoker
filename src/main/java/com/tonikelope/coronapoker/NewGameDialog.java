@@ -1660,7 +1660,7 @@ public class NewGameDialog extends JDialog {
         // TODO add your handling code here:
 
         if (radar_checkbox.isSelected()) {
-            Helpers.mostrarMensajeInformativo(this, "Esta funcionalidad permite a cualquier jugador obtener un captura de la pantalla y la lista de procesos de otro jugador, si sospecha que está haciendo trampas o ayudándose de software de terceros para jugar. Como anfitrión, ten en cuenta por favor las implicaciones de privacidad que esto puede suponer antes de activar esta opción (no se puede cambiar durante la partida).\n\nNota: esta funcionalidad es bastante dependiente de la plataforma, por lo que no está garantizado que funcione perfectamente en todos los clientes.", "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(Init.class.getResource("/images/shield.png")));
+            Helpers.mostrarMensajeInformativo(this, "Esta funcionalidad permite a cualquier jugador obtener una captura de la pantalla y la lista de procesos de otro jugador, si sospecha que está haciendo trampas o ayudándose de software de terceros para jugar. Como anfitrión, ten en cuenta por favor las implicaciones de privacidad que esto puede suponer antes de activar esta opción (no se puede cambiar durante la partida).\n\nNota: esta funcionalidad es bastante dependiente de la plataforma, por lo que no está garantizado que funcione perfectamente en todos los clientes.", "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(Init.class.getResource("/images/shield.png")));
         }
 
         radar_label.setEnabled(radar_checkbox.isSelected());

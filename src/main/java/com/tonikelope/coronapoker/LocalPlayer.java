@@ -2390,14 +2390,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     Audio.playWavResource("misc/button_off.wav");
 
-                    this.desPrePulsarBotonAuto(player_fold_button);
+                    desPrePulsarBotonAuto(player_fold_button);
 
                 } else {
                     Audio.playWavResource("misc/button_on.wav");
 
-                    this.desPrePulsarAutoTodo();
+                    desPrePulsarAutoTodo();
 
-                    this.prePulsarBotonAuto(player_fold_button, Player.FOLD);
+                    prePulsarBotonAuto(player_fold_button, Player.FOLD);
                 }
             }
 
@@ -2566,15 +2566,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     Audio.playWavResource("misc/button_off.wav");
 
-                    this.desPrePulsarBotonAuto(player_check_button);
+                    desPrePulsarBotonAuto(player_check_button);
 
                 } else {
 
                     Audio.playWavResource("misc/button_on.wav");
 
-                    this.desPrePulsarAutoTodo();
+                    desPrePulsarAutoTodo();
 
-                    this.prePulsarBotonAuto(player_check_button, Player.CHECK);
+                    prePulsarBotonAuto(player_check_button, Player.CHECK);
                 }
             }
 

@@ -83,6 +83,8 @@ import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.Timer;
 import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT;
+import java.io.UnsupportedEncodingException;
+import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -158,6 +160,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private static volatile GameFrame THIS = null;
     public static volatile Boolean IWTSTH_RULE_RECOVER = null;
     public static volatile Integer RABBIT_HUNTING_RECOVER = null;
+    public static volatile String PASSWORD_RECOVER = null;
 
     public static GameFrame getInstance() {
         return THIS;
@@ -2071,7 +2074,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     } else if (!isPartida_local()) {
                         Helpers.GUIRun(() -> {
                             InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "EL SERVIDOR HA DETENIDO LA TIMBA (ESPERANDO PARA RECONECTAR...)", Color.WHITE, Color.BLACK, getClass().getResource("/images/stop.png"), HALT_PAUSE);
-                            dialog.setLocation(dialog.getParent().getLocation());
+                            dialog.setLocationRelativeTo(dialog.getParent());
                             dialog.setVisible(true);
                         });
 
@@ -2108,6 +2111,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.IWTSTH_RULE_RECOVER = recover ? GameFrame.IWTSTH_RULE : null;
                 GameFrame.RABBIT_HUNTING_RECOVER = recover ? GameFrame.RABBIT_HUNTING : null;
             }
+
+            GameFrame.PASSWORD_RECOVER = recover ? WaitingRoomFrame.getInstance().getPassword() : null;
 
             Audio.stopAllCurrentLoopMp3Resource();
 
@@ -2873,8 +2878,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         getLocalPlayer().setExit();
 
                         Helpers.threadRun(() -> {
-                            //Hay que avisar a los clientes de que la timba ha terminado
-                            crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" : "SERVEREXIT", null, false);
+                            try {
+                                //Hay que avisar a los clientes de que la timba ha terminado
+                                crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" + (WaitingRoomFrame.getInstance().getPassword() != null ? "#" + Base64.encodeBase64String(WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8")) : "") : "SERVEREXIT", null, false);
+                            } catch (UnsupportedEncodingException ex) {
+                                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            }
 
                             finTransmision(true);
                         });

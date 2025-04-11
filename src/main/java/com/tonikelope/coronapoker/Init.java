@@ -87,7 +87,7 @@ import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT
  */
 public class Init extends JFrame {
 
-    public static final boolean DEV_MODE = false;
+    public static final boolean DEV_MODE = true;
 
     public static final boolean DEBUG_FILE = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
@@ -502,6 +502,10 @@ public class Init extends JFrame {
 
         NewGameDialog dialog = new NewGameDialog(this, true, local);
 
+        if (GameFrame.PASSWORD_RECOVER != null) {
+            dialog.setPass(GameFrame.PASSWORD_RECOVER);
+        }
+
         dialog.setForce_recover(true);
 
         if (local) {
@@ -520,6 +524,7 @@ public class Init extends JFrame {
             setVisible(true);
             GameFrame.IWTSTH_RULE_RECOVER = null;
             GameFrame.RABBIT_HUNTING_RECOVER = null;
+            GameFrame.PASSWORD_RECOVER = null;
         } else {
             setVisible(false);
         }

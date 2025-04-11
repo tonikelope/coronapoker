@@ -87,7 +87,7 @@ import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT
  */
 public class Init extends JFrame {
 
-    public static final boolean DEV_MODE = true;
+    public static final boolean DEV_MODE = false;
 
     public static final boolean DEBUG_FILE = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";

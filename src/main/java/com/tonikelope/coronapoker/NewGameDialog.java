@@ -241,6 +241,12 @@ public class NewGameDialog extends JDialog {
         }
     }
 
+    public void setPass(String password) {
+        pass_text.setEnabled(true);
+        pass_text.setText(password);
+
+    }
+
     /**
      * Creates new form CrearTimba
      */

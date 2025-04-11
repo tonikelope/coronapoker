@@ -143,7 +143,6 @@ public class WaitingRoomFrame extends JFrame {
     private volatile boolean unsecure_server = false;
     private volatile Integer pong;
     private volatile String gameinfo_original = null;
-    private volatile String video_chat_link = null;
     private volatile boolean chat_enabled = true;
     private volatile boolean upnp = false;
     private volatile int server_port = 0;
@@ -157,6 +156,10 @@ public class WaitingRoomFrame extends JFrame {
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
     private volatile boolean protect_focus = false;
+
+    public String getPassword() {
+        return password;
+    }
 
     public Object getLock_client_async_wait() {
         return lock_client_async_wait;
@@ -1793,6 +1796,10 @@ public class WaitingRoomFrame extends JFrame {
 
                                                                     if (partes_comando[3].equals("2")) {
                                                                         GameFrame.getInstance().getCrupier().setForce_recover(true);
+
+                                                                        if (partes_comando.length > 4) {
+                                                                            password = new String(Base64.decodeBase64(partes_comando[4]), "UTF-8");
+                                                                        }
                                                                     }
 
                                                                     GameFrame.getInstance().getTapete().getCommunityCards().last_hand_on();
@@ -1817,6 +1824,10 @@ public class WaitingRoomFrame extends JFrame {
                                                             case "SERVEREXITRECOVER":
                                                                 exit = true;
                                                                 GameFrame.getInstance().getCrupier().setForce_recover(true);
+                                                                if (partes_comando.length > 3) {
+                                                                    password = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+                                                                }
+
                                                                 break;
                                                             default:
                                                                 

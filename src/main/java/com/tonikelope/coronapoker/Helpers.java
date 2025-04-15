@@ -234,6 +234,7 @@ import java.lang.management.ThreadMXBean;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.TreeMap;
+import javax.swing.Icon;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.plaf.synth.SynthFormattedTextFieldUI;
@@ -306,6 +307,111 @@ public class Helpers {
 
     }
 
+    public static class LeftClickMenuItem extends JMenuItem {
+
+        private volatile int lastMouseButton = MouseEvent.BUTTON1;
+
+        public LeftClickMenuItem(Action menu_item_action) {
+
+            // Asigna acción con lógica para bloquear clic derecho
+            setAction(new AbstractAction(
+                    (String) menu_item_action.getValue(Action.NAME),
+                    (Icon) menu_item_action.getValue(Action.SMALL_ICON)
+            ) {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (lastMouseButton == MouseEvent.BUTTON1) {
+                        menu_item_action.actionPerformed(e);
+                    }
+                }
+            });
+
+            setToolTipText((String) menu_item_action.getValue(Action.SHORT_DESCRIPTION));
+
+            setAccelerator((KeyStroke) menu_item_action.getValue(Action.ACCELERATOR_KEY));
+
+            // Captura el botón del mouse
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    lastMouseButton = e.getButton();
+                }
+            });
+        }
+    }
+    
+    public static class LeftClickCheckBoxMenuItem extends JCheckBoxMenuItem {
+
+        private volatile int lastMouseButton = MouseEvent.BUTTON1;
+
+        public LeftClickCheckBoxMenuItem(Action menu_item_action) {
+
+            // Asigna acción con lógica para bloquear clic derecho
+            setAction(new AbstractAction(
+                    (String) menu_item_action.getValue(Action.NAME),
+                    (Icon) menu_item_action.getValue(Action.SMALL_ICON)
+            ) {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (lastMouseButton == MouseEvent.BUTTON1) {
+                        menu_item_action.actionPerformed(e);
+                    }else{
+                        setSelected(!isSelected());
+                    }
+                }
+            });
+            
+            setToolTipText((String) menu_item_action.getValue(Action.SHORT_DESCRIPTION));
+
+            setAccelerator((KeyStroke) menu_item_action.getValue(Action.ACCELERATOR_KEY));
+
+            // Captura el botón del mouse
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    lastMouseButton = e.getButton();
+                }
+            });
+        }
+    }
+    
+    public static class LeftClickRadioButtonMenuItem extends JRadioButtonMenuItem {
+
+        private volatile int lastMouseButton = MouseEvent.BUTTON1;
+
+        public LeftClickRadioButtonMenuItem(Action menu_item_action) {
+
+            // Asigna acción con lógica para bloquear clic derecho
+            setAction(new AbstractAction(
+                    (String) menu_item_action.getValue(Action.NAME),
+                    (Icon) menu_item_action.getValue(Action.SMALL_ICON)
+            ) {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (lastMouseButton == MouseEvent.BUTTON1) {
+                        menu_item_action.actionPerformed(e);
+                    }else{
+                        setSelected(!isSelected());
+                    }
+                }
+            });
+            
+            setToolTipText((String) menu_item_action.getValue(Action.SHORT_DESCRIPTION));
+
+            setAccelerator((KeyStroke) menu_item_action.getValue(Action.ACCELERATOR_KEY));
+
+            // Captura el botón del mouse
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    lastMouseButton = e.getButton();
+                }
+            });
+        }
+    }
+    
+    
+    
     public static void setSpinnerColors(JSpinner spinner, Color background, Color foreground) {
 
         final JComponent editor = spinner.getEditor();
@@ -3683,27 +3789,27 @@ public class Helpers {
             pasteAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke("control V"));
             selectAllAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke("control A"));
 
-            JMenuItem undo = new JMenuItem(undoAction);
+            JMenuItem undo = new LeftClickMenuItem(undoAction);
             undo.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/undo.png")));
             popup.add(undo);
 
             popup.addSeparator();
 
-            JMenuItem cut = new JMenuItem(cutAction);
+            JMenuItem cut = new LeftClickMenuItem(cutAction);
             cut.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/cut.png")));
             popup.add(cut);
 
-            JMenuItem copy = new JMenuItem(copyAction);
+            JMenuItem copy = new LeftClickMenuItem(copyAction);
             copy.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/copy.png")));
             popup.add(copy);
 
-            JMenuItem paste = new JMenuItem(pasteAction);
+            JMenuItem paste = new LeftClickMenuItem(pasteAction);
             paste.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/paste.png")));
             popup.add(paste);
 
             popup.addSeparator();
 
-            JMenuItem selectAll = new JMenuItem(selectAllAction);
+            JMenuItem selectAll = new LeftClickMenuItem(selectAllAction);
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
 
@@ -3752,27 +3858,27 @@ public class Helpers {
             copyAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke("control C"));
             pasteAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke("control V"));
             selectAllAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke("control A"));
-            JMenuItem undo = new JMenuItem(undoAction);
+            JMenuItem undo = new LeftClickMenuItem(undoAction);
             undo.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/undo.png")));
             popup.add(undo);
 
             popup.addSeparator();
 
-            JMenuItem cut = new JMenuItem(cutAction);
+            JMenuItem cut = new LeftClickMenuItem(cutAction);
             cut.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/cut.png")));
             popup.add(cut);
 
-            JMenuItem copy = new JMenuItem(copyAction);
+            JMenuItem copy = new LeftClickMenuItem(copyAction);
             copy.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/copy.png")));
             popup.add(copy);
 
-            JMenuItem paste = new JMenuItem(pasteAction);
+            JMenuItem paste = new LeftClickMenuItem(pasteAction);
             paste.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/paste.png")));
             popup.add(paste);
 
             popup.addSeparator();
 
-            JMenuItem selectAll = new JMenuItem(selectAllAction);
+            JMenuItem selectAll = new LeftClickMenuItem(selectAllAction);
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
             Helpers.updateFonts(popup, Helpers.GUI_FONT, null);
@@ -3820,27 +3926,27 @@ public class Helpers {
             copyAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke("control C"));
             pasteAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke("control V"));
             selectAllAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke("control A"));
-            JMenuItem undo = new JMenuItem(undoAction);
+            JMenuItem undo = new LeftClickMenuItem(undoAction);
             undo.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/undo.png")));
             popup.add(undo);
 
             popup.addSeparator();
 
-            JMenuItem cut = new JMenuItem(cutAction);
+            JMenuItem cut = new LeftClickMenuItem(cutAction);
             cut.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/cut.png")));
             popup.add(cut);
 
-            JMenuItem copy = new JMenuItem(copyAction);
+            JMenuItem copy = new LeftClickMenuItem(copyAction);
             copy.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/copy.png")));
             popup.add(copy);
 
-            JMenuItem paste = new JMenuItem(pasteAction);
+            JMenuItem paste = new LeftClickMenuItem(pasteAction);
             paste.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/paste.png")));
             popup.add(paste);
 
             popup.addSeparator();
 
-            JMenuItem selectAll = new JMenuItem(selectAllAction);
+            JMenuItem selectAll = new LeftClickMenuItem(selectAllAction);
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
             Helpers.updateFonts(popup, Helpers.GUI_FONT, null);
@@ -3969,11 +4075,11 @@ public class Helpers {
                     GameFrame.getInstance().getMenu_tapete_madera().doClick();
                 }
             };
-            TAPETE_VERDE = new JRadioButtonMenuItem(tapeteVerdeAction);
-            TAPETE_AZUL = new JRadioButtonMenuItem(tapeteAzulAction);
-            TAPETE_ROJO = new JRadioButtonMenuItem(tapeteRojoAction);
-            TAPETE_NEGRO = new JRadioButtonMenuItem(tapeteNegroAction);
-            TAPETE_MADERA = new JRadioButtonMenuItem(tapeteMaderaAction);
+            TAPETE_VERDE = new LeftClickRadioButtonMenuItem(tapeteVerdeAction);
+            TAPETE_AZUL = new LeftClickRadioButtonMenuItem(tapeteAzulAction);
+            TAPETE_ROJO = new LeftClickRadioButtonMenuItem(tapeteRojoAction);
+            TAPETE_NEGRO = new LeftClickRadioButtonMenuItem(tapeteNegroAction);
+            TAPETE_MADERA = new LeftClickRadioButtonMenuItem(tapeteMaderaAction);
             TAPETES_MENU = new JMenu("Tapetes");
             TAPETES_MENU.add(TAPETE_VERDE);
             TAPETES_MENU.add(TAPETE_AZUL);
@@ -4019,10 +4125,10 @@ public class Helpers {
                 }
             };
 
-            RABBIT_OFF = new JRadioButtonMenuItem(rabbitOffAction);
-            RABBIT_FREE = new JRadioButtonMenuItem(rabbitFreeAction);
-            RABBIT_SB = new JRadioButtonMenuItem(rabbitSbAction);
-            RABBIT_BB = new JRadioButtonMenuItem(rabbitBbAction);
+            RABBIT_OFF = new LeftClickRadioButtonMenuItem(rabbitOffAction);
+            RABBIT_FREE = new LeftClickRadioButtonMenuItem(rabbitFreeAction);
+            RABBIT_SB = new LeftClickRadioButtonMenuItem(rabbitSbAction);
+            RABBIT_BB = new LeftClickRadioButtonMenuItem(rabbitBbAction);
 
             RABBIT_MENU = new JMenu("Rabbit Hunting");
             RABBIT_MENU.add(RABBIT_OFF);
@@ -4247,35 +4353,35 @@ public class Helpers {
                     }
                 };
 
-                JMenuItem shortcuts = new JMenuItem(shortcutsAction);
+                JMenuItem shortcuts = new LeftClickMenuItem(shortcutsAction);
                 shortcuts.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/keyboard.png")));
                 popup.add(shortcuts);
 
-                JMenuItem chat = new JMenuItem(chatAction);
+                JMenuItem chat = new LeftClickMenuItem(chatAction);
                 chat.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat.png")));
                 popup.add(chat);
-                JMenuItem log = new JMenuItem(registroAction);
+                JMenuItem log = new LeftClickMenuItem(registroAction);
                 log.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/log.png")));
                 popup.add(log);
-                JMenuItem jugadas = new JMenuItem(jugadasAction);
+                JMenuItem jugadas = new LeftClickMenuItem(jugadasAction);
                 jugadas.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/games.png")));
                 popup.add(jugadas);
 
                 popup.addSeparator();
 
-                AUTO_FULLSCREEN_MENU = new JCheckBoxMenuItem(autofullscreenAction);
+                AUTO_FULLSCREEN_MENU = new LeftClickCheckBoxMenuItem(autofullscreenAction);
                 AUTO_FULLSCREEN_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/full_screen_auto.png")));
                 AUTO_FULLSCREEN_MENU.setSelected(GameFrame.AUTO_FULLSCREEN);
                 AUTO_FULLSCREEN_MENU.setEnabled(true);
                 popup.add(AUTO_FULLSCREEN_MENU);
 
-                FULLSCREEN_MENU = new JCheckBoxMenuItem(fullscreenAction);
+                FULLSCREEN_MENU = new LeftClickCheckBoxMenuItem(fullscreenAction);
                 FULLSCREEN_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/full_screen.png")));
                 FULLSCREEN_MENU.setSelected(GameFrame.getInstance().isFull_screen());
                 FULLSCREEN_MENU.setEnabled(true);
                 popup.add(FULLSCREEN_MENU);
 
-                COMPACTA_MENU = new JCheckBoxMenuItem(compactAction);
+                COMPACTA_MENU = new LeftClickCheckBoxMenuItem(compactAction);
                 COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA > 0);
                 COMPACTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tiny.png")));
 
@@ -4284,16 +4390,16 @@ public class Helpers {
                 ZOOM_MENU = new JMenu("ZOOM");
                 ZOOM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom.png")));
 
-                JMenuItem zoom_in = new JMenuItem(zoominAction);
+                JMenuItem zoom_in = new LeftClickMenuItem(zoominAction);
                 zoom_in.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_in.png")));
                 ZOOM_MENU.add(zoom_in);
-                JMenuItem zoom_out = new JMenuItem(zoomoutAction);
+                JMenuItem zoom_out = new LeftClickMenuItem(zoomoutAction);
                 zoom_out.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_out.png")));
                 ZOOM_MENU.add(zoom_out);
-                JMenuItem zoom_reset = new JMenuItem(zoomresetAction);
+                JMenuItem zoom_reset = new LeftClickMenuItem(zoomresetAction);
                 zoom_reset.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_reset.png")));
                 ZOOM_MENU.add(zoom_reset);
-                AUTO_ZOOM_MENU = new JCheckBoxMenuItem(zoomautoAction);
+                AUTO_ZOOM_MENU = new LeftClickCheckBoxMenuItem(zoomautoAction);
                 AUTO_ZOOM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_auto.png")));
                 AUTO_ZOOM_MENU.setSelected(GameFrame.AUTO_ZOOM);
                 ZOOM_MENU.add(AUTO_ZOOM_MENU);
@@ -4302,21 +4408,21 @@ public class Helpers {
 
                 popup.addSeparator();
 
-                SONIDOS_MENU = new JCheckBoxMenuItem(soundAction);
+                SONIDOS_MENU = new LeftClickCheckBoxMenuItem(soundAction);
                 SONIDOS_MENU.setSelected(GameFrame.SONIDOS);
                 SONIDOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
                 popup.add(SONIDOS_MENU);
-                SONIDOS_COMENTARIOS_MENU = new JCheckBoxMenuItem(comentariosAction);
+                SONIDOS_COMENTARIOS_MENU = new LeftClickCheckBoxMenuItem(comentariosAction);
                 SONIDOS_COMENTARIOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/joke.png")));
                 SONIDOS_COMENTARIOS_MENU.setSelected(GameFrame.SONIDOS_CHORRA);
                 SONIDOS_COMENTARIOS_MENU.setEnabled(GameFrame.SONIDOS);
                 popup.add(SONIDOS_COMENTARIOS_MENU);
-                SONIDOS_MUSICA_MENU = new JCheckBoxMenuItem(musicaAction);
+                SONIDOS_MUSICA_MENU = new LeftClickCheckBoxMenuItem(musicaAction);
                 SONIDOS_MUSICA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/music.png")));
                 SONIDOS_MUSICA_MENU.setSelected(GameFrame.MUSICA_AMBIENTAL);
                 SONIDOS_MUSICA_MENU.setEnabled(GameFrame.SONIDOS);
                 popup.add(SONIDOS_MUSICA_MENU);
-                SONIDOS_TTS_MENU = new JCheckBoxMenuItem(TTSAction);
+                SONIDOS_TTS_MENU = new LeftClickCheckBoxMenuItem(TTSAction);
                 SONIDOS_TTS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/voice.png")));
                 SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
                 SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
@@ -4324,35 +4430,35 @@ public class Helpers {
 
                 popup.addSeparator();
 
-                CONFIRM_MENU = new JCheckBoxMenuItem(confirmAction);
+                CONFIRM_MENU = new LeftClickCheckBoxMenuItem(confirmAction);
                 CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/confirmation.png")));
                 CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
                 popup.add(CONFIRM_MENU);
-                AUTO_ACTION_MENU = new JCheckBoxMenuItem(autoactAction);
+                AUTO_ACTION_MENU = new LeftClickCheckBoxMenuItem(autoactAction);
                 AUTO_ACTION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
                 AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
                 popup.add(AUTO_ACTION_MENU);
 
                 popup.addSeparator();
 
-                CINEMATICAS_MENU = new JCheckBoxMenuItem(cinematicasAction);
+                CINEMATICAS_MENU = new LeftClickCheckBoxMenuItem(cinematicasAction);
                 CINEMATICAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/video.png")));
                 CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
                 popup.add(CINEMATICAS_MENU);
 
-                ANIMACION_MENU = new JCheckBoxMenuItem(animacionAction);
+                ANIMACION_MENU = new LeftClickCheckBoxMenuItem(animacionAction);
                 ANIMACION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
                 ANIMACION_MENU.setSelected(GameFrame.ANIMACION_CARTAS);
                 popup.add(ANIMACION_MENU);
 
-                CHAT_IMAGE_MENU = new JCheckBoxMenuItem(chatimageAction);
+                CHAT_IMAGE_MENU = new LeftClickCheckBoxMenuItem(chatimageAction);
                 CHAT_IMAGE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat_image.png")));
                 CHAT_IMAGE_MENU.setSelected(GameFrame.CHAT_IMAGES_INGAME);
                 popup.add(CHAT_IMAGE_MENU);
 
                 popup.addSeparator();
 
-                RELOJ_MENU = new JCheckBoxMenuItem(relojAction);
+                RELOJ_MENU = new LeftClickCheckBoxMenuItem(relojAction);
                 RELOJ_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/clock.png")));
                 RELOJ_MENU.setSelected(GameFrame.SHOW_CLOCK);
                 popup.add(RELOJ_MENU);
@@ -4365,7 +4471,7 @@ public class Helpers {
 
                 popup.addSeparator();
 
-                REBUY_NOW_MENU = new JCheckBoxMenuItem(rebuyNowAction);
+                REBUY_NOW_MENU = new LeftClickCheckBoxMenuItem(rebuyNowAction);
                 REBUY_NOW_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/rebuy.png")));
                 REBUY_NOW_MENU.setSelected(false);
                 REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
@@ -4373,7 +4479,7 @@ public class Helpers {
 
                 popup.addSeparator();
 
-                IWTSTH_RULE_MENU = new JCheckBoxMenuItem(iwtsthRuleAction);
+                IWTSTH_RULE_MENU = new LeftClickCheckBoxMenuItem(iwtsthRuleAction);
                 IWTSTH_RULE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/eyes.png")));
                 IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
                 popup.add(IWTSTH_RULE_MENU);
@@ -4384,27 +4490,27 @@ public class Helpers {
 
                 popup.addSeparator();
 
-                LAST_HAND_MENU = new JCheckBoxMenuItem(lastHandAction);
+                LAST_HAND_MENU = new LeftClickCheckBoxMenuItem(lastHandAction);
                 LAST_HAND_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/last_hand.png")));
 
                 LAST_HAND_MENU.setSelected(false);
                 popup.add(LAST_HAND_MENU);
-                MAX_HANDS_MENU = new JMenuItem(maxHandsAction);
+                MAX_HANDS_MENU = new LeftClickMenuItem(maxHandsAction);
                 MAX_HANDS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/meter.png")));
                 popup.add(MAX_HANDS_MENU);
 
                 popup.addSeparator();
-                JMenuItem rules = new JMenuItem(rulesAction);
+                JMenuItem rules = new LeftClickMenuItem(rulesAction);
                 rules.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/book.png")));
                 popup.add(rules);
 
                 popup.addSeparator();
-                HALT_GAME_MENU = new JMenuItem(haltAction);
+                HALT_GAME_MENU = new LeftClickMenuItem(haltAction);
                 HALT_GAME_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/stop.png")));
                 popup.add(HALT_GAME_MENU);
 
                 popup.addSeparator();
-                JMenuItem exit_menu = new JMenuItem(exitAction);
+                JMenuItem exit_menu = new LeftClickMenuItem(exitAction);
                 exit_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));
                 popup.add(exit_menu);
 

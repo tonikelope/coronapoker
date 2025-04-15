@@ -75,7 +75,6 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
@@ -339,7 +338,7 @@ public class Helpers {
             });
         }
     }
-    
+
     public static class LeftClickCheckBoxMenuItem extends JCheckBoxMenuItem {
 
         private volatile int lastMouseButton = MouseEvent.BUTTON1;
@@ -355,12 +354,12 @@ public class Helpers {
                 public void actionPerformed(ActionEvent e) {
                     if (lastMouseButton == MouseEvent.BUTTON1) {
                         menu_item_action.actionPerformed(e);
-                    }else{
+                    } else {
                         setSelected(!isSelected());
                     }
                 }
             });
-            
+
             setToolTipText((String) menu_item_action.getValue(Action.SHORT_DESCRIPTION));
 
             setAccelerator((KeyStroke) menu_item_action.getValue(Action.ACCELERATOR_KEY));
@@ -374,7 +373,7 @@ public class Helpers {
             });
         }
     }
-    
+
     public static class LeftClickRadioButtonMenuItem extends JRadioButtonMenuItem {
 
         private volatile int lastMouseButton = MouseEvent.BUTTON1;
@@ -390,12 +389,12 @@ public class Helpers {
                 public void actionPerformed(ActionEvent e) {
                     if (lastMouseButton == MouseEvent.BUTTON1) {
                         menu_item_action.actionPerformed(e);
-                    }else{
+                    } else {
                         setSelected(!isSelected());
                     }
                 }
             });
-            
+
             setToolTipText((String) menu_item_action.getValue(Action.SHORT_DESCRIPTION));
 
             setAccelerator((KeyStroke) menu_item_action.getValue(Action.ACCELERATOR_KEY));
@@ -409,9 +408,7 @@ public class Helpers {
             });
         }
     }
-    
-    
-    
+
     public static void setSpinnerColors(JSpinner spinner, Color background, Color foreground) {
 
         final JComponent editor = spinner.getEditor();
@@ -4008,30 +4005,29 @@ public class Helpers {
 
             for (Map.Entry<String, Object[]> entry : sorted_hm.entrySet()) {
 
-                javax.swing.JRadioButtonMenuItem menu_item = new javax.swing.JRadioButtonMenuItem(entry.getKey());
-
-                menu_item.addActionListener(new ActionListener() {
+                Action barajaAction = new AbstractAction(entry.getKey()) {
                     @Override
-                    public void actionPerformed(ActionEvent e) {
-
+                    public void actionPerformed(ActionEvent ae) {
                         for (Component menu : GameFrame.getInstance().getMenu_barajas().getMenuComponents()) {
-                            if (((javax.swing.JRadioButtonMenuItem) menu).getText().equals(menu_item.getText())) {
-                                ((javax.swing.JRadioButtonMenuItem) menu).doClick();
+                            if (((JRadioButtonMenuItem) menu).getText().equals(((JRadioButtonMenuItem) ae.getSource()).getText())) {
+                                ((JRadioButtonMenuItem) menu).doClick();
                             }
                         }
 
                         for (Component menu : BARAJAS_MENU.getMenuComponents()) {
-                            ((javax.swing.JRadioButtonMenuItem) menu).setSelected(false);
+                            ((JRadioButtonMenuItem) menu).setSelected(false);
                         }
 
-                        menu_item.setSelected(true);
+                        ((JRadioButtonMenuItem) ae.getSource()).setSelected(true);
                     }
-                });
+                };
 
-                if (((javax.swing.JRadioButtonMenuItem) menu_item).getText().equals(GameFrame.BARAJA)) {
-                    ((javax.swing.JRadioButtonMenuItem) menu_item).setSelected(true);
+                LeftClickRadioButtonMenuItem menu_item = new LeftClickRadioButtonMenuItem(barajaAction);
+
+                if (((JRadioButtonMenuItem) menu_item).getText().equals(GameFrame.BARAJA)) {
+                    ((JRadioButtonMenuItem) menu_item).setSelected(true);
                 } else {
-                    ((javax.swing.JRadioButtonMenuItem) menu_item).setSelected(false);
+                    ((JRadioButtonMenuItem) menu_item).setSelected(false);
                 }
 
                 BARAJAS_MENU.add(menu_item);

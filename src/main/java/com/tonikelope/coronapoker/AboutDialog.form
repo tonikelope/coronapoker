@@ -176,7 +176,7 @@
                   <Connection code="Helpers.getSystemInfo()" type="code"/>
                 </Property>
                 <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                  <Color id="Cursor de Mano"/>
+                  <Color id="Default Cursor"/>
                 </Property>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
@@ -336,7 +336,7 @@
                         <Property name="horizontalAlignment" type="int" value="0"/>
                         <Property name="text" type="java.lang.String" value="MOD"/>
                         <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
+                          <Color id="Default Cursor"/>
                         </Property>
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
@@ -351,7 +351,7 @@
                           <Image iconType="3" name="/images/corona_logo.gif"/>
                         </Property>
                         <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
+                          <Color id="Default Cursor"/>
                         </Property>
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
@@ -397,7 +397,7 @@
                     </Property>
                     <Property name="toolTipText" type="java.lang.String" value="Reglas de Robert"/>
                     <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                      <Color id="Cursor de Mano"/>
+                      <Color id="Default Cursor"/>
                     </Property>
                     <Property name="doubleBuffered" type="boolean" value="true"/>
                   </Properties>
